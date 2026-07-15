@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: W1.1 Walking Skeleton
 status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-07-15T20:42:42.101Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-07-15T20:56:37.005Z"
 last_activity: 2026-07-15
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: `.planning/PROJECT.md` (updated 2026-07-15)
 ## Current Position
 
 Phase: 01 (W1.1 Walking Skeleton) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-07-15 — Phase 01 execution started
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [██████░░░░] 60%
 | Phase 01-w1-1-walking-skeleton P01 | 23m | 2 tasks | 3 files |
 | Phase 01 P02 | 9m | 3 tasks | 59 files |
 | Phase 01 P03 | 7min | 2 tasks | 6 files |
+| Phase 01 P04 | 10min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Decisions are logged in `PROJECT.md` Key Decisions.
 - [Phase ?]: apps/web هو تطبيق React الوحيد؛ أزيل Vite الافتراضي غير المقفل من apps/api.
 - [Phase ?]: يبقى اختبار القبول أحمر ويثبت 404 لمسارات غير مبنية، بدلاً من إضافة route أو mock يزوّر نجاح السلوك.
 - [Phase ?]: يفحص حارس الحدود PHP عبر token_get_all ثم يحلل SQL literals؛ لا يعتمد على regex شامل للنص أو للتعليقات.
+- [Phase ?]: Fixture login is limited to local/testing; production returns 404 and never uses it as an authentication policy.
+- [Phase ?]: Authorization decides fixture facility isolation from trusted RecordFacts and fails closed without WorkRecords table access.
 
 ### Pending Todos
 
@@ -92,6 +95,6 @@ Decisions are logged in `PROJECT.md` Key Decisions.
 
 ## Session Continuity
 
-Last session: 2026-07-15T20:42:42.095Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-07-15T20:56:36.999Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None
