@@ -23,6 +23,34 @@
 
 لا يدّعي هذا السجل وجود BOM حالي. يثبّت Plan 01-02 الاعتماديات في المسار التطويري المعتمد، ثم يسجل لكل dependency مباشر فعلي الاسم والإصدار الدقيق والترخيص وprovenance وملف القفل. ولا يثبت ذلك قبول artifact للإنتاج؛ فقبوله يتطلب intake داخلياً وartifact/source داخليين ودليل SBOM وتوقيع متحقق.
 
+### BOM التطوير الفعلي — Plan 01-02
+
+> حُلَّت هذه القيم في 2026-07-15 من المصادر العامة المسموح بها **للتطوير المتصل فقط**. مسارات المصدر أدناه هي provenance مسجل في ملفات القفل وليست إعدادات runtime أو مصادر إنتاج.
+
+| النظام | النوع | الاسم | الإصدار المحلول | الترخيص | provenance وملف القفل |
+|---|---|---|---|---|---|
+| PHP | منصة | `php` | 8.5.7 محلياً (`^8.3`) | PHP License | `apps/api/composer.json`؛ platform محلي لا يسجله Composer lock كـartifact |
+| Composer | runtime | `laravel/framework` | v13.20.0 | MIT | `github.com/laravel/framework.git` في `apps/api/composer.lock` |
+| Composer | runtime | `laravel/tinker` | v3.0.2 | MIT | `github.com/laravel/tinker.git` في `apps/api/composer.lock` |
+| Composer | dev | `fakerphp/faker` | v1.24.1 | MIT | `github.com/FakerPHP/Faker.git` في `apps/api/composer.lock` |
+| Composer | dev | `laravel/pail` | v1.2.7 | MIT | `github.com/laravel/pail.git` في `apps/api/composer.lock` |
+| Composer | dev | `laravel/pao` | v1.1.2 | MIT | `github.com/laravel/pao.git` في `apps/api/composer.lock` |
+| Composer | dev | `laravel/pint` | v1.29.3 | MIT | `github.com/laravel/pint.git` في `apps/api/composer.lock` |
+| Composer | dev | `mockery/mockery` | 1.6.12 | BSD-3-Clause | `github.com/mockery/mockery.git` في `apps/api/composer.lock` |
+| Composer | dev | `nunomaduro/collision` | v8.9.5 | MIT | `github.com/nunomaduro/collision.git` في `apps/api/composer.lock` |
+| Composer | dev | `phpunit/phpunit` | 12.5.31 | BSD-3-Clause | `github.com/sebastianbergmann/phpunit.git` في `apps/api/composer.lock` |
+| npm | runtime | `react` | 19.2.7 | MIT | tarball مسجل في `apps/web/package-lock.json` |
+| npm | runtime | `react-dom` | 19.2.7 | MIT | tarball مسجل في `apps/web/package-lock.json` |
+| npm | dev | `@types/node` | 24.13.3 | MIT | tarball مسجل في `apps/web/package-lock.json` |
+| npm | dev | `@types/react` | 19.2.17 | MIT | tarball مسجل في `apps/web/package-lock.json` |
+| npm | dev | `@types/react-dom` | 19.2.3 | MIT | tarball مسجل في `apps/web/package-lock.json` |
+| npm | dev | `@vitejs/plugin-react` | 6.0.3 | MIT | tarball مسجل في `apps/web/package-lock.json` |
+| npm | dev | `oxlint` | 1.74.0 | MIT | tarball مسجل في `apps/web/package-lock.json` |
+| npm | dev | `typescript` | 6.0.3 | Apache-2.0 | tarball مسجل في `apps/web/package-lock.json` |
+| npm | dev | `vite` | 8.1.4 | MIT | tarball مسجل في `apps/web/package-lock.json` |
+
+`make verify-intake` يتحقق من وجود ملفي القفل وتطابق Composer manifest/lock وnpm manifest/lock بدون إعادة حل dependency graph. لا يعد هذا التحقق دليلاً على intake أو SBOM أو توقيع إنتاجي؛ تبقى D-08 وD-09 حاجبتين للنشر الدائم.
+
 ### `internal-source-policy`
 
 | القاعدة | الحالة |
