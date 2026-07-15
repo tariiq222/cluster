@@ -20,8 +20,8 @@ class FixtureFacilityDecisionTest extends TestCase
         foreach (['work_record.submit', 'work_record.read', 'work_record.list'] as $capability) {
             $result = $decision->decide(['facility_id' => self::FACILITY_A], $capability, $facts);
 
-            $this->assertSame('allow', $result['decision']);
-            $this->assertSame(['facility_scope_match'], $result['reason_codes']);
+            $this->assertSame('allow', $result->decision);
+            $this->assertSame(['facility_scope_match'], $result->reasonCodes);
         }
     }
 
@@ -41,11 +41,11 @@ class FixtureFacilityDecisionTest extends TestCase
             new RecordFacts(null, 'work_record', 'internal'),
         );
 
-        $this->assertSame('deny', $mismatched['decision']);
-        $this->assertSame(['facility_scope_mismatch'], $mismatched['reason_codes']);
-        $this->assertSame('deny', $missingFacts['decision']);
-        $this->assertSame(['record_facts_unavailable'], $missingFacts['reason_codes']);
-        $this->assertSame('deny', $missingOwner['decision']);
-        $this->assertSame(['owner_facility_missing'], $missingOwner['reason_codes']);
+        $this->assertSame('deny', $mismatched->decision);
+        $this->assertSame(['facility_scope_mismatch'], $mismatched->reasonCodes);
+        $this->assertSame('deny', $missingFacts->decision);
+        $this->assertSame(['record_facts_unavailable'], $missingFacts->reasonCodes);
+        $this->assertSame('deny', $missingOwner->decision);
+        $this->assertSame(['owner_facility_missing'], $missingOwner->reasonCodes);
     }
 }
