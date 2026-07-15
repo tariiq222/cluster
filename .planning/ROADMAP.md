@@ -46,7 +46,13 @@
   2. يظهر الإشعار الداخلي بعد تثبيت الطلب، وتتحمل إعادة تشغيل العامل دون فقد الحدث أو تكرار أثره.
   3. يستطيع المشغل بناء صورة من مخازن مؤقتة نظيفة، والتحقق من توقيعها وSBOM، ونشرها عبر GitOps ثم الرجوع عنها دون إنترنت أو egress.
   4. تفشل آلياً أي محاولة join أو استيراد Infrastructure بين موديولات الأعمال، وتبقى بيئات التطوير والاختبار والتجريب والإنتاج معزولة.
-**Plans:** TBD
+**Plans:** 1/5 plans executed
+
+- [x] 01-01-PLAN.md
+- [ ] 01-02-PLAN.md
+- [ ] 01-03-PLAN.md
+- [ ] 01-04-PLAN.md
+- [ ] 01-05-PLAN.md
 **UI hint:** yes
 **Canonical refs:** `docs/plans/implementation-roadmap.md` §§4–5,8؛ `docs/plans/release-1-platform.md` §3 W1.1؛ `docs/adr/018-air-gapped-supply-chain.md`؛ `docs/adr/019-kubernetes-resilience-and-recovery.md`
 
@@ -432,7 +438,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |---|---:|---|---|
-| 1. W1.1 Walking Skeleton | 0/TBD | Not started | - |
+| 1. W1.1 Walking Skeleton | 1/5 | In Progress |  |
 | 2. W1.2 Organization + Identity + Import | 0/TBD | Not started | - |
 | 3. W1.3 Authorization + العلاقات الإشرافية | 0/TBD | Not started | - |
 | 4. W1.4 WorkDefinitions + منشئ النماذج | 0/TBD | Not started | - |
