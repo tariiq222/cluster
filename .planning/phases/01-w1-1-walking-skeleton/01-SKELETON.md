@@ -13,11 +13,11 @@
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Framework | Laravel modular monolith + unified React/TypeScript app؛ الإصدارات والحزم لا تُختار إلا في بوابة Wave 0 | قرار معماري ملزم، ولا توجد manifest أو مرايا أو lockfiles معتمدة في المستودع. |
+| Framework | Laravel modular monolith + unified React/TypeScript app؛ يسجل Plan 01-02 الاعتماديات والإصدارات الدقيقة بعد أن يحلها مدير الحزم في lockfiles | قرار معماري ملزم؛ مصادر التطوير العامة معتمدة، لكن لا توجد dependency أو lockfile أو BOM فعلية بعد. |
 | Data layer | MySQL هو مصدر الحقيقة؛ `WorkRecords` يحفظ الـEnvelope وOutbox في المعاملة ذاتها؛ Valkey-compatible Streams للنقل؛ Notifications يملك Inbox والأثر المشتق | يحقق ملكية البيانات وat-least-once وInbox-before-effect من العقود المعتمدة. |
 | Auth | حسابا fixture ثابتان فقط، ومنشأتان ثابتتان، وقرار access خلفي ضيق يطابق `owner_facility_id` | يثبت D-11 العزل من دون بناء إدارة الهوية أو سياسات RBAC/ABAC الكاملة قبل مرحلتيهما. |
-| Deployment target | Compose محلي/تطويري موثق بعد اعتماد صور الداخل؛ خادم Docker الأحادي في D-03 انحراف محكوم لا يغلق بوابة الإنتاج الدائم | لا يساوي Compose الدليل المقبول لـKubernetes/GitOps أو NetworkPolicy أو rolling rollback. |
-| Directory layout | `apps/api` و`apps/web` مقترحان فقط، و`infra/dev` لتعريفات التشغيل التطويري المقترحة | لا يصبح أي جذر product معتمداً إلا بعد تعبئة `approved-product-roots` في سجل البوابة قبل إنشاء scaffold. |
+| Deployment target | Compose محلي/تطويري مسموح بعد إنشاء Plan 01-02؛ خادم Docker الأحادي في D-03 انحراف محكوم لا يغلق بوابة الإنتاج الدائم | لا يساوي Compose الدليل المقبول لـKubernetes/GitOps أو NetworkPolicy أو rolling rollback. |
+| Directory layout | `apps/api` و`apps/web` جذرا المنتج المعتمدان، و`infra/dev` لتعريفات التشغيل التطويري المقترحة | يضع كل جذر manifest وlockfile الخاصين به عند إنشاء scaffold في Plan 01-02. |
 | Supply chain | لا artifact أو image أو mirror أو توقيع أو SBOM يُدعى امتثاله قبل قرار intake والمفاتيح والتحقق | يلتزم D-02 وD-08 وD-09 ومتطلبات SEC/OPS بدلاً من اختراع منتج أو إصدار. |
 
 ## Stack Touched in Phase 1
@@ -31,11 +31,11 @@
 
 ## Explicit Gate Boundaries
 
-- الحالة التفصيلية للـ`approved-dependency-bom` و`internal-source-policy` و`permanent-gate-status` ودليل D-01 إلى D-10 في [سجل بوابة الإدخال](01-ENTRY-GATE.md)؛ جميع الأدلة التشغيلية الدائمة في هذا المسار حالياً محجوبة صراحة.
+- الحالة التفصيلية للـ`approved-dependency-bom` و`internal-source-policy` و`permanent-gate-status` ودليل D-01 إلى D-10 في [سجل بوابة الإدخال](01-ENTRY-GATE.md)؛ مصادر التطوير العامة والجذور معتمدة، بينما جميع الأدلة التشغيلية الدائمة في هذا المسار محجوبة صراحة.
 - D-04 through D-07 require an approved internal MinIO service, encryption/key custody, 15-minute backup schedule, 30-day retention, and a measured manual restore drill. These are not evidenced by the development path.
 - D-09 requires approved isolated intake, signing, signing-key custody, verification, registry/mirror, and transport before permanent deployment may be claimed.
 - D-03 and D-10 require a recorded CCB decision to supersede or retain the Kubernetes/GitOps target before any Docker-host procedure is described as production-compliant.
-- The developer path may use external package download only as permitted by D-02; it must never become a production build or runtime dependency.
+- The developer path may use public Composer, npm, and development OCI sources in the ordinary internet-connected development environment; it must never become a production build or runtime dependency.
 
 ## Out of Scope (Deferred to Later Slices)
 
