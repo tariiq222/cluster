@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class DevelopmentFixtureLoginTest extends TestCase
 {
+    use RefreshDatabase;
+
     private const CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000101';
 
     public function test_fixture_accounts_receive_principals_for_their_own_facilities(): void
@@ -18,6 +21,10 @@ class DevelopmentFixtureLoginTest extends TestCase
         $accountA->assertOk()
             ->assertJsonPath('data.facility', 'facility-a')
             ->assertJsonPath('data.principal.facility_id', '018f6f7d-0c00-7000-8000-000000000011');
+        $this->assertSame(
+            '018f6f7d-0c00-7000-8000-000000000011',
+            $this->app['session']->get('development_fixture_principal.facility_id'),
+        );
 
         $accountB = $this->postJson('/api/v1/auth/login', [
             'username' => 'fixture-account-b',

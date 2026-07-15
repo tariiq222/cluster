@@ -19,6 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        $this->loadMigrationsFrom([
+            base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateDevelopmentFacilitiesTable.php'),
+            base_path('Modules/Identity/Infrastructure/Persistence/Migrations/CreateDevelopmentFixtureAccountsTable.php'),
+        ]);
     }
 }
