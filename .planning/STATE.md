@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 01
 current_phase_name: W1.1 Walking Skeleton
-status: executing
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-07-15T20:56:37.005Z"
+status: verifying
+stopped_at: Completed 01-05-PLAN.md
+last_updated: "2026-07-15T21:10:18.569Z"
 last_activity: 2026-07-15
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -30,10 +30,10 @@ See: `.planning/PROJECT.md` (updated 2026-07-15)
 
 Phase: 01 (W1.1 Walking Skeleton) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-15 — Phase 01 execution started
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [████████░░] 80%
 | Phase 01 P02 | 9m | 3 tasks | 59 files |
 | Phase 01 P03 | 7min | 2 tasks | 6 files |
 | Phase 01 P04 | 10min | 2 tasks | 14 files |
+| Phase 01 P05 | 8min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Decisions are logged in `PROJECT.md` Key Decisions.
 - [Phase ?]: يفحص حارس الحدود PHP عبر token_get_all ثم يحلل SQL literals؛ لا يعتمد على regex شامل للنص أو للتعليقات.
 - [Phase ?]: Fixture login is limited to local/testing; production returns 404 and never uses it as an authentication policy.
 - [Phase ?]: Authorization decides fixture facility isolation from trusted RecordFacts and fails closed without WorkRecords table access.
+- [Phase ?]: يبقى request رمز WorkDefinition منشوراً ثابتاً لا موديولاً أو جدولاً مستقلاً.
+- [Phase ?]: يحفظ WorkRecords معرفات النسخة والمالك بلا FK أو import عابر للموديولات.
+- [Phase ?]: تتم كتابة المصدر وCloudEvent Outbox في معاملة واحدة وتكون إعادة الحدث المتطابق idempotent.
 
 ### Pending Todos
 
@@ -95,6 +99,6 @@ Decisions are logged in `PROJECT.md` Key Decisions.
 
 ## Session Continuity
 
-Last session: 2026-07-15T20:56:36.999Z
-Stopped at: Completed 01-04-PLAN.md
+Last session: 2026-07-15T21:10:18.563Z
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None
