@@ -204,104 +204,106 @@
 
 ## التتبع
 
-يُحدّث هذا الجدول عند إنشاء خارطة الطريق. لا توجد تعيينات مسبقة للمراحل.
+تعيّن خارطة الطريق كل متطلب v1 إلى مرحلة أولية واحدة فقط. تُسجل بوابات الانحدار اللاحقة في معايير النجاح دون تكرار التعيين.
 
 | المتطلب | المرحلة | الحالة |
 |---|---|---|
-| FR-R1-001 | TBD | Pending |
-| FR-R1-002 | TBD | Pending |
-| FR-R1-003 | TBD | Pending |
-| FR-R1-004 | TBD | Pending |
-| FR-R1-005 | TBD | Pending |
-| FR-R1-006 | TBD | Pending |
-| FR-R1-007 | TBD | Pending |
-| FR-R1-008 | TBD | Pending |
-| FR-R1-009 | TBD | Pending |
-| FR-R1-010 | TBD | Pending |
-| FR-R1-011 | TBD | Pending |
-| FR-R1-012 | TBD | Pending |
-| FR-R1-013 | TBD | Pending |
-| FR-R1-014 | TBD | Pending |
-| FR-R1-015 | TBD | Pending |
-| FR-R1-016 | TBD | Pending |
-| FR-R1-017 | TBD | Pending |
-| FR-R1-018 | TBD | Pending |
-| FR-R1-019 | TBD | Pending |
-| FR-R1-020 | TBD | Pending |
-| NFR-R1-001 | TBD | Pending |
-| NFR-R1-002 | TBD | Pending |
-| NFR-R1-003 | TBD | Pending |
-| NFR-R1-004 | TBD | Pending |
-| NFR-R1-005 | TBD | Pending |
-| NFR-R1-006 | TBD | Pending |
-| NFR-R1-007 | TBD | Pending |
-| NFR-R1-008 | TBD | Pending |
-| SEC-R1-001 | TBD | Pending |
-| SEC-R1-002 | TBD | Pending |
-| SEC-R1-003 | TBD | Pending |
-| SEC-R1-004 | TBD | Pending |
-| SEC-R1-005 | TBD | Pending |
-| SEC-R1-006 | TBD | Pending |
-| SEC-R1-007 | TBD | Pending |
-| SEC-R1-008 | TBD | Pending |
-| SEC-R1-009 | TBD | Pending |
-| SEC-R1-010 | TBD | Pending |
-| SEC-R1-011 | TBD | Pending |
-| SEC-R1-012 | TBD | Pending |
-| SEC-R1-013 | TBD | Pending |
-| SEC-R1-014 | TBD | Pending |
-| OPS-R1-001 | TBD | Pending |
-| OPS-R1-002 | TBD | Pending |
-| OPS-R1-003 | TBD | Pending |
-| OPS-R1-004 | TBD | Pending |
-| OPS-R1-005 | TBD | Pending |
-| OPS-R1-006 | TBD | Pending |
-| OPS-R1-007 | TBD | Pending |
-| OPS-R1-008 | TBD | Pending |
-| OPS-R1-009 | TBD | Pending |
-| OPS-R1-010 | TBD | Pending |
-| OPS-R1-011 | TBD | Pending |
-| OPS-R1-012 | TBD | Pending |
-| FR-R2-001 | TBD | Pending |
-| FR-R2-002 | TBD | Pending |
-| FR-R2-003 | TBD | Pending |
-| FR-R2-004 | TBD | Pending |
-| FR-R2-005 | TBD | Pending |
-| FR-R2-006 | TBD | Pending |
-| FR-R2-007 | TBD | Pending |
-| FR-R2-008 | TBD | Pending |
-| FR-R2-009 | TBD | Pending |
-| FR-R2-010 | TBD | Pending |
-| FR-R2-011 | TBD | Pending |
-| FR-R2-012 | TBD | Pending |
-| NFR-R2-001 | TBD | Pending |
-| NFR-R2-002 | TBD | Pending |
-| SEC-R2-001 | TBD | Pending |
-| SEC-R2-002 | TBD | Pending |
-| OPS-R2-001 | TBD | Pending |
-| OPS-R2-002 | TBD | Pending |
-| FR-R3-001 | TBD | Pending |
-| FR-R3-002 | TBD | Pending |
-| FR-R3-003 | TBD | Pending |
-| FR-R3-004 | TBD | Pending |
-| FR-R3-005 | TBD | Pending |
-| FR-R3-006 | TBD | Pending |
-| FR-R3-007 | TBD | Pending |
-| FR-R3-008 | TBD | Pending |
-| FR-R3-009 | TBD | Pending |
-| FR-R3-010 | TBD | Pending |
-| NFR-R3-001 | TBD | Pending |
-| NFR-R3-002 | TBD | Pending |
-| SEC-R3-001 | TBD | Pending |
-| SEC-R3-002 | TBD | Pending |
-| OPS-R3-001 | TBD | Pending |
-| OPS-R3-002 | TBD | Pending |
+| FR-R1-001 | Phase 2 — W1.2 | Pending |
+| FR-R1-002 | Phase 2 — W1.2 | Pending |
+| FR-R1-003 | Phase 3 — W1.3 | Pending |
+| FR-R1-004 | Phase 3 — W1.3 | Pending |
+| FR-R1-005 | Phase 4 — W1.4 | Pending |
+| FR-R1-006 | Phase 5 — W1.5 | Pending |
+| FR-R1-007 | Phase 6 — W1.6 | Pending |
+| FR-R1-008 | Phase 7 — W1.7 | Pending |
+| FR-R1-009 | Phase 8 — W1.8 | Pending |
+| FR-R1-010 | Phase 8 — W1.8 | Pending |
+| FR-R1-011 | Phase 9 — W1.9 | Pending |
+| FR-R1-012 | Phase 9 — W1.9 | Pending |
+| FR-R1-013 | Phase 1 — W1.1 | Pending |
+| FR-R1-014 | Phase 3 — W1.3 | Pending |
+| FR-R1-015 | Phase 3 — W1.3 | Pending |
+| FR-R1-016 | Phase 9 — W1.9 | Pending |
+| FR-R1-017 | Phase 2 — W1.2 | Pending |
+| FR-R1-018 | Phase 2 — W1.2 | Pending |
+| FR-R1-019 | Phase 2 — W1.2 | Pending |
+| FR-R1-020 | Phase 2 — W1.2 | Pending |
+| NFR-R1-001 | Phase 10 — W1.10 | Pending |
+| NFR-R1-002 | Phase 10 — W1.10 | Pending |
+| NFR-R1-003 | Phase 10 — W1.10 | Pending |
+| NFR-R1-004 | Phase 10 — W1.10 | Pending |
+| NFR-R1-005 | Phase 10 — W1.10 | Pending |
+| NFR-R1-006 | Phase 10 — W1.10 | Pending |
+| NFR-R1-007 | Phase 10 — W1.10 | Pending |
+| NFR-R1-008 | Phase 10 — W1.10 | Pending |
+| SEC-R1-001 | Phase 1 — W1.1 | Pending |
+| SEC-R1-002 | Phase 2 — W1.2 | Pending |
+| SEC-R1-003 | Phase 3 — W1.3 | Pending |
+| SEC-R1-004 | Phase 3 — W1.3 | Pending |
+| SEC-R1-005 | Phase 3 — W1.3 | Pending |
+| SEC-R1-006 | Phase 2 — W1.2 | Pending |
+| SEC-R1-007 | Phase 2 — W1.2 | Pending |
+| SEC-R1-008 | Phase 2 — W1.2 | Pending |
+| SEC-R1-009 | Phase 1 — W1.1 | Pending |
+| SEC-R1-010 | Phase 4 — W1.4 | Pending |
+| SEC-R1-011 | Phase 1 — W1.1 | Pending |
+| SEC-R1-012 | Phase 6 — W1.6 | Pending |
+| SEC-R1-013 | Phase 3 — W1.3 | Pending |
+| SEC-R1-014 | Phase 2 — W1.2 | Pending |
+| OPS-R1-001 | Phase 10 — W1.10 | Pending |
+| OPS-R1-002 | Phase 10 — W1.10 | Pending |
+| OPS-R1-003 | Phase 10 — W1.10 | Pending |
+| OPS-R1-004 | Phase 6 — W1.6 | Pending |
+| OPS-R1-005 | Phase 6 — W1.6 | Pending |
+| OPS-R1-006 | Phase 1 — W1.1 | Pending |
+| OPS-R1-007 | Phase 1 — W1.1 | Pending |
+| OPS-R1-008 | Phase 1 — W1.1 | Pending |
+| OPS-R1-009 | Phase 5 — W1.5 | Pending |
+| OPS-R1-010 | Phase 5 — W1.5 | Pending |
+| OPS-R1-011 | Phase 1 — W1.1 | Pending |
+| OPS-R1-012 | Phase 1 — W1.1 | Pending |
+| FR-R2-001 | Phase 11 — W2.1 | Pending |
+| FR-R2-002 | Phase 12 — W2.2 | Pending |
+| FR-R2-003 | Phase 12 — W2.2 | Pending |
+| FR-R2-004 | Phase 12 — W2.2 | Pending |
+| FR-R2-005 | Phase 13 — W2.3 | Pending |
+| FR-R2-006 | Phase 14 — W2.4 | Pending |
+| FR-R2-007 | Phase 15 — W2.5 | Pending |
+| FR-R2-008 | Phase 15 — W2.5 | Pending |
+| FR-R2-009 | Phase 15 — W2.5 | Pending |
+| FR-R2-010 | Phase 16 — W2.6 | Pending |
+| FR-R2-011 | Phase 13 — W2.3 | Pending |
+| FR-R2-012 | Phase 15 — W2.5 | Pending |
+| NFR-R2-001 | Phase 17 — W2.7 | Pending |
+| NFR-R2-002 | Phase 17 — W2.7 | Pending |
+| SEC-R2-001 | Phase 12 — W2.2 | Pending |
+| SEC-R2-002 | Phase 16 — W2.6 | Pending |
+| OPS-R2-001 | Phase 17 — W2.7 | Pending |
+| OPS-R2-002 | Phase 17 — W2.7 | Pending |
+| FR-R3-001 | Phase 19 — W3.1 | Pending |
+| FR-R3-002 | Phase 20 — W3.2 | Pending |
+| FR-R3-003 | Phase 21 — W3.3 | Pending |
+| FR-R3-004 | Phase 22 — W3.4 | Pending |
+| FR-R3-005 | Phase 23 — W3.5 | Pending |
+| FR-R3-006 | Phase 23 — W3.5 | Pending |
+| FR-R3-007 | Phase 22 — W3.4 | Pending |
+| FR-R3-008 | Phase 23 — W3.5 | Pending |
+| FR-R3-009 | Phase 24 — W3.6 | Pending |
+| FR-R3-010 | Phase 23 — W3.5 | Pending |
+| NFR-R3-001 | Phase 25 — W3.7 | Pending |
+| NFR-R3-002 | Phase 25 — W3.7 | Pending |
+| SEC-R3-001 | Phase 23 — W3.5 | Pending |
+| SEC-R3-002 | Phase 22 — W3.4 | Pending |
+| OPS-R3-001 | Phase 23 — W3.5 | Pending |
+| OPS-R3-002 | Phase 25 — W3.7 | Pending |
 
 **التغطية:**
 - متطلبات v1: 88 إجمالاً.
-- المعيّن للمراحل: 0.
-- غير المعيّن: 88، بانتظار خارطة الطريق.
+- المعيّن للمراحل: 88.
+- غير المعيّن: 0.
+- التعيينات الأولية المكررة: 0.
+- التغطية: **88/88/0** (معيّن/إجمالي/غير معيّن).
 
 ---
 *تاريخ تعريف المتطلبات: 2026-07-15*  
-*آخر تحديث: 2026-07-15 بعد التعريف الأولي*
+*آخر تحديث: 2026-07-15 بعد إنشاء خارطة الطريق والتتبع*
