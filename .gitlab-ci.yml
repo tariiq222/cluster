@@ -1,6 +1,8 @@
 stages:
   - validate
   - build
+  - test
+  - verify
 
 variables:
   DOCS_PYTHON_IMAGE: "python:3.12-slim"
@@ -38,3 +40,30 @@ validate-mermaid:
   script:
     - command -v mmdc
     - ./scripts/render-diagrams.sh /tmp/validated-diagrams
+
+test-api:
+  stage: test
+  image: composer:2
+  script:
+    - composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
+    - make test-api
+
+test-web:
+  stage: test
+  image: node:22.22.2
+  script:
+    - npm --prefix apps/web ci
+    - make test-web
+
+verify-boundaries:
+  stage: verify
+  image: composer:2
+  script:
+    - composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
+    - make verify-boundaries
+
+verify-ci-config:
+  stage: verify
+  image: ruby:3.4
+  script:
+    - make verify-ci-config
