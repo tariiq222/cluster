@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class WalkingSkeletonE2ETest extends TestCase
 {
+    use RefreshDatabase;
+
     private const ACCOUNT_A_CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000001';
 
     private const ACCOUNT_B_CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000002';
