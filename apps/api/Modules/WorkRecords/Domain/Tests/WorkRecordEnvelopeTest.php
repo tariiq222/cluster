@@ -4,9 +4,12 @@ namespace Modules\WorkRecords\Domain\Tests;
 
 use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Modules\WorkRecords\Domain\WorkRecord;
+use Modules\WorkRecords\Features\SubmitWorkRecord\Handler\SubmitWorkRecordHandler;
 use Tests\TestCase;
 
 class WorkRecordEnvelopeTest extends TestCase
@@ -89,5 +92,66 @@ class WorkRecordEnvelopeTest extends TestCase
             'occurred_at',
             'published_at',
         ]));
+    }
+
+    public function test_persisting_a_submitted_record_writes_its_cloudevent_to_the_outbox_in_the_same_transaction(): void
+    {
+        $handler = new SubmitWorkRecordHandler();
+        $first = $this->record(self::RECORD_ID, 'WR-000001');
+
+        $handler->persist($first, $this->cloudEvent($first, '0197f0e0-0000-7000-8000-000000000201'));
+
+        $second = $this->record('0197f0e0-0000-7000-8000-000000000102', 'WR-000002');
+        try {
+            $handler->persist($second, $this->cloudEvent($second, '0197f0e0-0000-7000-8000-000000000201'));
+            $this->fail('The duplicate CloudEvent id must prevent a second write.');
+        } catch (UniqueConstraintViolationException) {
+            // The Outbox insert fails after the source insert, so the transaction must roll both back.
+        }
+
+        $this->assertSame(1, DB::table('work_records')->count());
+        $this->assertSame(1, DB::table('outbox_events')->count());
+        $this->assertSame(
+            'com.cluster.workrecord.submitted.v1',
+            DB::table('outbox_events')->value('event_type'),
+        );
+    }
+
+    private function record(string $id, string $recordNumber): WorkRecord
+    {
+        return WorkRecord::submit(
+            id: $id,
+            recordNumber: $recordNumber,
+            workTypeVersionId: self::WORK_TYPE_VERSION_ID,
+            ownerFacilityId: self::FACILITY_ID,
+            creatorUserId: self::CREATOR_ID,
+            classification: 'internal',
+            payload: ['title' => 'طلب اختبار', 'description' => 'وصف الاختبار'],
+            submittedAt: new DateTimeImmutable('2026-07-16T10:00:00Z'),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cloudEvent(WorkRecord $record, string $eventId): array
+    {
+        $envelope = $record->toEnvelope();
+
+        return [
+            'specversion' => '1.0',
+            'id' => $eventId,
+            'source' => '/work-records',
+            'type' => 'com.cluster.workrecord.submitted.v1',
+            'subject' => '/work-records/'.$envelope['id'],
+            'time' => $envelope['submitted_at'],
+            'datacontenttype' => 'application/json',
+            'correlationid' => '0197f0e0-0000-7000-8000-000000000301',
+            'data' => [
+                'record' => $envelope,
+                'access_context' => ['owner_facility_id' => self::FACILITY_ID],
+                'classification' => 'internal',
+            ],
+        ];
     }
 }
