@@ -141,6 +141,10 @@ None — لا توجد قيمة placeholder أو mock مسار يعيد نجاح
 
 None — لا توجد خدمة خارجية أو secrets أو نشر دائم ضمن الخطة.
 
+## Metadata Commit Scope
+
+- شغّل SDK تحديث تقدم `ROADMAP.md` كما هو مطلوب، لكن الملف كان معدلاً مسبقاً خارج نطاق الخطة؛ لذلك لم يُدرج في metadata commit حفاظاً على تغييرات المستخدم غير المرتبطة. يبقى التحديث في working tree للمراجعة.
+
 ## Next Phase Readiness
 
 - يمكن لخطط تنفيذ المسار جعل `WalkingSkeletonE2ETest` وspec المتصفح أخضرين عبر routes والمهاجرات والواجهة الحقيقية فقط.
