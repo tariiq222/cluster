@@ -1,0 +1,27 @@
+:root {
+  color: #172126;
+  background: #f7f8f6;
+  font-family: Tahoma, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  min-block-size: 100svh;
+  padding: 64px 32px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}
