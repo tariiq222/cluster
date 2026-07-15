@@ -1,0 +1,35 @@
+sequenceDiagram
+    participant Handler as Feature Handler
+    participant DB as MySQL Transaction
+    participant Outbox as Outbox Table
+    participant Reader as Outbox Reader Worker
+    participant Queue as Internal Queue
+    participant Consumer as Idempotent Consumer
+    participant Notify as Notifications
+    participant Search as Search
+    participant Audit as Audit
+    participant DeadLetter as Dead-Letter Review
+
+    Note over Handler,Outbox: Handler الذي بدأ حالة الاستخدام هو مالك المعاملة
+    Handler->>DB: BEGIN
+    Handler->>DB: Write business state
+    Handler->>Outbox: INSERT event<br/>(event_id, type, schema_version, payload, occurred_at)
+    Handler->>DB: COMMIT
+
+    Reader->>Outbox: Read committed pending events
+    Outbox-->>Reader: Pending events batch
+    Reader->>Queue: Dispatch event envelope
+    Reader->>Outbox: Record dispatch attempt
+
+    Queue-->>Consumer: Deliver envelope
+    Consumer->>Consumer: Lookup event_id in dedupe store
+    alt First delivery
+        Consumer->>Notify: Create notification
+        Consumer->>Search: Index authorized record
+        Consumer->>Audit: Append delivery record
+        Consumer->>Queue: ACK
+    else Duplicate delivery
+        Consumer->>Queue: ACK and skip
+    end
+
+    Note over Consumer,DeadLetter: في حالة الفشل تعاد المحاولة بسياسة backoff واضحة<br/>وبعد تجاوز الحد الأقصى ينتقل الحدث إلى Dead-Letter لمراجعة السوبر أدمن<br/>ولا تفقد المعاملة الأصلية ولا تتكرر نتيجتها

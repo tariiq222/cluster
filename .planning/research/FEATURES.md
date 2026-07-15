@@ -254,13 +254,13 @@ The principal unresolved feature detail is the R3 matrix, appetite, and review-c
 All sources are internal, accepted, and dated 2026-07-15.
 
 - `.planning/PROJECT.md` — core value, active R1-R3 requirements, constraints, and out-of-scope summary.
-- `cluster/docs/product/vision-and-scope.md` §§4-10 — principles, in-scope capabilities, release boundaries, success and failure criteria.
-- `cluster/docs/product/personas-and-journeys.md` §§3-6 — nine personas, eleven core journeys, role capabilities, task-time and usability targets.
-- `cluster/docs/product/releases-and-roadmap.md` §§4-10 — release capability ownership, pilots, exit gates, ordering, and readiness indicators.
-- `cluster/docs/governance/traceability-matrix.md` §§4-8 — authoritative `FR/NFR/SEC/OPS` inventory and measurable verification.
-- `cluster/docs/governance/assumptions-constraints.md` §§2-7 — hard constraints, explicit exclusions, approved substitutes, and adoption/security risks.
-- `cluster/docs/product/success-metrics.md` §§3-7 — adoption, operational, security, strategy, project, risk, and UX outcomes.
-- `cluster/docs/plans/implementation-roadmap.md` §§4-9 — W1.1-W3.7 dependency sequence, cross-cutting ownership, gates, and traceability policy.
+- `docs/product/vision-and-scope.md` §§4-10 — principles, in-scope capabilities, release boundaries, success and failure criteria.
+- `docs/product/personas-and-journeys.md` §§3-6 — nine personas, eleven core journeys, role capabilities, task-time and usability targets.
+- `docs/product/releases-and-roadmap.md` §§4-10 — release capability ownership, pilots, exit gates, ordering, and readiness indicators.
+- `docs/governance/traceability-matrix.md` §§4-8 — authoritative `FR/NFR/SEC/OPS` inventory and measurable verification.
+- `docs/governance/assumptions-constraints.md` §§2-7 — hard constraints, explicit exclusions, approved substitutes, and adoption/security risks.
+- `docs/product/success-metrics.md` §§3-7 — adoption, operational, security, strategy, project, risk, and UX outcomes.
+- `docs/plans/implementation-roadmap.md` §§4-9 — W1.1-W3.7 dependency sequence, cross-cutting ownership, gates, and traceability policy.
 
 ---
 *Feature research for the Third Health Cluster enterprise administrative platform, R1-R3 accepted scope.*

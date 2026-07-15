@@ -1,0 +1,159 @@
+asyncapi: 3.1.0
+info:
+  title: Cluster Platform Domain Events
+  version: 1.0.0
+  description: CloudEvents JSON domain events delivered at least once through transactional Outbox, Valkey Streams consumer groups, consumer Inbox, and DLQ.
+servers:
+  production:
+    host: events.cluster.example:6379
+    protocol: redis
+    protocolVersion: '7'
+    description: Valkey-compatible Streams endpoint using TLS, consumer groups, explicit acknowledgement, and pending-entry recovery.
+channels:
+  work-record-submitted:
+    address: platform.work-record.submitted.v1
+    messages:
+      workRecordSubmitted:
+        $ref: '#/components/messages/WorkRecordSubmitted'
+  workflow-step-activated:
+    address: platform.workflow.step-activated.v1
+    messages:
+      workflowStepActivated:
+        $ref: '#/components/messages/WorkflowStepActivated'
+  workflow-decision-recorded:
+    address: platform.workflow.decision-recorded.v1
+    messages:
+      workflowDecisionRecorded:
+        $ref: '#/components/messages/WorkflowDecisionRecorded'
+  document-scan-completed:
+    address: platform.document.scan-completed.v1
+    messages:
+      documentScanCompleted:
+        $ref: '#/components/messages/DocumentScanCompleted'
+  access-decision:
+    address: platform.authorization.access-decision.v1
+    messages:
+      accessDecision:
+        $ref: '#/components/messages/AccessDecision'
+  dead-letter:
+    address: platform.dlq.v1
+    messages:
+      deadLetter:
+        $ref: '#/components/messages/DeadLetter'
+operations:
+  publishWorkRecordSubmitted:
+    action: send
+    channel: {$ref: '#/channels/work-record-submitted'}
+    messages: [{$ref: '#/channels/work-record-submitted/messages/workRecordSubmitted'}]
+  consumeWorkRecordSubmitted:
+    action: receive
+    channel: {$ref: '#/channels/work-record-submitted'}
+    messages: [{$ref: '#/channels/work-record-submitted/messages/workRecordSubmitted'}]
+  publishWorkflowStepActivated:
+    action: send
+    channel: {$ref: '#/channels/workflow-step-activated'}
+    messages: [{$ref: '#/channels/workflow-step-activated/messages/workflowStepActivated'}]
+  consumeWorkflowStepActivated:
+    action: receive
+    channel: {$ref: '#/channels/workflow-step-activated'}
+    messages: [{$ref: '#/channels/workflow-step-activated/messages/workflowStepActivated'}]
+  publishWorkflowDecisionRecorded:
+    action: send
+    channel: {$ref: '#/channels/workflow-decision-recorded'}
+    messages: [{$ref: '#/channels/workflow-decision-recorded/messages/workflowDecisionRecorded'}]
+  consumeWorkflowDecisionRecorded:
+    action: receive
+    channel: {$ref: '#/channels/workflow-decision-recorded'}
+    messages: [{$ref: '#/channels/workflow-decision-recorded/messages/workflowDecisionRecorded'}]
+  publishDocumentScanCompleted:
+    action: send
+    channel: {$ref: '#/channels/document-scan-completed'}
+    messages: [{$ref: '#/channels/document-scan-completed/messages/documentScanCompleted'}]
+  consumeDocumentScanCompleted:
+    action: receive
+    channel: {$ref: '#/channels/document-scan-completed'}
+    messages: [{$ref: '#/channels/document-scan-completed/messages/documentScanCompleted'}]
+  publishAccessDecision:
+    action: send
+    channel: {$ref: '#/channels/access-decision'}
+    messages: [{$ref: '#/channels/access-decision/messages/accessDecision'}]
+  consumeAccessDecision:
+    action: receive
+    channel: {$ref: '#/channels/access-decision'}
+    messages: [{$ref: '#/channels/access-decision/messages/accessDecision'}]
+  consumeDeadLetter:
+    action: receive
+    channel: {$ref: '#/channels/dead-letter'}
+    messages: [{$ref: '#/channels/dead-letter/messages/deadLetter'}]
+components:
+  messages:
+    WorkRecordSubmitted:
+      name: WorkRecordSubmitted
+      title: Work record submitted
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.workrecord.submitted.v1}
+              data: {$ref: '../schemas/work-record-submitted.schema.json'}
+    WorkflowStepActivated:
+      name: WorkflowStepActivated
+      title: Workflow step activated
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.workflow.stepactivated.v1}
+              data: {$ref: '../schemas/workflow-step-activated.schema.json'}
+    WorkflowDecisionRecorded:
+      name: WorkflowDecisionRecorded
+      title: Workflow decision recorded
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.workflow.decisionrecorded.v1}
+              data: {$ref: '../schemas/workflow-decision-recorded.schema.json'}
+    DocumentScanCompleted:
+      name: DocumentScanCompleted
+      title: Document scan completed
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+               type: {const: com.cluster.document.scancompleted.v1}
+               data: {$ref: '../schemas/document-scan-completed.schema.json'}
+    AccessDecision:
+      name: AccessDecision
+      title: Access decision evaluated
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.authorization.accessdecision.v1}
+              data: {$ref: '../schemas/access-decision.schema.json'}
+    DeadLetter:
+      name: DeadLetter
+      title: Dead-letter event
+      contentType: application/json
+      payload:
+        type: object
+        additionalProperties: false
+        required: [original_event, failure_code, attempts, failed_at]
+        properties:
+          original_event: {$ref: '../schemas/event-envelope.schema.json'}
+          failure_code: {type: string, minLength: 1}
+          failure_detail: {type: string}
+          attempts: {type: integer, minimum: 1}
+          failed_at: {type: string, format: date-time, pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$'}
+          consumer: {type: string, minLength: 1}

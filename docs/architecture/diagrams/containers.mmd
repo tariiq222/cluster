@@ -1,0 +1,37 @@
+flowchart TB
+    USER(["المستخدم عبر الشبكة الداخلية"])
+
+    subgraph K8S["Kubernetes داخل مركز بيانات التجمع"]
+        WEB["React Unified Web App"]
+        API["Laravel Modular Monolith"]
+        WORKERS["Queue Workers"]
+        SCHEDULER["Scheduler"]
+        MYSQL["MySQL HA Cluster"]
+        QUEUE["Internal Cache / Queue"]
+        S3["S3-Compatible Object Storage"]
+        SEARCH["Internal Search Service"]
+        OBS["Observability Stack<br/>Logs / Metrics / Traces"]
+    end
+
+    REGISTRY["Internal OCI Registry"]
+    MIRRORS["Composer / npm<br/>Internal Mirrors"]
+    BACKUP["Independent Internal<br/>Backup Repository"]
+
+    USER --> WEB
+    WEB --> API
+    API --> MYSQL
+    API --> QUEUE
+    API --> S3
+    API --> SEARCH
+    WORKERS --> MYSQL
+    WORKERS --> QUEUE
+    WORKERS --> S3
+    WORKERS --> SEARCH
+    SCHEDULER --> QUEUE
+    API --> OBS
+    WORKERS --> OBS
+    SCHEDULER --> OBS
+    REGISTRY -.->|"صور OCI"| K8S
+    MIRRORS -.->|"اعتماديات"| K8S
+    MYSQL -->|"نسخ احتياطي"| BACKUP
+    S3 -->|"نسخ احتياطي"| BACKUP

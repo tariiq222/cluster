@@ -48,7 +48,7 @@
   4. تفشل آلياً أي محاولة join أو استيراد Infrastructure بين موديولات الأعمال، وتبقى بيئات التطوير والاختبار والتجريب والإنتاج معزولة.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §§4–5,8؛ `cluster/docs/plans/release-1-platform.md` §3 W1.1؛ `cluster/docs/adr/018-air-gapped-supply-chain.md`؛ `cluster/docs/adr/019-kubernetes-resilience-and-recovery.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §§4–5,8؛ `docs/plans/release-1-platform.md` §3 W1.1؛ `docs/adr/018-air-gapped-supply-chain.md`؛ `docs/adr/019-kubernetes-resilience-and-recovery.md`
 
 ### Phase 2: W1.2 Organization + Identity + Import
 **Goal:** يستطيع المسؤولون إدارة الحقيقة التنظيمية والهوية المحلية وإدخال الهيكل بأمان، ويستطيع المستخدم العمل ضمن نطاقه الفعّال.
@@ -64,7 +64,7 @@
   4. يؤدي تعطيل الحساب أو انتهاء التكليف المؤقت إلى إنهاء الجلسات وسحب التفويضات فوراً، مع تشفير PII وإظهار Asia/Riyadh فوق تخزين UTC.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W1.2؛ `cluster/docs/plans/release-1-platform.md` §3 W1.2؛ `cluster/docs/domain/organization-and-people.md`؛ `cluster/docs/data-security/logical-data-model.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W1.2؛ `docs/plans/release-1-platform.md` §3 W1.2؛ `docs/domain/organization-and-people.md`؛ `docs/data-security/logical-data-model.md`
 
 ### Phase 3: W1.3 Authorization + العلاقات الإشرافية
 **Goal:** يحصل كل مستخدم على قرار وصول خلفي موحد ومفسّر يطبق الدور والنطاق والعلاقة والتفويض والتصنيف والحقل دون تسرب بين الجهات.
@@ -80,7 +80,7 @@
   4. يُسجل كل تغيير حالة أو عمل حساس وكل وصول لمحتوى سري في سجل تدقيق معزول ذي Hash Chain قابل للتحقق؛ ولا تمنح JavaScript أي صلاحية.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W1.3؛ `cluster/docs/plans/release-1-platform.md` §3 W1.3؛ `cluster/docs/adr/004-authorization-and-isolation.md`؛ `cluster/docs/data-security/authorization-model.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W1.3؛ `docs/plans/release-1-platform.md` §3 W1.3؛ `docs/adr/004-authorization-and-isolation.md`؛ `docs/data-security/authorization-model.md`
 
 ### Phase 4: W1.4 WorkDefinitions + منشئ النماذج
 **Goal:** يستطيع المسؤول إنشاء نوع عمل ونموذجه وحقوله وعلاقاته واختباره ونشر إصدار موقّع دون كود ودون تغيير السجلات الجارية.
@@ -96,7 +96,7 @@
   4. لا يرى المستخدم حقلاً مخفياً أو يعدل حقلاً للقراءة فقط وفق دوره وحالة السجل.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §§4,8 W1.4؛ `cluster/docs/plans/release-1-platform.md` §3 W1.4؛ `cluster/docs/adr/005-work-records-dynamic-data.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §§4,8 W1.4؛ `docs/plans/release-1-platform.md` §3 W1.4؛ `docs/adr/005-work-records-dynamic-data.md`
 
 ### Phase 5: W1.5 Workflow Engine
 **Goal:** تعمل للمستخدمين مسارات منشورة تدعم الموافقة والرفض والإعادة والتصعيد والتفرع والتوازي دون كسر المعاملات الجارية.
@@ -112,7 +112,7 @@
   4. يستطيع المشغل رؤية السجلات المركزية والتوفر والأخطاء وتأخر Outbox، ويتلقى تنبيهاً خلال 5 دقائق دون فقد معاملة عند فشل مستهلك.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §§4,8 W1.5؛ `cluster/docs/plans/release-1-platform.md` §3 W1.5؛ `cluster/docs/adr/006-workflow-versioning.md`؛ `cluster/docs/adr/007-transactional-outbox.md`؛ `cluster/docs/architecture/c4-and-flows.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §§4,8 W1.5؛ `docs/plans/release-1-platform.md` §3 W1.5؛ `docs/adr/006-workflow-versioning.md`؛ `docs/adr/007-transactional-outbox.md`؛ `docs/architecture/c4-and-flows.md`
 
 ### Phase 6: W1.6 WorkRecords: الطلب الداخلي العام
 **Goal:** يستطيع الموظف إكمال رحلة طلب داخلي عام داخل سجل رقمي محكوم من المسودة حتى الإغلاق.
@@ -128,7 +128,7 @@
   4. يستطيع المشغل استعادة قاعدة البيانات والأصول والمفاتيح والتكوين من نسخ مشفرة خارج Kubernetes في بيئة معزولة، مع دليل شهري قابل للتدقيق.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §§4,8 W1.6؛ `cluster/docs/plans/release-1-platform.md` §3 W1.6؛ `cluster/docs/adr/005-work-records-dynamic-data.md`؛ `cluster/docs/operations/ha-dr-backup.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §§4,8 W1.6؛ `docs/plans/release-1-platform.md` §3 W1.6؛ `docs/adr/005-work-records-dynamic-data.md`؛ `docs/operations/ha-dr-backup.md`
 
 ### Phase 7: W1.7 Tasks
 **Goal:** يستطيع المستخدمون إنشاء مهام مستقلة أو مرتبطة، وتحديد المسؤول والمشاركين والتعاون عليها حتى الإغلاق المحكوم.
@@ -143,7 +143,7 @@
   3. يرفض النظام الإسناد خارج التسلسل بلا قدرة خاصة، ويطبق قاعدة الإغلاق والاعتماد الخاصة بنوع المهمة.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W1.7؛ `cluster/docs/plans/release-1-platform.md` §3 W1.7؛ `cluster/docs/architecture/module-catalog.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W1.7؛ `docs/plans/release-1-platform.md` §3 W1.7؛ `docs/architecture/module-catalog.md`
 
 ### Phase 8: W1.8 Documents + Notifications
 **Goal:** يستطيع المستخدم حفظ مستندات مصنفة بإصدارات آمنة وتلقي إشعارات داخلية متينة تقوده فقط إلى محتوى ما زال مخولاً له.
@@ -159,7 +159,7 @@
   4. يعيد رابط الإشعار فحص الصلاحية ويمنع كشف عنوان أو محتوى سجل لم يعد المستخدم مخولاً له.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W1.8؛ `cluster/docs/plans/release-1-platform.md` §3 W1.8؛ `cluster/docs/adr/007-transactional-outbox.md`؛ `cluster/docs/data-security/logical-data-model.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W1.8؛ `docs/plans/release-1-platform.md` §3 W1.8؛ `docs/adr/007-transactional-outbox.md`؛ `docs/data-security/logical-data-model.md`
 
 ### Phase 9: W1.9 Search + Reporting + لوحات
 **Goal:** يجد المستخدم المصرح له عمله ويعرض لوحته وتقاريره ويصدرها دون تسرب عنوان أو عدد أو حقل محظور.
@@ -175,7 +175,7 @@
   4. يستطيع المشغل إعادة بناء فهارس البحث والتقارير والـWorkspace deterministically ورؤية freshness/lag دون جعلها مصدر الحقيقة.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W1.9؛ `cluster/docs/plans/release-1-platform.md` §3 W1.9؛ `cluster/docs/adr/004-authorization-and-isolation.md`؛ `cluster/docs/architecture/non-functional-requirements.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W1.9؛ `docs/plans/release-1-platform.md` §3 W1.9؛ `docs/adr/004-authorization-and-isolation.md`؛ `docs/architecture/non-functional-requirements.md`
 
 ### Phase 10: W1.10 UAT + إطلاق R1
 **Goal:** تعمل منصة R1 فعلياً في إدارة بالتجمع وإدارة نظيرة بمستشفى وتثبت بالأدلة الجاهزية الوظيفية والأمنية والتشغيلية والميدانية للإطلاق.
@@ -192,7 +192,7 @@
   5. تنجح قائمة الجاهزية الوظيفية/الأمنية/التشغيلية/البيانات/الاستعادة/الفجوة الهوائية/التوطين/التدريب 100%، وتكون نتيجة Go/No-Go ≥90 بلا أحمر ولا قسم وظيفي أو أمني دون 80، ثم يوقع ملاك الإطلاق قرار Go.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §§4–8 W1.10؛ `cluster/docs/plans/release-1-platform.md` §§3 W1.10,5؛ `cluster/docs/plans/readiness-checklist.md` §§2.1,3–12؛ `cluster/docs/product/success-metrics.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §§4–8 W1.10؛ `docs/plans/release-1-platform.md` §§3 W1.10,5؛ `docs/plans/readiness-checklist.md` §§2.1,3–12؛ `docs/product/success-metrics.md`
 
 ### Phase 11: W2.1 Strategy foundation
 **Goal:** يستطيع مالكو الاستراتيجية إدارة خطة ذات محاور وأهداف ومبادرات محكومة بالإصدار والاعتماد دون خلطها بالمشاريع.
@@ -207,7 +207,7 @@
   3. تظهر المبادرة المرتبطة لاحقاً بمشروع في السجلين عبر عقد ومعرف دون تكرار الحقيقة، ويُسجل سبب كل اعتماد أو تعديل.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W2.1؛ `cluster/docs/plans/release-2-strategy-portfolio.md` §3 W2.1؛ `cluster/docs/adr/021-strategy-indicator-ownership.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W2.1؛ `docs/plans/release-2-strategy-portfolio.md` §3 W2.1؛ `docs/adr/021-strategy-indicator-ownership.md`
 
 ### Phase 12: W2.2 Indicators
 **Goal:** يستطيع ملاك المؤشرات تعريف مؤشرات بإصدارات، وتوزيع المستهدفات، وإدخال قراءات بأدلة واعتمادها وقفل فتراتها.
@@ -223,7 +223,7 @@
   4. تبقى النسخ والتصحيحات والأدلة وسلسلة الاعتماد قابلة للتتبع دون تعديل القيمة المعتمدة بصمت.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W2.2؛ `cluster/docs/plans/release-2-strategy-portfolio.md` §3 W2.2؛ `cluster/docs/adr/021-strategy-indicator-ownership.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W2.2؛ `docs/plans/release-2-strategy-portfolio.md` §3 W2.2؛ `docs/adr/021-strategy-indicator-ownership.md`
 
 ### Phase 13: W2.3 Portfolio + Program + Project
 **Goal:** يستطيع مكتب المشاريع تشغيل محفظة وبرامج ومشاريع ذات قوالب مثبتة وأدوار وبوابات اعتماد عبر الجهات.
@@ -238,7 +238,7 @@
   3. يستطيع مشروع بمالك OrgUnit واحد إشراك جهات أخرى بأدوار محددة دون منحها صلاحية خارج المشروع أو كشف مشاريع أخرى.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W2.3؛ `cluster/docs/plans/release-2-strategy-portfolio.md` §3 W2.3؛ `cluster/docs/adr/022-portfolio-projects-and-risk-boundaries.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W2.3؛ `docs/plans/release-2-strategy-portfolio.md` §3 W2.3؛ `docs/adr/022-portfolio-projects-and-risk-boundaries.md`
 
 ### Phase 14: W2.4 قوالب مشاريع التحسين
 **Goal:** يستطيع مكتب المشاريع تشغيل مشاريع عادية وتحسين عبر قوالب PDSA وDMAIC وFOCUS-PDCA وقالب داخلي محكوم.
@@ -253,7 +253,7 @@
   3. يستطيع مسؤول إنشاء قالب داخلي من الواجهة ونشر إصدار ثابت واستخدامه في مشروع تجريبي دون التأثير في المشاريع الجارية.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W2.4؛ `cluster/docs/plans/release-2-strategy-portfolio.md` §3 W2.4؛ `cluster/docs/adr/022-portfolio-projects-and-risk-boundaries.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W2.4؛ `docs/plans/release-2-strategy-portfolio.md` §3 W2.4؛ `docs/adr/022-portfolio-projects-and-risk-boundaries.md`
 
 ### Phase 15: W2.5 الإنجاز والصحة والميزانية
 **Goal:** يرى ملاك المشاريع والمحافظ إنجازاً قائماً على المعالم والأدلة وصحة لا تخفي المشروع الحرج وميزانية إدارية واضحة.
@@ -269,7 +269,7 @@
   4. تُقفل الأوزان بعد خط الأساس، ويظهر تاريخ مبرر لأي تغيير في المدة أو الميزانية أو الوزن أو التصنيف.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W2.5؛ `cluster/docs/plans/release-2-strategy-portfolio.md` §3 W2.5؛ `cluster/docs/architecture/non-functional-requirements.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W2.5؛ `docs/plans/release-2-strategy-portfolio.md` §3 W2.5؛ `docs/architecture/non-functional-requirements.md`
 
 ### Phase 16: W2.6 ربط الأثر
 **Goal:** يستطيع مالك المؤشر اعتماد أثر مشروع على تحسن مرصود دون أن تتجاوز المساهمات التحسن الحقيقي أو تتكرر الحقيقة بين الموديولات.
@@ -284,7 +284,7 @@
   3. يرى المستخدم الرابط والأثر المعتمد من لوحتي المشروع والمؤشر ضمن صلاحيات الجانبين، مع بقاء القياس الحقيقي مملوكاً لـStrategy.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W2.6؛ `cluster/docs/plans/release-2-strategy-portfolio.md` §3 W2.6؛ `cluster/docs/adr/021-strategy-indicator-ownership.md`؛ `cluster/docs/adr/022-portfolio-projects-and-risk-boundaries.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W2.6؛ `docs/plans/release-2-strategy-portfolio.md` §3 W2.6؛ `docs/adr/021-strategy-indicator-ownership.md`؛ `docs/adr/022-portfolio-projects-and-risk-boundaries.md`
 
 ### Phase 17: W2.7 UAT + إطلاق R2
 **Goal:** تثبت تجربة ميدانية من الاستراتيجية إلى المشروع والأثر أن R2 قابل للإطلاق دون تراجع R1.
@@ -301,7 +301,7 @@
   5. تكتمل قائمة الجاهزية والأدلة 100%، وتكون Go/No-Go ≥90 بلا أحمر ولا قسم وظيفي أو أمني دون 80، ثم يوقع الملاك Go قبل أي عمل R3.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §§4–7 W2.7؛ `cluster/docs/plans/release-2-strategy-portfolio.md` §§3 W2.7,5؛ `cluster/docs/plans/readiness-checklist.md` §§2.2,3–12؛ `cluster/docs/product/success-metrics.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §§4–7 W2.7؛ `docs/plans/release-2-strategy-portfolio.md` §§3 W2.7,5؛ `docs/plans/readiness-checklist.md` §§2.2,3–12؛ `docs/product/success-metrics.md`
 
 ### Phase 18: W3.0 مواصفة المخاطر
 **Goal:** تمتلك الحوكمة والفريق التقني مواصفة مخاطر قابلة للتنفيذ وحالات قبول ذهبية معتمدة قبل كتابة أي كود إنتاج R3.
@@ -316,7 +316,7 @@
   3. توجد قواعد معتمدة لملكية KRI وعتباته والتنبيه والتصعيد وقبول الخطر والقدرات والحقول والاحتفاظ.
   4. يثبت قائد التقنية أن المواصفة قابلة للتنفيذ ضمن حدود Risk/Strategy/PortfolioProjects والخدمات المشتركة دون نسخ الحقيقة أو إنشاء موديول جديد.
 **Plans:** TBD
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §§4,8 W3.0؛ `cluster/docs/plans/release-3-risk.md` §§2,4 W3.0؛ `cluster/docs/adr/022-portfolio-projects-and-risk-boundaries.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §§4,8 W3.0؛ `docs/plans/release-3-risk.md` §§2,4 W3.0؛ `docs/adr/022-portfolio-projects-and-risk-boundaries.md`
 
 ### Phase 19: W3.1 سجل المخاطر
 **Goal:** يستطيع المستخدمون المخولون إنشاء وإدارة سجلات مخاطر مرتبطة بالنطاق والمالك والفئة والمصدر عبر دورة حياة مدققة.
@@ -331,7 +331,7 @@
   3. يرى مسؤول المنشأة سجل منشأته فقط، ويرى مسؤول التجمع مخاطر الجهات التي تمنحه علاقته نطاقها دون نسخ بيانات Strategy أو Project.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W3.1؛ `cluster/docs/plans/release-3-risk.md` §4 W3.1؛ `cluster/docs/adr/022-portfolio-projects-and-risk-boundaries.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W3.1؛ `docs/plans/release-3-risk.md` §4 W3.1؛ `docs/adr/022-portfolio-projects-and-risk-boundaries.md`
 
 ### Phase 20: W3.2 التقييم
 **Goal:** يستطيع مسؤول المخاطر تقييم الخطر كامناً ومتبقياً وفق المصفوفة والشهية المعتمدتين مع snapshots وإعادة تقييم مبررة.
@@ -346,7 +346,7 @@
   3. تتطلب إعادة التقييم سبباً، وتحفظ snapshot تاريخية، وتعيد المنصة الحساب عند تغير فعالية ضابط عبر العقد المحدد.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W3.2؛ `cluster/docs/plans/release-3-risk.md` §4 W3.2؛ `cluster/docs/architecture/module-catalog.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W3.2؛ `docs/plans/release-3-risk.md` §4 W3.2؛ `docs/architecture/module-catalog.md`
 
 ### Phase 21: W3.3 مكتبة الضوابط
 **Goal:** يستطيع مسؤولو المخاطر إدارة ضوابط قابلة لإعادة الاستخدام وتقييم فعاليتها وربطها بالمخاطر لإعادة حساب المستوى المتبقي.
@@ -361,7 +361,7 @@
   3. يؤدي ضعف الفعالية أو انتهاء المراجعة إلى إبطال الاعتماد المتبقي وطلب إعادة التقييم وفق المواصفة.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W3.3؛ `cluster/docs/plans/release-3-risk.md` §4 W3.3؛ `cluster/docs/adr/022-portfolio-projects-and-risk-boundaries.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W3.3؛ `docs/plans/release-3-risk.md` §4 W3.3؛ `docs/adr/022-portfolio-projects-and-risk-boundaries.md`
 
 ### Phase 22: W3.4 خطط المعالجة
 **Goal:** يستطيع مالك الخطر اتخاذ قرار قبول أو تخفيف أو نقل أو تجنب وتنفيذ التخفيف عبر Tasks وDocuments المشتركة حتى إعادة التقييم.
@@ -376,7 +376,7 @@
   3. لا تُغلق خطة التخفيف حتى تكتمل مهامها وأدلتها، ثم يطلب النظام إعادة تقييم ويعرض أثر الخطة على المستوى المتبقي.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W3.4؛ `cluster/docs/plans/release-3-risk.md` §4 W3.4؛ `cluster/docs/architecture/module-catalog.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W3.4؛ `docs/plans/release-3-risk.md` §4 W3.4؛ `docs/architecture/module-catalog.md`
 
 ### Phase 23: W3.5 مؤشرات المخاطر والتصعيد
 **Goal:** يرى المستخدمون مؤشرات المخاطر ولوحاتهم ضمن النطاق، وتولد قراءة Strategy المعتمدة المتجاوزة لعتبة Risk تنبيهاً وتصعيداً محكوماً.
@@ -392,7 +392,7 @@
   4. يرى المستخدم لوحة مخاطر/KRI مرتبة حسب الشهية لنطاق الإدارة أو المنشأة أو التجمع فقط، ولا تكشف الروابط أو الأعداد خارج صلاحياته.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W3.5؛ `cluster/docs/plans/release-3-risk.md` §4 W3.5؛ `cluster/docs/adr/021-strategy-indicator-ownership.md`؛ `cluster/docs/adr/022-portfolio-projects-and-risk-boundaries.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W3.5؛ `docs/plans/release-3-risk.md` §4 W3.5؛ `docs/adr/021-strategy-indicator-ownership.md`؛ `docs/adr/022-portfolio-projects-and-risk-boundaries.md`
 
 ### Phase 24: W3.6 ربط بالأهداف والمشاريع
 **Goal:** يستطيع المستخدم المخول التنقل بين الخطر والهدف والمؤشر والمشروع وخطة المعالجة دون خرق الملكية أو الصلاحية.
@@ -407,7 +407,7 @@
   3. يتطلب حذف الرابط سبباً ويسجله التدقيق، ولا يستطيع Risk تعديل بيانات Strategy أو PortfolioProjects أو الاحتفاظ بنسخة مصدر حقيقة منها.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §4 W3.6؛ `cluster/docs/plans/release-3-risk.md` §4 W3.6؛ `cluster/docs/adr/022-portfolio-projects-and-risk-boundaries.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §4 W3.6؛ `docs/plans/release-3-risk.md` §4 W3.6؛ `docs/adr/022-portfolio-projects-and-risk-boundaries.md`
 
 ### Phase 25: W3.7 UAT + إطلاق R3
 **Goal:** تعمل R3 كسجل مخاطر تشغيلي معتمد في إدارتي مخاطر وتثبت جاهزية المنصة الكاملة والأداء والتبني والحكم النهائي.
@@ -424,7 +424,7 @@
   5. يبلغ قبول إدارتي المخاطر ≥85%، وتكتمل قائمة الجاهزية 100%، وتكون Go/No-Go ≥90 بلا أحمر ولا قسم وظيفي أو أمني دون 80، ثم يوقع الملاك Go وتُفعل بوابة حوكمة ما بعد R3.
 **Plans:** TBD
 **UI hint:** yes
-**Canonical refs:** `cluster/docs/plans/implementation-roadmap.md` §§4–8 W3.7؛ `cluster/docs/plans/release-3-risk.md` §§4 W3.7,6,8؛ `cluster/docs/plans/readiness-checklist.md` §§2.3,3–13؛ `cluster/docs/product/success-metrics.md`
+**Canonical refs:** `docs/plans/implementation-roadmap.md` §§4–8 W3.7؛ `docs/plans/release-3-risk.md` §§4 W3.7,6,8؛ `docs/plans/readiness-checklist.md` §§2.3,3–13؛ `docs/product/success-metrics.md`
 
 ## Progress
 

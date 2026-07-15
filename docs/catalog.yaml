@@ -1,0 +1,114 @@
+documents:
+  - {path: catalog.yaml, title: كتالوج الوثائق, category: governance, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: README.md, title: وثائق المنصة, category: index, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: governance/README.md, title: فهرس الحوكمة, category: governance, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: governance/document-control.md, title: ضوابط الوثائق, category: governance, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: governance/assumptions-constraints.md, title: الافتراضات والقيود والمخاطر, category: governance, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: governance/raci.md, title: مصفوفة المساءلة RACI, category: governance, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: governance/glossary.md, title: مسرد المصطلحات الموحد, category: governance, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: governance/traceability-matrix.md, title: مصفوفة تتبع المتطلبات, category: governance, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: governance/consistency-review.md, title: مراجعة اتساق القرارات الملزمة, category: governance, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: false, generated: false}
+  - {path: product/README.md, title: فهرس المنتج, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: product/vision-and-scope.md, title: الرؤية والنطاق, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: product/personas-and-journeys.md, title: الشخصيات ورحلات المستخدم, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: product/releases-and-roadmap.md, title: الإصدارات وخارطة الطريق, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: product/success-metrics.md, title: مؤشرات نجاح المنصة, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/README.md, title: فهرس الخطط, category: plans, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/implementation-roadmap.md, title: خارطة التنفيذ الرئيسية – منصة التجمع الصحي الثالث, category: plans, status: accepted, owner: مدير التجمع للتحول الرقمي, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/release-1-platform.md, title: خطة إصدار R1 – المنصة العامة الكاملة, category: plans, status: accepted, owner: قائد التقنية, phase: R1, source_of_truth: true, generated: false}
+  - {path: plans/release-2-strategy-portfolio.md, title: خطة إصدار R2 – الاستراتيجية والمحافظ والبرامج والمشاريع, category: plans, status: accepted, owner: مدير التجمع للتحول الرقمي, phase: R2, source_of_truth: true, generated: false}
+  - {path: plans/release-3-risk.md, title: خطة إصدار R3 – المخاطر المؤسسية, category: plans, status: accepted, owner: مسؤول المخاطر المؤسسية, phase: R3, source_of_truth: true, generated: false}
+  - {path: plans/readiness-checklist.md, title: قائمة جاهزية الإطلاق – منصات R1 وR2 وR3, category: plans, status: accepted, owner: مدير التجمع للتحول الرقمي, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: data-security/README.md, title: البيانات والأمن, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: data-security/logical-data-model.md, title: النموذج المنطقي للبيانات, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: data-security/authorization-model.md, title: نموذج الصلاحيات والعزل, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: data-security/identity-session-security.md, title: أمن الهوية والجلسات, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1, source_of_truth: true, generated: false}
+  - {path: data-security/classification-and-handling.md, title: تصنيف البيانات والتعامل معها, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: data-security/file-security.md, title: أمن الملفات, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1, source_of_truth: true, generated: false}
+  - {path: data-security/audit-and-privacy.md, title: التدقيق والخصوصية, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: data-security/retention-and-legal-hold.md, title: الاحتفاظ والحجز القانوني, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: data-security/threat-model.md, title: نموذج التهديدات والثقة, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: domain/README.md, title: فهرس مواصفات المجال, category: domain, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: domain/platform-settings.md, title: إعدادات المنصة والتقويم التشغيلي, category: domain, status: accepted, owner: مالك موديول PlatformSettings, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/organization-and-people.md, title: المؤسسة والهيكل التنظيمي, category: domain, status: accepted, owner: مالك موديول Organization, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/identity.md, title: الهوية والحسابات, category: domain, status: accepted, owner: مالك موديول Identity, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/authorization.md, title: التفويض المركزي, category: domain, status: accepted, owner: مالك موديول Authorization, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/audit.md, title: التدقيق غير القابل للتعديل, category: domain, status: accepted, owner: مالك موديول Audit, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/work-definitions.md, title: تعريفات العمل, category: domain, status: accepted, owner: مالك موديول WorkDefinitions, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/workflow.md, title: سير العمل والموافقات, category: domain, status: accepted, owner: مالك موديول Workflow, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/work-records.md, title: سجلات العمل الديناميكية, category: domain, status: accepted, owner: مالك موديول WorkRecords, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/records-governance.md, title: حوكمة السجلات والاحتفاظ والحجز, category: domain, status: accepted, owner: مالك موديول RecordsGovernance, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/documents.md, title: المستندات والروابط المحكومة, category: domain, status: accepted, owner: مالك موديول Documents, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/collaboration-tasks-workspace.md, title: التعاون والمهام ومساحة العمل, category: domain, status: accepted, owner: مالك موديولات Collaboration وTasks وWorkspace, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/notifications-search-reporting.md, title: الإشعارات والبحث والتقارير, category: domain, status: accepted, owner: مالك موديولات Notifications وSearch وReporting, phase: R1, source_of_truth: true, generated: false}
+  - {path: domain/strategy.md, title: الاستراتيجية والمؤشرات, category: domain, status: accepted, owner: مالك موديول Strategy, phase: R2, source_of_truth: true, generated: false}
+  - {path: domain/portfolio-projects.md, title: المحافظ والبرامج والمشاريع, category: domain, status: accepted, owner: مالك موديول PortfolioProjects, phase: R2, source_of_truth: true, generated: false}
+  - {path: domain/risk.md, title: المخاطر والضوابط والمعالجة, category: domain, status: accepted, owner: مالك موديول Risk, phase: R3, source_of_truth: true, generated: false}
+  - {path: architecture/README.md, title: فهرس المعمار, category: architecture, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/overview.md, title: النظرة المعمارية لمنصة التجمع الصحي الثالث, category: architecture, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/context-map.md, title: خريطة السياقات المعمارية, category: architecture, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/module-catalog.md, title: كتالوج الموديولات canonical, category: architecture, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/dependency-rules.md, title: قواعد الاعتماد المعماري, category: architecture, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/c4-and-flows.md, title: C4 والتدفقات المعمارية, category: architecture, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/non-functional-requirements.md, title: المتطلبات غير الوظيفية المعمارية, category: architecture, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/diagrams/system-context.mmd, title: رسم سياق النظام, category: architecture-diagram, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/diagrams/containers.mmd, title: رسم الحاويات, category: architecture-diagram, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/diagrams/modules.mmd, title: رسم الموديولات, category: architecture-diagram, status: accepted, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: architecture/diagrams/deployment.mmd, title: رسم النشر, category: architecture-diagram, status: accepted, owner: مسؤول العمليات, phase: R1, source_of_truth: true, generated: false}
+  - {path: architecture/diagrams/authorization-sequence.mmd, title: تسلسل التفويض, category: architecture-diagram, status: accepted, owner: مكتب هندسة المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: architecture/diagrams/workflow-sequence.mmd, title: تسلسل المسار, category: architecture-diagram, status: accepted, owner: مكتب هندسة المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: architecture/diagrams/document-sequence.mmd, title: تسلسل المستند, category: architecture-diagram, status: accepted, owner: مكتب هندسة المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: architecture/diagrams/outbox-sequence.mmd, title: تسلسل Outbox, category: architecture-diagram, status: accepted, owner: مكتب هندسة المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: operations/README.md, title: فهرس وثائق التشغيل, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: operations/physical-topology.md, title: الطوبولوجيا الفيزيائية ومجالات العطل, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1, source_of_truth: true, generated: false}
+  - {path: operations/kubernetes-platform.md, title: منصة Kubernetes والنشر, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1, source_of_truth: true, generated: false}
+  - {path: operations/ha-dr-backup.md, title: التوافر العالي والتعافي والنسخ الاحتياطي, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1, source_of_truth: true, generated: false}
+  - {path: operations/observability-and-slos.md, title: الرصد ومؤشرات وأهداف مستوى الخدمة, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: operations/air-gap-supply-chain.md, title: سلسلة التوريد والتشغيل المعزول, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: operations/incident-response.md, title: الاستجابة للحوادث, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: operations/runbooks.md, title: كتيبات التشغيل التنفيذية, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: engineering/README.md, title: دليل الهندسة التنفيذي, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: engineering/vertical-slices.md, title: الشرائح الرأسية داخل الموديولات, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: engineering/coding-and-module-boundaries.md, title: حدود الكود والموديولات, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: engineering/testing-strategy.md, title: استراتيجية الاختبار, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: engineering/ci-cd-and-release.md, title: التكامل والتسليم والإصدار, category: engineering, status: draft, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: engineering/database-migrations.md, title: ترحيلات قاعدة البيانات, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: engineering/definition-dsl.md, title: لغة تعريف العمل المقيدة, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/README.md, title: فهرس العقود, category: contracts, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: contracts/module-contracts.md, title: عقود الموديولات, category: contracts, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: contracts/api/openapi.yaml, title: OpenAPI, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/events/asyncapi.yaml, title: AsyncAPI, category: contract-events, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/access-context.schema.json, title: Access Context schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/access-decision.schema.json, title: Access Decision schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/document-scan-completed.schema.json, title: Document Scan Completed schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/event-envelope.schema.json, title: Event Envelope schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/problem-details.schema.json, title: Problem Details schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/record-facts.schema.json, title: Record Facts schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/work-record.schema.json, title: Work Record schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/work-record-submitted.schema.json, title: Work Record Submitted schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/workflow-decision-recorded.schema.json, title: Workflow Decision Recorded schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/workflow-step-activated.schema.json, title: Workflow Step Activated schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/README.md, title: فهرس قرارات المعمارية, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: adr/template.md, title: عنوان القرار, category: adr, status: proposed, owner: مجلس معمارية المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: adr/001-modular-monolith.md, title: اعتماد Laravel Modular Monolith, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: adr/002-module-first-vertical-slices.md, title: Module-First Vertical Slices, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: adr/003-module-boundaries.md, title: حدود الموديولات وملكية البيانات, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: adr/004-authorization-and-isolation.md, title: RBAC + ABAC والعزل التنظيمي, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/005-work-records-dynamic-data.md, title: WorkRecords والبيانات الديناميكية, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/006-workflow-versioning.md, title: إصدارات المسارات وتنفيذها, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/007-transactional-outbox.md, title: Transactional Outbox للأحداث الداخلية, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/008-shared-content-query-capabilities.md, title: قدرات المحتوى والاستعلام المشتركة, category: adr, status: superseded, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: false, generated: false}
+  - {path: adr/009-unified-react-shell.md, title: واجهة React موحدة, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/010-air-gapped-kubernetes.md, title: Kubernetes معزول, category: adr, status: superseded, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: false, generated: false}
+  - {path: adr/011-lightweight-cqrs-and-transactions.md, title: CQRS خفيف وحدود المعاملة, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: adr/012-local-identity-and-session-security.md, title: الهوية المحلية وأمن الجلسات, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/013-documents-and-file-security.md, title: المستندات وأمن الملفات, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/014-authorized-search.md, title: البحث المحكوم, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/015-authorized-reporting.md, title: التقارير واللوحات المحكومة, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/016-audit-and-records-governance.md, title: التدقيق وحوكمة السجلات, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/017-derived-workspace-and-notifications.md, title: مساحة العمل والإشعارات المشتقة, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/018-air-gapped-supply-chain.md, title: سلسلة التوريد المعزولة, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/019-kubernetes-resilience-and-recovery.md, title: تشغيل Kubernetes والتعافي, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/020-organization-and-time-bounded-authority.md, title: التنظيم والسلطة المحددة زمنياً, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/021-strategy-indicator-ownership.md, title: ملكية الاستراتيجية والمؤشرات, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R2, source_of_truth: true, generated: false}
+  - {path: adr/022-portfolio-projects-and-risk-boundaries.md, title: حدود المحافظ والمشاريع والمخاطر, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R2-R3, source_of_truth: true, generated: false}

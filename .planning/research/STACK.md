@@ -296,12 +296,12 @@ Patch policy:
 
 ### Canonical project sources (HIGH confidence for locked decisions)
 
-- `/Users/tariq/code/R3/.planning/PROJECT.md`
-- `cluster/docs/architecture/overview.md`
-- `cluster/docs/architecture/module-catalog.md`
-- `cluster/docs/operations/air-gap-supply-chain.md`
-- `cluster/docs/operations/kubernetes-platform.md`
-- `cluster/docs/engineering/testing-strategy.md`
+- `.planning/PROJECT.md`
+- `docs/architecture/overview.md`
+- `docs/architecture/module-catalog.md`
+- `docs/operations/air-gap-supply-chain.md`
+- `docs/operations/kubernetes-platform.md`
+- `docs/engineering/testing-strategy.md`
 - Accepted ADRs 009, 012, 014, 018, and 019.
 
 ### Official version sources (GSD provider tier LOW; checked 2026-07-15)

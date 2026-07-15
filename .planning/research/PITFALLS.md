@@ -526,7 +526,7 @@ The roadmap should preserve the approved wave order. In particular, do not start
 ## Sources
 
 ### Canonical project sources
-- `/Users/tariq/code/R3/.planning/PROJECT.md` — scope, constraints, R1–R3 success criteria.
+- `.planning/PROJECT.md` — scope, constraints, R1–R3 success criteria.
 - `docs/governance/assumptions-constraints.md` — assumptions, hard constraints, enterprise risks.
 - `docs/data-security/threat-model.md` — trust boundaries and executable threat tests (**draft**).
 - `docs/plans/implementation-roadmap.md` — wave dependencies, cross-cutting tracks, deferred decisions, gates.

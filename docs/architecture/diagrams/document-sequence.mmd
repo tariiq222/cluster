@@ -1,0 +1,52 @@
+sequenceDiagram
+    actor User as المستخدم
+    participant UI as React Shell
+    participant Owner as Owning Module
+    participant Doc as Documents
+    participant Auth as Authorization
+    participant Storage as S3-Compatible Storage
+    participant Audit as Audit
+    participant Outbox as Transactional Outbox
+
+    User->>UI: رفع مستند إلى سجل عمل
+    UI->>Owner: UploadDocument command
+    Owner->>Doc: CreateDocument(metadata, classification, record_ref)
+    Doc->>Owner: GetAuthorizationRecordFacts(record_ref)
+    Owner-->>Doc: Active link facts or facts_unavailable
+    Doc->>Doc: Build candidate DocumentFacts + all active link facts
+    Doc->>Auth: DecideAccess(create, actor, EffectiveRestrictionFacts)
+    Auth->>Auth: Apply strictest facts and fail closed on missing facts
+    Auth-->>Doc: One AccessDecision
+    alt Decision allows
+        Doc->>Storage: Store binary version
+        Storage-->>Doc: Object id and checksum
+        Doc->>Doc: Persist metadata, link, and outbox atomically
+        Doc->>Audit: Append critical audit when required
+        Doc-->>Owner: Document id after commit
+        Owner-->>UI: 201 Created
+    else Decision denies or any facts unavailable
+        Doc-->>Owner: 403 Forbidden
+        Owner-->>UI: Access denied
+    end
+
+    User->>UI: تنزيل مستند
+    UI->>Owner: GetDocument(id)
+    Owner->>Doc: AuthorizeDocumentDownload(actor, document, record_ref)
+    Doc->>Doc: Load DocumentFacts and enumerate all active links
+    loop Every active document link
+        Doc->>Owner: GetAuthorizationRecordFacts(source_ref)
+        Owner-->>Doc: Current link facts or facts_unavailable
+    end
+    Doc->>Auth: DecideAccess(download, actor, DocumentFacts + all active link facts)
+    Auth->>Auth: Apply strictest facts and fail closed on missing facts
+    Auth-->>Doc: One AccessDecision
+    alt Decision allows
+        Doc->>Audit: Record sensitive access when required
+        Doc->>Storage: Issue short-lived download URL
+        Storage-->>Doc: Signed URL
+        Doc-->>Owner: Signed URL
+        Owner-->>UI: Download response
+    else Decision denies or any facts unavailable
+        Doc-->>Owner: 403 Forbidden
+        Owner-->>UI: Access denied
+    end

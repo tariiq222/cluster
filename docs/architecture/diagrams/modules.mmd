@@ -1,0 +1,137 @@
+flowchart TB
+    UI["React + TypeScript Unified Shell"]
+    subgraph MONO["Laravel Modular Monolith"]
+        subgraph ROOT["Roots"]
+            PS["PlatformSettings"]
+            ORG["Organization"]
+        end
+        subgraph CONTROL["Identity and control"]
+            ID["Identity"]
+            AUTH["Authorization"]
+            AUDIT["Audit"]
+        end
+        subgraph WORK["Work and collaboration"]
+            WF["Workflow"]
+            RG["RecordsGovernance"]
+            WD["WorkDefinitions"]
+            DOC["Documents"]
+            COL["Collaboration"]
+            TASK["Tasks"]
+            WR["WorkRecords"]
+        end
+        subgraph DOMAINS["Specialized domains"]
+            STR["Strategy"]
+            PP["PortfolioProjects"]
+            RISK["Risk"]
+        end
+        subgraph DERIVED["Derived consumers"]
+            NOTIFY["Notifications"]
+            SEARCH["Search"]
+            REPORT["Reporting"]
+            WS["Workspace"]
+        end
+    end
+
+    UI --> ID
+    UI --> WR
+    UI --> STR
+    UI --> PP
+    UI --> RISK
+    UI --> WS
+    ID --> PS
+    AUTH --> ID
+    AUTH --> ORG
+    AUTH --> PS
+    AUDIT --> AUTH
+    WF --> ORG
+    WF --> AUTH
+    WF --> AUDIT
+    RG --> PS
+    RG --> AUTH
+    RG --> AUDIT
+    WD --> PS
+    WD --> WF
+    WD --> AUTH
+    WD --> AUDIT
+    DOC --> RG
+    DOC --> AUTH
+    DOC --> AUDIT
+    COL --> DOC
+    COL --> RG
+    COL --> AUTH
+    COL --> AUDIT
+    TASK --> ID
+    TASK --> COL
+    TASK --> DOC
+    TASK --> RG
+    TASK --> AUTH
+    TASK --> AUDIT
+    WR --> WD
+    WR --> WF
+    WR --> TASK
+    WR --> COL
+    WR --> DOC
+    WR --> RG
+    WR --> AUTH
+    WR --> AUDIT
+    STR --> ORG
+    STR --> WF
+    STR --> TASK
+    STR --> COL
+    STR --> DOC
+    STR --> RG
+    STR --> AUTH
+    STR --> AUDIT
+    PP --> ORG
+    PP --> STR
+    PP --> WF
+    PP --> TASK
+    PP --> COL
+    PP --> DOC
+    PP --> RG
+    PP --> AUTH
+    PP --> AUDIT
+    RISK --> ORG
+    RISK --> STR
+    RISK --> PP
+    RISK --> WF
+    RISK --> TASK
+    RISK --> COL
+    RISK --> DOC
+    RISK --> RG
+    RISK --> AUTH
+    RISK --> AUDIT
+    NOTIFY --> ID
+    NOTIFY --> AUTH
+    NOTIFY -.->|"events"| WR
+    NOTIFY -.->|"events"| WF
+    NOTIFY -.->|"events"| TASK
+    NOTIFY -.->|"events"| COL
+    NOTIFY -.->|"events"| STR
+    NOTIFY -.->|"events"| PP
+    NOTIFY -.->|"events"| RISK
+    NOTIFY -.->|"events"| RG
+    SEARCH -.->|"events"| WR
+    SEARCH -.->|"events"| TASK
+    SEARCH -.->|"events"| COL
+    SEARCH -.->|"events"| DOC
+    SEARCH -.->|"events"| STR
+    SEARCH -.->|"events"| PP
+    SEARCH -.->|"events"| RISK
+    SEARCH --> AUTH
+    REPORT -.->|"feeds"| WR
+    REPORT -.->|"feeds"| WF
+    REPORT -.->|"feeds"| TASK
+    REPORT -.->|"feeds"| STR
+    REPORT -.->|"feeds"| PP
+    REPORT -.->|"feeds"| RISK
+    REPORT --> ORG
+    REPORT --> AUTH
+    WS -.->|"events"| WR
+    WS -.->|"events"| WF
+    WS -.->|"events"| TASK
+    WS -.->|"events"| COL
+    WS -.->|"events"| STR
+    WS -.->|"events"| PP
+    WS -.->|"events"| RISK
+    WS --> AUTH

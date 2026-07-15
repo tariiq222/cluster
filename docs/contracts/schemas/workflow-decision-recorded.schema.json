@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/workflow-decision-recorded.schema.json",
+  "title": "Workflow Decision Recorded Event Data",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["workflow_instance_id", "step_instance_id", "decision_id", "record_id", "actor_id", "decision", "recorded_at", "classification", "access_context"],
+  "properties": {"workflow_instance_id": {"$ref": "#/$defs/uuidv7"}, "step_instance_id": {"$ref": "#/$defs/uuidv7"}, "decision_id": {"$ref": "#/$defs/uuidv7"}, "record_id": {"$ref": "#/$defs/uuidv7"}, "actor_id": {"$ref": "#/$defs/uuidv7"}, "decision": {"type": "string", "enum": ["approve", "reject", "return", "accept", "decline"]}, "reason": {"type": "string", "maxLength": 2000}, "recorded_at": {"$ref": "#/$defs/utcDateTime"}, "classification": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]}, "access_context": {"$ref": "access-context.schema.json"}},
+  "$defs": {"uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"}}
+}

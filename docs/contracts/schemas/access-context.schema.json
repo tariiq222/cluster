@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/access-context.schema.json",
+  "title": "Access Context",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["subject_id", "tenant_id", "clearance", "correlation_id"],
+  "properties": {
+    "subject_id": {"$ref": "#/$defs/uuidv7"},
+    "tenant_id": {"$ref": "#/$defs/uuidv7"},
+    "organization_unit_ids": {"type": "array", "items": {"$ref": "#/$defs/uuidv7"}, "uniqueItems": true},
+    "roles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "clearance": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]},
+    "break_glass": {"type": "boolean", "default": false},
+    "correlation_id": {"$ref": "#/$defs/uuidv7"}
+  },
+  "$defs": {
+    "uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Lowercase RFC 9562 UUID version 7"}
+  }
+}

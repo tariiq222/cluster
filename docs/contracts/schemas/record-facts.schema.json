@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/record-facts.schema.json",
+  "title": "Work Record Authorization Facts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["facts_version", "source_module", "record_type", "record_id", "cluster_id", "owner_facility_id", "owner_organization_unit_id", "created_by_user_id", "owner_user_id", "responsible_user_id", "shared_unit_ids", "shared_user_ids", "participant_ids", "classification", "lifecycle_state", "field_policy_key", "lock_version", "fact_time"],
+  "properties": {
+    "facts_version": {"type": "string", "minLength": 1, "maxLength": 128},
+    "source_module": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
+    "record_type": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,127}$"},
+    "record_id": {"$ref": "#/$defs/uuidv7"},
+    "cluster_id": {"$ref": "#/$defs/uuidv7"},
+    "owner_facility_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]},
+    "owner_organization_unit_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]},
+    "created_by_user_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]},
+    "owner_user_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]},
+    "responsible_user_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]},
+    "shared_unit_ids": {"type": "array", "items": {"$ref": "#/$defs/uuidv7"}, "uniqueItems": true},
+    "shared_user_ids": {"type": "array", "items": {"$ref": "#/$defs/uuidv7"}, "uniqueItems": true},
+    "participant_ids": {"type": "array", "items": {"$ref": "#/$defs/uuidv7"}, "uniqueItems": true},
+    "classification": {"$ref": "#/$defs/classification"},
+    "lifecycle_state": {"type": "string", "minLength": 1, "maxLength": 64},
+    "workflow_state": {"type": "string", "maxLength": 64},
+    "field_policy_key": {"type": "string", "minLength": 1, "maxLength": 128},
+    "work_type_version_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]},
+    "legal_hold": {"type": "boolean", "default": false},
+    "lock_version": {"type": "integer", "minimum": 1},
+    "fact_time": {"$ref": "#/$defs/utcDateTime"}
+  },
+  "$defs": {
+    "classification": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]},
+    "uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Lowercase RFC 9562 UUID version 7"},
+    "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"},
+    "owner": {"type": "object", "additionalProperties": false, "required": ["scope_type", "scope_id", "cluster_id"], "properties": {"scope_type": {"type": "string", "enum": ["cluster", "facility", "unit"]}, "scope_id": {"$ref": "#/$defs/uuidv7"}, "cluster_id": {"$ref": "#/$defs/uuidv7"}, "facility_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]}, "organization_unit_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]}}}
+  }
+}

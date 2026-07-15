@@ -1,0 +1,40 @@
+stages:
+  - validate
+  - build
+
+variables:
+  DOCS_PYTHON_IMAGE: "python:3.12-slim"
+
+default:
+  interruptible: true
+
+.docs-python:
+  image: "$DOCS_PYTHON_IMAGE"
+  before_script:
+    - python -m pip install --disable-pip-version-check -r requirements-docs.txt
+
+validate-docs:
+  extends: .docs-python
+  stage: validate
+  script:
+    - ./scripts/validate-docs.sh
+
+build-docs:
+  extends: .docs-python
+  stage: build
+  script:
+    - python -m mkdocs build --strict
+  artifacts:
+    when: always
+    paths:
+      - site/
+    expire_in: 1 week
+
+validate-mermaid:
+  stage: validate
+  image: "$MERMAID_IMAGE"
+  rules:
+    - if: '$MERMAID_IMAGE'
+  script:
+    - command -v mmdc
+    - ./scripts/render-diagrams.sh /tmp/validated-diagrams

@@ -1,0 +1,675 @@
+openapi: 3.1.0
+info:
+  title: Cluster Platform API
+  version: 1.0.0
+  license: {name: Proprietary, url: 'https://cluster.example/legal'}
+  description: Authenticated, authorization-filtered API. IDs are lowercase RFC 9562 UUIDv7 values and timestamps are RFC 3339 UTC values ending in Z.
+servers:
+  - url: https://api.cluster.example/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Authenticate a principal
+      security: []
+      operationId: login
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Login'}}}}
+      responses: {'200': {description: Authenticated session, headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/json: {schema: {$ref: '#/components/schemas/Session'}}}}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
+  /auth/logout:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Revoke the current session
+      operationId: logout
+      responses: {'204': {description: Session revoked, headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}
+  /me:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: Get the current principal
+      operationId: getCurrentPrincipal
+      responses: {'200': {$ref: '#/components/responses/Principal'}, '401': {$ref: '#/components/responses/Problem'}}
+  /work-definitions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: List work definitions
+      operationId: listWorkDefinitions
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}
+    post:
+      summary: Create a work definition
+      operationId: createWorkDefinition
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkDefinitionCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /work-definitions/{definitionId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: Get a work definition
+      operationId: getWorkDefinition
+      parameters: [{$ref: '#/components/parameters/DefinitionId'}]
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}
+    patch:
+      summary: Update a work definition
+      operationId: updateWorkDefinition
+      parameters: [{$ref: '#/components/parameters/DefinitionId'}, {$ref: '#/components/parameters/IfMatch'}]
+      requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/WorkDefinitionPatch'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /work-definitions/{definitionId}/versions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: List immutable work definition versions
+      operationId: listWorkDefinitionVersions
+      parameters: [{$ref: '#/components/parameters/DefinitionId'}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}
+    post:
+      summary: Create a Draft work definition version
+      operationId: createWorkDefinitionVersion
+      parameters: [{$ref: '#/components/parameters/DefinitionId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkDefinitionVersionCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /work-definition-versions/{versionId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: Get a work definition version
+      operationId: getWorkDefinitionVersion
+      parameters: [{$ref: '#/components/parameters/VersionId'}]
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}
+    patch:
+      summary: Update a Draft work definition version; Signed and Published versions are immutable
+      operationId: updateWorkDefinitionVersionDraft
+      parameters: [{$ref: '#/components/parameters/VersionId'}, {$ref: '#/components/parameters/IfMatch'}]
+      requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/WorkDefinitionVersionPatch'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /work-definition-versions/{versionId}/test:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {summary: Test a Draft version and transition it to Tested, operationId: testWorkDefinitionVersion, parameters: [{$ref: '#/components/parameters/VersionId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /work-definition-versions/{versionId}/approve:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {summary: Approve a Tested version, operationId: approveWorkDefinitionVersion, parameters: [{$ref: '#/components/parameters/VersionId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /work-definition-versions/{versionId}/sign:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Sign an Approved version whose schema hash matches
+      operationId: signWorkDefinitionVersion
+      parameters: [{$ref: '#/components/parameters/VersionId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SignatureRequest'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /work-definition-versions/{versionId}/publish:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {summary: Publish a Signed version as immutable, operationId: publishWorkDefinitionVersion, parameters: [{$ref: '#/components/parameters/VersionId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /work-records:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: List work records
+      operationId: listWorkRecords
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {$ref: '#/components/parameters/Classification'}]
+      responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Problem'}}
+    post:
+      summary: Create a work record
+      operationId: createWorkRecord
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkRecordCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/WorkRecord'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /work-records/{recordId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: Get a work record
+      operationId: getWorkRecord
+      parameters: [{$ref: '#/components/parameters/RecordId'}]
+      responses: {'200': {$ref: '#/components/responses/WorkRecord'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}
+    patch:
+      summary: Update a work record
+      operationId: updateWorkRecord
+      parameters: [{$ref: '#/components/parameters/RecordId'}, {$ref: '#/components/parameters/IfMatch'}]
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              type: object
+              properties:
+                payload: {type: object}
+                responsible_user_id: {type: string, format: uuid}
+                classification: {$ref: '#/components/schemas/Classification'}
+      responses: {'200': {$ref: '#/components/responses/WorkRecord'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /work-records/{recordId}/cancel:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Cancel a work record without physical deletion
+      operationId: cancelWorkRecord
+      parameters: [{$ref: '#/components/parameters/RecordId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonAction'}}}}
+      responses: {'200': {$ref: '#/components/responses/WorkRecord'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /work-records/{recordId}/archive:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Archive a terminal work record subject to retention and holds
+      operationId: archiveWorkRecord
+      parameters: [{$ref: '#/components/parameters/RecordId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonAction'}}}}
+      responses: {'200': {$ref: '#/components/responses/WorkRecord'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /work-records/{recordId}/submit:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Submit a work record
+      operationId: submitWorkRecord
+      parameters: [{$ref: '#/components/parameters/RecordId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: false, content: {application/json: {schema: {type: object, additionalProperties: false, properties: {comment: {type: string, maxLength: 1000}}}}}}
+      responses: {'200': {$ref: '#/components/responses/WorkRecord'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /workflow/definitions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: List workflow definitions, operationId: listWorkflowDefinitions, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post:
+      summary: Create a workflow definition and its first Draft version
+      operationId: createWorkflowDefinition
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkflowDefinitionCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /workflow/definitions/{definitionId}/versions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: List workflow versions, operationId: listWorkflowVersions, parameters: [{$ref: '#/components/parameters/DefinitionId'}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    post:
+      summary: Create a Draft workflow version
+      operationId: createWorkflowVersion
+      parameters: [{$ref: '#/components/parameters/DefinitionId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkflowVersionCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /workflow/versions/{versionId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: Get a workflow version graph, operationId: getWorkflowVersion, parameters: [{$ref: '#/components/parameters/VersionId'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch:
+      summary: Update a Draft workflow graph
+      operationId: updateWorkflowVersionDraft
+      parameters: [{$ref: '#/components/parameters/VersionId'}, {$ref: '#/components/parameters/IfMatch'}]
+      requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/WorkflowVersionPatch'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /workflow/versions/{versionId}/{lifecycleAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Test, approve, sign, or publish a workflow version in lifecycle order
+      operationId: transitionWorkflowVersion
+      parameters: [{$ref: '#/components/parameters/VersionId'}, {name: lifecycleAction, in: path, required: true, schema: {type: string, enum: [test, approve, sign, publish]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/LifecycleAction'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /workflow/instances:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: List authorized workflow instances, operationId: listWorkflowInstances, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {name: state, in: query, schema: {type: string}}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post:
+      summary: Start a workflow using a Published version
+      operationId: startWorkflow
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkflowStart'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /workflow/instances/{instanceId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: Get workflow instance state and active steps, operationId: getWorkflowInstance, parameters: [{name: instanceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /workflow/instances/{instanceId}/cancel:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {summary: Cancel an active workflow, operationId: cancelWorkflow, parameters: [{name: instanceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonAction'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /workflow/steps/{stepId}/decisions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Record a workflow decision
+      operationId: recordWorkflowDecision
+      parameters: [{$ref: '#/components/parameters/StepId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Decision'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /workflow/steps/{stepId}/{stepAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Reassign or escalate an active workflow step
+      operationId: actOnWorkflowStep
+      parameters: [{$ref: '#/components/parameters/StepId'}, {name: stepAction, in: path, required: true, schema: {type: string, enum: [reassign, escalate]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WorkflowStepAction'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /tasks:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: List assigned tasks
+      operationId: listTasks
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {name: state, in: query, schema: {type: string}}]
+      responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}
+    post:
+      summary: Create a standalone or source-linked task
+      operationId: createTask
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TaskCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /tasks/{taskId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: Get an authorized task, operationId: getTask, parameters: [{$ref: '#/components/parameters/TaskId'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch:
+      summary: Update mutable task fields
+      operationId: updateTask
+      parameters: [{$ref: '#/components/parameters/TaskId'}, {$ref: '#/components/parameters/IfMatch'}]
+      requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/TaskPatch'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /tasks/{taskId}/participants:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {summary: Add a task participant, operationId: addTaskParticipant, parameters: [{$ref: '#/components/parameters/TaskId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ParticipantCreate'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /tasks/{taskId}/comments:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: List task comments, operationId: listTaskComments, parameters: [{$ref: '#/components/parameters/TaskId'}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    post: {summary: Add a task comment and mentions, operationId: addTaskComment, parameters: [{$ref: '#/components/parameters/TaskId'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CommentCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /tasks/{taskId}/{taskAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Start, block, unblock, submit completion, complete, return, or cancel a task
+      operationId: transitionTask
+      parameters: [{$ref: '#/components/parameters/TaskId'}, {name: taskAction, in: path, required: true, schema: {type: string, enum: [start, block, unblock, submit-completion, accept-completion, return-completion, complete, cancel]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/TaskAction'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /documents/uploads:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Initiate a document upload
+      operationId: initiateDocumentUpload
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UploadRequest'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /documents/uploads/{uploadId}/complete:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Complete a document upload
+      operationId: completeDocumentUpload
+      parameters: [{$ref: '#/components/parameters/UploadId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false, required: [sha256], properties: {sha256: {type: string, pattern: '^[a-f0-9]{64}$'}}}}}}
+      responses: {'202': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /documents:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: List authorized document metadata, operationId: listDocuments, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {$ref: '#/components/parameters/Classification'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post:
+      summary: Create document metadata before uploading bytes
+      operationId: createDocument
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DocumentCreate'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /documents/{documentId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: Get authorized document metadata, operationId: getDocument, parameters: [{$ref: '#/components/parameters/DocumentId'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch:
+      summary: Update document metadata or classification with a reason
+      operationId: updateDocument
+      parameters: [{$ref: '#/components/parameters/DocumentId'}, {$ref: '#/components/parameters/IfMatch'}]
+      requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/DocumentPatch'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /documents/{documentId}/versions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: List immutable document versions, operationId: listDocumentVersions, parameters: [{$ref: '#/components/parameters/DocumentId'}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    post: {summary: Initiate upload of a new document version, operationId: addDocumentVersion, parameters: [{$ref: '#/components/parameters/DocumentId'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DocumentVersionCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /documents/{documentId}/links:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: List active source links, operationId: listDocumentLinks, parameters: [{$ref: '#/components/parameters/DocumentId'}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    post: {summary: Link a document to a source record, operationId: linkDocument, parameters: [{$ref: '#/components/parameters/DocumentId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DocumentLinkCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /documents/{documentId}/{documentAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Archive, place on hold, or release hold without physical deletion
+      operationId: transitionDocument
+      parameters: [{$ref: '#/components/parameters/DocumentId'}, {name: documentAction, in: path, required: true, schema: {type: string, enum: [archive, place-hold, release-hold]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonAction'}}}}
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}
+  /documents/{documentId}/{grantType}-grant:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Issue a one-time preview or download grant after authorization and audit
+      operationId: createDocumentAccessGrant
+      parameters: [{$ref: '#/components/parameters/DocumentId'}, {name: grantType, in: path, required: true, schema: {type: string, enum: [preview, download]}}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DocumentGrantRequest'}}}}
+      responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /documents/{documentId}/download:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: Get an authorized document download URL
+      operationId: downloadDocument
+      parameters: [{$ref: '#/components/parameters/DocumentId'}]
+      responses: {'302': {description: Authorized one-time download URL, headers: {Location: {required: true, schema: {type: string, format: uri}}, X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /workspace:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: Get the current workspace
+      operationId: getWorkspace
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Problem'}}
+  /search:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: Search authorized content
+      operationId: search
+      parameters: [{name: q, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 256}}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses: {'200': {$ref: '#/components/responses/Collection'}, '400': {$ref: '#/components/responses/Problem'}, '401': {$ref: '#/components/responses/Problem'}}
+  /reports:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: List available reports
+      operationId: listReports
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}
+  /reports/{reportId}/exports:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post:
+      summary: Create a report export
+      operationId: createReportExport
+      parameters: [{$ref: '#/components/parameters/ReportId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: false, required: [format], properties: {format: {type: string, enum: [csv, xlsx, pdf]}, filters: {type: object}}}}}}
+      responses: {'202': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}
+  /exports/{exportId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: Get an export
+      operationId: getExport
+      parameters: [{$ref: '#/components/parameters/ExportId'}]
+      responses: {'200': {$ref: '#/components/responses/Entity'}, '404': {$ref: '#/components/responses/Problem'}}
+  /audit:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get:
+      summary: List audit events
+      operationId: listAuditEvents
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {name: resource_id, in: query, schema: {type: string, format: uuid}}]
+      responses: {'200': {$ref: '#/components/responses/Collection'}, '403': {$ref: '#/components/responses/Problem'}}
+  /organization/facilities:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Organization Admin], summary: List facilities, operationId: listFacilities, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Organization Admin], summary: Create a facility under the cluster, operationId: createFacility, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/OrganizationNodeCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /organization/facilities/{facilityId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Organization Admin], summary: Get a facility, operationId: getFacility, parameters: [{name: facilityId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch: {tags: [Organization Admin], summary: Update or archive a facility profile, operationId: updateFacility, parameters: [{name: facilityId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}], requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/OrganizationNodePatch'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /organization/units:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Organization Admin], summary: List organization units, operationId: listOrganizationUnits, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {name: parent_id, in: query, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Organization Admin], summary: Create an organization unit, operationId: createOrganizationUnit, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/OrganizationNodeCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /organization/units/{unitId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Organization Admin], summary: Get an organization unit and path, operationId: getOrganizationUnit, parameters: [{name: unitId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch: {tags: [Organization Admin], summary: Update, move, deactivate, or archive an organization unit, operationId: updateOrganizationUnit, parameters: [{name: unitId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}], requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/OrganizationNodePatch'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /organization/positions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Organization Admin], summary: List positions, operationId: listPositions, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {name: unit_id, in: query, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Organization Admin], summary: Create a position, operationId: createPosition, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PositionCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /organization/people:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Organization Admin], summary: List people, operationId: listPeople, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Organization Admin], summary: Register a person, operationId: registerPerson, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PersonCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /organization/assignments:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Organization Admin], summary: List assignments, operationId: listAssignments, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {name: person_id, in: query, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Organization Admin], summary: Create a dated position assignment, operationId: createAssignment, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AssignmentCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /organization/assignments/{assignmentId}/end:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [Organization Admin], summary: End an active assignment, operationId: endAssignment, parameters: [{name: assignmentId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/EffectiveEnd'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /organization/supervisory-relationships:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Organization Admin], summary: List supervisory relationships, operationId: listSupervisoryRelationships, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Organization Admin], summary: Create a supervisory relationship with explicit capabilities, operationId: createSupervisoryRelationship, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SupervisoryRelationshipCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /organization/import-jobs:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [Organization Admin], summary: Submit an organization import job, operationId: submitOrganizationImport, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ImportJobCreate'}}}}, responses: {'202': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /organization/import-jobs/{jobId}/{jobAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [Organization Admin], summary: Validate, approve, reject, apply, or cancel an import job, operationId: transitionOrganizationImport, parameters: [{name: jobId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: jobAction, in: path, required: true, schema: {type: string, enum: [validate, approve, reject, apply, cancel]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonAction'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /authorization/{adminResource}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Authorization Admin], summary: List authorization administration resources, operationId: listAuthorizationAdminResources, parameters: [{name: adminResource, in: path, required: true, schema: {type: string, enum: [roles, capabilities, role-assignments, delegations, classification-policies, field-access-templates]}}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Authorization Admin], summary: Create an authorization administration resource, operationId: createAuthorizationAdminResource, parameters: [{name: adminResource, in: path, required: true, schema: {type: string, enum: [roles, capabilities, role-assignments, delegations, classification-policies, field-access-templates]}}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AuthorizationAdminCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /authorization/{adminResource}/{resourceId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Authorization Admin], summary: Get an authorization administration resource, operationId: getAuthorizationAdminResource, parameters: [{name: adminResource, in: path, required: true, schema: {type: string, enum: [roles, capabilities, role-assignments, delegations, classification-policies, field-access-templates]}}, {name: resourceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch: {tags: [Authorization Admin], summary: Update a mutable authorization administration resource, operationId: updateAuthorizationAdminResource, parameters: [{name: adminResource, in: path, required: true, schema: {type: string, enum: [roles, capabilities, role-assignments, delegations, classification-policies, field-access-templates]}}, {name: resourceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}], requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/AuthorizationAdminPatch'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /authorization/{adminResource}/{resourceId}/{authorizationAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [Authorization Admin], summary: Activate, revoke, expire, or publish an authorization resource, operationId: transitionAuthorizationAdminResource, parameters: [{name: adminResource, in: path, required: true, schema: {type: string, enum: [role-assignments, delegations, classification-policies, field-access-templates]}}, {name: resourceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: authorizationAction, in: path, required: true, schema: {type: string, enum: [activate, revoke, expire, publish]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonAction'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /authorization/access-decisions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {summary: Evaluate access from actor context and current AuthorizationRecordFacts, operationId: decideAccess, requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AccessDecisionRequest'}}}}, responses: {'200': {$ref: '#/components/responses/AccessDecision'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /authorization/access-decisions/{decisionId}/explanation:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {summary: Explain a recorded access decision, operationId: explainAccessDecision, parameters: [{name: decisionId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/AccessDecision'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /platform-settings/versions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [PlatformSettings], summary: List platform settings versions, operationId: listPlatformSettingsVersions, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [PlatformSettings], summary: Create a Draft platform settings version, operationId: createPlatformSettingsDraft, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SettingsVersionCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /platform-settings/versions/{versionId}/settings/{settingKey}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    put: {tags: [PlatformSettings], summary: Set a typed value on a Draft settings version, operationId: setPlatformSetting, parameters: [{$ref: '#/components/parameters/VersionId'}, {name: settingKey, in: path, required: true, schema: {type: string, pattern: '^[a-z][a-z0-9_.-]{1,127}$'}}, {$ref: '#/components/parameters/IfMatch'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SettingValue'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /platform-settings/versions/{versionId}/{settingsAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [PlatformSettings], summary: Validate or publish a settings version, operationId: transitionPlatformSettingsVersion, parameters: [{$ref: '#/components/parameters/VersionId'}, {name: settingsAction, in: path, required: true, schema: {type: string, enum: [validate, publish]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /platform-settings/current:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [PlatformSettings], summary: Get the current Published settings version, operationId: getCurrentPlatformSettings, responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /business-calendars:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [PlatformSettings], summary: List business calendars, operationId: listBusinessCalendars, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [PlatformSettings], summary: Create a Draft business calendar, operationId: createBusinessCalendar, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BusinessCalendarCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /business-calendars/{calendarId}/days/{date}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    put: {tags: [PlatformSettings], summary: Set a Draft calendar day, operationId: setBusinessCalendarDay, parameters: [{name: calendarId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: date, in: path, required: true, schema: {type: string, format: date}}, {$ref: '#/components/parameters/IfMatch'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BusinessCalendarDay'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /business-calendars/{calendarId}/publish:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [PlatformSettings], summary: Publish an immutable business calendar, operationId: publishBusinessCalendar, parameters: [{name: calendarId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /strategy/{strategyResource}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Strategy], summary: List authorized strategy resources, operationId: listStrategyResources, parameters: [{name: strategyResource, in: path, required: true, schema: {type: string, enum: [plans, indicators, indicator-periods, target-distributions, measurements]}}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Strategy], summary: Create a plan, indicator, period, target distribution, or measurement draft, operationId: createStrategyResource, parameters: [{name: strategyResource, in: path, required: true, schema: {type: string, enum: [plans, indicators, indicator-periods, target-distributions, measurements]}}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/StrategyResourceCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /strategy/{strategyResource}/{resourceId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Strategy], summary: Get an authorized strategy resource, operationId: getStrategyResource, parameters: [{name: strategyResource, in: path, required: true, schema: {type: string, enum: [plans, indicators, indicator-periods, target-distributions, measurements]}}, {name: resourceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch: {tags: [Strategy], summary: Update a mutable strategy draft, operationId: updateStrategyResource, parameters: [{name: strategyResource, in: path, required: true, schema: {type: string, enum: [plans, indicators, target-distributions, measurements]}}, {name: resourceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}], requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/StrategyResourcePatch'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /strategy/{strategyResource}/{resourceId}/{strategyAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [Strategy], summary: Validate, submit, decide, publish, lock, reopen, or retire a strategy resource, operationId: transitionStrategyResource, parameters: [{name: strategyResource, in: path, required: true, schema: {type: string, enum: [plan-versions, indicator-versions, indicator-periods, target-distributions, measurements]}}, {name: resourceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: strategyAction, in: path, required: true, schema: {type: string, enum: [validate, submit, approve, return, publish, lock, reopen, retire]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/LifecycleAction'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /strategy/measurements/pending:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Strategy], summary: List pending indicator measurements, operationId: listPendingIndicatorMeasurements, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /strategy/indicators/{indicatorId}/scorecard:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Strategy], summary: Get an authorized indicator scorecard, operationId: getIndicatorScorecard, parameters: [{name: indicatorId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: scope_id, in: query, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: period_id, in: query, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /portfolio/{portfolioResource}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [PortfolioProjects], summary: List authorized portfolio resources, operationId: listPortfolioResources, parameters: [{name: portfolioResource, in: path, required: true, schema: {type: string, enum: [portfolios, programs, projects, project-templates]}}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [PortfolioProjects], summary: Create a portfolio, program, project, or project template draft, operationId: createPortfolioResource, parameters: [{name: portfolioResource, in: path, required: true, schema: {type: string, enum: [portfolios, programs, projects, project-templates]}}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PortfolioResourceCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /portfolio/{portfolioResource}/{resourceId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [PortfolioProjects], summary: Get an authorized portfolio resource, operationId: getPortfolioResource, parameters: [{name: portfolioResource, in: path, required: true, schema: {type: string, enum: [portfolios, programs, projects, project-templates]}}, {name: resourceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch: {tags: [PortfolioProjects], summary: Update a mutable portfolio resource, operationId: updatePortfolioResource, parameters: [{name: portfolioResource, in: path, required: true, schema: {type: string, enum: [portfolios, programs, projects, project-templates]}}, {name: resourceId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}], requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/PortfolioResourcePatch'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /portfolio/projects/{projectId}/{projectAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [PortfolioProjects], summary: Baseline, start, hold, resume, close, or cancel a project, operationId: transitionProject, parameters: [{name: projectId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: projectAction, in: path, required: true, schema: {type: string, enum: [baseline, start, hold, resume, close, cancel]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/LifecycleAction'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /portfolio/projects/{projectId}/milestones:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [PortfolioProjects], summary: List project milestones, operationId: listProjectMilestones, parameters: [{name: projectId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    post: {tags: [PortfolioProjects], summary: Create a project milestone, operationId: createProjectMilestone, parameters: [{name: projectId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MilestoneCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /portfolio/projects/{projectId}/{snapshotType}-snapshots:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [PortfolioProjects], summary: Record a project budget or health snapshot, operationId: recordProjectSnapshot, parameters: [{name: projectId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: snapshotType, in: path, required: true, schema: {type: string, enum: [budget, health]}}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ProjectSnapshotCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /portfolio/projects/{projectId}/indicator-links:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [PortfolioProjects], summary: List project indicator links, operationId: listProjectIndicatorLinks, parameters: [{name: projectId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    post: {tags: [PortfolioProjects], summary: Register a project indicator link, operationId: createProjectIndicatorLink, parameters: [{name: projectId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/IndicatorLinkCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /risk/{riskResource}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Risk], summary: List authorized risk resources, operationId: listRiskResources, parameters: [{name: riskResource, in: path, required: true, schema: {type: string, enum: [registers, policy-versions, risks, controls, treatments, indicators]}}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [Risk], summary: Create a risk register, policy draft, risk, control, treatment, or indicator, operationId: createRiskResource, parameters: [{name: riskResource, in: path, required: true, schema: {type: string, enum: [registers, policy-versions, risks, controls, treatments, indicators]}}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RiskResourceCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /risk/risks/{riskId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Risk], summary: Get an authorized risk and current assessment, operationId: getRisk, parameters: [{name: riskId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    patch: {tags: [Risk], summary: Update a mutable risk, operationId: updateRisk, parameters: [{name: riskId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}], requestBody: {required: true, content: {application/merge-patch+json: {schema: {$ref: '#/components/schemas/RiskResourcePatch'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /risk/risks/{riskId}/{riskAction}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [Risk], summary: Assess, accept, escalate, or close a risk, operationId: transitionRisk, parameters: [{name: riskId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {name: riskAction, in: path, required: true, schema: {type: string, enum: [assess, accept, escalate, close]}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RiskAction'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /risk/risks/{riskId}/indicator-readings:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Risk], summary: List risk indicator readings, operationId: listRiskIndicatorReadings, parameters: [{name: riskId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+    post: {tags: [Risk], summary: Record a risk indicator reading, operationId: createRiskIndicatorReading, parameters: [{name: riskId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RiskIndicatorReadingCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /risk/heatmap:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Risk], summary: Get an authorization-filtered risk heatmap, operationId: getRiskHeatmap, parameters: [{name: scope_id, in: query, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /risk/reviews/due:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [Risk], summary: List due risk and control reviews, operationId: listDueRiskReviews, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+  /records-governance/retention-policy-versions:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [RecordsGovernance], summary: List retention policy versions, operationId: listRetentionPolicyVersions, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [RecordsGovernance], summary: Create a retention policy version draft, operationId: createRetentionPolicyVersion, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RetentionPolicyCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /records-governance/retention-policy-versions/{versionId}/publish:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [RecordsGovernance], summary: Publish an immutable retention policy version, operationId: publishRetentionPolicyVersion, parameters: [{$ref: '#/components/parameters/VersionId'}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /records-governance/governed-records:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [RecordsGovernance], summary: List governed record status without source payloads, operationId: listGovernedRecords, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {name: status, in: query, schema: {type: string}}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [RecordsGovernance], summary: Register a source record under a retention policy, operationId: registerGovernedRecord, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GovernedRecordCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /records-governance/governed-records/{governedRecordId}:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [RecordsGovernance], summary: Get retention, hold, and disposition status, operationId: getGovernedRecordStatus, parameters: [{name: governedRecordId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}], responses: {'200': {$ref: '#/components/responses/Entity'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}}}
+  /records-governance/holds:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [RecordsGovernance], summary: List active and historical holds, operationId: listRecordHolds, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [RecordsGovernance], summary: Place a record or scope on hold, operationId: placeRecordHold, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RecordHoldCreate'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /records-governance/holds/{holdId}/release:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [RecordsGovernance], summary: Release an active hold and require re-evaluation, operationId: releaseRecordHold, parameters: [{name: holdId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReasonAction'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+  /records-governance/disposition-reviews:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    get: {tags: [RecordsGovernance], summary: List disposition reviews, operationId: listDispositionReviews, parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}, {name: status, in: query, schema: {type: string}}], responses: {'200': {$ref: '#/components/responses/Collection'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}}}
+    post: {tags: [RecordsGovernance], summary: Decide disposition eligibility after hold checks, operationId: decideDispositionEligibility, parameters: [{$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DispositionDecision'}}}}, responses: {'201': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}}}
+  /records-governance/disposition-reviews/{reviewId}/confirm:
+    parameters: [{$ref: '#/components/parameters/CorrelationId'}]
+    post: {tags: [RecordsGovernance], summary: Confirm the source module disposition outcome, operationId: confirmDispositionOutcome, parameters: [{name: reviewId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}, {$ref: '#/components/parameters/IfMatch'}, {$ref: '#/components/parameters/IdempotencyKey'}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DispositionConfirmation'}}}}, responses: {'200': {$ref: '#/components/responses/Entity'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}, '403': {$ref: '#/components/responses/Forbidden'}, '404': {$ref: '#/components/responses/NotFound'}, '409': {$ref: '#/components/responses/Conflict'}, '412': {$ref: '#/components/responses/PreconditionFailed'}}}
+components:
+  securitySchemes: {bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}}
+  headers:
+    Correlation:
+      description: Required request correlation value echoed by the service; lowercase RFC 9562 UUIDv7.
+      required: true
+      schema: {$ref: '#/components/schemas/UUIDv7'}
+    ETag:
+      description: Strong entity version tag
+      required: true
+      schema:
+        type: string
+  parameters:
+    CorrelationId: {name: X-Correlation-ID, in: header, required: true, description: Lowercase RFC 9562 UUIDv7 used for request, response, audit, and event correlation., schema: {$ref: '#/components/schemas/UUIDv7'}}
+    Cursor: {name: cursor, in: query, schema: {type: string, minLength: 1}}
+    Limit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+    Classification: {name: classification, in: query, schema: {$ref: '#/components/schemas/Classification'}}
+    IfMatch: {name: If-Match, in: header, required: true, schema: {type: string}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 1, maxLength: 255, pattern: '^[\x21-\x7E]+$'}}
+    DefinitionId: {name: definitionId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+    VersionId: {name: versionId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+    RecordId: {name: recordId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+    StepId: {name: stepId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+    TaskId: {name: taskId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+    UploadId: {name: uploadId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+    DocumentId: {name: documentId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+    ReportId: {name: reportId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+    ExportId: {name: exportId, in: path, required: true, schema: {$ref: '#/components/schemas/UUIDv7'}}
+  responses:
+    Entity: {description: Authorized typed resource representation, headers: {ETag: {$ref: '#/components/headers/ETag'}, X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/json: {schema: {$ref: '#/components/schemas/Entity'}}}}
+    WorkRecord: {description: Authorized work record, headers: {ETag: {$ref: '#/components/headers/ETag'}, X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/json: {schema: {$ref: '../schemas/work-record.schema.json'}}}}
+    Collection: {description: Cursor-paginated authorized collection, headers: {Link: {schema: {type: string}}, X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/json: {schema: {$ref: '#/components/schemas/EntityCollection'}}}}
+    Principal: {description: Current principal, headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/json: {schema: {$ref: '../schemas/access-context.schema.json'}}}}
+    Problem: {description: RFC 7807 problem details, headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/problem+json: {schema: {$ref: '../schemas/problem-details.schema.json'}}}}
+    BadRequest: {description: Invalid request (RFC 7807), headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/problem+json: {schema: {$ref: '../schemas/problem-details.schema.json'}}}}
+    Unauthorized: {description: Authentication required or invalid (RFC 7807), headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/problem+json: {schema: {$ref: '../schemas/problem-details.schema.json'}}}}
+    Forbidden: {description: Authorization denied (RFC 7807), headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/problem+json: {schema: {$ref: '../schemas/problem-details.schema.json'}}}}
+    NotFound: {description: Resource not found or intentionally concealed (RFC 7807), headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/problem+json: {schema: {$ref: '../schemas/problem-details.schema.json'}}}}
+    Conflict: {description: State or idempotency conflict (RFC 7807), headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/problem+json: {schema: {$ref: '../schemas/problem-details.schema.json'}}}}
+    PreconditionFailed: {description: If-Match does not match the current version (RFC 7807), headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/problem+json: {schema: {$ref: '../schemas/problem-details.schema.json'}}}}
+    AccessDecision: {description: Explainable access decision, headers: {X-Correlation-ID: {$ref: '#/components/headers/Correlation'}}, content: {application/json: {schema: {$ref: '../schemas/access-decision.schema.json'}}}}
+  schemas:
+    UUIDv7: {type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', description: Lowercase RFC 9562 UUID version 7}
+    UtcDateTime: {type: string, format: date-time, pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$', description: RFC 3339 UTC timestamp ending in Z}
+    Classification: {type: string, enum: [public, internal, confidential, top_secret]}
+    Login: {type: object, additionalProperties: false, required: [username, password], properties: {username: {type: string, minLength: 1}, password: {type: string, minLength: 12}}}
+    Session: {type: object, additionalProperties: false, required: [access_token, token_type, expires_at, principal], properties: {access_token: {type: string, minLength: 1}, token_type: {const: Bearer}, expires_at: {$ref: '#/components/schemas/UtcDateTime'}, principal: {$ref: '../schemas/access-context.schema.json'}}}
+    WorkDefinitionCreate: {type: object, additionalProperties: false, required: [code, name, default_classification], properties: {code: {type: string, pattern: '^[a-z][a-z0-9-]{1,95}$'}, name: {type: string, minLength: 1, maxLength: 255}, default_classification: {$ref: '#/components/schemas/Classification'}, description: {type: string, maxLength: 2000}}}
+    WorkDefinitionPatch: {type: object, additionalProperties: false, minProperties: 1, properties: {name: {type: string, minLength: 1, maxLength: 255}, description: {type: string, maxLength: 2000}, default_classification: {$ref: '#/components/schemas/Classification'}}}
+    WorkDefinitionVersionCreate: {type: object, additionalProperties: false, required: [schema_document, field_policy_key], properties: {schema_document: {type: object, minProperties: 1}, field_policy_key: {type: string, minLength: 1, maxLength: 128}, change_summary: {type: string, maxLength: 2000}}}
+    WorkDefinitionVersionPatch: {type: object, additionalProperties: false, minProperties: 1, properties: {schema_document: {type: object, minProperties: 1}, field_policy_key: {type: string, minLength: 1, maxLength: 128}, change_summary: {type: string, maxLength: 2000}}}
+    SignatureRequest: {type: object, additionalProperties: false, required: [schema_hash, signature, key_id], properties: {schema_hash: {type: string, pattern: '^[a-f0-9]{64}$'}, signature: {type: string, minLength: 32}, key_id: {type: string, minLength: 1, maxLength: 128}}}
+    WorkRecordCreate: {type: object, additionalProperties: false, required: [work_type_version_id, owner, classification, payload], properties: {work_type_version_id: {$ref: '#/components/schemas/UUIDv7'}, owner: {$ref: '../schemas/record-facts.schema.json#/$defs/owner'}, responsible_user_id: {$ref: '#/components/schemas/UUIDv7'}, classification: {$ref: '#/components/schemas/Classification'}, payload: {type: object}}}
+    Decision: {type: object, additionalProperties: false, required: [decision], properties: {decision: {type: string, enum: [approve, reject, return, accept, decline]}, reason: {type: string, maxLength: 2000}}}
+    ReasonAction: {type: object, additionalProperties: false, required: [reason], properties: {reason: {type: string, minLength: 1, maxLength: 2000}}}
+    LifecycleAction: {type: object, additionalProperties: false, properties: {reason: {type: string, maxLength: 2000}, signature: {type: string, minLength: 32}, decision_id: {$ref: '#/components/schemas/UUIDv7'}}}
+    UploadRequest: {type: object, additionalProperties: false, required: [document_id, file_name, content_type, byte_size], properties: {document_id: {$ref: '#/components/schemas/UUIDv7'}, file_name: {type: string, minLength: 1, maxLength: 255}, content_type: {type: string, pattern: '^[^/]+/[^/]+$'}, byte_size: {type: integer, minimum: 1, maximum: 1073741824}}}
+    WorkflowDefinitionCreate: {type: object, additionalProperties: false, required: [code, name, source_record_type], properties: {code: {type: string, pattern: '^[a-z][a-z0-9_]{1,95}$'}, name: {type: string, minLength: 1, maxLength: 255}, source_record_type: {type: string, minLength: 1, maxLength: 128}}}
+    WorkflowVersionCreate: {type: object, additionalProperties: false, required: [nodes, transitions, decision_policy], properties: {nodes: {type: array, minItems: 2, items: {$ref: '#/components/schemas/WorkflowNode'}}, transitions: {type: array, minItems: 1, items: {$ref: '#/components/schemas/WorkflowTransition'}}, decision_policy: {type: object, minProperties: 1}}}
+    WorkflowVersionPatch: {type: object, additionalProperties: false, minProperties: 1, properties: {nodes: {type: array, minItems: 2, items: {$ref: '#/components/schemas/WorkflowNode'}}, transitions: {type: array, minItems: 1, items: {$ref: '#/components/schemas/WorkflowTransition'}}, decision_policy: {type: object, minProperties: 1}, tests: {type: array, items: {type: object}}}}
+    WorkflowNode: {type: object, additionalProperties: false, required: [key, type], properties: {key: {type: string, pattern: '^[a-z][a-z0-9_]{1,95}$'}, type: {type: string, enum: [start, approval, decision, task, end]}, assignment_rule: {type: object}, configuration: {type: object}}}
+    WorkflowTransition: {type: object, additionalProperties: false, required: [from, to], properties: {from: {type: string}, to: {type: string}, guard: {type: object}, outcome: {type: string}}}
+    WorkflowStart: {type: object, additionalProperties: false, required: [workflow_version_id, source_module, record_type, record_id], properties: {workflow_version_id: {$ref: '#/components/schemas/UUIDv7'}, source_module: {type: string, pattern: '^[a-z][a-z0-9_]{1,63}$'}, record_type: {type: string, minLength: 1, maxLength: 128}, record_id: {$ref: '#/components/schemas/UUIDv7'}}}
+    WorkflowStepAction: {type: object, additionalProperties: false, required: [reason], properties: {target_user_id: {$ref: '#/components/schemas/UUIDv7'}, reason: {type: string, minLength: 1, maxLength: 2000}}}
+    TaskCreate: {type: object, additionalProperties: false, required: [title, owner_organization_unit_id, priority, due_at, classification], properties: {title: {type: string, minLength: 1, maxLength: 255}, description: {type: string, maxLength: 4000}, owner_organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}, assignee_user_id: {$ref: '#/components/schemas/UUIDv7'}, priority: {type: string, enum: [low, normal, high, critical]}, due_at: {$ref: '#/components/schemas/UtcDateTime'}, classification: {$ref: '#/components/schemas/Classification'}, source: {$ref: '#/components/schemas/SourceReference'}, completion_policy: {type: string, enum: [direct, requires_acceptance]}}}
+    TaskPatch: {type: object, additionalProperties: false, minProperties: 1, properties: {title: {type: string, minLength: 1, maxLength: 255}, description: {type: string, maxLength: 4000}, assignee_user_id: {$ref: '#/components/schemas/UUIDv7'}, priority: {type: string, enum: [low, normal, high, critical]}, due_at: {$ref: '#/components/schemas/UtcDateTime'}}}
+    TaskAction: {type: object, additionalProperties: false, properties: {reason: {type: string, maxLength: 2000}, note: {type: string, maxLength: 4000}, evidence_document_ids: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/UUIDv7'}}, decision_id: {$ref: '#/components/schemas/UUIDv7'}}}
+    ParticipantCreate: {type: object, additionalProperties: false, required: [user_id], properties: {user_id: {$ref: '#/components/schemas/UUIDv7'}, role: {type: string, maxLength: 64}}}
+    CommentCreate: {type: object, additionalProperties: false, required: [body], properties: {body: {type: string, minLength: 1, maxLength: 4000}, mentioned_user_ids: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/UUIDv7'}}}}
+    DocumentCreate: {type: object, additionalProperties: false, required: [title, classification, owner_organization_unit_id, restriction_policy_key], properties: {title: {type: string, minLength: 1, maxLength: 255}, description: {type: string, maxLength: 2000}, classification: {$ref: '#/components/schemas/Classification'}, owner_organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}, restriction_policy_key: {type: string, minLength: 1, maxLength: 128}}}
+    DocumentPatch: {type: object, additionalProperties: false, minProperties: 1, properties: {title: {type: string, minLength: 1, maxLength: 255}, description: {type: string, maxLength: 2000}, classification: {$ref: '#/components/schemas/Classification'}, classification_change_reason: {type: string, minLength: 1, maxLength: 2000}}}
+    DocumentVersionCreate: {type: object, additionalProperties: false, required: [file_name, content_type, byte_size], properties: {file_name: {type: string, minLength: 1, maxLength: 255}, content_type: {type: string, pattern: '^[^/]+/[^/]+$'}, byte_size: {type: integer, minimum: 1, maximum: 1073741824}}}
+    DocumentLinkCreate: {type: object, additionalProperties: false, required: [source, relation_type], properties: {source: {$ref: '#/components/schemas/SourceReference'}, relation_type: {type: string, minLength: 1, maxLength: 64}, constraint_policy_key: {type: string, maxLength: 128}}}
+    DocumentGrantRequest: {type: object, additionalProperties: false, required: [version_id], properties: {version_id: {$ref: '#/components/schemas/UUIDv7'}, purpose: {type: string, maxLength: 500}}}
+    SourceReference: {type: object, additionalProperties: false, required: [source_module, record_type, record_id], properties: {source_module: {type: string, pattern: '^[a-z][a-z0-9_]{1,63}$'}, record_type: {type: string, minLength: 1, maxLength: 128}, record_id: {$ref: '#/components/schemas/UUIDv7'}}}
+    OrganizationNodeCreate: {type: object, additionalProperties: false, required: [cluster_id, code, name], properties: {cluster_id: {$ref: '#/components/schemas/UUIDv7'}, parent_id: {$ref: '#/components/schemas/UUIDv7'}, code: {type: string, pattern: '^[A-Z0-9_-]{2,64}$'}, name: {type: string, minLength: 1, maxLength: 255}, type_code: {type: string, maxLength: 64}}}
+    OrganizationNodePatch: {type: object, additionalProperties: false, minProperties: 1, properties: {parent_id: {$ref: '#/components/schemas/UUIDv7'}, name: {type: string, minLength: 1, maxLength: 255}, status: {type: string, enum: [active, inactive, archived]}, reason: {type: string, maxLength: 2000}}}
+    PositionCreate: {type: object, additionalProperties: false, required: [organization_unit_id, code, title], properties: {organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}, code: {type: string, pattern: '^[A-Z0-9_-]{2,64}$'}, title: {type: string, minLength: 1, maxLength: 255}, manager_position_id: {$ref: '#/components/schemas/UUIDv7'}}}
+    PersonCreate: {type: object, additionalProperties: false, required: [identity_user_id, employee_number, display_name], properties: {identity_user_id: {$ref: '#/components/schemas/UUIDv7'}, employee_number: {type: string, minLength: 1, maxLength: 64}, display_name: {type: string, minLength: 1, maxLength: 255}}}
+    AssignmentCreate: {type: object, additionalProperties: false, required: [person_id, position_id, start_at], properties: {person_id: {$ref: '#/components/schemas/UUIDv7'}, position_id: {$ref: '#/components/schemas/UUIDv7'}, start_at: {$ref: '#/components/schemas/UtcDateTime'}, end_at: {$ref: '#/components/schemas/UtcDateTime'}, is_primary: {type: boolean, default: true}}}
+    EffectiveEnd: {type: object, additionalProperties: false, required: [end_at, reason], properties: {end_at: {$ref: '#/components/schemas/UtcDateTime'}, reason: {type: string, minLength: 1, maxLength: 2000}}}
+    SupervisoryRelationshipCreate: {type: object, additionalProperties: false, required: [source_unit_id, target_unit_id, relationship_type, start_at, capability_codes], properties: {source_unit_id: {$ref: '#/components/schemas/UUIDv7'}, target_unit_id: {$ref: '#/components/schemas/UUIDv7'}, relationship_type: {type: string, minLength: 1, maxLength: 64}, start_at: {$ref: '#/components/schemas/UtcDateTime'}, end_at: {$ref: '#/components/schemas/UtcDateTime'}, capability_codes: {type: array, minItems: 1, uniqueItems: true, items: {type: string, minLength: 1, maxLength: 96}}}}
+    ImportJobCreate: {type: object, additionalProperties: false, required: [document_id, import_type], properties: {document_id: {$ref: '#/components/schemas/UUIDv7'}, import_type: {type: string, enum: [csv, xlsx]}, notes: {type: string, maxLength: 2000}}}
+    AuthorizationAdminCreate: {type: object, additionalProperties: false, required: [resource_type, code], properties: {resource_type: {type: string, enum: [role, capability, role_assignment, delegation, classification_policy, field_access_template]}, code: {type: string, pattern: '^[a-z][a-z0-9_.-]{1,95}$'}, name: {type: string, maxLength: 255}, subject_user_id: {$ref: '#/components/schemas/UUIDv7'}, role_id: {$ref: '#/components/schemas/UUIDv7'}, scope_type: {type: string, enum: [cluster, facility, unit, record_set]}, scope_id: {$ref: '#/components/schemas/UUIDv7'}, start_at: {$ref: '#/components/schemas/UtcDateTime'}, end_at: {$ref: '#/components/schemas/UtcDateTime'}, policy_document: {type: object, minProperties: 1}}}
+    AuthorizationAdminPatch: {type: object, additionalProperties: false, minProperties: 1, properties: {name: {type: string, maxLength: 255}, status: {type: string, enum: [draft, active, inactive, revoked, expired, published]}, end_at: {$ref: '#/components/schemas/UtcDateTime'}, policy_document: {type: object, minProperties: 1}}}
+    AccessDecisionRequest: {type: object, additionalProperties: false, required: [action, access_context, record_facts], properties: {action: {type: string, minLength: 1, maxLength: 128}, access_context: {$ref: '../schemas/access-context.schema.json'}, record_facts: {$ref: '../schemas/record-facts.schema.json'}}}
+    SettingsVersionCreate: {type: object, additionalProperties: false, required: [name], properties: {name: {type: string, minLength: 1, maxLength: 255}, based_on_version_id: {$ref: '#/components/schemas/UUIDv7'}}}
+    SettingValue: {type: object, additionalProperties: false, required: [value_type, value], properties: {value_type: {type: string, enum: [string, integer, number, boolean, object, array]}, value: {type: [string, integer, number, boolean, object, array]}}}
+    BusinessCalendarCreate: {type: object, additionalProperties: false, required: [code, name, timezone, year], properties: {code: {type: string, pattern: '^[A-Z0-9_-]{2,64}$'}, name: {type: string, minLength: 1, maxLength: 255}, timezone: {type: string, const: Asia/Riyadh}, year: {type: integer, minimum: 2000, maximum: 2200}}}
+    BusinessCalendarDay: {type: object, additionalProperties: false, required: [is_working_day], properties: {is_working_day: {type: boolean}, working_minutes: {type: integer, minimum: 0, maximum: 1440}, label: {type: string, maxLength: 255}}}
+    StrategyResourceCreate: {type: object, additionalProperties: false, required: [resource_type, code, name, owner_organization_unit_id, classification], properties: {resource_type: {type: string, enum: [plan, indicator, indicator_period, target_distribution, measurement]}, code: {type: string, maxLength: 64}, name: {type: string, minLength: 1, maxLength: 255}, owner_organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}, parent_id: {$ref: '#/components/schemas/UUIDv7'}, indicator_version_id: {$ref: '#/components/schemas/UUIDv7'}, period_id: {$ref: '#/components/schemas/UUIDv7'}, measured_value: {type: number}, classification: {$ref: '#/components/schemas/Classification'}}}
+    StrategyResourcePatch: {type: object, additionalProperties: false, minProperties: 1, properties: {name: {type: string, minLength: 1, maxLength: 255}, owner_organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}, measured_value: {type: number}, notes: {type: string, maxLength: 2000}}}
+    PortfolioResourceCreate: {type: object, additionalProperties: false, required: [resource_type, code, name, owner_organization_unit_id, classification], properties: {resource_type: {type: string, enum: [portfolio, program, project, project_template]}, code: {type: string, maxLength: 64}, name: {type: string, minLength: 1, maxLength: 255}, owner_organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}, parent_id: {$ref: '#/components/schemas/UUIDv7'}, template_version_id: {$ref: '#/components/schemas/UUIDv7'}, planned_start_at: {$ref: '#/components/schemas/UtcDateTime'}, planned_end_at: {$ref: '#/components/schemas/UtcDateTime'}, classification: {$ref: '#/components/schemas/Classification'}}}
+    PortfolioResourcePatch: {type: object, additionalProperties: false, minProperties: 1, properties: {name: {type: string, minLength: 1, maxLength: 255}, owner_organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}, planned_start_at: {$ref: '#/components/schemas/UtcDateTime'}, planned_end_at: {$ref: '#/components/schemas/UtcDateTime'}, description: {type: string, maxLength: 4000}}}
+    MilestoneCreate: {type: object, additionalProperties: false, required: [code, name, due_at, weight], properties: {code: {type: string, maxLength: 64}, name: {type: string, minLength: 1, maxLength: 255}, due_at: {$ref: '#/components/schemas/UtcDateTime'}, weight: {type: number, exclusiveMinimum: 0, maximum: 100}, evidence_document_ids: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/UUIDv7'}}}}
+    ProjectSnapshotCreate: {type: object, additionalProperties: false, required: [captured_at, values], properties: {captured_at: {$ref: '#/components/schemas/UtcDateTime'}, values: {type: object, minProperties: 1}, override_reason: {type: string, maxLength: 2000}, override_expires_at: {$ref: '#/components/schemas/UtcDateTime'}}}
+    IndicatorLinkCreate: {type: object, additionalProperties: false, required: [indicator_id, scope_id, baseline, expected_impact], properties: {indicator_id: {$ref: '#/components/schemas/UUIDv7'}, scope_id: {$ref: '#/components/schemas/UUIDv7'}, period_id: {$ref: '#/components/schemas/UUIDv7'}, baseline: {type: number}, expected_impact: {type: number}}}
+    RiskResourceCreate: {type: object, additionalProperties: false, required: [resource_type, code, name, owner_organization_unit_id, classification], properties: {resource_type: {type: string, enum: [register, policy_version, risk, control, treatment, indicator]}, code: {type: string, maxLength: 64}, name: {type: string, minLength: 1, maxLength: 255}, owner_organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}, owner_user_id: {$ref: '#/components/schemas/UUIDv7'}, register_id: {$ref: '#/components/schemas/UUIDv7'}, risk_id: {$ref: '#/components/schemas/UUIDv7'}, next_review_at: {$ref: '#/components/schemas/UtcDateTime'}, classification: {$ref: '#/components/schemas/Classification'}}}
+    RiskResourcePatch: {type: object, additionalProperties: false, minProperties: 1, properties: {name: {type: string, minLength: 1, maxLength: 255}, owner_user_id: {$ref: '#/components/schemas/UUIDv7'}, next_review_at: {$ref: '#/components/schemas/UtcDateTime'}, description: {type: string, maxLength: 4000}}}
+    RiskAction: {type: object, additionalProperties: false, required: [reason], properties: {reason: {type: string, minLength: 1, maxLength: 2000}, policy_version_id: {$ref: '#/components/schemas/UUIDv7'}, likelihood: {type: integer, minimum: 1, maximum: 10}, impact: {type: integer, minimum: 1, maximum: 10}, evidence_document_ids: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/UUIDv7'}}}}
+    RiskIndicatorReadingCreate: {type: object, additionalProperties: false, required: [indicator_id, observed_at, value], properties: {indicator_id: {$ref: '#/components/schemas/UUIDv7'}, observed_at: {$ref: '#/components/schemas/UtcDateTime'}, value: {type: number}, evidence_document_ids: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/UUIDv7'}}}}
+    RetentionPolicyCreate: {type: object, additionalProperties: false, required: [code, name, rules], properties: {code: {type: string, maxLength: 64}, name: {type: string, minLength: 1, maxLength: 255}, rules: {type: array, minItems: 1, items: {type: object, required: [record_type, retention_days, disposition_action], properties: {record_type: {type: string, maxLength: 128}, retention_days: {type: integer, minimum: 1}, disposition_action: {type: string, enum: [archive, destroy, review]}}}}}}
+    GovernedRecordCreate: {type: object, additionalProperties: false, required: [source, retention_policy_version_id], properties: {source: {$ref: '#/components/schemas/SourceReference'}, retention_policy_version_id: {$ref: '#/components/schemas/UUIDv7'}, retention_start_at: {$ref: '#/components/schemas/UtcDateTime'}}}
+    RecordHoldCreate: {type: object, additionalProperties: false, required: [scope_type, scope_id, reason], properties: {scope_type: {type: string, enum: [record, facility, unit, record_type]}, scope_id: {$ref: '#/components/schemas/UUIDv7'}, reason: {type: string, minLength: 1, maxLength: 2000}, expires_at: {$ref: '#/components/schemas/UtcDateTime'}}}
+    DispositionDecision: {type: object, additionalProperties: false, required: [governed_record_id, decision, reason], properties: {governed_record_id: {$ref: '#/components/schemas/UUIDv7'}, decision: {type: string, enum: [eligible, retained, rejected]}, reason: {type: string, minLength: 1, maxLength: 2000}}}
+    DispositionConfirmation: {type: object, additionalProperties: false, required: [outcome, source_confirmation_id, confirmed_at], properties: {outcome: {type: string, enum: [disposed, retained, failed]}, source_confirmation_id: {$ref: '#/components/schemas/UUIDv7'}, confirmed_at: {$ref: '#/components/schemas/UtcDateTime'}, evidence_document_id: {$ref: '#/components/schemas/UUIDv7'}, detail: {type: string, maxLength: 2000}}}
+    Entity: {oneOf: [{$ref: '../schemas/work-record.schema.json'}, {$ref: '#/components/schemas/DomainResource'}]}
+    EntityCollection: {type: object, additionalProperties: false, required: [items, next_cursor], properties: {items: {type: array, items: {$ref: '#/components/schemas/Entity'}}, next_cursor: {type: [string, 'null']}}}
+    DomainResource:
+      type: object
+      additionalProperties: false
+      required: [id, resource_type, status, classification, lock_version, created_at, updated_at]
+      properties:
+        id: {$ref: '#/components/schemas/UUIDv7'}
+        resource_type: {type: string, enum: [work_definition, work_definition_version, workflow_definition, workflow_version, workflow_instance, workflow_step, workflow_decision, task, task_comment, task_participant, document, document_version, document_link, document_access_grant, facility, organization_unit, position, person, assignment, supervisory_relationship, import_job, role, capability, role_assignment, delegation, classification_policy, field_access_template, platform_settings_version, business_calendar, strategic_plan, strategic_plan_version, indicator, indicator_version, indicator_period, target_distribution, measurement, indicator_scorecard, portfolio, program, project, project_template, milestone, project_snapshot, project_indicator_link, risk_register, risk_policy_version, risk, risk_assessment, risk_control, risk_treatment, risk_indicator, risk_indicator_reading, risk_heatmap, retention_policy_version, governed_record, record_hold, disposition_review, report, export, audit_event, workspace_item]}
+        code: {type: string, maxLength: 128}
+        name: {type: string, maxLength: 255}
+        title: {type: string, maxLength: 255}
+        description: {type: string, maxLength: 4000}
+        status: {type: string, minLength: 1, maxLength: 64}
+        lifecycle_state: {type: string, maxLength: 64}
+        classification: {$ref: '#/components/schemas/Classification'}
+        version_number: {type: integer, minimum: 1}
+        parent_id: {$ref: '#/components/schemas/UUIDv7'}
+        owner_organization_unit_id: {$ref: '#/components/schemas/UUIDv7'}
+        owner_user_id: {$ref: '#/components/schemas/UUIDv7'}
+        assignee_user_id: {$ref: '#/components/schemas/UUIDv7'}
+        source: {$ref: '#/components/schemas/SourceReference'}
+        due_at: {$ref: '#/components/schemas/UtcDateTime'}
+        effective_from: {$ref: '#/components/schemas/UtcDateTime'}
+        effective_to: {$ref: '#/components/schemas/UtcDateTime'}
+        policy_version: {type: string, maxLength: 128}
+        facts_version: {type: string, maxLength: 128}
+        values: {type: object}
+        lock_version: {type: integer, minimum: 1}
+        created_at: {$ref: '#/components/schemas/UtcDateTime'}
+        updated_at: {$ref: '#/components/schemas/UtcDateTime'}

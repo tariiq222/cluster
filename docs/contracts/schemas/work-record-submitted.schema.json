@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/work-record-submitted.schema.json",
+  "title": "Work Record Submitted Event Data",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record", "access_context", "classification"],
+  "properties": {"record": {"$ref": "work-record.schema.json"}, "access_context": {"$ref": "access-context.schema.json"}, "classification": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]}}
+}

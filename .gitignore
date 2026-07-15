@@ -1,0 +1,20 @@
+# Operating-system metadata
+.DS_Store
+**/.DS_Store
+
+# Generated documentation and diagram output
+site/
+build/
+.cache/
+
+# Local Python tooling
+.venv/
+__pycache__/
+*.py[cod]
+
+# Editor and temporary files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

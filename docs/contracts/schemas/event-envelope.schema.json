@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/event-envelope.schema.json",
+  "title": "CloudEvents Event Envelope",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["specversion", "id", "source", "type", "time", "subject", "datacontenttype", "correlationid", "data"],
+  "properties": {
+    "specversion": {"const": "1.0"},
+    "id": {"$ref": "#/$defs/uuidv7"},
+    "source": {"type": "string", "format": "uri-reference", "pattern": "^/"},
+    "type": {"type": "string", "pattern": "^com\\.cluster\\.[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*\\.v[1-9][0-9]*$"},
+    "subject": {"type": "string", "format": "uri-reference", "minLength": 1},
+    "time": {"$ref": "#/$defs/utcDateTime"},
+    "datacontenttype": {"const": "application/json"},
+    "dataschema": {"type": "string", "format": "uri"},
+    "correlationid": {"$ref": "#/$defs/uuidv7"},
+    "data": {"type": "object"}
+  },
+  "$defs": {
+    "uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Lowercase RFC 9562 UUID version 7"},
+    "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$", "description": "RFC 3339 UTC timestamp ending in Z"}
+  }
+}

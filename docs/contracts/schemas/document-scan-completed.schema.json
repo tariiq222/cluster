@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/document-scan-completed.schema.json",
+  "title": "Document Scan Completed Event Data",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["document_id", "version_id", "scan_status", "completed_at", "classification", "access_context"],
+  "properties": {"document_id": {"$ref": "#/$defs/uuidv7"}, "version_id": {"$ref": "#/$defs/uuidv7"}, "scan_status": {"type": "string", "enum": ["clean", "infected", "failed"]}, "malware_name": {"type": "string", "maxLength": 256}, "completed_at": {"$ref": "#/$defs/utcDateTime"}, "classification": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]}, "access_context": {"$ref": "access-context.schema.json"}},
+  "$defs": {"uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}, "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"}}
+}

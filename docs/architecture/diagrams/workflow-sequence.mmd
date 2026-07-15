@@ -1,0 +1,29 @@
+sequenceDiagram
+    actor User as المستخدم
+    participant UI as React Shell
+    participant Slice as Submit Slice
+    participant WR as WorkRecords
+    participant Auth as Authorization
+    participant Wf as Workflow
+    participant Org as Organization
+    participant Audit as Audit
+    participant Outbox as Transactional Outbox
+
+    User->>UI: إرسال سجل عمل
+    UI->>Slice: SubmitWorkRecord command
+    Slice->>WR: dispatch handler (transaction owner)
+    WR->>Auth: DecideAccess(submit, RecordFacts)
+    Auth-->>WR: Allow with scope
+    WR->>Wf: StartWorkflow(publishedVersionId)
+    Wf->>Wf: Pin workflow_version_id on instance
+    Wf->>Org: ResolveApprover(currentStep)
+    Org-->>Wf: Approver identity
+    Wf-->>WR: Workflow instance id
+    WR->>WR: persist state + outbox in one transaction
+    WR->>Audit: Append critical audit when required
+    WR->>Outbox: WorkRecordSubmitted event
+    WR-->>Slice: Submitted response after commit
+    Slice-->>UI: 200 OK
+    UI-->>User: تأكيد الإرسال
+
+    Note over Wf,WR: العقد المتزامن ينضم إلى معاملة WorkRecords ولا ينفذ commit<br/>النشر الجديد لمسار لا يغير المعاملات الجارية بصمت

@@ -15,7 +15,7 @@ The principal risks are authorization leakage through search/reports/exports/fil
 
 ## Authority and Reconciliation Rules
 
-1. `.planning/PROJECT.md` and accepted documents under `cluster/docs/` are authoritative for scope, architecture, constraints, and ordering.
+1. `.planning/PROJECT.md` and accepted documents under `docs/` are authoritative for scope, architecture, constraints, and ordering.
 2. `STACK.md`, `FEATURES.md`, `ARCHITECTURE.md`, and `PITFALLS.md` interpret that baseline; they do not supersede accepted decisions or turn proposed products into approvals.
 3. The accepted R1–R3 scope, 19 module boundaries, and 25-wave sequence are locked for roadmap creation.
 4. Exact package patches, Kubernetes distribution, storage product, MySQL Operator matrix, Vault edition, observability sizing, retention, backup destination, and final security classification remain gated decisions.
@@ -218,13 +218,13 @@ The roadmapper should map one accepted wave to one primary phase. Combining wave
 
 ### Primary — accepted internal authority (HIGH confidence)
 
-- `.planning/PROJECT.md` — R1–R3 scope, constraints, exclusions, performance/recovery targets, and authority of `cluster/docs/`.
-- `cluster/docs/plans/implementation-roadmap.md` — accepted 25-wave order, dependencies, cross-cutting tracks, milestones, deferred decisions, gates, and traceability.
-- `cluster/docs/product/vision-and-scope.md`, `releases-and-roadmap.md`, `personas-and-journeys.md`, `success-metrics.md` — product boundaries, users, pilots, outcomes, and acceptance.
-- `cluster/docs/governance/traceability-matrix.md`, `assumptions-constraints.md` — FR/NFR/SEC/OPS evidence and hard constraints.
-- `cluster/docs/architecture/overview.md`, `module-catalog.md`, `context-map.md`, `dependency-rules.md`, `c4-and-flows.md`, `non-functional-requirements.md` — canonical modules, ownership, data flows, and quality gates.
+- `.planning/PROJECT.md` — R1–R3 scope, constraints, exclusions, performance/recovery targets, and authority of `docs/`.
+- `docs/plans/implementation-roadmap.md` — accepted 25-wave order, dependencies, cross-cutting tracks, milestones, deferred decisions, gates, and traceability.
+- `docs/product/vision-and-scope.md`, `releases-and-roadmap.md`, `personas-and-journeys.md`, `success-metrics.md` — product boundaries, users, pilots, outcomes, and acceptance.
+- `docs/governance/traceability-matrix.md`, `assumptions-constraints.md` — FR/NFR/SEC/OPS evidence and hard constraints.
+- `docs/architecture/overview.md`, `module-catalog.md`, `context-map.md`, `dependency-rules.md`, `c4-and-flows.md`, `non-functional-requirements.md` — canonical modules, ownership, data flows, and quality gates.
 - Accepted ADRs including authorization/isolation, dynamic WorkRecords, transactional Outbox, air-gapped supply chain, and Kubernetes resilience/recovery.
-- `cluster/docs/plans/release-1-platform.md`, `release-2-strategy-portfolio.md`, `release-3-risk.md`, `readiness-checklist.md` — detailed wave and release evidence.
+- `docs/plans/release-1-platform.md`, `release-2-strategy-portfolio.md`, `release-3-risk.md`, `readiness-checklist.md` — detailed wave and release evidence.
 
 ### Research synthesis inputs
 

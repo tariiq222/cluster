@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    ".opencode/instructions/model-swarm.md"
+  ],
+  "mcp": {
+    "gsd": {
+      "type": "local",
+      "command": [
+        "node",
+        "-e",
+        "const fs=require('node:fs'),path=require('node:path');let dir=process.cwd();for(;;){const script=path.join(dir,'.opencode','scripts','gsd-mcp-server.cjs');if(fs.existsSync(script)){require(script);break;}const parent=path.dirname(dir);if(parent===dir)throw new Error('Cannot find .opencode/scripts/gsd-mcp-server.cjs.');dir=parent;}"
+      ],
+      "enabled": true
+    }
+  }
+}
