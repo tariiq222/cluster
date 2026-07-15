@@ -117,6 +117,19 @@ class WorkRecordEnvelopeTest extends TestCase
         );
     }
 
+    public function test_replaying_the_same_submitted_event_is_idempotent(): void
+    {
+        $handler = new SubmitWorkRecordHandler();
+        $record = $this->record(self::RECORD_ID, 'WR-000001');
+        $event = $this->cloudEvent($record, '0197f0e0-0000-7000-8000-000000000202');
+
+        $handler->persist($record, $event);
+        $handler->persist($record, $event);
+
+        $this->assertSame(1, DB::table('work_records')->count());
+        $this->assertSame(1, DB::table('outbox_events')->count());
+    }
+
     private function record(string $id, string $recordNumber): WorkRecord
     {
         return WorkRecord::submit(
