@@ -3,8 +3,8 @@ doc_id: OPS-MN-001
 title: الرصد ومؤشرات وأهداف مستوى الخدمة
 type: operations
 status: proposed
-version: 1.0.0
-date: 2026-07-15
+version: 1.1.0
+date: 2026-07-16
 owner: مسؤول العمليات
 reviewers:
 - مكتب هندسة المنصة
@@ -13,7 +13,7 @@ classification: internal
 review_cycle: نصف سنوي
 sources:
 - docs/architecture/overview.md
-- docs/adr/019-kubernetes-resilience-and-recovery.md
+- docs/adr/023-single-host-dokploy-deployment.md
 references:
 - docs/operations/incident-response.md
 - docs/operations/runbooks.md
@@ -42,13 +42,13 @@ references:
 |---|---|
 | API | معدل الطلبات، error rate، latency، saturation، readiness |
 | workers | عمق الطابور، عمر أقدم رسالة، الفشل وإعادة المحاولة وDLQ |
-| MySQL | quorum، latency، اتصالات، replication/backup health، مساحة التخزين |
-| Valkey | صحة HA، الذاكرة، الاتصالات، طابور المعالجة |
+| MySQL | health، latency، اتصالات، backup health، مساحة التخزين |
+| Valkey | health، الذاكرة، الاتصالات، طابور المعالجة |
 | OpenSearch للبحث | cluster health، query latency، queue، تأخر فهرسة البحث، مساحة القرص |
 | Loki للسجلات | صحة ingestion، تأخر السجلات، query latency، أخطاء التخزين، وفترة الاحتفاظ |
 | التخزين | السعة، الأخطاء، latency، نجاح النسخ وObject Lock |
-| Kubernetes | صحة العقد وpods، restarts، requests/limits، أحداث scheduling |
-| الأمن | رفض admission، محاولات egress، انتهاء الشهادات، تدقيق الإدارة |
+| الخادم وDocker | CPU والذاكرة والقرص والطاقة، صحة Docker وDokploy، container restarts وhealthchecks |
+| الأمن | المنافذ المرفوضة، محاولات الإدارة، انتهاء الشهادات، وتدقيق نشر Dokploy |
 
 ## التنبيهات والتصعيد
 
@@ -68,3 +68,4 @@ references:
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
 | 1.0.0 | 2026-07-15 | مسؤول العمليات | إنشاء SLOs ونموذج الرصد |
+| 1.1.0 | 2026-07-16 | مالك المنصة | مواءمة الرصد مع خادم Dokploy واحد وقبول خطر مجال العطل الواحد |

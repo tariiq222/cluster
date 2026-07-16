@@ -2,9 +2,9 @@
 doc_id: ADR-018
 title: سلسلة التوريد المعزولة
 type: adr
-status: accepted
-version: 1.0.0
-date: 2026-07-15
+status: superseded
+version: 1.1.0
+date: 2026-07-16
 owner: مجلس معمارية المنصة
 reviewers:
 - مسؤول هندسة البرمجيات
@@ -18,7 +18,8 @@ deciders:
 scope: البناء والحزم والصور والشبكة
 supersedes:
 - ADR-010
-superseded_by: []
+superseded_by:
+- ADR-023
 related_adrs:
 - ADR-012
 - ADR-013
@@ -26,6 +27,8 @@ related_adrs:
 review_by: 2026-10-15
 ---
 # ADR-018: سلسلة التوريد المعزولة
+
+> استبدل هذا القرار بـ[ADR-023](023-single-host-dokploy-deployment.md) بعد توضيح أن البيئة خادم داخلي واحد محدود المنافذ وليست Air-gap مؤسسية.
 ## Context
 البناء والتشغيل داخل مركز البيانات بلا اتصال إنترنت خارجي.
 ## Drivers

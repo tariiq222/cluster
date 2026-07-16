@@ -70,10 +70,10 @@ nav:
   - التشغيل:
       - فهرس التشغيل: operations/README.md
       - الطوبولوجيا الفيزيائية: operations/physical-topology.md
-      - منصة Kubernetes: operations/kubernetes-platform.md
+      - منصة Dokploy وDocker Compose: operations/kubernetes-platform.md
       - التوافر والتعافي والنسخ: operations/ha-dr-backup.md
       - الرصد وSLO: operations/observability-and-slos.md
-      - سلسلة التوريد المعزولة: operations/air-gap-supply-chain.md
+      - سلسلة توريد الصور والتحديثات: operations/air-gap-supply-chain.md
       - الاستجابة للحوادث: operations/incident-response.md
       - كتيبات التشغيل: operations/runbooks.md
   - الهندسة:
@@ -97,6 +97,7 @@ nav:
   - العقود:
       - فهرس العقود: contracts/README.md
       - عقود الموديولات: contracts/module-contracts.md
+      - واجهة الإشعارات: contracts/api/notifications.md
   - قرارات المعمارية:
       - فهرس القرارات: adr/README.md
       - ADR-001 Modular Monolith: adr/001-modular-monolith.md
@@ -121,4 +122,5 @@ nav:
       - ADR-020 التنظيم والسلطة الزمنية: adr/020-organization-and-time-bounded-authority.md
       - ADR-021 ملكية الاستراتيجية والمؤشرات: adr/021-strategy-indicator-ownership.md
       - ADR-022 حدود المحافظ والمخاطر: adr/022-portfolio-projects-and-risk-boundaries.md
+      - ADR-023 تشغيل الخادم الداخلي عبر Dokploy وDocker Compose: adr/023-single-host-dokploy-deployment.md
       - قالب ADR: adr/template.md

@@ -12,11 +12,10 @@ reviewers:
 classification: internal
 review_cycle: نصف سنوي
 sources:
-- docs/adr/018-air-gapped-supply-chain.md
-- docs/adr/019-kubernetes-resilience-and-recovery.md
+- docs/adr/023-single-host-dokploy-deployment.md
 - docs/architecture/overview.md
 references:
-- docs/operations/kubernetes-platform.md
+- docs/operations/physical-topology.md
 - docs/operations/ha-dr-backup.md
 - docs/operations/incident-response.md
 ---
@@ -33,20 +32,20 @@ references:
 
 **المحفز:** API availability أقل من `99.9%`، أو API `p95 > 500ms`، أو إنذار readiness واسع.
 
-1. أعلن P1 إذا كان الأثر واسعاً، وإلا P2، ثم ثبّت التغييرات وGitOps promotion.
-2. افحص حالة workloads والأحداث والـrestarts والـresource saturation ولوحة API.
-3. قارن بداية الأثر مع آخر revision منشور أو تغيير بنية أو تغير حمل.
-4. إذا كان آخر نشر سبباً مرجحاً، أعد GitOps إلى آخر revision سليم، ثم انتظر reconciliation وتحقق من readiness وerror rate و`p95`.
-5. إذا لم يكن النشر سبباً، افحص اتصال API بخدمات MySQL وValkey وOpenSearch دون كشف أسرار؛ صعّد إلى RB-02 أو RB-03 حسب الخدمة.
+1. أعلن P1 إذا كان الأثر واسعاً، وإلا P2، ثم ثبّت تغييرات Dokploy.
+2. افحص حالة حاويات Compose، والأحداث، والـrestarts، واستهلاك الموارد، ومساحة القرص.
+3. قارن بداية الأثر مع آخر Compose revision منشور أو تغيير بنية أو تغير حمل.
+4. إذا كان آخر نشر سبباً مرجحاً، أعد Dokploy إلى آخر revision سليم، ثم تحقق من health وerror rate و`p95`.
+5. إذا لم يكن النشر سبباً، افحص اتصال API بخدمات MySQL وValkey دون كشف أسرار؛ صعّد إلى RB-02 أو RB-03 حسب الخدمة.
 6. أغلق بعد استقرار SLI للفترة المعتمدة وتوثيق السبب أو الفرضية.
 
-## RB-02: MySQL InnoDB Cluster أو PITR
+## RB-02: MySQL أو PITR
 
-**المحفز:** فقد quorum، فشل primary، فساد بيانات، أو طلب استعادة.
+**المحفز:** توقف MySQL، فساد بيانات، امتلاء القرص، أو طلب استعادة.
 
 1. أعلن P1 عند خطر البيانات أو توقف الكتابة، وأوقف الأعمال التي قد تزيد الضرر بعد موافقة قائد الحادث.
-2. افحص حالة Operator وInnoDB Cluster وquorum والـbackups؛ لا تحذف PVCs ولا تبدأ bootstrap يدوي بلا إجراء معتمد.
-3. عند failover صحي، اترك Operator يعالج الانتقال وتحقق من write/read health ومن outbox وworkers.
+2. افحص حاوية MySQL، health وdisk وbackups؛ لا تحذف volumes ولا تبدأ تهيئة يدوية بلا إجراء معتمد.
+3. عند عودة الحاوية أو تبديلها، تحقق من write/read health ومن outbox وworkers.
 4. عند فساد أو فقد بيانات، حدد وقت PITR والنسخة السليمة، ثم استعد في بيئة معزولة وفق `ha-dr-backup.md`.
 5. تحقق من schema والبيانات الحرجة والملفات المتوافقة، ثم سجل RPO/RTO واحصل على موافقة العودة.
 
@@ -54,8 +53,8 @@ references:
 
 **المحفز:** عمر أقدم رسالة أو تأخر الفهرسة أكثر من `60s`، أو DLQ غير فارغ.
 
-1. حدد queue/consumer والإصدار وبداية التراكم، وافحص Valkey HA وصحة workers وDB.
-2. لا تعيد تشغيل كل workers معاً. أعد تشغيل replica واحداً متعثراً أو زد replicas ضمن السعة المعتمدة.
+1. حدد queue/consumer والإصدار وبداية التراكم، وافحص Valkey وصحة workers وDB.
+2. لا تعيد تشغيل كل workers معاً. أعد تشغيل حاوية متعثرة واحدة ضمن السعة المعتمدة.
 3. افحص الفشل المتكرر وidempotency؛ اعزل الرسائل الفاشلة إلى DLQ ولا تحذفها قبل حفظ الدليل.
 4. بعد استقرار المعالجة، أعد فهرسة البيانات المتأثرة من مصدر الحقيقة عند الحاجة، وتحقق من أن الفهرس لا يكشف بيانات غير مصرح بها.
 5. أغلق عند تصفير التراكم واستقرار تأخر الفهرسة تحت `60s`.
@@ -65,19 +64,19 @@ references:
 **المحفز:** backup متأخر عن 15 دقيقة، فشل تحقق، أو تمرين ربع سنوي.
 
 1. افتح P2 إذا تجاوز RPO أو فشل آخر backup صالح، وأوقف حذف النسخ أو تغيير الاحتفاظ.
-2. افحص job وOperator ومستودع النسخ وObject Lock والسعة وchecksums، دون استخراج مفاتيح الوصول إلى logs.
+2. افحص job وCompose volume ومستودع النسخ والسعة وchecksums، دون استخراج مفاتيح الوصول إلى logs.
 3. شغّل backup بديل بعد إصلاح السبب وتحقق من وجوده وسلامته في المستودع المستقل.
 4. في التمرين، استعد إلى شبكة معزولة، نفذ PITR، تحقق API والملفات والعينات، ثم احسب RPO/RTO.
 5. لا يعد الاختبار ناجحاً إن تجاوز الهدفين أو لم توثق فجواته وخطة علاجها.
 
-## RB-05: نشر أو rollback GitOps
+## RB-05: نشر أو rollback Dokploy
 
 **المحفز:** إصدار معتمد أو فشل نشر.
 
-1. تحقق من Git revision، image digest، التوقيع، SBOM، ونتائج الفحوص قبل promotion.
-2. طبق كل تغيير، بما فيه العلاج العاجل والـrollback، عبر pull/merge معتمد فقط ودع GitOps controller يزامن؛ `kubectl` في `Prod` للتشخيص بالقراءة فقط، وتمنع أوامر `apply|edit|patch|delete` اليدوية.
-3. راقب reconciliation وreadiness وerror rate وAPI/search SLOs.
-4. عند فشل غير قابل للعلاج سريعاً، أعد المرجع إلى آخر revision سليم، وتحقق من عودة الموارد والـSLIs.
+1. تحقق من commit، image digest، التوقيع، SBOM، وCompose revision قبل النشر.
+2. نفذ التغيير أو الـrollback من واجهة Dokploy أو مسار Compose الطارئ المعتمد فقط، وسجل العملية.
+3. راقب health وerror rate وAPI SLOs وحالة الشبكات الداخلية.
+4. عند فشل غير قابل للعلاج سريعاً، أعد Dokploy إلى آخر revision سليم، وتحقق من عودة الحاويات والـSLIs.
 5. وثق revisionين وسبب rollback وأي migration أو حالة تتطلب إجراء لاحق.
 
 ## RB-06: شهادة أو سر مكشوف/منتهٍ
@@ -86,7 +85,7 @@ references:
 
 1. افتح P1 عند احتمال كشف سر إنتاج أو توقف واسع، وأبلغ مسؤول أمن المعلومات.
 2. استخدم Vault لتدوير أو إبطال credential/certificate؛ لا ترسل القيمة في تذكرة أو محادثة أو commit.
-3. حدّث المراجع عبر المسار المحكوم وأعد تشغيل workloads المتأثرة تدريجياً.
+3. حدّث المراجع عبر المسار المحكوم وأعد تشغيل الحاويات المتأثرة تدريجياً.
 4. تحقق من الاتصالات وaudit logs، وابحث عن استخدام غير معتاد للهوية المكشوفة.
 5. وثق النطاق والوقت والسبب والإجراءات الوقائية، واتبع `incident-response.md` عند الاشتباه باستغلال.
 
@@ -94,4 +93,4 @@ references:
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول العمليات | إنشاء كتيبات التشغيل الأولية |
+| 1.1.0 | 2026-07-16 | مسؤول العمليات | تحديث إجراءات Dokploy وCompose والخادم الواحد |

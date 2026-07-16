@@ -1,75 +1,35 @@
 flowchart TB
-    LB["Internal Load Balancer"]
+    USERS["المستخدمون عبر الشبكة الداخلية"]
+    FW["جدار ناري للمضيف<br/>HTTPS وإدارة عبر VPN فقط"]
 
-    subgraph K8S["Kubernetes Cluster داخل مركز بيانات التجمع"]
-        subgraph APPNS["Application Namespace"]
-            WEB1["Web/API Replica 1<br/>React + Laravel"]
-            WEB2["Web/API Replica 2<br/>React + Laravel"]
-            W1["Queue Worker Replica 1"]
-            W2["Queue Worker Replica 2"]
-            CRON["Scheduler Singleton"]
+    subgraph HOST["خادم داخلي واحد"]
+        DOKPLOY["Dokploy"]
+        subgraph COMPOSE["Docker Compose revision مثبت"]
+            TRAEFIK["Traefik / HTTPS"]
+            WEB["React + Laravel Web/API"]
+            WORKERS["Queue Workers"]
+            CRON["Scheduler"]
+            MYSQL["MySQL"]
+            VALKEY["Valkey Cache / Queue"]
+            OBJECT["Object Storage Volume"]
         end
-
-        subgraph DATANS["Data Services"]
-            DB1["MySQL Primary"]
-            DB2["MySQL Replica"]
-            DB3["MySQL Replica"]
-            QUEUE["Internal Cache / Queue"]
-            OBJECT["S3-Compatible Object Storage"]
-            SEARCH["Internal Search Service"]
-        end
-
-        subgraph OPSNS["Operations Namespace"]
-            LOGS["Central Logs"]
-            METRICS["Metrics and Alerts"]
-            TRACES["Distributed Traces"]
-        end
-
-        subgraph SUPPLY["Build & Supply"]
-            REGISTRY["Internal OCI Registry"]
-            MIRRORS["Composer / npm<br/>Internal Mirrors"]
-        end
+        INTERNAL["Docker internal networks"]
     end
 
-    BACKUP["Independent Internal Backup Repository<br/>(خارج نطاق عطل Kubernetes)"]
+    BACKUP["هدف نسخ مستقل خارج الخادم<br/>مشفّر وباعتمادات منفصلة"]
+    REGISTRY["سجل صور معتمد"]
 
-    LB --> WEB1
-    LB --> WEB2
-
-    WEB1 --> DB1
-    WEB2 --> DB1
-    W1 --> DB1
-    W2 --> DB1
-    CRON --> DB1
-    DB1 --> DB2
-    DB1 --> DB3
-
-    WEB1 --> QUEUE
-    WEB2 --> QUEUE
-    W1 --> QUEUE
-    W2 --> QUEUE
-    CRON --> QUEUE
-
-    WEB1 --> OBJECT
-    WEB2 --> OBJECT
-    W1 --> OBJECT
-    W2 --> OBJECT
-
-    WEB1 --> SEARCH
-    W2 --> SEARCH
-
-    WEB1 --> LOGS
-    WEB2 --> METRICS
-    W1 --> TRACES
-    W2 --> LOGS
-    CRON --> METRICS
-
-    DB1 -->|"نسخ احتياطي"| BACKUP
-    OBJECT -->|"نسخ احتياطي"| BACKUP
-
-    REGISTRY -.->|"سحب صور OCI"| WEB1
-    REGISTRY -.->|"سحب صور OCI"| WEB2
-    REGISTRY -.->|"سحب صور OCI"| W1
-    REGISTRY -.->|"سحب صور OCI"| W2
-    MIRRORS -.->|"تثبيت اعتماديات"| WEB1
-    MIRRORS -.->|"تثبيت اعتماديات"| W1
+    USERS --> FW --> TRAEFIK
+    TRAEFIK --> WEB
+    WEB --> MYSQL
+    WEB --> VALKEY
+    WEB --> OBJECT
+    WORKERS --> MYSQL
+    WORKERS --> VALKEY
+    WORKERS --> OBJECT
+    CRON --> VALKEY
+    COMPOSE --- INTERNAL
+    DOKPLOY -.->|"نشر أو rollback revision"| COMPOSE
+    REGISTRY -.->|"صور مثبتة بالـdigest"| DOKPLOY
+    MYSQL -->|"نسخ مشفّر"| BACKUP
+    OBJECT -->|"نسخ مشفّر"| BACKUP

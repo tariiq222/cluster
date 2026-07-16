@@ -24,8 +24,7 @@ sources:
 - docs/adr/005-work-records-dynamic-data.md
 - docs/adr/006-workflow-versioning.md
 - docs/adr/007-transactional-outbox.md
-- docs/adr/018-air-gapped-supply-chain.md
-- docs/adr/019-kubernetes-resilience-and-recovery.md
+- docs/adr/023-single-host-dokploy-deployment.md
 - docs/data-security/logical-data-model.md
 - docs/domain/organization-and-people.md
 - docs/plans/implementation-roadmap.md
@@ -42,7 +41,7 @@ references: []
 
 ### 1.2 المخرج التشغيلي القابل للاستخدام
 
-- منصة Laravel + React تعمل على Kubernetes المعزول داخل مركز بيانات التجمع.
+- منصة Laravel + React تعمل على خادم داخلي واحد عبر Dokploy وDocker Compose داخل مركز بيانات التجمع.
 - حسابات محلية بهيكل تنظيمي مرن (تجمع + منشآت + قطاعات + إدارات + أقسام).
 - صلاحيات RBAC + ABAC مع تفسير للقرارات.
 - منشئ أنواع أعمال ومسارات دون كود حر.
@@ -79,7 +78,7 @@ references: []
 
 | الموجة | المدة المرجعية | المخرَج | بوابة الخروج |
 |---|---|---|---|
-| W1.1 Walking Skeleton | 2-3 أسابيع | تطبيق يعمل من المتصفح إلى DB على K8s المعزول. | تشغيل رحلة رفيعة بلا أخطاء، CI يمر، صور موقّعة. |
+| W1.1 Walking Skeleton | 2-3 أسابيع | تطبيق يعمل من المتصفح إلى قاعدة البيانات ضمن خادم داخلي واحد باستخدام Docker Compose. | تشغيل رحلة رفيعة بلا أخطاء، CI يمر، صور موقّعة. |
 | W1.2 Organization + Identity + Import | 3-4 أسابيع | شجرة تنظيمية متعددة الأعماق وحسابات واستيراد محكوم. | اختبار الـInvariants الأربعة عشر للهيكل. |
 | W1.3 Authorization + العلاقات الإشرافية | 3-4 أسابيع | قرار وصول RBAC+ABAC قابل للتفسير. | سيناريوهات العزل الأربعة عشر. |
 | W1.4 WorkDefinitions + منشئ النماذج | 3 أسابيع | نوع عمل منشور مع صلاحيات حقول. | إنشاء/نشر إصدار بنجاح، السجلات الجارية محفوظة. |
@@ -103,8 +102,8 @@ references: []
 
 - تطبيق Laravel Modular Monolith بقالب وحدات جاهز لكل الموديولات المعرّفة في `docs/architecture/module-catalog.md` كقوالب فارغة.
 - تطبيق React Unified Shell بسير جلسة محدود ولوحة فارغة.
-- MySQL مع HA، وValkey لـCache وQueue، وObject Storage داخلي، وLoki للسجلات الداخلية.
-- CI/CD داخل المركز ببناء صور موقّعة وSBOM.
+- MySQL وValkey لـCache وQueue وخدمات الحالة على Docker networks داخلية، مع نسخ مشفرة خارج الخادم.
+- CI/CD يبني صورة مثبتة بالـdigest وSBOM ثم ينشر Compose revision معتمداً عبر Dokploy.
 - رحلة رفيعة واحدة فقط تُغطى: تسجيل دخول → نشر نوع العمل `request` → إنشاء مثيلين في منشأتين → إثبات العزل → إشعار.
 
 #### خارج النطاق
@@ -116,15 +115,15 @@ references: []
 
 #### المخرجات القابلة للقياس
 
-- صورة تطبيق تُبنى بدون إنترنت.
-- بيئة dev وstaging وتشغيل ضمن kustomize/Helm منفصلة.
+- صورة تطبيق تُبنى من lockfiles وتثبت بالـdigest دون تنزيل حزم عند بدء حاوية الإنتاج.
+- Dev/Test خارج بيانات وأسرار Prod؛ ولا يعد اختلاف Compose profiles على الخادم نفسه عزلاً أمنياً.
 - اختبار E2E واحد لرحلة الـWalking Skeleton يمر على staging.
-- `make verify-airgap` ينجح.
+- `make verify-stack` ينجح في بيئة التشغيل الداخلي.
 - `make verify-build` ينتج صورة موقّعة لها SBOM.
 
 #### المتطلبات القابلة للتتبع
 
-- REQ-R1-W1.1-001: تشغيل Laravel على Kubernetes المعزول.
+- REQ-R1-W1.1-001: تشغيل Laravel على خادم داخلي واحد عبر Dokploy وDocker Compose.
 - REQ-R1-W1.1-002: تشغيل React Unificado على نفس النطاق.
 - REQ-R1-W1.1-003: قالب وحدات لكل الموديولات بمجلدات Domain/Features/Contracts/Events/Infrastructure/Routes/Tests.
 - REQ-R1-W1.1-004: تسجيل دخول محلي بدورة حياة أساسية.
@@ -132,7 +131,7 @@ references: []
 - REQ-R1-W1.1-006: إنشاء مثيل `WorkRecord` من النوع المنشور في كل منشأة، وإرسال الطلب يحفظ في MySQL ويولد Outbox event.
 - REQ-R1-W1.1-007: العامل يستهلك Outbox وينشئ إشعاراً داخلياً.
 - REQ-R1-W1.1-008: العزل بين مستشفيين يمنع رؤية الطلب.
-- REQ-R1-W1.1-009: صورة موقّعة + SBOM + NetworkPolicy ترفض الخروج.
+- REQ-R1-W1.1-009: صورة موقّعة + SBOM + نسخة Compose المرجعية مثبتة بالـdigest.
 - REQ-R1-W1.1-010: CI يمر على البناء والاختبارات وفحص الحدود.
 
 #### بوابة الخروج
@@ -146,9 +145,9 @@ references: []
 
 | الخطر | الاحتمال | الأثر | المستوى | التخفيف |
 |---|---|---|---|---|
-| عدم نضج K8s داخل الفريق | 4 | 4 | 16 | تدريب محدد قبل البدء + استشاري خارجي لأول نشر فقط |
-| بطء بناء المرايا الداخلية | 3 | 3 | 9 | تشغيل مرآة Composer وnpm داخل المركز قبل W1.1 |
-| انقطاع مرآة أثناء البناء | 2 | 4 | 8 | تخزين النسخ في مرايا ثانوية + نسخ حزم الإنتاج |
+| عدم نضج تشغيل الخادم الداخلي + Dokploy | 4 | 4 | 16 | تدريب محدد قبل البدء + runbook تشغيل واضح |
+| تعطل خادم الإنتاج الواحد | 4 | 5 | 20 | مراقبة ونسخ خارجي وهدف استعادة منفصل وحزمة Compose قابلة لإعادة الإنشاء |
+| تحديث صورة أو Compose يكسر الخدمة | 3 | 4 | 12 | digest ثابت، healthchecks، وحفظ descriptor رجوع معروف بالصحة |
 
 #### ملاك الأدوار
 
@@ -162,7 +161,7 @@ references: []
 
 - TEST-R1-W1.1-01: تسجيل دخول → إنشاء طلب → إشعار يُسجَّل في صندوق المستخدم.
 - TEST-R1-W1.1-02: بعد إثبات نشر نوع العمل `request` وإنشاء مثيلين منه، مستخدم في منشأة أ لا يرى طلب منشأة ب.
-- TEST-R1-W1.1-03: يحدّث merge معتمد مرجع الصورة في GitOps، ثم ينشر controller إلى `Prod` دون جلب خارجي أو أمر `kubectl` كتابي.
+- TEST-R1-W1.1-03: يحدّث merge معتمد مرجع `image_digest` في ملف Compose، ثم ينشر Dokploy إلى `Prod` دون جلب خارجي أو أوامر تشغيل يدوية عبر CLI بنيوي.
 - TEST-R1-W1.1-04: SBOM موجود وقابل للتحقق من توقيع.
 
 ---
@@ -741,7 +740,7 @@ references: []
 | تجاوز سعة MySQL | 2 | 4 | 8 | SRE | HA + اختبار تحميل |
 | تأخر تدريب المختبرين على React | 3 | 3 | 9 | مدير المنتج | تدريب قبيل W1.9 + مرشد خارجي |
 | عدم استقرار Outbox | 3 | 4 | 12 | Backend Lead | idempotency واختبار سيناريو الفشل |
-| نقص في إعداد Kubernetes | 4 | 4 | 16 | SRE | استشاري خارجي لأول نشر + runbook مكتوب |
+| نقص في إعداد مسار Dokploy على الخادم الداخلي | 4 | 4 | 16 | SRE | استشاري خارجي لأول نشر + runbook مكتوب |
 
 ## 5. معايير إطلاق R1
 

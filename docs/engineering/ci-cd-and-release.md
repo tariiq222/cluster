@@ -12,34 +12,33 @@ reviewers:
 classification: internal
 review_cycle: مع كل تغيير
 sources:
-- docs/adr/018-air-gapped-supply-chain.md
+- docs/adr/023-single-host-dokploy-deployment.md
 - docs/architecture/overview.md
 references:
 - docs/engineering/database-migrations.md
 ---
 # التكامل والتسليم والإصدار
 
-## بيئة Air-gapped
+## بيئة البناء والتشغيل
 
-يعمل GitLab وRunners وContainer Registry ومرايا Composer وnpm داخل الشبكة المعزولة. يمنع CI والبناء والتشغيل من الاتصال بالإنترنت أو CDN. تثبت الاعتمادات بصور base وحزم ومراجع موقعة ومخزنة داخلياً قبل السماح بها.
+لا تفترض هذه الوثيقة عزلاً مؤسسياً كاملاً أو اتصالاً وقت التشغيل بالإنترنت. تُبنى الصور والاعتماديات من مصادر معتمدة، وتُثبت صور الإنتاج بالـdigest داخل حزمة Compose. يثبت سجل الإصدار مصدر كل artifact ونتيجة فحصه قبل إتاحته لـDokploy.
 
 ## مراحل GitLab CI
 
-1. `validate`: تنسيق، تحليل ساكن، SBOM، فحص الأسرار والتراخيص، والتحقق من lockfiles.
+1. `validate`: تنسيق، تحليل ساكن، SBOM، فحص الأسرار والتراخيص، والتحقق من lockfiles وCompose.
 2. `test`: unit وapplication وarchitecture وcontract، وقياس changed-lines coverage وmutation للمنطق الحرج.
 3. `package`: بناء artifact وصورة قابلة للتكرار، توليد digest وattestation وتوقيع داخلي.
-4. `verify`: نشر ephemeral مع migrations آمنة ثم E2E والأمن والأداء المطلوب.
-5. `publish`: دفع الصورة الموقعة إلى Registry الداخلي وتحديث مرجع GitOps فقط بعد نجاح البوابات.
+4. `verify`: فحص healthchecks والمنافذ والشبكات الداخلية، ثم اختبارات E2E والأمن والأداء المطلوبة.
+5. `publish`: حفظ الصور والـCompose revision المعتمدين في السجل الذي يقرأه Dokploy؛ لا يوجد GitOps controller أو Helm.
 
 لا تستخدم pipeline متغيرات سرية في السجل أو مخرجات الاختبار. الأسرار تأتي من مدير أسرار داخلي بصلاحية أقل امتيازاً وتدوير معلن.
 
-## GitOps والإصدار
+## Dokploy والإصدار
 
-- مستودع GitOps منفصل يعلن البيئة والصورة بالـdigest وHelm/Kustomize والقيم غير السرية.
-- Argo CD أو المتحكم المعتمد يزامن الحالة من Git إلى Kubernetes؛ يمنع `kubectl apply` اليدوي في البيئات المدارة.
-- كل إصدار يحمل tag SemVer وcommit SHA وimage digest ونسخة migration وDSL المدعومة.
-- الترقية: canary أو rolling متوافق مع الإصدارين، مراقبة الصحة وSLO، ثم ترقية كاملة بعد فترة تحقق معلنة.
-- الرجوع: يعيد GitOps إلى digest سابق متوافق. لا يرجع DDL هدمي؛ تستعمل ترحيلات forward-fix أو restore وفق وثيقة الترحيلات.
+- كل إصدار يحمل tag SemVer وcommit SHA وimage digest وCompose revision ونسخة migration المدعومة.
+- ينفذ Dokploy النشر المحكوم لحزمة Compose المثبتة، مع مراجعة يدوية وسجل نشر وhealthchecks قبل التفعيل.
+- الترقية تتم باستبدال revision بعد تحقق الصحة والسعة؛ لا يوجد canary أو rolling متعدد العقد على الخادم الواحد.
+- الرجوع يعيد آخر image digest وCompose revision سليمين. لا يرجع DDL هدمياً؛ تستخدم ترحيلات forward-fix أو restore وفق وثيقة الترحيلات.
 
 ## موافقة الإصدار
 
@@ -49,4 +48,4 @@ references:
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول العمليات | اعتماد CI المعزول ومسار GitOps للإصدار |
+| 1.1.0 | 2026-07-16 | مسؤول العمليات | مواءمة الإصدار مع Dokploy وCompose على خادم واحد |

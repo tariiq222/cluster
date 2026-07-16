@@ -2,9 +2,9 @@
 doc_id: ADR-019
 title: تشغيل Kubernetes والتعافي
 type: adr
-status: accepted
-version: 1.0.0
-date: 2026-07-15
+status: superseded
+version: 1.1.0
+date: 2026-07-16
 owner: مجلس معمارية المنصة
 reviewers:
 - مسؤول هندسة البرمجيات
@@ -18,7 +18,8 @@ deciders:
 scope: البنية والتوافر والنسخ الاحتياطي
 supersedes:
 - ADR-010
-superseded_by: []
+superseded_by:
+- ADR-023
 related_adrs:
 - ADR-007
 - ADR-013
@@ -26,6 +27,8 @@ related_adrs:
 review_by: 2026-10-15
 ---
 # ADR-019: تشغيل Kubernetes والتعافي
+
+> استبدل هذا القرار بـ[ADR-023](023-single-host-dokploy-deployment.md) لاعتماد Dokploy وDocker Compose على خادم داخلي واحد مع قبول خطر توقف الخدمة عند تعطل الخادم.
 ## Context
 المنصة تحتاج حتى 2,000 مستخدم متزامن وتبقى متاحة عند فشل عقدة داخل المركز.
 ## Drivers

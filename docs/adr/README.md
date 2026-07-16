@@ -44,10 +44,11 @@ review_by: 2027-01-15
 | [015](015-authorized-reporting.md) | التقارير واللوحات المحكومة | accepted |
 | [016](016-audit-and-records-governance.md) | التدقيق وحوكمة السجلات | accepted |
 | [017](017-derived-workspace-and-notifications.md) | مساحة العمل والإشعارات المشتقة | accepted |
-| [018](018-air-gapped-supply-chain.md) | سلسلة التوريد المعزولة | accepted |
-| [019](019-kubernetes-resilience-and-recovery.md) | تشغيل Kubernetes والتعافي | accepted |
+| [018](018-air-gapped-supply-chain.md) | سلسلة التوريد المعزولة | superseded |
+| [019](019-kubernetes-resilience-and-recovery.md) | تشغيل Kubernetes والتعافي | superseded |
 | [020](020-organization-and-time-bounded-authority.md) | التنظيم والسلطة المحددة زمنياً | accepted |
 | [021](021-strategy-indicator-ownership.md) | ملكية الاستراتيجية والمؤشرات | accepted |
 | [022](022-portfolio-projects-and-risk-boundaries.md) | حدود المحافظ والمشاريع والمخاطر | accepted |
+| [023](023-single-host-dokploy-deployment.md) | تشغيل الخادم الداخلي عبر Dokploy وDocker Compose | accepted |
 
 القالب المعتمد: [template.md](template.md).

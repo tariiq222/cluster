@@ -1,10 +1,10 @@
 ---
 doc_id: OPS-SC-001
-title: سلسلة التوريد والتشغيل المعزول
+title: سلسلة توريد الصور والتحديثات للخادم الداخلي
 type: operations
 status: proposed
-version: 1.0.0
-date: 2026-07-15
+version: 2.0.0
+date: 2026-07-16
 owner: مسؤول العمليات
 reviewers:
 - مكتب هندسة المنصة
@@ -12,54 +12,52 @@ reviewers:
 classification: internal
 review_cycle: نصف سنوي
 sources:
-- docs/adr/018-air-gapped-supply-chain.md
+- docs/adr/023-single-host-dokploy-deployment.md
 - docs/architecture/overview.md
 references:
 - docs/governance/assumptions-constraints.md
 - docs/data-security/threat-model.md
 - docs/operations/kubernetes-platform.md
 ---
-# سلسلة التوريد والتشغيل المعزول
+# سلسلة توريد الصور والتحديثات للخادم الداخلي
+
+> احتُفظ باسم الملف التاريخي لاستقرار الروابط. البيئة ليست Air-gap مؤسسية، ولا تشترط مرايا حزم أو registry داخلياً ما لم تفرضه البنية الفعلية لاحقاً.
 
 ## المبدأ
 
-لا يصل build أو runtime إلى الإنترنت. تستخدم GitLab لإدارة المصدر وCI، وHarbor لتسجيل OCI، وNexus لمرايا الحزم، بصفتها أدواراً مطلوبة داخل المركز لا أسماء خدمات مثبّتة. أي بديل يحقق الوظيفة والضوابط يحتاج موافقة معمارية وأمنية.
+تبنى الاعتماديات من lockfiles، وتنتج صورة OCI ثابتة يمكن نسبها إلى Git revision. يسمح لمسار البناء والتحديث بالوصول إلى مصادر معتمدة، بينما لا تنزل حاوية الإنتاج حزماً عند بدء التشغيل ولا تعتمد الواجهة على CDN أو scripts عامة.
 
-## تدفق artifact
+## تدفق الإصدار
 
-1. يستورد فريق مخصص dependencies والتحديثات إلى منطقة إدخال محكومة خارج الإنتاج، مع فحص المصدر والترخيص والثغرات.
-2. بعد الموافقة، ترفع الحزم إلى Nexus والصور الأساسية إلى Harbor مع metadata وتوقيع.
-3. يبني GitLab CI من مرايا داخلية فقط، ويشغل الاختبارات وفحص الأسرار والثغرات والـlicense.
-4. يولد لكل إصدار immutable: image digest، SBOM، نتائج الفحوص، provenance، وتوقيع.
-5. تراجع طلبات GitOps، ثم يسحب controller الـartifact المسموح إلى `Staging` ثم `Prod` وفق الموافقة.
-6. يتحقق admission من التوقيع والمصدر وارتباط SBOM قبل التشغيل.
+1. يراجع التغيير وlockfiles ونتائج الاختبارات وفحص الأسرار والثغرات.
+2. تبنى صورة OCI وتوسم بالـcommit وتثبت بالـdigest.
+3. يحفظ SBOM ونتائج الفحص وCompose revision وخطة migrations والرجوع.
+4. يسمح Dokploy بنشر descriptor معتمد: image digest + Compose revision + environment contract.
+5. تنفذ healthchecks بعد النشر، ويحفظ آخر descriptor معروف بالصحة للرجوع.
 
 ## الضوابط
 
-- تثبت versions بالـdigest أو lockfile؛ لا يسمح بوسم mutable مثل `latest`.
-- لا يبنى أو ينشر artifact بلا SBOM وتوقيع متحقق ومراجعة ثغرات موثقة.
-- تستخدم مفاتيح التوقيع وcredentials من Vault ولا تظهر في CI logs أو images أو Git.
-- ترفض NetworkPolicy egress افتراضياً، ويشمل ذلك DNS الخارجي وimage pull من خارج السجل الداخلي.
-- تحفظ حزم الاعتماد والـbase images اللازمة للتعافي والتحديث في المرايا الداخلية قبل قطع المسار الخارجي.
-- تفصل صلاحيات إدخال dependencies عن اعتمادها ونشرها إلى الإنتاج.
+- يمنع `latest` والمراجع المتغيرة في إنتاج Dokploy.
+- لا يحتوي Git أو image أو logs على أسرار.
+- لا تنفذ `composer install` أو `npm install` أو image pull غير متوقع داخل حاوية بدأت لخدمة المستخدم.
+- تراجع الثغرات والتراخيص قبل الإصدار؛ ويربط SBOM بالـdigest متى كانت أداة البناء متاحة.
+- لا تكون واجهة Dokploy أو Docker socket أو Registry credentials متاحة لمسار المستخدم.
+- يسجل تحديث Dokploy وDocker والصور ضمن نافذة صيانة وخطة رجوع.
 
 ## دليل القبول لكل إصدار
 
 | الدليل | شرط القبول |
 |---|---|
-| artifact digest | مربوط بـGit revision معتمد |
-| توقيع | صالح من هوية توقيع داخلية معتمدة |
-| SBOM | موجود، قابل للقراءة، ومربوط بالـdigest |
-| فحص | لا ثغرة أو استثناء غير معتمد يمنع النشر |
-| air-gap | build وdeploy ناجحان دون تنزيل خارجي |
-| GitOps | تغيير منشور من مراجعة معتمدة لا من تعديل يدوي |
-
-## الاستجابة لاكتشاف ثغرة
-
-تعطل artifact المتأثر من promotion، ويحدد نطاق الـSBOM، ثم يستورد الإصلاح بالمسار المحكوم، ويعاد بناؤه وتوقيعه واختباره. عند وجود استغلال نشط، يتبع فريق التشغيل [الاستجابة للحوادث](incident-response.md).
+| image digest | مربوط بـGit revision معتمد ولا يستخدم `latest` |
+| Compose revision | صالح ومثبت ومتوافق مع متغيرات البيئة |
+| اختبارات وفحص | لا فشل أو استثناء غير معتمد يمنع النشر |
+| SBOM | موجود ومربوط بالـdigest عند بوابة الإنتاج |
+| نشر Dokploy | سجل النشر وhealthchecks محفوظان |
+| رجوع | descriptor سابق معروف بالصحة ومجرب |
 
 ## سجل التغيير
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
 | 1.0.0 | 2026-07-15 | مسؤول العمليات | إنشاء ضوابط سلسلة التوريد المعزولة |
+| 2.0.0 | 2026-07-16 | مالك المنصة | تحويل الضوابط إلى سلسلة تحديث Dokploy لخادم داخلي متصل بشكل مقيد |

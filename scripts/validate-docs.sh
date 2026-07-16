@@ -13,6 +13,9 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 2
 fi
 
+python3 scripts/validate-notifications-openapi.py
+python3 scripts/validate-work-records-openapi.py
+
 python3 - <<'PY'
 from __future__ import annotations
 

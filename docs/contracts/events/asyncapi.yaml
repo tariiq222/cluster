@@ -151,7 +151,15 @@ components:
         additionalProperties: false
         required: [original_event, failure_code, attempts, failed_at]
         properties:
-          original_event: {$ref: '../schemas/event-envelope.schema.json'}
+          original_event:
+            oneOf:
+              - {$ref: '../schemas/event-envelope.schema.json'}
+              - type: object
+                additionalProperties: false
+                required: [stream_id, raw_payload]
+                properties:
+                  stream_id: {type: string, minLength: 1}
+                  raw_payload: {type: string, maxLength: 4096}
           failure_code: {type: string, minLength: 1}
           failure_detail: {type: string}
           attempts: {type: integer, minimum: 1}

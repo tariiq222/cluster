@@ -64,10 +64,10 @@ documents:
   - {path: architecture/diagrams/outbox-sequence.mmd, title: تسلسل Outbox, category: architecture-diagram, status: accepted, owner: مكتب هندسة المنصة, phase: R1, source_of_truth: true, generated: false}
   - {path: operations/README.md, title: فهرس وثائق التشغيل, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: operations/physical-topology.md, title: الطوبولوجيا الفيزيائية ومجالات العطل, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1, source_of_truth: true, generated: false}
-  - {path: operations/kubernetes-platform.md, title: منصة Kubernetes والنشر, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1, source_of_truth: true, generated: false}
+  - {path: operations/kubernetes-platform.md, title: منصة Dokploy وDocker Compose والنشر, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1, source_of_truth: true, generated: false}
   - {path: operations/ha-dr-backup.md, title: التوافر العالي والتعافي والنسخ الاحتياطي, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1, source_of_truth: true, generated: false}
   - {path: operations/observability-and-slos.md, title: الرصد ومؤشرات وأهداف مستوى الخدمة, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
-  - {path: operations/air-gap-supply-chain.md, title: سلسلة التوريد والتشغيل المعزول, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: operations/air-gap-supply-chain.md, title: سلسلة توريد الصور والتحديثات للخادم الداخلي, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: operations/incident-response.md, title: الاستجابة للحوادث, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: operations/runbooks.md, title: كتيبات التشغيل التنفيذية, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: engineering/README.md, title: دليل الهندسة التنفيذي, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
@@ -79,6 +79,7 @@ documents:
   - {path: engineering/definition-dsl.md, title: لغة تعريف العمل المقيدة, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/README.md, title: فهرس العقود, category: contracts, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: contracts/module-contracts.md, title: عقود الموديولات, category: contracts, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: contracts/api/notifications.md, title: عقد واجهة الإشعارات, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/api/openapi.yaml, title: OpenAPI, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/events/asyncapi.yaml, title: AsyncAPI, category: contract-events, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: contracts/schemas/access-context.schema.json, title: Access Context schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
@@ -110,8 +111,9 @@ documents:
   - {path: adr/015-authorized-reporting.md, title: التقارير واللوحات المحكومة, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
   - {path: adr/016-audit-and-records-governance.md, title: التدقيق وحوكمة السجلات, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
   - {path: adr/017-derived-workspace-and-notifications.md, title: مساحة العمل والإشعارات المشتقة, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
-  - {path: adr/018-air-gapped-supply-chain.md, title: سلسلة التوريد المعزولة, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
-  - {path: adr/019-kubernetes-resilience-and-recovery.md, title: تشغيل Kubernetes والتعافي, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/018-air-gapped-supply-chain.md, title: سلسلة التوريد المعزولة, category: adr, status: superseded, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: false, generated: false}
+  - {path: adr/019-kubernetes-resilience-and-recovery.md, title: تشغيل Kubernetes والتعافي, category: adr, status: superseded, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: false, generated: false}
   - {path: adr/020-organization-and-time-bounded-authority.md, title: التنظيم والسلطة المحددة زمنياً, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
   - {path: adr/021-strategy-indicator-ownership.md, title: ملكية الاستراتيجية والمؤشرات, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R2, source_of_truth: true, generated: false}
   - {path: adr/022-portfolio-projects-and-risk-boundaries.md, title: حدود المحافظ والمشاريع والمخاطر, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R2-R3, source_of_truth: true, generated: false}
+  - {path: adr/023-single-host-dokploy-deployment.md, title: تشغيل الخادم الداخلي عبر Dokploy وDocker Compose, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R1, source_of_truth: true, generated: false}
