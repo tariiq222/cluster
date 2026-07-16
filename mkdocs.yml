@@ -91,6 +91,7 @@ nav:
       - الإصدار الثاني: plans/release-2-strategy-portfolio.md
       - الإصدار الثالث: plans/release-3-risk.md
       - قائمة الجاهزية: plans/readiness-checklist.md
+      - تصميم استلام العمل وإزالة GSD: superpowers/specs/2026-07-17-gsd-takeover-design.md
   - العقود:
       - فهرس العقود: contracts/README.md
       - عقود الموديولات: contracts/module-contracts.md
