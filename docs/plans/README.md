@@ -23,3 +23,4 @@ references: []
 | [خطة R2](release-2-strategy-portfolio.md) | الاستراتيجية والمحافظ والمشاريع |
 | [خطة R3](release-3-risk.md) | المخاطر المؤسسية |
 | [قائمة الجاهزية](readiness-checklist.md) | قرار Go/No-Go |
+| [حالة التسليم النشطة](active-delivery-status.md) | الحالة التنفيذية المثبتة والخطوة التالية |
