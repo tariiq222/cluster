@@ -23,10 +23,28 @@ return new class extends Migration
 
             $table->index(['owner_facility_id', 'status']);
         });
+
+        Schema::create('work_record_idempotency_keys', function (Blueprint $table): void {
+            $table->id();
+            $table->uuid('principal_id');
+            $table->uuid('facility_id');
+            $table->string('operation', 96);
+            $table->char('idempotency_key_hash', 64);
+            $table->char('request_hash', 64);
+            $table->uuid('work_record_id');
+            $table->timestamps();
+
+            $table->unique(
+                ['principal_id', 'facility_id', 'operation', 'idempotency_key_hash'],
+                'work_record_idempotency_scope_unique',
+            );
+            $table->index('work_record_id');
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('work_record_idempotency_keys');
         Schema::dropIfExists('work_records');
     }
 };

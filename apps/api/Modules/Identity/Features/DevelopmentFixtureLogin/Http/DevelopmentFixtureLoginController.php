@@ -6,10 +6,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 final class DevelopmentFixtureLoginController
 {
+    public function __construct(
+        private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
+    ) {}
+
     public function __invoke(Request $request): JsonResponse
     {
         abort_unless(app()->environment(['local', 'testing']), 404);
@@ -34,12 +38,13 @@ final class DevelopmentFixtureLoginController
 
         $request->session()->regenerate();
         $request->session()->put('development_fixture_principal', $principal);
+        $credential = $this->principalResolver->issue($principal);
 
         return response()->json([
             'data' => [
-                'access_token' => Str::random(64),
+                'access_token' => $credential['access_token'],
                 'token_type' => 'Bearer',
-                'expires_at' => now()->addMinutes(120)->utc()->toIso8601String(),
+                'expires_at' => $credential['expires_at'],
                 'facility' => $account->facility_id === '018f6f7d-0c00-7000-8000-000000000011' ? 'facility-a' : 'facility-b',
                 'principal' => $principal,
             ],

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class DevelopmentFixtureLoginTest extends TestCase
@@ -21,6 +22,10 @@ class DevelopmentFixtureLoginTest extends TestCase
         $accountA->assertOk()
             ->assertJsonPath('data.facility', 'facility-a')
             ->assertJsonPath('data.principal.facility_id', '018f6f7d-0c00-7000-8000-000000000011');
+        $tokenA = $accountA->json('data.access_token');
+        $this->assertIsString($tokenA);
+        $this->assertTrue(Cache::store('file')->has('development-fixture-bearer:'.hash('sha256', $tokenA)));
+        $this->assertFalse(Cache::store('file')->has('development-fixture-bearer:'.$tokenA));
         $this->assertSame(
             '018f6f7d-0c00-7000-8000-000000000011',
             $this->app['session']->get('development_fixture_principal.facility_id'),
@@ -34,6 +39,7 @@ class DevelopmentFixtureLoginTest extends TestCase
         $accountB->assertOk()
             ->assertJsonPath('data.facility', 'facility-b')
             ->assertJsonPath('data.principal.facility_id', '018f6f7d-0c00-7000-8000-000000000012');
+        $this->assertNotSame($tokenA, $accountB->json('data.access_token'));
     }
 
     public function test_invalid_credentials_receive_the_same_generic_unauthorized_response(): void
@@ -55,6 +61,57 @@ class DevelopmentFixtureLoginTest extends TestCase
         $invalidPassword->assertUnauthorized()
             ->assertJsonPath('detail', 'بيانات الاعتماد غير صالحة.')
             ->assertJsonMissingPath('username');
+    }
+
+    public function test_expired_fixture_bearer_state_is_rejected_and_removed(): void
+    {
+        $token = $this->loginToken();
+        $cacheKey = $this->cacheKey($token);
+        Cache::store('file')->put($cacheKey, [
+            'principal' => [
+                'user_id' => '018f6f7d-0c00-7000-8000-000000000021',
+                'facility_id' => '018f6f7d-0c00-7000-8000-000000000011',
+            ],
+            'expires_at' => now()->subSecond()->getTimestamp(),
+        ], now()->addMinute());
+
+        $this->withToken($token)
+            ->getJson('/api/v1/work-records', $this->headers())
+            ->assertUnauthorized()
+            ->assertHeader('Content-Type', 'application/problem+json');
+        $this->assertFalse(Cache::store('file')->has($cacheKey));
+    }
+
+    public function test_malformed_fixture_bearer_state_is_rejected_and_removed(): void
+    {
+        $token = $this->loginToken();
+        $cacheKey = $this->cacheKey($token);
+        $malformedStates = [
+            ['principal' => 'not-an-array', 'expires_at' => now()->addMinute()->getTimestamp()],
+            ['principal' => ['user_id' => 'not-a-uuid', 'facility_id' => 'also-invalid'], 'expires_at' => now()->addMinute()->getTimestamp()],
+            ['principal' => ['user_id' => '018f6f7d-0c00-7000-8000-000000000021', 'facility_id' => '018f6f7d-0c00-7000-8000-000000000011'], 'expires_at' => 'not-an-integer'],
+        ];
+
+        foreach ($malformedStates as $state) {
+            Cache::store('file')->put($cacheKey, $state, now()->addMinute());
+            $this->withToken($token)
+                ->getJson('/api/v1/work-records', $this->headers())
+                ->assertUnauthorized();
+            $this->assertFalse(Cache::store('file')->has($cacheKey));
+        }
+    }
+
+    private function loginToken(): string
+    {
+        return (string) $this->postJson('/api/v1/auth/login', [
+            'username' => 'fixture-account-a',
+            'password' => 'fixture-password-a',
+        ], $this->headers())->assertOk()->json('data.access_token');
+    }
+
+    private function cacheKey(string $token): string
+    {
+        return 'development-fixture-bearer:'.hash('sha256', $token);
     }
 
     /**

@@ -3,8 +3,8 @@
 namespace Modules\WorkRecords\Domain\Tests;
 
 use DateTimeImmutable;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
@@ -92,18 +92,34 @@ class WorkRecordEnvelopeTest extends TestCase
             'occurred_at',
             'published_at',
         ]));
+        $this->assertTrue(Schema::hasColumns('work_record_idempotency_keys', [
+            'principal_id',
+            'facility_id',
+            'operation',
+            'idempotency_key_hash',
+            'request_hash',
+            'work_record_id',
+        ]));
     }
 
     public function test_persisting_a_submitted_record_writes_its_cloudevent_to_the_outbox_in_the_same_transaction(): void
     {
-        $handler = new SubmitWorkRecordHandler();
+        $handler = new SubmitWorkRecordHandler;
         $first = $this->record(self::RECORD_ID, 'WR-000001');
 
-        $handler->persist($first, $this->cloudEvent($first, '0197f0e0-0000-7000-8000-000000000201'));
+        $handler->persist(
+            $first,
+            $this->cloudEvent($first, '0197f0e0-0000-7000-8000-000000000201'),
+            $this->idempotency('first-write'),
+        );
 
         $second = $this->record('0197f0e0-0000-7000-8000-000000000102', 'WR-000002');
         try {
-            $handler->persist($second, $this->cloudEvent($second, '0197f0e0-0000-7000-8000-000000000201'));
+            $handler->persist(
+                $second,
+                $this->cloudEvent($second, '0197f0e0-0000-7000-8000-000000000201'),
+                $this->idempotency('second-write'),
+            );
             $this->fail('The duplicate CloudEvent id must prevent a second write.');
         } catch (UniqueConstraintViolationException) {
             // The Outbox insert fails after the source insert, so the transaction must roll both back.
@@ -111,6 +127,7 @@ class WorkRecordEnvelopeTest extends TestCase
 
         $this->assertSame(1, DB::table('work_records')->count());
         $this->assertSame(1, DB::table('outbox_events')->count());
+        $this->assertSame(1, DB::table('work_record_idempotency_keys')->count());
         $this->assertSame(
             'com.cluster.workrecord.submitted.v1',
             DB::table('outbox_events')->value('event_type'),
@@ -119,15 +136,45 @@ class WorkRecordEnvelopeTest extends TestCase
 
     public function test_replaying_the_same_submitted_event_is_idempotent(): void
     {
-        $handler = new SubmitWorkRecordHandler();
+        $handler = new SubmitWorkRecordHandler;
         $record = $this->record(self::RECORD_ID, 'WR-000001');
         $event = $this->cloudEvent($record, '0197f0e0-0000-7000-8000-000000000202');
 
-        $handler->persist($record, $event);
-        $handler->persist($record, $event);
+        $idempotency = $this->idempotency('same-submission');
+        $handler->persist($record, $event, $idempotency);
+        $result = $handler->persist($record, $event, $idempotency);
 
+        $this->assertFalse($result['created']);
+        $this->assertTrue($result['request_hash_matches']);
+        $this->assertSame(self::RECORD_ID, $result['record']['id']);
         $this->assertSame(1, DB::table('work_records')->count());
         $this->assertSame(1, DB::table('outbox_events')->count());
+        $this->assertSame(1, DB::table('work_record_idempotency_keys')->count());
+    }
+
+    public function test_unique_idempotency_claim_collapses_a_concurrent_loser_to_the_committed_result(): void
+    {
+        $handler = new SubmitWorkRecordHandler;
+        $winner = $this->record(self::RECORD_ID, 'WR-000001');
+        $loser = $this->record('0197f0e0-0000-7000-8000-000000000102', 'WR-000002');
+        $idempotency = $this->idempotency('concurrent-claim');
+
+        $handler->persist(
+            $winner,
+            $this->cloudEvent($winner, '0197f0e0-0000-7000-8000-000000000203'),
+            $idempotency,
+        );
+        $result = $handler->persist(
+            $loser,
+            $this->cloudEvent($loser, '0197f0e0-0000-7000-8000-000000000204'),
+            $idempotency,
+        );
+
+        $this->assertFalse($result['created']);
+        $this->assertSame(self::RECORD_ID, $result['record']['id']);
+        $this->assertSame(1, DB::table('work_records')->count());
+        $this->assertSame(1, DB::table('outbox_events')->count());
+        $this->assertSame(1, DB::table('work_record_idempotency_keys')->count());
     }
 
     private function record(string $id, string $recordNumber): WorkRecord
@@ -165,6 +212,18 @@ class WorkRecordEnvelopeTest extends TestCase
                 'access_context' => ['owner_facility_id' => self::FACILITY_ID],
                 'classification' => 'internal',
             ],
+        ];
+    }
+
+    /** @return array{principal_id: string, facility_id: string, operation: string, key_hash: string, request_hash: string} */
+    private function idempotency(string $key): array
+    {
+        return [
+            'principal_id' => self::CREATOR_ID,
+            'facility_id' => self::FACILITY_ID,
+            'operation' => 'createWorkRecord',
+            'key_hash' => hash('sha256', $key),
+            'request_hash' => hash('sha256', 'same-request-semantics'),
         ];
     }
 }
