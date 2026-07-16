@@ -1,59 +1,218 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test'
 
 import { walkingSkeletonFixtures, walkingSkeletonLocales } from '../src/test/setup'
 
-test('account A submits its request, sees only its row, and receives its in-app notification', async ({ page }) => {
+type Locale = 'ar' | 'en'
+
+type SessionEnvelope = {
+  data: {
+    access_token: string
+  }
+}
+
+type WorkRecord = {
+  id: string
+  payload: {
+    title?: string
+    description?: string
+  }
+}
+
+type WorkRecordCollection = {
+  items: WorkRecord[]
+  next_cursor: string | null
+}
+
+const copy = {
+  ar: {
+    lang: walkingSkeletonLocales.arabic.lang,
+    dir: walkingSkeletonLocales.arabic.dir,
+    username: 'اسم المستخدم',
+    password: 'كلمة المرور',
+    signIn: 'تسجيل الدخول',
+    newRequest: 'طلب جديد',
+    title: 'عنوان الطلب (مطلوب)',
+    description: 'وصف الطلب (مطلوب)',
+    submit: 'إرسال الطلب',
+    success: 'تم إرسال طلبك',
+    back: 'العودة إلى طلباتي',
+    notifications: 'الإشعارات',
+    refresh: 'تحديث الإشعارات',
+    unavailable: 'لا يمكنك فتح هذا الطلب أو لم يعد متاحاً.',
+  },
+  en: {
+    lang: walkingSkeletonLocales.english.lang,
+    dir: walkingSkeletonLocales.english.dir,
+    username: 'Username',
+    password: 'Password',
+    signIn: 'Sign in',
+    newRequest: 'New request',
+    title: 'Request title (required)',
+    description: 'Request description (required)',
+    submit: 'Submit request',
+    success: 'Your request was submitted',
+    back: 'Back to my requests',
+    notifications: 'Notifications',
+    refresh: 'Refresh notifications',
+    unavailable: 'You cannot open this request, or it is no longer available.',
+  },
+} as const
+
+function correlationId(): string {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  let timestamp = Date.now()
+  for (let index = 5; index >= 0; index -= 1) {
+    bytes[index] = timestamp & 0xff
+    timestamp = Math.floor(timestamp / 256)
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x70
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+async function apiToken(request: APIRequestContext, username: string, password: string): Promise<string> {
+  const response = await request.post('/api/v1/auth/login', {
+    headers: { 'X-Correlation-ID': correlationId() },
+    data: { username, password },
+  })
+  expect(response.status()).toBe(200)
+  const envelope = await response.json() as SessionEnvelope
+  return envelope.data.access_token
+}
+
+async function apiRecords(request: APIRequestContext, token: string): Promise<WorkRecordCollection> {
+  const response = await request.get('/api/v1/work-records?limit=100', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Correlation-ID': correlationId(),
+    },
+  })
+  expect(response.status()).toBe(200)
+  return response.json() as Promise<WorkRecordCollection>
+}
+
+async function signIn(page: Page, locale: Locale, username: string, password: string): Promise<void> {
+  const labels = copy[locale]
   await page.goto('/')
+  if (locale === 'en') {
+    await page.getByRole('button', { name: 'English' }).click()
+  }
+  await expect(page.locator('html')).toHaveAttribute('lang', labels.lang)
+  await expect(page.locator('html')).toHaveAttribute('dir', labels.dir)
+  await page.getByLabel(labels.username).fill(username)
+  await page.getByLabel(labels.password).fill(password)
+  await page.getByRole('button', { name: labels.signIn }).click()
+  await expect(page.getByRole('heading', { name: locale === 'ar' ? 'طلباتي' : 'My requests' })).toBeVisible()
+}
 
-  await expect(page.locator('html')).toHaveAttribute('lang', walkingSkeletonLocales.arabic.lang)
-  await expect(page.locator('html')).toHaveAttribute('dir', walkingSkeletonLocales.arabic.dir)
+async function submitRequest(page: Page, locale: Locale, title: string, description: string): Promise<void> {
+  const labels = copy[locale]
+  await page.getByRole('link', { name: labels.newRequest }).first().click()
+  await page.getByLabel(labels.title).fill(title)
+  await page.getByLabel(labels.description).fill(description)
+  await page.getByRole('button', { name: labels.submit }).click()
+  await expect(page.getByRole('heading', { name: labels.success })).toBeFocused()
+  await page.getByRole('link', { name: labels.back }).click()
+  await expect(page.getByRole('link', { name: title })).toBeVisible()
+}
 
-  await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountA.username)
-  await page.getByLabel('كلمة المرور').fill(walkingSkeletonFixtures.accountA.password)
-  await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
+async function openRoute(page: Page, path: string): Promise<void> {
+  await page.evaluate((nextPath) => {
+    window.history.pushState({}, '', nextPath)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, path)
+}
 
-  await page.getByRole('link', { name: 'طلب جديد' }).click()
-  await page.getByLabel('عنوان الطلب (مطلوب)').fill(walkingSkeletonFixtures.accountA.title)
-  await page.getByLabel('وصف الطلب (مطلوب)').fill(walkingSkeletonFixtures.accountA.description)
-  await page.getByRole('button', { name: 'إرسال الطلب' }).click()
+async function exerciseIsolatedJourney(browser: Browser, request: APIRequestContext, locale: Locale): Promise<void> {
+  const labels = copy[locale]
+  const suffix = `${locale}-${Date.now()}`
+  const titleA = `${walkingSkeletonFixtures.accountA.title} ${suffix}`
+  const descriptionA = `${walkingSkeletonFixtures.accountA.description} ${suffix}`
+  const titleB = `طلب حساب ب ${suffix}`
+  const descriptionB = `وصف لا يراه إلا حساب المنشأة ب. ${suffix}`
+  const pageA = await browser.newPage()
+  const pageB = await browser.newPage()
 
-  await expect(page.getByRole('heading', { name: 'تم إرسال طلبك' })).toBeFocused()
-  await page.getByRole('link', { name: 'العودة إلى طلباتي' }).click()
-  await expect(page.getByText(walkingSkeletonFixtures.accountA.title)).toBeVisible()
-  await expect(page.getByText(walkingSkeletonFixtures.accountA.description)).toBeVisible()
+  await signIn(pageA, locale, walkingSkeletonFixtures.accountA.username, walkingSkeletonFixtures.accountA.password)
+  await submitRequest(pageA, locale, titleA, descriptionA)
+  await signIn(pageB, locale, walkingSkeletonFixtures.accountB.username, walkingSkeletonFixtures.accountB.password)
+  await submitRequest(pageB, locale, titleB, descriptionB)
 
-  await page.getByRole('button', { name: 'الإشعارات' }).click()
-  await page.getByRole('button', { name: 'تحديث الإشعارات' }).click()
-  await expect(page.getByText(walkingSkeletonFixtures.accountA.title)).toBeVisible()
+  const tokenA = await apiToken(request, walkingSkeletonFixtures.accountA.username, walkingSkeletonFixtures.accountA.password)
+  const tokenB = await apiToken(request, walkingSkeletonFixtures.accountB.username, walkingSkeletonFixtures.accountB.password)
+  const recordsA = await apiRecords(request, tokenA)
+  const recordsB = await apiRecords(request, tokenB)
+  const recordA = recordsA.items.find((record) => record.payload.title === titleA)
+  const recordB = recordsB.items.find((record) => record.payload.title === titleB)
+  expect(recordA).toBeTruthy()
+  expect(recordB).toBeTruthy()
+  expect(recordsA.items.some((record) => record.id === recordB?.id)).toBe(false)
+  expect(recordsB.items.some((record) => record.id === recordA?.id)).toBe(false)
+  await expect(pageA.getByText(titleB)).toHaveCount(0)
+  await expect(pageB.getByText(titleA)).toHaveCount(0)
+
+  await pageA.getByRole('link', { name: titleA }).click()
+  await expect(pageA.getByRole('heading', { name: titleA })).toBeVisible()
+  await expect(pageA.getByText(descriptionA)).toBeVisible()
+  await pageB.getByRole('link', { name: titleB }).click()
+  await expect(pageB.getByRole('heading', { name: titleB })).toBeVisible()
+  await expect(pageB.getByText(descriptionB)).toBeVisible()
+
+  await pageA.getByRole('button', { name: locale === 'ar' ? 'English' : 'العربية' }).click()
+  await expect(pageA.locator('html')).toHaveAttribute('lang', locale === 'ar' ? 'en' : 'ar')
+  await expect(pageA.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'ltr' : 'rtl')
+  await expect(pageA.getByRole('heading', { name: titleA })).toBeVisible()
+  await pageA.getByRole('button', { name: locale === 'ar' ? 'العربية' : 'English' }).click()
+
+  const sharedCorrelation = correlationId()
+  const crossHeaders = (token: string) => ({
+    Authorization: `Bearer ${token}`,
+    'X-Correlation-ID': sharedCorrelation,
+  })
+  const aReadsB = await request.get(`/api/v1/work-records/${recordB!.id}`, { headers: crossHeaders(tokenA) })
+  const bReadsA = await request.get(`/api/v1/work-records/${recordA!.id}`, { headers: crossHeaders(tokenB) })
+  expect(aReadsB.status()).toBe(404)
+  expect(aReadsB.status()).toBe(bReadsA.status())
+  const aReadsBBody = await aReadsB.body()
+  expect(aReadsBBody).toEqual(await bReadsA.body())
+  const unavailableBody = await aReadsB.text()
+  expect(JSON.parse(unavailableBody)).toEqual({
+    type: 'https://cluster.example/problems/work-record-unavailable',
+    title: 'Not Found',
+    status: 404,
+    detail: 'لا يمكنك فتح هذا الطلب أو لم يعد متاحاً.',
+  })
+  for (const forbidden of [titleA, descriptionA, titleB, descriptionB, 'facility', 'owner', 'trace', 'authorization']) {
+    expect(unavailableBody).not.toContain(forbidden)
+  }
+
+  await openRoute(pageA, `/work-records/${recordB!.id}`)
+  await expect(pageA.getByText(labels.unavailable)).toBeVisible()
+  await expect(pageA.getByText(titleB)).toHaveCount(0)
+  await expect(pageA.getByText(descriptionB)).toHaveCount(0)
+
+  await pageA.getByRole('button', { name: labels.notifications }).click()
+  for (let attempt = 0; attempt < 20 && await pageA.locator('.notification-list li').count() === 0; attempt += 1) {
+    const notificationResponse = pageA.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/v1/notifications'
+    })
+    await pageA.getByRole('button', { name: labels.refresh }).click()
+    expect((await notificationResponse).status()).toBe(200)
+    if (await pageA.locator('.notification-list li').count() === 0) await pageA.waitForTimeout(250)
+  }
+  await expect(pageA.locator('.notification-list li').first()).toBeVisible()
+
+  await pageA.close()
+  await pageB.close()
+}
+
+test('Arabic RTL journey keeps facility A and B records symmetrically isolated', async ({ browser, request }) => {
+  await exerciseIsolatedJourney(browser, request, 'ar')
 })
 
-test('English uses LTR while the same account A journey remains available', async ({ page }) => {
-  await page.goto('/')
-
-  await page.getByRole('button', { name: 'English' }).click()
-  await expect(page.locator('html')).toHaveAttribute('lang', walkingSkeletonLocales.english.lang)
-  await expect(page.locator('html')).toHaveAttribute('dir', walkingSkeletonLocales.english.dir)
-
-  await page.getByLabel('Username').fill(walkingSkeletonFixtures.accountA.username)
-  await page.getByLabel('Password').fill(walkingSkeletonFixtures.accountA.password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByRole('link', { name: 'New request' }).click()
-  await page.getByLabel('Request title (required)').fill(walkingSkeletonFixtures.accountA.title)
-  await page.getByLabel('Request description (required)').fill(walkingSkeletonFixtures.accountA.description)
-  await page.getByRole('button', { name: 'Submit request' }).click()
-
-  await expect(page.getByRole('heading', { name: 'Your request was submitted' })).toBeFocused()
-})
-
-test('account B cannot reveal account A record metadata', async ({ page }) => {
-  await page.goto('/')
-  await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountB.username)
-  await page.getByLabel('كلمة المرور').fill(walkingSkeletonFixtures.accountB.password)
-  await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
-  await page.goto(`/work-records/${walkingSkeletonFixtures.unavailableRecordId}`)
-
-  await expect(page.getByText('لا يمكنك فتح هذا الطلب أو لم يعد متاحاً.')).toBeVisible()
-  await expect(page.getByText(walkingSkeletonFixtures.accountA.title)).not.toBeVisible()
-  await expect(page.getByText(walkingSkeletonFixtures.accountA.description)).not.toBeVisible()
-  await expect(page.getByText(/facility|منشأة|authorization trace|مسار الصلاحية/i)).not.toBeVisible()
+test('English LTR journey keeps facility A and B records symmetrically isolated', async ({ browser, request }) => {
+  await exerciseIsolatedJourney(browser, request, 'en')
 })

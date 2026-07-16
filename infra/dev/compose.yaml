@@ -1,0 +1,36 @@
+services:
+  mysql:
+    image: docker.io/library/mysql:8.4.6@sha256:869218921e61d6c3c89820955d63cca42971f0e3e6c1e2792247bbd944ebc6e9
+    environment:
+      MYSQL_DATABASE: ${W1_1_MYSQL_DATABASE:-cluster}
+      MYSQL_ROOT_PASSWORD: ${W1_1_MYSQL_ROOT_PASSWORD:-local-dev-root}
+      MYSQL_USER: ${W1_1_MYSQL_USER:-cluster}
+      MYSQL_PASSWORD: ${W1_1_MYSQL_PASSWORD:-local-dev-password}
+    ports:
+      - "127.0.0.1:${W1_1_MYSQL_PORT:-33060}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  valkey:
+    image: docker.io/valkey/valkey:8.1.1@sha256:a19bebed6a91bd5e6e2106fef015f9602a3392deeb7c9ed47548378dcee3dfc2
+    command: ["valkey-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${W1_1_VALKEY_PORT:-6380}:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+
+volumes:
+  mysql-data: {}
+  valkey-data: {}
