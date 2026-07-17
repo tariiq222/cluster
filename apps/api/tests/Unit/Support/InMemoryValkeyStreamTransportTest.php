@@ -98,10 +98,12 @@ class InMemoryValkeyStreamTransportTest extends TestCase
         $transport = new InMemoryValkeyStreamTransport(static fn (): int => 1_784_198_760_000);
         $transport->xadd(self::STREAM, ['event' => 'source']);
 
-        $firstId = $transport->publishDlq('platform.dlq.v1', ['failure_code' => 'INVALID_EVENT']);
-        $secondId = $transport->publishDlq('platform.dlq.v1', ['failure_code' => 'PROCESSING_FAILED']);
+        $firstId = $transport->publishDlq('platform.dlq.v1', 'source-1', ['failure_code' => 'INVALID_EVENT']);
+        $duplicateId = $transport->publishDlq('platform.dlq.v1', 'source-1', ['failure_code' => 'MUST_NOT_DUPLICATE']);
+        $secondId = $transport->publishDlq('platform.dlq.v1', 'source-2', ['failure_code' => 'PROCESSING_FAILED']);
 
         $this->assertSame('1784198760000-0', $firstId);
+        $this->assertSame($firstId, $duplicateId);
         $this->assertSame('1784198760000-1', $secondId);
         $this->assertCount(1, $transport->streamEntries(self::STREAM));
         $this->assertSame(
@@ -110,6 +112,13 @@ class InMemoryValkeyStreamTransportTest extends TestCase
                 static fn (array $entry): string => json_decode($entry['fields']['event'], true, 512, JSON_THROW_ON_ERROR)['failure_code'],
                 $transport->streamEntries('platform.dlq.v1'),
             ),
+        );
+
+        $transport->purgeDlq('platform.dlq.v1');
+        $this->assertSame([], $transport->streamEntries('platform.dlq.v1'));
+        $this->assertSame(
+            '1784198760000-0',
+            $transport->publishDlq('platform.dlq.v1', 'source-1', ['failure_code' => 'REPLAY_AFTER_PURGE']),
         );
     }
 }

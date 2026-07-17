@@ -33,6 +33,7 @@ env:
 
 jobs:
   validate-docs:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-general]
     container:
       image: registry.internal/third-health-cluster/ci-python@sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -49,6 +50,7 @@ jobs:
       - run: ./scripts/validate-docs.sh
 
   build-docs:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-general]
     container:
       image: registry.internal/third-health-cluster/ci-python@sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -71,6 +73,7 @@ jobs:
           retention-days: 7
 
   validate-mermaid:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-general]
     container:
       image: registry.internal/third-health-cluster/ci-mermaid@sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -87,6 +90,7 @@ jobs:
       - run: ./scripts/render-diagrams.sh /tmp/validated-diagrams
 
   test-api:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-general]
     container:
       image: registry.internal/third-health-cluster/ci-composer@sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -99,10 +103,16 @@ jobs:
             exit 1
           }
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: test -f apps/api/composer.lock
+      - run: composer --working-dir=apps/api validate --strict
       - run: composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
+      - run: make lint-api
+      - run: make analyse-api
+      - run: composer --working-dir=apps/api audit --locked
       - run: make test-api
 
   test-web:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-general]
     container:
       image: registry.internal/third-health-cluster/ci-node@sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -115,10 +125,30 @@ jobs:
             exit 1
           }
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: test -f apps/web/package-lock.json
       - run: npm --prefix apps/web ci
+      - run: npm --prefix apps/web run api:check
+      - run: npm --prefix apps/web audit
       - run: make test-web
 
+  security-quality:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, ci-general]
+    container:
+      image: registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    steps:
+      - name: Require approved internal tooling
+        run: |
+          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
+            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
+            echo "no secret was read."
+            exit 1
+          }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: gitleaks detect --source . --redact --no-banner
+
   test-e2e-w1-1:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-general]
     needs: [test-api, test-web]
     container:
@@ -135,6 +165,7 @@ jobs:
       - run: make test-e2e-w1-1
 
   verify-boundaries:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-general]
     needs: [test-api]
     container:
@@ -148,10 +179,13 @@ jobs:
             exit 1
           }
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: test -f apps/api/composer.lock
+      - run: composer --working-dir=apps/api validate --strict
       - run: composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
       - run: make verify-boundaries
 
   verify-ci-config:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-general]
     container:
       image: registry.internal/third-health-cluster/ci-ruby@sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -170,7 +204,7 @@ jobs:
     if: github.ref_type == 'tag' && github.ref_protected
     runs-on: [self-hosted, release-artifacts]
     needs:
-      [test-api, test-web, test-e2e-w1-1, verify-boundaries, verify-ci-config]
+      [validate-docs, build-docs, validate-mermaid, test-api, test-web, security-quality, test-e2e-w1-1, verify-boundaries, verify-ci-config]
     environment: release-artifacts
     container:
       image: registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -314,6 +348,10 @@ jobs:
       [
         test-api,
         test-web,
+        security-quality,
+        validate-docs,
+        build-docs,
+        validate-mermaid,
         test-e2e-w1-1,
         verify-boundaries,
         verify-ci-config,

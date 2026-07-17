@@ -134,15 +134,15 @@ final class SubmitWorkRecordHandler
     /** @param array{principal_id: string, facility_id: string, operation: string, key_hash: string, request_hash: string} $idempotency */
     private function assertIdempotency(array $idempotency): void
     {
-        $this->assertUuidV7($idempotency['principal_id'] ?? '', 'Idempotency principal id');
-        $this->assertUuidV7($idempotency['facility_id'] ?? '', 'Idempotency facility id');
+        $this->assertUuidV7($idempotency['principal_id'], 'Idempotency principal id');
+        $this->assertUuidV7($idempotency['facility_id'], 'Idempotency facility id');
 
-        if (($idempotency['operation'] ?? '') === '' || strlen($idempotency['operation']) > 96) {
+        if ($idempotency['operation'] === '' || strlen($idempotency['operation']) > 96) {
             throw new InvalidArgumentException('Idempotency operation is required.');
         }
 
         foreach (['key_hash', 'request_hash'] as $hash) {
-            if (preg_match('/\A[a-f0-9]{64}\z/', $idempotency[$hash] ?? '') !== 1) {
+            if (preg_match('/\A[a-f0-9]{64}\z/', $idempotency[$hash]) !== 1) {
                 throw new InvalidArgumentException("Idempotency {$hash} must be a SHA-256 hash.");
             }
         }

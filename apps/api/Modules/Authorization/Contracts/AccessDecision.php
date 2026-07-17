@@ -5,7 +5,7 @@ namespace Modules\Authorization\Contracts;
 final readonly class AccessDecision
 {
     /**
-     * @param list<string> $reasonCodes
+     * @param  list<string>  $reasonCodes
      */
     public function __construct(
         public string $decision,
@@ -15,8 +15,7 @@ final readonly class AccessDecision
         public string $policyVersion,
         public string $factsVersion,
         public string $classification,
-    ) {
-    }
+    ) {}
 
     public function isAllowed(): bool
     {

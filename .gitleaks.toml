@@ -1,0 +1,22 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Historical SHA-256 manifest false positives"
+targetRules = ["generic-api-key"]
+condition = "AND"
+commits = ["b0938fd4c1061a944acb86d65b963682f47bbb81"]
+paths = ['''^\.opencode/gsd-file-manifest\.json$''']
+regexTarget = "line"
+regexes = [
+  '''^[[:space:]]*"gsd-core/bin/lib/api-coverage\.cjs": "df26cbfce51c8ed7f2e6f78ba5be354db99afe0f6734256e365dba6001ba5a13",$''',
+  '''^[[:space:]]*"gsd-core/bin/lib/secrets\.cjs": "02b42408bba154f20bd0d64fa737071f54baa5f0cc89319f114d439e779a0806",$''',
+  '''^[[:space:]]*"gsd-core/references/api-coverage\.md": "205a43c5fa7c221c476f10b59590aea8e45c44ed1c2c8bae76be47f5ba7d734a",$''',
+]
+
+[[allowlists]]
+description = "Historical stack terminology false positive"
+targetRules = ["generic-api-key"]
+condition = "AND"
+commits = ["84763f4bb242b47db2eb69ef5de02a7f1c6fdca1"]
+paths = ['''^\.planning/research/STACK\.md$''']

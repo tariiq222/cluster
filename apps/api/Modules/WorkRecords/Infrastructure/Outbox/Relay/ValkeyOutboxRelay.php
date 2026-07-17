@@ -4,7 +4,6 @@ namespace Modules\WorkRecords\Infrastructure\Outbox\Relay;
 
 use Illuminate\Support\Facades\DB;
 use Shared\Infrastructure\Streams\ValkeyStreamTransport;
-use stdClass;
 
 final class ValkeyOutboxRelay
 {
@@ -29,10 +28,6 @@ final class ValkeyOutboxRelay
 
         $published = 0;
         foreach ($events as $event) {
-            if (! $event instanceof stdClass) {
-                continue;
-            }
-
             DB::table('outbox_events')
                 ->where('event_id', $event->event_id)
                 ->whereNull('published_at')

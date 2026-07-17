@@ -17,6 +17,9 @@ final class InMemoryValkeyStreamTransport implements ValkeyStreamTransport
     /** @var array<string, array{timestamp: int, sequence: int}> */
     private array $lastIds = [];
 
+    /** @var array<string, array<string, string>> */
+    private array $dlqSourceIds = [];
+
     private readonly Closure $clock;
 
     private int $ackFailuresRemaining = 0;
@@ -140,11 +143,24 @@ final class InMemoryValkeyStreamTransport implements ValkeyStreamTransport
         unset($state['pending'][$messageId]);
     }
 
-    public function publishDlq(string $stream, array $deadLetter): string
+    public function publishDlq(string $stream, string $sourceMessageId, array $deadLetter): string
     {
-        return $this->xadd($stream, [
+        if (isset($this->dlqSourceIds[$stream][$sourceMessageId])) {
+            return $this->dlqSourceIds[$stream][$sourceMessageId];
+        }
+
+        $messageId = $this->xadd($stream, [
+            'source_message_id' => $sourceMessageId,
             'event' => json_encode($deadLetter, JSON_THROW_ON_ERROR),
         ]);
+        $this->dlqSourceIds[$stream][$sourceMessageId] = $messageId;
+
+        return $messageId;
+    }
+
+    public function purgeDlq(string $stream): void
+    {
+        unset($this->streams[$stream], $this->lastIds[$stream], $this->dlqSourceIds[$stream]);
     }
 
     public function failNextAck(int $times = 1): void

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from scripts.net04_network_policy import Check, build_receipt, validate_compose, validate_policy
+from scripts.validate_live_net04_policy import validate_live_policy
 
 
 pytestmark = pytest.mark.unit
@@ -38,6 +39,28 @@ def test_closed_policy_and_literal_loopback_compose_are_accepted():
 
   assert validate_policy(approved_policy) == []
   assert validate_compose(compose_fixture(), approved_policy) == []
+
+
+def test_live_policy_rejects_example_identity_content_and_placeholder_hosts(tmp_path):
+  example = ROOT / "infra/platform/network/net04-network-policy.example.json"
+  copied_example = tmp_path / "copied-policy.json"
+  copied_example.write_bytes(example.read_bytes())
+
+  failures = validate_live_policy(copied_example, example)
+  assert "live policy content matches the checked-in example" in failures
+  assert any("non-placeholder hostname" in failure for failure in failures)
+
+  approved = policy()
+  approved["endpoints"]["public_https_origin"] = "https://cluster.internal.example"
+  approved["endpoints"]["management_https_origin"] = "https://dokploy.internal.example"
+  approved_path = tmp_path / "approved-policy.json"
+  approved_path.write_text(json.dumps(approved), encoding="utf-8")
+
+  assert validate_live_policy(approved_path, example) == []
+
+  symlink = tmp_path / "linked-policy.json"
+  symlink.symlink_to(approved_path)
+  assert "live policy must be a regular file, not a symbolic link" in validate_live_policy(symlink, example)
 
 
 @pytest.mark.parametrize(

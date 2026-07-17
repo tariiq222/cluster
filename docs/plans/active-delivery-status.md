@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: proposed
-version: 1.5.0
+version: 1.6.0
 date: 2026-07-17
 owner: مكتب هندسة المنصة
 reviewers:
@@ -77,13 +77,21 @@ references:
 
 | التاريخ | الأمر | الدليل |
 |---|---|---|
-| 2026-07-17 | مجموعة API المستهدفة | 55 اختباراً ناجحاً و472 assertion على Identity وWorkDefinitions وWorkRecords وNotifications والحدود |
+| 2026-07-17 | مجموعة API المستهدفة | 56 اختباراً، منها 54 ناجحاً و2 integration مشروطتان، و492 assertion على Identity وWorkDefinitions وWorkRecords وNotifications والحدود |
+| 2026-07-17 | `composer lint` + `composer analyse` | Pint نجح وPHPStan/Larastan level 5 غطى `app` و`Modules` و`Shared` و`tests` بلا أخطاء |
 | 2026-07-17 | مدققا OpenAPI + `./scripts/validate-docs.sh` | عقود WorkRecords وNotifications والتوثيق اجتازت التحقق |
-| 2026-07-17 | بناء React وlint واكتشاف Playwright | البناء نجح واكتُشفت رحلتا العربية RTL والإنجليزية LTR |
+| 2026-07-17 | Orval وRedocly وVitest وبناء React | عقد المنصة وsnapshot مسارات W1.1 بلا تحذيرات، والعميل المولد يقتصر على المسارات المنفذة وهو ثابت، و10 اختبارات نجحت بتغطية 100% للأسطر والفروع والدوال، ونجح lint والبناء |
 | 2026-07-17 | `make verify-w1-1` | نجح المدخل الموحد، بما فيه MySQL وValkey وOutbox/Inbox وإعادة التسليم وDLQ ورحلتا المتصفح |
+| 2026-07-17 | `make verify-w1-1-local` | نجحت المهام المحلية السبع، بما فيها بناء وفحص صور الإنتاج وCompose واختبارات SC/NET/DEP/DR/GATE |
+| 2026-07-17 | `make verify-ci-config` + gitleaks + dependency audits | validator المحلي يثبت بنية workflow الـfail-closed، ولا أسرار أو advisories معروفة في lockfiles |
+| 2026-07-17 | GitHub API readback | المستودع البعيد بلا فرع افتراضي أو runs أو runners أو Environments أو variables؛ لا يوجد دليل CI حي حتى نشر revision معتمد وإعداد البنية الخارجية |
 | 2026-07-17 | `make verify-w11-ops-01-local` | 20 Unit و14 Integration ورحلة CLI محلية؛ عقد المثال صالح وreceipt منقح، دون ادعاء قبول مضيف حي |
 | 2026-07-17 | `make verify-w11-bld-02-local` | 18 Unit و4 Integration وبناء وفحص صورتين runtime ثم E2E على Compose: migrations وhealthchecks وإعادة تشغيل Valkey والـworker ورحلتا العربية والإنجليزية وعزل المنشأتين |
 | 2026-07-17 | `PYTHONPATH=. pytest --collect-only -q tests/ops` | أسطح SC-03 وNET-04 وDEP-05 وDR-06 وGATE-07 واختباراتها موجودة؛ جمع الاختبارات لا يثبت CI أو قبولاً حياً |
+
+أدلة 2026-07-17 أعلاه ناتجة من شجرة العمل المحلية المبنية فوق الالتزام
+`67348340521a5446506c9344776bfa18c73b616c` وليست بعدُ revision قبول منشوراً. يعاد
+تشغيل الأوامر على الالتزام المنشور نفسه قبل اعتماد أي receipt حي.
 
 ## قاعدة تحديث الحالة
 
@@ -103,7 +111,9 @@ references:
 و`GATE_RELEASE_ROOT` و`GATE_EVIDENCE_ROOT` و`GATE_RECEIPT` و`GATE_AS_OF`، ومدخلات
 cosign المثبتة `COSIGN_BINARY` و`COSIGN_SHA256` و`COSIGN_VERSION`، إضافة إلى
 `RELEASE_DESCRIPTOR` و`RELEASE_ROOT` و`COSIGN_PUBLIC_KEY` التي يستهلكها `verify-build`.
-كل هذه المدخلات آمنة وخارج Git، ولا يعد وجود الأهداف دليلاً على تشغيلها الحي.
+ملف Compose المحكوم موجود في Git، أما policy الشبكة المعتمدة وقيم المضيف والreceipts
+والأدلة والمفاتيح فتبقى آمنة خارج Git. يفشل المسار الحي إذا استُخدم ملف NET-04 المثال،
+ولا يعد وجود الأهداف أو الأمثلة دليلاً على تشغيل حي.
 
 ## استلام إدارة العمل
 
@@ -119,6 +129,7 @@ cosign المثبتة `COSIGN_BINARY` و`COSIGN_SHA256` و`COSIGN_VERSION`، إ�
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
 | 1.5.0 | 2026-07-17 | مكتب هندسة المنصة | تسجيل الأسطح المحلية لـSC/NET/DEP/DR/GATE مع إبقاء الأدلة الحية وبوابة Go محجوبة خارجياً |
+| 1.6.0 | 2026-07-17 | مكتب هندسة المنصة | تثبيت بوابات الجودة والعقد والعميل المولد وأمن CI وتسجيل نجاح الإغلاق المحلي وحالة GitHub الخارجية الفعلية |
 | 1.4.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات W11-BLD-02 محلياً بصور runtime وCompose ورحلتي متصفح وتوجيه الخطوة التالية إلى سلسلة التوريد والشبكة |
 | 1.3.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات تنفيذ W11-OPS-01 المحلي وإبقاء قبول المضيف الحي وreceipt الموقع كحاجز خارجي |
 | 1.2.0 | 2026-07-17 | مكتب هندسة المنصة | ربط فجوات W1.1 بسبع مهام تنفيذية واختبارات Unit وIntegration وE2E وبوابة إثبات نهائية |

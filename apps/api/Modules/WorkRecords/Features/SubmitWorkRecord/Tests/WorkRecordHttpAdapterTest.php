@@ -23,13 +23,12 @@ class WorkRecordHttpAdapterTest extends TestCase
 
     public function test_work_record_http_slices_are_present(): void
     {
-        if (! class_exists(SubmitWorkRecordController::class)
-            || ! class_exists(GetAuthorizedWorkRecordController::class)
-            || ! class_exists(ListAuthorizedWorkRecordsController::class)) {
-            $this->fail('MISSING_WORK_RECORD_HTTP_SLICES');
-        }
-
-        $this->assertTrue(true);
+        $this->assertTrue(
+            class_exists(SubmitWorkRecordController::class)
+                && class_exists(GetAuthorizedWorkRecordController::class)
+                && class_exists(ListAuthorizedWorkRecordsController::class),
+            'MISSING_WORK_RECORD_HTTP_SLICES',
+        );
     }
 
     public function test_unknown_or_missing_bearer_credentials_are_rejected(): void
@@ -199,11 +198,11 @@ class WorkRecordHttpAdapterTest extends TestCase
                         ? 'allow'
                         : 'deny',
                     action: $capability,
-                    resourceType: $facts?->resourceType ?? 'work_record',
+                    resourceType: $facts->resourceType,
                     reasonCodes: ['focused_replay_test'],
                     policyVersion: 'focused-replay-test-v1',
-                    factsVersion: $facts?->factsVersion ?? 'unavailable',
-                    classification: $facts?->classification ?? 'internal',
+                    factsVersion: $facts->factsVersion,
+                    classification: $facts->classification,
                 );
             }
         };

@@ -1,0 +1,6 @@
+extends:
+  - recommended
+
+rules:
+  # downloadDocument intentionally returns an authorized one-time redirect.
+  operation-2xx-response: off

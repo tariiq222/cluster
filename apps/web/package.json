@@ -7,7 +7,17 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "api:format": "prettier --write ./src/api/generated",
+    "api:format:check": "prettier --check ./src/api/generated",
     "preview": "vite preview",
+    "test:unit": "vitest run",
+    "coverage": "vitest run --coverage",
+    "api:lint": "redocly lint --config ./redocly.yaml ../../docs/contracts/api/openapi.yaml && redocly lint --config ./redocly.yaml ../../docs/contracts/api/w1-1.openapi.yaml",
+    "api:bundle": "mkdir -p .orval && redocly bundle --config ./redocly.yaml ../../docs/contracts/api/w1-1.openapi.yaml --output .orval/cluster.openapi.yaml",
+    "api:generate": "npm run api:bundle && orval --config ./orval.config.ts",
+    "api:watch": "npm run api:bundle && orval --config ./orval.config.ts --watch",
+    "api:docs": "npm run api:bundle && redocly build-docs .orval/cluster.openapi.yaml --output .orval/api-reference.html",
+    "api:check": "npm run api:lint && node ./check-generated-api.mjs",
     "test:e2e:list": "playwright test --list",
     "test:e2e:local": "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1} playwright test",
     "playwright:install:chromium": "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1} playwright install chromium"
@@ -18,12 +28,17 @@
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
+    "@redocly/cli": "2.39.0",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "@vitest/coverage-v8": "^4.1.10",
+    "orval": "8.22.0",
     "oxlint": "^1.71.0",
+    "prettier": "3.9.5",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
   }
 }

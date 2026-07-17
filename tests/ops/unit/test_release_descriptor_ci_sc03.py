@@ -1,3 +1,5 @@
+import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -14,12 +16,20 @@ RELEASE_JOBS = {
     "verify-build",
 }
 REQUIRED_GATES = {
+    "validate-docs",
+    "build-docs",
+    "validate-mermaid",
     "test-api",
     "test-web",
+    "security-quality",
     "test-e2e-w1-1",
     "verify-boundaries",
     "verify-ci-config",
 }
+TRUSTED_PULL_REQUEST_CONDITION = (
+    "github.event_name != 'pull_request' || "
+    "github.event.pull_request.head.repo.full_name == github.repository"
+)
 
 
 def _workflow() -> dict:
@@ -35,6 +45,7 @@ def test_ci_uses_literal_pinned_runners_and_fail_closed_protected_release_flow()
     jobs = config["jobs"]
     assert jobs.keys() >= RELEASE_JOBS
     assert config["permissions"] == {"contents": "read"}
+    assert all("permissions" not in job for job in jobs.values())
     assert (
         config["env"]["SC_LIVE_TOOLING_APPROVED"]
         == "${{ vars.SC_LIVE_TOOLING_APPROVED || 'false' }}"
@@ -46,7 +57,16 @@ def test_ci_uses_literal_pinned_runners_and_fail_closed_protected_release_flow()
         assert image.count("@sha256:") == 1
         image_digests.append(image.rsplit("@sha256:", 1)[1])
         assert "$" not in image
-        assert "SC_LIVE_TOOLING_APPROVED" in _commands(job), name
+        assert job["steps"][0]["name"] == "Require approved internal tooling", name
+        assert 'test "$SC_LIVE_TOOLING_APPROVED" = "true" || {' in job["steps"][0]["run"], name
+        if job["runs-on"] == ["self-hosted", "ci-general"]:
+            assert job["if"] == TRUSTED_PULL_REQUEST_CONDITION, name
+        for step in job["steps"]:
+            action = step.get("uses")
+            if action and not action.startswith("./"):
+                owner_repo, revision = action.rsplit("@", 1)
+                assert "/" in owner_repo and len(revision) == 40
+                assert all(character in "0123456789abcdef" for character in revision)
     image_digests.append(
         jobs["release-build-images"]["services"]["docker"]["image"].rsplit(
             "@sha256:", 1
@@ -64,10 +84,27 @@ def test_ci_uses_literal_pinned_runners_and_fail_closed_protected_release_flow()
     assert jobs["verify-build"]["environment"] == "release-verification"
     assert set(jobs["release-build-images"]["needs"]) >= REQUIRED_GATES
     assert set(jobs["release-sign-verify"]["needs"]) >= REQUIRED_GATES
+    test_api = _commands(jobs["test-api"])
+    assert "test -f apps/api/composer.lock" in test_api
+    assert "composer --working-dir=apps/api validate --strict" in test_api
 
 
 def test_ci_binds_build_metadata_artifacts_and_uses_separate_public_verifier():
     jobs = _workflow()["jobs"]
+    allowed_secret_jobs = {
+        "CI_REGISTRY": {"release-build-images", "release-sbom-provenance"},
+        "CI_REGISTRY_IMAGE": {"release-build-images"},
+        "CI_REGISTRY_USER": {"release-build-images", "release-sbom-provenance"},
+        "CI_REGISTRY_PASSWORD": {"release-build-images", "release-sbom-provenance"},
+        "COSIGN_PRIVATE_KEY": {"release-sign-verify"},
+        "COSIGN_PUBLIC_KEY": {"release-sign-verify", "verify-build"},
+    }
+    referenced_secrets = {}
+    for name, job in jobs.items():
+        for secret in re.findall(r"secrets\.([A-Za-z][A-Za-z0-9_]*)", str(job)):
+            referenced_secrets.setdefault(secret, set()).add(name)
+    assert referenced_secrets == allowed_secret_jobs
+
     build = _commands(jobs["release-build-images"])
     assert "docker buildx build" in build
     assert "--metadata-file" in build
@@ -129,3 +166,25 @@ def test_makefile_has_no_keyless_or_enum_based_release_verification_path():
     assert "RELEASE_REQUIRE_VERIFIED" not in makefile
     assert "test-release-descriptor-contract:" in makefile
     assert "verify-build-structure:" not in makefile
+    assert "NET04_POLICY ?=\n" in makefile
+    assert "scripts/validate_live_net04_policy.py" in makefile
+
+
+def test_ci_validator_rejects_case_variant_unknown_workflow_secret(tmp_path):
+    workflow = WORKFLOW.read_text(encoding="utf-8").replace(
+        '  SC_GRYPE_DB_MAX_AGE_HOURS: "168"',
+        '  SC_GRYPE_DB_MAX_AGE_HOURS: "168"\n  LEAK: "${{ Secrets.foo }}"',
+    )
+    candidate = tmp_path / "ci.yml"
+    candidate.write_text(workflow, encoding="utf-8")
+
+    result = subprocess.run(
+        ["ruby", "scripts/verify_ci_config.rb", str(candidate)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "workflow-level environment must not expose secrets" in result.stderr

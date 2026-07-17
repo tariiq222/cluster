@@ -9,6 +9,5 @@ final readonly class RecordFacts
         public string $resourceType,
         public string $classification,
         public string $factsVersion = 'development-fixture-facts-v1',
-    ) {
-    }
+    ) {}
 }

@@ -14,7 +14,7 @@ class FixtureFacilityDecisionTest extends TestCase
 
     public function test_matching_facility_allows_fixture_submit_read_and_list_capabilities(): void
     {
-        $decision = new FixtureFacilityDecision();
+        $decision = new FixtureFacilityDecision;
         $facts = new RecordFacts(self::FACILITY_A, 'work_record', 'internal');
 
         foreach (['work_record.submit', 'work_record.read', 'work_record.list'] as $capability) {
@@ -27,7 +27,7 @@ class FixtureFacilityDecisionTest extends TestCase
 
     public function test_mismatched_or_unavailable_facts_fail_closed_before_serialization(): void
     {
-        $decision = new FixtureFacilityDecision();
+        $decision = new FixtureFacilityDecision;
 
         $mismatched = $decision->decide(
             ['facility_id' => self::FACILITY_A],

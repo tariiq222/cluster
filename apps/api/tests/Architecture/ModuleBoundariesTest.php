@@ -142,6 +142,7 @@ PHP);
             $isKnownModule = array_key_exists($module, self::MODULE_RANKS);
             if (! $isKnownModule && $module !== 'Requests') {
                 $violations[] = "Unknown business module: {$module}.";
+
                 continue;
             }
 
@@ -149,6 +150,7 @@ PHP);
                 $source = file_get_contents($path);
                 if ($source === false) {
                     $violations[] = "Unable to parse {$path}.";
+
                     continue;
                 }
 
@@ -248,6 +250,7 @@ PHP);
         foreach ($tokens as $token) {
             if (is_array($token) && in_array($token[0], [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM], true)) {
                 $expectsName = true;
+
                 continue;
             }
 

@@ -3,14 +3,14 @@
 
 require "yaml"
 
-workflow_path = ".github/workflows/ci.yml"
+workflow_path = ARGV.fetch(0, ".github/workflows/ci.yml")
 abort("GitHub Actions workflow is missing") unless File.file?(workflow_path)
 abort("legacy GitLab CI configuration must not remain active") if File.exist?(".gitlab-ci.yml")
 
 config = YAML.load_file(workflow_path)
 jobs = config.fetch("jobs")
 required_jobs = %w[
-  validate-docs build-docs validate-mermaid test-api test-web test-e2e-w1-1
+  validate-docs build-docs validate-mermaid test-api test-web security-quality test-e2e-w1-1
   verify-boundaries verify-ci-config release-build-images release-sbom-provenance
   release-sign-verify verify-build
 ]
@@ -53,8 +53,14 @@ release_environments.each do |name, environment|
 end
 
 abort("workflow must grant only read access to repository contents") unless config["permissions"] == { "contents" => "read" }
+jobs.each do |name, job|
+  abort("#{name} must not override workflow token permissions") if job.key?("permissions")
+end
 unless config.dig("env", "SC_LIVE_TOOLING_APPROVED") == "${{ vars.SC_LIVE_TOOLING_APPROVED || 'false' }}"
   abort("workflow must default SC_LIVE_TOOLING_APPROVED to false until the approved repository variable is set")
+end
+unless config.fetch("env", {}).to_s.scan(/secrets\.([A-Za-z][A-Za-z0-9_]*)/i).empty?
+  abort("workflow-level environment must not expose secrets to every job")
 end
 grype_environment = jobs.fetch("release-sbom-provenance").fetch("env")
 expected_grype_variables = {
@@ -69,7 +75,10 @@ def needs(job)
   Array(job.fetch("needs"))
 end
 
-required_gates = %w[test-api test-web test-e2e-w1-1 verify-boundaries verify-ci-config]
+required_gates = %w[
+  validate-docs build-docs validate-mermaid test-api test-web security-quality
+  test-e2e-w1-1 verify-boundaries verify-ci-config
+]
 unless (required_gates - needs(jobs.fetch("release-build-images"))).empty?
   abort("release build may run before tests or verification")
 end
@@ -86,13 +95,51 @@ def action_steps(job)
   Array(job.fetch("steps")).map { |step| step["uses"] if step.is_a?(Hash) }.compact
 end
 
+trusted_pull_request_condition = "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
 jobs.each do |name, job|
-  guard = commands(job).include?("SC_LIVE_TOOLING_APPROVED")
-  abort("#{name} must fail closed before executing CI commands") unless guard
-  action_steps(job).each do |action|
-    next unless action.start_with?("actions/")
+  if job["runs-on"] == ["self-hosted", "ci-general"] && job["if"] != trusted_pull_request_condition
+    abort("#{name} must not execute fork pull-request code on an internal runner")
+  end
 
-    abort("#{name} action must be pinned by full commit SHA") unless action.match?(%r!^actions/[a-z-]+@[0-9a-f]{40}$!)
+  first_step = Array(job.fetch("steps")).first
+  guard = first_step.is_a?(Hash) && first_step["name"] == "Require approved internal tooling" && first_step["run"].to_s.include?('test "$SC_LIVE_TOOLING_APPROVED" = "true" || {') && first_step["run"].to_s.include?("exit 1")
+  abort("#{name} must fail closed before executing CI commands") unless guard
+
+  action_steps(job).each do |action|
+    next if action.start_with?("./")
+
+    abort("#{name} action must be pinned by full commit SHA") unless action.match?(%r!^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}$!)
+  end
+end
+
+api_quality = commands(jobs.fetch("test-api"))
+unless api_quality.include?("test -f apps/api/composer.lock") && api_quality.include?("composer --working-dir=apps/api validate --strict") && api_quality.include?("make lint-api") && api_quality.include?("make analyse-api") && api_quality.include?("composer --working-dir=apps/api audit --locked")
+  abort("API CI must enforce its lockfile, formatting, static analysis, and dependency audit")
+end
+
+web_quality = commands(jobs.fetch("test-web"))
+unless web_quality.include?("npm --prefix apps/web run api:check") && web_quality.include?("npm --prefix apps/web audit")
+  abort("web CI must enforce generated API drift and dependency audit")
+end
+
+security_quality = commands(jobs.fetch("security-quality"))
+abort("CI must scan the repository for secrets") unless security_quality.include?("gitleaks detect --source . --redact --no-banner")
+
+secret_allowlists = {
+  "CI_REGISTRY" => %w[release-build-images release-sbom-provenance],
+  "CI_REGISTRY_IMAGE" => %w[release-build-images],
+  "CI_REGISTRY_USER" => %w[release-build-images release-sbom-provenance],
+  "CI_REGISTRY_PASSWORD" => %w[release-build-images release-sbom-provenance],
+  "COSIGN_PRIVATE_KEY" => %w[release-sign-verify],
+  "COSIGN_PUBLIC_KEY" => %w[release-sign-verify verify-build]
+}
+jobs.each do |name, job|
+  referenced_secrets = job.to_s.scan(/secrets\.([A-Za-z][A-Za-z0-9_]*)/i).flatten.uniq
+  referenced_secrets.each do |secret|
+    allowed_jobs = secret_allowlists[secret]
+    abort("#{name} references unknown secret #{secret}") unless allowed_jobs
+
+    abort("#{name} references a secret outside its protected job allowlist") unless allowed_jobs.include?(name)
   end
 end
 

@@ -111,10 +111,45 @@ final class PredisValkeyStreamTransport implements ValkeyStreamTransport
         $this->executeRaw(['XACK', $stream, $group, $messageId]);
     }
 
-    public function publishDlq(string $stream, array $deadLetter): string
+    public function publishDlq(string $stream, string $sourceMessageId, array $deadLetter): string
     {
-        return $this->xadd($stream, [
-            'event' => json_encode($deadLetter, JSON_THROW_ON_ERROR),
+        $script = <<<'LUA'
+local existing = redis.call('HGET', KEYS[2], ARGV[1])
+if existing then
+    local record = redis.call('XRANGE', KEYS[1], existing, existing)
+    if #record > 0 then
+        return existing
+    end
+    redis.call('HDEL', KEYS[2], ARGV[1])
+end
+local message_id = redis.call('XADD', KEYS[1], '*', 'source_message_id', ARGV[1], 'event', ARGV[2])
+redis.call('HSET', KEYS[2], ARGV[1], message_id)
+return message_id
+LUA;
+        $messageId = $this->executeRaw([
+            'EVAL',
+            $script,
+            '2',
+            $stream,
+            $stream.':source-message-index',
+            $sourceMessageId,
+            json_encode($deadLetter, JSON_THROW_ON_ERROR),
+        ]);
+        if (! is_string($messageId) || $messageId === '') {
+            throw new RuntimeException('Valkey did not return a DLQ message identifier.');
+        }
+
+        return $messageId;
+    }
+
+    public function purgeDlq(string $stream): void
+    {
+        $this->executeRaw([
+            'EVAL',
+            "redis.call('DEL', KEYS[1], KEYS[2]); return 1",
+            '2',
+            $stream,
+            $stream.':source-message-index',
         ]);
     }
 

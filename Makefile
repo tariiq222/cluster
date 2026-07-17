@@ -1,9 +1,10 @@
-.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-ci-config verify-w1-1 verify-w1-1-local test-unit-w11-ops-01 test-integration-w11-ops-01 test-e2e-w11-ops-01-local verify-host-inputs preflight-w11-ops-01-live verify-w11-ops-01-local validate-production-bundle build-production-images verify-production-images test-unit-w11-bld-02 test-integration-w11-bld-02 test-e2e-w11-bld-02-local verify-w11-bld-02-local test-unit-w11-sc-03 test-integration-w11-sc-03 verify-build test-release-descriptor-contract verify-w11-sc-03-local test-unit-w11-net-04 test-integration-w11-net-04 verify-w11-net-04-local verify-w11-net-04-host test-unit-w11-dep-05 test-integration-w11-dep-05 verify-w11-dep-05-local test-unit-w11-dr-06 test-integration-w11-dr-06 verify-w11-dr-06-local test-unit-w11-gate-07 test-integration-w11-gate-07 verify-w11-gate-07-local verify-w1-1-host check-w1-1-live-inputs verify-w1-1-all
+.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-ci-config verify-w1-1 verify-w1-1-local test-unit-w11-ops-01 test-integration-w11-ops-01 test-e2e-w11-ops-01-local verify-host-inputs preflight-w11-ops-01-live verify-w11-ops-01-local validate-production-bundle build-production-images verify-production-images test-unit-w11-bld-02 test-integration-w11-bld-02 test-e2e-w11-bld-02-local verify-w11-bld-02-local test-unit-w11-sc-03 test-integration-w11-sc-03 verify-build test-release-descriptor-contract verify-w11-sc-03-local test-unit-w11-net-04 test-integration-w11-net-04 verify-w11-net-04-local verify-w11-net-04-host test-unit-w11-dep-05 test-integration-w11-dep-05 verify-w11-dep-05-local test-unit-w11-dr-06 test-integration-w11-dr-06 verify-w11-dr-06-local test-unit-w11-gate-07 test-integration-w11-gate-07 verify-w11-gate-07-local verify-w1-1-host check-w1-1-live-inputs verify-w1-1-all
 
 PYTHON ?= python3
 W11_REVISION ?= $(shell git rev-parse HEAD 2>/dev/null)
-NET04_POLICY ?= infra/platform/network/net04-network-policy.example.json
+NET04_POLICY ?=
 NET04_COMPOSE ?= infra/platform/production/compose.yaml
+LOCAL_NET04_POLICY ?= infra/platform/network/net04-network-policy.example.json
 
 # Live evidence is intentionally unset. Supplying only part of this set must
 # fail closed rather than silently falling back to checked-in placeholders.
@@ -43,8 +44,29 @@ test-api:
 	cd apps/api && composer test
 
 test-web:
+	npm --prefix apps/web run api:check
 	npm --prefix apps/web run build
 	npm --prefix apps/web run lint
+	npm --prefix apps/web run coverage
+
+test-web-unit:
+	npm --prefix apps/web run test:unit
+
+coverage-web:
+	npm --prefix apps/web run coverage
+
+lint-api:
+	composer --working-dir=apps/api lint
+
+analyse-api:
+	composer --working-dir=apps/api analyse
+
+scan-secrets:
+	gitleaks detect --source . --redact --no-banner
+
+audit-dependencies:
+	composer --working-dir=apps/api audit --locked
+	npm --prefix apps/web audit --omit=dev
 
 test-e2e: test-e2e-w1-1
 
@@ -64,7 +86,7 @@ test-e2e-w11-ops-01-local:
 	python3 -m pytest -q tests/ops/e2e
 
 verify-host-inputs:
-	receipt=$$(mktemp); trap 'rm -f "$$receipt"' EXIT; python3 scripts/host_preflight.py validate --inputs infra/platform/environments/host.example.json --secrets infra/platform/contracts/required-secrets.json --receipt "$$receipt"
+	receipt=`mktemp`; trap 'rm -f "$$receipt"' EXIT; python3 scripts/host_preflight.py validate --inputs infra/platform/environments/host.example.json --secrets infra/platform/contracts/required-secrets.json --receipt "$$receipt"
 
 preflight-w11-ops-01-live:
 	test -n "$(HOST_INPUTS)"
@@ -78,7 +100,7 @@ verify-boundaries:
 verify-ci-config:
 	ruby scripts/verify_ci_config.rb
 
-verify-w1-1: verify-intake test-api test-web verify-boundaries verify-ci-config test-w1-1-api-worker-smoke test-e2e-w1-1
+verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies test-api test-web verify-boundaries verify-ci-config test-w1-1-api-worker-smoke test-e2e-w1-1
 
 verify-w11-ops-01-local: test-unit-w11-ops-01 test-integration-w11-ops-01 test-e2e-w11-ops-01-local verify-host-inputs
 
@@ -131,11 +153,12 @@ test-integration-w11-net-04:
 	$(PYTHON) -m pytest -q tests/ops/integration/test_net04_live_exposure_verifier.py
 
 verify-w11-net-04-local: test-unit-w11-net-04 test-integration-w11-net-04
-	receipt=$$(mktemp); trap 'rm -f "$$receipt"' EXIT; $(PYTHON) scripts/net04_network_policy.py validate --policy "$(NET04_POLICY)" --compose "$(NET04_COMPOSE)" --receipt "$$receipt"
+	receipt=`mktemp`; trap 'rm -f "$$receipt"' EXIT; $(PYTHON) scripts/net04_network_policy.py validate --policy "$(LOCAL_NET04_POLICY)" --compose "$(NET04_COMPOSE)" --receipt "$$receipt"
 
 verify-w11-net-04-host:
 	test -n "$(NET04_POLICY)" || { echo 'NET04_POLICY is required' >&2; exit 2; }
 	test -f "$(NET04_POLICY)" || { echo "NET04_POLICY does not exist: $(NET04_POLICY)" >&2; exit 2; }
+	$(PYTHON) scripts/validate_live_net04_policy.py "$(NET04_POLICY)" infra/platform/network/net04-network-policy.example.json
 	test -n "$(NET04_COMPOSE)" || { echo 'NET04_COMPOSE is required' >&2; exit 2; }
 	test -f "$(NET04_COMPOSE)" || { echo "NET04_COMPOSE does not exist: $(NET04_COMPOSE)" >&2; exit 2; }
 	test -n "$(NET04_HOST_RECEIPT)" || { echo 'NET04_HOST_RECEIPT is required' >&2; exit 2; }
@@ -187,6 +210,7 @@ check-w1-1-live-inputs:
 	test -n "$(HOST_RECEIPT)" || { echo 'HOST_RECEIPT is required' >&2; exit 2; }
 	test -n "$(NET04_POLICY)" || { echo 'NET04_POLICY is required' >&2; exit 2; }
 	test -f "$(NET04_POLICY)" || { echo "NET04_POLICY does not exist: $(NET04_POLICY)" >&2; exit 2; }
+	$(PYTHON) scripts/validate_live_net04_policy.py "$(NET04_POLICY)" infra/platform/network/net04-network-policy.example.json
 	test -n "$(NET04_COMPOSE)" || { echo 'NET04_COMPOSE is required' >&2; exit 2; }
 	test -f "$(NET04_COMPOSE)" || { echo "NET04_COMPOSE does not exist: $(NET04_COMPOSE)" >&2; exit 2; }
 	test -n "$(NET04_HOST_RECEIPT)" || { echo 'NET04_HOST_RECEIPT is required' >&2; exit 2; }

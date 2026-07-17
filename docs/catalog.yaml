@@ -82,6 +82,7 @@ documents:
   - {path: contracts/module-contracts.md, title: عقود الموديولات, category: contracts, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: contracts/api/notifications.md, title: عقد واجهة الإشعارات, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/api/openapi.yaml, title: OpenAPI, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/api/w1-1.openapi.yaml, title: سطح OpenAPI التنفيذي لـW1.1, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/events/asyncapi.yaml, title: AsyncAPI, category: contract-events, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: contracts/schemas/access-context.schema.json, title: Access Context schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/access-decision.schema.json, title: Access Decision schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}

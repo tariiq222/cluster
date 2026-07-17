@@ -65,9 +65,9 @@ Dokploy أو هدف الاستعادة، تبقى المهمة `blocked-external
 | الأمر المستهدف | ما يثبته |
 | --- | --- |
 | `make verify-w1-1` | المسار الوظيفي المحلي الحالي والعقود والحدود |
-| `make test-unit-w11-ops-01` | وحدات validators والسياسات التشغيلية لكل المهام |
-| `make test-integration-w11-ops-01` | بناء الحزمة والتوقيع والشبكات والنسخ المؤقت |
-| `make test-e2e-w11-ops-01-local` | نشر Staging والرجوع وفحص المضيف والاستعادة المنفصلة |
+| `make test-unit-w11-ops-01` | وحدات schema وvalidator لمدخلات المضيف والحالات السلبية |
+| `make test-integration-w11-ops-01` | probes مؤقتة لـpreflight وفشل DNS والقرص والregistry وهدف النسخ مع redaction |
+| `make test-e2e-w11-ops-01-local` | رحلة CLI محلية لعقد المثال وreceipt منقح؛ لا تثبت مضيفاً أو Staging حياً |
 | `make verify-build` | image digest وSBOM وprovenance والتوقيع وrelease descriptor؛ يتطلب `RELEASE_DESCRIPTOR` و`COSIGN_BINARY` و`COSIGN_VERSION` و`COSIGN_PUBLIC_KEY`، ويستخدم `RELEASE_ROOT` للجذر الفعلي |
 | `make verify-w1-1-host` | فحص المضيف مباشرة عبر `preflight` + `verify-host` و`verify-edge`؛ يتطلب `HOST_INPUTS` و`HOST_RECEIPT` و`NET04_POLICY` و`NET04_COMPOSE` وإيصالات المنظورات الثلاثة و`NET04_REVISION` |
 | `python3 scripts/net04_network_policy.py verify-host ...` و`verify-edge ...` | فحص NET-04 read-only من المضيف ومنظوري المستخدم والإدارة بمدخلات خارج Git |

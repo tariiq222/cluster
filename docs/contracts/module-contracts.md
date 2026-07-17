@@ -3,8 +3,8 @@ doc_id: CON-MC-001
 title: عقود الموديولات
 type: contracts
 status: accepted
-version: 1.0.0
-date: 2026-07-15
+version: 1.1.0
+date: 2026-07-17
 owner: مسؤول هندسة البرمجيات
 reviewers:
 - مكتب هندسة المنصة
@@ -45,6 +45,7 @@ No consumer writes another module's persistence. Consumers use the HTTP contract
 - Producers persist the business mutation and Outbox row atomically. The relay delivers at least once.
 - Consumers persist Inbox receipt keyed by CloudEvent `id` before side effects; duplicate deliveries acknowledge without repeating effects.
 - Invalid or exhausted messages go to the DLQ with the original CloudEvent, failure code, attempt count, and failure timestamp. They are not silently discarded.
+- DLQ publication is idempotent by source stream message ID. The DLQ stream and its `:source-message-index` sidecar share one retention and purge lifecycle and must be removed together only after preserving review evidence.
 - `data.classification` and `data.access_context` are mandatory. Consumers may reduce exposure but may never lower classification.
 
 ## Compatibility

@@ -30,5 +30,7 @@ interface ValkeyStreamTransport
     public function ack(string $stream, string $group, string $messageId): void;
 
     /** @param array<string, mixed> $deadLetter */
-    public function publishDlq(string $stream, array $deadLetter): string;
+    public function publishDlq(string $stream, string $sourceMessageId, array $deadLetter): string;
+
+    public function purgeDlq(string $stream): void;
 }

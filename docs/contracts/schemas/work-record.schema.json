@@ -10,7 +10,7 @@
     "record_number": {"type": "string", "minLength": 1, "maxLength": 64},
     "work_type_id": {"$ref": "#/$defs/uuidv7"},
     "work_type_version_id": {"$ref": "#/$defs/uuidv7"},
-    "owner": {"$ref": "record-facts.schema.json#/$defs/owner"},
+    "owner": {"$ref": "#/$defs/owner"},
     "responsible_user_id": {"$ref": "#/$defs/uuidv7"},
     "status": {"type": "string", "enum": ["draft", "submitted", "in_review", "returned", "approved", "rejected", "completed", "cancelled", "archived"]},
     "classification": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]},
@@ -22,6 +22,7 @@
   },
   "$defs": {
     "uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Lowercase RFC 9562 UUID version 7"},
-    "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"}
+    "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"},
+    "owner": {"type": "object", "additionalProperties": false, "required": ["facility_id", "user_id"], "properties": {"facility_id": {"$ref": "#/$defs/uuidv7"}, "user_id": {"$ref": "#/$defs/uuidv7"}}}
   }
 }

@@ -2,7 +2,7 @@
 
 namespace Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http;
 
-use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -29,7 +29,7 @@ final class DevelopmentFixturePrincipalResolver implements ResolveDevelopmentFix
 
         return [
             'access_token' => $token,
-            'expires_at' => $expiresAt->utc()->toIso8601String(),
+            'expires_at' => $expiresAt->utc()->format('Y-m-d\TH:i:s.v\Z'),
         ];
     }
 

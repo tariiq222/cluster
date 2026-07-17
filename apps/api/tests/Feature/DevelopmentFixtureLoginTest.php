@@ -22,6 +22,10 @@ class DevelopmentFixtureLoginTest extends TestCase
         $accountA->assertOk()
             ->assertJsonPath('data.facility', 'facility-a')
             ->assertJsonPath('data.principal.facility_id', '018f6f7d-0c00-7000-8000-000000000011');
+        $this->assertMatchesRegularExpression(
+            '/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/',
+            (string) $accountA->json('data.expires_at'),
+        );
         $tokenA = $accountA->json('data.access_token');
         $this->assertIsString($tokenA);
         $this->assertTrue(Cache::store('file')->has('development-fixture-bearer:'.hash('sha256', $tokenA)));
@@ -61,6 +65,41 @@ class DevelopmentFixtureLoginTest extends TestCase
         $invalidPassword->assertUnauthorized()
             ->assertJsonPath('detail', 'بيانات الاعتماد غير صالحة.')
             ->assertJsonMissingPath('username');
+    }
+
+    public function test_login_rejects_contract_invalid_requests_with_safe_correlation(): void
+    {
+        $shortPassword = $this->postJson('/api/v1/auth/login', [
+            'username' => 'fixture-account-a',
+            'password' => 'short',
+        ], $this->headers());
+
+        $shortPassword->assertBadRequest()
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertHeader('X-Correlation-ID', self::CORRELATION_ID)
+            ->assertJsonPath('status', 400)
+            ->assertJsonMissingPath('errors');
+
+        $missingCorrelation = $this->postJson('/api/v1/auth/login', [
+            'username' => 'fixture-account-a',
+            'password' => 'fixture-password-a',
+        ]);
+
+        $missingCorrelation->assertBadRequest()
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('status', 400);
+        $this->assertMatchesRegularExpression(
+            '/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/',
+            (string) $missingCorrelation->headers->get('X-Correlation-ID'),
+        );
+
+        $unknownField = $this->postJson('/api/v1/auth/login', [
+            'username' => 'fixture-account-a',
+            'password' => 'fixture-password-a',
+            'role' => 'admin',
+        ], $this->headers());
+
+        $unknownField->assertBadRequest()->assertJsonMissingPath('role');
     }
 
     public function test_expired_fixture_bearer_state_is_rejected_and_removed(): void

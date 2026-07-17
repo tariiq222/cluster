@@ -6,6 +6,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 final class DevelopmentFixtureLoginController
@@ -18,10 +20,17 @@ final class DevelopmentFixtureLoginController
     {
         abort_unless(app()->environment(['local', 'testing']), 404);
 
-        $credentials = $request->validate([
-            'username' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'string', 'max:255'],
+        $input = $request->all();
+        $validator = Validator::make($input, [
+            'username' => ['required', 'string', 'min:1', 'max:255'],
+            'password' => ['required', 'string', 'min:12', 'max:255'],
         ]);
+        if ($validator->fails()
+            || array_diff(array_keys($input), ['username', 'password']) !== []
+            || ! $this->isUuidV7($request->header('X-Correlation-ID'))) {
+            return $this->invalidRequestResponse($request);
+        }
+        $credentials = $validator->validated();
 
         $account = DB::table('identity_development_fixture_accounts')
             ->where('username', $credentials['username'])
@@ -58,7 +67,23 @@ final class DevelopmentFixtureLoginController
             'title' => 'Unauthorized',
             'status' => 401,
             'detail' => 'بيانات الاعتماد غير صالحة.',
-        ], 401)->withHeaders($this->correlationHeader($request));
+        ], 401)->withHeaders([
+            ...$this->correlationHeader($request),
+            'Content-Type' => 'application/problem+json',
+        ]);
+    }
+
+    private function invalidRequestResponse(Request $request): JsonResponse
+    {
+        return response()->json([
+            'type' => 'https://cluster.example/problems/invalid-request',
+            'title' => 'Bad Request',
+            'status' => 400,
+            'detail' => 'تعذر قبول طلب تسجيل الدخول.',
+        ], 400)->withHeaders([
+            ...$this->correlationHeader($request),
+            'Content-Type' => 'application/problem+json',
+        ]);
     }
 
     /**
@@ -68,8 +93,19 @@ final class DevelopmentFixtureLoginController
     {
         $correlationId = $request->header('X-Correlation-ID');
 
-        return is_string($correlationId) && $correlationId !== ''
-            ? ['X-Correlation-ID' => $correlationId]
-            : [];
+        return [
+            'X-Correlation-ID' => $this->isUuidV7($correlationId)
+                ? $correlationId
+                : Str::uuid7()->toString(),
+        ];
+    }
+
+    private function isUuidV7(mixed $value): bool
+    {
+        return is_string($value)
+            && preg_match(
+                '/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/',
+                $value,
+            ) === 1;
     }
 }

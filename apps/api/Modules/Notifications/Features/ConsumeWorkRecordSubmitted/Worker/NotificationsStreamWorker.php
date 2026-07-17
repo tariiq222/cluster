@@ -38,8 +38,7 @@ final class NotificationsStreamWorker
         $pending = $this->transport->pending(self::STREAM, self::GROUP, $batchSize);
         $reclaimableIds = [];
         foreach ($pending as $entry) {
-            if (($entry['idle_ms'] ?? 0) >= self::RECLAIM_IDLE_MILLISECONDS
-                && is_string($entry['id'] ?? null)) {
+            if ($entry['idle_ms'] >= self::RECLAIM_IDLE_MILLISECONDS) {
                 $reclaimableIds[] = $entry['id'];
             }
         }
@@ -71,11 +70,11 @@ final class NotificationsStreamWorker
     private function processMessage(array $message, string $consumer): int
     {
         $event = null;
-        $attempts = max(1, (int) ($message['deliveries'] ?? 1));
+        $attempts = max(1, $message['deliveries']);
 
         try {
             $event = json_decode(
-                $message['fields']['event'] ?? '',
+                $message['fields']['event'],
                 true,
                 512,
                 JSON_THROW_ON_ERROR,
@@ -94,8 +93,8 @@ final class NotificationsStreamWorker
             $deadLetter = [
                 'original_event' => $isMalformed
                     ? [
-                        'stream_id' => (string) ($message['id'] ?? ''),
-                        'raw_payload' => $this->boundedPayload($message['fields']['event'] ?? ''),
+                        'stream_id' => $message['id'],
+                        'raw_payload' => $this->boundedPayload($message['fields']['event']),
                     ]
                     : $event,
                 'failure_code' => $isMalformed
@@ -107,7 +106,7 @@ final class NotificationsStreamWorker
             ];
 
             // Do not acknowledge until the reviewable DLQ record is durable.
-            $this->transport->publishDlq(self::DLQ, $deadLetter);
+            $this->transport->publishDlq(self::DLQ, $message['id'], $deadLetter);
         }
 
         $this->transport->ack(self::STREAM, self::GROUP, $message['id']);

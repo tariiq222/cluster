@@ -14,7 +14,9 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 python3 scripts/validate-notifications-openapi.py
+python3 scripts/validate-auth-openapi.py
 python3 scripts/validate-work-records-openapi.py
+python3 scripts/validate-w1-1-openapi.py
 
 python3 - <<'PY'
 from __future__ import annotations

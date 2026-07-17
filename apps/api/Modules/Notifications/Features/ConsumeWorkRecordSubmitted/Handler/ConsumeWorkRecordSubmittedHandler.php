@@ -18,7 +18,7 @@ final class ConsumeWorkRecordSubmittedHandler
 
         return DB::transaction(function () use ($cloudEvent): bool {
             $now = now();
-            if (DB::table('notification_inbox')->where('event_id', $cloudEvent['id'])->exists()) {
+            if ($this->inboxContains($cloudEvent['id'])) {
                 return false;
             }
 
@@ -30,7 +30,7 @@ final class ConsumeWorkRecordSubmittedHandler
                     'updated_at' => $now,
                 ]);
             } catch (QueryException $exception) {
-                if (DB::table('notification_inbox')->where('event_id', $cloudEvent['id'])->exists()) {
+                if ($this->isDuplicateInboxEvent($exception)) {
                     return false;
                 }
 
@@ -50,6 +50,22 @@ final class ConsumeWorkRecordSubmittedHandler
 
             return true;
         });
+    }
+
+    private function inboxContains(mixed $eventId): bool
+    {
+        return DB::table('notification_inbox')->where('event_id', $eventId)->exists();
+    }
+
+    private function isDuplicateInboxEvent(QueryException $exception): bool
+    {
+        $sqlState = $exception->errorInfo[0] ?? null;
+        $driverCode = $exception->errorInfo[1] ?? null;
+
+        return $sqlState === '23505'
+            || in_array($driverCode, [1062, '1062'], true)
+            || (($driverCode === 19 || $driverCode === '19')
+                && str_contains(strtolower($exception->getMessage()), 'notification_inbox.event_id'));
     }
 
     /** @param array<string, mixed> $cloudEvent */

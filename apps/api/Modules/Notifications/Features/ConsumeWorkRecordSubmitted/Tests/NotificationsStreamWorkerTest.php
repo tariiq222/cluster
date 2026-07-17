@@ -123,8 +123,9 @@ class NotificationsStreamWorkerTest extends TestCase
             ->andReturn([$this->message($event, 3)]);
         $transport->shouldReceive('publishDlq')
             ->once()
-            ->withArgs(function (string $stream, array $deadLetter) use ($event): bool {
+            ->withArgs(function (string $stream, string $sourceMessageId, array $deadLetter) use ($event): bool {
                 $this->assertSame(self::DLQ, $stream);
+                $this->assertSame(self::MESSAGE_ID, $sourceMessageId);
                 $this->assertSame($event, $deadLetter['original_event'] ?? null);
                 $this->assertIsString($deadLetter['failure_code'] ?? null);
                 $this->assertNotSame('', $deadLetter['failure_code']);
@@ -161,8 +162,9 @@ class NotificationsStreamWorkerTest extends TestCase
             ->andReturn([$this->malformedMessage('{"secret":', 3)]);
         $transport->shouldReceive('publishDlq')
             ->once()
-            ->withArgs(function (string $stream, array $deadLetter): bool {
+            ->withArgs(function (string $stream, string $sourceMessageId, array $deadLetter): bool {
                 $this->assertSame(self::DLQ, $stream);
+                $this->assertSame(self::MESSAGE_ID, $sourceMessageId);
                 $this->assertSame('MALFORMED_EVENT', $deadLetter['failure_code'] ?? null);
                 $this->assertSame(['stream_id', 'raw_payload'], array_keys($deadLetter['original_event'] ?? []));
                 $this->assertSame(self::MESSAGE_ID, $deadLetter['original_event']['stream_id'] ?? null);

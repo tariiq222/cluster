@@ -12,7 +12,7 @@ final readonly class WorkRecord
     private const CLASSIFICATIONS = ['public', 'internal', 'confidential', 'top_secret'];
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function __construct(
         private string $id,
@@ -23,11 +23,10 @@ final readonly class WorkRecord
         private string $classification,
         private array $payload,
         private DateTimeImmutable $submittedAt,
-    ) {
-    }
+    ) {}
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     public static function submit(
         string $id,

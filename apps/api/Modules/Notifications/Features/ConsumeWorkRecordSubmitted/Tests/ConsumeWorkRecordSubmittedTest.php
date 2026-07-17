@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWorkRecordSubmittedHandler;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
+use PDOException;
+use ReflectionMethod;
 use Shared\Infrastructure\Streams\ValkeyStreamTransport;
 use Tests\TestCase;
 
@@ -61,6 +63,28 @@ class ConsumeWorkRecordSubmittedTest extends TestCase
 
         $this->assertDatabaseCount('notification_inbox', 1);
         $this->assertDatabaseCount('notifications', 1);
+    }
+
+    public function test_duplicate_inbox_constraint_detection_is_stable_across_supported_drivers(): void
+    {
+        $matcher = new ReflectionMethod(ConsumeWorkRecordSubmittedHandler::class, 'isDuplicateInboxEvent');
+        $handler = $this->handler();
+
+        $cases = [
+            [true, ['23505', 7, 'localized unique violation'], 'PostgreSQL unique violation'],
+            [true, ['23000', 1062, 'Duplicate entry for an implementation-defined key'], 'MySQL duplicate key'],
+            [true, ['23000', 19, 'UNIQUE constraint failed: notification_inbox.event_id'], 'SQLite inbox primary key'],
+            [false, ['23000', 1048, 'Column processed_at cannot be null'], 'unrelated MySQL constraint'],
+            [false, ['23000', 19, 'NOT NULL constraint failed: notification_inbox.processed_at'], 'unrelated SQLite constraint'],
+        ];
+
+        foreach ($cases as [$expected, $errorInfo, $label]) {
+            $previous = new PDOException($errorInfo[2]);
+            $previous->errorInfo = $errorInfo;
+            $exception = new QueryException('test', 'insert into notification_inbox', [], $previous);
+
+            $this->assertSame($expected, $matcher->invoke($handler, $exception), $label);
+        }
     }
 
     public function test_effect_failure_rolls_back_the_new_inbox_receipt(): void

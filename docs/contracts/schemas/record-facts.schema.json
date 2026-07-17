@@ -31,7 +31,6 @@
   "$defs": {
     "classification": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]},
     "uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Lowercase RFC 9562 UUID version 7"},
-    "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"},
-    "owner": {"type": "object", "additionalProperties": false, "required": ["scope_type", "scope_id", "cluster_id"], "properties": {"scope_type": {"type": "string", "enum": ["cluster", "facility", "unit"]}, "scope_id": {"$ref": "#/$defs/uuidv7"}, "cluster_id": {"$ref": "#/$defs/uuidv7"}, "facility_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]}, "organization_unit_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]}}}
+    "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"}
   }
 }

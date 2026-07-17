@@ -13,7 +13,7 @@ class PublishRequestFixtureTest extends TestCase
 
     public function test_it_publishes_the_immutable_request_definition_with_only_title_and_description(): void
     {
-        $fixture = (new PublishRequestFixtureHandler())->publish();
+        $fixture = (new PublishRequestFixtureHandler)->publish();
 
         $this->assertSame('request', $fixture['code']);
         $this->assertSame('published', $fixture['status']);
@@ -25,7 +25,7 @@ class PublishRequestFixtureTest extends TestCase
 
     public function test_republishing_returns_the_same_live_version_without_creating_a_conflict(): void
     {
-        $handler = new PublishRequestFixtureHandler();
+        $handler = new PublishRequestFixtureHandler;
 
         $first = $handler->publish();
         $second = $handler->publish();

@@ -5,7 +5,8 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 readonly COMPOSE_FILE="$ROOT_DIR/infra/platform/production/compose.yaml"
 readonly WEB_DIR="$ROOT_DIR/apps/web"
 readonly PROJECT="cluster-w11-bld-02-e2e-$$"
-readonly PUBLIC_PORT="${W11_BLD_PUBLIC_PORT:-18080}"
+readonly COMPOSE_PUBLIC_PORT="${W11_BLD_PUBLIC_PORT:-0}"
+PUBLIC_PORT="$COMPOSE_PUBLIC_PORT"
 readonly HEALTH_TIMEOUT="${W11_BLD_HEALTH_TIMEOUT_SECONDS:-150}"
 readonly API_IMAGE="${W11_BLD_API_IMAGE:-cluster-api:w11-bld-02}"
 readonly WEB_IMAGE="${W11_BLD_WEB_IMAGE:-cluster-web:w11-bld-02}"
@@ -24,12 +25,12 @@ compose() {
     WEB_IMAGE="$WEB_IMAGE" \
     APP_ENV=testing \
     APP_KEY="$APP_KEY" \
-    APP_URL="http://127.0.0.1:${PUBLIC_PORT}" \
+    APP_URL="http://127.0.0.1" \
     DB_PASSWORD="$DB_PASSWORD" \
     DB_ROOT_PASSWORD="$DB_ROOT_PASSWORD" \
     VALKEY_PASSWORD="$VALKEY_PASSWORD" \
     PUBLIC_BIND_ADDRESS=127.0.0.1 \
-    PUBLIC_PORT="$PUBLIC_PORT" \
+    PUBLIC_PORT="$COMPOSE_PUBLIC_PORT" \
     "${COMPOSE[@]}" "$@"
 }
 
@@ -49,12 +50,29 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM HUP
 
 assert_port_free() {
-  if ! [[ "$PUBLIC_PORT" =~ ^[0-9]+$ ]] || (( PUBLIC_PORT < 1024 || PUBLIC_PORT > 65535 )); then
+  if [[ "$COMPOSE_PUBLIC_PORT" == 0 ]]; then
+    return
+  fi
+  if ! [[ "$COMPOSE_PUBLIC_PORT" =~ ^[0-9]+$ ]] || (( COMPOSE_PUBLIC_PORT < 1024 || COMPOSE_PUBLIC_PORT > 65535 )); then
     printf 'ERROR: W11_BLD_PUBLIC_PORT must be between 1024 and 65535.\n' >&2
     return 1
   fi
-  if lsof -nP -iTCP:"$PUBLIC_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-    printf 'ERROR: localhost port %s is already in use.\n' "$PUBLIC_PORT" >&2
+  if lsof -nP -iTCP:"$COMPOSE_PUBLIC_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    printf 'ERROR: localhost port %s is already in use.\n' "$COMPOSE_PUBLIC_PORT" >&2
+    return 1
+  fi
+}
+
+discover_public_port() {
+  if [[ "$COMPOSE_PUBLIC_PORT" != 0 ]]; then
+    return
+  fi
+
+  local published
+  published="$(compose port web 8080)"
+  PUBLIC_PORT="${published##*:}"
+  if ! [[ "$PUBLIC_PORT" =~ ^[0-9]+$ ]] || (( PUBLIC_PORT < 1024 || PUBLIC_PORT > 65535 )); then
+    printf 'ERROR: Docker did not allocate a valid localhost port for Web.\n' >&2
     return 1
   fi
 }
@@ -122,6 +140,7 @@ assert_port_free
 require_images
 compose config --quiet
 compose up --detach >"$LOG_FILE" 2>&1
+discover_public_port
 wait_migration
 for service in mysql valkey api worker scheduler web; do
   wait_healthy "$service"

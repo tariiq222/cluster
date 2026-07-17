@@ -36,7 +36,6 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
     {
         $this->assertSame('mysql', config('database.default'));
         $this->assertSame('mysql', DB::connection()->getDriverName());
-        $this->assertNotNull(DB::connection()->getPdo());
         $transport = app(ValkeyStreamTransport::class);
         $this->assertInstanceOf(PredisValkeyStreamTransport::class, $transport);
         $this->clearStreams();
@@ -92,9 +91,8 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
 
     public function test_real_valkey_poison_event_reaches_dlq_before_ack(): void
     {
-        $this->assertInstanceOf(PredisValkeyStreamTransport::class, app(ValkeyStreamTransport::class));
-        /** @var ValkeyStreamTransport $transport */
         $transport = app(ValkeyStreamTransport::class);
+        $this->assertInstanceOf(PredisValkeyStreamTransport::class, $transport);
         $this->clearStreams();
         $event = [
             'specversion' => '1.0',
@@ -119,14 +117,16 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
             new FailOnceAckTransport($transport, true, false),
             app(ConsumeWorkRecordSubmittedHandler::class),
         );
+        $failedAttempts = 0;
         foreach (['poison-a', 'poison-b'] as $consumer) {
             try {
                 $worker->consumeOnce($consumer);
                 self::fail('poison event unexpectedly succeeded before its retry budget was exhausted');
             } catch (\Throwable) {
-                self::assertTrue(true);
+                $failedAttempts++;
             }
         }
+        self::assertSame(2, $failedAttempts);
         $this->assertSame(1, $worker->consumeOnce('poison-c'));
 
         $client = new Client([
@@ -182,7 +182,12 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
             'host' => config('database.redis.default.host'),
             'port' => (int) config('database.redis.default.port'),
         ]);
-        $client->executeRaw(['DEL', 'platform.work-record.submitted.v1', 'platform.dlq.v1']);
+        $client->executeRaw([
+            'DEL',
+            'platform.work-record.submitted.v1',
+            'platform.dlq.v1',
+            'platform.dlq.v1:source-message-index',
+        ]);
     }
 }
 
@@ -236,8 +241,13 @@ final class FailOnceAckTransport implements ValkeyStreamTransport
         $this->delegate->ack($stream, $group, $messageId);
     }
 
-    public function publishDlq(string $stream, array $deadLetter): string
+    public function publishDlq(string $stream, string $sourceMessageId, array $deadLetter): string
     {
-        return $this->delegate->publishDlq($stream, $deadLetter);
+        return $this->delegate->publishDlq($stream, $sourceMessageId, $deadLetter);
+    }
+
+    public function purgeDlq(string $stream): void
+    {
+        $this->delegate->purgeDlq($stream);
     }
 }

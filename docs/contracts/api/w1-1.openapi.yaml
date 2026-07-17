@@ -1,0 +1,28 @@
+openapi: 3.1.0
+info:
+  title: Cluster Platform W1.1 API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    url: https://cluster.example/legal
+  description: Executable W1.1 surface generated from the governed platform API contract.
+servers:
+  - url: https://api.cluster.example/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    $ref: "./openapi.yaml#/paths/~1auth~1login"
+  /work-records:
+    $ref: "./openapi.yaml#/paths/~1work-records"
+  /work-records/{recordId}:
+    parameters:
+      - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
+    get:
+      $ref: "./openapi.yaml#/paths/~1work-records~1{recordId}/get"
+  /notifications:
+    $ref: "./openapi.yaml#/paths/~1notifications"
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: "./openapi.yaml#/components/securitySchemes/bearerAuth"

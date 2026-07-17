@@ -1,3 +1,12 @@
+import type {
+  Notification as GeneratedNotification,
+  NotificationCollection as GeneratedNotificationCollection,
+  Session as GeneratedSession,
+  WorkRecordCollection as GeneratedWorkRecordCollection,
+  WorkRecordCreate,
+  WorkRecordSchema,
+} from './api/generated/cluster'
+
 export type ProblemFieldError = {
   pointer: string
   code: string
@@ -12,53 +21,22 @@ export type ProblemDetails = {
   errors?: ProblemFieldError[]
 }
 
-export type Session = {
-  access_token: string
-  token_type: 'Bearer'
-  expires_at: string
-  facility?: string
-}
+export type Session = GeneratedSession
 
-export type WorkRecord = {
-  id: string
-  record_number: string
-  status: 'draft' | 'submitted' | 'in_review' | 'returned' | 'approved' | 'rejected' | 'completed' | 'cancelled' | 'archived'
-  payload: {
+export type WorkRecord = Omit<WorkRecordSchema, 'payload'> & {
+  payload: WorkRecordSchema['payload'] & {
     title?: string
     description?: string
   }
-  created_at: string
 }
 
-export type WorkRecordCollection = {
+export type WorkRecordCollection = Omit<GeneratedWorkRecordCollection, 'items'> & {
   items: WorkRecord[]
-  next_cursor: string | null
 }
 
-export type SourceReference = {
-  source_module: string
-  record_type: string
-  record_id: string
-}
-
-export type Notification = {
-  id: string
-  title: string
-  source: SourceReference
-  is_read: boolean
-  created_at: string
-}
-
-export type NotificationCollection = {
-  items: Notification[]
-  next_cursor: string | null
-}
-
-export type CreateWorkRecordInput = {
-  work_definition_code: 'request'
-  title: string
-  description: string
-}
+export type Notification = GeneratedNotification
+export type NotificationCollection = GeneratedNotificationCollection
+export type CreateWorkRecordInput = WorkRecordCreate
 
 export class ApiError extends Error {
   readonly status: number
@@ -72,9 +50,12 @@ export class ApiError extends Error {
   }
 }
 
+const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+const UTC_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/
+
 function uuidV7(): string {
   const bytes = new Uint8Array(16)
-  window.crypto.getRandomValues(bytes)
+  globalThis.crypto.getRandomValues(bytes)
   let timestamp = Date.now()
 
   for (let index = 5; index >= 0; index -= 1) {
@@ -157,18 +138,35 @@ async function requestJson<T>(path: string, init: RequestInit, token?: string): 
 }
 
 export async function login(username: string, password: string): Promise<Session> {
-  const body = await requestJson<Session | { data: Session }>('/api/v1/auth/login', {
+  const body = await requestJson<{ data?: unknown }>('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   })
 
-  const session = 'data' in body ? body.data : body
+  const session = body.data
   if (
-    typeof session.access_token !== 'string'
+    typeof session !== 'object'
+    || session === null
+    || !('access_token' in session)
+    || !('token_type' in session)
+    || !('expires_at' in session)
+    || !('facility' in session)
+    || !('principal' in session)
+    || typeof session.access_token !== 'string'
     || session.access_token === ''
     || session.token_type !== 'Bearer'
     || typeof session.expires_at !== 'string'
+    || !UTC_DATE_TIME_PATTERN.test(session.expires_at)
+    || (session.facility !== 'facility-a' && session.facility !== 'facility-b')
+    || typeof session.principal !== 'object'
+    || session.principal === null
+    || !('user_id' in session.principal)
+    || !('facility_id' in session.principal)
+    || typeof session.principal.user_id !== 'string'
+    || typeof session.principal.facility_id !== 'string'
+    || !UUID_V7_PATTERN.test(session.principal.user_id)
+    || !UUID_V7_PATTERN.test(session.principal.facility_id)
   ) {
     throw new ApiError(502, {
       type: 'about:blank',
@@ -177,7 +175,7 @@ export async function login(username: string, password: string): Promise<Session
     })
   }
 
-  return session
+  return session as Session
 }
 
 export async function createWorkRecord(token: string, input: CreateWorkRecordInput): Promise<WorkRecord> {

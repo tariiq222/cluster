@@ -1,16 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+pick_free_port() {
+  local excluded=" $* "
+  local candidate
+  while true; do
+    candidate="$(python3 - <<'PY'
+import socket
+
+with socket.socket() as listener:
+    listener.bind(("127.0.0.1", 0))
+    print(listener.getsockname()[1])
+PY
+)"
+    if [[ "$excluded" != *" $candidate "* ]]; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+}
+
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly COMPOSE_FILE="$ROOT_DIR/infra/dev/compose.yaml"
 readonly ENV_FILE="$ROOT_DIR/infra/dev/.env.example"
 readonly API_DIR="$ROOT_DIR/apps/api"
 readonly WEB_DIR="$ROOT_DIR/apps/web"
 readonly PROJECT="cluster-w1-1-e2e-$$"
-readonly MYSQL_PORT="${W1_1_MYSQL_PORT:-33060}"
-readonly VALKEY_PORT="${W1_1_VALKEY_PORT:-6380}"
-readonly API_PORT="${W1_1_API_PORT:-8000}"
-readonly WEB_PORT="${W1_1_WEB_PORT:-4173}"
+readonly MYSQL_PORT="${W1_1_MYSQL_PORT:-$(pick_free_port)}"
+readonly VALKEY_PORT="${W1_1_VALKEY_PORT:-$(pick_free_port "$MYSQL_PORT")}"
+readonly API_PORT="${W1_1_API_PORT:-$(pick_free_port "$MYSQL_PORT" "$VALKEY_PORT")}"
+readonly WEB_PORT="${W1_1_WEB_PORT:-$(pick_free_port "$MYSQL_PORT" "$VALKEY_PORT" "$API_PORT")}"
 readonly HEALTH_TIMEOUT="${W1_1_HEALTH_TIMEOUT_SECONDS:-90}"
 readonly MYSQL_DATABASE="${W1_1_MYSQL_DATABASE:-cluster}"
 readonly MYSQL_USER="${W1_1_MYSQL_USER:-cluster}"
@@ -21,7 +40,7 @@ readonly COMPOSE=(docker compose --project-name "$PROJECT" --env-file "$ENV_FILE
 API_PID=""
 VITE_PID=""
 COORDINATOR_PID=""
-export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
+export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_PORT="$MYSQL_PORT" W1_1_VALKEY_PORT="$VALKEY_PORT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
 
 cleanup() {
   local status=$?
