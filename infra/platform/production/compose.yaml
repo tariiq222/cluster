@@ -52,7 +52,10 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "${PUBLIC_BIND_ADDRESS:-127.0.0.1}:${PUBLIC_PORT:-8080}:8080"
+      - target: 8080
+        published: ${PUBLIC_PORT:-8080}
+        host_ip: 127.0.0.1
+        protocol: tcp
     networks:
       - frontend
     read_only: true

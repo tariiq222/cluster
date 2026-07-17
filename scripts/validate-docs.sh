@@ -217,8 +217,17 @@ yaml_paths.extend(sorted(DOCS.rglob("*.yaml")))
 yaml_paths.extend(sorted(DOCS.rglob("*.yml")))
 yaml_data = {path: load_yaml(path) for path in dict.fromkeys(yaml_paths) if path.is_file()}
 
+EXCLUDED_JSON_PARTS = {
+    ".git",
+    ".opencode",
+    ".pi",
+    ".pi-subagents",
+    ".planning",
+    "node_modules",
+}
+
 for path in sorted(ROOT.rglob("*.json")):
-    if ".opencode" in path.parts:
+    if any(part in EXCLUDED_JSON_PARTS for part in path.parts):
         continue
     try:
         json.loads(path.read_text(encoding="utf-8"))

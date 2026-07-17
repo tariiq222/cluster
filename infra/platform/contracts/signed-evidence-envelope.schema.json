@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cluster.internal/contracts/signed-evidence-envelope-1.0.0.json",
+  "title": "W1.1 signed raw evidence envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "artifact_type", "artifact_path", "artifact_sha256", "git_revision", "observed_at", "signer", "statement", "signature", "bundle"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "artifact_type": {"enum": ["host", "net-host", "net-user", "net-management", "deployment", "restore", "ci", "test-result", "approval"]},
+    "artifact_path": {"$ref": "#/$defs/safePath"},
+    "artifact_sha256": {"$ref": "#/$defs/sha256"},
+    "git_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "signer": {"$ref": "#/$defs/signer"},
+    "statement": {"$ref": "#/$defs/fileProof"},
+    "signature": {"$ref": "#/$defs/fileProof"},
+    "bundle": {"$ref": "#/$defs/fileProof"},
+    "status": {"type": "string", "enum": ["passed", "failed", "skipped", "approved"]},
+    "mode": {"type": "string", "minLength": 1, "maxLength": 64},
+    "perspective": {"enum": ["host", "user", "management"]}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "safePath": {"type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*://)(?!.*\\\\)(?!.*[\\s\\x00\\r\\n]).+$"},
+    "fileProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/safePath"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "signer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "key_id", "public_key_fingerprint"],
+      "properties": {
+        "role": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{2,63}$"},
+        "key_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+        "public_key_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

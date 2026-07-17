@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://third-health-cluster.invalid/schemas/grype-db-evidence-1.json",
+  "title": "Third Health Cluster pinned Grype database evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["evidence_version", "grype_version", "database_sha256", "built_at"],
+  "properties": {
+    "evidence_version": {"const": "1"},
+    "grype_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "database_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "built_at": {"type": "string", "format": "date-time"}
+  }
+}

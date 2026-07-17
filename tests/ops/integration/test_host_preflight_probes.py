@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from scripts.host_preflight import run_preflight
+from scripts.host_preflight import PREFLIGHT_CHECK_IDS, run_preflight
 
 
 pytestmark = pytest.mark.integration
@@ -68,6 +68,7 @@ def test_all_read_only_probes_pass(valid_host_inputs, live_probe_secrets):
   checks = run_preflight(valid_host_inputs, FakeBackend(), live_probe_secrets)
 
   assert set(status_by_id(checks).values()) == {"passed"}
+  assert {"host_inputs.contract", "secret_manifest.contract", *status_by_id(checks)} == PREFLIGHT_CHECK_IDS
 
 
 def test_low_disk_fails_closed(valid_host_inputs, live_probe_secrets):

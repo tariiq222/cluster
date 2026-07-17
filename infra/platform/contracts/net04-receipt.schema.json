@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cluster.internal/contracts/net04-receipt-1.1.0.json",
+  "title": "W11-NET-04 exposure verifier receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["receipt_version", "verifier_version", "task_id", "mode", "perspective", "git_revision", "policy_sha256", "redaction", "checks", "summary", "signature", "receipt_sha256"],
+  "properties": {
+    "receipt_version": {"const": "1.1.0"},
+    "verifier_version": {"const": "1.1.0"},
+    "task_id": {"const": "W11-NET-04"},
+    "mode": {"enum": ["offline-policy", "host-live", "edge-live", "unavailable"]},
+    "perspective": {"enum": ["offline", "host", "user", "management", "unknown"]},
+    "git_revision": {"anyOf": [{"const": "unverified"}, {"type": "string", "pattern": "^[0-9a-f]{40}$"}]},
+    "policy_sha256": {"$ref": "#/$defs/sha256"},
+    "compose_sha256": {"$ref": "#/$defs/sha256"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "redaction": {"const": {"secret_values_included": false, "endpoint_addresses_included": false, "source_addresses_included": false, "raw_command_output_included": false}},
+    "checks": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/check"}},
+    "summary": {"$ref": "#/$defs/summary"},
+    "signature": {"const": {"status": "not-signed"}},
+    "receipt_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {"if": {"properties": {"mode": {"const": "offline-policy"}}}, "then": {"required": ["mode", "perspective", "git_revision"], "properties": {"perspective": {"const": "offline"}, "git_revision": {"const": "unverified"}, "checks": {"minItems": 2, "maxItems": 2, "allOf": [{"contains": {"properties": {"id": {"const": "offline.policy_contract"}}}}, {"contains": {"properties": {"id": {"const": "offline.compose_policy"}}}}]}}}},
+    {"if": {"properties": {"mode": {"const": "host-live"}}}, "then": {"required": ["mode", "perspective", "git_revision", "observed_at", "compose_sha256"], "properties": {"perspective": {"const": "host"}, "git_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "checks": {"minItems": 11, "maxItems": 11, "allOf": [{"contains": {"properties": {"id": {"const": "firewall.ruleset"}}}}, {"contains": {"properties": {"id": {"const": "firewall.default_deny"}}}}, {"contains": {"properties": {"id": {"const": "firewall.public_https"}}}}, {"contains": {"properties": {"id": {"const": "firewall.management_cidrs"}}}}, {"contains": {"properties": {"id": {"const": "firewall.forbidden_ports"}}}}, {"contains": {"properties": {"id": {"const": "firewall.bounded_tcp_accepts"}}}}, {"contains": {"properties": {"id": {"const": "docker.global_port_inventory"}}}}, {"contains": {"properties": {"id": {"const": "docker.compose_project_inventory"}}}}, {"contains": {"properties": {"id": {"const": "docker.compose_network_topology"}}}}, {"contains": {"properties": {"id": {"const": "docker.forbidden_public_ports"}}}}, {"contains": {"properties": {"id": {"const": "docker.internal_state_network"}}}}]}}}},
+    {"if": {"properties": {"mode": {"const": "edge-live"}}}, "then": {"required": ["mode", "perspective", "git_revision", "observed_at"], "properties": {"perspective": {"enum": ["user", "management"]}, "git_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "checks": {"minItems": 5, "maxItems": 5, "allOf": [{"contains": {"properties": {"id": {"const": "edge.source_perspective"}}}}, {"contains": {"properties": {"id": {"const": "edge.public_https"}}}}, {"contains": {"properties": {"id": {"const": "edge.management_https"}}}}, {"contains": {"properties": {"id": {"const": "edge.forbidden_tcp_ports"}}}}, {"contains": {"properties": {"id": {"const": "edge.management_tcp"}}}}]}}}},
+    {"if": {"properties": {"mode": {"const": "unavailable"}}}, "then": {"properties": {"summary": {"properties": {"status": {"const": "failed"}}}}}}
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "check": {"type": "object", "additionalProperties": false, "required": ["id", "status", "detail"], "properties": {"id": {"type": "string", "minLength": 1}, "status": {"enum": ["passed", "failed"]}, "detail": {"type": "string", "minLength": 1}}},
+    "summary": {"type": "object", "additionalProperties": false, "required": ["status", "check_count"], "properties": {"status": {"enum": ["passed", "failed"]}, "check_count": {"type": "integer", "minimum": 1}}}
+  }
+}

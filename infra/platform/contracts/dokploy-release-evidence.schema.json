@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cluster.internal/contracts/dokploy-release-evidence-1.0.0.json",
+  "title": "W11 DEP-05 Dokploy release evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "release_n", "release_n_plus_1", "post_deploy", "rollback", "migration", "critical_journeys"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "release_n": {"$ref": "#/$defs/releaseDescriptor"},
+    "release_n_plus_1": {"$ref": "#/$defs/releaseDescriptor"},
+    "post_deploy": {"type": "object", "additionalProperties": false, "required": ["status", "release_id", "health_status", "observed_at"], "properties": {"status": {"const": "passed"}, "release_id": {"type": "string", "minLength": 1}, "health_status": {"const": "passed"}, "observed_at": {"$ref": "#/$defs/timestamp"}}},
+    "migration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["compatibility_status", "observed_at"],
+      "properties": {
+        "compatibility_status": {"const": "passed"},
+        "pre_backup_id": {"type": "string", "minLength": 1},
+        "pre_backup_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "pre_backup_completed_at": {"$ref": "#/$defs/timestamp"},
+        "pre_backup_environment": {"enum": ["staging", "production"]},
+        "observed_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "rollback": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "from_release_id", "to_release_id", "from_git_commit", "to_git_commit", "from_images", "to_images", "from_compose_sha256", "to_compose_sha256", "health_status", "data_preserved", "observed_at"],
+      "properties": {
+        "status": {"const": "passed"}, "from_release_id": {"type": "string", "minLength": 1},
+        "to_release_id": {"type": "string", "minLength": 1},
+        "from_git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "to_git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "from_images": {"$ref": "#/$defs/images"}, "to_images": {"$ref": "#/$defs/images"},
+        "from_compose_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "to_compose_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "health_status": {"const": "passed"},
+        "data_preserved": {"$ref": "#/$defs/dataProof"}, "observed_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "critical_journeys": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/journey"}}
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["release_n_plus_1"],
+        "properties": {
+          "release_n_plus_1": {
+            "required": ["migration"],
+            "properties": {
+              "migration": {
+                "anyOf": [
+                  {"required": ["destructive"], "properties": {"destructive": {"const": true}}},
+                  {"required": ["pre_backup_required"], "properties": {"pre_backup_required": {"const": true}}}
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "migration": {"required": ["pre_backup_id", "pre_backup_manifest_sha256", "pre_backup_completed_at", "pre_backup_environment"]}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "releaseDescriptor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_version", "release_id", "environment", "git_commit", "compose_revision", "compose_sha256", "images", "migration", "healthcheck"],
+      "properties": {
+        "contract_version": {"const": "1.0.0"}, "release_id": {"$ref": "#/$defs/identifier"},
+        "environment": {"enum": ["staging", "production"]},
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "compose_revision": {"type": "string", "minLength": 1}, "compose_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "images": {"$ref": "#/$defs/images"},
+        "migration": {
+          "type": "object", "additionalProperties": false,
+          "required": ["version", "compatibility", "destructive", "pre_backup_required"],
+          "properties": {"version": {"type": "string", "minLength": 1}, "compatibility": {"enum": ["compatible", "requires_pre_backup", "incompatible"]}, "destructive": {"type": "boolean"}, "pre_backup_required": {"type": "boolean"}}
+        },
+        "healthcheck": {
+          "type": "object", "additionalProperties": false,
+          "required": ["path", "expected_status", "timeout_seconds"],
+          "properties": {"path": {"type": "string", "pattern": "^/[^?#]*$"}, "expected_status": {"type": "integer", "minimum": 100, "maximum": 599}, "timeout_seconds": {"type": "integer", "minimum": 1}}
+        }
+      }
+    },
+    "images": {"type": "object", "minProperties": 1, "additionalProperties": false, "patternProperties": {"^[a-z][a-z0-9_-]{1,31}$": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}},
+    "safePath": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\s\\x00\\r\\n]).+$"},
+    "proof": {"type": "object", "additionalProperties": false, "required": ["evidence_ref", "evidence_sha256"], "properties": {"evidence_ref": {"$ref": "#/$defs/safePath"}, "evidence_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}}},
+    "dataProof": {"type": "object", "additionalProperties": false, "required": ["status", "evidence_ref", "evidence_sha256", "sample_hash"], "properties": {"status": {"const": "passed"}, "evidence_ref": {"$ref": "#/$defs/safePath"}, "evidence_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}, "sample_hash": {"type": "string", "pattern": "^[0-9a-fA-F]{64,128}$"}}},
+    "journey": {
+      "type": "object", "additionalProperties": false, "required": ["id", "locale", "status", "duration_ms", "evidence_ref", "evidence_sha256"],
+      "properties": {"id": {"$ref": "#/$defs/identifier"}, "locale": {"enum": ["ar", "en"]}, "status": {"const": "passed"}, "duration_ms": {"type": "integer", "minimum": 0, "exclusiveMaximum": 5000}, "evidence_ref": {"$ref": "#/$defs/safePath"}, "evidence_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}}
+    }
+  }
+}

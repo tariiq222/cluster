@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://third-health-cluster.invalid/schemas/release-manifest-1.json",
+  "title": "Third Health Cluster deterministic signed release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_version", "release_id", "git_revision", "images", "compose", "migration_plan", "rollback_plan"],
+  "properties": {
+    "manifest_version": {"const": "1"},
+    "release_id": {"type": "string", "minLength": 1},
+    "git_revision": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "images": {"$ref": "#/$defs/images"},
+    "compose": {"$ref": "#/$defs/file"},
+    "migration_plan": {"$ref": "#/$defs/file"},
+    "rollback_plan": {"$ref": "#/$defs/file"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "safePath": {"type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?:[^/]+/)*[^/]+$"},
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/safePath"}, "sha256": {"$ref": "#/$defs/digest"}}
+    },
+    "sbom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "format", "image_reference", "image_digest"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safePath"},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "format": {"enum": ["cyclonedx", "spdx"]},
+        "image_reference": {"type": "string", "pattern": "^(?!.*(?:[?#]|://|@[^/]*:)).+@sha256:[0-9a-f]{64}$"},
+        "image_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "image_digest"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safePath"},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "image_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "digest", "sbom", "provenance"],
+      "properties": {
+        "reference": {"type": "string", "pattern": "^(?!.*(?:[?#]|://|@[^/]*:)).+@sha256:[0-9a-f]{64}$"},
+        "digest": {"$ref": "#/$defs/digest"},
+        "sbom": {"$ref": "#/$defs/sbom"},
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api", "web"],
+      "properties": {"api": {"$ref": "#/$defs/image"}, "web": {"$ref": "#/$defs/image"}}
+    }
+  }
+}

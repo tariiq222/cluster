@@ -1,19 +1,76 @@
+# Every runner image below is intentionally a literal, immutable internal OCI
+# reference. The all-zero digests are non-routable placeholders: image
+# resolution fails closed and no job command executes until the platform team
+# replaces them with approved internal image digests. GitLab can retrieve job
+# secrets before before_script, so secret protection is enforced by protected
+# environments, environment-scoped variables, and isolated runner tags below;
+# SC_LIVE_TOOLING_APPROVED is only an operational guard. A green local/static
+# check is never evidence of a live CI release.
 stages:
   - validate
   - build
   - test
   - verify
+  - release-build
+  - release-artifacts
+  - release-sign
+  - release-verify
 
 variables:
-  DOCS_PYTHON_IMAGE: "python:3.12-slim"
+  DOCS_PYTHON_IMAGE: "registry.internal/third-health-cluster/ci-python@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  MERMAID_IMAGE: "registry.internal/third-health-cluster/ci-mermaid@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  API_TEST_IMAGE: "registry.internal/third-health-cluster/ci-composer@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  WEB_TEST_IMAGE: "registry.internal/third-health-cluster/ci-node@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  YAML_CHECK_IMAGE: "registry.internal/third-health-cluster/ci-ruby@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  SUPPLY_CHAIN_TOOL_IMAGE: "registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  DOCKER_DIND_IMAGE: "registry.internal/third-health-cluster/ci-dind@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  SC_LIVE_TOOLING_APPROVED: "false"
+  SC_COSIGN_VERSION: "v2.4.3"
+  SC_SYFT_VERSION: "1.20.0"
+  SC_GRYPE_VERSION: "0.87.0"
+  SC_GRYPE_FAIL_ON: "high"
+  GRYPE_DB_AUTO_UPDATE: "false"
+  GRYPE_DB_CACHE_DIR: "/opt/grype-db"
+  SC_GRYPE_DB_ARCHIVE: "/opt/grype-db/database.tar.gz"
+  SC_GRYPE_DB_EVIDENCE: "/opt/grype-db/evidence.json"
+  SC_GRYPE_DB_SHA256: ""
+  SC_GRYPE_DB_BUILT_AT: ""
+  SC_GRYPE_DB_MAX_AGE_HOURS: "168"
 
 default:
   interruptible: true
 
-.docs-python:
-  image: "$DOCS_PYTHON_IMAGE"
+.requires-approved-runner:
   before_script:
+    - 'test "$SC_LIVE_TOOLING_APPROVED" = "true" || { echo "BLOCKED: approved internal digest-pinned CI images have not been configured; no secret was read."; exit 1; }'
+
+.docs-python:
+  extends: .requires-approved-runner
+  image: "registry.internal/third-health-cluster/ci-python@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  before_script:
+    - 'test "$SC_LIVE_TOOLING_APPROVED" = "true" || { echo "BLOCKED: approved internal digest-pinned CI images have not been configured; no secret was read."; exit 1; }'
     - python -m pip install --disable-pip-version-check -r requirements-docs.txt
+
+.supply-chain-job:
+  extends: .requires-approved-runner
+  image: "registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  before_script:
+    - 'test "$SC_LIVE_TOOLING_APPROVED" = "true" || { echo "BLOCKED: approved internal digest-pinned CI images have not been configured; no secret was read."; exit 1; }'
+    - test -n "$CI_COMMIT_SHA"
+    - printf '%s\n' "$CI_COMMIT_SHA" | grep -Eq '^[0-9a-f]{40}$'
+    - 'test "$(cosign version | sed -n "s/^GitVersion: //p" | head -n 1)" = "$SC_COSIGN_VERSION"'
+    - 'test "$(syft version | sed -n "s/^Version:[[:space:]]*//p" | head -n 1)" = "$SC_SYFT_VERSION"'
+    - 'test "$(grype version | sed -n "s/^Version:[[:space:]]*//p" | head -n 1)" = "$SC_GRYPE_VERSION"'
+
+.release-protected:
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_TAG'
+    - when: never
+
+# Configure COSIGN_PRIVATE_KEY as a protected file variable scoped only to
+# release-signing. Configure COSIGN_PUBLIC_KEY as protected file variables for
+# release-signing and release-verification. CI_REGISTRY_* may be scoped to
+# release-artifacts. Do not use a wildcard scope for COSIGN_PRIVATE_KEY.
 
 validate-docs:
   extends: .docs-python
@@ -28,42 +85,219 @@ build-docs:
     - python -m mkdocs build --strict
   artifacts:
     when: always
-    paths:
-      - site/
+    paths: [site/]
     expire_in: 1 week
 
 validate-mermaid:
+  extends: .requires-approved-runner
   stage: validate
-  image: "$MERMAID_IMAGE"
-  rules:
-    - if: '$MERMAID_IMAGE'
+  image: "registry.internal/third-health-cluster/ci-mermaid@sha256:0000000000000000000000000000000000000000000000000000000000000000"
   script:
     - command -v mmdc
     - ./scripts/render-diagrams.sh /tmp/validated-diagrams
 
 test-api:
+  extends: .requires-approved-runner
   stage: test
-  image: composer:2
+  image: "registry.internal/third-health-cluster/ci-composer@sha256:0000000000000000000000000000000000000000000000000000000000000000"
   script:
     - composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
     - make test-api
 
 test-web:
+  extends: .requires-approved-runner
   stage: test
-  image: node:22.22.2
+  image: "registry.internal/third-health-cluster/ci-node@sha256:0000000000000000000000000000000000000000000000000000000000000000"
   script:
     - npm --prefix apps/web ci
     - make test-web
 
+test-e2e-w1-1:
+  extends: .requires-approved-runner
+  stage: test
+  image: "registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  needs: [test-api, test-web]
+  script:
+    - make test-e2e-w1-1
+
 verify-boundaries:
+  extends: .requires-approved-runner
   stage: verify
-  image: composer:2
+  image: "registry.internal/third-health-cluster/ci-composer@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  needs: [test-api]
   script:
     - composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
     - make verify-boundaries
 
 verify-ci-config:
+  extends: .requires-approved-runner
   stage: verify
-  image: ruby:3.4
+  image: "registry.internal/third-health-cluster/ci-ruby@sha256:0000000000000000000000000000000000000000000000000000000000000000"
   script:
     - make verify-ci-config
+
+release-build-images:
+  extends: [.supply-chain-job, .release-protected]
+  stage: release-build
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_TAG'
+    - when: never
+  services:
+    - name: "registry.internal/third-health-cluster/ci-dind@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      alias: docker
+  tags: [release-artifacts]
+  environment:
+    name: release-artifacts
+  needs: [test-api, test-web, test-e2e-w1-1, verify-boundaries, verify-ci-config]
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - 'test ! -n "${COSIGN_PRIVATE_KEY:-}" || { echo "FAIL: artifact jobs must not receive COSIGN_PRIVATE_KEY"; exit 1; }'
+    - ': "${CI_REGISTRY:?CI_REGISTRY is required}"'
+    - ': "${CI_REGISTRY_IMAGE:?CI_REGISTRY_IMAGE is required}"'
+    - ': "${CI_REGISTRY_USER:?CI_REGISTRY_USER is required}"'
+    - ': "${CI_REGISTRY_PASSWORD:?CI_REGISTRY_PASSWORD is required}"'
+    - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin
+    - mkdir -p release
+    - API_IMAGE_TAG="$CI_REGISTRY_IMAGE/api:$CI_COMMIT_SHA"
+    - WEB_IMAGE_TAG="$CI_REGISTRY_IMAGE/web:$CI_COMMIT_SHA"
+    - docker buildx create --name release-builder --driver docker-container --use || docker buildx use release-builder
+    - docker buildx inspect --bootstrap
+    - docker buildx build --pull=false --file apps/api/Dockerfile --tag "$API_IMAGE_TAG" --push --metadata-file release/api-build-metadata.json apps/api
+    - docker buildx build --pull=false --file apps/web/Dockerfile --tag "$WEB_IMAGE_TAG" --push --metadata-file release/web-build-metadata.json apps/web
+    - |
+      python3 - "$CI_REGISTRY_IMAGE" <<'PY'
+      import json
+      import re
+      import sys
+      from pathlib import Path
+      registry = sys.argv[1]
+      refs = {}
+      for name in ("api", "web"):
+          metadata = json.loads(Path(f"release/{name}-build-metadata.json").read_text(encoding="utf-8"))
+          digest = metadata.get("containerimage.digest")
+          if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+              raise SystemExit(f"missing deterministic buildx containerimage.digest for {name}")
+          refs[name] = f"{registry}/{name}@{digest}"
+      Path("release/image-refs.env").write_text(
+          "\n".join((f"API_IMAGE_DIGEST_REF={refs['api']}", f"WEB_IMAGE_DIGEST_REF={refs['web']}", "")),
+          encoding="utf-8",
+      )
+      PY
+  artifacts:
+    expire_in: 1 week
+    paths: [release/]
+
+release-sbom-provenance:
+  extends: [.supply-chain-job, .release-protected]
+  stage: release-artifacts
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_TAG'
+    - when: never
+  needs:
+    - job: release-build-images
+      artifacts: true
+  tags: [release-artifacts]
+  environment:
+    name: release-artifacts
+  script:
+    - 'test ! -n "${COSIGN_PRIVATE_KEY:-}" || { echo "FAIL: artifact jobs must not receive COSIGN_PRIVATE_KEY"; exit 1; }'
+    - ': "${CI_REGISTRY:?CI_REGISTRY is required}"'
+    - ': "${CI_REGISTRY_USER:?CI_REGISTRY_USER is required}"'
+    - ': "${CI_REGISTRY_PASSWORD:?CI_REGISTRY_PASSWORD is required}"'
+    - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin
+    - API_IMAGE_DIGEST_REF="$(python3 scripts/parse_image_refs.py release/image-refs.env API_IMAGE_DIGEST_REF)"
+    - WEB_IMAGE_DIGEST_REF="$(python3 scripts/parse_image_refs.py release/image-refs.env WEB_IMAGE_DIGEST_REF)"
+    - printf '%s\n' "$API_IMAGE_DIGEST_REF" "$WEB_IMAGE_DIGEST_REF" | grep -Eq '@sha256:[0-9a-f]{64}$'
+    - syft "$API_IMAGE_DIGEST_REF" -o "cyclonedx-json=release/api.sbom.json"
+    - syft "$WEB_IMAGE_DIGEST_REF" -o "cyclonedx-json=release/web.sbom.json"
+    - python3 scripts/release_descriptor.py bind-sbom release/api.sbom.json --image-reference "$API_IMAGE_DIGEST_REF"
+    - python3 scripts/release_descriptor.py bind-sbom release/web.sbom.json --image-reference "$WEB_IMAGE_DIGEST_REF"
+    - |
+      python3 - "$API_IMAGE_DIGEST_REF" "$WEB_IMAGE_DIGEST_REF" <<'PY'
+      import json, os, sys
+      from pathlib import Path
+      api, web = sys.argv[1:]
+      def subject(ref):
+          return {"name": ref.rsplit("@", 1)[0], "digest": {"sha256": ref.rsplit(":", 1)[-1]}}
+      payload = {
+          "_type": "https://in-toto.io/Statement/v1",
+          "predicateType": "https://slsa.dev/provenance/v1",
+          "subject": [subject(api), subject(web)],
+          "predicate": {"buildDefinition": {"externalParameters": {"gitRevision": os.environ["CI_COMMIT_SHA"]}, "resolvedDependencies": [api, web]}},
+      }
+      Path("release/provenance.json").write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+      revision = os.environ["CI_COMMIT_SHA"]
+      Path("release/migration-plan.json").write_text(json.dumps({"plan_version": "1", "git_revision": revision, "strategy": "forward-only", "destructive": False, "requires_pre_backup": True}, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+      Path("release/rollback-plan.json").write_text(json.dumps({"plan_version": "1", "git_revision": revision, "strategy": "redeploy-known-good-digest", "allows_destructive_down_migration": False}, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+      PY
+    - cp infra/platform/production/compose.yaml release/compose.yaml
+    - ': "${SC_GRYPE_DB_SHA256:?SC_GRYPE_DB_SHA256 must pin the installed Grype DB archive}"'
+    - ': "${SC_GRYPE_DB_BUILT_AT:?SC_GRYPE_DB_BUILT_AT must pin the Grype DB evidence timestamp}"'
+    - python3 scripts/release_descriptor.py verify-grype-db --evidence "$SC_GRYPE_DB_EVIDENCE" --database "$SC_GRYPE_DB_ARCHIVE" --grype-version "$SC_GRYPE_VERSION" --database-sha256 "$SC_GRYPE_DB_SHA256" --built-at "$SC_GRYPE_DB_BUILT_AT" --max-age-hours "$SC_GRYPE_DB_MAX_AGE_HOURS"
+    - grype db import "$SC_GRYPE_DB_ARCHIVE"
+    - cp "$SC_GRYPE_DB_EVIDENCE" release/grype-db-evidence.json
+    - python3 scripts/release_descriptor.py scan-sbom release/api.sbom.json --image-reference "$API_IMAGE_DIGEST_REF" --image-digest "${API_IMAGE_DIGEST_REF##*@}" --license-policy infra/platform/release/license-policy.json
+    - python3 scripts/release_descriptor.py scan-sbom release/web.sbom.json --image-reference "$WEB_IMAGE_DIGEST_REF" --image-digest "${WEB_IMAGE_DIGEST_REF##*@}" --license-policy infra/platform/release/license-policy.json
+    - grype "sbom:release/api.sbom.json" --fail-on "$SC_GRYPE_FAIL_ON" --output json > release/api.grype.json
+    - grype "sbom:release/web.sbom.json" --fail-on "$SC_GRYPE_FAIL_ON" --output json > release/web.grype.json
+    - python3 scripts/release_descriptor.py generate-manifest --root . --output release/release-manifest.json --release-id "$CI_COMMIT_TAG" --git-revision "$CI_COMMIT_SHA" --api-image "$API_IMAGE_DIGEST_REF" --web-image "$WEB_IMAGE_DIGEST_REF" --compose release/compose.yaml --api-sbom release/api.sbom.json --web-sbom release/web.sbom.json --api-provenance release/provenance.json --web-provenance release/provenance.json --migration-plan release/migration-plan.json --rollback-plan release/rollback-plan.json
+  artifacts:
+    expire_in: 1 week
+    paths: [release/]
+
+release-sign-verify:
+  extends: [.supply-chain-job, .release-protected]
+  stage: release-sign
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_TAG'
+    - when: never
+  needs:
+    - job: test-api
+    - job: test-web
+    - job: test-e2e-w1-1
+    - job: verify-boundaries
+    - job: verify-ci-config
+    - job: release-sbom-provenance
+      artifacts: true
+  tags: [release-signing]
+  environment:
+    name: release-signing
+  script:
+    - ': "${COSIGN_PRIVATE_KEY:?COSIGN_PRIVATE_KEY must be a protected signing-job file variable}"'
+    - ': "${COSIGN_PUBLIC_KEY:?COSIGN_PUBLIC_KEY must be the corresponding protected public-key file variable}"'
+    - API_IMAGE_DIGEST_REF="$(python3 scripts/parse_image_refs.py release/image-refs.env API_IMAGE_DIGEST_REF)"
+    - WEB_IMAGE_DIGEST_REF="$(python3 scripts/parse_image_refs.py release/image-refs.env WEB_IMAGE_DIGEST_REF)"
+    - cosign sign --yes --tlog-upload=false --key "$COSIGN_PRIVATE_KEY" "$API_IMAGE_DIGEST_REF"
+    - cosign sign --yes --tlog-upload=false --key "$COSIGN_PRIVATE_KEY" "$WEB_IMAGE_DIGEST_REF"
+    - cosign verify --key "$COSIGN_PUBLIC_KEY" --insecure-ignore-tlog=true "$API_IMAGE_DIGEST_REF" >/dev/null
+    - cosign verify --key "$COSIGN_PUBLIC_KEY" --insecure-ignore-tlog=true "$WEB_IMAGE_DIGEST_REF" >/dev/null
+    - cosign sign-blob --tlog-upload=false --key "$COSIGN_PRIVATE_KEY" --bundle release/release.bundle.json --output-signature release/release.sig release/release-manifest.json
+    - cosign verify-blob --key "$COSIGN_PUBLIC_KEY" --bundle release/release.bundle.json --signature release/release.sig release/release-manifest.json >/dev/null
+    - python3 scripts/release_descriptor.py generate-descriptor --root . --output release/release-descriptor.json --manifest release/release-manifest.json --signature release/release.sig --bundle release/release.bundle.json
+    - python3 scripts/release_descriptor.py validate release/release-descriptor.json --root .
+  artifacts:
+    expire_in: 1 week
+    paths: [release/]
+
+verify-build:
+  extends: [.supply-chain-job, .release-protected]
+  stage: release-verify
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_TAG'
+    - when: never
+  needs:
+    - job: release-sign-verify
+      artifacts: true
+  tags: [release-verification]
+  environment:
+    name: release-verification
+  script:
+    - ': "${COSIGN_PUBLIC_KEY:?COSIGN_PUBLIC_KEY must be a protected public-key file variable}"'
+    - 'test ! -n "${COSIGN_PRIVATE_KEY:-}" || { echo "FAIL: independent verification job must not receive COSIGN_PRIVATE_KEY"; exit 1; }'
+    - RELEASE_DESCRIPTOR=release/release-descriptor.json RELEASE_ROOT=. COSIGN_BINARY="$(command -v cosign)" COSIGN_VERSION="$SC_COSIGN_VERSION" COSIGN_PUBLIC_KEY="$COSIGN_PUBLIC_KEY" make verify-build
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths: [release/]

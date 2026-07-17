@@ -47,6 +47,17 @@ LIVE_PROBE_SECRET_NAMES = {
   "backup": "BACKUP_CREDENTIALS",
   "backup.restore": "RESTORE_PROBE_CREDENTIALS",
 }
+PREFLIGHT_CHECK_IDS = frozenset({
+  "host_inputs.contract", "secret_manifest.contract",
+  "docker.cli", "docker.daemon", "docker.compose",
+  "host.disk_free", "host.time_sync", "host.timezone",
+  "public_endpoint.dns", "public_endpoint.tls",
+  "management.dns", "management.tls",
+  "dokploy.health", "dokploy.credentials", "dokploy.identity",
+  "registry.dns", "registry.tls", "registry.credentials", "registry.repository_access",
+  "backup.dns", "backup.tls", "backup.credentials", "backup.target_access",
+  "backup.restore.dns", "backup.restore.tls", "backup.restore.credentials", "backup.restore_target_access",
+})
 SENSITIVE_KEY_RE = re.compile(r"(?:password|passwd|token|secret|credential|private[_-]?key)", re.IGNORECASE)
 AUTHORIZATION_RE = re.compile(r"(?i)((?:proxy-)?authorization\s*:\s*(?:bearer|basic)\s+)[^\s,;]+")
 API_KEY_RE = re.compile(r"(?i)((?:x-)?api[-_]?key\s*:\s*)[^\s,;]+")

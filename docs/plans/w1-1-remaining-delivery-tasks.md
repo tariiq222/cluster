@@ -65,14 +65,20 @@ Dokploy أو هدف الاستعادة، تبقى المهمة `blocked-external
 | الأمر المستهدف | ما يثبته |
 |---|---|
 | `make verify-w1-1` | المسار الوظيفي المحلي الحالي والعقود والحدود |
-| `make test-unit-w1-1-ops` | وحدات validators والسياسات التشغيلية لكل المهام |
-| `make test-integration-w1-1-ops` | بناء الحزمة والتوقيع والشبكات والنسخ المؤقت |
-| `make test-e2e-w1-1-ops` | نشر Staging والرجوع وفحص المضيف والاستعادة المنفصلة |
-| `make verify-build` | image digest وSBOM وprovenance والتوقيع وrelease descriptor |
-| `make verify-host` | المنافذ وDokploy والرجوع والنسخ والاستعادة من receipts حية |
-| `make verify-w1-1-all` | البوابة الجامعة على Git revision واحد |
+| `make test-unit-w11-ops-01` | وحدات validators والسياسات التشغيلية لكل المهام |
+| `make test-integration-w11-ops-01` | بناء الحزمة والتوقيع والشبكات والنسخ المؤقت |
+| `make test-e2e-w11-ops-01-local` | نشر Staging والرجوع وفحص المضيف والاستعادة المنفصلة |
+| `make verify-build` | image digest وSBOM وprovenance والتوقيع وrelease descriptor؛ يتطلب `RELEASE_DESCRIPTOR` و`COSIGN_BINARY` و`COSIGN_VERSION` و`COSIGN_PUBLIC_KEY`، ويستخدم `RELEASE_ROOT` للجذر الفعلي |
+| `make verify-w1-1-host` | فحص المضيف مباشرة عبر `preflight` + `verify-host` و`verify-edge`؛ يتطلب `HOST_INPUTS` و`HOST_RECEIPT` و`NET04_POLICY` و`NET04_COMPOSE` وإيصالات المنظورات الثلاثة و`NET04_REVISION` |
+| `python3 scripts/net04_network_policy.py verify-host ...` و`verify-edge ...` | فحص NET-04 read-only من المضيف ومنظوري المستخدم والإدارة بمدخلات خارج Git |
+| `python3 scripts/deployment_evidence.py --evidence ... --evidence-root ... --receipt ...` | يبني receipt غير موقع مرتبطاً بمحتوى أدلة Dokploy N→N+1→rollback بعد التقاطها من Dokploy/Staging |
+| `python3 scripts/backup_restore_evidence.py --manifest ... --restore ... --receipt ... --artifact-root ... --evidence-root ... --artifact-path ... --signature-path ... --bundle-path ... --public-key ... --cosign-binary ... --cosign-sha256 ... --cosign-version ... --as-of ...` | تحقق manifest النسخة وrestore المنفصل وقياس RPO/RTO بعد تنفيذ خارجي فعلي |
+| `make verify-w1-1-all` | يفحص المدخلات الحية ثم يجمع `verify-w1-1-local` و`verify-build` و`verify-w1-1-host` قبل تشغيل `w1_1_acceptance_gate.py` |
 
-تنشئ المهام الأوامر غير الموجودة حالياً، ولا تغير دلالة `make verify-w1-1` المحلي.
+مخرجات الأدلة الحية تُمرّر عبر متغيرات `verify-w1-1-all` المطلوبة؛ ولا تغير دلالة
+`make verify-w1-1` المحلي.
+خيار DEP-05 `--dry-run` للتخطيط غير المقبول فقط؛ لا يقرأ evidence ولا يتحقق منه ولا
+يستبدل تشغيل الأمر العادي عند بناء receipt الأدلة الملتقطة.
 
 ### 3.3 تعريف الإنجاز لكل مهمة
 
@@ -89,11 +95,11 @@ Dokploy أو هدف الاستعادة، تبقى المهمة `blocked-external
 |---|---|---|---|---|
 | 1 | W11-OPS-01 | عقد مدخلات المضيف وPreflight | لا يوجد | 1 |
 | 2 | W11-BLD-02 | صور الإنتاج وحزمة Compose المثبتة | W11-OPS-01 | 2 جزئياً |
-| 3 | W11-SC-03 | سلسلة التوريد وCI وحزمة الإصدار | W11-BLD-02 | 2 |
-| 4 | W11-NET-04 | شبكات الحاويات وجدار المضيف | W11-OPS-01, W11-BLD-02 | 3 |
-| 5 | W11-DEP-05 | نشر Dokploy والرجوع | W11-SC-03, W11-NET-04 | 4 |
-| 6 | W11-DR-06 | النسخ المشفر والاستعادة المنفصلة | W11-SC-03, W11-NET-04 | 5 جزئياً |
-| 7 | W11-GATE-07 | CI الحي وبوابة قبول W1.1 | W11-OPS-01..W11-DR-06 | 5 والبوابة |
+| 3 | W11-SC-03 | سلسلة التوريد وCI وحزمة الإصدار | W11-BLD-02 | implemented-local / blocked-external |
+| 4 | W11-NET-04 | شبكات الحاويات وجدار المضيف | W11-OPS-01, W11-BLD-02 | implemented-local / blocked-external |
+| 5 | W11-DEP-05 | نشر Dokploy والرجوع | W11-SC-03, W11-NET-04 | implemented-local / blocked-external |
+| 6 | W11-DR-06 | النسخ المشفر والاستعادة المنفصلة | W11-SC-03, W11-NET-04 | implemented-local / blocked-external |
+| 7 | W11-GATE-07 | CI الحي وبوابة قبول W1.1 | W11-OPS-01..W11-DR-06 | implemented-local / blocked-external |
 
 يمكن تنفيذ W11-SC-03 وW11-NET-04 بالتوازي بعد W11-BLD-02. لا يبدأ النشر أو تمرين
 الاستعادة قبل تثبيت descriptor الحزمة وعقد المضيف.
@@ -179,13 +185,20 @@ Composer وNode والاختبارات داخل runtime، يشغل migrations، 
 **المتطلبات:** REQ-R1-W1.1-009، REQ-R1-W1.1-010.
 **اختبارات القبول:** TEST-R1-W1.1-04.
 
+**الحالة الحالية:** `implemented-local / blocked-external`. توجد أداة
+`scripts/release_descriptor.py` وعقد `infra/platform/release/release-descriptor.schema.json`
+واختبارات descriptor/CI محلية. يثبت السطح الحالي hashes صريحة للصور وSBOM وprovenance وCompose؛
+أما hashes خطط migration/rollback بعد remediation وتنفيذها الحي وسجلها فجزء من W11-DEP-05،
+وليس دليلاً محلياً.
+
 **النطاق والمخرجات:**
 
 - jobs حية في GitLab للبناء والاختبارات والعقود والحدود وE2E وبناء صور OCI.
 - SBOM لكل صورة، provenance، فحص أسرار وثغرات وتراخيص، وتوقيع قابل للتحقق بأداة
   وإصدار مثبتين.
 - release descriptor schema يربط Git revision وCompose revision وimage digests وSBOM
-  وprovenance والتوقيع وخطة migrations والرجوع.
+  وprovenance والتوقيع؛ وتضاف hashes لخطة migration/rollback المعتمدة بعد remediation،
+  بينما يبقى تنفيذها الحي وسجلها ضمن W11-DEP-05.
 - `make verify-build` يعيد التحقق من artifacts ولا يعيد الثقة باسم tag.
 
 | مستوى الاختبار | الحالات الإلزامية |
@@ -206,6 +219,11 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 **المتطلبات:** REQ-R1-W1.1-001.
 **اختبار القبول:** TEST-R1-W1.1-05.
 
+**الحالة الحالية:** `implemented-local / blocked-external`. توجد policy وverifier في
+`infra/platform/network/` و`scripts/net04_network_policy.py` واختبارات سلبية وحية قابلة
+للتشغيل. مثال policy يستخدم عناوين placeholder؛ يلزم policy معتمدة خارج Git وفحص فعلي من
+مسار الإدارة ومسار المستخدم قبل قبول المهمة.
+
 **النطاق والمخرجات:**
 
 - شبكة frontend تقبل Traefik إلى خدمات HTTP فقط، وشبكة state داخلية لـMySQL وValkey.
@@ -220,7 +238,8 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 | E2E | scan من شبكة المستخدم ومن شبكة الإدارة: 443 متاح للمستخدم، الإدارة متاحة فقط لمسارها، و3306/6379/Docker/Dokploy العام كلها مغلقة |
 
 **معايير القبول:** نتائج المنظورين متطابقة مع العقد، ولا يحوي receipt عناوين أو أسرار أكثر
-مما يلزم، وأي منفذ حالة مكشوف يجعل `make verify-host` أحمر.
+مما يلزم، وأي منفذ حالة مكشوف يجعل فحص NET-04 عبر `scripts/net04_network_policy.py verify-host`
+غير ناجح.
 
 **خارج النطاق:** ادعاء HA أو تغيير سياسات شبكة المؤسسة خارج المضيف دون موافقة مالكها.
 
@@ -230,6 +249,12 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 **التبعيات:** W11-SC-03 وW11-NET-04.
 **المتطلبات:** REQ-R1-W1.1-001، REQ-R1-W1.1-002، REQ-R1-W1.1-009.
 **اختبارات القبول:** TEST-R1-W1.1-03 وTEST-R1-W1.1-06.
+
+**الحالة الحالية:** `implemented-local / blocked-external`. توجد عقود
+`infra/platform/contracts/dokploy-release-evidence.schema.json` وأداة
+`scripts/deployment_evidence.py` واختبارات تحقق مغلقة. لا توجد نتيجة نشر Dokploy أو rollback
+حية؛ يجب التقاط revisionين وhealth وmigration compatibility وpre-backup والرحلتين العربية
+والإنجليزية من البيئة المستهدفة ثم تمريرها للأداة.
 
 **النطاق والمخرجات:**
 
@@ -255,6 +280,12 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 **التبعيات:** W11-SC-03 وW11-NET-04.
 **المتطلبات:** بوابة W1.1 التشغيلية وADR-023.
 **اختبار القبول:** TEST-R1-W1.1-07.
+
+**الحالة الحالية:** `implemented-local / blocked-external`. توجد عقود
+`backup-restore-evidence.schema.json` و`restore-receipt.schema.json` وأداة
+`scripts/backup_restore_evidence.py` واختبارات حساب الحدود. لم ينفذ backup/PITR أو restore
+على هدف مستقل؛ لا تُحفظ قيم المفاتيح أو بيانات النسخة في Git، ويجب تقديم manifest موقّعاً
+وإيصال restore منفصلاً من التمرين الفعلي.
 
 **النطاق والمخرجات:**
 
@@ -283,11 +314,23 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 **المتطلبات:** REQ-R1-W1.1-001 حتى REQ-R1-W1.1-010.
 **اختبار القبول:** TEST-R1-W1.1-08.
 
+**الحالة الحالية:** `implemented-local / blocked-external`. يجمع
+`scripts/w1_1_acceptance_gate.py` الأدلة offline ويرفض receipt المحلي أو القديم أو المختلف
+في revision، لكنه لا ينشئ أدلة ولا موافقات. يتطلب الإغلاق pipeline وhost/NET وDokploy وrestore
+الحية وTEST-R1-W1.1-01..08 وموافقات Go المسماة بعد اكتمال كل البوابات الآلية.
+
 **النطاق والمخرجات:**
 
 - evidence manifest schema يربط كل REQ/TEST/Task بالـcommit والأمر والنتيجة والartifact
   والوقت والمالك.
-- `make verify-w1-1-all` يشغل المحلي ثم `verify-build` ويتحقق من receipts `verify-host`.
+- `make verify-w1-1-all` يفحص المدخلات الحية ثم يجمع `verify-w1-1-local` و`verify-build`
+  و`verify-w1-1-host` قبل تشغيل `w1_1_acceptance_gate.py`. تتطلب البوابة
+  `GATE_MANIFEST` و`GATE_TRUST_POLICY` و`GATE_RELEASE_ROOT` و`GATE_EVIDENCE_ROOT`
+  و`GATE_RECEIPT` و`GATE_AS_OF` و`COSIGN_BINARY` و`COSIGN_SHA256` و`COSIGN_VERSION`.
+  ويتطلب `verify-build` أيضاً `RELEASE_DESCRIPTOR` و`COSIGN_PUBLIC_KEY` ويستخدم
+  `RELEASE_ROOT`، بينما يتطلب مسار المضيف `HOST_INPUTS` و`HOST_RECEIPT` و`NET04_POLICY`
+  و`NET04_COMPOSE` و`NET04_HOST_RECEIPT` و`NET04_USER_RECEIPT`
+  و`NET04_MANAGEMENT_RECEIPT` و`NET04_REVISION`.
 - pipeline حية واحدة على revision واحد تحفظ تقارير Unit وIntegration وE2E وSBOM والتوقيع
   والنشر والرجوع والاستعادة.
 - مراجعة Go/No-Go محدودة ببوابة W1.1 وتحديث حالة التسليم بعد اعتماد الأدلة.
@@ -299,7 +342,8 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 | E2E | GitLab أخضر حي، نشر وrollback، scan منافذ، restore منفصل، ثم رحلة `login → request → notification → isolation` تحت خمس ثوانٍ على Staging |
 
 **معايير القبول:** لا توجد بوابة متجاوزة أو receipt محلي يدعي حدثاً خارجياً، وكل الأدلة من
-revision واحد أو سلسلة مراجعة موثقة. هذه المهمة وحدها تنقل W1.1 إلى مكتمل وتفتح W1.2.
+revision واحد أو سلسلة مراجعة موثقة. لا تنقل هذه المهمة W1.1 إلى مكتمل قبل وصول الأدلة الحية
+والموافقات؛ عندها فقط تفتح W1.2.
 
 **خارج النطاق:** إعلان جاهزية R1 الكاملة أو بدء W1.2 قبل توقيع بوابة W1.1.
 
@@ -321,7 +365,8 @@ revision واحد أو سلسلة مراجعة موثقة. هذه المهمة �
 لا تغلق W1.1 حتى تتحقق الشروط مجتمعة:
 
 1. جميع المهام W11-OPS-01 حتى W11-GATE-07 مقبولة بالأدلة.
-2. `make verify-w1-1-all` أخضر، وGitLab CI حي أخضر على Git revision نفسه.
+2. بوابة W1.1 النهائية عبر `scripts/w1_1_acceptance_gate.py` + `make verify-build` مع
+   GitLab CI حي أخضر على Git revision نفسه.
 3. release descriptor وتوقيعه وSBOM وprovenance وCompose revision متطابقة.
 4. scan المضيف ونشر Dokploy والرجوع والاستعادة المنفصلة موثقة وليست محاكاة محلية.
 5. TEST-R1-W1.1-01 حتى TEST-R1-W1.1-08 خضراء ولا توجد استثناءات حرجة.

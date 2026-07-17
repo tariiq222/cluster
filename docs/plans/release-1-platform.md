@@ -107,7 +107,7 @@ references:
 
 | الموجة | الحالة الحالية | المدة المرجعية | المخرَج | بوابة الخروج | الإجراء التالي |
 |---|---|---|---|---|---|
-| W1.1 Walking Skeleton | قيد التنفيذ | 2-3 أسابيع | تطبيق يعمل من المتصفح إلى قاعدة البيانات ضمن Docker Compose. | رحلة محلية وCI وحزمة إصدار ونشر/رجوع واستعادة مثبتة. | إكمال حزمة الإنتاج وSBOM ثم بوابات المضيف. |
+| W1.1 Walking Skeleton | قيد التنفيذ | 2-3 أسابيع | تطبيق يعمل من المتصفح إلى قاعدة البيانات ضمن Docker Compose. | رحلة محلية وCI وحزمة إصدار ونشر/رجوع واستعادة مثبتة. | تشغيل CI/المضيف/Dokploy/restore الحي ثم بوابة Go؛ لا يبدأ W1.2 قبل ذلك. |
 | W1.2 Organization + Identity + Import | لم تبدأ | 3-4 أسابيع | شجرة تنظيمية متعددة الأعماق وحسابات واستيراد محكوم. | اختبار الـInvariants الأربعة عشر للهيكل. | يبدأ بعد إغلاق W1.1. |
 | W1.3 Authorization + العلاقات الإشرافية | لم تبدأ | 3-4 أسابيع | قرار وصول RBAC+ABAC قابل للتفسير. | سيناريوهات العزل الأربعة عشر. | يبدأ بعد إغلاق W1.2. |
 | W1.4 WorkDefinitions + منشئ النماذج | لم تبدأ | 3 أسابيع | نوع عمل منشور مع صلاحيات حقول. | إنشاء/نشر إصدار بنجاح، والسجلات الجارية محفوظة. | يبدأ بعد إغلاق W1.3. |
@@ -127,7 +127,9 @@ references:
 - الحالة: **قيد التنفيذ**.
 - المثبت: رحلة محلية كاملة من Identity وWorkDefinitions إلى WorkRecords وOutbox وValkey وInbox وNotifications وReact، بالعربية RTL والإنجليزية LTR.
 - الدليل الحالي: الالتزامات `0ddb561` و`d24baf0` و`2a691b1` ونجاح `make verify-w1-1` بتاريخ 2026-07-17.
-- المفتوح: صور الإنتاج وdigest وSBOM/provenance والتوقيع، GitLab CI حي، نشر Dokploy، فحص المنافذ، rollback، والنسخ والاستعادة على هدف منفصل.
+- الحالة التشغيلية: أسطح صور الإنتاج وdescriptor وSBOM/provenance والسياسات وأدوات DEP/DR/GATE
+  موجودة محلياً؛ المفتوح خارجياً هو GitLab CI الحي، فحص المضيف والمنافذ، نشر Dokploy وrollback،
+  والنسخ والاستعادة على هدف منفصل. لذلك لا تعد W1.1 مكتملة.
 
 #### التبعيات
 
@@ -155,8 +157,16 @@ references:
 - Dev/Test خارج بيانات وأسرار Prod؛ ولا يعد اختلاف Compose profiles على الخادم نفسه عزلاً أمنياً.
 - اختبار E2E واحد لرحلة الـWalking Skeleton يمر على staging.
 - `make verify-w1-1` ينجح للرحلة المحلية والعقود وحدود الموديولات.
-- يُنفذ `make verify-build` كجزء من هذه الموجة لينتج image digest وSBOM وprovenance وتوقيعاً قابلاً للتحقق؛ الهدف غير متاح بعد ولا يعد منجزاً.
-- يُنفذ `make verify-host` كجزء من هذه الموجة ليثبت المنافذ والنشر والرجوع والنسخ والاستعادة؛ الهدف غير متاح قبل عقد المضيف.
+- يُنفذ `make verify-build` محلياً أو داخل CI مع descriptor فعلي؛ نجاح الاختبار المحلي وحده لا
+  يثبت pipeline حية أو توقيعاً خارجياً.
+- `make verify-w1-1-host` و`make verify-w1-1-all` الآن متاحان كمسارات Make.
+  يمرر مسار المضيف `HOST_INPUTS` و`HOST_RECEIPT` و`NET04_POLICY` و`NET04_COMPOSE`
+  و`NET04_HOST_RECEIPT` و`NET04_USER_RECEIPT` و`NET04_MANAGEMENT_RECEIPT`
+  و`NET04_REVISION`. ويمرر المسار المجمع `GATE_MANIFEST` و`GATE_TRUST_POLICY`
+  و`GATE_RELEASE_ROOT` و`GATE_EVIDENCE_ROOT` و`GATE_RECEIPT` و`GATE_AS_OF`، مع
+  `COSIGN_BINARY` و`COSIGN_SHA256` و`COSIGN_VERSION`. ولأن المسار يشغل `verify-build`
+  أيضاً، يلزمه `RELEASE_DESCRIPTOR` و`COSIGN_PUBLIC_KEY` ويستخدم `RELEASE_ROOT`.
+  توفر هذه المسارات لا يثبت اكتمال المدخلات الحية أو قبول W1.1.
 
 #### المتطلبات القابلة للتتبع
 
@@ -176,9 +186,13 @@ references:
 - رحلة رفيعة تعمل end-to-end تحت 5 ثوانٍ على staging.
 - اختبار هوية وعزل أخضر.
 - `composer validate`, PHPUnit, Pint، فحص حدود الموديولات، `tsc`, `oxlint` وPlaywright كلها تخضر على الالتزام نفسه.
-- GitLab CI الأخضر يثبت البناء والاختبارات والعقود، ولا تكفي صحة ملف CI محلياً.
-- release descriptor يربط Git revision بصورة مثبتة بالـdigest وSBOM وprovenance وتوقيع قابل للتحقق.
-- تجربة Dokploy تثبت النشر والرجوع، وتجربة مستقلة تثبت النسخ والاستعادة ضمن RPO/RTO.
+- GitLab CI الأخضر يثبت البناء والاختبارات والعقود، ولا تكفي صحة ملف CI محلياً؛ ما زال هذا
+  الدليل الحي مفقوداً.
+- release descriptor يربط Git revision بصورة مثبتة بالـdigest وSBOM وprovenance وتوقيع قابل
+  للتحقق، وتضاف hashes لخطط migration/rollback بعد remediation؛ تنفيذ الخطط وسجلها الحي
+  يثبتان في DEP.
+- تجربة Dokploy تثبت النشر والرجوع، وتجربة مستقلة تثبت النسخ والاستعادة ضمن RPO/RTO؛ كلاهما
+  ما زال `blocked-external`.
 - اختبار معماري: لا استيراد Infrastructure من موديول أعمال لموديول آخر.
 
 #### المخاطر النمطية

@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: proposed
-version: 1.4.0
+version: 1.5.0
 date: 2026-07-17
 owner: مكتب هندسة المنصة
 reviewers:
@@ -37,9 +37,13 @@ references:
 - حزمة W11-BLD-02 المحلية مثبتة بصور Laravel وReact متعددة المراحل وCompose إنتاجي؛
   نجح التشغيل من صور مسبقة البناء وmigrations وhealthchecks وإعادة تشغيل Valkey والـworker
   ورحلتا المتصفح، دون ادعاء نشر Dokploy أو سلسلة توريد مكتملة.
+- توجد الآن عقود وأدوات واختبارات محلية لـW11-SC-03 وW11-NET-04 وW11-DEP-05
+  وW11-DR-06 وW11-GATE-07 تحت `scripts/` و`infra/platform/contracts/` و`infra/platform/network/`
+  و`infra/platform/release/` و`tests/ops/`. تثبت هذه الأسطح قواعد التحقق فقط؛ لا تثبت
+  pipeline أو مضيفاً أو شبكة أو Dokploy أو هدف استعادة حياً.
 - قرار التشغيل المعتمد هو خادم داخلي واحد يديره Dokploy من Docker Compose مثبت وفق ADR-023.
-- أعمال النشر والجدار الناري والرجوع والنسخ والاستعادة ليست دليلاً مكتملاً حتى توفر
-  مدخلات المضيف وتجارب التنفيذ الفعلية.
+- أعمال النشر والجدار الناري والرجوع والنسخ والاستعادة وبوابة Go/No-Go ما زالت
+  `blocked-external` حتى توفر مدخلات المضيف وتجارب التنفيذ الفعلية ونتيجة CI الحية.
 
 ## القرارات المحمولة إلى التنفيذ
 
@@ -51,13 +55,20 @@ references:
 
 ## فجوات W1.1 المفتوحة
 
-1. `W11-OPS-01`: اكتمل التنفيذ المحلي للعقد وpreflight؛ بقيت قيم المضيف المعتمدة وتشغيل
-   Staging المصادق عليه وreceipt الموقع خارج Git.
-2. `W11-BLD-02`: اكتملت حزمة الإنتاج محلياً؛ بقي `W11-SC-03` لتوليد SBOM وprovenance
-   وimage digest محكوم والتوقيع وCI الحي.
-3. `W11-NET-04`: إثبات جدار المضيف والشبكات الداخلية وعدم نشر خدمات الحالة.
-4. `W11-DEP-05`: إثبات نشر Dokploy والرجوع إلى إصدار معروف بالصحة.
-5. `W11-DR-06` و`W11-GATE-07`: قياس النسخ والاستعادة على هدف منفصل وإعادة التحقق من بوابة W1.1.
+1. `W11-OPS-01`: `implemented-local / blocked-external`؛ بقيت قيم المضيف المعتمدة
+   وتشغيل Staging المصادق عليه وreceipt الموقع خارج Git.
+2. `W11-BLD-02`: `implemented-local`؛ الحزمة تعمل محلياً، بينما سلسلة التوريد الحية
+   والـdescriptor الموقع يثبتان في `W11-SC-03`.
+3. `W11-SC-03`: `implemented-local / blocked-external`؛ validator وdescriptor واختبارات
+   CI المحلية موجودة، وتبقى pipeline الحية وartifacts الموقعة خارج الدليل المحلي.
+4. `W11-NET-04`: `implemented-local / blocked-external`؛ policy وverifier والاختبارات
+   موجودة، وتبقى فحوص المضيف ومنظورا المستخدم والإدارة خارج Git.
+5. `W11-DEP-05`: `implemented-local / blocked-external`؛ عقد أدلة N→N+1→rollback موجود،
+   ولم ينفذ نشر Dokploy أو rollback حي.
+6. `W11-DR-06`: `implemented-local / blocked-external`؛ عقود manifest وrestore وقياس
+   RPO/RTO موجودة، ولم ينفذ backup أو restore على هدف منفصل.
+7. `W11-GATE-07`: `implemented-local / blocked-external`؛ جامع الأدلة يرفض النقص
+   والقدم وعدم تطابق revision، ولا توجد بعد حزمة أدلة حية أو موافقات Go.
 
 تفاصيل النطاق والتبعيات وعقد Unit وIntegration وE2E في
 `docs/plans/w1-1-remaining-delivery-tasks.md`.
@@ -72,6 +83,7 @@ references:
 | 2026-07-17 | `make verify-w1-1` | نجح المدخل الموحد، بما فيه MySQL وValkey وOutbox/Inbox وإعادة التسليم وDLQ ورحلتا المتصفح |
 | 2026-07-17 | `make verify-w11-ops-01-local` | 20 Unit و14 Integration ورحلة CLI محلية؛ عقد المثال صالح وreceipt منقح، دون ادعاء قبول مضيف حي |
 | 2026-07-17 | `make verify-w11-bld-02-local` | 18 Unit و4 Integration وبناء وفحص صورتين runtime ثم E2E على Compose: migrations وhealthchecks وإعادة تشغيل Valkey والـworker ورحلتا العربية والإنجليزية وعزل المنشأتين |
+| 2026-07-17 | `PYTHONPATH=. pytest --collect-only -q tests/ops` | أسطح SC-03 وNET-04 وDEP-05 وDR-06 وGATE-07 واختباراتها موجودة؛ جمع الاختبارات لا يثبت CI أو قبولاً حياً |
 
 ## قاعدة تحديث الحالة
 
@@ -80,11 +92,18 @@ references:
 
 ## الخطوة التالية
 
-يبدأ `W11-SC-03` لتثبيت digests الناتجة وإنشاء SBOM وprovenance والتوقيع وrelease
-descriptor داخل CI، ويمكن بالتوازي تنفيذ `W11-NET-04`. يسلم قائد SRE ملف المضيف المعتمد
-خارج Git ويشغل `make preflight-w11-ops-01-live` دون تعطيل العمل المحلي. لا يبدأ
-`W11-DEP-05` أو `W11-DR-06` قبل اكتمال descriptor الحزمة وعقد المضيف، ولا يعاد تنفيذ
-المسار الوظيفي المحلي إلا لمعالجة انحدار.
+الخطوة التالية هي تشغيل pipeline الحية على revision واحد، ثم تسليم قائد SRE ملف المضيف
+المعتمد خارج Git وتشغيل `make preflight-w11-ops-01-live`، وفحص NET-04 من المضيف ومنظوري
+المستخدم والإدارة. بعد ذلك تجمع أدلة Dokploy وbackup/restore المنفصلة عبر الأدوات الجديدة
+وتراجع بوابة GATE-07 عبر المسارات الفعلية:
+`make verify-w1-1-host` و`make verify-w1-1-all`. يتطلب مسار المضيف `HOST_INPUTS`
+و`HOST_RECEIPT`، ومدخلات NET-04: `NET04_POLICY` و`NET04_COMPOSE`
+و`NET04_HOST_RECEIPT` و`NET04_USER_RECEIPT` و`NET04_MANAGEMENT_RECEIPT`
+و`NET04_REVISION`. ويتطلب المسار المجمع `GATE_MANIFEST` و`GATE_TRUST_POLICY`
+و`GATE_RELEASE_ROOT` و`GATE_EVIDENCE_ROOT` و`GATE_RECEIPT` و`GATE_AS_OF`، ومدخلات
+cosign المثبتة `COSIGN_BINARY` و`COSIGN_SHA256` و`COSIGN_VERSION`، إضافة إلى
+`RELEASE_DESCRIPTOR` و`RELEASE_ROOT` و`COSIGN_PUBLIC_KEY` التي يستهلكها `verify-build`.
+كل هذه المدخلات آمنة وخارج Git، ولا يعد وجود الأهداف دليلاً على تشغيلها الحي.
 
 ## استلام إدارة العمل
 
@@ -99,6 +118,7 @@ descriptor داخل CI، ويمكن بالتوازي تنفيذ `W11-NET-04`. ي
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.5.0 | 2026-07-17 | مكتب هندسة المنصة | تسجيل الأسطح المحلية لـSC/NET/DEP/DR/GATE مع إبقاء الأدلة الحية وبوابة Go محجوبة خارجياً |
 | 1.4.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات W11-BLD-02 محلياً بصور runtime وCompose ورحلتي متصفح وتوجيه الخطوة التالية إلى سلسلة التوريد والشبكة |
 | 1.3.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات تنفيذ W11-OPS-01 المحلي وإبقاء قبول المضيف الحي وreceipt الموقع كحاجز خارجي |
 | 1.2.0 | 2026-07-17 | مكتب هندسة المنصة | ربط فجوات W1.1 بسبع مهام تنفيذية واختبارات Unit وIntegration وE2E وبوابة إثبات نهائية |
