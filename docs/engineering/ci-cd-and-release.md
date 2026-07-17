@@ -2,72 +2,68 @@
 doc_id: ARC-EN-005
 title: التكامل والتسليم والإصدار
 type: engineering
-status: draft
-version: 1.3.1
+status: accepted
+version: 2.0.0
 date: 2026-07-17
-owner: مسؤول العمليات
-reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+owner: طارق
+reviewers: []
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: عند الحاجة
 sources:
 - docs/adr/023-single-host-dokploy-deployment.md
 - docs/architecture/overview.md
 references:
 - docs/engineering/database-migrations.md
+- docs/plans/readiness-checklist.md
 ---
 # التكامل والتسليم والإصدار
 
-## بيئة البناء والتشغيل
+## المبدأ
 
-لا تفترض هذه الوثيقة عزلاً مؤسسياً كاملاً أو اتصالاً وقت التشغيل بالإنترنت. تُبنى الصور والاعتماديات من مصادر معتمدة، وتُثبت صور الإنتاج بالـdigest داخل حزمة Compose. يثبت سجل الإصدار مصدر كل artifact ونتيجة فحصه قبل إتاحته لـDokploy.
+مشروع يُطوَّر محلياً ويُنشر على خادم واحد عبر Dokploy، مثل أي مشروع على VPS.
+CI يثبت أن الاختبارات سليمة، والنشر مرحلة نهائية مستقلة.
 
-## مراحل GitHub Actions
+## CI على GitHub Actions
 
-1. `validate`: التوثيق والرسوم وlockfiles وتنسيق PHP والتحليل الساكن وعقد OpenAPI والعميل TypeScript المولد وفحص الأسرار والاعتماديات.
-2. `test`: unit وapplication وarchitecture وcontract وE2E، مع بوابة تغطية 100% لحد HTTP اليدوي المختبر في الويب.
-3. `package`: بناء artifact وصورة قابلة للتكرار، وتوليد SBOM وdigest وprovenance وفحص الثغرات والتراخيص ثم توقيع داخلي.
-4. `verify`: فحص healthchecks والمنافذ والشبكات الداخلية، ثم اختبارات E2E والأمن والأداء المطلوبة.
-5. `publish`: حفظ الصور والـCompose revision المعتمدين في السجل الذي يقرأه Dokploy؛ لا يوجد GitOps controller أو Helm.
+يعمل `.github/workflows/ci.yml` على أجهزة GitHub المستضافة (`ubuntu-latest`)
+عند كل push، بأربع وظائف:
 
-لا تستخدم workflow متغيرات سرية في السجل أو مخرجات الاختبار. تحفظ GitHub Environments المحمية أسرار registry في `release-artifacts`، والمفتاح الخاص لـCosign في `release-signing` فقط، والمفتاح العام في `release-signing` و`release-verification`. تتطلب الوظائف release tag محمياً وrunner داخلياً منفصلاً حسب البيئة، بينما تبقى صور الحاويات مثبتة بالـdigest وتفشل مغلقة إلى أن تعتمد المنصة قيمها الفعلية.
+| الوظيفة | ماذا تفحص |
+|---|---|
+| `api` | composer validate، Pint، PHPStan، audit، اختبارات API، حدود الموديولات |
+| `web` | npm ci، عقد OpenAPI والعميل المولد، lint، اختبارات الوحدة بالتغطية، البناء |
+| `docs` | `./scripts/validate-docs.sh` و`mkdocs build --strict` |
+| `secrets` | gitleaks على تاريخ المستودع |
 
-لا ينفذ كود pull request من fork على runner داخلي. تقبل وظائف `ci-general` فقط push أو pull request من المستودع نفسه، وتبقى مساهمات fork بلا تنفيذ داخلي حتى تمر بمسار مراجعة وعزل مستقل. لا تسمح workflow بتوسيع `GITHUB_TOKEN` على مستوى job، وتثبت كل action خارجية بـcommit SHA كامل، وتمنع validator انتقال أسرار registry أو Cosign إلى وظيفة غير مصرح لها. تعتمد وظائف الإصدار على جميع بوابات التوثيق والرسوم والاختبارات والأمن، لا على مجموعة فرعية منها.
+لا runners ذاتية، ولا Environments، ولا توقيع صور، ولا SBOM في CI. رحلة E2E
+الكاملة (`make verify-w1-1`) واختبار حزمة الإنتاج (`make verify-w1-1-local`)
+تنفذ محلياً لأنها تحتاج Docker وMySQL ومتصفحاً.
 
-## تهيئة GitHub Actions خارج Git
+## البناء والنشر (مرحلة D1 النهائية)
 
-ينفذ قائد SRE ومسؤول أمن المعلومات هذه الخطوات في GitHub والبنية الداخلية، ولا تحفظ قيم الأسرار أو مساراتها في المستودع:
+1. تُبنى صور الإنتاج محلياً من lockfiles عبر `make verify-w1-1-local`، الذي
+   يفحص الحزمة ويبنيها ويشغل رحلة E2E كاملة على Compose الإنتاجي.
+2. تُدفع الصور إلى registry ويثبت مرجعها بالـdigest في
+   `infra/platform/production/compose.yaml`.
+3. ينشر Dokploy الحزمة على الخادم الداخلي، وhealthchecks تسبق التفعيل.
+4. الرجوع = إعادة نشر آخر digest سليم من Dokploy. لا DDL هدمي؛ ترحيلات
+   forward-fix أو restore وفق وثيقة الترحيلات.
+5. قبل التشغيل الحقيقي تُراجع `docs/plans/readiness-checklist.md` مرة واحدة
+   (نسخ/استعادة وأمن أساسي). إعداد الخادم وشبكته شأن إدارة الخادم خارج
+   نطاق المستودع.
 
-1. أنشئ runner groups داخلية معزولة ويفضل أن تكون ephemeral، ثم سجّل runners بالـlabels `ci-general` و`release-artifacts` و`release-signing` و`release-verification`. لا تمنح runner التوقيع وصولاً إلى مجموعة أو بيئة أخرى، ولا تسمح لـfork pull requests باستخدام أي runner داخلي.
-2. ابنِ صور الأدوات الداخلية المعتمدة، ثم استبدل جميع digests الصفرية في `.github/workflows/ci.yml` دفعة واحدة عبر مراجعة محمية. يقبل validator فقط placeholders كلها أو digests معتمدة كلها، لذلك لا يمرر إعدادًا مختلطًا. يجب أن يملك runner فقط صلاحية pull لهذه الصور؛ لا يمرر اعتماد pull كسر workflow.
-3. أنشئ Environments محمية بالأسماء نفسها للمهام release. قيدها بـrelease tags محمية ومراجعين مسميين، واحصر secrets registry في `release-artifacts`، و`COSIGN_PRIVATE_KEY` في `release-signing`، و`COSIGN_PUBLIC_KEY` في بيئتي التوقيع والتحقق فقط.
-4. بعد اعتماد digests والـrunners، اضبط GitHub Actions variable `SC_LIVE_TOOLING_APPROVED=true`. القيمة الافتراضية في workflow هي `false`، لذلك لا يمكن للتشغيل أن يتجاوز الموافقة بالخطأ.
-5. ثبّت أدوات cosign وsyft وgrype وإصداراتها المحددة، وأرفق Grype DB وevidence وdigest حقيقيين. أنشئ GitHub Environment variables غير سرية باسم `SC_GRYPE_DB_SHA256` و`SC_GRYPE_DB_BUILT_AT` في `release-artifacts`؛ لا تبدأ release قبل توفرهما.
-6. نفّذ `make verify-ci-config` محلياً و`make verify-w11-sc-03-local` قبل أول workflow حي. بعده فقط تُجمع artifacts وreceipts الخارجية لمسار W1.1 النهائي.
+## قواعد ثابتة
 
-## حالة P0-A والمدخلات الحية
-
-فُحص GitHub في 2026-07-17 مقابل revision محلي `b547d54cf600420a2e23fb80fc85c1bbab4a8491`. لم تكن لهذا revision مراجع remote، ولم يحتو المستودع البعيد فروعاً أو tags أو workflows أو runs. كذلك لم توجد Environments المطلوبة `release-artifacts` و`release-signing` و`release-verification`، ولا runners ذات labels المعتمدة، ولا قواعد حماية للإصدار، ولا Actions variables أو metadata لمتغيرات Grype DB. لم تُقرأ قيم أسرار أو تُحفظ.
-
-حالة P0-A هي `blocked`: لا تتوفر digests معتمدة لصور الأدوات الداخلية ولا يمكن ربط تشغيل GitHub حي بالـrevision المفحوص. لذلك تبقى جميع digests الصفرية الحالية معاً، وتبقى `SC_LIVE_TOOLING_APPROVED` على القيمة الافتراضية `false`، ولا يُنشأ ملف evidence أو قيمة بديلة داخل Git. يفك قائد SRE ومسؤول أمن المعلومات الحظر بتنفيذ خطوات التهيئة أعلاه خارج Git، ودفع revision المراد التحقق منه، ثم إعادة الفحص الحي وربط نتائج workflow وبيانات الإصدار بالـrevision نفسه.
-
-## Dokploy والإصدار
-
-- كل إصدار يحمل tag SemVer وcommit SHA وimage digest وCompose revision ونسخة migration المدعومة.
-- ينفذ Dokploy النشر المحكوم لحزمة Compose المثبتة، مع مراجعة يدوية وسجل نشر وhealthchecks قبل التفعيل.
-- الترقية تتم باستبدال revision بعد تحقق الصحة والسعة؛ لا يوجد canary أو rolling متعدد العقد على الخادم الواحد.
-- الرجوع يعيد آخر image digest وCompose revision سليمين. لا يرجع DDL هدمياً؛ تستخدم ترحيلات forward-fix أو restore وفق وثيقة الترحيلات.
-
-## موافقة الإصدار
-
-يتطلب الإنتاج: نجاح كل بوابات CI، مراجعة كود، موافقة مسؤول العمليات والأمن للتغيير عالي الأثر، وخطة rollback واختبار restore حديث صالح. يثبت سجل الإصدار المراجع وdigests ونتائج البوابات.
+- الصور تُبنى من lockfiles ولا تنزّل حزماً عند بدء الحاوية.
+- صور الإنتاج مثبتة بالـdigest في Compose، لا `latest`.
+- لا أسرار في المستودع؛ أسرار التشغيل تُدار في Dokploy على الخادم.
+- MySQL وValkey على شبكات داخلية ولا تُنشر منافذها للعامة.
 
 ## سجل التغيير
 
-| الإصدار | التاريخ | الدور | التغيير |
-| --- | --- | --- | --- |
-| 1.1.0 | 2026-07-16 | مسؤول العمليات | مواءمة الإصدار مع Dokploy وCompose على خادم واحد |
-| 1.2.0 | 2026-07-17 | مسؤول العمليات | نقل CI إلى GitHub Actions وتحديد عزل runners وEnvironments والأسرار |
-| 1.3.0 | 2026-07-17 | مسؤول العمليات | فرض lockfiles وكل بوابات الإصدار وتثبيت actions ومنع صلاحيات job وتسرب الأسرار وتشغيل forks داخلياً |
-| 1.3.1 | 2026-07-17 | مسؤول العمليات | تسجيل blocker P0-A المرتبط بالـrevision عند غياب مدخلات GitHub الحية |
+| الإصدار | التاريخ | التغيير |
+| --- | --- | --- |
+| 2.0.0 | 2026-07-17 | تبسيط شامل: CI على أجهزة GitHub المستضافة، حذف runners الداخلية وEnvironments والتوقيع وSBOM، ونشر VPS عبر Dokploy في مرحلة D1 |
+| 1.3.1 | 2026-07-17 | تسجيل blocker P0-A عند غياب مدخلات GitHub الحية |
+| 1.2.0 | 2026-07-17 | نقل CI إلى GitHub Actions بعزل runners وEnvironments |
+| 1.1.0 | 2026-07-16 | مواءمة الإصدار مع Dokploy وCompose على خادم واحد |

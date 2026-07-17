@@ -2,144 +2,78 @@
 doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
-status: proposed
-version: 1.7.0
+status: accepted
+version: 4.0.0
 date: 2026-07-17
-owner: مكتب هندسة المنصة
-reviewers:
-- مسؤول هندسة البرمجيات
-- قائد التقنية
+owner: طارق
+reviewers: []
 classification: internal
 review_cycle: مع كل تغيير
 sources:
-- docs/plans/implementation-roadmap.md
 - docs/plans/release-1-platform.md
 - docs/plans/w1-1-remaining-delivery-tasks.md
-- docs/plans/release-1-parallel-delivery-plan.md
 references:
-- docs/architecture/overview.md
-- docs/operations/kubernetes-platform.md
-- docs/operations/ha-dr-backup.md
+- docs/engineering/delivery-workflow.md
 ---
 # حالة التسليم النشطة
 
 ## الغرض
 
-هذه الوثيقة هي سجل الحالة التنفيذية النشطة بعد فصل أدوات التخطيط عن المشروع. خارطة التنفيذ
-المعتمدة تبقى في `docs/plans/implementation-roadmap.md`، ويُثبت الإنجاز بالكود والاختبارات
-والالتزامات والوثائق المحكومة، لا بنسبة مولدة.
+هذه الوثيقة الوحيدة لحالة التنفيذ. سطر لكل إنجاز: التاريخ والأمر والالتزام
+والنتيجة. لا نسب تقدم، ولا يُنقل بند إلى مكتمل بلا أمر تحقق ونتيجة.
 
 ## الموضع الحالي
 
-- النطاق النشط: إغلاق W1.1 الحي ضمن R1، مع تحضير عقود وقرارات W1.2 دون بدء كود الموجة.
-- خط الأساس المحلي: `main` عند الالتزام `c107004e4e5746bde3e57172b94cb9d49fad0081`
-  بعد fast-forward وحذف فرع الإغلاق المحلي.
-- المسار الوظيفي المحلي لـWorkRecords HTTP وNotifications وOutbox relay وواجهة React
-  مثبت عبر SQLite وMySQL وValkey ومتصفح حقيقي؛ لا يعني ذلك اكتمال بوابة W1.1 التشغيلية.
-- حزمة W11-BLD-02 المحلية مثبتة بصور Laravel وReact متعددة المراحل وCompose إنتاجي؛
-  نجح التشغيل من صور مسبقة البناء وmigrations وhealthchecks وإعادة تشغيل Valkey والـworker
-  ورحلتا المتصفح، دون ادعاء نشر Dokploy أو سلسلة توريد مكتملة.
-- توجد الآن عقود وأدوات واختبارات محلية لـW11-SC-03 وW11-NET-04 وW11-DEP-05
-  وW11-DR-06 وW11-GATE-07 تحت `scripts/` و`infra/platform/contracts/` و`infra/platform/network/`
-  و`infra/platform/release/` و`tests/ops/`. تثبت هذه الأسطح قواعد التحقق فقط؛ لا تثبت
-  pipeline أو مضيفاً أو شبكة أو Dokploy أو هدف استعادة حياً.
-- قرار التشغيل المعتمد هو خادم داخلي واحد يديره Dokploy من Docker Compose مثبت وفق ADR-023.
-- أعمال النشر والجدار الناري والرجوع والنسخ والاستعادة وبوابة Go/No-Go ما زالت
-  `blocked-external` حتى توفر مدخلات المضيف وتجارب التنفيذ الفعلية ونتيجة CI الحية.
-- نشر `main` محجوب حالياً لأن اعتماد GitHub HTTPS يفتقد OAuth scope باسم `workflow`؛
-  لا يوجد ادعاء بأن revision المحلي منشور أو أن workflow اشتغلت.
+- الموجة المكتملة محلياً: **W1.1 Walking Skeleton** — `make verify-w1-1` و
+  `make verify-w1-1-local` أخضران، ولا تعاد أعمالها إلا لمعالجة انحدار.
+- الموجة النشطة: **W1.2 Organization + Identity + Import** — تخطيط W12-REQ وW12-FE
+  مكتمل، وتبدأ بوابتها بقبول ADR-024 ومواءمة العقود ووثائق المجال.
+- خط الأساس: `main` عند `487eddf6`، وأدلة المنتج المحلية عند `c107004e`
+  (ancestor له). تشغيل W1.1 CI رقم `29593987029` كان queued وقت آخر تحديث.
+- تخطيط W12-REQ وW12-FE مكتمل داخل قسم W1.2 في `release-1-platform.md`: ثبتت
+  REQ/TEST وInvariants وبوابة W12-00 وعقد الواجهة، بلا تعديل في `apps/`.
+- تنفيذ W1.2 لم يبدأ ولا يبدأ قبل اعتماد ADR-024 وإغلاق W12-00. ما زالت مواءمة
+  وثائق المجال والبيانات وOpenAPI وعقود الأمن وإضافة `make verify-w1-2` عملاً تالياً.
+- نشر Dokploy والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
+  النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
 
-## القرارات المحمولة إلى التنفيذ
+## قرارات محمولة إلى التنفيذ
 
 - تطبيق المنتج من `apps/api` و`apps/web`، مع React واحد لكل الأدوار.
 - `request` نوع WorkDefinition منشور وليس موديول أعمال مستقلاً.
-- حفظ WorkRecord وOutbox event في معاملة واحدة، واستهلاك الأحداث idempotent.
-- عزل المنشآت يعتمد على حقائق موثوقة وقرار خلفي موحد، ولا تمنح الواجهة صلاحية.
-- لا يبدأ إصدار لاحق قبل بوابة الإصدار السابق إلا بقرار راعٍ مسجل.
+- حفظ WorkRecord وOutbox event في معاملة واحدة، والمستهلك idempotent.
+- عزل المنشآت يعتمد على قرار خلفي موحد، ولا تمنح الواجهة صلاحية.
+- التشغيل على خادم داخلي واحد عبر Dokploy وDocker Compose وفق ADR-023.
 
-## فجوات W1.1 المفتوحة
+## أدلة التحقق
 
-1. `W11-OPS-01`: `implemented-local / blocked-external`؛ بقيت قيم المضيف المعتمدة
-   وتشغيل Staging المصادق عليه وreceipt الموقع خارج Git.
-2. `W11-BLD-02`: `implemented-local`؛ الحزمة تعمل محلياً، بينما سلسلة التوريد الحية
-   والـdescriptor الموقع يثبتان في `W11-SC-03`.
-3. `W11-SC-03`: `implemented-local / blocked-external`؛ validator وdescriptor واختبارات
-   CI المحلية موجودة، وتبقى pipeline الحية وartifacts الموقعة خارج الدليل المحلي.
-4. `W11-NET-04`: `implemented-local / blocked-external`؛ policy وverifier والاختبارات
-   موجودة، وتبقى فحوص المضيف ومنظورا المستخدم والإدارة خارج Git.
-5. `W11-DEP-05`: `implemented-local / blocked-external`؛ عقد أدلة N→N+1→rollback موجود،
-   ولم ينفذ نشر Dokploy أو rollback حي.
-6. `W11-DR-06`: `implemented-local / blocked-external`؛ عقود manifest وrestore وقياس
-   RPO/RTO موجودة، ولم ينفذ backup أو restore على هدف منفصل.
-7. `W11-GATE-07`: `implemented-local / blocked-external`؛ جامع الأدلة يرفض النقص
-   والقدم وعدم تطابق revision، ولا توجد بعد حزمة أدلة حية أو موافقات Go.
-
-تفاصيل النطاق والتبعيات وعقد Unit وIntegration وE2E في
-`docs/plans/w1-1-remaining-delivery-tasks.md`.
-
-## أدلة التحقق المحلي
-
-| التاريخ | الأمر | الدليل |
+| التاريخ | الأمر | النتيجة |
 |---|---|---|
-| 2026-07-17 | مجموعة API المستهدفة | 56 اختباراً، منها 54 ناجحاً و2 integration مشروطتان، و492 assertion على Identity وWorkDefinitions وWorkRecords وNotifications والحدود |
-| 2026-07-17 | `composer lint` + `composer analyse` | Pint نجح وPHPStan/Larastan level 5 غطى `app` و`Modules` و`Shared` و`tests` بلا أخطاء |
-| 2026-07-17 | مدققا OpenAPI + `./scripts/validate-docs.sh` | عقود WorkRecords وNotifications والتوثيق اجتازت التحقق |
-| 2026-07-17 | Orval وRedocly وVitest وبناء React | عقد المنصة وsnapshot مسارات W1.1 بلا تحذيرات، والعميل المولد يقتصر على المسارات المنفذة وهو ثابت، و10 اختبارات نجحت بتغطية 100% للأسطر والفروع والدوال، ونجح lint والبناء |
-| 2026-07-17 | `make verify-w1-1` | نجح المدخل الموحد، بما فيه MySQL وValkey وOutbox/Inbox وإعادة التسليم وDLQ ورحلتا المتصفح |
-| 2026-07-17 | `make verify-w1-1-local` | نجحت المهام المحلية السبع، بما فيها بناء وفحص صور الإنتاج وCompose واختبارات SC/NET/DEP/DR/GATE |
-| 2026-07-17 | `make verify-ci-config` + gitleaks + dependency audits | validator المحلي يثبت بنية workflow الـfail-closed، ولا أسرار أو advisories معروفة في lockfiles |
-| 2026-07-17 | GitHub API readback | المستودع البعيد بلا فرع افتراضي أو runs أو runners أو Environments أو variables؛ لا يوجد دليل CI حي حتى نشر revision معتمد وإعداد البنية الخارجية |
-| 2026-07-17 | دمج W1.1 محلياً في `main` | fast-forward إلى `c107004`، حذف فرع الإغلاق، شجرة المنتج نظيفة، ونجح مدقق الوثائق وCI بعد الدمج |
-| 2026-07-17 | `make verify-w11-ops-01-local` | 20 Unit و14 Integration ورحلة CLI محلية؛ عقد المثال صالح وreceipt منقح، دون ادعاء قبول مضيف حي |
-| 2026-07-17 | `make verify-w11-bld-02-local` | 18 Unit و4 Integration وبناء وفحص صورتين runtime ثم E2E على Compose: migrations وhealthchecks وإعادة تشغيل Valkey والـworker ورحلتا العربية والإنجليزية وعزل المنشأتين |
-| 2026-07-17 | `PYTHONPATH=. pytest --collect-only -q tests/ops` | أسطح SC-03 وNET-04 وDEP-05 وDR-06 وGATE-07 واختباراتها موجودة؛ جمع الاختبارات لا يثبت CI أو قبولاً حياً |
-
-أدلة 2026-07-17 أعلاه ملتزمة محلياً في `main` عند
-`c107004e4e5746bde3e57172b94cb9d49fad0081`، لكنها ليست بعد revision قبول منشوراً بسبب
-رفض GitHub اعتماد OAuth الحالي. يعاد تشغيل الأوامر على الالتزام المنشور نفسه قبل اعتماد
-أي receipt حي.
-
-## قاعدة تحديث الحالة
-
-لا يُنقل بند إلى مكتمل إلا مع أمر تحقق ونتيجة أو التزام محدد أو وثيقة اعتماد. تبقى
-الملاحظات غير المثبتة عملاً مفتوحاً، ولا تستخدم هذه الوثيقة نسبة تقدم إجمالية.
+| 2026-07-17 | `make verify-w1-1` | أخضر: MySQL وValkey وOutbox/Inbox وإعادة التسليم وDLQ ورحلتا المتصفح RTL/LTR |
+| 2026-07-17 | `make verify-w1-1-local` | أخضر: بناء صور الإنتاج من lockfiles وتشغيل حزمة Compose كاملة |
+| 2026-07-17 | مجموعة API | 56 اختباراً و492 assertion على Identity وWorkDefinitions وWorkRecords وNotifications والحدود |
+| 2026-07-17 | `composer lint` + `composer analyse` | Pint وPHPStan level 5 بلا أخطاء |
+| 2026-07-17 | Vitest + بناء React | 10 اختبارات بتغطية 100%، وlint والبناء ناجحان |
+| 2026-07-17 | `./scripts/validate-docs.sh` | الوثائق والعقود سليمة |
+| 2026-07-17 | دمج W1.1 محلياً في `main` | fast-forward إلى `c107004`، الشجرة نظيفة |
+| 2026-07-17 | ADR-024 صيغ واجتاز التحقق | `validate-docs` و`verify-boundaries` أخضران؛ اعتماده النهائي مع مواءمة وثائق المجال قبل بدء W1.2 |
+| 2026-07-17 | إغلاق تخطيط W12-REQ وW12-FE | دمج REQ/TEST و14 Invariant وبوابة W12-00 وعقد routes/RTL/LTR/a11y في خطة R1؛ `validate-docs` و`verify-boundaries` أخضران؛ اختبار runtime هو N/A لأن الناتج تخطيط فقط |
 
 ## الخطوة التالية
 
-الخطوة التالية هي توسيع اعتماد GitHub بنطاق `workflow` ونشر `main`، ثم تشغيل pipeline
-الحية على revision واحد، وتسليم قائد SRE ملف المضيف
-المعتمد خارج Git وتشغيل `make preflight-w11-ops-01-live`، وفحص NET-04 من المضيف ومنظوري
-المستخدم والإدارة. بعد ذلك تجمع أدلة Dokploy وbackup/restore المنفصلة عبر الأدوات الجديدة
-وتراجع بوابة GATE-07 عبر المسارات الفعلية:
-`make verify-w1-1-host` و`make verify-w1-1-all`. يتطلب مسار المضيف `HOST_INPUTS`
-و`HOST_RECEIPT`، ومدخلات NET-04: `NET04_POLICY` و`NET04_COMPOSE`
-و`NET04_HOST_RECEIPT` و`NET04_USER_RECEIPT` و`NET04_MANAGEMENT_RECEIPT`
-و`NET04_REVISION`. ويتطلب المسار المجمع `GATE_MANIFEST` و`GATE_TRUST_POLICY`
-و`GATE_RELEASE_ROOT` و`GATE_EVIDENCE_ROOT` و`GATE_RECEIPT` و`GATE_AS_OF`، ومدخلات
-cosign المثبتة `COSIGN_BINARY` و`COSIGN_SHA256` و`COSIGN_VERSION`، إضافة إلى
-`RELEASE_DESCRIPTOR` و`RELEASE_ROOT` و`COSIGN_PUBLIC_KEY` التي يستهلكها `verify-build`.
-ملف Compose المحكوم موجود في Git، أما policy الشبكة المعتمدة وقيم المضيف والreceipts
-والأدلة والمفاتيح فتبقى آمنة خارج Git. يفشل المسار الحي إذا استُخدم ملف NET-04 المثال،
-ولا يعد وجود الأهداف أو الأمثلة دليلاً على تشغيل حي.
+1. يقبل ADR-024 وتواءم وثائق المجال والبيانات وOpenAPI وعقود الأمن.
+2. تحسم taxonomy الحسابات ويضاف `make verify-w1-2`.
+3. عند نجاح W12-00 يبدأ موديولا Organization وIdentity والاستيراد المحكوم.
 
-## استلام إدارة العمل
-
-اكتمل في 2026-07-17 فصل أدوات التخطيط السابقة عن المستودع:
-
-- أزيل وقت التشغيل والأوامر والمهارات والوكلاء وhooks وMCP المرتبطة به.
-- حذفت شجرة الحالة الوسيطة بعد نقل الوضع والقرارات والفجوات القابلة للتحقق.
-- بقي OpenCode و`model-swarm` مستقلين وقابلين للتحميل.
-- اجتاز مدقق الوثائق، وطابقت بصمة ملفات المنتج لقطة ما قبل التنظيف.
+يتابع CI رقم `29593987029` كدليل جودة خارجي عند توفر runner، ولا يبدأ أي إعداد
+أو تشغيل على الخادم حتى تصل الخطة إلى `D1`.
 
 ## سجل التغيير
 
-| الإصدار | التاريخ | الدور | التغيير |
-|---|---|---|---|
-| 1.0.0 | 2026-07-17 | مكتب هندسة المنصة | إنشاء سجل التسليم المستقل وحفظ حالة W1.1 القابلة للتحقق |
-| 1.1.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات المسار المحلي الكامل وحصر الفجوات المتبقية في بوابات التشغيل |
-| 1.2.0 | 2026-07-17 | مكتب هندسة المنصة | ربط فجوات W1.1 بسبع مهام تنفيذية واختبارات Unit وIntegration وE2E وبوابة إثبات نهائية |
-| 1.3.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات تنفيذ W11-OPS-01 المحلي وإبقاء قبول المضيف الحي وreceipt الموقع كحاجز خارجي |
-| 1.4.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات W11-BLD-02 محلياً بصور runtime وCompose ورحلتي متصفح وتوجيه الخطوة التالية إلى سلسلة التوريد والشبكة |
-| 1.5.0 | 2026-07-17 | مكتب هندسة المنصة | تسجيل الأسطح المحلية لـSC/NET/DEP/DR/GATE مع إبقاء الأدلة الحية وبوابة Go محجوبة خارجياً |
-| 1.6.0 | 2026-07-17 | مكتب هندسة المنصة | تثبيت بوابات الجودة والعقد والعميل المولد وأمن CI وتسجيل نجاح الإغلاق المحلي وحالة GitHub الخارجية الفعلية |
-| 1.7.0 | 2026-07-17 | مكتب هندسة المنصة | تسجيل دمج W1.1 محلياً في main، وحاجز OAuth للنشر، وربط خطة التسليم المتوازي للموجات المتبقية |
+| الإصدار | التاريخ | التغيير |
+|---|---|---|
+| 4.0.0 | 2026-07-17 | إغلاق W1.1 محلياً وفتح W1.2 ونقل تشغيل الخادم إلى المرحلة النهائية D1 |
+| 3.1.0 | 2026-07-17 | إثبات إغلاق تخطيط W12-REQ وW12-FE وإبقاء W12-00 والتنفيذ كخطوة تالية |
+| 3.0.0 | 2026-07-17 | تبسيط السجل لمطور واحد: حذف بوابات الأدلة الموقعة والمسارات المتوازية وحصر المتبقي في أربع مهام |
+| 2.0.0 | 2026-07-17 | اعتماد سجل المراحل المبسط ونقل W1.1 إلى الاختبار الحي |
+| 1.0.0 | 2026-07-17 | إنشاء سجل التسليم المستقل |

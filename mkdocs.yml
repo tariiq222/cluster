@@ -78,6 +78,7 @@ nav:
       - كتيبات التشغيل: operations/runbooks.md
   - الهندسة:
       - فهرس الهندسة: engineering/README.md
+      - تدفق التسليم المبسط: engineering/delivery-workflow.md
       - الشرائح الرأسية: engineering/vertical-slices.md
       - حدود الكود والموديولات: engineering/coding-and-module-boundaries.md
       - استراتيجية الاختبار: engineering/testing-strategy.md
@@ -90,11 +91,9 @@ nav:
       - الإصدار الأول: plans/release-1-platform.md
       - الإصدار الثاني: plans/release-2-strategy-portfolio.md
       - الإصدار الثالث: plans/release-3-risk.md
-      - قائمة الجاهزية: plans/readiness-checklist.md
+      - جاهزية التشغيل النهائي: plans/readiness-checklist.md
       - حالة التسليم النشطة: plans/active-delivery-status.md
-      - مهام إغلاق W1.1: plans/w1-1-remaining-delivery-tasks.md
-      - خطة التسليم المتوازي لـR1: plans/release-1-parallel-delivery-plan.md
-      - لوحة وكلاء R1: plans/release-1-agent-board.md
+      - متطلبات التشغيل النهائي: plans/w1-1-remaining-delivery-tasks.md
       - تصميم استلام العمل وإزالة GSD: superpowers/specs/2026-07-17-gsd-takeover-design.md
       - خطة تنفيذ استلام العمل وإزالة GSD: superpowers/plans/2026-07-17-gsd-takeover.md
   - العقود:
@@ -126,4 +125,5 @@ nav:
       - ADR-021 ملكية الاستراتيجية والمؤشرات: adr/021-strategy-indicator-ownership.md
       - ADR-022 حدود المحافظ والمخاطر: adr/022-portfolio-projects-and-risk-boundaries.md
       - ADR-023 تشغيل الخادم الداخلي عبر Dokploy وDocker Compose: adr/023-single-host-dokploy-deployment.md
+      - ADR-024 ملكية Organization وIdentity وحدود الاستيراد: adr/024-organization-identity-import-boundaries.md
       - قالب ADR: adr/template.md

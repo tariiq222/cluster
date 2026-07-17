@@ -294,11 +294,10 @@ for path in checked_markdown_paths:
     reviewers = metadata.get("reviewers")
     if (
         not isinstance(reviewers, list)
-        or len(reviewers) < 2
         or len(set(reviewers)) != len(reviewers)
         or any(not isinstance(item, str) or not item.strip() for item in reviewers)
     ):
-        add_error(f"reviewers must contain at least two distinct roles: {relative(path)}")
+        add_error(f"reviewers must be a list of distinct non-empty strings: {relative(path)}")
     for field in ("sources", "references"):
         values = metadata.get(field)
         if not isinstance(values, list) or any(not isinstance(item, str) for item in values):

@@ -1,3 +1,0 @@
-# Resolve this from the approved internal package source before offline use.
-pytest>=8.4,<9
-PyYAML>=6,<7

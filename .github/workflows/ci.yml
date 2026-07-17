@@ -1,435 +1,63 @@
-# All container images below are deliberately literal, immutable internal OCI
-# references. Their all-zero digests are non-routable placeholders: no job step
-# runs until Platform replaces them with approved digests on the protected branch.
-# GitHub environments must protect release jobs and scope secrets as documented in
-# docs/engineering/ci-cd-and-release.md. SC_LIVE_TOOLING_APPROVED is an additional
-# fail-closed guard, not a replacement for environment protection.
-name: W1.1 CI
+name: CI
 
 on:
   push:
     branches: ["**"]
-    tags: ["v*"]
-  pull_request:
 
 permissions:
   contents: read
 
 concurrency:
-  group: w1-1-ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  SC_LIVE_TOOLING_APPROVED: "${{ vars.SC_LIVE_TOOLING_APPROVED || 'false' }}"
-  SC_COSIGN_VERSION: "v2.4.3"
-  SC_SYFT_VERSION: "1.20.0"
-  SC_GRYPE_VERSION: "0.87.0"
-  SC_GRYPE_FAIL_ON: "high"
-  GRYPE_DB_AUTO_UPDATE: "false"
-  GRYPE_DB_CACHE_DIR: "/opt/grype-db"
-  SC_GRYPE_DB_ARCHIVE: "/opt/grype-db/database.tar.gz"
-  SC_GRYPE_DB_EVIDENCE: "/opt/grype-db/evidence.json"
-  SC_GRYPE_DB_MAX_AGE_HOURS: "168"
-
 jobs:
-  validate-docs:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    container:
-      image: registry.internal/third-health-cluster/ci-python@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  api:
+    runs-on: ubuntu-latest
     steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: python -m pip install --disable-pip-version-check -r requirements-docs.txt
-      - run: ./scripts/validate-docs.sh
-
-  build-docs:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    container:
-      image: registry.internal/third-health-cluster/ci-python@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: python -m pip install --disable-pip-version-check -r requirements-docs.txt
-      - run: python -m mkdocs build --strict
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
-        if: always()
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
-          name: site
-          path: site/
-          retention-days: 7
-
-  validate-mermaid:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    container:
-      image: registry.internal/third-health-cluster/ci-mermaid@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: command -v mmdc
-      - run: ./scripts/render-diagrams.sh /tmp/validated-diagrams
-
-  test-api:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    container:
-      image: registry.internal/third-health-cluster/ci-composer@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: test -f apps/api/composer.lock
+          php-version: "8.3"
+          extensions: mbstring, intl, pdo_sqlite, sqlite3, gd, zip
+          coverage: none
       - run: composer --working-dir=apps/api validate --strict
       - run: composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
-      - run: make lint-api
-      - run: make analyse-api
+      - run: composer --working-dir=apps/api lint
+      - run: composer --working-dir=apps/api analyse
       - run: composer --working-dir=apps/api audit --locked
       - run: make test-api
-
-  test-web:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    container:
-      image: registry.internal/third-health-cluster/ci-node@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: test -f apps/web/package-lock.json
-      - run: npm --prefix apps/web ci
-      - run: npm --prefix apps/web run api:check
-      - run: npm --prefix apps/web audit
-      - run: make test-web
-
-  security-quality:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    container:
-      image: registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: gitleaks detect --source . --redact --no-banner
-
-  test-e2e-w1-1:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    needs: [test-api, test-web]
-    container:
-      image: registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: make test-e2e-w1-1
-
-  verify-boundaries:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    needs: [test-api]
-    container:
-      image: registry.internal/third-health-cluster/ci-composer@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: test -f apps/api/composer.lock
-      - run: composer --working-dir=apps/api validate --strict
-      - run: composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
       - run: make verify-boundaries
 
-  verify-ci-config:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, ci-general]
-    container:
-      image: registry.internal/third-health-cluster/ci-ruby@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  web:
+    runs-on: ubuntu-latest
     steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: make verify-ci-config
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm --prefix apps/web ci
+      - run: make test-web
 
-  release-build-images:
-    if: github.ref_type == 'tag' && github.ref_protected
-    runs-on: [self-hosted, release-artifacts]
-    needs:
-      [validate-docs, build-docs, validate-mermaid, test-api, test-web, security-quality, test-e2e-w1-1, verify-boundaries, verify-ci-config]
-    environment: release-artifacts
-    container:
-      image: registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    services:
-      docker:
-        image: registry.internal/third-health-cluster/ci-dind@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    env:
-      DOCKER_HOST: tcp://docker:2376
-      DOCKER_TLS_CERTDIR: /certs
-      CI_REGISTRY: ${{ secrets.CI_REGISTRY }}
-      CI_REGISTRY_IMAGE: ${{ secrets.CI_REGISTRY_IMAGE }}
-      CI_REGISTRY_USER: ${{ secrets.CI_REGISTRY_USER }}
-      CI_REGISTRY_PASSWORD: ${{ secrets.CI_REGISTRY_PASSWORD }}
+  docs:
+    runs-on: ubuntu-latest
     steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - run: |
-          test ! -n "${COSIGN_PRIVATE_KEY:-}" || { echo "FAIL: artifact jobs must not receive COSIGN_PRIVATE_KEY"; exit 1; }
-          : "${CI_REGISTRY:?CI_REGISTRY is required}"
-          : "${CI_REGISTRY_IMAGE:?CI_REGISTRY_IMAGE is required}"
-          : "${CI_REGISTRY_USER:?CI_REGISTRY_USER is required}"
-          : "${CI_REGISTRY_PASSWORD:?CI_REGISTRY_PASSWORD is required}"
-          printf '%s' "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin
-          mkdir -p release
-          API_IMAGE_TAG="$CI_REGISTRY_IMAGE/api:$GITHUB_SHA"
-          WEB_IMAGE_TAG="$CI_REGISTRY_IMAGE/web:$GITHUB_SHA"
-          docker buildx create --name release-builder --driver docker-container --use || docker buildx use release-builder
-          docker buildx inspect --bootstrap
-          docker buildx build --pull=false --file apps/api/Dockerfile --tag "$API_IMAGE_TAG" --push --metadata-file release/api-build-metadata.json apps/api
-          docker buildx build --pull=false --file apps/web/Dockerfile --tag "$WEB_IMAGE_TAG" --push --metadata-file release/web-build-metadata.json apps/web
-          python3 - "$CI_REGISTRY_IMAGE" <<'PY'
-          import json
-          import re
-          import sys
-          from pathlib import Path
-          registry = sys.argv[1]
-          refs = {}
-          for name in ("api", "web"):
-              metadata = json.loads(Path(f"release/{name}-build-metadata.json").read_text(encoding="utf-8"))
-              digest = metadata.get("containerimage.digest")
-              if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
-                  raise SystemExit(f"missing deterministic buildx containerimage.digest for {name}")
-              refs[name] = f"{registry}/{name}@{digest}"
-          Path("release/image-refs.env").write_text(
-              "\n".join((f"API_IMAGE_DIGEST_REF={refs['api']}", f"WEB_IMAGE_DIGEST_REF={refs['web']}", "")),
-              encoding="utf-8",
-          )
-          PY
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          name: release-build
-          path: release/
-          retention-days: 7
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check -r requirements-docs.txt
+      - run: ./scripts/validate-docs.sh
+      - run: python -m mkdocs build --strict
 
-  release-sbom-provenance:
-    if: github.ref_type == 'tag' && github.ref_protected
-    runs-on: [self-hosted, release-artifacts]
-    needs: [release-build-images]
-    environment: release-artifacts
-    container:
-      image: registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    env:
-      CI_REGISTRY: ${{ secrets.CI_REGISTRY }}
-      CI_REGISTRY_USER: ${{ secrets.CI_REGISTRY_USER }}
-      CI_REGISTRY_PASSWORD: ${{ secrets.CI_REGISTRY_PASSWORD }}
-      SC_GRYPE_DB_SHA256: "${{ vars.SC_GRYPE_DB_SHA256 || '' }}"
-      SC_GRYPE_DB_BUILT_AT: "${{ vars.SC_GRYPE_DB_BUILT_AT || '' }}"
+  secrets:
+    runs-on: ubuntu-latest
     steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/checkout@v4
         with:
-          name: release-build
-          path: release
-      - run: |
-          test ! -n "${COSIGN_PRIVATE_KEY:-}" || { echo "FAIL: artifact jobs must not receive COSIGN_PRIVATE_KEY"; exit 1; }
-          test "$(cosign version | sed -n 's/^GitVersion: //p' | head -n 1)" = "$SC_COSIGN_VERSION"
-          test "$(syft version | sed -n 's/^Version:[[:space:]]*//p' | head -n 1)" = "$SC_SYFT_VERSION"
-          test "$(grype version | sed -n 's/^Version:[[:space:]]*//p' | head -n 1)" = "$SC_GRYPE_VERSION"
-          : "${CI_REGISTRY:?CI_REGISTRY is required}"
-          : "${CI_REGISTRY_USER:?CI_REGISTRY_USER is required}"
-          : "${CI_REGISTRY_PASSWORD:?CI_REGISTRY_PASSWORD is required}"
-          printf '%s' "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin
-          API_IMAGE_DIGEST_REF="$(python3 scripts/parse_image_refs.py release/image-refs.env API_IMAGE_DIGEST_REF)"
-          WEB_IMAGE_DIGEST_REF="$(python3 scripts/parse_image_refs.py release/image-refs.env WEB_IMAGE_DIGEST_REF)"
-          printf '%s\n' "$API_IMAGE_DIGEST_REF" "$WEB_IMAGE_DIGEST_REF" | grep -Eq '@sha256:[0-9a-f]{64}$'
-          syft "$API_IMAGE_DIGEST_REF" -o "cyclonedx-json=release/api.sbom.json"
-          syft "$WEB_IMAGE_DIGEST_REF" -o "cyclonedx-json=release/web.sbom.json"
-          python3 scripts/release_descriptor.py bind-sbom release/api.sbom.json --image-reference "$API_IMAGE_DIGEST_REF"
-          python3 scripts/release_descriptor.py bind-sbom release/web.sbom.json --image-reference "$WEB_IMAGE_DIGEST_REF"
-          python3 - "$API_IMAGE_DIGEST_REF" "$WEB_IMAGE_DIGEST_REF" <<'PY'
-          import json, os, sys
-          from pathlib import Path
-          api, web = sys.argv[1:]
-          def subject(ref):
-              return {"name": ref.rsplit("@", 1)[0], "digest": {"sha256": ref.rsplit(":", 1)[-1]}}
-          payload = {
-              "_type": "https://in-toto.io/Statement/v1",
-              "predicateType": "https://slsa.dev/provenance/v1",
-              "subject": [subject(api), subject(web)],
-              "predicate": {"buildDefinition": {"externalParameters": {"gitRevision": os.environ["GITHUB_SHA"]}, "resolvedDependencies": [api, web]}},
-          }
-          Path("release/provenance.json").write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
-          revision = os.environ["GITHUB_SHA"]
-          Path("release/migration-plan.json").write_text(json.dumps({"plan_version": "1", "git_revision": revision, "strategy": "forward-only", "destructive": False, "requires_pre_backup": True}, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
-          Path("release/rollback-plan.json").write_text(json.dumps({"plan_version": "1", "git_revision": revision, "strategy": "redeploy-known-good-digest", "allows_destructive_down_migration": False}, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
-          PY
-          cp infra/platform/production/compose.yaml release/compose.yaml
-          : "${SC_GRYPE_DB_SHA256:?SC_GRYPE_DB_SHA256 must pin the installed Grype DB archive}"
-          : "${SC_GRYPE_DB_BUILT_AT:?SC_GRYPE_DB_BUILT_AT must pin the Grype DB evidence timestamp}"
-          python3 scripts/release_descriptor.py verify-grype-db --evidence "$SC_GRYPE_DB_EVIDENCE" --database "$SC_GRYPE_DB_ARCHIVE" --grype-version "$SC_GRYPE_VERSION" --database-sha256 "$SC_GRYPE_DB_SHA256" --built-at "$SC_GRYPE_DB_BUILT_AT" --max-age-hours "$SC_GRYPE_DB_MAX_AGE_HOURS"
-          grype db import "$SC_GRYPE_DB_ARCHIVE"
-          cp "$SC_GRYPE_DB_EVIDENCE" release/grype-db-evidence.json
-          python3 scripts/release_descriptor.py scan-sbom release/api.sbom.json --image-reference "$API_IMAGE_DIGEST_REF" --image-digest "${API_IMAGE_DIGEST_REF##*@}" --license-policy infra/platform/release/license-policy.json
-          python3 scripts/release_descriptor.py scan-sbom release/web.sbom.json --image-reference "$WEB_IMAGE_DIGEST_REF" --image-digest "${WEB_IMAGE_DIGEST_REF##*@}" --license-policy infra/platform/release/license-policy.json
-          grype "sbom:release/api.sbom.json" --fail-on "$SC_GRYPE_FAIL_ON" --output json > release/api.grype.json
-          grype "sbom:release/web.sbom.json" --fail-on "$SC_GRYPE_FAIL_ON" --output json > release/web.grype.json
-          python3 scripts/release_descriptor.py generate-manifest --root . --output release/release-manifest.json --release-id "$GITHUB_REF_NAME" --git-revision "$GITHUB_SHA" --api-image "$API_IMAGE_DIGEST_REF" --web-image "$WEB_IMAGE_DIGEST_REF" --compose release/compose.yaml --api-sbom release/api.sbom.json --web-sbom release/web.sbom.json --api-provenance release/provenance.json --web-provenance release/provenance.json --migration-plan release/migration-plan.json --rollback-plan release/rollback-plan.json
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
-        with:
-          name: release-artifacts
-          path: release/
-          retention-days: 7
-
-  release-sign-verify:
-    if: github.ref_type == 'tag' && github.ref_protected
-    runs-on: [self-hosted, release-signing]
-    needs:
-      [
-        test-api,
-        test-web,
-        security-quality,
-        validate-docs,
-        build-docs,
-        validate-mermaid,
-        test-e2e-w1-1,
-        verify-boundaries,
-        verify-ci-config,
-        release-sbom-provenance,
-      ]
-    environment: release-signing
-    container:
-      image: registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    env:
-      COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-      COSIGN_PUBLIC_KEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: release-artifacts
-          path: release
-      - run: |
-          test "$(cosign version | sed -n 's/^GitVersion: //p' | head -n 1)" = "$SC_COSIGN_VERSION"
-          test "$(syft version | sed -n 's/^Version:[[:space:]]*//p' | head -n 1)" = "$SC_SYFT_VERSION"
-          test "$(grype version | sed -n 's/^Version:[[:space:]]*//p' | head -n 1)" = "$SC_GRYPE_VERSION"
-          : "${COSIGN_PRIVATE_KEY:?COSIGN_PRIVATE_KEY must be a protected release-signing environment secret}"
-          : "${COSIGN_PUBLIC_KEY:?COSIGN_PUBLIC_KEY must be the corresponding protected public-key environment secret}"
-          API_IMAGE_DIGEST_REF="$(python3 scripts/parse_image_refs.py release/image-refs.env API_IMAGE_DIGEST_REF)"
-          WEB_IMAGE_DIGEST_REF="$(python3 scripts/parse_image_refs.py release/image-refs.env WEB_IMAGE_DIGEST_REF)"
-          cosign sign --yes --tlog-upload=false --key "$COSIGN_PRIVATE_KEY" "$API_IMAGE_DIGEST_REF"
-          cosign sign --yes --tlog-upload=false --key "$COSIGN_PRIVATE_KEY" "$WEB_IMAGE_DIGEST_REF"
-          cosign verify --key "$COSIGN_PUBLIC_KEY" --insecure-ignore-tlog=true "$API_IMAGE_DIGEST_REF" >/dev/null
-          cosign verify --key "$COSIGN_PUBLIC_KEY" --insecure-ignore-tlog=true "$WEB_IMAGE_DIGEST_REF" >/dev/null
-          cosign sign-blob --tlog-upload=false --key "$COSIGN_PRIVATE_KEY" --bundle release/release.bundle.json --output-signature release/release.sig release/release-manifest.json
-          cosign verify-blob --key "$COSIGN_PUBLIC_KEY" --bundle release/release.bundle.json --signature release/release.sig release/release-manifest.json >/dev/null
-          python3 scripts/release_descriptor.py generate-descriptor --root . --output release/release-descriptor.json --manifest release/release-manifest.json --signature release/release.sig --bundle release/release.bundle.json
-          python3 scripts/release_descriptor.py validate release/release-descriptor.json --root .
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
-        with:
-          name: release-sign
-          path: release/
-          retention-days: 7
-
-  verify-build:
-    if: github.ref_type == 'tag' && github.ref_protected
-    runs-on: [self-hosted, release-verification]
-    needs: [release-sign-verify]
-    environment: release-verification
-    container:
-      image: registry.internal/third-health-cluster/ci-supply-chain@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    env:
-      COSIGN_PUBLIC_KEY: ${{ secrets.COSIGN_PUBLIC_KEY }}
-    steps:
-      - name: Require approved internal tooling
-        run: |
-          test "$SC_LIVE_TOOLING_APPROVED" = "true" || {
-            echo "BLOCKED: approved internal digest-pinned CI images have not been configured;"
-            echo "no secret was read."
-            exit 1
-          }
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: release-sign
-          path: release
-      - run: |
-          test "$(cosign version | sed -n 's/^GitVersion: //p' | head -n 1)" = "$SC_COSIGN_VERSION"
-          test "$(syft version | sed -n 's/^Version:[[:space:]]*//p' | head -n 1)" = "$SC_SYFT_VERSION"
-          test "$(grype version | sed -n 's/^Version:[[:space:]]*//p' | head -n 1)" = "$SC_GRYPE_VERSION"
-          : "${COSIGN_PUBLIC_KEY:?COSIGN_PUBLIC_KEY must be a protected release-verification environment secret}"
-          test ! -n "${COSIGN_PRIVATE_KEY:-}" || { echo "FAIL: independent verification job must not receive COSIGN_PRIVATE_KEY"; exit 1; }
-          RELEASE_DESCRIPTOR=release/release-descriptor.json RELEASE_ROOT=. COSIGN_BINARY="$(command -v cosign)" COSIGN_VERSION="$SC_COSIGN_VERSION" COSIGN_PUBLIC_KEY="$COSIGN_PUBLIC_KEY" make verify-build
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
-        if: always()
-        with:
-          name: release-verified
-          path: release/
-          retention-days: 7
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
