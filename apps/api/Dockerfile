@@ -52,7 +52,6 @@ COPY --from=vendor --chown=app:app /var/www/html/config ./config
 COPY --from=vendor --chown=app:app /var/www/html/database ./database
 COPY --from=vendor --chown=app:app /var/www/html/Modules ./Modules
 COPY --from=vendor --chown=app:app /var/www/html/public ./public
-COPY --from=vendor --chown=app:app /var/www/html/resources ./resources
 COPY --from=vendor --chown=app:app /var/www/html/routes ./routes
 COPY --from=vendor --chown=app:app /var/www/html/Shared ./Shared
 COPY --from=vendor --chown=app:app /var/www/html/storage ./storage

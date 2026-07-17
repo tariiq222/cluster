@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.2.0
+version: 4.3.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -62,6 +62,7 @@ references:
 | 2026-07-17 | `make verify-w1-1-local` على حزمة VPS المباشرة | أخضر: بناء صور runtime، MySQL وRedis محمي، migration، worker، healthchecks، RTL/LTR والعزل؛ Caddy وCompose والوثائق سليمة |
 | 2026-07-18 | دمج مخلفات workspaces في `main` | حُفظ عقد واجهة W1.2 الفريد؛ تغييرات بوابات W1.1 القديمة وADR-024 المكرر superseded بالتبسيط والقرار الموجود |
 | 2026-07-18 | `make verify-w1-1` و`make verify-w1-1-local` و`./scripts/validate-docs.sh` | أخضر: 56 اختبار API و492 assertion، 10 اختبارات Web، الصور، Caddy HTTPS، MySQL/Redis، migration، worker، RTL/LTR والعزل |
+| 2026-07-18 | CI `29613697299` ثم `make verify-w1-1-local` | كشف CI أن PHP 8.3 لا يطابق lockfile وأن Dockerfile ينسخ `resources/` فارغاً غير متتبع؛ رُفع CI إلى PHP 8.4 وحذف COPY غير المستخدم، والبوابة المحلية خضراء |
 
 ## الخطوة التالية
 
@@ -76,6 +77,7 @@ references:
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.3.0 | 2026-07-18 | تسجيل انحراف PHP في CI ومدخل Docker غير المتتبع وإصلاحهما |
 | 4.2.0 | 2026-07-18 | دمج العمل الفريد من workspaces وإثبات بوابات W1.1 وحزمة VPS بعد الدمج |
 | 4.1.0 | 2026-07-17 | استبدال Dokploy/Valkey بنشر VPS مباشر وCaddy وRedis وتسجيل البوابات المحلية الخضراء |
 | 4.0.0 | 2026-07-17 | إغلاق W1.1 محلياً وفتح W1.2 ونقل تشغيل الخادم إلى المرحلة النهائية D1 |

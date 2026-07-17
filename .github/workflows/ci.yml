@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: shivammathur/setup-php@a42e73e16d831796463b22b8d70a3efcad74e074
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           extensions: mbstring, intl, pdo_sqlite, sqlite3, gd, zip
           coverage: none
       - run: composer --working-dir=apps/api validate --strict
