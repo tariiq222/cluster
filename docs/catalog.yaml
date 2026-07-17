@@ -21,6 +21,8 @@ documents:
   - {path: plans/readiness-checklist.md, title: قائمة جاهزية الإطلاق – منصات R1 وR2 وR3, category: plans, status: accepted, owner: مدير التجمع للتحول الرقمي, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: plans/active-delivery-status.md, title: حالة التسليم النشطة, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: false, generated: false}
   - {path: plans/w1-1-remaining-delivery-tasks.md, title: حزمة مهام إغلاق W1.1 التشغيلية, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: plans/release-1-parallel-delivery-plan.md, title: خطة التسليم المتوازي لإصدار R1, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1, source_of_truth: true, generated: false}
+  - {path: plans/release-1-agent-board.md, title: لوحة وكلاء تنفيذ R1, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1, source_of_truth: false, generated: false}
   - {path: superpowers/specs/2026-07-17-gsd-takeover-design.md, title: تصميم استلام Codex للعمل وإزالة GSD, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: false, generated: false}
   - {path: superpowers/plans/2026-07-17-gsd-takeover.md, title: خطة تنفيذ استلام Codex للعمل وإزالة GSD, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: false, generated: false}
   - {path: data-security/README.md, title: البيانات والأمن, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}

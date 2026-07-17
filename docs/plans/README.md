@@ -25,3 +25,5 @@ references: []
 | [قائمة الجاهزية](readiness-checklist.md) | قرار Go/No-Go |
 | [حالة التسليم النشطة](active-delivery-status.md) | الحالة التنفيذية المثبتة والخطوة التالية |
 | [مهام إغلاق W1.1](w1-1-remaining-delivery-tasks.md) | الفجوات التشغيلية المتبقية واختبارات Unit وIntegration وE2E |
+| [خطة التسليم المتوازي لـR1](release-1-parallel-delivery-plan.md) | تقسيم الموجات إلى مسارات متوازية محكومة وبوابات دمج |
+| [لوحة وكلاء R1](release-1-agent-board.md) | فروع وworktrees وملكية الملفات وحالة بطاقات التنفيذ |
