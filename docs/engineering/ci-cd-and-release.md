@@ -3,7 +3,7 @@ doc_id: ARC-EN-005
 title: التكامل والتسليم والإصدار
 type: engineering
 status: draft
-version: 1.3.0
+version: 1.3.1
 date: 2026-07-17
 owner: مسؤول العمليات
 reviewers:
@@ -46,6 +46,12 @@ references:
 5. ثبّت أدوات cosign وsyft وgrype وإصداراتها المحددة، وأرفق Grype DB وevidence وdigest حقيقيين. أنشئ GitHub Environment variables غير سرية باسم `SC_GRYPE_DB_SHA256` و`SC_GRYPE_DB_BUILT_AT` في `release-artifacts`؛ لا تبدأ release قبل توفرهما.
 6. نفّذ `make verify-ci-config` محلياً و`make verify-w11-sc-03-local` قبل أول workflow حي. بعده فقط تُجمع artifacts وreceipts الخارجية لمسار W1.1 النهائي.
 
+## حالة P0-A والمدخلات الحية
+
+فُحص GitHub في 2026-07-17 مقابل revision محلي `b547d54cf600420a2e23fb80fc85c1bbab4a8491`. لم تكن لهذا revision مراجع remote، ولم يحتو المستودع البعيد فروعاً أو tags أو workflows أو runs. كذلك لم توجد Environments المطلوبة `release-artifacts` و`release-signing` و`release-verification`، ولا runners ذات labels المعتمدة، ولا قواعد حماية للإصدار، ولا Actions variables أو metadata لمتغيرات Grype DB. لم تُقرأ قيم أسرار أو تُحفظ.
+
+حالة P0-A هي `blocked`: لا تتوفر digests معتمدة لصور الأدوات الداخلية ولا يمكن ربط تشغيل GitHub حي بالـrevision المفحوص. لذلك تبقى جميع digests الصفرية الحالية معاً، وتبقى `SC_LIVE_TOOLING_APPROVED` على القيمة الافتراضية `false`، ولا يُنشأ ملف evidence أو قيمة بديلة داخل Git. يفك قائد SRE ومسؤول أمن المعلومات الحظر بتنفيذ خطوات التهيئة أعلاه خارج Git، ودفع revision المراد التحقق منه، ثم إعادة الفحص الحي وربط نتائج workflow وبيانات الإصدار بالـrevision نفسه.
+
 ## Dokploy والإصدار
 
 - كل إصدار يحمل tag SemVer وcommit SHA وimage digest وCompose revision ونسخة migration المدعومة.
@@ -64,3 +70,4 @@ references:
 | 1.1.0 | 2026-07-16 | مسؤول العمليات | مواءمة الإصدار مع Dokploy وCompose على خادم واحد |
 | 1.2.0 | 2026-07-17 | مسؤول العمليات | نقل CI إلى GitHub Actions وتحديد عزل runners وEnvironments والأسرار |
 | 1.3.0 | 2026-07-17 | مسؤول العمليات | فرض lockfiles وكل بوابات الإصدار وتثبيت actions ومنع صلاحيات job وتسرب الأسرار وتشغيل forks داخلياً |
+| 1.3.1 | 2026-07-17 | مسؤول العمليات | تسجيل blocker P0-A المرتبط بالـrevision عند غياب مدخلات GitHub الحية |
