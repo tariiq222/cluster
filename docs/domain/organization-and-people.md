@@ -312,7 +312,9 @@ references:
 ### 6.3 Domain Events
 
 - `ClusterCreated`
+- `ClusterUpdated`
 - `FacilityCreated`
+- `FacilityUpdated`
 - `FacilityArchived`
 - `OrganizationUnitCreated`
 - `OrganizationUnitMoved`

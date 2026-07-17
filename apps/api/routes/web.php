@@ -3,7 +3,10 @@
 use App\Http\Controllers\Organization\CreateClusterController;
 use App\Http\Controllers\Organization\CreateFacilityController;
 use App\Http\Controllers\Organization\GetClusterController;
+use App\Http\Controllers\Organization\GetFacilityController;
 use App\Http\Controllers\Organization\ListFacilitiesController;
+use App\Http\Controllers\Organization\UpdateClusterController;
+use App\Http\Controllers\Organization\UpdateFacilityController;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Features\DevelopmentFixtureLogin\Http\DevelopmentFixtureLoginController;
@@ -19,8 +22,11 @@ Route::prefix('api/v1')->group(function (): void {
     Route::get('notifications', ListMyNotificationsController::class);
     Route::get('organization/cluster', GetClusterController::class);
     Route::post('organization/cluster', CreateClusterController::class);
+    Route::patch('organization/cluster', UpdateClusterController::class);
     Route::get('organization/facilities', ListFacilitiesController::class);
     Route::post('organization/facilities', CreateFacilityController::class);
+    Route::get('organization/facilities/{facilityId}', GetFacilityController::class);
+    Route::patch('organization/facilities/{facilityId}', UpdateFacilityController::class);
     Route::post('work-records', SubmitWorkRecordController::class);
     Route::get('work-records', ListAuthorizedWorkRecordsController::class);
     Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class);

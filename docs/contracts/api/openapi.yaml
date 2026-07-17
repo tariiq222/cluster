@@ -1601,7 +1601,7 @@ paths:
       summary: Get the singleton cluster root
       operationId: getCluster
       responses:
-        "200": { $ref: "#/components/responses/Entity" }
+        "200": { $ref: "#/components/responses/ClusterEntity" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -1617,14 +1617,14 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ClusterCreate" }
       responses:
-        "201": { $ref: "#/components/responses/Entity" }
+        "201": { $ref: "#/components/responses/ClusterEntity" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
     patch:
       tags: [Organization Admin]
-      x-implementation-status: planned
+      x-implementation-status: implemented
       summary: Update the singleton cluster profile
       operationId: updateCluster
       parameters: [{ $ref: "#/components/parameters/IfMatch" }]
@@ -1632,14 +1632,15 @@ paths:
         required: true
         content:
           application/merge-patch+json:
-            schema: { $ref: "#/components/schemas/OrganizationNodePatch" }
+            schema: { $ref: "#/components/schemas/ClusterPatch" }
       responses:
-        "200": { $ref: "#/components/responses/Entity" }
+        "200": { $ref: "#/components/responses/ClusterEntity" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /organization/facilities:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -1655,7 +1656,7 @@ paths:
           ],
         responses:
           {
-            "200": { $ref: "#/components/responses/Collection" },
+            "200": { $ref: "#/components/responses/FacilityCollection" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
           },
@@ -1681,7 +1682,7 @@ paths:
           },
         responses:
           {
-            "201": { $ref: "#/components/responses/Entity" },
+            "201": { $ref: "#/components/responses/FacilityEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
@@ -1693,7 +1694,7 @@ paths:
     get:
       {
         tags: [Organization Admin],
-        x-implementation-status: planned,
+        x-implementation-status: implemented,
         summary: Get a facility,
         operationId: getFacility,
         parameters:
@@ -1707,7 +1708,8 @@ paths:
           ],
         responses:
           {
-            "200": { $ref: "#/components/responses/Entity" },
+            "200": { $ref: "#/components/responses/FacilityEntity" },
+            "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "404": { $ref: "#/components/responses/NotFound" },
@@ -1716,7 +1718,7 @@ paths:
     patch:
       {
         tags: [Organization Admin],
-        x-implementation-status: planned,
+        x-implementation-status: implemented,
         summary: Update or archive a facility profile,
         operationId: updateFacility,
         parameters:
@@ -1737,19 +1739,20 @@ paths:
                 application/merge-patch+json:
                   {
                     schema:
-                      { $ref: "#/components/schemas/OrganizationNodePatch" },
+                      { $ref: "#/components/schemas/FacilityPatch" },
                   },
               },
           },
         responses:
           {
-            "200": { $ref: "#/components/responses/Entity" },
+            "200": { $ref: "#/components/responses/FacilityEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "404": { $ref: "#/components/responses/NotFound" },
             "409": { $ref: "#/components/responses/Conflict" },
             "412": { $ref: "#/components/responses/PreconditionFailed" },
+            "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /organization/units:
@@ -4377,6 +4380,30 @@ components:
         schema: { $ref: "#/components/schemas/UUIDv7" },
       }
   responses:
+    ClusterEntity:
+      description: Singleton cluster representation
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ClusterResponse" }
+    FacilityEntity:
+      description: Facility representation
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/FacilityResponse" }
+    FacilityCollection:
+      description: Cursor-paginated facilities
+      headers:
+        Link: { schema: { type: string } }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/FacilityCollection" }
     Entity:
       {
         description: Authorized typed resource representation,
@@ -4579,6 +4606,51 @@ components:
           },
       }
   schemas:
+    Cluster:
+      type: object
+      additionalProperties: false
+      required: [id, code, name_ar, name_en, status, lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
+        name_ar: { type: string, minLength: 1, maxLength: 255 }
+        name_en: { type: [string, "null"], maxLength: 255 }
+        status: { const: active }
+        lock_version: { type: integer, minimum: 1 }
+    Facility:
+      type: object
+      additionalProperties: false
+      required: [id, cluster_id, type_code, code, name_ar, name_en, status, lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        cluster_id: { $ref: "#/components/schemas/UUIDv7" }
+        type_code: { type: string, pattern: "^[a-z][a-z0-9_]{1,63}$" }
+        code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
+        name_ar: { type: string, minLength: 1, maxLength: 255 }
+        name_en: { type: [string, "null"], maxLength: 255 }
+        status: { type: string, enum: [active, inactive, archived] }
+        lock_version: { type: integer, minimum: 1 }
+    ClusterResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Cluster" }
+    FacilityResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Facility" }
+    FacilityCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Facility" }
+        next_cursor: { type: [string, "null"] }
     UUIDv7:
       {
         type: string,
@@ -5173,6 +5245,23 @@ components:
         code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
         name: { type: string, minLength: 1, maxLength: 255 }
         name_en: { type: [string, "null"], maxLength: 255 }
+    ClusterPatch:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+    FacilityPatch:
+      type: object
+      additionalProperties: false
+      anyOf:
+        - required: [name]
+        - required: [status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        status: { type: string, enum: [active, inactive, archived] }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
     OrganizationNodeCreate:
       {
         type: object,

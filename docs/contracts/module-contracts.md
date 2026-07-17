@@ -3,7 +3,7 @@ doc_id: CON-MC-001
 title: عقود الموديولات
 type: contracts
 status: accepted
-version: 1.3.0
+version: 1.4.0
 date: 2026-07-17
 owner: مسؤول هندسة البرمجيات
 reviewers:
@@ -20,7 +20,7 @@ references: []
 
 | Module | Owns | Publishes |
 |---|---|---|
-| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `FacilityCreated`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
+| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `ClusterUpdated`, `FacilityCreated`, `FacilityUpdated`, `FacilityArchived`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
 | Identity | sessions and current principal | authenticated access context |
 | Authorization | access decisions | `AccessDecision` |
 | Work Definitions | immutable published work-type versions | definition reads |
@@ -73,6 +73,7 @@ Schemas use JSON Schema Draft 2020-12 with `additionalProperties: false` unless 
 
 | Version | Date | Change |
 |---|---|---|
+| 1.4.0 | 2026-07-18 | Publish optimistic cluster/facility update and facility archive contracts |
 | 1.3.0 | 2026-07-18 | Publish ClusterCreated and FacilityCreated contracts for the first Organization slice |
 | 1.2.0 | 2026-07-18 | Freeze W1.2 Organization, Identity, import, bootstrap, and audit boundaries |
 | 1.1.0 | 2026-07-17 | Define shared HTTP, event, and compatibility rules |

@@ -1,7 +1,7 @@
 asyncapi: 3.1.0
 info:
   title: Cluster Platform Domain Events
-  version: 1.1.0
+  version: 1.2.0
   description: CloudEvents JSON domain events delivered at least once through transactional Outbox, Redis Streams consumer groups, consumer Inbox, and DLQ.
 servers:
   production:
@@ -55,6 +55,21 @@ channels:
     messages:
       facilityCreated:
         $ref: '#/components/messages/FacilityCreated'
+  cluster-updated:
+    address: platform.organization.cluster-updated.v1
+    messages:
+      clusterUpdated:
+        $ref: '#/components/messages/ClusterUpdated'
+  facility-updated:
+    address: platform.organization.facility-updated.v1
+    messages:
+      facilityUpdated:
+        $ref: '#/components/messages/FacilityUpdated'
+  facility-archived:
+    address: platform.organization.facility-archived.v1
+    messages:
+      facilityArchived:
+        $ref: '#/components/messages/FacilityArchived'
   dead-letter:
     address: platform.dlq.v1
     messages:
@@ -133,6 +148,30 @@ operations:
     action: receive
     channel: {$ref: '#/channels/facility-created'}
     messages: [{$ref: '#/channels/facility-created/messages/facilityCreated'}]
+  publishClusterUpdated:
+    action: send
+    channel: {$ref: '#/channels/cluster-updated'}
+    messages: [{$ref: '#/channels/cluster-updated/messages/clusterUpdated'}]
+  consumeClusterUpdated:
+    action: receive
+    channel: {$ref: '#/channels/cluster-updated'}
+    messages: [{$ref: '#/channels/cluster-updated/messages/clusterUpdated'}]
+  publishFacilityUpdated:
+    action: send
+    channel: {$ref: '#/channels/facility-updated'}
+    messages: [{$ref: '#/channels/facility-updated/messages/facilityUpdated'}]
+  consumeFacilityUpdated:
+    action: receive
+    channel: {$ref: '#/channels/facility-updated'}
+    messages: [{$ref: '#/channels/facility-updated/messages/facilityUpdated'}]
+  publishFacilityArchived:
+    action: send
+    channel: {$ref: '#/channels/facility-archived'}
+    messages: [{$ref: '#/channels/facility-archived/messages/facilityArchived'}]
+  consumeFacilityArchived:
+    action: receive
+    channel: {$ref: '#/channels/facility-archived'}
+    messages: [{$ref: '#/channels/facility-archived/messages/facilityArchived'}]
   consumeDeadLetter:
     action: receive
     channel: {$ref: '#/channels/dead-letter'}
@@ -238,6 +277,39 @@ components:
             properties:
               type: {const: com.cluster.organization.facilitycreated.v1}
               data: {$ref: '../schemas/facility-created.schema.json'}
+    ClusterUpdated:
+      name: ClusterUpdated
+      title: Singleton cluster profile updated
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.clusterupdated.v1}
+              data: {$ref: '../schemas/cluster-updated.schema.json'}
+    FacilityUpdated:
+      name: FacilityUpdated
+      title: Facility profile updated or restored
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.facilityupdated.v1}
+              data: {$ref: '../schemas/facility-updated.schema.json'}
+    FacilityArchived:
+      name: FacilityArchived
+      title: Facility deactivated or permanently archived
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.facilityarchived.v1}
+              data: {$ref: '../schemas/facility-archived.schema.json'}
     DeadLetter:
       name: DeadLetter
       title: Dead-letter event

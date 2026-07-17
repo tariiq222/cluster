@@ -49,11 +49,29 @@ EXPECTED_ACCOUNT_STATES = ["pending", "active", "locked", "disabled", "archived"
 ORGANIZATION_RUNTIME_STATUS = {
     ("/organization/cluster", "get"): "implemented",
     ("/organization/cluster", "post"): "implemented",
-    ("/organization/cluster", "patch"): "planned",
+    ("/organization/cluster", "patch"): "implemented",
     ("/organization/facilities", "get"): "implemented",
     ("/organization/facilities", "post"): "implemented",
-    ("/organization/facilities/{facilityId}", "get"): "planned",
-    ("/organization/facilities/{facilityId}", "patch"): "planned",
+    ("/organization/facilities/{facilityId}", "get"): "implemented",
+    ("/organization/facilities/{facilityId}", "patch"): "implemented",
+}
+ORGANIZATION_RESPONSES = {
+    ("/organization/cluster", "get"): {"200", "401", "403", "404"},
+    ("/organization/cluster", "post"): {"201", "400", "401", "403", "409"},
+    ("/organization/cluster", "patch"): {"200", "400", "401", "403", "404", "412", "500"},
+    ("/organization/facilities", "get"): {"200", "401", "403"},
+    ("/organization/facilities", "post"): {"201", "400", "401", "403", "409"},
+    ("/organization/facilities/{facilityId}", "get"): {"200", "400", "401", "403", "404"},
+    ("/organization/facilities/{facilityId}", "patch"): {"200", "400", "401", "403", "404", "409", "412", "500"},
+}
+ORGANIZATION_SUCCESS_RESPONSES = {
+    ("/organization/cluster", "get", "200"): "#/components/responses/ClusterEntity",
+    ("/organization/cluster", "post", "201"): "#/components/responses/ClusterEntity",
+    ("/organization/cluster", "patch", "200"): "#/components/responses/ClusterEntity",
+    ("/organization/facilities", "get", "200"): "#/components/responses/FacilityCollection",
+    ("/organization/facilities", "post", "201"): "#/components/responses/FacilityEntity",
+    ("/organization/facilities/{facilityId}", "get", "200"): "#/components/responses/FacilityEntity",
+    ("/organization/facilities/{facilityId}", "patch", "200"): "#/components/responses/FacilityEntity",
 }
 EXPECTED_EVENTS = {
     "cluster-created": (
@@ -64,6 +82,21 @@ EXPECTED_EVENTS = {
     "facility-created": (
         "FacilityCreated",
         ROOT / "docs/contracts/schemas/facility-created.schema.json",
+        {"facility", "access_context", "classification"},
+    ),
+    "cluster-updated": (
+        "ClusterUpdated",
+        ROOT / "docs/contracts/schemas/cluster-updated.schema.json",
+        {"cluster", "access_context", "classification"},
+    ),
+    "facility-updated": (
+        "FacilityUpdated",
+        ROOT / "docs/contracts/schemas/facility-updated.schema.json",
+        {"facility", "access_context", "classification"},
+    ),
+    "facility-archived": (
+        "FacilityArchived",
+        ROOT / "docs/contracts/schemas/facility-archived.schema.json",
         {"facility", "access_context", "classification"},
     ),
     "identity-provisioning-requested": (
@@ -130,6 +163,16 @@ for (path, method), status in ORGANIZATION_RUNTIME_STATUS.items():
     if source_paths[path][method].get("x-implementation-status") != status:
         fail(f"{method.upper()} {path} must be marked {status}")
 
+for (path, method), expected in ORGANIZATION_RESPONSES.items():
+    actual = set(source_paths[path][method].get("responses", {}))
+    if actual != expected:
+        fail(f"{method.upper()} {path} responses must be exactly {sorted(expected)}")
+
+for (path, method, status), expected_ref in ORGANIZATION_SUCCESS_RESPONSES.items():
+    actual_ref = source_paths[path][method]["responses"][status].get("$ref")
+    if actual_ref != expected_ref:
+        fail(f"{method.upper()} {path} success response must reference {expected_ref}")
+
 schemas = source.get("components", {}).get("schemas", {})
 account_states = schemas.get("AccountStatus", {}).get("enum")
 if account_states != EXPECTED_ACCOUNT_STATES:
@@ -160,6 +203,14 @@ if set(facility_create.get("required", [])) != {"cluster_id", "type_code", "code
     fail("FacilityCreate must freeze the implemented facility payload")
 if set(facility_create.get("properties", {})) != {"cluster_id", "type_code", "code", "name", "name_en"}:
     fail("FacilityCreate must not expose unit-only fields such as parent_id")
+
+cluster_patch = schemas.get("ClusterPatch", {})
+if set(cluster_patch.get("required", [])) != {"name"} or set(cluster_patch.get("properties", {})) != {"name", "reason"}:
+    fail("ClusterPatch must update the singleton profile without exposing archive or parent fields")
+
+facility_patch = schemas.get("FacilityPatch", {})
+if set(facility_patch.get("properties", {})) != {"name", "status", "reason"}:
+    fail("FacilityPatch must freeze profile and lifecycle fields")
 
 snapshot_schemas = snapshot.get("components", {}).get("schemas", {})
 session_required = set(snapshot_schemas.get("W12Session", {}).get("required", []))
@@ -236,7 +287,10 @@ catalog = (ROOT / "docs/catalog.yaml").read_text(encoding="utf-8")
 for catalog_path in (
     "contracts/api/w1-2.openapi.yaml",
     "contracts/schemas/cluster-created.schema.json",
+    "contracts/schemas/cluster-updated.schema.json",
     "contracts/schemas/facility-created.schema.json",
+    "contracts/schemas/facility-updated.schema.json",
+    "contracts/schemas/facility-archived.schema.json",
     "contracts/schemas/identity-provisioning-requested.schema.json",
     "contracts/schemas/person-access-status-changed.schema.json",
 ):

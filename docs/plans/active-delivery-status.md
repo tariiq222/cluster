@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.7.0
+version: 4.8.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -32,8 +32,9 @@ references:
   يحتاج push فقط ليظهر دليله في CI المستضاف.
 - ADR-024 مقبول، وملكية Person واتجاه `Identity -> Organization` وtaxonomy الحساب
   وعقود OpenAPI والأحداث والاستيراد والنطاق وbootstrap مجمدة ومتسقة.
-- اكتملت أول شريحة Organization محلياً: إنشاء وقراءة التجمع الواحد، وإنشاء وقائمة
-  المنشآت بأنواع محكومة، مع idempotency وOutbox ذري وتفويض bootstrap مغلق افتراضياً.
+- اكتمل CRUD الخلفي الحالي للتجمع والمنشآت محلياً: إنشاء/قراءة/تعديل التجمع الواحد،
+  وإنشاء/قائمة/قراءة/تعديل/أرشفة المنشآت، مع ETag و`If-Match` وOutbox ذري وتفويض
+  bootstrap مغلق افتراضياً.
 - نشر VPS المباشر والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
   النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
 
@@ -70,12 +71,14 @@ references:
 | 2026-07-18 | `php artisan test Modules/Organization/Tests/OrganizationCoreHttpAdapterTest.php` | أخضر: 6 اختبارات و81 assertion للتجمع والمنشآت وcursor وidempotency وrollback الذري للـOutbox |
 | 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` | أخضر: migration واختبارات Organization وrollback المعاملة وmigration على MySQL مع Redis وعزل W1.1؛ أزيل اعتماد smoke على `.env` المحلي بإضافة `APP_KEY` اختباري |
 | 2026-07-18 | `make verify-w1-2` بعد W12-ORG-01 | أخضر: 62 اختبار API و573 assertion، الحدود والعقود وOpenAPI، و10 اختبارات Web بتغطية 100% |
+| 2026-07-18 | `make verify-w1-2` بعد CRUD التجمع والمنشآت | أخضر: 66 اختبار API و648 assertion، عقود W1.2 عبر Redocly والحدود، وثبات Orval 8.22.0 لخط أساس W1.1 بلا drift، وبناء Web و10 اختبارات بتغطية 100% |
+| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد optimistic updates | أخضر: MySQL أثبت تحديث/أرشفة Organization و`412` وrollback الذري مع Outbox، ثم عزل W1.1 وRedis وInbox/DLQ |
 
 ## الخطوة التالية
 
-1. تكمل شريحة Organization التالية عرض المنشأة المفردة وتعديل/أرشفة التجمع والمنشأة بـ`If-Match` وETag.
-2. تثبت اختبارات التعارض `412` وعدم الكتابة الجزئية ثم تغلق CRUD المنشآت.
-3. بعدها تبدأ شجرة الوحدات والمناصب، ثم Person وIdentity والاستيراد.
+1. تبدأ شريحة شجرة الوحدات التنظيمية مع منع الدوران وحفظ المسار داخل معاملة واحدة.
+2. تضاف المناصب وعلاقة منصب المدير بعقد متفائل وOutbox ذري.
+3. بعدها تبدأ Person وIdentity والاستيراد المحكوم.
 
 ينفذ CI الجديد على GitHub-hosted runners عند أول push. لا يبدأ أي تشغيل على الخادم
 حتى تصل الخطة إلى `D1` وتتوفر قيم `.env.production` وDNS وربط MySQL وRedis الخاص.
@@ -84,6 +87,7 @@ references:
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.8.0 | 2026-07-18 | إغلاق CRUD التجمع والمنشآت مع ETag و`412` والأرشفة وOutbox الذري على SQLite وMySQL |
 | 4.7.0 | 2026-07-18 | إغلاق W12-ORG-01 للتجمع الواحد وإنشاء المنشآت على SQLite وMySQL |
 | 4.6.0 | 2026-07-18 | إغلاق W12-00 محلياً وفتح أول شريحة تنفيذ Organization |
 | 4.5.0 | 2026-07-18 | تسجيل CI الأخضر بعد دمج workspaces وإصلاح انحرافات checkout النظيف |
