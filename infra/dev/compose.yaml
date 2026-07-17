@@ -17,15 +17,15 @@ services:
       retries: 30
       start_period: 10s
 
-  valkey:
-    image: docker.io/valkey/valkey:8.1.1@sha256:a19bebed6a91bd5e6e2106fef015f9602a3392deeb7c9ed47548378dcee3dfc2
-    command: ["valkey-server", "--appendonly", "yes"]
+  redis:
+    image: docker.io/library/redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "127.0.0.1:${W1_1_VALKEY_PORT:-6380}:6379"
+      - "127.0.0.1:${W1_1_REDIS_PORT:-6380}:6379"
     volumes:
-      - valkey-data:/data
+      - redis-data:/data
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -33,4 +33,4 @@ services:
 
 volumes:
   mysql-data: {}
-  valkey-data: {}
+  redis-data: {}

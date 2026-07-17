@@ -17,7 +17,7 @@ references: []
 ---
 # C4 والتدفقات المعمارية
 
-الرسومات المصدرية القابلة للتحرير موجودة في [diagrams](diagrams/). تصف القرارات المعتمدة وفق ADR-023: خادم داخلي واحد، Dokploy، وحزمة Docker Compose مثبتة. لا تمثل Kubernetes أو RKE2 أو GitOps controller، ولا تفترض air-gap مؤسسياً.
+الرسومات المصدرية القابلة للتحرير موجودة في [diagrams](diagrams/). تصف القرارات المعتمدة وفق ADR-023: VPS واحد، Caddy، وحزمة Docker Compose مباشرة تستخدم MySQL وRedis الموجودين على الخادم. لا تمثل Kubernetes أو GitOps controller.
 
 | المستوى أو التدفق | الرسم | الغرض |
 |---|---|---|

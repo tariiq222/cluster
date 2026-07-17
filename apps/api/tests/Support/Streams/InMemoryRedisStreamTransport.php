@@ -4,9 +4,9 @@ namespace Tests\Support\Streams;
 
 use Closure;
 use RuntimeException;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
 
-final class InMemoryValkeyStreamTransport implements ValkeyStreamTransport
+final class InMemoryRedisStreamTransport implements RedisStreamTransport
 {
     /** @var array<string, list<array{id: string, fields: array<string, string>}>> */
     private array $streams = [];
@@ -195,7 +195,7 @@ final class InMemoryValkeyStreamTransport implements ValkeyStreamTransport
     private function &group(string $stream, string $group): array
     {
         if (! isset($this->groups[$stream][$group])) {
-            throw new RuntimeException('The in-memory Valkey consumer group does not exist.');
+            throw new RuntimeException('The in-memory Redis consumer group does not exist.');
         }
 
         return $this->groups[$stream][$group];

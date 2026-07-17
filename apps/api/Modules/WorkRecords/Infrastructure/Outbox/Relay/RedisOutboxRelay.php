@@ -3,9 +3,9 @@
 namespace Modules\WorkRecords\Infrastructure\Outbox\Relay;
 
 use Illuminate\Support\Facades\DB;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
 
-final class ValkeyOutboxRelay
+final class RedisOutboxRelay
 {
     private const STREAM = 'platform.work-record.submitted.v1';
 
@@ -13,7 +13,7 @@ final class ValkeyOutboxRelay
 
     private const MAX_BATCH_SIZE = 100;
 
-    public function __construct(private readonly ValkeyStreamTransport $transport) {}
+    public function __construct(private readonly RedisStreamTransport $transport) {}
 
     public function relayPending(int $limit = 100): int
     {

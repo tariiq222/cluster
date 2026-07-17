@@ -49,7 +49,7 @@ review_by: 2027-01-15
 | [020](020-organization-and-time-bounded-authority.md) | التنظيم والسلطة المحددة زمنياً | accepted |
 | [021](021-strategy-indicator-ownership.md) | ملكية الاستراتيجية والمؤشرات | accepted |
 | [022](022-portfolio-projects-and-risk-boundaries.md) | حدود المحافظ والمشاريع والمخاطر | accepted |
-| [023](023-single-host-dokploy-deployment.md) | تشغيل الخادم الداخلي عبر Dokploy وDocker Compose | accepted |
+| [023](023-single-host-dokploy-deployment.md) | تشغيل VPS مباشر عبر Docker Compose | accepted |
 | [024](024-organization-identity-import-boundaries.md) | ملكية Organization وIdentity وحدود الاستيراد | proposed |
 
 القالب المعتمد: [template.md](template.md).

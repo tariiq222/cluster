@@ -9,13 +9,13 @@ use Modules\Notifications\Features\ListMyNotifications\Http\ListMyNotificationsC
 use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController;
 use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController;
 use Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController;
-use Tests\Support\Streams\BindsInMemoryValkeyStreamTransport;
-use Tests\Support\Streams\InMemoryValkeyStreamTransport;
+use Tests\Support\Streams\BindsInMemoryRedisStreamTransport;
+use Tests\Support\Streams\InMemoryRedisStreamTransport;
 use Tests\TestCase;
 
 class WalkingSkeletonE2ETest extends TestCase
 {
-    use BindsInMemoryValkeyStreamTransport;
+    use BindsInMemoryRedisStreamTransport;
     use RefreshDatabase;
 
     private const ACCOUNT_A_CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000001';
@@ -143,8 +143,8 @@ class WalkingSkeletonE2ETest extends TestCase
         }
 
         $now = 1_784_198_760_000;
-        $transport = $this->bindInMemoryValkeyStreamTransport(
-            new InMemoryValkeyStreamTransport(static function () use (&$now): int {
+        $transport = $this->bindInMemoryRedisStreamTransport(
+            new InMemoryRedisStreamTransport(static function () use (&$now): int {
                 return $now;
             }),
         );

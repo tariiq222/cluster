@@ -43,12 +43,12 @@ references:
 | API | معدل الطلبات، error rate، latency، saturation، readiness |
 | workers | عمق الطابور، عمر أقدم رسالة، الفشل وإعادة المحاولة وDLQ |
 | MySQL | health، latency، اتصالات، backup health، مساحة التخزين |
-| Valkey | health، الذاكرة، الاتصالات، طابور المعالجة |
+| Redis | health، الذاكرة، الاتصالات، Streams وpending entries |
 | OpenSearch للبحث | cluster health، query latency، queue، تأخر فهرسة البحث، مساحة القرص |
 | Loki للسجلات | صحة ingestion، تأخر السجلات، query latency، أخطاء التخزين، وفترة الاحتفاظ |
 | التخزين | السعة، الأخطاء، latency، نجاح النسخ وObject Lock |
-| الخادم وDocker | CPU والذاكرة والقرص والطاقة، صحة Docker وDokploy، container restarts وhealthchecks |
-| الأمن | المنافذ المرفوضة، محاولات الإدارة، انتهاء الشهادات، وتدقيق نشر Dokploy |
+| الخادم وDocker | CPU والذاكرة والقرص، صحة Docker، container restarts وhealthchecks |
+| الأمن | المنافذ المرفوضة، محاولات SSH، انتهاء شهادة Caddy، وتدقيق النشر |
 
 ## التنبيهات والتصعيد
 

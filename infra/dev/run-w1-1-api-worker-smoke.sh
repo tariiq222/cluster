@@ -26,8 +26,8 @@ readonly ENV_FILE="$ROOT_DIR/infra/dev/.env.example"
 readonly API_DIR="$ROOT_DIR/apps/api"
 readonly PROJECT="cluster-w1-1-smoke-$$"
 readonly MYSQL_PORT="${W1_1_MYSQL_PORT:-$(pick_free_port)}"
-readonly VALKEY_PORT="${W1_1_VALKEY_PORT:-$(pick_free_port "$MYSQL_PORT")}"
-readonly API_PORT="${W1_1_API_PORT:-$(pick_free_port "$MYSQL_PORT" "$VALKEY_PORT")}"
+readonly REDIS_PORT="${W1_1_REDIS_PORT:-$(pick_free_port "$MYSQL_PORT")}"
+readonly API_PORT="${W1_1_API_PORT:-$(pick_free_port "$MYSQL_PORT" "$REDIS_PORT")}"
 readonly HEALTH_TIMEOUT="${W1_1_HEALTH_TIMEOUT_SECONDS:-90}"
 readonly MYSQL_DATABASE="${W1_1_MYSQL_DATABASE:-cluster}"
 readonly MYSQL_USER="${W1_1_MYSQL_USER:-cluster}"
@@ -38,7 +38,7 @@ readonly COMPOSE=(docker compose --project-name "$PROJECT" --env-file "$ENV_FILE
 API_PID=""
 CROSS_A=""
 CROSS_B=""
-export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_PORT="$MYSQL_PORT" W1_1_VALKEY_PORT="$VALKEY_PORT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
+export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_PORT="$MYSQL_PORT" W1_1_REDIS_PORT="$REDIS_PORT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
 
 cleanup() {
   local status=$?
@@ -132,19 +132,19 @@ api_env=(
   DB_PASSWORD="$MYSQL_PASSWORD"
   REDIS_CLIENT=predis
   REDIS_HOST=127.0.0.1
-  REDIS_PORT="$VALKEY_PORT"
+  REDIS_PORT="$REDIS_PORT"
   SESSION_DRIVER=array
 )
 
 printf 'Starting bounded API/worker smoke resources.\n'
 assert_port_free "$MYSQL_PORT"
-assert_port_free "$VALKEY_PORT"
+assert_port_free "$REDIS_PORT"
 assert_port_free "$API_PORT"
-"${COMPOSE[@]}" up -d mysql valkey >/dev/null
+"${COMPOSE[@]}" up -d mysql redis >/dev/null
 wait_healthy mysql
-wait_healthy valkey
+wait_healthy redis
 "${COMPOSE[@]}" exec -T mysql mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent >/dev/null
-"${COMPOSE[@]}" exec -T valkey valkey-cli ping | grep -Fxq PONG
+"${COMPOSE[@]}" exec -T redis redis-cli ping | grep -Fxq PONG
 
 (
   cd "$API_DIR"
@@ -195,7 +195,7 @@ notifications_a="$(curl --silent --show-error --fail --max-time 10 -H "Authoriza
 notifications_b="$(curl --silent --show-error --fail --max-time 10 -H "Authorization: Bearer $token_b" -H "X-Correlation-ID: $correlation_b" "http://127.0.0.1:${API_PORT}/api/v1/notifications")"
 jq -e --arg id "$record_a" '(.items | length) == 1 and .items[0].source.record_id == $id' <<<"$notifications_a" >/dev/null
 jq -e --arg id "$record_b" '(.items | length) == 1 and .items[0].source.record_id == $id' <<<"$notifications_b" >/dev/null
-"${COMPOSE[@]}" exec -T valkey valkey-cli XPENDING platform.work-record.submitted.v1 notifications.work-record-submitted.v1 | head -n 1 | grep -Fxq 0
+"${COMPOSE[@]}" exec -T redis redis-cli XPENDING platform.work-record.submitted.v1 notifications.work-record-submitted.v1 | head -n 1 | grep -Fxq 0
 
 (
   cd "$API_DIR"

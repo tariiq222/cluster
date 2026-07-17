@@ -10,8 +10,8 @@ use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\Developmen
 use Modules\WorkDefinitions\Contracts\ResolvePublishedRequestFixture;
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedRequestFixtureFromPersistence;
 use Predis\Client;
-use Shared\Infrastructure\Streams\PredisValkeyStreamTransport;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
+use Shared\Infrastructure\Streams\PredisRedisStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,10 +23,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DecideAccess::class, FixtureFacilityDecision::class);
         $this->app->bind(ResolvePublishedRequestFixture::class, ResolvePublishedRequestFixtureFromPersistence::class);
         $this->app->singleton(ResolveDevelopmentFixturePrincipal::class, DevelopmentFixturePrincipalResolver::class);
-        $this->app->singleton(ValkeyStreamTransport::class, function (): ValkeyStreamTransport {
+        $this->app->singleton(RedisStreamTransport::class, function (): RedisStreamTransport {
             $url = config('database.redis.default.url');
             if (is_string($url) && $url !== '') {
-                return new PredisValkeyStreamTransport(new Client($url));
+                return new PredisRedisStreamTransport(new Client($url));
             }
 
             $parameters = [
@@ -42,7 +42,7 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
 
-            return new PredisValkeyStreamTransport(new Client($parameters));
+            return new PredisRedisStreamTransport(new Client($parameters));
         });
     }
 

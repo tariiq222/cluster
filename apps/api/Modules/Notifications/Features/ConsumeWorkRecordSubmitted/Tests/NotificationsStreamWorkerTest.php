@@ -8,7 +8,7 @@ use Mockery;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWorkRecordSubmittedHandler;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use RuntimeException;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\TestCase;
 
 class NotificationsStreamWorkerTest extends TestCase
@@ -27,7 +27,7 @@ class NotificationsStreamWorkerTest extends TestCase
     {
         $this->requireAsyncImplementation();
         $event = $this->cloudEvent();
-        $transport = Mockery::mock(ValkeyStreamTransport::class);
+        $transport = Mockery::mock(RedisStreamTransport::class);
         $transport->shouldReceive('createGroup')->once()->with(self::STREAM, self::GROUP);
         $transport->shouldReceive('pending')->once()->with(self::STREAM, self::GROUP, 10)->andReturn([]);
         $transport->shouldReceive('readGroup')
@@ -41,7 +41,7 @@ class NotificationsStreamWorkerTest extends TestCase
                 $this->assertSame(1, DB::table('notification_inbox')->where('event_id', $event['id'])->count());
                 $this->assertSame(1, DB::table('notifications')->where('event_id', $event['id'])->count());
             });
-        $this->app->instance(ValkeyStreamTransport::class, $transport);
+        $this->app->instance(RedisStreamTransport::class, $transport);
 
         $processed = $this->worker()->consumeOnce('worker-a', 10);
 
@@ -54,7 +54,7 @@ class NotificationsStreamWorkerTest extends TestCase
     {
         $this->requireAsyncImplementation();
         $event = $this->cloudEvent();
-        $firstTransport = Mockery::mock(ValkeyStreamTransport::class);
+        $firstTransport = Mockery::mock(RedisStreamTransport::class);
         $firstTransport->shouldReceive('createGroup')->once()->with(self::STREAM, self::GROUP);
         $firstTransport->shouldReceive('pending')->once()->with(self::STREAM, self::GROUP, 10)->andReturn([]);
         $firstTransport->shouldReceive('readGroup')
@@ -65,7 +65,7 @@ class NotificationsStreamWorkerTest extends TestCase
             ->once()
             ->with(self::STREAM, self::GROUP, self::MESSAGE_ID)
             ->andThrow(new RuntimeException('CONTROLLED_POST_COMMIT_PRE_ACK_CRASH'));
-        $this->app->instance(ValkeyStreamTransport::class, $firstTransport);
+        $this->app->instance(RedisStreamTransport::class, $firstTransport);
 
         try {
             $this->worker()->consumeOnce('worker-a', 10);
@@ -77,7 +77,7 @@ class NotificationsStreamWorkerTest extends TestCase
         $this->assertDatabaseCount('notification_inbox', 1);
         $this->assertDatabaseCount('notifications', 1);
 
-        $restartedTransport = Mockery::mock(ValkeyStreamTransport::class);
+        $restartedTransport = Mockery::mock(RedisStreamTransport::class);
         $restartedTransport->shouldReceive('createGroup')->once()->with(self::STREAM, self::GROUP);
         $restartedTransport->shouldReceive('pending')->once()->with(self::STREAM, self::GROUP, 10)->andReturn([[
             'id' => self::MESSAGE_ID,
@@ -100,7 +100,7 @@ class NotificationsStreamWorkerTest extends TestCase
                 $this->assertDatabaseCount('notification_inbox', 1);
                 $this->assertDatabaseCount('notifications', 1);
             });
-        $this->app->instance(ValkeyStreamTransport::class, $restartedTransport);
+        $this->app->instance(RedisStreamTransport::class, $restartedTransport);
 
         $processed = $this->worker()->consumeOnce('worker-b', 10);
 
@@ -114,7 +114,7 @@ class NotificationsStreamWorkerTest extends TestCase
         $this->requireAsyncImplementation();
         $event = $this->cloudEvent();
         $event['type'] = 'com.cluster.workrecord.invalid.v1';
-        $transport = Mockery::mock(ValkeyStreamTransport::class);
+        $transport = Mockery::mock(RedisStreamTransport::class);
         $transport->shouldReceive('createGroup')->once()->with(self::STREAM, self::GROUP);
         $transport->shouldReceive('pending')->once()->with(self::STREAM, self::GROUP, 10)->andReturn([]);
         $transport->shouldReceive('readGroup')
@@ -141,7 +141,7 @@ class NotificationsStreamWorkerTest extends TestCase
             ->once()
             ->with(self::STREAM, self::GROUP, self::MESSAGE_ID)
             ->ordered();
-        $this->app->instance(ValkeyStreamTransport::class, $transport);
+        $this->app->instance(RedisStreamTransport::class, $transport);
 
         $processed = $this->worker()->consumeOnce('worker-poison', 10);
 
@@ -153,7 +153,7 @@ class NotificationsStreamWorkerTest extends TestCase
     public function test_exhausted_malformed_entry_publishes_a_reviewable_dlq_envelope_before_ack(): void
     {
         $this->requireAsyncImplementation();
-        $transport = Mockery::mock(ValkeyStreamTransport::class);
+        $transport = Mockery::mock(RedisStreamTransport::class);
         $transport->shouldReceive('createGroup')->once()->with(self::STREAM, self::GROUP);
         $transport->shouldReceive('pending')->once()->with(self::STREAM, self::GROUP, 10)->andReturn([]);
         $transport->shouldReceive('readGroup')
@@ -179,7 +179,7 @@ class NotificationsStreamWorkerTest extends TestCase
             ->once()
             ->with(self::STREAM, self::GROUP, self::MESSAGE_ID)
             ->ordered();
-        $this->app->instance(ValkeyStreamTransport::class, $transport);
+        $this->app->instance(RedisStreamTransport::class, $transport);
 
         $this->assertSame(1, $this->worker()->consumeOnce('worker-malformed', 10));
     }
@@ -187,7 +187,7 @@ class NotificationsStreamWorkerTest extends TestCase
     public function test_malformed_entry_remains_pending_when_dlq_publication_fails(): void
     {
         $this->requireAsyncImplementation();
-        $transport = Mockery::mock(ValkeyStreamTransport::class);
+        $transport = Mockery::mock(RedisStreamTransport::class);
         $transport->shouldReceive('createGroup')->once()->with(self::STREAM, self::GROUP);
         $transport->shouldReceive('pending')->once()->with(self::STREAM, self::GROUP, 10)->andReturn([]);
         $transport->shouldReceive('readGroup')
@@ -198,7 +198,7 @@ class NotificationsStreamWorkerTest extends TestCase
             ->once()
             ->andThrow(new RuntimeException('DLQ_UNAVAILABLE'));
         $transport->shouldNotReceive('ack');
-        $this->app->instance(ValkeyStreamTransport::class, $transport);
+        $this->app->instance(RedisStreamTransport::class, $transport);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('DLQ_UNAVAILABLE');
@@ -208,14 +208,14 @@ class NotificationsStreamWorkerTest extends TestCase
     public function test_consumer_command_requires_once_and_a_named_consumer_then_exits(): void
     {
         $this->requireAsyncImplementation();
-        $transport = Mockery::mock(ValkeyStreamTransport::class);
+        $transport = Mockery::mock(RedisStreamTransport::class);
         $transport->shouldReceive('createGroup')->once()->with(self::STREAM, self::GROUP);
         $transport->shouldReceive('pending')->once()->with(self::STREAM, self::GROUP, 10)->andReturn([]);
         $transport->shouldReceive('readGroup')
             ->once()
             ->with(self::STREAM, self::GROUP, 'worker-command', 10)
             ->andReturn([]);
-        $this->app->instance(ValkeyStreamTransport::class, $transport);
+        $this->app->instance(RedisStreamTransport::class, $transport);
 
         $this->artisan('notifications:consume-work-record-submitted --once --consumer=worker-command')
             ->assertSuccessful();
@@ -232,8 +232,8 @@ class NotificationsStreamWorkerTest extends TestCase
 
     private function requireAsyncImplementation(): void
     {
-        if (! interface_exists(ValkeyStreamTransport::class)
-            || ! class_exists('Modules\\WorkRecords\\Infrastructure\\Outbox\\Relay\\ValkeyOutboxRelay')
+        if (! interface_exists(RedisStreamTransport::class)
+            || ! class_exists('Modules\\WorkRecords\\Infrastructure\\Outbox\\Relay\\RedisOutboxRelay')
             || ! class_exists(ConsumeWorkRecordSubmittedHandler::class)
             || ! class_exists(NotificationsStreamWorker::class)) {
             $this->markTestSkipped('The relay suite owns the deliberate missing-implementation RED marker.');

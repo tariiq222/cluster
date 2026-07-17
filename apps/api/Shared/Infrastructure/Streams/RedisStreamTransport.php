@@ -2,7 +2,7 @@
 
 namespace Shared\Infrastructure\Streams;
 
-interface ValkeyStreamTransport
+interface RedisStreamTransport
 {
     /** @param array<string, string> $fields */
     public function xadd(string $stream, array $fields): string;

@@ -5,12 +5,12 @@ namespace Modules\WorkRecords\Infrastructure\Outbox\Relay\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Mockery;
-use Modules\WorkRecords\Infrastructure\Outbox\Relay\ValkeyOutboxRelay;
+use Modules\WorkRecords\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use RuntimeException;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\TestCase;
 
-class ValkeyOutboxRelayTest extends TestCase
+class RedisOutboxRelayTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -19,8 +19,8 @@ class ValkeyOutboxRelayTest extends TestCase
     public function test_async_stream_seam_is_present(): void
     {
         $missing = array_values(array_filter([
-            interface_exists(ValkeyStreamTransport::class) ? null : ValkeyStreamTransport::class,
-            class_exists(ValkeyOutboxRelay::class) ? null : ValkeyOutboxRelay::class,
+            interface_exists(RedisStreamTransport::class) ? null : RedisStreamTransport::class,
+            class_exists(RedisOutboxRelay::class) ? null : RedisOutboxRelay::class,
             class_exists('Modules\\Notifications\\Features\\ConsumeWorkRecordSubmitted\\Handler\\ConsumeWorkRecordSubmittedHandler') ? null : 'notification handler',
             class_exists('Modules\\Notifications\\Features\\ConsumeWorkRecordSubmitted\\Worker\\NotificationsStreamWorker') ? null : 'notification worker',
         ]));
@@ -40,7 +40,7 @@ class ValkeyOutboxRelayTest extends TestCase
         $this->insertOutbox($first, '2026-07-16 09:00:00');
         $this->insertOutbox($second, '2026-07-16 09:00:01');
 
-        $transport = Mockery::mock(ValkeyStreamTransport::class);
+        $transport = Mockery::mock(RedisStreamTransport::class);
         $transport->shouldReceive('xadd')
             ->once()
             ->withArgs(function (string $stream, array $fields) use ($first): bool {
@@ -51,9 +51,9 @@ class ValkeyOutboxRelayTest extends TestCase
                 return true;
             })
             ->andReturn('1784192400000-0');
-        $this->app->instance(ValkeyStreamTransport::class, $transport);
+        $this->app->instance(RedisStreamTransport::class, $transport);
 
-        $published = $this->app->make(ValkeyOutboxRelay::class)->relayPending(1);
+        $published = $this->app->make(RedisOutboxRelay::class)->relayPending(1);
 
         $this->assertSame(1, $published);
         $this->assertNotNull(DB::table('outbox_events')->where('event_id', $first['id'])->value('published_at'));
@@ -68,9 +68,9 @@ class ValkeyOutboxRelayTest extends TestCase
         $event = $this->cloudEvent('018f6f7d-0c00-7000-8000-000000000303', '018f6f7d-0c00-7000-8000-000000000403');
         $this->insertOutbox($event, '2026-07-16 09:00:00');
 
-        $transport = Mockery::mock(ValkeyStreamTransport::class);
+        $transport = Mockery::mock(RedisStreamTransport::class);
         $transport->shouldReceive('xadd')->once()->andThrow(new RuntimeException('transport unavailable'));
-        $this->app->instance(ValkeyStreamTransport::class, $transport);
+        $this->app->instance(RedisStreamTransport::class, $transport);
 
         $this->artisan('work-records:relay-pending --once')
             ->assertFailed()
@@ -90,8 +90,8 @@ class ValkeyOutboxRelayTest extends TestCase
 
     private function requireAsyncImplementation(): void
     {
-        if (! interface_exists(ValkeyStreamTransport::class)
-            || ! class_exists(ValkeyOutboxRelay::class)
+        if (! interface_exists(RedisStreamTransport::class)
+            || ! class_exists(RedisOutboxRelay::class)
             || ! class_exists('Modules\\Notifications\\Features\\ConsumeWorkRecordSubmitted\\Handler\\ConsumeWorkRecordSubmittedHandler')
             || ! class_exists('Modules\\Notifications\\Features\\ConsumeWorkRecordSubmitted\\Worker\\NotificationsStreamWorker')) {
             $this->markTestSkipped('The deliberate missing-implementation test owns the RED marker.');

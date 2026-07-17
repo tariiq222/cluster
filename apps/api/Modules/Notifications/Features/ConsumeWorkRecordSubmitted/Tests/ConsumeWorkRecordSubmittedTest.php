@@ -10,7 +10,7 @@ use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWor
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use PDOException;
 use ReflectionMethod;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\TestCase;
 
 class ConsumeWorkRecordSubmittedTest extends TestCase
@@ -118,8 +118,8 @@ class ConsumeWorkRecordSubmittedTest extends TestCase
 
     private function requireAsyncImplementation(): void
     {
-        if (! interface_exists(ValkeyStreamTransport::class)
-            || ! class_exists('Modules\\WorkRecords\\Infrastructure\\Outbox\\Relay\\ValkeyOutboxRelay')
+        if (! interface_exists(RedisStreamTransport::class)
+            || ! class_exists('Modules\\WorkRecords\\Infrastructure\\Outbox\\Relay\\RedisOutboxRelay')
             || ! class_exists(ConsumeWorkRecordSubmittedHandler::class)
             || ! class_exists(NotificationsStreamWorker::class)) {
             $this->markTestSkipped('The relay suite owns the deliberate missing-implementation RED marker.');

@@ -3,7 +3,7 @@ doc_id: ARC-EN-005
 title: التكامل والتسليم والإصدار
 type: engineering
 status: accepted
-version: 2.0.0
+version: 3.0.0
 date: 2026-07-17
 owner: طارق
 reviewers: []
@@ -18,52 +18,51 @@ references:
 ---
 # التكامل والتسليم والإصدار
 
-## المبدأ
+## CI
 
-مشروع يُطوَّر محلياً ويُنشر على خادم واحد عبر Dokploy، مثل أي مشروع على VPS.
-CI يثبت أن الاختبارات سليمة، والنشر مرحلة نهائية مستقلة.
+تعمل `.github/workflows/ci.yml` على GitHub-hosted runners عند كل push وpull request:
 
-## CI على GitHub Actions
-
-يعمل `.github/workflows/ci.yml` على أجهزة GitHub المستضافة (`ubuntu-latest`)
-عند كل push، بأربع وظائف:
-
-| الوظيفة | ماذا تفحص |
+| الوظيفة | التحقق |
 |---|---|
-| `api` | composer validate، Pint، PHPStan، audit، اختبارات API، حدود الموديولات |
-| `web` | npm ci، عقد OpenAPI والعميل المولد، lint، اختبارات الوحدة بالتغطية، البناء |
-| `docs` | `./scripts/validate-docs.sh` و`mkdocs build --strict` |
-| `secrets` | gitleaks على تاريخ المستودع |
+| `api` | Composer وPint وPHPStan وaudit واختبارات API وحدود الموديولات |
+| `web` | npm وعقد OpenAPI وlint والتغطية والبناء |
+| `docs` | تحقق الوثائق وبناء MkDocs |
+| `secrets` | فحص الأسرار عبر Gitleaks |
+| `production-bundle` | سياسة Compose وبناء الصور ورحلة MySQL/Redis/Worker/Browser الكاملة |
 
-لا runners ذاتية، ولا Environments، ولا توقيع صور، ولا SBOM في CI. رحلة E2E
-الكاملة (`make verify-w1-1`) واختبار حزمة الإنتاج (`make verify-w1-1-local`)
-تنفذ محلياً لأنها تحتاج Docker وMySQL ومتصفحاً.
+لا runners ذاتية ولا registry إلزامي ولا توقيع صور أو SBOM أو receipts.
 
-## البناء والنشر (مرحلة D1 النهائية)
+## النشر
 
-1. تُبنى صور الإنتاج محلياً من lockfiles عبر `make verify-w1-1-local`، الذي
-   يفحص الحزمة ويبنيها ويشغل رحلة E2E كاملة على Compose الإنتاجي.
-2. تُدفع الصور إلى registry ويثبت مرجعها بالـdigest في
-   `infra/platform/production/compose.yaml`.
-3. ينشر Dokploy الحزمة على الخادم الداخلي، وhealthchecks تسبق التفعيل.
-4. الرجوع = إعادة نشر آخر digest سليم من Dokploy. لا DDL هدمي؛ ترحيلات
-   forward-fix أو restore وفق وثيقة الترحيلات.
-5. قبل التشغيل الحقيقي تُراجع `docs/plans/readiness-checklist.md` مرة واحدة
-   (نسخ/استعادة وأمن أساسي). إعداد الخادم وشبكته شأن إدارة الخادم خارج
-   نطاق المستودع.
+على الـVPS:
+
+```sh
+install -m 600 infra/platform/production/.env.example infra/platform/production/.env.production
+# عدل الملف بالقيم الفعلية مرة واحدة
+make deploy-vps
+```
+
+يبني Compose الصور من المصدر، يشغل migration، ثم API والعامل والويب وCaddy. يستخدم
+MySQL وRedis الموجودين على الخادم من خلال `DB_HOST` و`REDIS_HOST`.
+
+## الرجوع
+
+1. اختر آخر commit سليم وتأكد أن مصدره وDocker base images ما زالت متاحة لإعادة البناء.
+2. تأكد أن migration متوافقة للخلف أو استخدم forward-fix.
+3. شغّل `make deploy-vps`.
+4. تحقق من `/up` وتسجيل الدخول والعامل.
 
 ## قواعد ثابتة
 
-- الصور تُبنى من lockfiles ولا تنزّل حزماً عند بدء الحاوية.
-- صور الإنتاج مثبتة بالـdigest في Compose، لا `latest`.
-- لا أسرار في المستودع؛ أسرار التشغيل تُدار في Dokploy على الخادم.
-- MySQL وValkey على شبكات داخلية ولا تُنشر منافذها للعامة.
+- لا أسرار في Git؛ `.env.production` على الخادم فقط.
+- Caddy هو المدخل العام الوحيد على `80/443`.
+- MySQL وRedis غير متاحين من الإنترنت.
+- Dockerfiles تبني من lockfiles وتشغل مستخدمين غير root.
+- تؤخذ نسخة MySQL قبل migration عالية المخاطر.
 
 ## سجل التغيير
 
 | الإصدار | التاريخ | التغيير |
-| --- | --- | --- |
-| 2.0.0 | 2026-07-17 | تبسيط شامل: CI على أجهزة GitHub المستضافة، حذف runners الداخلية وEnvironments والتوقيع وSBOM، ونشر VPS عبر Dokploy في مرحلة D1 |
-| 1.3.1 | 2026-07-17 | تسجيل blocker P0-A عند غياب مدخلات GitHub الحية |
-| 1.2.0 | 2026-07-17 | نقل CI إلى GitHub Actions بعزل runners وEnvironments |
-| 1.1.0 | 2026-07-16 | مواءمة الإصدار مع Dokploy وCompose على خادم واحد |
+|---|---|---|
+| 3.0.0 | 2026-07-17 | اعتماد CI مستضاف ونشر VPS مباشر مع Caddy وMySQL/Redis خارجيين |
+| 2.0.0 | 2026-07-17 | تبسيط CI ونقل تشغيل الخادم إلى المرحلة النهائية |

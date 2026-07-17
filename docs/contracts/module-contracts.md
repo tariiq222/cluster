@@ -41,7 +41,7 @@ No consumer writes another module's persistence. Consumers use the HTTP contract
 ## Event Rules
 
 - Event messages are CloudEvents JSON with `specversion: "1.0"`, UUIDv7 `id` and required `correlationid`, and UTC `time` ending in `Z`.
-- The transport is Valkey-compatible Streams with consumer groups and explicit acknowledgement; Kafka topics are not part of this contract.
+- The transport is Redis Streams with consumer groups and explicit acknowledgement; Kafka topics are not part of this contract.
 - Producers persist the business mutation and Outbox row atomically. The relay delivers at least once.
 - Consumers persist Inbox receipt keyed by CloudEvent `id` before side effects; duplicate deliveries acknowledge without repeating effects.
 - Invalid or exhausted messages go to the DLQ with the original CloudEvent, failure code, attempt count, and failure timestamp. They are not silently discarded.

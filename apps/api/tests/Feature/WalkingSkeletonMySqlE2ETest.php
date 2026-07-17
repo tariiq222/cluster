@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-require_once dirname(__DIR__, 2).'/Shared/Infrastructure/Streams/ValkeyStreamTransport.php';
+require_once dirname(__DIR__, 2).'/Shared/Infrastructure/Streams/RedisStreamTransport.php';
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -11,8 +11,8 @@ use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWor
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use Predis\Client;
 use RuntimeException;
-use Shared\Infrastructure\Streams\PredisValkeyStreamTransport;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
+use Shared\Infrastructure\Streams\PredisRedisStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\TestCase;
 
 final class WalkingSkeletonMySqlE2ETest extends TestCase
@@ -28,16 +28,16 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
         parent::setUp();
 
         if (config('database.default') !== 'mysql') {
-            $this->markTestSkipped('Requires the explicit MySQL/Valkey integration lane.');
+            $this->markTestSkipped('Requires the explicit MySQL/Redis integration lane.');
         }
     }
 
-    public function test_real_mysql_valkey_lifecycle_isolated_and_replay_safe(): void
+    public function test_real_mysql_redis_lifecycle_isolated_and_replay_safe(): void
     {
         $this->assertSame('mysql', config('database.default'));
         $this->assertSame('mysql', DB::connection()->getDriverName());
-        $transport = app(ValkeyStreamTransport::class);
-        $this->assertInstanceOf(PredisValkeyStreamTransport::class, $transport);
+        $transport = app(RedisStreamTransport::class);
+        $this->assertInstanceOf(PredisRedisStreamTransport::class, $transport);
         $this->clearStreams();
 
         $tokenA = $this->login('fixture-account-a', 'fixture-password-a', self::CORRELATION_A)
@@ -63,12 +63,12 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
         $this->assertSame(2, DB::table('outbox_events')->whereNotNull('published_at')->count());
 
         $failing = new FailOnceAckTransport($transport);
-        $this->app->instance(ValkeyStreamTransport::class, $failing);
+        $this->app->instance(RedisStreamTransport::class, $failing);
         $this->artisan('notifications:consume-work-record-submitted --once --consumer=mysql-crash')->assertFailed();
         $this->assertDatabaseCount('notification_inbox', 1);
         $this->assertDatabaseCount('notifications', 1);
         $this->assertNotEmpty($failing->pending('platform.work-record.submitted.v1', 'notifications.work-record-submitted.v1', 10));
-        $this->app->instance(ValkeyStreamTransport::class, $failing);
+        $this->app->instance(RedisStreamTransport::class, $failing);
         $worker = new NotificationsStreamWorker(
             $failing,
             app(ConsumeWorkRecordSubmittedHandler::class),
@@ -84,15 +84,15 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
                 ->assertJsonPath('items.0.source.record_id', $recordId);
         }
 
-        if (getenv('W1_1_EXPECT_REAL_MYSQL_VALKEY_RED') === '1') {
-            self::fail('MISSING_REAL_MYSQL_VALKEY_INTEGRATION');
+        if (getenv('W1_1_EXPECT_REAL_MYSQL_REDIS_RED') === '1') {
+            self::fail('MISSING_REAL_MYSQL_REDIS_INTEGRATION');
         }
     }
 
-    public function test_real_valkey_poison_event_reaches_dlq_before_ack(): void
+    public function test_real_redis_poison_event_reaches_dlq_before_ack(): void
     {
-        $transport = app(ValkeyStreamTransport::class);
-        $this->assertInstanceOf(PredisValkeyStreamTransport::class, $transport);
+        $transport = app(RedisStreamTransport::class);
+        $this->assertInstanceOf(PredisRedisStreamTransport::class, $transport);
         $this->clearStreams();
         $event = [
             'specversion' => '1.0',
@@ -129,11 +129,7 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
         self::assertSame(2, $failedAttempts);
         $this->assertSame(1, $worker->consumeOnce('poison-c'));
 
-        $client = new Client([
-            'scheme' => 'tcp',
-            'host' => config('database.redis.default.host'),
-            'port' => (int) config('database.redis.default.port'),
-        ]);
+        $client = $this->redisClient();
         $dlq = $client->executeRaw(['XRANGE', 'platform.dlq.v1', '-', '+']);
         $this->assertIsArray($dlq);
         $this->assertNotEmpty($dlq);
@@ -177,11 +173,7 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
 
     private function clearStreams(): void
     {
-        $client = new Client([
-            'scheme' => 'tcp',
-            'host' => config('database.redis.default.host'),
-            'port' => (int) config('database.redis.default.port'),
-        ]);
+        $client = $this->redisClient();
         $client->executeRaw([
             'DEL',
             'platform.work-record.submitted.v1',
@@ -189,14 +181,37 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
             'platform.dlq.v1:source-message-index',
         ]);
     }
+
+    private function redisClient(): Client
+    {
+        $url = config('database.redis.default.url');
+        if (is_string($url) && $url !== '') {
+            return new Client($url);
+        }
+
+        $parameters = [
+            'scheme' => 'tcp',
+            'host' => config('database.redis.default.host'),
+            'port' => (int) config('database.redis.default.port'),
+            'database' => (int) config('database.redis.default.database'),
+        ];
+        foreach (['username', 'password'] as $credential) {
+            $value = config("database.redis.default.{$credential}");
+            if (is_string($value) && $value !== '') {
+                $parameters[$credential] = $value;
+            }
+        }
+
+        return new Client($parameters);
+    }
 }
 
-final class FailOnceAckTransport implements ValkeyStreamTransport
+final class FailOnceAckTransport implements RedisStreamTransport
 {
     private bool $failed = false;
 
     public function __construct(
-        private readonly ValkeyStreamTransport $delegate,
+        private readonly RedisStreamTransport $delegate,
         private readonly bool $forceReclaim = false,
         private readonly bool $failAck = true,
     ) {}

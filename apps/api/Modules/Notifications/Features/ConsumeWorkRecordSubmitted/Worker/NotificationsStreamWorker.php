@@ -5,7 +5,7 @@ namespace Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker;
 use InvalidArgumentException;
 use JsonException;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWorkRecordSubmittedHandler;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Throwable;
 
 final class NotificationsStreamWorker
@@ -25,7 +25,7 @@ final class NotificationsStreamWorker
     private const MAX_MALFORMED_PAYLOAD_LENGTH = 4096;
 
     public function __construct(
-        private readonly ValkeyStreamTransport $transport,
+        private readonly RedisStreamTransport $transport,
         private readonly ConsumeWorkRecordSubmittedHandler $handler,
     ) {}
 

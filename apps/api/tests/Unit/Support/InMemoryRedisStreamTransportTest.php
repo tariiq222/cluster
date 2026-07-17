@@ -2,15 +2,15 @@
 
 namespace Tests\Unit\Support;
 
-use Shared\Infrastructure\Streams\PredisValkeyStreamTransport;
-use Shared\Infrastructure\Streams\ValkeyStreamTransport;
-use Tests\Support\Streams\BindsInMemoryValkeyStreamTransport;
-use Tests\Support\Streams\InMemoryValkeyStreamTransport;
+use Shared\Infrastructure\Streams\PredisRedisStreamTransport;
+use Shared\Infrastructure\Streams\RedisStreamTransport;
+use Tests\Support\Streams\BindsInMemoryRedisStreamTransport;
+use Tests\Support\Streams\InMemoryRedisStreamTransport;
 use Tests\TestCase;
 
-class InMemoryValkeyStreamTransportTest extends TestCase
+class InMemoryRedisStreamTransportTest extends TestCase
 {
-    use BindsInMemoryValkeyStreamTransport;
+    use BindsInMemoryRedisStreamTransport;
 
     private const STREAM = 'platform.work-record.submitted.v1';
 
@@ -19,19 +19,19 @@ class InMemoryValkeyStreamTransportTest extends TestCase
     public function test_test_helper_explicitly_replaces_the_normal_predis_container_binding(): void
     {
         $this->assertInstanceOf(
-            PredisValkeyStreamTransport::class,
-            $this->app->make(ValkeyStreamTransport::class),
+            PredisRedisStreamTransport::class,
+            $this->app->make(RedisStreamTransport::class),
         );
 
-        $transport = $this->bindInMemoryValkeyStreamTransport();
+        $transport = $this->bindInMemoryRedisStreamTransport();
 
-        $this->assertSame($transport, $this->app->make(ValkeyStreamTransport::class));
+        $this->assertSame($transport, $this->app->make(RedisStreamTransport::class));
     }
 
     public function test_xadd_generates_stable_ordered_ids_for_each_millisecond(): void
     {
         $now = 1_784_198_760_000;
-        $transport = new InMemoryValkeyStreamTransport(static function () use (&$now): int {
+        $transport = new InMemoryRedisStreamTransport(static function () use (&$now): int {
             return $now;
         });
 
@@ -46,7 +46,7 @@ class InMemoryValkeyStreamTransportTest extends TestCase
     public function test_group_creation_is_idempotent_and_new_reads_become_pending(): void
     {
         $now = 1_784_198_760_000;
-        $transport = new InMemoryValkeyStreamTransport(static function () use (&$now): int {
+        $transport = new InMemoryRedisStreamTransport(static function () use (&$now): int {
             return $now;
         });
         $firstId = $transport->xadd(self::STREAM, ['event' => 'one']);
@@ -71,7 +71,7 @@ class InMemoryValkeyStreamTransportTest extends TestCase
     public function test_reclaim_respects_idle_time_changes_owner_and_ack_removes_pending(): void
     {
         $now = 1_784_198_760_000;
-        $transport = new InMemoryValkeyStreamTransport(static function () use (&$now): int {
+        $transport = new InMemoryRedisStreamTransport(static function () use (&$now): int {
             return $now;
         });
         $messageId = $transport->xadd(self::STREAM, ['event' => 'one']);
@@ -95,7 +95,7 @@ class InMemoryValkeyStreamTransportTest extends TestCase
 
     public function test_dlq_publication_uses_a_distinct_ordered_stream(): void
     {
-        $transport = new InMemoryValkeyStreamTransport(static fn (): int => 1_784_198_760_000);
+        $transport = new InMemoryRedisStreamTransport(static fn (): int => 1_784_198_760_000);
         $transport->xadd(self::STREAM, ['event' => 'source']);
 
         $firstId = $transport->publishDlq('platform.dlq.v1', 'source-1', ['failure_code' => 'INVALID_EVENT']);

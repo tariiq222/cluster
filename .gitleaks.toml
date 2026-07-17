@@ -20,3 +20,15 @@ targetRules = ["generic-api-key"]
 condition = "AND"
 commits = ["84763f4bb242b47db2eb69ef5de02a7f1c6fdca1"]
 paths = ['''^\.planning/research/STACK\.md$''']
+
+[[allowlists]]
+description = "Historical Valkey terminology in removed agent artifacts"
+targetRules = ["generic-api-key"]
+condition = "AND"
+commits = ["04b1a0478d72669a029697d04bf30d71db02e0ae"]
+paths = [
+  '''^\.pi-subagents/artifacts/be64518a_reviewer_1_output\.md$''',
+  '''^\.pi-subagents/artifacts/be64518a_reviewer_1_transcript\.jsonl$''',
+]
+regexTarget = "match"
+regexes = ['''^Valkey, .+''']

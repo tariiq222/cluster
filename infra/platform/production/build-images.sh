@@ -2,8 +2,8 @@
 set -euo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-readonly API_IMAGE="${W11_BLD_API_IMAGE:-cluster-api:w11-bld-02}"
-readonly WEB_IMAGE="${W11_BLD_WEB_IMAGE:-cluster-web:w11-bld-02}"
+readonly API_IMAGE="${API_IMAGE:-cluster-api:local}"
+readonly WEB_IMAGE="${WEB_IMAGE:-cluster-web:local}"
 
 docker build --file "$ROOT_DIR/apps/api/Dockerfile" --tag "$API_IMAGE" "$ROOT_DIR/apps/api"
 docker build --file "$ROOT_DIR/apps/web/Dockerfile" --tag "$WEB_IMAGE" "$ROOT_DIR/apps/web"

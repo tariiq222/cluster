@@ -30,30 +30,28 @@ references:
 ## تدفق الإصدار
 
 1. يراجع التغيير وlockfiles ونتائج الاختبارات وفحص الأسرار والثغرات.
-2. تبنى صورة OCI وتوسم بالـcommit وتثبت بالـdigest.
-3. يحفظ SBOM ونتائج الفحص وCompose revision وخطة migrations والرجوع.
-4. يسمح Dokploy بنشر descriptor معتمد: image digest + Compose revision + environment contract.
-5. تنفذ healthchecks بعد النشر، ويحفظ آخر descriptor معروف بالصحة للرجوع.
+2. تبنى صور Laravel وReact من Dockerfiles وlockfiles.
+3. يتحقق Compose وتنفذ migration ثم healthchecks.
+4. يسجل commit المنشور ويحتفظ بآخر commit معروف بالصحة للرجوع.
 
 ## الضوابط
 
-- يمنع `latest` والمراجع المتغيرة في إنتاج Dokploy.
+- لا تعتمد الحاويات على `latest` أو تنزيل حزم عند بدء خدمة المستخدم.
 - لا يحتوي Git أو image أو logs على أسرار.
 - لا تنفذ `composer install` أو `npm install` أو image pull غير متوقع داخل حاوية بدأت لخدمة المستخدم.
-- تراجع الثغرات والتراخيص قبل الإصدار؛ ويربط SBOM بالـdigest متى كانت أداة البناء متاحة.
-- لا تكون واجهة Dokploy أو Docker socket أو Registry credentials متاحة لمسار المستخدم.
-- يسجل تحديث Dokploy وDocker والصور ضمن نافذة صيانة وخطة رجوع.
+- تراجع الثغرات والتراخيص قبل الإصدار.
+- لا يكون Docker socket متاحاً لمسار المستخدم.
+- يسجل تحديث Docker والصور ضمن نافذة صيانة وخطة رجوع.
 
 ## دليل القبول لكل إصدار
 
 | الدليل | شرط القبول |
 |---|---|
-| image digest | مربوط بـGit revision معتمد ولا يستخدم `latest` |
-| Compose revision | صالح ومثبت ومتوافق مع متغيرات البيئة |
+| Git commit | محدد ونجح CI عليه |
+| Compose | صالح ومتوافق مع متغيرات البيئة |
 | اختبارات وفحص | لا فشل أو استثناء غير معتمد يمنع النشر |
-| SBOM | موجود ومربوط بالـdigest عند بوابة الإنتاج |
-| نشر Dokploy | سجل النشر وhealthchecks محفوظان |
-| رجوع | descriptor سابق معروف بالصحة ومجرب |
+| نشر VPS | `make deploy-vps` وhealthchecks ناجحة |
+| رجوع | commit سابق معروف بالصحة ومجرب |
 
 ## سجل التغيير
 

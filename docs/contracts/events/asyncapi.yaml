@@ -2,13 +2,13 @@ asyncapi: 3.1.0
 info:
   title: Cluster Platform Domain Events
   version: 1.0.0
-  description: CloudEvents JSON domain events delivered at least once through transactional Outbox, Valkey Streams consumer groups, consumer Inbox, and DLQ.
+  description: CloudEvents JSON domain events delivered at least once through transactional Outbox, Redis Streams consumer groups, consumer Inbox, and DLQ.
 servers:
   production:
     host: events.cluster.example:6379
     protocol: redis
     protocolVersion: '7'
-    description: Valkey-compatible Streams endpoint using TLS, consumer groups, explicit acknowledgement, and pending-entry recovery.
+    description: Redis Streams endpoint using TLS, consumer groups, explicit acknowledgement, and pending-entry recovery.
 channels:
   work-record-submitted:
     address: platform.work-record.submitted.v1

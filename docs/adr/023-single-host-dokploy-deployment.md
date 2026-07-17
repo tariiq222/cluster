@@ -1,25 +1,21 @@
 ---
 doc_id: ADR-023
-title: تشغيل الخادم الداخلي عبر Dokploy وDocker Compose
+title: تشغيل VPS مباشر عبر Docker Compose
 type: adr
 status: accepted
-version: 1.0.0
-date: 2026-07-16
-owner: مجلس معمارية المنصة
-reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+version: 2.0.0
+date: 2026-07-17
+owner: طارق
+reviewers: []
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: عند الحاجة
 sources:
-- docs/adr/018-air-gapped-supply-chain.md
-- docs/adr/019-kubernetes-resilience-and-recovery.md
+- docs/architecture/overview.md
 references:
-- docs/operations/kubernetes-platform.md
-- docs/operations/physical-topology.md
+- docs/operations/runbooks.md
 - docs/operations/ha-dr-backup.md
 deciders:
-- مالك المنصة
+- طارق
 scope: الاستضافة والنشر والوصول والتعافي
 supersedes:
 - ADR-018
@@ -29,65 +25,64 @@ related_adrs:
 - ADR-001
 - ADR-007
 - ADR-013
-review_by: 2027-01-16
+review_by: 2027-01-17
 ---
-# ADR-023: تشغيل الخادم الداخلي عبر Dokploy وDocker Compose
+# ADR-023: تشغيل VPS مباشر عبر Docker Compose
 
 ## Context
 
-يعمل المنتج على خادم داخلي واحد يملكه مشغل المنصة، وليس على مركز بيانات متعدد العقد. الوصول إلى الخادم محدود بمنافذ يحددها الجدار الناري، لكنه لا يوصف كبيئة `air-gapped` مؤسسية ولا يحتاج Kubernetes لتحقيق قيمة المنتج الحالية.
-
-## Drivers
-
-بساطة التشغيل لفريق صغير، خفض كلفة التعقيد، نشر قابل للتكرار، حماية خدمات الحالة، وإمكانية النسخ والاستعادة خارج نطاق عطل الخادم.
+يملك المطور VPS واحداً تتوفر عليه MySQL وRedis. لا توجد حاجة إلى Kubernetes أو
+Dokploy أو سلسلة إصدار مؤسسية لتشغيل التطبيق الحالي.
 
 ## Decision
 
-يُشغّل الإنتاج على خادم داخلي واحد باستخدام Dokploy لإدارة حزمة Docker Compose مثبتة الإصدارات. لا يستخدم Kubernetes أو RKE2 أو GitOps controller؛ ويقتصر الوصول الوارد على HTTPS ومسار إدارة محمي، مع منع نشر MySQL وValkey وDocker socket وواجهة Dokploy للعامة.
+يُنشر التطبيق مباشرة من المستودع عبر Docker Compose. تشغل الحزمة Caddy وReact/Nginx
+وLaravel API والعامل وmigration فقط. تستخدم الحاويات MySQL وRedis الموجودين على
+الـVPS عبر عناوين تحددها متغيرات البيئة.
 
-## Scope
+Caddy هو المدخل العام الوحيد ويصدر HTTPS تلقائياً. لا تنشر MySQL أو Redis أو
+Docker socket للعامة. تحفظ أسرار التشغيل في `.env.production` خارج Git.
 
-يشمل Docker وCompose وDokploy وTraefik والجدار الناري وشبكات الحاويات وإدارة الأسرار والنشر والرجوع والنسخ خارج الخادم. لا يغير حدود Laravel Modular Monolith أو عقود الموديولات.
+## Rationale
 
-## Alternatives
+- أمر نشر واحد يمكن للمطور تشغيله وفهمه.
+- لا registry أو runners ذاتية أو توقيع صور أو receipts تشغيلية.
+- قواعد البيانات الموجودة على الخادم لا تتكرر داخل Compose الإنتاجي.
+- يمكن إعادة بناء نسخة سابقة من commit معروف للرجوع.
 
-- **Kubernetes أو RKE2:** يوفر orchestration متعدد العقد، لكنه لا يحقق توافراً عالياً على جهاز واحد ويضيف عبئاً تشغيلياً غير مبرر حالياً.
-- **Docker Compose دون Dokploy:** صالح تقنياً وأبسط اعتماداً، لكنه يفتقد واجهة التشغيل وسجل النشر الملائمين للمشغل؛ يبقى مسار طوارئ واستعادة مقبولاً.
-- **Air-gap كامل بمرايا داخلية:** يوفر عزلاً أقوى، لكنه لا يمثل البيئة الفعلية ويتطلب بنية تغذية حزم وصور غير موجودة.
+## Runtime
 
-## Consequences
+```text
+Internet -> Caddy :443 -> React/Nginx -> Laravel PHP-FPM
+                                      -> Worker
+Laravel/Worker -> MySQL + Redis on the VPS
+```
 
-- يصبح النشر والصيانة أبسط، وتصبح حزمة Compose هي تعريف التشغيل القابل لإعادة الإنشاء.
-- يقبل مالك المنصة أن تعطل الخادم يوقف الخدمة؛ لا يُدعى وجود HA أو استمرار الخدمة عند فشل الجهاز.
-- تبقى الصور مثبتة بالـdigest، والتحديثات خاضعة للمراجعة، والنسخة السابقة قابلة للرجوع.
-- يجب أن تكون النسخ مشفرة وخارج الخادم وباعتمادات منفصلة، وأن تختبر الاستعادة على هدف منفصل.
+لا يشغل Scheduler حتى توجد مهمة مجدولة فعلية. migration حاوية one-shot تسبق API
+والعامل. تبنى الصور من lockfiles عبر Dockerfiles متعددة المراحل.
 
 ## Security
 
-يطبق الجدار الناري default-deny للوصول الوارد، وتتاح HTTPS فقط للمستخدمين، بينما يمر SSH وواجهة Dokploy عبر VPN أو شبكة إدارة مقيدة. تبقى خدمات الحالة على شبكات Docker داخلية ولا ينشر Docker socket مباشرة.
+- يفتح الجدار الناري `80/443` للمستخدمين وSSH لعناوين الإدارة فقط.
+- يجب أن تستمع MySQL وRedis على loopback أو واجهة خاصة تسمح لشبكة Docker فقط.
+- يستخدم التطبيق حساب MySQL محدود الصلاحيات وكلمة مرور Redis.
+- لا `network_mode: host` ولا حاويات privileged.
 
-## Operations
+## Deployment And Rollback
 
-يشغل Dokploy تطبيق React وLaravel Web/API والعمال والـscheduler وخدمات MySQL وValkey من حزمة Compose مثبتة. تراقب الصحة والسعة ومساحة القرص، وتوثق التحديثات والرجوع والنسخ والاستعادة.
+ينفذ `make deploy-vps` التحقق والبناء و`docker compose up -d` وفحص الصحة. للرجوع
+يُختار آخر commit سليم ويعاد الأمر. تغييرات قاعدة البيانات تكون backward-compatible؛
+وعند فقد البيانات تستخدم نسخة MySQL مستقلة.
 
-## Rollback
+## Consequences
 
-يعاد نشر آخر image digest وCompose revision معروفين بالصحة. لا تستخدم migrations هدامة كوسيلة رجوع، وتستعاد البيانات من النسخة الخارجية عند الحاجة وفق runbook مقاس.
-
-## Enforcement
-
-يفحص CI تثبيت الصور، صحة Compose، غياب المنافذ العامة لخدمات الحالة، ووجود healthchecks وعقد النسخ. تثبت تجربة حية الجدار الناري والنشر والرجوع والاستعادة قبل إغلاق بوابة الإنتاج.
-
-## Review
-
-يراجع القرار عند إضافة خادم ثانٍ، أو تعذر تحقيق أهداف الاستعادة، أو تجاوز السعة المقاسة للخادم، أو توفر فريق منصة يبرر الانتقال إلى orchestrator متعدد العقد.
-
-## References
-
-`docs/operations/kubernetes-platform.md`، `docs/operations/physical-topology.md`، `docs/operations/ha-dr-backup.md`.
+- تعطل الـVPS يوقف الخدمة؛ لا يوجد ادعاء HA.
+- إدارة MySQL وRedis والنسخ الاحتياطي مسؤولية تشغيل الخادم.
+- الانتقال إلى orchestrator يعاد بحثه فقط عند إضافة أكثر من خادم أو فريق تشغيل.
 
 ## سجل التغيير
 
-| الإصدار | التاريخ | الدور | التغيير |
-|---|---|---|---|
-| 1.0.0 | 2026-07-16 | مالك المنصة | اعتماد Dokploy وDocker Compose على خادم داخلي واحد |
+| الإصدار | التاريخ | التغيير |
+|---|---|---|
+| 2.0.0 | 2026-07-17 | استبدال Dokploy بنشر Docker Compose مباشر واستخدام MySQL وRedis الموجودين على VPS |
+| 1.0.0 | 2026-07-16 | اعتماد Dokploy وDocker Compose على خادم داخلي واحد |

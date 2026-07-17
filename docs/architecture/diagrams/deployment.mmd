@@ -1,35 +1,26 @@
 flowchart TB
-    USERS["المستخدمون عبر الشبكة الداخلية"]
-    FW["جدار ناري للمضيف<br/>HTTPS وإدارة عبر VPN فقط"]
+    USERS["المستخدمون"]
+    DNS["DNS"]
+    FW["VPS Firewall<br/>80/443 + restricted SSH"]
 
-    subgraph HOST["خادم داخلي واحد"]
-        DOKPLOY["Dokploy"]
-        subgraph COMPOSE["Docker Compose revision مثبت"]
-            TRAEFIK["Traefik / HTTPS"]
-            WEB["React + Laravel Web/API"]
-            WORKERS["Queue Workers"]
-            CRON["Scheduler"]
-            MYSQL["MySQL"]
-            VALKEY["Valkey Cache / Queue"]
-            OBJECT["Object Storage Volume"]
+    subgraph VPS["VPS واحد"]
+        subgraph COMPOSE["Docker Compose"]
+            CADDY["Caddy"]
+            WEB["React / Nginx"]
+            API["Laravel PHP-FPM"]
+            WORKER["Redis Streams Worker"]
+            MIGRATE["Migration one-shot"]
         end
-        INTERNAL["Docker internal networks"]
+        MYSQL["Existing MySQL"]
+        REDIS["Existing Redis"]
     end
 
-    BACKUP["هدف نسخ مستقل خارج الخادم<br/>مشفّر وباعتمادات منفصلة"]
-    REGISTRY["سجل صور معتمد"]
+    BACKUP["External MySQL Backup"]
 
-    USERS --> FW --> TRAEFIK
-    TRAEFIK --> WEB
-    WEB --> MYSQL
-    WEB --> VALKEY
-    WEB --> OBJECT
-    WORKERS --> MYSQL
-    WORKERS --> VALKEY
-    WORKERS --> OBJECT
-    CRON --> VALKEY
-    COMPOSE --- INTERNAL
-    DOKPLOY -.->|"نشر أو rollback revision"| COMPOSE
-    REGISTRY -.->|"صور مثبتة بالـdigest"| DOKPLOY
-    MYSQL -->|"نسخ مشفّر"| BACKUP
-    OBJECT -->|"نسخ مشفّر"| BACKUP
+    USERS --> DNS --> FW --> CADDY --> WEB --> API
+    API --> MYSQL
+    API --> REDIS
+    WORKER --> MYSQL
+    WORKER --> REDIS
+    MIGRATE --> MYSQL
+    MYSQL --> BACKUP

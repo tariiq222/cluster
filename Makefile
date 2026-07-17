@@ -1,4 +1,4 @@
-.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 validate-production-bundle build-production-images verify-production-images verify-w1-1-local
+.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
@@ -67,3 +67,6 @@ verify-production-images:
 
 verify-w1-1-local: validate-production-bundle build-production-images verify-production-images
 	./infra/platform/production/run-local-e2e.sh
+
+deploy-vps: validate-production-bundle
+	./infra/platform/production/deploy-vps.sh

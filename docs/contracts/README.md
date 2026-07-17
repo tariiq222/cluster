@@ -28,7 +28,7 @@ references: []
 
 كل المعرفات سلاسل RFC 9562 UUID version 7 بالنمط `xxxxxxxx-xxxx-7xxx-[89ab]xxx-xxxxxxxxxxxx` وبأحرف سداسية صغيرة، والطوابع الزمنية RFC 3339 UTC وتنتهي حصراً بـ`Z`. التصنيف أحد `public` أو `internal` أو `confidential` أو `top_secret`؛ ويحافظ المستهلك على التصنيف ويطبق سياسة التعامل. تعيد تمثيلات API قيمة `ETag`، ويتطلب تعديل المورد القائم `If-Match` مطابقاً. الأوامر القابلة لإعادة المحاولة تتطلب `Idempotency-Key`.
 
-تستخدم أخطاء HTTP صيغة RFC 7807 `application/problem+json`. يتطلب كل طلب `X-Correlation-ID` بصيغة UUIDv7، ويعيده كل رد؛ ويتطلب كل CloudEvent امتداد `correlationid` بالقيمة نفسها. تنقل الأحداث عبر Valkey-compatible Streams مع consumer groups وتسليم at-least-once. يتطلب تغيير العقد إصداراً إضافياً متوافقاً للخلف أو endpoint وchannel وschema جديدة بإصدار صريح.
+تستخدم أخطاء HTTP صيغة RFC 7807 `application/problem+json`. يتطلب كل طلب `X-Correlation-ID` بصيغة UUIDv7، ويعيده كل رد؛ ويتطلب كل CloudEvent امتداد `correlationid` بالقيمة نفسها. تنقل الأحداث عبر Redis Streams مع consumer groups وتسليم at-least-once. يتطلب تغيير العقد إصداراً إضافياً متوافقاً للخلف أو endpoint وchannel وschema جديدة بإصدار صريح.
 
 ## سجل التغيير
 

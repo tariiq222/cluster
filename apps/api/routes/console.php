@@ -3,7 +3,7 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
-use Modules\WorkRecords\Infrastructure\Outbox\Relay\ValkeyOutboxRelay;
+use Modules\WorkRecords\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -19,7 +19,7 @@ Artisan::command('work-records:relay-pending {--once}', function (): int {
     $limit = max(1, min((int) env('OUTBOX_RELAY_BATCH_SIZE', 100), 100));
 
     try {
-        $relay = app(ValkeyOutboxRelay::class);
+        $relay = app(RedisOutboxRelay::class);
         $published = $relay->relayPending($limit);
         $this->info("Relayed events: {$published}");
 

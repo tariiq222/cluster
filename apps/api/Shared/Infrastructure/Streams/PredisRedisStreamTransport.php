@@ -5,7 +5,7 @@ namespace Shared\Infrastructure\Streams;
 use Predis\Client;
 use RuntimeException;
 
-final class PredisValkeyStreamTransport implements ValkeyStreamTransport
+final class PredisRedisStreamTransport implements RedisStreamTransport
 {
     public function __construct(private readonly Client $client) {}
 
@@ -19,7 +19,7 @@ final class PredisValkeyStreamTransport implements ValkeyStreamTransport
 
         $messageId = $this->executeRaw($arguments);
         if (! is_string($messageId) || $messageId === '') {
-            throw new RuntimeException('Valkey did not return a stream message identifier.');
+            throw new RuntimeException('Redis did not return a stream message identifier.');
         }
 
         return $messageId;
@@ -38,7 +38,7 @@ final class PredisValkeyStreamTransport implements ValkeyStreamTransport
         }
 
         if ($error) {
-            throw new RuntimeException('Valkey consumer group creation failed.');
+            throw new RuntimeException('Redis consumer group creation failed.');
         }
     }
 
@@ -136,7 +136,7 @@ LUA;
             json_encode($deadLetter, JSON_THROW_ON_ERROR),
         ]);
         if (! is_string($messageId) || $messageId === '') {
-            throw new RuntimeException('Valkey did not return a DLQ message identifier.');
+            throw new RuntimeException('Redis did not return a DLQ message identifier.');
         }
 
         return $messageId;
@@ -159,7 +159,7 @@ LUA;
         $error = false;
         $response = $this->client->executeRaw($arguments, $error);
         if ($error) {
-            throw new RuntimeException('Valkey stream operation failed.');
+            throw new RuntimeException('Redis stream operation failed.');
         }
 
         return $response;

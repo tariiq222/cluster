@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly API_IMAGE="${W11_BLD_API_IMAGE:-cluster-api:w11-bld-02}"
-readonly WEB_IMAGE="${W11_BLD_WEB_IMAGE:-cluster-web:w11-bld-02}"
+readonly API_IMAGE="${API_IMAGE:-cluster-api:local}"
+readonly WEB_IMAGE="${WEB_IMAGE:-cluster-web:local}"
 
 docker image inspect "$API_IMAGE" "$WEB_IMAGE" >/dev/null
 

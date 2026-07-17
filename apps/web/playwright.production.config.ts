@@ -40,6 +40,7 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: webOrigin,
+    ignoreHTTPSErrors: process.env.W1_1_ALLOW_SELF_SIGNED === '1',
     locale: 'ar-SA',
     trace: 'retain-on-failure',
   },

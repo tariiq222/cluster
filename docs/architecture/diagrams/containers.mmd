@@ -1,35 +1,25 @@
 flowchart TB
-    USER(["المستخدم عبر الشبكة الداخلية"])
+    USER(["المستخدم"])
 
-    subgraph HOST["خادم داخلي واحد — Docker Compose"]
-        TRAEFIK["Traefik / HTTPS"]
-        WEB["React Unified Web App"]
-        API["Laravel Modular Monolith"]
-        WORKERS["Queue Workers"]
-        SCHEDULER["Scheduler"]
+    subgraph VPS["VPS واحد"]
+        subgraph COMPOSE["Docker Compose"]
+            CADDY["Caddy / HTTPS"]
+            WEB["React / Nginx"]
+            API["Laravel API"]
+            WORKER["Outbox / Notifications Worker"]
+        end
         MYSQL["MySQL"]
-        VALKEY["Valkey Cache / Queue"]
-        OBJECT["Object Storage Volume"]
-        OBS["Logs / Metrics / Healthchecks"]
+        REDIS["Redis Streams / Cache"]
+        OBS["Docker Logs / Healthchecks"]
     end
 
-    DOKPLOY["Dokploy"]
-    REGISTRY["Approved Image Registry"]
-    BACKUP["Encrypted Off-host Backup Target"]
+    BACKUP["Off-host MySQL Backup"]
 
-    USER --> TRAEFIK
-    TRAEFIK --> WEB --> API
+    USER --> CADDY --> WEB --> API
     API --> MYSQL
-    API --> VALKEY
-    API --> OBJECT
-    WORKERS --> MYSQL
-    WORKERS --> VALKEY
-    WORKERS --> OBJECT
-    SCHEDULER --> VALKEY
+    API --> REDIS
+    WORKER --> MYSQL
+    WORKER --> REDIS
     API --> OBS
-    WORKERS --> OBS
-    SCHEDULER --> OBS
-    DOKPLOY -.->|"Compose deploy / rollback"| HOST
-    REGISTRY -.->|"Pinned image digests"| DOKPLOY
-    MYSQL -->|"Encrypted backup"| BACKUP
-    OBJECT -->|"Encrypted backup"| BACKUP
+    WORKER --> OBS
+    MYSQL --> BACKUP

@@ -27,9 +27,9 @@ readonly API_DIR="$ROOT_DIR/apps/api"
 readonly WEB_DIR="$ROOT_DIR/apps/web"
 readonly PROJECT="cluster-w1-1-e2e-$$"
 readonly MYSQL_PORT="${W1_1_MYSQL_PORT:-$(pick_free_port)}"
-readonly VALKEY_PORT="${W1_1_VALKEY_PORT:-$(pick_free_port "$MYSQL_PORT")}"
-readonly API_PORT="${W1_1_API_PORT:-$(pick_free_port "$MYSQL_PORT" "$VALKEY_PORT")}"
-readonly WEB_PORT="${W1_1_WEB_PORT:-$(pick_free_port "$MYSQL_PORT" "$VALKEY_PORT" "$API_PORT")}"
+readonly REDIS_PORT="${W1_1_REDIS_PORT:-$(pick_free_port "$MYSQL_PORT")}"
+readonly API_PORT="${W1_1_API_PORT:-$(pick_free_port "$MYSQL_PORT" "$REDIS_PORT")}"
+readonly WEB_PORT="${W1_1_WEB_PORT:-$(pick_free_port "$MYSQL_PORT" "$REDIS_PORT" "$API_PORT")}"
 readonly HEALTH_TIMEOUT="${W1_1_HEALTH_TIMEOUT_SECONDS:-90}"
 readonly MYSQL_DATABASE="${W1_1_MYSQL_DATABASE:-cluster}"
 readonly MYSQL_USER="${W1_1_MYSQL_USER:-cluster}"
@@ -40,7 +40,7 @@ readonly COMPOSE=(docker compose --project-name "$PROJECT" --env-file "$ENV_FILE
 API_PID=""
 VITE_PID=""
 COORDINATOR_PID=""
-export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_PORT="$MYSQL_PORT" W1_1_VALKEY_PORT="$VALKEY_PORT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
+export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_PORT="$MYSQL_PORT" W1_1_REDIS_PORT="$REDIS_PORT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
 
 cleanup() {
   local status=$?
@@ -135,7 +135,7 @@ readonly API_ENV=(
   DB_PASSWORD="$MYSQL_PASSWORD"
   REDIS_CLIENT=predis
   REDIS_HOST=127.0.0.1
-  REDIS_PORT="$VALKEY_PORT"
+  REDIS_PORT="$REDIS_PORT"
   SESSION_DRIVER=array
   OUTBOX_RELAY_BATCH_SIZE=2
   NOTIFICATIONS_STREAM_BATCH_SIZE=2
@@ -156,16 +156,16 @@ pending_outbox_count() {
   )
 }
 
-printf 'Starting full local MySQL/Valkey/API/Vite/browser lifecycle.\n'
+printf 'Starting full local MySQL/Redis/API/Vite/browser lifecycle.\n'
 assert_port_free "$MYSQL_PORT"
-assert_port_free "$VALKEY_PORT"
+assert_port_free "$REDIS_PORT"
 assert_port_free "$API_PORT"
 assert_port_free "$WEB_PORT"
-"${COMPOSE[@]}" up -d mysql valkey >/dev/null
+"${COMPOSE[@]}" up -d mysql redis >/dev/null
 wait_healthy mysql
-wait_healthy valkey
+wait_healthy redis
 "${COMPOSE[@]}" exec -T mysql mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent >/dev/null
-"${COMPOSE[@]}" exec -T valkey valkey-cli ping | grep -Fxq PONG
+"${COMPOSE[@]}" exec -T redis redis-cli ping | grep -Fxq PONG
 
 (
   cd "$API_DIR"
@@ -187,7 +187,7 @@ wait_tcp 127.0.0.1 "$API_PORT"
           env "${API_ENV[@]}" php artisan work-records:relay-pending --once >/dev/null
           env "${API_ENV[@]}" php artisan notifications:consume-work-record-submitted --once --consumer=e2e-coordinator >/dev/null
         ) || exit 1
-        "${COMPOSE[@]}" exec -T valkey valkey-cli XPENDING platform.work-record.submitted.v1 notifications.work-record-submitted.v1 | head -n 1 | grep -Fxq 0
+        "${COMPOSE[@]}" exec -T redis redis-cli XPENDING platform.work-record.submitted.v1 notifications.work-record-submitted.v1 | head -n 1 | grep -Fxq 0
         effect_deadline=$((SECONDS + HEALTH_TIMEOUT))
         notifications=""
         while (( SECONDS < effect_deadline )); do
@@ -230,4 +230,4 @@ if ! wait "$COORDINATOR_PID"; then
   exit 1
 fi
 COORDINATOR_PID=""
-printf 'PASS: Arabic RTL and English LTR browser journeys completed through MySQL, Outbox, Valkey, Inbox, and notifications.\n'
+printf 'PASS: Arabic RTL and English LTR browser journeys completed through MySQL, Outbox, Redis, Inbox, and notifications.\n'
