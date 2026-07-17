@@ -1760,6 +1760,7 @@ paths:
     get:
       {
         tags: [Organization Admin],
+        x-implementation-status: implemented,
         summary: List organization units,
         operationId: listOrganizationUnits,
         parameters:
@@ -1774,7 +1775,8 @@ paths:
           ],
         responses:
           {
-            "200": { $ref: "#/components/responses/Collection" },
+            "200": { $ref: "#/components/responses/OrganizationUnitCollection" },
+            "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
           },
@@ -1782,6 +1784,7 @@ paths:
     post:
       {
         tags: [Organization Admin],
+        x-implementation-status: implemented,
         summary: Create an organization unit,
         operationId: createOrganizationUnit,
         parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
@@ -1799,11 +1802,12 @@ paths:
           },
         responses:
           {
-            "201": { $ref: "#/components/responses/Entity" },
+            "201": { $ref: "#/components/responses/OrganizationUnitEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "409": { $ref: "#/components/responses/Conflict" },
+            "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /organization/units/{unitId}:
@@ -1811,6 +1815,7 @@ paths:
     get:
       {
         tags: [Organization Admin],
+        x-implementation-status: implemented,
         summary: Get an organization unit and path,
         operationId: getOrganizationUnit,
         parameters:
@@ -1824,7 +1829,8 @@ paths:
           ],
         responses:
           {
-            "200": { $ref: "#/components/responses/Entity" },
+            "200": { $ref: "#/components/responses/OrganizationUnitEntity" },
+            "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "404": { $ref: "#/components/responses/NotFound" },
@@ -1833,6 +1839,7 @@ paths:
     patch:
       {
         tags: [Organization Admin],
+        x-implementation-status: implemented,
         summary: "Update, move, deactivate, or archive an organization unit",
         operationId: updateOrganizationUnit,
         parameters:
@@ -1859,13 +1866,14 @@ paths:
           },
         responses:
           {
-            "200": { $ref: "#/components/responses/Entity" },
+            "200": { $ref: "#/components/responses/OrganizationUnitEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "404": { $ref: "#/components/responses/NotFound" },
             "409": { $ref: "#/components/responses/Conflict" },
             "412": { $ref: "#/components/responses/PreconditionFailed" },
+            "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /organization/positions:
@@ -1873,6 +1881,7 @@ paths:
     get:
       {
         tags: [Organization Admin],
+        x-implementation-status: implemented,
         summary: List positions,
         operationId: listPositions,
         parameters:
@@ -1887,7 +1896,8 @@ paths:
           ],
         responses:
           {
-            "200": { $ref: "#/components/responses/Collection" },
+            "200": { $ref: "#/components/responses/PositionCollection" },
+            "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
           },
@@ -1895,6 +1905,7 @@ paths:
     post:
       {
         tags: [Organization Admin],
+        x-implementation-status: implemented,
         summary: Create a position,
         operationId: createPosition,
         parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
@@ -1909,11 +1920,12 @@ paths:
           },
         responses:
           {
-            "201": { $ref: "#/components/responses/Entity" },
+            "201": { $ref: "#/components/responses/PositionEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "409": { $ref: "#/components/responses/Conflict" },
+            "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /organization/positions/{positionId}:
@@ -1925,15 +1937,18 @@ paths:
         schema: { $ref: "#/components/schemas/UUIDv7" }
     get:
       tags: [Organization Admin]
+      x-implementation-status: implemented
       summary: Get a position
       operationId: getPosition
       responses:
-        "200": { $ref: "#/components/responses/Entity" }
+        "200": { $ref: "#/components/responses/PositionEntity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [Organization Admin]
+      x-implementation-status: implemented
       summary: Update a position
       operationId: updatePosition
       parameters: [{ $ref: "#/components/parameters/IfMatch" }]
@@ -1943,12 +1958,14 @@ paths:
           application/merge-patch+json:
             schema: { $ref: "#/components/schemas/PositionPatch" }
       responses:
-        "200": { $ref: "#/components/responses/Entity" }
+        "200": { $ref: "#/components/responses/PositionEntity" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /organization/people:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -4404,6 +4421,38 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/FacilityCollection" }
+    OrganizationUnitEntity:
+      description: Organization unit representation with cached path
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/OrganizationUnitResponse" }
+    OrganizationUnitCollection:
+      description: Cursor-paginated organization units
+      headers:
+        Link: { schema: { type: string } }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/OrganizationUnitCollection" }
+    PositionEntity:
+      description: Organization position representation
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PositionResponse" }
+    PositionCollection:
+      description: Cursor-paginated organization positions
+      headers:
+        Link: { schema: { type: string } }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PositionCollection" }
     Entity:
       {
         description: Authorized typed resource representation,
@@ -4650,6 +4699,68 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Facility" }
+        next_cursor: { type: [string, "null"] }
+    OrganizationUnit:
+      type: object
+      additionalProperties: false
+      required: [id, cluster_id, parent_id, parent_type, type_code, code, name_ar, name_en, status, path_cache, depth, lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        cluster_id: { $ref: "#/components/schemas/UUIDv7" }
+        parent_id: { $ref: "#/components/schemas/UUIDv7" }
+        parent_type: { type: string, enum: [cluster, facility, unit] }
+        type_code: { type: string, pattern: "^[a-z][a-z0-9_]{1,63}$" }
+        code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
+        name_ar: { type: string, minLength: 1, maxLength: 255 }
+        name_en: { type: [string, "null"], maxLength: 255 }
+        status: { type: string, enum: [active, inactive, archived] }
+        path_cache: { type: string, minLength: 38, maxLength: 512 }
+        depth: { type: integer, minimum: 1 }
+        lock_version: { type: integer, minimum: 1 }
+    OrganizationUnitResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/OrganizationUnit" }
+    OrganizationUnitCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationUnit" }
+        next_cursor: { type: [string, "null"] }
+    Position:
+      type: object
+      additionalProperties: false
+      required: [id, organization_unit_id, code, title_ar, manager_position_id, is_active, lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        organization_unit_id: { $ref: "#/components/schemas/UUIDv7" }
+        code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
+        title_ar: { type: string, minLength: 1, maxLength: 255 }
+        manager_position_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
+        is_active: { type: boolean }
+        lock_version: { type: integer, minimum: 1 }
+    PositionResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Position" }
+    PositionCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Position" }
         next_cursor: { type: [string, "null"] }
     UUIDv7:
       {
@@ -5273,8 +5384,8 @@ components:
             parent_id: { $ref: "#/components/schemas/UUIDv7" },
             code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" },
             name: { type: string, minLength: 1, maxLength: 255 },
-            name_en: { type: string, maxLength: 255 },
-            type_code: { type: string, maxLength: 64 },
+            name_en: { type: [string, "null"], maxLength: 255 },
+            type_code: { type: string, pattern: "^[a-z][a-z0-9_]{1,63}$" },
           },
       }
     OrganizationNodePatch:
@@ -5287,7 +5398,7 @@ components:
             parent_id: { $ref: "#/components/schemas/UUIDv7" },
             name: { type: string, minLength: 1, maxLength: 255 },
             status: { type: string, enum: [active, inactive, archived] },
-            reason: { type: string, maxLength: 2000 },
+            reason: { type: string, minLength: 1, maxLength: 2000 },
           },
       }
     PositionCreate:
@@ -5300,7 +5411,14 @@ components:
             organization_unit_id: { $ref: "#/components/schemas/UUIDv7" },
             code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" },
             title: { type: string, minLength: 1, maxLength: 255 },
-            manager_position_id: { $ref: "#/components/schemas/UUIDv7" },
+            manager_position_id:
+              {
+                oneOf:
+                  [
+                    { $ref: "#/components/schemas/UUIDv7" },
+                    { type: "null" },
+                  ],
+              },
           },
       }
     PositionPatch:

@@ -21,6 +21,10 @@ final class FixtureFacilityDecision implements DecideAccess
         'organization.cluster.read',
         'organization.facility.manage',
         'organization.facility.read',
+        'organization.unit.manage',
+        'organization.unit.read',
+        'organization.position.manage',
+        'organization.position.read',
     ];
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision

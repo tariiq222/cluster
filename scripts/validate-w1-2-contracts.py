@@ -54,6 +54,14 @@ ORGANIZATION_RUNTIME_STATUS = {
     ("/organization/facilities", "post"): "implemented",
     ("/organization/facilities/{facilityId}", "get"): "implemented",
     ("/organization/facilities/{facilityId}", "patch"): "implemented",
+    ("/organization/units", "get"): "implemented",
+    ("/organization/units", "post"): "implemented",
+    ("/organization/units/{unitId}", "get"): "implemented",
+    ("/organization/units/{unitId}", "patch"): "implemented",
+    ("/organization/positions", "get"): "implemented",
+    ("/organization/positions", "post"): "implemented",
+    ("/organization/positions/{positionId}", "get"): "implemented",
+    ("/organization/positions/{positionId}", "patch"): "implemented",
 }
 ORGANIZATION_RESPONSES = {
     ("/organization/cluster", "get"): {"200", "401", "403", "404"},
@@ -63,6 +71,14 @@ ORGANIZATION_RESPONSES = {
     ("/organization/facilities", "post"): {"201", "400", "401", "403", "409"},
     ("/organization/facilities/{facilityId}", "get"): {"200", "400", "401", "403", "404"},
     ("/organization/facilities/{facilityId}", "patch"): {"200", "400", "401", "403", "404", "409", "412", "500"},
+    ("/organization/units", "get"): {"200", "400", "401", "403"},
+    ("/organization/units", "post"): {"201", "400", "401", "403", "409", "500"},
+    ("/organization/units/{unitId}", "get"): {"200", "400", "401", "403", "404"},
+    ("/organization/units/{unitId}", "patch"): {"200", "400", "401", "403", "404", "409", "412", "500"},
+    ("/organization/positions", "get"): {"200", "400", "401", "403"},
+    ("/organization/positions", "post"): {"201", "400", "401", "403", "409", "500"},
+    ("/organization/positions/{positionId}", "get"): {"200", "400", "401", "403", "404"},
+    ("/organization/positions/{positionId}", "patch"): {"200", "400", "401", "403", "404", "409", "412", "500"},
 }
 ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/cluster", "get", "200"): "#/components/responses/ClusterEntity",
@@ -72,6 +88,14 @@ ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/facilities", "post", "201"): "#/components/responses/FacilityEntity",
     ("/organization/facilities/{facilityId}", "get", "200"): "#/components/responses/FacilityEntity",
     ("/organization/facilities/{facilityId}", "patch", "200"): "#/components/responses/FacilityEntity",
+    ("/organization/units", "get", "200"): "#/components/responses/OrganizationUnitCollection",
+    ("/organization/units", "post", "201"): "#/components/responses/OrganizationUnitEntity",
+    ("/organization/units/{unitId}", "get", "200"): "#/components/responses/OrganizationUnitEntity",
+    ("/organization/units/{unitId}", "patch", "200"): "#/components/responses/OrganizationUnitEntity",
+    ("/organization/positions", "get", "200"): "#/components/responses/PositionCollection",
+    ("/organization/positions", "post", "201"): "#/components/responses/PositionEntity",
+    ("/organization/positions/{positionId}", "get", "200"): "#/components/responses/PositionEntity",
+    ("/organization/positions/{positionId}", "patch", "200"): "#/components/responses/PositionEntity",
 }
 EXPECTED_EVENTS = {
     "cluster-created": (
@@ -98,6 +122,36 @@ EXPECTED_EVENTS = {
         "FacilityArchived",
         ROOT / "docs/contracts/schemas/facility-archived.schema.json",
         {"facility", "access_context", "classification"},
+    ),
+    "organization-unit-created": (
+        "OrganizationUnitCreated",
+        ROOT / "docs/contracts/schemas/organization-unit-changed.schema.json",
+        {"organization_unit", "access_context", "classification"},
+    ),
+    "organization-unit-moved": (
+        "OrganizationUnitMoved",
+        ROOT / "docs/contracts/schemas/organization-unit-changed.schema.json",
+        {"organization_unit", "access_context", "classification"},
+    ),
+    "organization-unit-updated": (
+        "OrganizationUnitUpdated",
+        ROOT / "docs/contracts/schemas/organization-unit-changed.schema.json",
+        {"organization_unit", "access_context", "classification"},
+    ),
+    "organization-unit-archived": (
+        "OrganizationUnitArchived",
+        ROOT / "docs/contracts/schemas/organization-unit-changed.schema.json",
+        {"organization_unit", "access_context", "classification"},
+    ),
+    "position-created": (
+        "PositionCreated",
+        ROOT / "docs/contracts/schemas/position-changed.schema.json",
+        {"position", "access_context", "classification"},
+    ),
+    "position-updated": (
+        "PositionUpdated",
+        ROOT / "docs/contracts/schemas/position-changed.schema.json",
+        {"position", "access_context", "classification"},
     ),
     "identity-provisioning-requested": (
         "IdentityProvisioningRequested",
@@ -212,6 +266,23 @@ facility_patch = schemas.get("FacilityPatch", {})
 if set(facility_patch.get("properties", {})) != {"name", "status", "reason"}:
     fail("FacilityPatch must freeze profile and lifecycle fields")
 
+organization_unit = schemas.get("OrganizationUnit", {})
+if set(organization_unit.get("required", [])) != {"id", "cluster_id", "parent_id", "parent_type", "type_code", "code", "name_ar", "name_en", "status", "path_cache", "depth", "lock_version"}:
+    fail("OrganizationUnit response must publish hierarchy, cached path, lifecycle, and lock version")
+
+position = schemas.get("Position", {})
+if set(position.get("required", [])) != {"id", "organization_unit_id", "code", "title_ar", "manager_position_id", "is_active", "lock_version"}:
+    fail("Position response must publish unit, manager position, activity, and lock version")
+
+unit_create = schemas.get("OrganizationNodeCreate", {})
+if unit_create.get("properties", {}).get("type_code", {}).get("pattern") != "^[a-z][a-z0-9_]{1,63}$":
+    fail("OrganizationNodeCreate type_code must match the runtime governed taxonomy format")
+
+position_create = schemas.get("PositionCreate", {})
+manager_create = position_create.get("properties", {}).get("manager_position_id", {})
+if {item.get("type", item.get("$ref")) for item in manager_create.get("oneOf", [])} != {"null", "#/components/schemas/UUIDv7"}:
+    fail("PositionCreate manager_position_id must allow UUIDv7 or null")
+
 snapshot_schemas = snapshot.get("components", {}).get("schemas", {})
 session_required = set(snapshot_schemas.get("W12Session", {}).get("required", []))
 if not {"account_status", "must_change_password"}.issubset(session_required):
@@ -221,6 +292,10 @@ for path, method, required_refs in (
     ("/me/scope", "put", {"#/components/parameters/IfMatch", "#/components/parameters/IdempotencyKey"}),
     ("/organization/cluster", "post", {"#/components/parameters/IdempotencyKey"}),
     ("/organization/cluster", "patch", {"#/components/parameters/IfMatch"}),
+    ("/organization/units", "post", {"#/components/parameters/IdempotencyKey"}),
+    ("/organization/units/{unitId}", "patch", {"#/components/parameters/IfMatch"}),
+    ("/organization/positions", "post", {"#/components/parameters/IdempotencyKey"}),
+    ("/organization/positions/{positionId}", "patch", {"#/components/parameters/IfMatch"}),
     ("/organization/import-jobs", "post", {"#/components/parameters/IdempotencyKey"}),
     ("/organization/import-jobs/{jobId}/{jobAction}", "post", {"#/components/parameters/IfMatch", "#/components/parameters/IdempotencyKey"}),
     ("/identity/accounts", "post", {"#/components/parameters/IdempotencyKey"}),
@@ -291,6 +366,8 @@ for catalog_path in (
     "contracts/schemas/facility-created.schema.json",
     "contracts/schemas/facility-updated.schema.json",
     "contracts/schemas/facility-archived.schema.json",
+    "contracts/schemas/organization-unit-changed.schema.json",
+    "contracts/schemas/position-changed.schema.json",
     "contracts/schemas/identity-provisioning-requested.schema.json",
     "contracts/schemas/person-access-status-changed.schema.json",
 ):

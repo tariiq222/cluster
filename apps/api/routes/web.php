@@ -2,11 +2,19 @@
 
 use App\Http\Controllers\Organization\CreateClusterController;
 use App\Http\Controllers\Organization\CreateFacilityController;
+use App\Http\Controllers\Organization\CreateOrganizationUnitController;
+use App\Http\Controllers\Organization\CreatePositionController;
 use App\Http\Controllers\Organization\GetClusterController;
 use App\Http\Controllers\Organization\GetFacilityController;
+use App\Http\Controllers\Organization\GetOrganizationUnitController;
+use App\Http\Controllers\Organization\GetPositionController;
 use App\Http\Controllers\Organization\ListFacilitiesController;
+use App\Http\Controllers\Organization\ListOrganizationUnitsController;
+use App\Http\Controllers\Organization\ListPositionsController;
 use App\Http\Controllers\Organization\UpdateClusterController;
 use App\Http\Controllers\Organization\UpdateFacilityController;
+use App\Http\Controllers\Organization\UpdateOrganizationUnitController;
+use App\Http\Controllers\Organization\UpdatePositionController;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Features\DevelopmentFixtureLogin\Http\DevelopmentFixtureLoginController;
@@ -27,6 +35,14 @@ Route::prefix('api/v1')->group(function (): void {
     Route::post('organization/facilities', CreateFacilityController::class);
     Route::get('organization/facilities/{facilityId}', GetFacilityController::class);
     Route::patch('organization/facilities/{facilityId}', UpdateFacilityController::class);
+    Route::get('organization/units', ListOrganizationUnitsController::class);
+    Route::post('organization/units', CreateOrganizationUnitController::class);
+    Route::get('organization/units/{unitId}', GetOrganizationUnitController::class);
+    Route::patch('organization/units/{unitId}', UpdateOrganizationUnitController::class);
+    Route::get('organization/positions', ListPositionsController::class);
+    Route::post('organization/positions', CreatePositionController::class);
+    Route::get('organization/positions/{positionId}', GetPositionController::class);
+    Route::patch('organization/positions/{positionId}', UpdatePositionController::class);
     Route::post('work-records', SubmitWorkRecordController::class);
     Route::get('work-records', ListAuthorizedWorkRecordsController::class);
     Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class);

@@ -5,6 +5,7 @@ namespace Modules\Organization\Features\CreateCluster\Handler;
 use DateTimeImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use JsonException;
 use Modules\Organization\Domain\Cluster;
 use stdClass;
 use UnexpectedValueException;
@@ -59,6 +60,10 @@ final class CreateClusterHandler
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->idempotencyQuery($idempotency)->update([
+                'response_payload' => json_encode($data, JSON_THROW_ON_ERROR),
+                'updated_at' => now(),
+            ]);
             $this->insertOutbox($cloudEvent, $cluster->id);
 
             return ['created' => true, 'request_hash_matches' => true, 'cluster' => $data];
@@ -93,15 +98,22 @@ final class CreateClusterHandler
     /** @return array{created: bool, request_hash_matches: bool, cluster: array<string, mixed>} */
     private function replayResult(stdClass $key, string $requestHash): array
     {
-        $row = DB::table('clusters')->where('id', $key->resource_id)->first();
-        if (! $row instanceof stdClass) {
+        if (! is_string($key->response_payload)) {
             throw new UnexpectedValueException('Stored idempotency state is incomplete.');
+        }
+        try {
+            $cluster = json_decode($key->response_payload, true, 32, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new UnexpectedValueException('Stored idempotency response is invalid.');
+        }
+        if (! is_array($cluster)) {
+            throw new UnexpectedValueException('Stored idempotency response is invalid.');
         }
 
         return [
             'created' => false,
             'request_hash_matches' => is_string($key->request_hash) && hash_equals($key->request_hash, $requestHash),
-            'cluster' => $this->serialize($row),
+            'cluster' => $cluster,
         ];
     }
 

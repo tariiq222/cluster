@@ -1,7 +1,7 @@
 asyncapi: 3.1.0
 info:
   title: Cluster Platform Domain Events
-  version: 1.2.0
+  version: 1.3.0
   description: CloudEvents JSON domain events delivered at least once through transactional Outbox, Redis Streams consumer groups, consumer Inbox, and DLQ.
 servers:
   production:
@@ -70,6 +70,36 @@ channels:
     messages:
       facilityArchived:
         $ref: '#/components/messages/FacilityArchived'
+  organization-unit-created:
+    address: platform.organization.organization-unit-created.v1
+    messages:
+      organizationUnitCreated:
+        $ref: '#/components/messages/OrganizationUnitCreated'
+  organization-unit-moved:
+    address: platform.organization.organization-unit-moved.v1
+    messages:
+      organizationUnitMoved:
+        $ref: '#/components/messages/OrganizationUnitMoved'
+  organization-unit-updated:
+    address: platform.organization.organization-unit-updated.v1
+    messages:
+      organizationUnitUpdated:
+        $ref: '#/components/messages/OrganizationUnitUpdated'
+  organization-unit-archived:
+    address: platform.organization.organization-unit-archived.v1
+    messages:
+      organizationUnitArchived:
+        $ref: '#/components/messages/OrganizationUnitArchived'
+  position-created:
+    address: platform.organization.position-created.v1
+    messages:
+      positionCreated:
+        $ref: '#/components/messages/PositionCreated'
+  position-updated:
+    address: platform.organization.position-updated.v1
+    messages:
+      positionUpdated:
+        $ref: '#/components/messages/PositionUpdated'
   dead-letter:
     address: platform.dlq.v1
     messages:
@@ -172,6 +202,54 @@ operations:
     action: receive
     channel: {$ref: '#/channels/facility-archived'}
     messages: [{$ref: '#/channels/facility-archived/messages/facilityArchived'}]
+  publishOrganizationUnitCreated:
+    action: send
+    channel: {$ref: '#/channels/organization-unit-created'}
+    messages: [{$ref: '#/channels/organization-unit-created/messages/organizationUnitCreated'}]
+  consumeOrganizationUnitCreated:
+    action: receive
+    channel: {$ref: '#/channels/organization-unit-created'}
+    messages: [{$ref: '#/channels/organization-unit-created/messages/organizationUnitCreated'}]
+  publishOrganizationUnitMoved:
+    action: send
+    channel: {$ref: '#/channels/organization-unit-moved'}
+    messages: [{$ref: '#/channels/organization-unit-moved/messages/organizationUnitMoved'}]
+  consumeOrganizationUnitMoved:
+    action: receive
+    channel: {$ref: '#/channels/organization-unit-moved'}
+    messages: [{$ref: '#/channels/organization-unit-moved/messages/organizationUnitMoved'}]
+  publishOrganizationUnitUpdated:
+    action: send
+    channel: {$ref: '#/channels/organization-unit-updated'}
+    messages: [{$ref: '#/channels/organization-unit-updated/messages/organizationUnitUpdated'}]
+  consumeOrganizationUnitUpdated:
+    action: receive
+    channel: {$ref: '#/channels/organization-unit-updated'}
+    messages: [{$ref: '#/channels/organization-unit-updated/messages/organizationUnitUpdated'}]
+  publishOrganizationUnitArchived:
+    action: send
+    channel: {$ref: '#/channels/organization-unit-archived'}
+    messages: [{$ref: '#/channels/organization-unit-archived/messages/organizationUnitArchived'}]
+  consumeOrganizationUnitArchived:
+    action: receive
+    channel: {$ref: '#/channels/organization-unit-archived'}
+    messages: [{$ref: '#/channels/organization-unit-archived/messages/organizationUnitArchived'}]
+  publishPositionCreated:
+    action: send
+    channel: {$ref: '#/channels/position-created'}
+    messages: [{$ref: '#/channels/position-created/messages/positionCreated'}]
+  consumePositionCreated:
+    action: receive
+    channel: {$ref: '#/channels/position-created'}
+    messages: [{$ref: '#/channels/position-created/messages/positionCreated'}]
+  publishPositionUpdated:
+    action: send
+    channel: {$ref: '#/channels/position-updated'}
+    messages: [{$ref: '#/channels/position-updated/messages/positionUpdated'}]
+  consumePositionUpdated:
+    action: receive
+    channel: {$ref: '#/channels/position-updated'}
+    messages: [{$ref: '#/channels/position-updated/messages/positionUpdated'}]
   consumeDeadLetter:
     action: receive
     channel: {$ref: '#/channels/dead-letter'}
@@ -310,6 +388,72 @@ components:
             properties:
               type: {const: com.cluster.organization.facilityarchived.v1}
               data: {$ref: '../schemas/facility-archived.schema.json'}
+    OrganizationUnitCreated:
+      name: OrganizationUnitCreated
+      title: Organization unit created
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.organizationunitcreated.v1}
+              data: {$ref: '../schemas/organization-unit-changed.schema.json'}
+    OrganizationUnitMoved:
+      name: OrganizationUnitMoved
+      title: Organization unit subtree moved
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.organizationunitmoved.v1}
+              data: {$ref: '../schemas/organization-unit-changed.schema.json'}
+    OrganizationUnitUpdated:
+      name: OrganizationUnitUpdated
+      title: Organization unit profile updated
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.organizationunitupdated.v1}
+              data: {$ref: '../schemas/organization-unit-changed.schema.json'}
+    OrganizationUnitArchived:
+      name: OrganizationUnitArchived
+      title: Organization unit deactivated or permanently archived
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.organizationunitarchived.v1}
+              data: {$ref: '../schemas/organization-unit-changed.schema.json'}
+    PositionCreated:
+      name: PositionCreated
+      title: Organization position created
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.positioncreated.v1}
+              data: {$ref: '../schemas/position-changed.schema.json'}
+    PositionUpdated:
+      name: PositionUpdated
+      title: Organization position updated
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.positionupdated.v1}
+              data: {$ref: '../schemas/position-changed.schema.json'}
     DeadLetter:
       name: DeadLetter
       title: Dead-letter event

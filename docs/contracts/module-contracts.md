@@ -3,7 +3,7 @@ doc_id: CON-MC-001
 title: عقود الموديولات
 type: contracts
 status: accepted
-version: 1.4.0
+version: 1.5.0
 date: 2026-07-17
 owner: مسؤول هندسة البرمجيات
 reviewers:
@@ -20,7 +20,7 @@ references: []
 
 | Module | Owns | Publishes |
 |---|---|---|
-| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `ClusterUpdated`, `FacilityCreated`, `FacilityUpdated`, `FacilityArchived`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
+| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `ClusterUpdated`, `FacilityCreated`, `FacilityUpdated`, `FacilityArchived`, `OrganizationUnitCreated`, `OrganizationUnitMoved`, `OrganizationUnitUpdated`, `OrganizationUnitArchived`, `PositionCreated`, `PositionUpdated`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
 | Identity | sessions and current principal | authenticated access context |
 | Authorization | access decisions | `AccessDecision` |
 | Work Definitions | immutable published work-type versions | definition reads |
@@ -51,6 +51,7 @@ No consumer writes another module's persistence. Consumers use the HTTP contract
 - Base path: `/api/v1`; JSON media type: `application/json`.
 - `X-Correlation-ID` is required on every request and returned on every response. It is a lowercase RFC 9562 UUIDv7 matching `xxxxxxxx-xxxx-7xxx-[89ab]xxx-xxxxxxxxxxxx`.
 - A create, submit, decision, upload-finalize, or export request requires `Idempotency-Key` (1-255 visible ASCII characters). Replays with the same key and different request semantics return `409`.
+- يعيد replay الناجح snapshot الاستجابة الأصلية وETag الأصليين، ولا يعيد الحالة الحالية للمورد بعد تعديله.
 - `ETag` is returned on mutable representations. `PATCH`, cancel/archive actions, submit, and workflow decisions require `If-Match`; a stale value returns `412`. User-facing APIs never hard-delete records.
 - Collection pagination uses opaque `cursor` and `limit` (1-100). A next cursor is returned in `Link` with `rel="next"`; clients must not construct or decode cursors.
 - Responses are filtered by authorization and field policy before serialization. `confidential` and `top_secret` reads, downloads, exports, and decisions are audit events; search never discloses `top_secret` and must not index restricted document content.
@@ -73,6 +74,7 @@ Schemas use JSON Schema Draft 2020-12 with `additionalProperties: false` unless 
 
 | Version | Date | Change |
 |---|---|---|
+| 1.5.0 | 2026-07-18 | Publish organization unit tree and position lifecycle contracts |
 | 1.4.0 | 2026-07-18 | Publish optimistic cluster/facility update and facility archive contracts |
 | 1.3.0 | 2026-07-18 | Publish ClusterCreated and FacilityCreated contracts for the first Organization slice |
 | 1.2.0 | 2026-07-18 | Freeze W1.2 Organization, Identity, import, bootstrap, and audit boundaries |

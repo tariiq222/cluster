@@ -151,16 +151,18 @@ references:
 
 - `id` CHAR(36) UUIDv7 PK.
 - `cluster_id` CHAR(36) UUIDv7 NOT NULL FK.
-- `parent_id` CHAR(36) UUIDv7 NULL FK -> `organization_units.id` (تجمع، منشأة، إدارة، ...).
+- `parent_id` CHAR(36) UUIDv7 NOT NULL؛ يشير إلى Cluster أو Facility أو OrganizationUnit داخل الموديول بحسب `parent_type`.
+- `parent_type` VARCHAR(16) NOT NULL: `cluster|facility|unit`.
 - `unit_type_id` CHAR(36) UUIDv7 NOT NULL FK -> `unit_types.id`.
 - `code` VARCHAR(64) NOT NULL.
 - `name_ar` VARCHAR(255) NOT NULL.
 - `name_en` VARCHAR(255) NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT 'active'.
-- `path_cache` VARCHAR(512) NULL (مسار مُسبق للحساب السريع للنطاق).
+- `path_cache` VARCHAR(512) NOT NULL (مسار مُسبق للحساب السريع للنطاق).
 - `depth` SMALLINT NOT NULL.
+- `lock_version` INT UNSIGNED NOT NULL DEFAULT 1.
 - `created_at`، `updated_at` DATETIME.
-- قيد فريد: `(parent_id, code)` حيث parent_id يمكن NULL مع تفسير نطاق التجمع.
+- قيد فريد: `(parent_type, parent_id, code)`.
 - فهارس: `(cluster_id, status)`، `(parent_id)`، `(unit_type_id)`، `(path_cache)` كـ prefix index.
 
 ### 5.5 `unit_types`
@@ -178,7 +180,9 @@ references:
 - `title_ar` VARCHAR(255) NOT NULL.
 - `title_en` VARCHAR(255) NULL.
 - `level` SMALLINT NULL.
+- `manager_position_id` CHAR(36) UUIDv7 NULL FK -> `positions.id`، ولا يسمح بدورة إدارية.
 - `is_active` BOOLEAN NOT NULL DEFAULT TRUE.
+- `lock_version` INT UNSIGNED NOT NULL DEFAULT 1.
 - قيد فريد: `(organization_unit_id, code)`.
 - فهرس: `(organization_unit_id, is_active)`.
 
@@ -318,7 +322,10 @@ references:
 - `FacilityArchived`
 - `OrganizationUnitCreated`
 - `OrganizationUnitMoved`
+- `OrganizationUnitUpdated`
+- `OrganizationUnitArchived`
 - `PositionCreated`
+- `PositionUpdated`
 - `PersonRegistered`
 - `AssignmentStarted`
 - `AssignmentEnded`

@@ -141,6 +141,14 @@ class OrganizationCoreHttpAdapterTest extends TestCase
             ->assertJsonPath('data.id', $clusterId)
             ->assertJsonPath('data.name_ar', 'تجمع صحي محدث')
             ->assertJsonPath('data.lock_version', 2);
+        $this->withToken($token)->postJson('/api/v1/organization/cluster', [
+            'code' => 'THC3',
+            'name' => 'التجمع الصحي الثالث',
+        ], $this->writeHeaders('cluster-for-facility'))
+            ->assertCreated()
+            ->assertHeader('ETag', '"1"')
+            ->assertJsonPath('data.name_ar', 'التجمع الصحي الثالث')
+            ->assertJsonPath('data.lock_version', 1);
 
         $this->assertDatabaseHas('clusters', [
             'id' => $clusterId,
@@ -203,6 +211,16 @@ class OrganizationCoreHttpAdapterTest extends TestCase
             ->assertHeader('ETag', '"2"')
             ->assertJsonPath('data.name_ar', 'مستشفى محدث')
             ->assertJsonPath('data.lock_version', 2);
+        $this->withToken($token)->postJson('/api/v1/organization/facilities', [
+            'cluster_id' => $clusterId,
+            'type_code' => 'hospital',
+            'code' => 'HOSPITAL-01',
+            'name' => 'مستشفى التجمع',
+        ], $this->writeHeaders('facility-for-update'))
+            ->assertCreated()
+            ->assertHeader('ETag', '"1"')
+            ->assertJsonPath('data.name_ar', 'مستشفى التجمع')
+            ->assertJsonPath('data.lock_version', 1);
 
         $this->withToken($token)
             ->patchJson("/api/v1/organization/facilities/{$facilityId}", ['name' => 'كتابة متأخرة'], $this->patchHeaders('"1"'))

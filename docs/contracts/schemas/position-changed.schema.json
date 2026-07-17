@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/position-changed.schema.json",
+  "title": "Position Changed Event Data",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["position", "access_context", "classification"],
+  "properties": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "organization_unit_id", "code", "title_ar", "manager_position_id", "is_active", "lock_version"],
+      "properties": {
+        "id": {"$ref": "#/$defs/uuidv7"},
+        "organization_unit_id": {"$ref": "#/$defs/uuidv7"},
+        "code": {"type": "string", "pattern": "^[A-Z0-9_-]{2,64}$"},
+        "title_ar": {"type": "string", "minLength": 1, "maxLength": 255},
+        "manager_position_id": {"oneOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]},
+        "is_active": {"type": "boolean"},
+        "lock_version": {"type": "integer", "minimum": 1}
+      }
+    },
+    "access_context": {"$ref": "access-context.schema.json"},
+    "classification": {"const": "internal"}
+  },
+  "$defs": {
+    "uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}
+  }
+}

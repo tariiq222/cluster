@@ -54,6 +54,8 @@ class AppServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom([
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationCoreTables.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationFacilityTypes.php'),
+            base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationTreeTables.php'),
+            base_path('Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationUnitTypes.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateDevelopmentFacilitiesTable.php'),
             base_path('Modules/Identity/Infrastructure/Persistence/Migrations/CreateDevelopmentFixtureAccountsTable.php'),
             base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateDevelopmentWorkTypeFixturesTable.php'),

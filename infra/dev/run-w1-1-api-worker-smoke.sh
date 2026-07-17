@@ -200,8 +200,8 @@ jq -e --arg id "$record_b" '(.items | length) == 1 and .items[0].source.record_i
 
 (
   cd "$API_DIR"
-  env "${api_env[@]}" php vendor/bin/phpunit -c phpunit.mysql.xml --filter=WalkingSkeletonMySqlE2ETest >/dev/null
-  env "${api_env[@]}" php vendor/bin/phpunit -c phpunit.mysql.xml Modules/Organization/Tests/OrganizationCoreHttpAdapterTest.php >/dev/null
+  env "${api_env[@]}" php vendor/bin/phpunit -c phpunit.mysql.xml --filter=WalkingSkeletonMySqlE2ETest
+  env "${api_env[@]}" php vendor/bin/phpunit -c phpunit.mysql.xml Modules/Organization/Tests/OrganizationCoreHttpAdapterTest.php Modules/Organization/Tests/OrganizationTreeHttpAdapterTest.php
   env "${api_env[@]}" php artisan migrate:rollback --force >/dev/null
 )
-printf 'PASS: API/worker smoke proved MySQL Organization core and rollback, symmetric isolation, relay, Inbox/effect, replay, and DLQ coverage.\n'
+printf 'PASS: API/worker smoke proved MySQL Organization core/tree and rollback, symmetric isolation, relay, Inbox/effect, replay, and DLQ coverage.\n'

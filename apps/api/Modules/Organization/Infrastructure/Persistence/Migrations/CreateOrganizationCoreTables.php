@@ -50,6 +50,7 @@ return new class extends Migration
             $table->char('request_hash', 64);
             $table->string('resource_type', 32);
             $table->uuid('resource_id');
+            $table->json('response_payload')->nullable();
             $table->timestamps();
 
             $table->unique(
