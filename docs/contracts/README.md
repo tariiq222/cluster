@@ -3,7 +3,7 @@ doc_id: CON-IDX-001
 title: فهرس العقود
 type: contracts
 status: accepted
-version: 1.1.0
+version: 1.2.0
 date: 2026-07-15
 owner: مسؤول هندسة البرمجيات
 reviewers:
@@ -21,6 +21,7 @@ references: []
 | الملف | الغرض |
 |---|---|
 | [api/openapi.yaml](api/openapi.yaml) | REST API، OpenAPI 3.1 |
+| [api/w1-2.openapi.yaml](api/w1-2.openapi.yaml) | snapshot مجمد لعقود W1.2 قبل التنفيذ |
 | [api/notifications.md](api/notifications.md) | فهرس عملية قائمة إشعارات المستخدم المحكومة |
 | [events/asyncapi.yaml](events/asyncapi.yaml) | نقل أحداث المجال، AsyncAPI 3.1 |
 | `schemas/` | موارد JSON Schema Draft 2020-12 |
@@ -34,5 +35,6 @@ references: []
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.2.0 | 2026-07-18 | مسؤول هندسة البرمجيات | تجميد snapshot وعقود أحداث W1.2 |
 | 1.0.0 | 2026-07-15 | مسؤول هندسة البرمجيات | إنشاء أولي |
 | 1.1.0 | 2026-07-16 | مسؤول هندسة البرمجيات | إضافة فهرس عقد قائمة إشعارات المستخدم |

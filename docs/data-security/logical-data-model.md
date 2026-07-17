@@ -3,7 +3,7 @@ doc_id: SEC-DM-001
 title: النموذج المنطقي للبيانات
 type: data-security
 status: draft
-version: 0.3.0
+version: 0.4.0
 date: 2026-07-15
 owner: مسؤول أمن المعلومات
 reviewers:
@@ -45,7 +45,8 @@ references:
 - كل سجل يحمل الجهة المالكة والوحدة التنظيمية والتصنيف والحالة وإصدار التعريف.
 - قيم التصنيف الوحيدة هي `public` (عام)، `internal` (داخلي)، `confidential` (سري)، `top_secret` (سري للغاية).
 - تُحفظ أرقام الإصدارات على السجلات الجارية لمنع التعديل الصامت.
-- تُحفظ بيانات PII للموظف فقط داخل Identity. الأعمال تأخذ معرفات مرجعية لا حقولاً موسعة.
+- كل نوع `UUID` في الجداول أدناه يعني RFC 9562 UUIDv7 بأحرف صغيرة، وليس UUID عاماً أو مولداً من قاعدة البيانات.
+- تُحفظ بيانات PII الأساسية للموظف داخل Organization مالك Person. يحتفظ Identity بمرجع `person_id` وملخص عرض محدود فقط.
 
 ## 3. المخطط العام ERD
 
@@ -166,7 +167,7 @@ erDiagram
 | gender | enum | اختياري | الجنس |
 | primary_email | string | اختياري، مشفر | بريد التواصل الرئيسي |
 | primary_phone | string | اختياري، مشفر | الهاتف الرئيسي |
-| status | enum | إلزامي | active, suspended, archived |
+| status | enum | إلزامي | active, suspended, left |
 | created_at | timestamp | إلزامي | لحظة الإنشاء |
 | updated_at | timestamp | إلزامي | آخر تحديث |
 
@@ -183,7 +184,8 @@ erDiagram
 | الحقل | النوع | القيد | الوصف |
 |---|---|---|---|
 | id | UUID | PK | معرف الحساب |
-| person_id | UUID | FK to Person, unique | المالك الحقيقي |
+| person_id | UUID | مرجع خارجي اختياري، بلا FK | الشخص الذي يملكه Organization |
+| person_version | bigint | اختياري | آخر نسخة مرجع تحققت أو طبقت ذرياً |
 | username | string | فريد، غير قابل للتغيير | اسم الدخول |
 | account_type | enum | إلزامي | individual, break_glass, service |
 | status | enum | إلزامي | pending, active, locked, disabled, archived |
@@ -199,13 +201,13 @@ erDiagram
 
 قواعد:
 
-- حساب واحد للشخص الواحد في الحالة الافتراضية. يمكن إنشاء حساب طوارئ مغلق وفق إجراء موثق.
+- حساب Active واحد على الأكثر لكل Person، يفرضه Identity بلا unique FK عابر. الحساب الخدمي وbreak-glass لا يرتبطان بـPerson.
 - تعطيل الحساب ينهي كل جلساته فوراً ويلغي جميع تفويضاته النشطة.
 - `break_glass` حساب يخضع لإجراءات خاصة ولا يستخدم للعمل اليومي.
 
 ### 4.3 Employment
 
-ارتباط الشخص بالجهة التي يتبع لها رسمياً. يملكه `Organization` ويشير إلى `Person` المملوك لـ`Identity` بمعرف فقط.
+ارتباط الشخص بالجهة التي يتبع لها رسمياً. يملك `Organization` كلاً من Employment وPerson.
 
 | الحقل | النوع | القيد | الوصف |
 |---|---|---|---|
@@ -439,7 +441,7 @@ erDiagram
 
 | المعلومة | المالك | الاستخدام الخارجي |
 |---|---|---|
-| Person | Identity | معرف مرجعي |
+| Person | Organization | معرف مرجعي وعقد تحقق؛ لا تنسخ PII |
 | UserAccount | Identity | معرف للحساب |
 | Employment | Organization | حقائق علاقة وظيفية عبر عقد |
 | PositionAssignment | Organization | حقائق منصب عبر عقد |
@@ -496,16 +498,16 @@ erDiagram
 | الحقل | النوع | القيد | الوصف |
 |---|---|---|---|
 | id | UUID | PK | معرف السياق |
-| subject_user_account_id | UUID | FK to UserAccount | صاحب الطلب |
-| subject_person_id | UUID | FK to Person | نسخة تعريفية للشخص |
-| acting_as_user_account_id | UUID | FK, optional | حساب المفوَّض له عند التفويض |
+| subject_user_account_id | UUID | معرف خارجي بلا FK | صاحب الطلب |
+| subject_person_id | UUID | معرف خارجي بلا FK | نسخة تعريفية للشخص |
+| acting_as_user_account_id | UUID | معرف خارجي اختياري بلا FK | حساب المفوَّض له عند التفويض |
 | delegation_id | UUID | FK, optional | التفويض الساري إن وُجد |
 | request_action | string | إلزامي | الفعل المطلوب مثل view, edit, approve, export |
 | request_resource_type | string | إلزامي | نوع المورد مثل work_record, document, task |
 | request_resource_id | UUID | اختياري | معرف المورد المستهدف |
 | captured_at | timestamp | إلزامي | زمن التقاط المدخلات |
 | expires_at | timestamp | إلزامي | زمن انتهاء صلاحية السياق لإعادة الاستخدام |
-| session_id | UUID | FK, optional | الجلسة المرتبطة |
+| session_id | UUID | معرف خارجي اختياري بلا FK | الجلسة المرتبطة |
 | source_ip | string | اختياري | IP داخلي |
 | correlation_id | UUID | إلزامي | معرف ربط لطلبات متعددة |
 
@@ -525,7 +527,7 @@ erDiagram
 | access_context_id | UUID | FK | السياق المالك |
 | record_type | string | إلزامي | نوع السجل |
 | record_id | UUID | إلزامي | معرف السجل |
-| owner_organization_unit_id | UUID | FK | الجهة المالكة |
+| owner_organization_unit_id | UUID | معرف خارجي بلا FK | الجهة المالكة |
 | classification | enum | إلزامي | public, internal, confidential, top_secret |
 | state | string | إلزامي | حالة السجل مثل draft, submitted, completed |
 | status | string | إلزامي | الحالة التشغيلية |
@@ -534,7 +536,7 @@ erDiagram
 | work_type_version_id | UUID | FK, optional | إصدار التعريف للأنواع الديناميكية |
 | workflow_version_id | UUID | FK, optional | إصدار المسار |
 | legal_hold | boolean | إلزامي | علم الحجز القانوني |
-| created_by_user_account_id | UUID | FK | المنشئ |
+| created_by_user_account_id | UUID | معرف actor خارجي بلا FK | المنشئ |
 | snapshot_at | timestamp | إلزامي | زمن تجميد الحقائق |
 
 قواعد:
@@ -693,5 +695,6 @@ erDiagram
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 0.4.0 | 2026-07-18 | مسؤول أمن المعلومات | نقل ملكية Person إلى Organization وإزالة FKs العابرة وفق ADR-024 |
 | 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء النموذج المنطقي الموسع |
 | 0.3.0 | 2026-07-15 | مسؤول أمن المعلومات | إزالة كيانات الطلب ومزود قرار الموديول وتصحيح ملكيات Organization وتحويل عقود الوصول إلى حقائق فقط |

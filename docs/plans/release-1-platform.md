@@ -3,7 +3,7 @@ doc_id: PLN-R1-001
 title: خطة إصدار R1 – المنصة العامة الكاملة
 type: plans
 status: accepted
-version: 5.0.0
+version: 5.1.0
 date: 2026-07-17
 owner: طارق
 reviewers: []
@@ -238,12 +238,13 @@ ADR-024 لملكية Organization/Identity وحدود الاستيراد.
    وmodule catalog ووثائق المجال والبيانات والعقود.
 3. يجمد subset W1.2 من OpenAPI وعقود Problem والأحداث وPerson reference وsession وlockout
    وscope selector، بأرقام schema وحقول idempotency و`person_version`.
-4. تحسم تسمية حالة الحساب غير النشطة بين `archived` في نموذج البيانات و`suspended` في
-   وثيقة Identity، وتحدث العقود والاختبارات على taxonomy واحدة قبل التجميد.
+4. حالات الحساب المجمدة هي `pending|active|locked|disabled|archived`. تبقى `suspended`
+   حالة Person تؤدي إلى `disabled` قابلة للعكس وليست حالة حساب سادسة.
 5. تثبت عقود Authorization bootstrap كـdeny-by-default مؤقت لـW1.2؛ لا يدعي اكتمال
    RBAC + ABAC قبل W1.3. تثبت كذلك Audit append-only وتشفير PII قبل بيانات الموظفين.
-6. تضاف اختبارات القبول الحمراء والحدود التي تمنع FK وjoin وORM relation في الاتجاهين،
-   وتمنع حقول actor من التحول إلى FK عابر.
+6. تضاف مواصفات القبول ومدققات العقود والحدود التي تمنع FK وjoin وORM relation في
+   الاتجاهين وتمنع حقول actor من التحول إلى FK عابر. تُفعّل اختبارات السلوك الحمراء مع
+   كل شريحة تنفيذية ثم تعاد إلى الأخضر قبل دمجها؛ لا تجعل بوابة الجاهزية نفسها حمراء.
 7. يوجد target حقيقي باسم `make verify-w1-2` يشغل مدققات الوثائق والحدود وOpenAPI
    وعقود الأحداث واختبارات API والويب؛ placeholder ناجح بلا فحص stop condition.
 
@@ -258,10 +259,10 @@ ADR-024 لملكية Organization/Identity وحدود الاستيراد.
 - routes المستهدفة: `/admin/organization` و`cluster` و`facilities` و`units` و`positions`
   و`people` و`assignments` و`/admin/identity/accounts` ومسارا imports.
 - لا يبدأ `apps/web` قبل W12-00؛ كل routes المستهدفة `blocked-contract` حتى تجميد subset.
-  تبقى Cluster وPosition detail وIdentity accounts وقراءة ImportJob ومحدد النطاق محجوبة
-  أيضاً حتى نشر عملياتها الخاصة.
-- يبقى `POST /organization/people` محجوباً حتى إزالة `identity_user_id` من `PersonCreate`
-  وقبول schema متوافق مع ADR-024.
+  بعد إغلاق W12-00 يصبح snapshot `w1-2.openapi.yaml` المصدر الوحيد للعميل، ولا تستخدم
+  الواجهة أي path عام خارج allow-list المجمدة.
+- يملك `PersonCreate` حقول Organization فقط، وتتحقق Identity من `person_id` عبر
+  `/organization/people/{personId}/reference` بلا FK أو join.
 - يولد العميل من snapshot W1.2 المجمد. تستخدم mocks لاختبار حالات العرض فقط، ولا تثبت
   العزل أو إنهاء الجلسة أو منع الدوران أو الموافقة المزدوجة.
 - تشغل الرحلات نفسها بالعربية `RTL` والإنجليزية `LTR` وعلى سطح صغير وكبير. يلزم WCAG 2.2
@@ -592,6 +593,7 @@ ADR-024 لملكية Organization/Identity وحدود الاستيراد.
 
 | الإصدار | التاريخ | التغيير |
 | --- | --- | --- |
+| 5.1.0 | 2026-07-18 | حسم taxonomy الحساب وفصل مدققات الجاهزية عن اختبارات سلوك الشرائح |
 | 5.0.0 | 2026-07-17 | إغلاق W1.1 محلياً وفصل قبول R1 عن مرحلة D1 النهائية لتشغيل الخادم |
 | 4.1.0 | 2026-07-17 | مواءمة W1.2 مع ADR-024 واستبعاد اللجان وتثبيت مرجع Invariants والحدود |
 | 4.0.0 | 2026-07-17 | تبسيط الخطة لمطور واحد: حذف جداول المخاطر والملاك وبوابات الأدلة الموقعة، وإبقاء النطاق وREQ/TEST |

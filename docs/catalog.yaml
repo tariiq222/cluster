@@ -16,7 +16,7 @@ documents:
   - {path: plans/README.md, title: فهرس الخطط, category: plans, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: plans/implementation-roadmap.md, title: خارطة التنفيذ الرئيسية – منصة التجمع الصحي الثالث, category: plans, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: plans/release-1-platform.md, title: خطة إصدار R1 – المنصة العامة الكاملة, category: plans, status: accepted, owner: طارق, phase: R1, source_of_truth: true, generated: false}
-  - {path: plans/release-1/w1-2-frontend-slices.md, title: عقد شرائح واجهة W1.2, category: plans, status: proposed, owner: طارق, phase: R1, source_of_truth: false, generated: false}
+  - {path: plans/release-1/w1-2-frontend-slices.md, title: عقد شرائح واجهة W1.2, category: plans, status: accepted, owner: طارق, phase: R1, source_of_truth: false, generated: false}
   - {path: plans/release-2-strategy-portfolio.md, title: خطة إصدار R2 – الاستراتيجية والمحافظ والبرامج والمشاريع, category: plans, status: accepted, owner: مدير التجمع للتحول الرقمي, phase: R2, source_of_truth: true, generated: false}
   - {path: plans/release-3-risk.md, title: خطة إصدار R3 – المخاطر المؤسسية, category: plans, status: accepted, owner: مسؤول المخاطر المؤسسية, phase: R3, source_of_truth: true, generated: false}
   - {path: plans/readiness-checklist.md, title: قائمة جاهزية التشغيل النهائي على الخادم, category: plans, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: true, generated: false}
@@ -85,11 +85,14 @@ documents:
   - {path: contracts/api/notifications.md, title: عقد واجهة الإشعارات, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/api/openapi.yaml, title: OpenAPI, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/api/w1-1.openapi.yaml, title: سطح OpenAPI التنفيذي لـW1.1, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/api/w1-2.openapi.yaml, title: سطح OpenAPI المجمد لـW1.2, category: contract-api, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/events/asyncapi.yaml, title: AsyncAPI, category: contract-events, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: contracts/schemas/access-context.schema.json, title: Access Context schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/access-decision.schema.json, title: Access Decision schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/document-scan-completed.schema.json, title: Document Scan Completed schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/event-envelope.schema.json, title: Event Envelope schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/identity-provisioning-requested.schema.json, title: Identity Provisioning Requested schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/person-access-status-changed.schema.json, title: Person Access Status Changed schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/problem-details.schema.json, title: Problem Details schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: contracts/schemas/record-facts.schema.json, title: Record Facts schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/work-record.schema.json, title: Work Record schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
@@ -121,4 +124,4 @@ documents:
   - {path: adr/021-strategy-indicator-ownership.md, title: ملكية الاستراتيجية والمؤشرات, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R2, source_of_truth: true, generated: false}
   - {path: adr/022-portfolio-projects-and-risk-boundaries.md, title: حدود المحافظ والمشاريع والمخاطر, category: adr, status: accepted, owner: مجلس معمارية المنصة, phase: R2-R3, source_of_truth: true, generated: false}
   - {path: adr/023-single-host-dokploy-deployment.md, title: تشغيل VPS مباشر عبر Docker Compose, category: adr, status: accepted, owner: طارق, phase: R1, source_of_truth: true, generated: false}
-  - {path: adr/024-organization-identity-import-boundaries.md, title: ملكية Organization وIdentity وحدود الاستيراد, category: adr, status: proposed, owner: طارق, phase: R1, source_of_truth: true, generated: false}
+  - {path: adr/024-organization-identity-import-boundaries.md, title: ملكية Organization وIdentity وحدود الاستيراد, category: adr, status: accepted, owner: طارق, phase: R1, source_of_truth: true, generated: false}

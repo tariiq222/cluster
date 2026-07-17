@@ -3,7 +3,7 @@ doc_id: DOM-IDN-001
 title: الهوية والحسابات
 type: domain
 status: accepted
-version: 1.0.0
+version: 1.1.0
 date: 2026-07-15
 owner: مالك موديول Identity
 reviewers:
@@ -59,9 +59,9 @@ references:
 
 ### 4.1 UserAccountAggregate
 
-- `UserAccount` (Entity جذر): user_id، username، person_id المرجعي، status، password_version.
+- `UserAccount` (Entity جذر): user_id، username، person_id وperson_version المرجعيان، status، password_version.
 - `Username` (Value Object): مطبّع، فريد، غير حساس لحالة الأحرف وفق سياسة النظام.
-- `AccountStatus` (Value Object): Pending، Active، Locked، Disabled، Suspended.
+- `AccountStatus` (Value Object): Pending، Active، Locked، Disabled، Archived.
 - `UserIdentitySummary` (Value Object): الاسم ومرجع الشخص وبيانات العرض المسموحة.
 
 ### 4.2 CredentialAggregate
@@ -84,9 +84,10 @@ references:
 
 ### 5.1 `users`
 
-- `id` BIGINT PK.
+- `id` CHAR(36) UUIDv7 PK.
 - `username` VARCHAR(128) NOT NULL.
-- `person_id` BIGINT NULL، معرف خارجي يملكه Organization ولا ينشئ Identity له FK مالكاً.
+- `person_id` CHAR(36) UUIDv7 NULL، معرف خارجي يملكه Organization ولا ينشئ Identity له FK مالكاً.
+- `person_version` BIGINT NULL، آخر نسخة مرجع تحققت أو طبقت لهذا الحساب.
 - `display_name_ar` VARCHAR(255) NOT NULL.
 - `display_name_en` VARCHAR(255) NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT `pending`.
@@ -98,11 +99,12 @@ references:
 - `created_at` DATETIME NOT NULL، `updated_at` DATETIME NOT NULL.
 - قيد فريد على `(username)` بعد التطبيع.
 - فهارس: `(status)`، `(person_id)`، `(locked_until)`.
+- لا يوجد FK أو ORM relation إلى Person. يفرض التطبيق حساباً نشطاً واحداً على الأكثر لكل `person_id`.
 
 ### 5.2 `credentials`
 
-- `id` BIGINT PK.
-- `user_id` BIGINT NOT NULL FK -> `users.id` ON DELETE CASCADE.
+- `id` CHAR(36) UUIDv7 PK.
+- `user_id` CHAR(36) UUIDv7 NOT NULL FK -> `users.id` ON DELETE CASCADE.
 - `password_hash` VARCHAR(255) NOT NULL.
 - `hash_algorithm` VARCHAR(32) NOT NULL.
 - `password_changed_at` DATETIME NOT NULL.
@@ -115,7 +117,7 @@ references:
 ### 5.3 `sessions`
 
 - `id` CHAR(36) PK.
-- `user_id` BIGINT NOT NULL FK -> `users.id` ON DELETE CASCADE.
+- `user_id` CHAR(36) UUIDv7 NOT NULL FK -> `users.id` ON DELETE CASCADE.
 - `token_hash` VARCHAR(255) NOT NULL.
 - `password_version` BIGINT NOT NULL.
 - `issued_at` DATETIME NOT NULL.
@@ -128,9 +130,9 @@ references:
 
 ### 5.4 `account_recovery_events`
 
-- `id` BIGINT PK.
-- `user_id` BIGINT NOT NULL FK -> `users.id`.
-- `requested_by_user_id` BIGINT NOT NULL FK -> `users.id`.
+- `id` CHAR(36) UUIDv7 PK.
+- `user_id` CHAR(36) UUIDv7 NOT NULL FK -> `users.id`.
+- `requested_by_user_id` CHAR(36) UUIDv7 NOT NULL FK -> `users.id`.
 - `action` VARCHAR(32) NOT NULL.
 - `reason` VARCHAR(500) NOT NULL.
 - `status` VARCHAR(16) NOT NULL.
@@ -145,7 +147,7 @@ references:
 - `CreateUserAccount`
 - `ActivateUserAccount`
 - `DisableUserAccount`
-- `SuspendUserAccount`
+- `ArchiveUserAccount`
 - `UnlockUserAccount`
 - `AuthenticateUser`
 - `ChangeOwnPassword`
@@ -175,7 +177,7 @@ references:
 - `UserAccountCreated`
 - `UserAccountActivated`
 - `UserAccountDisabled`
-- `UserAccountSuspended`
+- `UserAccountArchived`
 - `UserPasswordChanged`
 - `UserPasswordChangeRequired`
 - `UserAccountLocked`
@@ -199,8 +201,8 @@ references:
 - `Active` --(DisableUserAccount)--> `Disabled`.
 - `Locked` --(DisableUserAccount)--> `Disabled`.
 - `Disabled` --(ActivateUserAccount)--> `Active` بعد تحقق إداري محكوم.
-- `Active` أو `Locked` --(SuspendUserAccount)--> `Suspended`.
-- `Suspended` --(ActivateUserAccount)--> `Active`.
+- `Pending` أو `Active` أو `Locked` أو `Disabled` --(ArchiveUserAccount)--> `Archived`.
+- `Archived` حالة نهائية لا يعاد تفعيلها؛ ينشأ حساب جديد بعد تحقق مرجع Person عند الحاجة.
 
 ### 7.2 UserSession
 
@@ -218,7 +220,10 @@ references:
 ## 8. الـInvariants
 
 - لا ينشأ حسابان بالـusername نفسه بعد التطبيع.
-- الحساب Disabled أو Suspended لا ينشئ جلسة ولا ينفذ قرار وصول.
+- الحساب Pending أو Locked أو Disabled أو Archived لا ينشئ جلسة ولا ينفذ قرار وصول.
+- لكل Person حساب Active واحد على الأكثر. الحسابات الخدمية وbreak-glass لا ترتبط بـPerson.
+- يثبت Identity آخر `person_version` مطبقاً مع Inbox، ويتجاهل المكرر أو الأقدم.
+- يحول `PersonAccessStatusChanged(Suspended|Left)` الحساب المرتبط إلى Disabled ويسحب جلساته؛ العودة إلى Active لا تعيد التفعيل تلقائياً.
 - لا تحفظ كلمة المرور الصريحة، ولا تسجل في Logs أو Events أو أخطاء HTTP.
 - كل كلمة مرور جديدة تطبق الحد الأدنى الأمني الحالي، ومنع القيم الشائعة، وتستخدم خوارزمية hash معتمدة محلياً.
 - لا يعاد استخدام كلمة مرور سابقة ضمن نافذة التاريخ المحددة في السياسة.
@@ -243,7 +248,7 @@ references:
 
 - username غير معروف أو كلمة مرور غير صحيحة: نتيجة عامة لا تكشف أيهما فشل، مع زيادة العداد وفق السياسة.
 - تجاوز حد المحاولات: قفل مؤقت، إبطال الجلسات عند الحاجة، وحدث تدقيق.
-- حساب معطل أو موقوف: رفض الدخول دون إنشاء Session.
+- حساب غير Active: رفض الدخول دون إنشاء Session.
 - كلمة مرور ضعيفة أو شائعة: رفض مع أخطاء حقلية دون حفظ قيمة سرية.
 - محاولة تغيير كلمة المرور من جلسة قديمة: رفض بعد مقارنة `password_version`.
 - تعارض إنشاء username: Rollback ورسالة قابلة للتفسير دون كشف حساب آخر.
@@ -255,7 +260,7 @@ references:
 
 - Unit: تطبيع username ومنع التكرار.
 - Unit: التحقق من سياسة كلمة المرور ومنع القيم الشائعة والتاريخ السابق.
-- Unit: انتقالات Pending وActive وLocked وDisabled وSuspended.
+- Unit: انتقالات Pending وActive وLocked وDisabled وArchived.
 - Feature: تسجيل دخول ناجح ينشئ Session دون كشف السر.
 - Feature: تسجيل دخول فاشل يقفل الحساب بعد العتبة المحددة.
 - Feature: تغيير كلمة المرور يزيد `password_version` ويبطل الجلسات المطلوبة.
@@ -263,13 +268,14 @@ references:
 - Authorization contract: الحساب النشط يمرر حقيقة الهوية، والحساب المعطل يجعل Authorization يصدر Deny لأي محاولة وصول.
 - Security: لا يظهر hash أو token أو password في Response أو Log أو Event payload.
 - Integration: إعادة تشغيل Outbox لا تكرر أثر تغيير الحساب.
+- Integration: `person_version` المكرر أو الأقدم لا يكرر provisioning أو سحب الجلسات.
 - Boundary: لا يقرأ Authorization أو Organization جدول `credentials` مباشرة.
 - Recovery: لا يستطيع منفذ Recovery قراءة كلمة المرور القديمة أو إعادة استعمال العملية.
 
 ## 12. الاعتماديات
 
 - يعتمد على `Shared/Clock` و`Shared/Identifiers`.
-- يستهلك من Organization معرف Person وعقد الربط فقط، دون امتلاك Person أو Position.
+- يعتمد على عقد `ValidatePersonReference` المنشور من Organization، ويستهلك أحداث provisioning وحالة الوصول دون امتلاك Person أو Position.
 - يقدّم إلى Authorization عقود حالة الحساب وملخص الهوية.
 - لا يعتمد على Authorization كي يتحقق من كلمة المرور، ولا يعتمد على WorkRecords أو Workflow.
 - يستهلك Audit وOutbox عبر عقود تقنية أو أحداث، ولا يكتب جدول Audit مباشرة.
@@ -279,4 +285,5 @@ references:
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.1.0 | 2026-07-18 | مالك موديول Identity | توحيد حالات الحساب ومرجع Person والاستهلاك idempotent وفق ADR-024 |
 | 1.0.0 | 2026-07-15 | مالك موديول Identity | توحيد الواجهة الأمامية وحدود الموديول |

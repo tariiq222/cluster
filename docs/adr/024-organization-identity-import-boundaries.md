@@ -2,8 +2,8 @@
 doc_id: ADR-024
 title: ملكية Organization وIdentity وحدود الاستيراد
 type: adr
-status: proposed
-version: 1.0.0
+status: accepted
+version: 1.1.0
 date: 2026-07-17
 owner: طارق
 reviewers: []
@@ -74,7 +74,7 @@ review_by: 2027-01-17
 3. يتحقق Identity من مرجع الشخص عبر عقد متزامن منشور يملكه Organization، ويجوز له حفظ
    snapshot العرض غير المرجعي أعلاه. عند غياب العقد أو قدم حقائقه لا يفعل الحساب الجديد،
    وينكر Authorization أي طلب يحتاج نطاقاً تنظيمياً غير قابل للحل. يضاف اتجاه
-   `Identity -> Organization` إلى خريطة الاعتماد عند قبول هذا القرار، ولا ينشأ اتجاه عكسي.
+   `Identity -> Organization` إلى خريطة الاعتماد، ولا ينشأ اتجاه عكسي.
 4. تحمل حقول actor مثل `created_by_user_id` و`submitted_by_user_id` و`approved_by_user_id`
    معرفات من سياق المصادقة والتدقيق بلا FK إلى جداول Identity وبلا استدعاء يخلق دورة.
 5. يملك Organization عملية استيراد المنشآت والوحدات والمناصب والأشخاص والتكليفات. تمر
@@ -91,8 +91,11 @@ review_by: 2027-01-17
    استيراد Organization أن provisioning اكتمل؛ تعرض الحالتان بشكل مستقل.
 8. يبقى `Authorization` وحده مالك allow/deny. يقدم Organization الحقائق التنظيمية الزمنية،
    ويقدم Identity حالة الحساب، ولا يمنح أي منهما صلاحية أعمال مباشرة.
-9. يسمح W1.2 بحساب نشط واحد لكل Person. يستخدم `IdentityProvisioningRequested` و
-   `PersonAccessStatusChanged` رقم `person_version` المتزايد نفسه لكل Person. يسجل Identity
+9. يسمح W1.2 بحساب نشط واحد لكل Person. حالات الحساب هي `pending` و`active` و`locked`
+   و`disabled` و`archived`. حالة الشخص `Suspended` ليست حالة حساب سادسة؛ تجعل الحساب
+   `disabled` بصورة قابلة للعكس، بينما `archived` نهاية إدارية صريحة. يستخدم
+   `IdentityProvisioningRequested` و`PersonAccessStatusChanged` رقم `person_version`
+   المتزايد نفسه لكل Person. يسجل Identity
    Inbox وآخر high-water mark في المعاملة نفسها، ويتجاهل أي إصدار `<=` المطبق. حالة
    `Suspended` تعلق الحساب و`Left` تعطله، وفي الحالتين تسحب كل الجلسات idempotently.
    انتهاء تكليف وحده لا يعطل الحساب، لكنه يبطل cache التفويض ويعيد تقييم النطاق في الطلب
@@ -169,7 +172,7 @@ review_by: 2027-01-17
 
 ## Review
 
-قبول القرار مشروط بمواءمة context map وmodule catalog والمسرد ووثائق المجال والنموذج
+قُبل القرار بعد مواءمة context map وmodule catalog والمسرد ووثائق المجال والنموذج
 المنطقي والتدقيق والعقود في مجموعة مراجعة واحدة. يراجع القرار عند تغيير مالك Person أو
 شكل الربط بالحساب أو إضافة قناة استيراد أو provisioning.
 
@@ -183,4 +186,5 @@ review_by: 2027-01-17
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.1.0 | 2026-07-18 | طارق | قبول القرار وتثبيت taxonomy الحساب ومواءمة عقود W1.2 |
 | 1.0.0 | 2026-07-17 | مجلس معمارية المنصة | اقتراح ملكية Person والحسابات وفصل الاستيراد عن provisioning |

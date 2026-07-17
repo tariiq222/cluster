@@ -3,7 +3,7 @@ doc_id: CON-MC-001
 title: عقود الموديولات
 type: contracts
 status: accepted
-version: 1.1.0
+version: 1.2.0
 date: 2026-07-17
 owner: مسؤول هندسة البرمجيات
 reviewers:
@@ -20,6 +20,7 @@ references: []
 
 | Module | Owns | Publishes |
 |---|---|---|
+| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
 | Identity | sessions and current principal | authenticated access context |
 | Authorization | access decisions | `AccessDecision` |
 | Work Definitions | immutable published work-type versions | definition reads |
@@ -28,6 +29,22 @@ references: []
 | Documents | document bytes, scan result and metadata | `DocumentScanCompleted` |
 
 No consumer writes another module's persistence. Consumers use the HTTP contract for synchronous reads/commands and events only for derived state or reactions.
+
+## W1.2 Organization and Identity
+
+- `Organization` يملك Person وحقول PII الأساسية ويزيد `person_version` عند كل تغيير وصول منشور.
+- `Identity` يحتفظ بـ`person_id` كمرجع خارجي بلا FK أو ORM relation أو join، ويتحقق منه
+  عبر `ValidatePersonReference` قبل تفعيل الحساب، ويرسل `person_version` المتحقق منه مع
+  أمر إنشاء الحساب لمنع سباق تغير حالة Person.
+- حالات الحساب الوحيدة هي `pending`, `active`, `locked`, `disabled`, `archived`؛
+  `archived` نهائية، وحالة Person المسماة `suspended` تحول الحساب إلى `disabled`.
+- `IdentityProvisioningRequested` يصدر بعد تطبيق Person داخل معاملة Organization وOutbox
+  نفسها. يطبق Identity كل `person_version` مرة واحدة مع Inbox وhigh-water mark ذريين.
+- معرفات actor مثل `submitted_by_user_id` و`approved_by_user_id` حقائق تدقيق بلا FK عابر.
+- ملفات الاستيراد الخام مشفرة في quarantine، وأخطاء الصفوف منقحة ولا تعيد payload خاماً.
+- Authorization في W1.2 مغلق افتراضياً، ومحدد النطاق لا يوسع القدرات الممنوحة.
+- Audit append-only: لا يملك كاتب Audit صلاحية update أو delete، وتخزن السلسلة وactor
+  وsubject وcorrelation من دون أسرار أو payload استيراد خام.
 
 ## HTTP Rules
 
@@ -51,3 +68,10 @@ No consumer writes another module's persistence. Consumers use the HTTP contract
 ## Compatibility
 
 Schemas use JSON Schema Draft 2020-12 with `additionalProperties: false` unless an explicit free-form payload is required. Additive optional fields are compatible. Removing, renaming, changing type, tightening validation, changing event meaning, or reusing a field requires a new major contract version.
+
+## Change Log
+
+| Version | Date | Change |
+|---|---|---|
+| 1.2.0 | 2026-07-18 | Freeze W1.2 Organization, Identity, import, bootstrap, and audit boundaries |
+| 1.1.0 | 2026-07-17 | Define shared HTTP, event, and compatibility rules |

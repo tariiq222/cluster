@@ -35,6 +35,16 @@ channels:
     messages:
       accessDecision:
         $ref: '#/components/messages/AccessDecision'
+  identity-provisioning-requested:
+    address: platform.organization.identity-provisioning-requested.v1
+    messages:
+      identityProvisioningRequested:
+        $ref: '#/components/messages/IdentityProvisioningRequested'
+  person-access-status-changed:
+    address: platform.organization.person-access-status-changed.v1
+    messages:
+      personAccessStatusChanged:
+        $ref: '#/components/messages/PersonAccessStatusChanged'
   dead-letter:
     address: platform.dlq.v1
     messages:
@@ -81,6 +91,22 @@ operations:
     action: receive
     channel: {$ref: '#/channels/access-decision'}
     messages: [{$ref: '#/channels/access-decision/messages/accessDecision'}]
+  publishIdentityProvisioningRequested:
+    action: send
+    channel: {$ref: '#/channels/identity-provisioning-requested'}
+    messages: [{$ref: '#/channels/identity-provisioning-requested/messages/identityProvisioningRequested'}]
+  consumeIdentityProvisioningRequested:
+    action: receive
+    channel: {$ref: '#/channels/identity-provisioning-requested'}
+    messages: [{$ref: '#/channels/identity-provisioning-requested/messages/identityProvisioningRequested'}]
+  publishPersonAccessStatusChanged:
+    action: send
+    channel: {$ref: '#/channels/person-access-status-changed'}
+    messages: [{$ref: '#/channels/person-access-status-changed/messages/personAccessStatusChanged'}]
+  consumePersonAccessStatusChanged:
+    action: receive
+    channel: {$ref: '#/channels/person-access-status-changed'}
+    messages: [{$ref: '#/channels/person-access-status-changed/messages/personAccessStatusChanged'}]
   consumeDeadLetter:
     action: receive
     channel: {$ref: '#/channels/dead-letter'}
@@ -142,6 +168,28 @@ components:
             properties:
               type: {const: com.cluster.authorization.accessdecision.v1}
               data: {$ref: '../schemas/access-decision.schema.json'}
+    IdentityProvisioningRequested:
+      name: IdentityProvisioningRequested
+      title: Identity provisioning requested after Organization apply
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.identityprovisioningrequested.v1}
+              data: {$ref: '../schemas/identity-provisioning-requested.schema.json'}
+    PersonAccessStatusChanged:
+      name: PersonAccessStatusChanged
+      title: Person access status changed
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.personaccessstatuschanged.v1}
+              data: {$ref: '../schemas/person-access-status-changed.schema.json'}
     DeadLetter:
       name: DeadLetter
       title: Dead-letter event

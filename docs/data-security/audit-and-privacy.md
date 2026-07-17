@@ -3,7 +3,7 @@ doc_id: SEC-AU-001
 title: التدقيق والخصوصية
 type: data-security
 status: draft
-version: 0.2.0
+version: 0.3.0
 date: 2026-07-15
 owner: مسؤول أمن المعلومات
 reviewers:
@@ -50,6 +50,9 @@ references:
 - **لا تكرار للأحداث.** كل حدث يحمل `event_id` فريد، والمستهلكون Idempotent.
 
 ## 3. نموذج البيانات
+
+كل نوع `UUID` في الجداول أدناه يعني RFC 9562 UUIDv7. يولد التطبيق المعرفات قبل بدء
+المعاملة، ولا تستخدم إجراءات MySQL الدالة `UUID()` لأنها لا تضمن الإصدار السابع.
 
 ### 3.1 الجداول
 
@@ -200,6 +203,8 @@ DELIMITER ;
 ```sql
 DELIMITER //
 CREATE PROCEDURE audit_append_event(
+    IN p_event_id BINARY(16),
+    IN p_initial_chain_id VARCHAR(36),
     IN p_event_type VARCHAR(100),
     IN p_actor_user_id BINARY(16),
     IN p_actor_session_id BINARY(16),
@@ -209,8 +214,7 @@ CREATE PROCEDURE audit_append_event(
     IN p_classification VARCHAR(20),
     IN p_outcome VARCHAR(20),
     IN p_module VARCHAR(50),
-    IN p_payload VARBINARY(8192),
-    OUT p_event_id BINARY(16)
+    IN p_payload VARBINARY(8192)
 )
 proc: BEGIN
     DECLARE v_prev_hash VARCHAR(64);
@@ -240,14 +244,15 @@ proc: BEGIN
     IF v_seq IS NULL THEN
         SET v_seq = 1;
         SET v_prev_hash = REPEAT('0', 64);
-        SET v_chain_id = UUID();
+        IF p_initial_chain_id IS NULL THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'UUIDv7 chain id is required';
+        END IF;
+        SET v_chain_id = p_initial_chain_id;
     ELSE
         SET v_seq = v_seq + 1;
     END IF;
 
     SET v_payload_hash = SHA2(p_payload, 256);
-
-    SET p_event_id = UUID_TO_BIN(UUID());
 
     SET v_event_hash = SHA2(
         CONCAT_WS('|',
@@ -471,10 +476,10 @@ audit-export-YYYY-MM-DD/
 
 ### 8.4 البيانات الرئيسية
 
-- `Person` و`UserAccount` مملوكان لـ Identity.
+- `Person` وPII الأساسية مملوكان لـOrganization، و`UserAccount` والاعتمادات والجلسات مملوكة لـIdentity.
 - `OrgUnit` و`Position` واللجان و`Employment` و`PositionAssignment` و`TemporaryAssignment` و`CommitteeMembership` مملوكة لـ Organization.
 - `WorkRecord` مملوك لـ`WorkRecords`، و`Workflow` مملوك لـ`Workflow`.
-- لا تكرار لـ PII خارج Identity.
+- لا يكرر Identity من PII سوى `display_name_ar` و`display_name_en` كملخص عرض مصنف، بلا هوية وطنية أو بريد أو هاتف.
 
 ### 8.5 الاختبارات
 
@@ -531,5 +536,6 @@ audit-export-YYYY-MM-DD/
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 0.3.0 | 2026-07-18 | مسؤول أمن المعلومات | مواءمة ملكية Person وPII مع ADR-024 |
 | 0.1.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء المسودة التنفيذية |
 | 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | توحيد التصنيف واستبدال المراجع التشغيلية التاريخية وضبط الوثيقة |

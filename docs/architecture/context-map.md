@@ -3,7 +3,7 @@ doc_id: ARC-CM-001
 title: خريطة السياقات المعمارية
 type: architecture
 status: accepted
-version: 1.1.0
+version: 1.2.0
 date: '2026-07-15'
 owner: مكتب هندسة المنصة
 reviewers:
@@ -79,6 +79,7 @@ flowchart TB
         PS["PlatformSettings"]
     end
 
+    I --> O
     I --> PS
     AZ --> I
     AZ --> O
@@ -198,7 +199,7 @@ flowchart TB
 |---|---|
 | `PlatformSettings` | لا شيء |
 | `Organization` | لا شيء |
-| `Identity` | `PlatformSettings` |
+| `Identity` | `Organization`, `PlatformSettings` |
 | `Authorization` | `Identity`, `Organization`, `PlatformSettings` |
 | `Audit` | `Authorization` |
 | `Workflow` | `Organization`, `Authorization`, `Audit` |
@@ -232,6 +233,7 @@ flowchart TB
 | الحقيقة | المالك الوحيد | ما يحتفظ به الآخرون |
 |---|---|---|
 | إعدادات المنصة المنشورة | `PlatformSettings` | مفتاح وإصدار أو Cache قابل للإبطال |
+| الشخص وPII الأساسية | `Organization` | `person_id` وملخص عرض محدود بلا FK أو join |
 | الهيكل والوحدات والمناصب والعلاقات | `Organization` | معرفات وملخصات مشتقة |
 | الحساب والجلسة والملف التشغيلي | `Identity` | `user_id` وملخص عرض |
 | الدور والقدرة والتفويض وسياسة الحقل | `Authorization` | قرار أو `decision_id` مؤقت، لا نسخة من السياسة |
@@ -283,7 +285,7 @@ sequenceDiagram
     Caller->>Caller: تحميل Envelope غير الحساس وبناء RecordFacts
     Caller->>Auth: DecideAccess(actor, capability, RecordFacts)
     Auth->>Identity: ResolveActiveIdentity
-    Identity-->>Auth: حالة الحساب والتكليفات الهووية
+    Identity-->>Auth: حالة الحساب فقط
     Auth->>Org: ResolveOrganizationScope
     Org-->>Auth: النطاق والعلاقات السارية
     Auth->>Auth: RBAC + ABAC + التصنيف + الحالة + الحقول

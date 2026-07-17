@@ -3,7 +3,7 @@ doc_id: ARC-MC-001
 title: كتالوج الموديولات canonical
 type: architecture
 status: accepted
-version: 1.1.0
+version: 1.2.0
 date: '2026-07-15'
 owner: مكتب هندسة المنصة
 reviewers:
@@ -82,6 +82,7 @@ references: []
 **يملك:**
 
 - المؤسسات والمنشآت والوحدات وأنواعها.
+- الأشخاص وPII الأساسية ونسخة `person_version` المتزايدة.
 - المناصب وخطوط الإشراف والتعيينات الأساسية والمؤقتة.
 - العلاقات الإشرافية والوظيفية والتنسيقية ومددها وقدراتها.
 - عضويات الفرق التنظيمية التي ليست حسابات دخول ولا أدوار صلاحية.
@@ -94,12 +95,15 @@ references: []
 - `GetOrganizationUnitSummary`
 - `GetActiveSupervisoryRelationships`
 - `ValidateOrganizationReference`
+- `ValidatePersonReference`
 
 **أحداث:**
 
 - `OrganizationUnitCreated`
 - `OrganizationUnitMoved`
 - `PositionAssigned`
+- `PersonAccessStatusChanged`
+- `IdentityProvisioningRequested`
 - `TemporaryAssignmentExpired`
 - `SupervisoryRelationshipActivated`
 - `SupervisoryRelationshipExpired`
@@ -117,6 +121,7 @@ references: []
 - المستخدمين وبيانات الاعتماد وتاريخ تغييرها.
 - الجلسات والاستعادة المحكومة ومحاولات الدخول.
 - الملف الشخصي التشغيلي والتفضيلات الهووية.
+- `person_id` كمعرف خارجي وملخص عرض محدود، بلا PII مرجعية أو FK إلى Organization.
 
 **عقود متزامنة:**
 
@@ -135,7 +140,7 @@ references: []
 - `UserSessionsRevoked`
 - `UserProfileUpdated`
 
-**يعتمد على:** `PlatformSettings`.
+**يعتمد على:** `Organization`, `PlatformSettings`.
 
 **لا يملك:** جهة المستخدم أو منصبه أو دوره التجاري؛ يشير إليها بمعرفات ويتحقق منها عبر العقود.
 

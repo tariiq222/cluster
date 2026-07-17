@@ -3,7 +3,7 @@ doc_id: ADR-README
 title: فهرس قرارات المعمارية
 type: adr
 status: accepted
-version: 1.1.0
+version: 1.2.0
 date: 2026-07-17
 owner: مجلس معمارية المنصة
 reviewers:
@@ -50,7 +50,7 @@ review_by: 2027-01-15
 | [021](021-strategy-indicator-ownership.md) | ملكية الاستراتيجية والمؤشرات | accepted |
 | [022](022-portfolio-projects-and-risk-boundaries.md) | حدود المحافظ والمشاريع والمخاطر | accepted |
 | [023](023-single-host-dokploy-deployment.md) | تشغيل VPS مباشر عبر Docker Compose | accepted |
-| [024](024-organization-identity-import-boundaries.md) | ملكية Organization وIdentity وحدود الاستيراد | proposed |
+| [024](024-organization-identity-import-boundaries.md) | ملكية Organization وIdentity وحدود الاستيراد | accepted |
 
 القالب المعتمد: [template.md](template.md).
 
@@ -58,5 +58,6 @@ review_by: 2027-01-15
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.2.0 | 2026-07-18 | طارق | اعتماد ADR-024 بعد مواءمة عقود W1.2 |
 | 1.1.0 | 2026-07-17 | مجلس معمارية المنصة | إضافة ADR-024 المقترح |
 | 1.0.0 | 2026-07-15 | مجلس معمارية المنصة | إنشاء فهرس قرارات المعمارية |

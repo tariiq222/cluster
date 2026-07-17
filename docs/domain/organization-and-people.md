@@ -3,7 +3,7 @@ doc_id: DOM-ORG-001
 title: المؤسسة والهيكل التنظيمي
 type: domain
 status: accepted
-version: 1.0.0
+version: 1.1.0
 date: 2026-07-15
 owner: مالك موديول Organization
 reviewers:
@@ -116,7 +116,7 @@ references:
 
 ### 5.1 `clusters`
 
-- `id` BIGINT PK.
+- `id` CHAR(36) UUIDv7 PK.
 - `code` VARCHAR(64) UNIQUE NOT NULL.
 - `name_ar` VARCHAR(255) NOT NULL.
 - `name_en` VARCHAR(255) NULL.
@@ -128,9 +128,9 @@ references:
 
 ### 5.2 `facilities`
 
-- `id` BIGINT PK.
-- `cluster_id` BIGINT NOT NULL FK -> `clusters.id`.
-- `facility_type_id` BIGINT NOT NULL FK -> `facility_types.id`.
+- `id` CHAR(36) UUIDv7 PK.
+- `cluster_id` CHAR(36) UUIDv7 NOT NULL FK -> `clusters.id`.
+- `facility_type_id` CHAR(36) UUIDv7 NOT NULL FK -> `facility_types.id`.
 - `code` VARCHAR(64) NOT NULL.
 - `name_ar` VARCHAR(255) NOT NULL.
 - `name_en` VARCHAR(255) NULL.
@@ -142,17 +142,17 @@ references:
 
 ### 5.3 `facility_types`
 
-- `id` BIGINT PK.
+- `id` CHAR(36) UUIDv7 PK.
 - `code` VARCHAR(64) UNIQUE NOT NULL (مثال: `hospital`، `center`، `lab`، `shared_services`).
 - `name_ar` VARCHAR(255) NOT NULL.
 - `is_active` BOOLEAN NOT NULL DEFAULT TRUE.
 
 ### 5.4 `organization_units`
 
-- `id` BIGINT PK.
-- `cluster_id` BIGINT NOT NULL FK.
-- `parent_id` BIGINT NULL FK -> `organization_units.id` (تجمع، منشأة، إدارة، ...).
-- `unit_type_id` BIGINT NOT NULL FK -> `unit_types.id`.
+- `id` CHAR(36) UUIDv7 PK.
+- `cluster_id` CHAR(36) UUIDv7 NOT NULL FK.
+- `parent_id` CHAR(36) UUIDv7 NULL FK -> `organization_units.id` (تجمع، منشأة، إدارة، ...).
+- `unit_type_id` CHAR(36) UUIDv7 NOT NULL FK -> `unit_types.id`.
 - `code` VARCHAR(64) NOT NULL.
 - `name_ar` VARCHAR(255) NOT NULL.
 - `name_en` VARCHAR(255) NULL.
@@ -165,15 +165,15 @@ references:
 
 ### 5.5 `unit_types`
 
-- `id` BIGINT PK.
+- `id` CHAR(36) UUIDv7 PK.
 - `code` VARCHAR(64) UNIQUE NOT NULL (مثال: `cluster`، `facility`، `sector`، `department`، `section`، `unit`).
 - `name_ar` VARCHAR(255) NOT NULL.
 - `is_active` BOOLEAN NOT NULL DEFAULT TRUE.
 
 ### 5.6 `positions`
 
-- `id` BIGINT PK.
-- `organization_unit_id` BIGINT NOT NULL FK.
+- `id` CHAR(36) UUIDv7 PK.
+- `organization_unit_id` CHAR(36) UUIDv7 NOT NULL FK.
 - `code` VARCHAR(64) NOT NULL.
 - `title_ar` VARCHAR(255) NOT NULL.
 - `title_en` VARCHAR(255) NULL.
@@ -184,22 +184,24 @@ references:
 
 ### 5.7 `people`
 
-- `id` BIGINT PK.
-- `national_id` VARCHAR(32) NULL UNIQUE (اختياري).
+- `id` CHAR(36) UUIDv7 PK.
+- `national_id_ciphertext` VARBINARY NULL، مشفر على مستوى العمود.
+- `national_id_lookup_hash` CHAR(64) NULL UNIQUE، HMAC للبحث ومنع التكرار بلا كشف القيمة.
 - `employee_number` VARCHAR(64) NULL UNIQUE.
 - `display_name_ar` VARCHAR(255) NOT NULL.
 - `display_name_en` VARCHAR(255) NULL.
-- `primary_email` VARCHAR(255) NULL.
-- `primary_phone` VARCHAR(32) NULL.
+- `primary_email_ciphertext` VARBINARY NULL.
+- `primary_phone_ciphertext` VARBINARY NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT 'active'.
+- `person_version` BIGINT NOT NULL DEFAULT 1.
 - `created_at`، `updated_at` DATETIME.
-- فهارس: `(status)`، `(national_id)`، `(employee_number)`.
+- فهارس: `(status)`، `(national_id_lookup_hash)`، `(employee_number)`.
 
 ### 5.8 `assignments`
 
-- `id` BIGINT PK.
-- `person_id` BIGINT NOT NULL FK.
-- `position_id` BIGINT NOT NULL FK.
+- `id` CHAR(36) UUIDv7 PK.
+- `person_id` CHAR(36) UUIDv7 NOT NULL FK.
+- `position_id` CHAR(36) UUIDv7 NOT NULL FK.
 - `role` VARCHAR(32) NOT NULL DEFAULT 'primary'.
 - `start_at` DATE NOT NULL.
 - `end_at` DATE NULL.
@@ -209,23 +211,23 @@ references:
 
 ### 5.9 `supervisory_relationships`
 
-- `id` BIGINT PK.
-- `source_unit_id` BIGINT NULL FK (الجهة المصدر على مستوى الوحدة).
-- `source_person_id` BIGINT NULL FK (الجهة المصدر على مستوى الشخص).
-- `target_unit_id` BIGINT NULL FK.
-- `target_person_id` BIGINT NULL FK.
+- `id` CHAR(36) UUIDv7 PK.
+- `source_unit_id` CHAR(36) UUIDv7 NULL FK (الجهة المصدر على مستوى الوحدة).
+- `source_person_id` CHAR(36) UUIDv7 NULL FK (الجهة المصدر على مستوى الشخص).
+- `target_unit_id` CHAR(36) UUIDv7 NULL FK.
+- `target_person_id` CHAR(36) UUIDv7 NULL FK.
 - `relationship_type` VARCHAR(32) NOT NULL.
 - `start_at` DATE NOT NULL.
 - `end_at` DATE NULL.
-- `created_by_user_id` BIGINT NOT NULL FK -> `users.id` (Identity).
+- `created_by_user_id` CHAR(36) UUIDv7 NOT NULL، معرف actor من سياق المصادقة بلا FK أو join إلى Identity.
 - `created_at` DATETIME NOT NULL.
 - قيد: واحد على الأقل من source_unit_id أو source_person_id، وواحد على الأقل من target_unit_id أو target_person_id.
 - فهارس: `(source_unit_id, start_at, end_at)`، `(source_person_id, start_at, end_at)`، `(target_unit_id, start_at, end_at)`، `(target_person_id, start_at, end_at)`، `(relationship_type)`.
 
 ### 5.10 `relationship_capabilities`
 
-- `id` BIGINT PK.
-- `supervisory_relationship_id` BIGINT NOT NULL FK -> `supervisory_relationships.id` ON DELETE CASCADE.
+- `id` CHAR(36) UUIDv7 PK.
+- `supervisory_relationship_id` CHAR(36) UUIDv7 NOT NULL FK -> `supervisory_relationships.id` ON DELETE CASCADE.
 - `module_code` VARCHAR(64) NOT NULL (مثال: `work-records`، `strategy`، `portfolio-projects`).
 - `capability_code` VARCHAR(64) NOT NULL (مثال: `view_aggregate`، `view_details`، `assign_task`، `participate_approval`).
 - `field_policy_key` VARCHAR(128) NULL (مرجع لقالب سياسة حقول).
@@ -233,13 +235,14 @@ references:
 
 ### 5.11 `import_jobs`
 
-- `id` BIGINT PK.
+- `id` CHAR(36) UUIDv7 PK.
 - `template_code` VARCHAR(64) NOT NULL (`facilities`، `organization_units`، `positions`، `people_assignments`).
 - `source_filename` VARCHAR(255) NOT NULL.
 - `source_format` VARCHAR(8) NOT NULL (`csv`، `xlsx`).
-- `status` VARCHAR(32) NOT NULL (`received`، `validated`، `awaiting_approval`، `applied`، `failed`، `cancelled`).
-- `submitted_by_user_id` BIGINT NOT NULL FK.
-- `approved_by_user_id` BIGINT NULL FK.
+- `status` VARCHAR(32) NOT NULL (`received`، `validated`، `approved`، `applied`، `failed`، `rejected`، `cancelled`).
+- `quarantine_object_id` CHAR(36) NOT NULL، مرجع ملف خام مشفر ومحجور بلا FK عابر.
+- `submitted_by_user_id` CHAR(36) UUIDv7 NOT NULL، معرف actor بلا FK عابر.
+- `approved_by_user_id` CHAR(36) UUIDv7 NULL، معرف actor بلا FK عابر.
 - `total_rows` INT NOT NULL DEFAULT 0.
 - `valid_rows` INT NOT NULL DEFAULT 0.
 - `error_rows` INT NOT NULL DEFAULT 0.
@@ -249,12 +252,12 @@ references:
 
 ### 5.12 `import_rows`
 
-- `id` BIGINT PK.
-- `import_job_id` BIGINT NOT NULL FK -> `import_jobs.id` ON DELETE CASCADE.
+- `id` CHAR(36) UUIDv7 PK.
+- `import_job_id` CHAR(36) UUIDv7 NOT NULL FK -> `import_jobs.id` ON DELETE CASCADE.
 - `row_number` INT NOT NULL.
-- `raw_payload` JSON NOT NULL.
+- `encrypted_payload` JSON NOT NULL، حقول الصف الحساسة مشفرة ولا تظهر في الأخطاء أو Logs.
 - `proposed_action` VARCHAR(16) NULL (`create`، `update`، `skip`).
-- `proposed_target_id` BIGINT NULL.
+- `proposed_target_id` CHAR(36) UUIDv7 NULL.
 - `validation_errors` JSON NULL.
 - `decision` VARCHAR(16) NULL (`accepted`، `rejected`).
 - `applied_at` DATETIME NULL.
@@ -326,6 +329,8 @@ references:
 - `ImportJobApproved`
 - `ImportJobApplied`
 - `ImportJobFailed`
+- `IdentityProvisioningRequested` بعد تطبيق Person فعلياً، ويحمل `person_id` و`person_version` بلا PII.
+- `PersonAccessStatusChanged` عند تغير Active أو Suspended أو Left، ويحمل النسخة نفسها.
 
 ## 7. State Machines
 
@@ -367,6 +372,8 @@ references:
 - استيراد CSV/XLSX لا يطبق مباشرة: يمر عبر حالات Received → Validated → Approved → Applied.
 - لا تُطبّق صفحات الاستيراد التي تحوي أخطاء حرجة (Critical)؛ يطلب إعادة رفع.
 - كل استيراد يحتاج `approved_by_user_id` مختلف عن `submitted_by_user_id` (مبدأ الموافقة المزدوجة).
+- معرفات actor حقائق تدقيق من سياق المصادقة وليست FKs أو ORM relations إلى Identity.
+- لكل Person رقم `person_version` أحادي الزيادة يرافق أحداث provisioning وحالة الوصول.
 - التقويم المرجعي Asia/Riyadh، لكن طوابع `created_at`/`updated_at` تُخزن UTC.
 
 ## 9. معاملات المجال وملكية القرار
@@ -374,6 +381,7 @@ references:
 - كل Command يقوده Aggregate المالك داخل Organization؛ Handler الخاص بالـSlice يملك Transaction وcommit أو rollback.
 - إنشاء أو نقل Cluster أو Facility أو Unit يحفظ الشجرة و`path_cache` والأحداث في Transaction واحدة.
 - استيراد CSV/XLSX يملك ImportJob Transaction الخاصة به، ولا يكتب صفوف الهيكل عند الرفع أو التحقق؛ التطبيق فقط يحدث بعد Approved.
+- تطبيق الاستيراد يحفظ تغييرات Organization و`IdentityProvisioningRequested` في Outbox داخل المعاملة نفسها، ولا يكتب جداول Identity.
 - لا يستخدم Organization Transaction عامة لتنسيق جداول Identity أو Authorization أو WorkRecords.
 - الأحداث المهمة وOutbox تحفظ داخل Transaction المالك، وتنفذ الفهرسة أو الإشعار بعد Commit.
 - يقدم Organization حقائق النطاق والعلاقات إلى Authorization، لكنه لا يصدر قرار Allow أو Deny لسجل أعمال.
@@ -429,7 +437,7 @@ references:
 ## 13. الاعتماديات
 
 - يعتمد على: Shared/Clock (Asia/Riyadh)، Shared/Identifiers.
-- يعتمد على موديول Identity لوجود `users.id` الذي يُسجَّل في `created_by_user_id` و`approved_by_user_id`.
+- يستقبل معرفات actor من سياق المصادقة كتدقيق فقط، بلا اعتماد متزامن أو FK إلى Identity.
 - لا يعتمد على Authorization، WorkDefinitions، WorkRecords، Workflow، Documents.
 - يعتمد عليه: Identity (لربط Person بحساب)، Authorization (لحل النطاق والعلاقات)، WorkDefinitions (للإشارة إلى `owner_organization_unit_id`)، WorkRecords (نفس المرجع)، Workflow (لحل المعتمدين)، Documents (نفس المرجع)، Strategy (للإشارة إلى الجهة المالكة للمؤشر)، PortfolioProjects (نفس المرجع)، Risk (نفس المرجع)، Collaboration (للإشارة إلى الجهة المالكة للمهمة).
 
@@ -437,4 +445,5 @@ references:
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.1.0 | 2026-07-18 | مالك موديول Organization | تثبيت ملكية Person وحدود actor والاستيراد وprovisioning وفق ADR-024 |
 | 1.0.0 | 2026-07-15 | مالك موديول Organization | توحيد الواجهة الأمامية وحدود الموديول |

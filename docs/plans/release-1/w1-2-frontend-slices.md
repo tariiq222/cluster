@@ -2,8 +2,8 @@
 doc_id: PLN-R1-W12-FE-001
 title: عقد شرائح واجهة W1.2
 type: plans
-status: proposed
-version: 1.0.0
+status: accepted
+version: 1.1.0
 date: 2026-07-17
 owner: طارق
 reviewers: []
@@ -16,6 +16,7 @@ references:
 - docs/architecture/non-functional-requirements.md
 - docs/contracts/README.md
 - docs/contracts/api/openapi.yaml
+- docs/contracts/api/w1-2.openapi.yaml
 - docs/contracts/module-contracts.md
 - docs/engineering/vertical-slices.md
 ---
@@ -28,9 +29,8 @@ references:
 العربية `RTL` والإنجليزية `LTR` والوصولية. لا يعد هذا الملف تنفيذاً للواجهة ولا
 دليلاً على جاهزية W1.2.
 
-يبقى العقد `proposed` حتى تعتمد حزمة W12-00 وقرار ملكية Organization/Identity،
-وتنشر العقود الناقصة المذكورة أدناه. لا يبدأ تعديل `apps/web` اعتماداً على هذا
-الملف وحده.
+اعتمد العقد مع حزمة W12-00 وقرار ملكية Organization/Identity. يبدأ تعديل `apps/web`
+من snapshot المجمد فقط، ولا يستنتج مساراً أو schema من النصوص العامة.
 
 ## القرارات الثابتة
 
@@ -137,57 +137,52 @@ Feature الملف الأحادي مؤقتاً لتجاوز الترتيب.
 
 ## subset الـOpenAPI
 
-### العمليات المرشحة الموجودة
+### العمليات المجمدة
 
-ينشئ Contract Maintainer snapshot باسم `w1-2.openapi.yaml` داخل مجلد عقود API على
-نمط W1.1، ويجمد الطرق التالية فقط مع مكونات الأمن والأخطاء والـheaders التي تعتمد عليها.
-وجود العملية في `openapi.yaml` العام يجعلها مرشحاً ولا يعني اعتماد subset.
+يوجد snapshot باسم `w1-2.openapi.yaml` داخل مجلد عقود API على نمط W1.1، ويجمد الطرق
+التالية فقط مع مكونات الأمن والأخطاء والـheaders التي تعتمد عليها.
 الجدول allow-list حصرية؛ يفشل validator إذا دخل snapshot أي path أو method غير مذكور.
 
 | المسار | الطرق | استخدام الواجهة |
 |---|---|---|
 | `/auth/login` | `POST` | إعادة استخدام دخول W1.1 داخل shell |
 | `/auth/logout` | `POST` | إنهاء الجلسة من shell |
-| `/me` | `GET` | access context الحالي؛ لا يكفي وحده لتغيير النطاق |
-| `/documents` | `POST` | إنشاء metadata والحصول على `document_id` قبل رفع bytes |
+| `/me` | `GET` | access context الحالي |
+| `/me/scopes`, `/me/scope` | `GET`, `PUT` | النطاقات المسموحة واختيار الفعال بلا توسعة صلاحية |
+| `/documents` | `GET`, `POST` | metadata لملف الاستيراد المحجور |
 | `/documents/uploads` | `POST` | بدء رفع bytes باستخدام `document_id` الموجود |
 | `/documents/uploads/{uploadId}/complete` | `POST` | إكمال الرفع والتحقق من checksum |
+| `/organization/cluster` | `GET`, `POST`, `PATCH` | جذر التجمع الوحيد |
 | `/organization/facilities` | `GET`, `POST` | قائمة المنشآت وإنشاؤها |
 | `/organization/facilities/{facilityId}` | `GET`, `PATCH` | عرض المنشأة وتعديلها أو أرشفتها |
 | `/organization/units` | `GET`, `POST` | قائمة/شجرة الوحدات وإنشاؤها |
 | `/organization/units/{unitId}` | `GET`, `PATCH` | عرض الوحدة وتعديلها أو نقلها |
 | `/organization/positions` | `GET`, `POST` | قائمة المناصب وإنشاؤها |
-| `/organization/people` | `GET`, `POST` | مرشح مشروط بتصحيح `PersonCreate` قبل التجميد |
+| `/organization/positions/{positionId}` | `GET`, `PATCH` | عرض المنصب وتعديله |
+| `/organization/people` | `GET`, `POST` | قائمة الأشخاص وإنشاء Person بلا حساب |
+| `/organization/people/{personId}` | `GET`, `PATCH` | عرض Person وتحديثه تحت سياسة الحقول |
+| `/organization/people/{personId}/reference` | `GET` | عقد تحقق محدود لـIdentity بلا PII مرجعية |
 | `/organization/assignments` | `GET`, `POST` | قائمة التكليفات وإنشاؤها |
 | `/organization/assignments/{assignmentId}/end` | `POST` | إنهاء التكليف دون حذف السجل |
-| `/organization/import-jobs` | `POST` | إنشاء ImportJob من `document_id` |
+| `/organization/import-jobs` | `POST` | إنشاء ImportJob من `quarantine_object_id` |
+| `/organization/import-jobs/{jobId}` | `GET` | الحالة وملخص التحقق المنقح |
+| `/organization/import-jobs/{jobId}/rows` | `GET` | أخطاء الصفوف المنقحة بلا payload خام |
 | `/organization/import-jobs/{jobId}/{jobAction}` | `POST` | validate/approve/reject/apply/cancel حسب العقد |
+| `/identity/accounts` | `GET`, `POST` | قائمة الحسابات وإنشاء pending بعد تحقق Person |
+| `/identity/accounts/{accountId}` | `GET` | ملخص حساب بلا credential أو token |
+| `/identity/accounts/{accountId}/{accountAction}` | `POST` | activate/unlock/disable/archive/revoke/force-change |
+| `/authorization/bootstrap` | `GET`, `POST` | bootstrap مؤقت deny-by-default وإغلاقه مرة واحدة |
 
 يضم snapshot مراجع `bearerAuth` و`CorrelationId` و`IdempotencyKey` و`IfMatch`
 و`ETag` و`Problem` وpagination وUUIDv7 وUTC اللازمة لهذه العمليات، ولا ينسخ schemas
 يدوياً. لا يضم `/organization/supervisory-relationships` أو مسارات W1.3 وما بعدها.
 
-### فجوات تمنع التنفيذ
+### ما يبقى خارج snapshot
 
-لا توجد في العقد العام الحالي عمليات مكتملة لـ:
-
-- Cluster وFacilityType وUnitType.
-- تحديث Position أو Person بعد الإنشاء.
-- `PersonCreate` الحالي يفرض `identity_user_id`، وهو يعاكس اتجاه القرار المستهدف بأن
-  يملك Organization الشخص وأن تحتفظ Identity بـ`person_id` عبر عقد منشور. لذلك لا
-  يجمد `POST /organization/people` ولا ينفذ route الأشخاص قبل تصحيح schema واعتماد ADR.
-- TemporaryAssignment وCommitteeMembership.
-- UserAccount وCredential وسياسة الدخول الأول والقفل والتعطيل وإنهاء الجلسات.
-- Identity provisioning الناتج من استيراد Organization.
-- عقد `/me` الحالي يعيد access context واحداً ولا يصف نطاقاً فعالاً منفصلاً أو قائمة
-  نطاقات قابلة للاختيار أو عملية تغيير النطاق؛ لذلك يبقى محدد النطاق تفاعلياً blocked.
-- قراءة ImportJob وحالته وأخطاء صفوفه؛ عمليات الانتقال وحدها لا تكفي لبناء رحلة
-  مراجعة ومتابعة قابلة للاستخدام.
-
-هذه الفجوات stop conditions لـW12-00. لا يبتكر فريق الواجهة أسماء paths أو schemas،
-ولا يحول `/organization/people` إلى API للحسابات. يحدد Contract Maintainer لكل فجوة
-المالك، والعملية، والـschema، وأخطاء `401/403/404/409/412/422` المتوقعة قبل رفع
-الحالة من `blocked-contract`.
+تبقى إدارة الأنواع المحكومة وTemporaryAssignment التفصيلية خارج أول شريحة حتى تنشر
+عملياتها في إصدار snapshot لاحق متوافق. `CommitteeMembership` خارج R1 وفق tombstone
+`REQ-R1-W1.2-014`. لا يبتكر فريق الواجهة أسماء paths أو schemas، ولا يحول
+`/organization/people` إلى API للحسابات.
 
 ### عقد العميل
 
@@ -292,8 +287,8 @@ Feature الملف الأحادي مؤقتاً لتجاوز الترتيب.
 | `FE-TEST-W1.2-009` | WCAG 2.2 AA | axe بلا serious/critical مع keyboard وfocus وlabels وlive regions |
 | `FE-TEST-W1.2-010` | أمن النطاق | scope selector لا يوسع `/me`، و403/404 لا يسربان وجود موارد أو حقولاً مقيدة |
 
-لا يغلق `FE-TEST-W1.2-003` جزئياً: تبقى نتيجته blocked حتى تنشر عقود Identity
-وTemporaryAssignment وCommitteeMembership. ولا يحول وجود mock ناجح أي بند إلى pass.
+لا يغلق `FE-TEST-W1.2-003` جزئياً: تبقى نتيجة TemporaryAssignment blocked حتى تنشر
+عملياته، ولا تدخل CommitteeMembership في R1. ولا يحول وجود mock ناجح أي بند إلى pass.
 
 ## بوابات التنفيذ والتسليم
 
@@ -311,7 +306,7 @@ Feature الملف الأحادي مؤقتاً لتجاوز الترتيب.
 ### أوامر التحقق المستهدفة للتنفيذ اللاحق
 
 ```bash
-python3 scripts/validate-w1-2-openapi.py
+python3 scripts/validate-w1-2-contracts.py
 npm --prefix apps/web run api:check
 npm --prefix apps/web run lint
 npm --prefix apps/web run test:unit
@@ -372,4 +367,5 @@ Integrator تحويله إلى اسم محايد أو W1.2 مع تحديث ال�
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.1.0 | 2026-07-18 | طارق | اعتماد العقد بعد تجميد snapshot ومسارات Identity والنطاق والاستيراد |
 | 1.0.0 | 2026-07-17 | طارق | تثبيت عقد routes/files وOpenAPI والـmocks واختبارات RTL/LTR والوصولية لـW1.2 |

@@ -1,0 +1,93 @@
+openapi: 3.1.0
+info:
+  title: Cluster Platform W1.2 API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    url: https://cluster.example/legal
+  description: Frozen W1.2 contract surface for Organization, Identity, import, scope selection, and bootstrap.
+servers:
+  - url: https://api.cluster.example/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    parameters:
+      - {$ref: "./openapi.yaml#/components/parameters/CorrelationId"}
+    post:
+      summary: Authenticate a W1.2 principal
+      operationId: loginW12
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "./openapi.yaml#/components/schemas/Login"}
+      responses:
+        "200":
+          description: Authenticated W1.2 session
+          headers:
+            X-Correlation-ID: {$ref: "./openapi.yaml#/components/headers/Correlation"}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/W12SessionResponse"}
+        "400": {$ref: "./openapi.yaml#/components/responses/BadRequest"}
+        "401": {$ref: "./openapi.yaml#/components/responses/Unauthorized"}
+  /auth/logout: {$ref: "./openapi.yaml#/paths/~1auth~1logout"}
+  /me: {$ref: "./openapi.yaml#/paths/~1me"}
+  /me/scopes: {$ref: "./openapi.yaml#/paths/~1me~1scopes"}
+  /me/scope: {$ref: "./openapi.yaml#/paths/~1me~1scope"}
+  /documents: {$ref: "./openapi.yaml#/paths/~1documents"}
+  /documents/uploads: {$ref: "./openapi.yaml#/paths/~1documents~1uploads"}
+  /documents/uploads/{uploadId}/complete: {$ref: "./openapi.yaml#/paths/~1documents~1uploads~1{uploadId}~1complete"}
+  /organization/cluster: {$ref: "./openapi.yaml#/paths/~1organization~1cluster"}
+  /organization/facilities: {$ref: "./openapi.yaml#/paths/~1organization~1facilities"}
+  /organization/facilities/{facilityId}: {$ref: "./openapi.yaml#/paths/~1organization~1facilities~1{facilityId}"}
+  /organization/units: {$ref: "./openapi.yaml#/paths/~1organization~1units"}
+  /organization/units/{unitId}: {$ref: "./openapi.yaml#/paths/~1organization~1units~1{unitId}"}
+  /organization/positions: {$ref: "./openapi.yaml#/paths/~1organization~1positions"}
+  /organization/positions/{positionId}: {$ref: "./openapi.yaml#/paths/~1organization~1positions~1{positionId}"}
+  /organization/people: {$ref: "./openapi.yaml#/paths/~1organization~1people"}
+  /organization/people/{personId}: {$ref: "./openapi.yaml#/paths/~1organization~1people~1{personId}"}
+  /organization/people/{personId}/reference: {$ref: "./openapi.yaml#/paths/~1organization~1people~1{personId}~1reference"}
+  /organization/assignments: {$ref: "./openapi.yaml#/paths/~1organization~1assignments"}
+  /organization/assignments/{assignmentId}/end: {$ref: "./openapi.yaml#/paths/~1organization~1assignments~1{assignmentId}~1end"}
+  /organization/import-jobs: {$ref: "./openapi.yaml#/paths/~1organization~1import-jobs"}
+  /organization/import-jobs/{jobId}: {$ref: "./openapi.yaml#/paths/~1organization~1import-jobs~1{jobId}"}
+  /organization/import-jobs/{jobId}/rows: {$ref: "./openapi.yaml#/paths/~1organization~1import-jobs~1{jobId}~1rows"}
+  /organization/import-jobs/{jobId}/{jobAction}: {$ref: "./openapi.yaml#/paths/~1organization~1import-jobs~1{jobId}~1{jobAction}"}
+  /identity/accounts: {$ref: "./openapi.yaml#/paths/~1identity~1accounts"}
+  /identity/accounts/{accountId}: {$ref: "./openapi.yaml#/paths/~1identity~1accounts~1{accountId}"}
+  /identity/accounts/{accountId}/{accountAction}: {$ref: "./openapi.yaml#/paths/~1identity~1accounts~1{accountId}~1{accountAction}"}
+  /authorization/bootstrap: {$ref: "./openapi.yaml#/paths/~1authorization~1bootstrap"}
+components:
+  schemas:
+    W12Principal:
+      type: object
+      additionalProperties: false
+      required: [user_id, person_id, display_name_ar]
+      properties:
+        user_id: {$ref: "./openapi.yaml#/components/schemas/UUIDv7"}
+        person_id: {$ref: "./openapi.yaml#/components/schemas/UUIDv7"}
+        display_name_ar: {type: string, minLength: 1, maxLength: 255}
+        display_name_en: {type: [string, "null"], maxLength: 255}
+    W12Session:
+      type: object
+      additionalProperties: false
+      required: [access_token, token_type, expires_at, account_status, must_change_password, principal, effective_scope]
+      properties:
+        access_token: {type: string, minLength: 1}
+        token_type: {const: Bearer}
+        expires_at: {$ref: "./openapi.yaml#/components/schemas/UtcDateTime"}
+        account_status: {const: active}
+        must_change_password: {type: boolean}
+        principal: {$ref: "#/components/schemas/W12Principal"}
+        effective_scope: {$ref: "./openapi.yaml#/components/schemas/ScopeOption"}
+    W12SessionResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: {$ref: "#/components/schemas/W12Session"}
+  securitySchemes:
+    bearerAuth: {$ref: "./openapi.yaml#/components/securitySchemes/bearerAuth"}

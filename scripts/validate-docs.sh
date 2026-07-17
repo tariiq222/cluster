@@ -17,6 +17,7 @@ python3 scripts/validate-notifications-openapi.py
 python3 scripts/validate-auth-openapi.py
 python3 scripts/validate-work-records-openapi.py
 python3 scripts/validate-w1-1-openapi.py
+python3 scripts/validate-w1-2-contracts.py
 
 python3 - <<'PY'
 from __future__ import annotations

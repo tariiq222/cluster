@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "test:unit": "vitest run",
     "coverage": "vitest run --coverage",
-    "api:lint": "redocly lint --config ./redocly.yaml ../../docs/contracts/api/openapi.yaml && redocly lint --config ./redocly.yaml ../../docs/contracts/api/w1-1.openapi.yaml",
+    "api:lint": "redocly lint --config ./redocly.yaml ../../docs/contracts/api/openapi.yaml && redocly lint --config ./redocly.yaml ../../docs/contracts/api/w1-1.openapi.yaml && redocly lint --config ./redocly.yaml ../../docs/contracts/api/w1-2.openapi.yaml",
     "api:bundle": "mkdir -p .orval && redocly bundle --config ./redocly.yaml ../../docs/contracts/api/w1-1.openapi.yaml --output .orval/cluster.openapi.yaml",
     "api:generate": "npm run api:bundle && orval --config ./orval.config.ts",
     "api:watch": "npm run api:bundle && orval --config ./orval.config.ts --watch",

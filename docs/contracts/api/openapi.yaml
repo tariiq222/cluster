@@ -72,6 +72,49 @@ paths:
           "200": { $ref: "#/components/responses/Principal" },
           "401": { $ref: "#/components/responses/Problem" },
         }
+  /me/scopes:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      tags: [Identity]
+      summary: List scopes already allowed for the current principal
+      operationId: listMyScopes
+      responses:
+        "200":
+          description: Allowed and currently effective scopes
+          headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScopeSelection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /me/scope:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    put:
+      tags: [Identity]
+      summary: Select one previously allowed effective scope without expanding access
+      operationId: selectMyScope
+      parameters:
+        - { $ref: "#/components/parameters/IfMatch" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScopeSelectionUpdate" }
+      responses:
+        "200":
+          description: Effective scope selected
+          headers:
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScopeSelection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
   /work-definitions:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -1550,6 +1593,50 @@ paths:
           "200": { $ref: "#/components/responses/Collection" },
           "403": { $ref: "#/components/responses/Problem" },
         }
+  /organization/cluster:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      tags: [Organization Admin]
+      summary: Get the singleton cluster root
+      operationId: getCluster
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Organization Admin]
+      summary: Create the singleton cluster root
+      operationId: createCluster
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClusterCreate" }
+      responses:
+        "201": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    patch:
+      tags: [Organization Admin]
+      summary: Update the singleton cluster profile
+      operationId: updateCluster
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: "#/components/schemas/OrganizationNodePatch" }
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
   /organization/facilities:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -1819,6 +1906,39 @@ paths:
             "409": { $ref: "#/components/responses/Conflict" },
           },
       }
+  /organization/positions/{positionId}:
+    parameters:
+      - { $ref: "#/components/parameters/CorrelationId" }
+      - name: positionId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/UUIDv7" }
+    get:
+      tags: [Organization Admin]
+      summary: Get a position
+      operationId: getPosition
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Organization Admin]
+      summary: Update a position
+      operationId: updatePosition
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: "#/components/schemas/PositionPatch" }
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
   /organization/people:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -1862,6 +1982,61 @@ paths:
             "409": { $ref: "#/components/responses/Conflict" },
           },
       }
+  /organization/people/{personId}:
+    parameters:
+      - { $ref: "#/components/parameters/CorrelationId" }
+      - name: personId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/UUIDv7" }
+    get:
+      tags: [Organization Admin]
+      summary: Get a Person profile under field policy
+      operationId: getPerson
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Organization Admin]
+      summary: Update a Person profile or access status
+      operationId: updatePerson
+      parameters: [{ $ref: "#/components/parameters/IfMatch" }]
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: "#/components/schemas/PersonPatch" }
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+  /organization/people/{personId}/reference:
+    parameters:
+      - { $ref: "#/components/parameters/CorrelationId" }
+      - name: personId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/UUIDv7" }
+    get:
+      tags: [Organization Internal Contract]
+      summary: Validate a Person reference with only the approved display snapshot
+      operationId: validatePersonReference
+      responses:
+        "200":
+          description: Valid Person reference
+          headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonReference" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /organization/assignments:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -2024,6 +2199,41 @@ paths:
             "409": { $ref: "#/components/responses/Conflict" },
           },
       }
+  /organization/import-jobs/{jobId}:
+    parameters:
+      - { $ref: "#/components/parameters/CorrelationId" }
+      - name: jobId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/UUIDv7" }
+    get:
+      tags: [Organization Admin]
+      summary: Get import status and redacted validation summary
+      operationId: getOrganizationImport
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /organization/import-jobs/{jobId}/rows:
+    parameters:
+      - { $ref: "#/components/parameters/CorrelationId" }
+      - name: jobId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/UUIDv7" }
+    get:
+      tags: [Organization Admin]
+      summary: List redacted row validation results without raw payloads
+      operationId: listOrganizationImportRows
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /organization/import-jobs/{jobId}/{jobAction}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     post:
@@ -2072,6 +2282,146 @@ paths:
             "412": { $ref: "#/components/responses/PreconditionFailed" },
           },
       }
+  /identity/accounts:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      tags: [Identity Admin]
+      summary: List user accounts
+      operationId: listUserAccounts
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Identity Admin]
+      summary: Create a pending account after validating its Person reference
+      operationId: createUserAccount
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserAccountCreate" }
+      responses:
+        "201":
+          description: Pending account created
+          headers:
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAccount" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /identity/accounts/{accountId}:
+    parameters:
+      - { $ref: "#/components/parameters/CorrelationId" }
+      - name: accountId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/UUIDv7" }
+    get:
+      tags: [Identity Admin]
+      summary: Get a user account without credentials or tokens
+      operationId: getUserAccount
+      responses:
+        "200":
+          description: Account summary
+          headers:
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAccount" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /identity/accounts/{accountId}/{accountAction}:
+    parameters:
+      - { $ref: "#/components/parameters/CorrelationId" }
+      - name: accountId
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/UUIDv7" }
+      - name: accountAction
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [activate, unlock, disable, archive, revoke-sessions, force-password-change]
+    post:
+      tags: [Identity Admin]
+      summary: Apply a governed account lifecycle action
+      operationId: transitionUserAccount
+      parameters:
+        - { $ref: "#/components/parameters/IfMatch" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonAction" }
+      responses:
+        "200":
+          description: Updated account summary
+          headers:
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAccount" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+  /authorization/bootstrap:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      tags: [Authorization Bootstrap]
+      summary: Read the temporary deny-by-default bootstrap state
+      operationId: getAuthorizationBootstrap
+      responses:
+        "200":
+          description: Bootstrap state
+          headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthorizationBootstrap" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Authorization Bootstrap]
+      summary: Complete bootstrap once with an audited idempotent command
+      operationId: completeAuthorizationBootstrap
+      parameters:
+        - { $ref: "#/components/parameters/IfMatch" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonAction" }
+      responses:
+        "200":
+          description: Bootstrap completed
+          headers:
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthorizationBootstrap" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
   /authorization/{adminResource}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -4721,6 +5071,90 @@ components:
             record_id: { $ref: "#/components/schemas/UUIDv7" },
           },
       }
+    AccountStatus:
+      { type: string, enum: [pending, active, locked, disabled, archived] }
+    ScopeOption:
+      type: object
+      additionalProperties: false
+      required: [scope_type, scope_id, label]
+      properties:
+        scope_type: { type: string, enum: [cluster, facility, unit] }
+        scope_id: { $ref: "#/components/schemas/UUIDv7" }
+        label: { type: string, minLength: 1, maxLength: 255 }
+    ScopeSelection:
+      type: object
+      additionalProperties: false
+      required: [available_scopes, effective_scope]
+      properties:
+        available_scopes:
+          type: array
+          items: { $ref: "#/components/schemas/ScopeOption" }
+          uniqueItems: true
+        effective_scope: { $ref: "#/components/schemas/ScopeOption" }
+    ScopeSelectionUpdate:
+      type: object
+      additionalProperties: false
+      required: [scope_type, scope_id]
+      properties:
+        scope_type: { type: string, enum: [cluster, facility, unit] }
+        scope_id: { $ref: "#/components/schemas/UUIDv7" }
+    UserAccount:
+      type: object
+      additionalProperties: false
+      required: [id, username, person_id, person_version, status, must_change_password, password_version, locked_until]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        username: { type: string, minLength: 1, maxLength: 128 }
+        person_id: { $ref: "#/components/schemas/UUIDv7" }
+        person_version: { type: integer, minimum: 1 }
+        status: { $ref: "#/components/schemas/AccountStatus" }
+        must_change_password: { type: boolean }
+        password_version: { type: integer, minimum: 1 }
+        locked_until:
+          oneOf:
+            - { $ref: "#/components/schemas/UtcDateTime" }
+            - { type: "null" }
+        display_name_ar: { type: string, minLength: 1, maxLength: 255 }
+        display_name_en: { type: [string, "null"], maxLength: 255 }
+    UserAccountCreate:
+      type: object
+      additionalProperties: false
+      required: [person_id, person_version, username]
+      properties:
+        person_id: { $ref: "#/components/schemas/UUIDv7" }
+        person_version: { type: integer, minimum: 1 }
+        username: { type: string, minLength: 1, maxLength: 128 }
+    PersonReference:
+      type: object
+      additionalProperties: false
+      required: [person_id, person_version, status, display_name_ar]
+      properties:
+        person_id: { $ref: "#/components/schemas/UUIDv7" }
+        person_version: { type: integer, minimum: 1 }
+        status: { type: string, enum: [active, suspended, left] }
+        display_name_ar: { type: string, minLength: 1, maxLength: 255 }
+        display_name_en: { type: [string, "null"], maxLength: 255 }
+    AuthorizationBootstrap:
+      type: object
+      additionalProperties: false
+      required: [status, allowed_capabilities, expires_at]
+      properties:
+        status: { type: string, enum: [bootstrap_pending, completed, expired] }
+        allowed_capabilities:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: [organization.bootstrap, identity.bootstrap, authorization.bootstrap.complete] }
+        expires_at:
+          oneOf:
+            - { $ref: "#/components/schemas/UtcDateTime" }
+            - { type: "null" }
+    ClusterCreate:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
+        name: { type: string, minLength: 1, maxLength: 255 }
     OrganizationNodeCreate:
       {
         type: object,
@@ -4761,18 +5195,38 @@ components:
             manager_position_id: { $ref: "#/components/schemas/UUIDv7" },
           },
       }
+    PositionPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        organization_unit_id: { $ref: "#/components/schemas/UUIDv7" }
+        title: { type: string, minLength: 1, maxLength: 255 }
+        manager_position_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
     PersonCreate:
       {
         type: object,
         additionalProperties: false,
-        required: [identity_user_id, employee_number, display_name],
+        required: [employee_number, display_name_ar, status],
         properties:
           {
-            identity_user_id: { $ref: "#/components/schemas/UUIDv7" },
             employee_number: { type: string, minLength: 1, maxLength: 64 },
-            display_name: { type: string, minLength: 1, maxLength: 255 },
+            display_name_ar: { type: string, minLength: 1, maxLength: 255 },
+            display_name_en: { type: string, maxLength: 255 },
+            status: { type: string, enum: [active, suspended, left] },
           },
       }
+    PersonPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        display_name_ar: { type: string, minLength: 1, maxLength: 255 }
+        display_name_en: { type: [string, "null"], maxLength: 255 }
+        status: { type: string, enum: [active, suspended, left] }
     AssignmentCreate:
       {
         type: object,
@@ -4830,10 +5284,12 @@ components:
       {
         type: object,
         additionalProperties: false,
-        required: [document_id, import_type],
+        required: [quarantine_object_id, template_code, import_type],
         properties:
           {
-            document_id: { $ref: "#/components/schemas/UUIDv7" },
+            quarantine_object_id: { $ref: "#/components/schemas/UUIDv7" },
+            template_code:
+              { type: string, enum: [facilities, organization_units, positions, people_assignments] },
             import_type: { type: string, enum: [csv, xlsx] },
             notes: { type: string, maxLength: 2000 },
           },
