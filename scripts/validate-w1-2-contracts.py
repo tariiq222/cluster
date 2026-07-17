@@ -46,14 +46,35 @@ EXPECTED_METHODS = {
     "/authorization/bootstrap": {"get", "post"},
 }
 EXPECTED_ACCOUNT_STATES = ["pending", "active", "locked", "disabled", "archived"]
+ORGANIZATION_RUNTIME_STATUS = {
+    ("/organization/cluster", "get"): "implemented",
+    ("/organization/cluster", "post"): "implemented",
+    ("/organization/cluster", "patch"): "planned",
+    ("/organization/facilities", "get"): "implemented",
+    ("/organization/facilities", "post"): "implemented",
+    ("/organization/facilities/{facilityId}", "get"): "planned",
+    ("/organization/facilities/{facilityId}", "patch"): "planned",
+}
 EXPECTED_EVENTS = {
+    "cluster-created": (
+        "ClusterCreated",
+        ROOT / "docs/contracts/schemas/cluster-created.schema.json",
+        {"cluster", "access_context", "classification"},
+    ),
+    "facility-created": (
+        "FacilityCreated",
+        ROOT / "docs/contracts/schemas/facility-created.schema.json",
+        {"facility", "access_context", "classification"},
+    ),
     "identity-provisioning-requested": (
         "IdentityProvisioningRequested",
         ROOT / "docs/contracts/schemas/identity-provisioning-requested.schema.json",
+        {"person_id", "person_version", "access_context", "classification"},
     ),
     "person-access-status-changed": (
         "PersonAccessStatusChanged",
         ROOT / "docs/contracts/schemas/person-access-status-changed.schema.json",
+        {"person_id", "person_version", "access_context", "classification"},
     ),
 }
 
@@ -105,6 +126,10 @@ for path, expected in EXPECTED_METHODS.items():
     if "#/components/parameters/CorrelationId" not in refs:
         fail(f"W1.2 path must require X-Correlation-ID: {path}")
 
+for (path, method), status in ORGANIZATION_RUNTIME_STATUS.items():
+    if source_paths[path][method].get("x-implementation-status") != status:
+        fail(f"{method.upper()} {path} must be marked {status}")
+
 schemas = source.get("components", {}).get("schemas", {})
 account_states = schemas.get("AccountStatus", {}).get("enum")
 if account_states != EXPECTED_ACCOUNT_STATES:
@@ -129,6 +154,12 @@ if set(account_create.get("required", [])) != {"person_id", "person_version", "u
 import_create = schemas.get("ImportJobCreate", {})
 if set(import_create.get("required", [])) != {"quarantine_object_id", "template_code", "import_type"}:
     fail("ImportJobCreate must require an encrypted quarantine reference and governed template")
+
+facility_create = schemas.get("FacilityCreate", {})
+if set(facility_create.get("required", [])) != {"cluster_id", "type_code", "code", "name"}:
+    fail("FacilityCreate must freeze the implemented facility payload")
+if set(facility_create.get("properties", {})) != {"cluster_id", "type_code", "code", "name", "name_en"}:
+    fail("FacilityCreate must not expose unit-only fields such as parent_id")
 
 snapshot_schemas = snapshot.get("components", {}).get("schemas", {})
 session_required = set(snapshot_schemas.get("W12Session", {}).get("required", []))
@@ -156,12 +187,12 @@ for path, method, required_refs in (
 
 channels = asyncapi.get("channels", {})
 messages = asyncapi.get("components", {}).get("messages", {})
-for channel_name, (message_name, schema_path) in EXPECTED_EVENTS.items():
+for channel_name, (message_name, schema_path, expected_required) in EXPECTED_EVENTS.items():
     if channel_name not in channels or message_name not in messages:
         fail(f"AsyncAPI must publish and consume {message_name}")
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     required = set(schema.get("required", []))
-    if not {"person_id", "person_version", "access_context", "classification"}.issubset(required):
+    if not expected_required.issubset(required):
         fail(f"{schema_path.name} is missing versioning or security fields")
     if set(schema.get("properties", {})) & {"national_id", "email", "phone", "password", "token"}:
         fail(f"{schema_path.name} must not carry PII or secrets")
@@ -204,6 +235,8 @@ for relative_path, rules in document_rules.items():
 catalog = (ROOT / "docs/catalog.yaml").read_text(encoding="utf-8")
 for catalog_path in (
     "contracts/api/w1-2.openapi.yaml",
+    "contracts/schemas/cluster-created.schema.json",
+    "contracts/schemas/facility-created.schema.json",
     "contracts/schemas/identity-provisioning-requested.schema.json",
     "contracts/schemas/person-access-status-changed.schema.json",
 ):

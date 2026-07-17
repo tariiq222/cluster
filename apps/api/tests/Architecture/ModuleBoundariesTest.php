@@ -36,6 +36,10 @@ class ModuleBoundariesTest extends TestCase
     private const TABLE_OWNERS = [
         'platform_settings' => 'PlatformSettings',
         'organizations' => 'Organization',
+        'clusters' => 'Organization',
+        'facility_types' => 'Organization',
+        'facilities' => 'Organization',
+        'organization_idempotency_keys' => 'Organization',
         'identities' => 'Identity',
         'authorizations' => 'Authorization',
         'audit_events' => 'Audit',
@@ -81,7 +85,7 @@ PHP);
     public function test_detects_cross_owner_join_and_foreign_key_in_a_module_migration(): void
     {
         $root = $this->fixtureRoot();
-        $this->writeFixture($root, 'Modules/WorkRecords/Database/Migrations/2026_create_work_records.php', <<<'PHP'
+        $this->writeFixture($root, 'Modules/WorkRecords/Infrastructure/Persistence/Migrations/2026_create_work_records.php', <<<'PHP'
 <?php
 DB::statement('select * from work_records join identities on identities.id = work_records.identity_id');
 Schema::table('work_records', function ($table) {
@@ -174,7 +178,7 @@ PHP);
                     }
                 }
 
-                if ($isKnownModule && str_contains($path, DIRECTORY_SEPARATOR.'Database'.DIRECTORY_SEPARATOR.'Migrations'.DIRECTORY_SEPARATOR)) {
+                if ($isKnownModule && str_contains($path, DIRECTORY_SEPARATOR.'Migrations'.DIRECTORY_SEPARATOR)) {
                     foreach ($this->stringLiteralsFrom($source) as $literal) {
                         $violations = [...$violations, ...$this->tableOwnershipViolations($module, $literal, 'migration')];
                     }

@@ -1,7 +1,7 @@
 asyncapi: 3.1.0
 info:
   title: Cluster Platform Domain Events
-  version: 1.0.0
+  version: 1.1.0
   description: CloudEvents JSON domain events delivered at least once through transactional Outbox, Redis Streams consumer groups, consumer Inbox, and DLQ.
 servers:
   production:
@@ -45,6 +45,16 @@ channels:
     messages:
       personAccessStatusChanged:
         $ref: '#/components/messages/PersonAccessStatusChanged'
+  cluster-created:
+    address: platform.organization.cluster-created.v1
+    messages:
+      clusterCreated:
+        $ref: '#/components/messages/ClusterCreated'
+  facility-created:
+    address: platform.organization.facility-created.v1
+    messages:
+      facilityCreated:
+        $ref: '#/components/messages/FacilityCreated'
   dead-letter:
     address: platform.dlq.v1
     messages:
@@ -107,6 +117,22 @@ operations:
     action: receive
     channel: {$ref: '#/channels/person-access-status-changed'}
     messages: [{$ref: '#/channels/person-access-status-changed/messages/personAccessStatusChanged'}]
+  publishClusterCreated:
+    action: send
+    channel: {$ref: '#/channels/cluster-created'}
+    messages: [{$ref: '#/channels/cluster-created/messages/clusterCreated'}]
+  consumeClusterCreated:
+    action: receive
+    channel: {$ref: '#/channels/cluster-created'}
+    messages: [{$ref: '#/channels/cluster-created/messages/clusterCreated'}]
+  publishFacilityCreated:
+    action: send
+    channel: {$ref: '#/channels/facility-created'}
+    messages: [{$ref: '#/channels/facility-created/messages/facilityCreated'}]
+  consumeFacilityCreated:
+    action: receive
+    channel: {$ref: '#/channels/facility-created'}
+    messages: [{$ref: '#/channels/facility-created/messages/facilityCreated'}]
   consumeDeadLetter:
     action: receive
     channel: {$ref: '#/channels/dead-letter'}
@@ -190,6 +216,28 @@ components:
             properties:
               type: {const: com.cluster.organization.personaccessstatuschanged.v1}
               data: {$ref: '../schemas/person-access-status-changed.schema.json'}
+    ClusterCreated:
+      name: ClusterCreated
+      title: Singleton cluster created
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.clustercreated.v1}
+              data: {$ref: '../schemas/cluster-created.schema.json'}
+    FacilityCreated:
+      name: FacilityCreated
+      title: Facility created under the singleton cluster
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.facilitycreated.v1}
+              data: {$ref: '../schemas/facility-created.schema.json'}
     DeadLetter:
       name: DeadLetter
       title: Dead-letter event

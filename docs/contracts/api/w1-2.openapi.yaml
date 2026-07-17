@@ -5,7 +5,7 @@ info:
   license:
     name: Proprietary
     url: https://cluster.example/legal
-  description: Frozen W1.2 contract surface for Organization, Identity, import, scope selection, and bootstrap.
+  description: Frozen W1.2 target contract. Operations marked implemented in the governed source are live; planned operations remain blocked until their delivery slice closes.
 servers:
   - url: https://api.cluster.example/api/v1
 security:

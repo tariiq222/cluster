@@ -10,11 +10,17 @@ final class FixtureFacilityDecision implements DecideAccess
 {
     private const POLICY_VERSION = 'development-fixture-facility-v1';
 
+    private const BOOTSTRAP_ADMIN_USER_ID = '018f6f7d-0c00-7000-8000-000000000021';
+
     /** @var list<string> */
     private const SUPPORTED_CAPABILITIES = [
         'work_record.submit',
         'work_record.read',
         'work_record.list',
+        'organization.cluster.manage',
+        'organization.cluster.read',
+        'organization.facility.manage',
+        'organization.facility.read',
     ];
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
@@ -25,6 +31,23 @@ final class FixtureFacilityDecision implements DecideAccess
 
         if (! in_array($capability, self::SUPPORTED_CAPABILITIES, true)) {
             return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'capability_not_supported');
+        }
+
+        if (str_starts_with($capability, 'organization.')) {
+            $actorUserId = $actor['user_id'] ?? null;
+            if (! is_string($actorUserId) || ! hash_equals(self::BOOTSTRAP_ADMIN_USER_ID, $actorUserId)) {
+                return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'bootstrap_admin_required');
+            }
+
+            return new AccessDecision(
+                decision: 'allow',
+                action: $capability,
+                resourceType: $facts->resourceType,
+                reasonCodes: ['bootstrap_admin'],
+                policyVersion: self::POLICY_VERSION,
+                factsVersion: $facts->factsVersion,
+                classification: $facts->classification,
+            );
         }
 
         $actorFacilityId = $actor['facility_id'] ?? null;

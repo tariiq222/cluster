@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Organization\CreateClusterController;
+use App\Http\Controllers\Organization\CreateFacilityController;
+use App\Http\Controllers\Organization\GetClusterController;
+use App\Http\Controllers\Organization\ListFacilitiesController;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Features\DevelopmentFixtureLogin\Http\DevelopmentFixtureLoginController;
@@ -13,6 +17,10 @@ Route::prefix('api/v1')->group(function (): void {
         ->middleware('web')
         ->withoutMiddleware(PreventRequestForgery::class);
     Route::get('notifications', ListMyNotificationsController::class);
+    Route::get('organization/cluster', GetClusterController::class);
+    Route::post('organization/cluster', CreateClusterController::class);
+    Route::get('organization/facilities', ListFacilitiesController::class);
+    Route::post('organization/facilities', CreateFacilityController::class);
     Route::post('work-records', SubmitWorkRecordController::class);
     Route::get('work-records', ListAuthorizedWorkRecordsController::class);
     Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class);

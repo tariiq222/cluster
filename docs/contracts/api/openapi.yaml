@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Cluster Platform API
-  version: 1.0.0
+  version: 1.1.0
   license: { name: Proprietary, url: "https://cluster.example/legal" }
   description: Authenticated, authorization-filtered API. IDs are lowercase RFC 9562 UUIDv7 values and timestamps are RFC 3339 UTC values ending in Z.
 servers:
@@ -1597,6 +1597,7 @@ paths:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
       tags: [Organization Admin]
+      x-implementation-status: implemented
       summary: Get the singleton cluster root
       operationId: getCluster
       responses:
@@ -1606,6 +1607,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [Organization Admin]
+      x-implementation-status: implemented
       summary: Create the singleton cluster root
       operationId: createCluster
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
@@ -1622,6 +1624,7 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
     patch:
       tags: [Organization Admin]
+      x-implementation-status: planned
       summary: Update the singleton cluster profile
       operationId: updateCluster
       parameters: [{ $ref: "#/components/parameters/IfMatch" }]
@@ -1642,6 +1645,7 @@ paths:
     get:
       {
         tags: [Organization Admin],
+        x-implementation-status: implemented,
         summary: List facilities,
         operationId: listFacilities,
         parameters:
@@ -1659,6 +1663,7 @@ paths:
     post:
       {
         tags: [Organization Admin],
+        x-implementation-status: implemented,
         summary: Create a facility under the cluster,
         operationId: createFacility,
         parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
@@ -1670,7 +1675,7 @@ paths:
                 application/json:
                   {
                     schema:
-                      { $ref: "#/components/schemas/OrganizationNodeCreate" },
+                      { $ref: "#/components/schemas/FacilityCreate" },
                   },
               },
           },
@@ -1688,6 +1693,7 @@ paths:
     get:
       {
         tags: [Organization Admin],
+        x-implementation-status: planned,
         summary: Get a facility,
         operationId: getFacility,
         parameters:
@@ -1710,6 +1716,7 @@ paths:
     patch:
       {
         tags: [Organization Admin],
+        x-implementation-status: planned,
         summary: Update or archive a facility profile,
         operationId: updateFacility,
         parameters:
@@ -5155,17 +5162,29 @@ components:
       properties:
         code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
         name: { type: string, minLength: 1, maxLength: 255 }
+        name_en: { type: [string, "null"], maxLength: 255 }
+    FacilityCreate:
+      type: object
+      additionalProperties: false
+      required: [cluster_id, type_code, code, name]
+      properties:
+        cluster_id: { $ref: "#/components/schemas/UUIDv7" }
+        type_code: { type: string, pattern: "^[a-z][a-z0-9_]{1,63}$" }
+        code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        name_en: { type: [string, "null"], maxLength: 255 }
     OrganizationNodeCreate:
       {
         type: object,
         additionalProperties: false,
-        required: [cluster_id, code, name],
+        required: [cluster_id, code, name, type_code],
         properties:
           {
             cluster_id: { $ref: "#/components/schemas/UUIDv7" },
             parent_id: { $ref: "#/components/schemas/UUIDv7" },
             code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" },
             name: { type: string, minLength: 1, maxLength: 255 },
+            name_en: { type: string, maxLength: 255 },
             type_code: { type: string, maxLength: 64 },
           },
       }

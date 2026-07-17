@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/cluster-created.schema.json",
+  "title": "Cluster Created Event Data",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cluster", "access_context", "classification"],
+  "properties": {
+    "cluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "name_ar", "name_en", "status", "lock_version"],
+      "properties": {
+        "id": {"$ref": "#/$defs/uuidv7"},
+        "code": {"type": "string", "pattern": "^[A-Z0-9_-]{2,64}$"},
+        "name_ar": {"type": "string", "minLength": 1, "maxLength": 255},
+        "name_en": {"type": ["string", "null"], "maxLength": 255},
+        "status": {"const": "active"},
+        "lock_version": {"const": 1}
+      }
+    },
+    "access_context": {"$ref": "access-context.schema.json"},
+    "classification": {"const": "internal"}
+  },
+  "$defs": {
+    "uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"}
+  }
+}
