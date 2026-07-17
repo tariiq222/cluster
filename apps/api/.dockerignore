@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+vendor
+tests
+phpunit.xml
+phpunit.mysql.xml
+database/database.sqlite
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+Dockerfile*

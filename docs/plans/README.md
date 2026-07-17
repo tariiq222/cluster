@@ -24,3 +24,4 @@ references: []
 | [خطة R3](release-3-risk.md) | المخاطر المؤسسية |
 | [قائمة الجاهزية](readiness-checklist.md) | قرار Go/No-Go |
 | [حالة التسليم النشطة](active-delivery-status.md) | الحالة التنفيذية المثبتة والخطوة التالية |
+| [مهام إغلاق W1.1](w1-1-remaining-delivery-tasks.md) | الفجوات التشغيلية المتبقية واختبارات Unit وIntegration وE2E |
