@@ -52,7 +52,7 @@ ABAC، ولا منشئ أنواع الأعمال، ولا Workflow، ولا ال
 ### 3.1 مستويات الاختبار
 
 | المستوى | الغرض | البيئة | قاعدة القبول |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Unit | فحص schemas وparsers وقواعد السياسات والحالات السلبية | عملية معزولة وfixtures آمنة | حتمي، بلا شبكة أو أسرار أو مضيف فعلي |
 | Integration | تشغيل أدوات البناء وDocker وCompose وMySQL وValkey والتوقيع والنسخ معاً | CI أو بيئة مؤقتة | موارد حقيقية مؤقتة وتنظيف مضمون بعد النجاح والفشل |
 | E2E | إثبات السلوك من خارج النظام على Staging أو المضيف المستهدف | Dokploy/Host وهدف استعادة منفصل عند الحاجة | فحص أسود الصندوق مع receipt مؤرخ وخالٍ من الأسرار |
@@ -63,7 +63,7 @@ Dokploy أو هدف الاستعادة، تبقى المهمة `blocked-external
 ### 3.2 مداخل التحقق المطلوبة
 
 | الأمر المستهدف | ما يثبته |
-|---|---|
+| --- | --- |
 | `make verify-w1-1` | المسار الوظيفي المحلي الحالي والعقود والحدود |
 | `make test-unit-w11-ops-01` | وحدات validators والسياسات التشغيلية لكل المهام |
 | `make test-integration-w11-ops-01` | بناء الحزمة والتوقيع والشبكات والنسخ المؤقت |
@@ -92,7 +92,7 @@ Dokploy أو هدف الاستعادة، تبقى المهمة `blocked-external
 ## 4. ترتيب التنفيذ
 
 | الترتيب | Task ID | المهمة | التبعيات | فجوة الحالة النشطة |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 | W11-OPS-01 | عقد مدخلات المضيف وPreflight | لا يوجد | 1 |
 | 2 | W11-BLD-02 | صور الإنتاج وحزمة Compose المثبتة | W11-OPS-01 | 2 جزئياً |
 | 3 | W11-SC-03 | سلسلة التوريد وCI وحزمة الإصدار | W11-BLD-02 | implemented-local / blocked-external |
@@ -132,7 +132,7 @@ Dokploy أو هدف الاستعادة، تبقى المهمة `blocked-external
 - قرار مالك المضيف على القيم الفعلية خارج Git.
 
 | مستوى الاختبار | الحالات الإلزامية |
-|---|---|
+| --- | --- |
 | Unit | قبول عقد صحيح؛ رفض الحقول الناقصة، CIDR إدارة عام، منفذ حالة منشور، سر مضمن، ومسار نسخ يساوي قرص الإنتاج |
 | Integration | تشغيل preflight على VM/حاوية مؤقتة؛ محاكاة نقص القرص وفشل DNS وregistry وهدف النسخ؛ التحقق من redaction |
 | E2E | تشغيل read-only على Staging host الحقيقي من مسار الإدارة، وحفظ receipt موقع يثبت الهوية والوقت والنتيجة دون أسرار |
@@ -168,7 +168,7 @@ Composer وNode والاختبارات داخل runtime، يشغل migrations، 
 - policy validator لحزمة الإنتاج وfixtures صحيحة وخاطئة.
 
 | مستوى الاختبار | الحالات الإلزامية |
-|---|---|
+| --- | --- |
 | Unit | اكتشاف `latest`، base image بلا digest، port عام لـMySQL/Valkey، غياب healthcheck، secret literal، أو أمر install في runtime |
 | Integration | بناء نظيف من lockfiles؛ تشغيل Compose المؤقت؛ migrations؛ healthchecks؛ restart للworker وValkey؛ تشغيل بلا شبكة بعد توفر الصور |
 | E2E | تشغيل حزمة الإنتاج على Staging محلي/مؤقت ثم اجتياز رحلتي العربية والإنجليزية وعزل المنشأتين من endpoint المستخدم فقط |
@@ -193,7 +193,7 @@ Composer وNode والاختبارات داخل runtime، يشغل migrations، 
 
 **النطاق والمخرجات:**
 
-- jobs حية في GitLab للبناء والاختبارات والعقود والحدود وE2E وبناء صور OCI.
+- jobs حية في GitHub Actions للبناء والاختبارات والعقود والحدود وE2E وبناء صور OCI.
 - SBOM لكل صورة، provenance، فحص أسرار وثغرات وتراخيص، وتوقيع قابل للتحقق بأداة
   وإصدار مثبتين.
 - release descriptor schema يربط Git revision وCompose revision وimage digests وSBOM
@@ -202,7 +202,7 @@ Composer وNode والاختبارات داخل runtime، يشغل migrations، 
 - `make verify-build` يعيد التحقق من artifacts ولا يعيد الثقة باسم tag.
 
 | مستوى الاختبار | الحالات الإلزامية |
-|---|---|
+| --- | --- |
 | Unit | validator للdescriptor؛ رفض digest/tag متعارض، SBOM مفقود، توقيع خاطئ، revision غير مطابق، artifact زائد غير منسوب |
 | Integration | بناء صورتين متطابقتين من revision واحد؛ توليد SBOM/provenance؛ توقيع ثم verify؛ كشف تعديل artifact بعد التوقيع |
 | E2E | pipeline حية على merge معتمد تنتج artifacts المحتفظ بها، وتنجح إعادة `make verify-build` على runner مستقل |
@@ -232,7 +232,7 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 - verifier read-only يجمع المنافذ وقواعد الجدار وشبكات Compose في receipt منقح.
 
 | مستوى الاختبار | الحالات الإلزامية |
-|---|---|
+| --- | --- |
 | Unit | fixtures لقواعد مسموحة ومرفوضة؛ كشف `0.0.0.0` لخدمة حالة، Docker socket mount، إدارة عامة، أو network غير internal |
 | Integration | فحص اتصال داخل Compose: API يصل MySQL/Valkey، Web لا يصل state مباشرة، وحاوية غير موثوقة لا تعبر الشبكة الداخلية |
 | E2E | scan من شبكة المستخدم ومن شبكة الإدارة: 443 متاح للمستخدم، الإدارة متاحة فقط لمسارها، و3306/6379/Docker/Dokploy العام كلها مغلقة |
@@ -264,7 +264,7 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 - مسار rollback إلى آخر descriptor معروف بالصحة دون down migration هدامة.
 
 | مستوى الاختبار | الحالات الإلزامية |
-|---|---|
+| --- | --- |
 | Unit | قبول/رفض خطة نشر حسب descriptor وmigration compatibility ووجود rollback target؛ redaction لأخطاء Dokploy |
 | Integration | نشر revision مؤقت إلى Dokploy/Staging، فشل health متعمد، استدعاء rollback، والتحقق من worker/scheduler والمigrations |
 | E2E | زرع سجلين، نشر N+1، تنفيذ رحلة العربية والإنجليزية، فرض فشل، الرجوع إلى N، ثم إثبات health والعزل وبقاء البيانات |
@@ -297,7 +297,7 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 - receipt يقيس RPO وRTO ويذكر النسخة والنقطة والانحرافات دون بيانات حساسة.
 
 | مستوى الاختبار | الحالات الإلزامية |
-|---|---|
+| --- | --- |
 | Unit | validator للmanifest والاحتفاظ؛ رفض checksum أو توقيع أو تشفير أو target identity خاطئ؛ حساب RPO/RTO والحدود |
 | Integration | seed ثم full backup وPITR؛ إفساد نسخة والتأكد من رفضها؛ استعادة نسخة سليمة إلى MySQL مؤقت والتحقق من schema والعينات |
 | E2E | إعلان تمرين، استعادة الحزمة إلى هدف منفصل، تشغيل health وAPI والرحلة الرفيعة، قياس RPO <= 15 دقيقة وRTO <= ساعتين |
@@ -336,10 +336,10 @@ revision واحد، والتوقيع وSBOM قابلان للتحقق خارج j
 - مراجعة Go/No-Go محدودة ببوابة W1.1 وتحديث حالة التسليم بعد اعتماد الأدلة.
 
 | مستوى الاختبار | الحالات الإلزامية |
-|---|---|
+| --- | --- |
 | Unit | رفض evidence ناقص أو قديم أو من commit مختلف أو مكرر أو بلا مالك؛ التحقق من عدم احتواء الأسرار |
 | Integration | تشغيل بوابات المحلي والبناء على revision واحد؛ التحقق المتبادل من digests وCompose وSBOM وreceipts |
-| E2E | GitLab أخضر حي، نشر وrollback، scan منافذ، restore منفصل، ثم رحلة `login → request → notification → isolation` تحت خمس ثوانٍ على Staging |
+| E2E | GitHub Actions خضراء حية، نشر وrollback، scan منافذ، restore منفصل، ثم رحلة `login → request → notification → isolation` تحت خمس ثوانٍ على Staging |
 
 **معايير القبول:** لا توجد بوابة متجاوزة أو receipt محلي يدعي حدثاً خارجياً، وكل الأدلة من
 revision واحد أو سلسلة مراجعة موثقة. لا تنقل هذه المهمة W1.1 إلى مكتمل قبل وصول الأدلة الحية
@@ -350,7 +350,7 @@ revision واحد أو سلسلة مراجعة موثقة. لا تنقل هذه 
 ## 6. مصفوفة اختبارات القبول
 
 | TEST ID | السيناريو | المستوى النهائي | المهمة |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | TEST-R1-W1.1-01 | تسجيل دخول ثم طلب ثم إشعار | E2E | خط الأساس + W11-GATE-07 |
 | TEST-R1-W1.1-02 | عزل منشأتين بعد نشر النوع | Integration + E2E | خط الأساس + W11-GATE-07 |
 | TEST-R1-W1.1-03 | descriptor مثبت ينشر عبر Dokploy بلا جلب runtime | Integration + E2E | W11-BLD-02, W11-SC-03, W11-DEP-05 |
@@ -366,7 +366,7 @@ revision واحد أو سلسلة مراجعة موثقة. لا تنقل هذه 
 
 1. جميع المهام W11-OPS-01 حتى W11-GATE-07 مقبولة بالأدلة.
 2. بوابة W1.1 النهائية عبر `scripts/w1_1_acceptance_gate.py` + `make verify-build` مع
-   GitLab CI حي أخضر على Git revision نفسه.
+   GitHub Actions حية خضراء على Git revision نفسه.
 3. release descriptor وتوقيعه وSBOM وprovenance وCompose revision متطابقة.
 4. scan المضيف ونشر Dokploy والرجوع والاستعادة المنفصلة موثقة وليست محاكاة محلية.
 5. TEST-R1-W1.1-01 حتى TEST-R1-W1.1-08 خضراء ولا توجد استثناءات حرجة.
@@ -375,7 +375,7 @@ revision واحد أو سلسلة مراجعة موثقة. لا تنقل هذه 
 ## سجل التغيير
 
 | الإصدار | التاريخ | الدور | التغيير |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1.2.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات W11-BLD-02 محلياً بحزمة إنتاج مسبقة البناء واختبارات Unit وIntegration ورحلتي E2E |
 | 1.1.0 | 2026-07-17 | مكتب هندسة المنصة | إثبات تنفيذ W11-OPS-01 المحلي وفصل نجاح CLI المحلي عن قبول Staging الخارجي |
 | 1.0.0 | 2026-07-17 | مكتب هندسة المنصة | تحويل فجوات W1.1 الخمس إلى سبع مهام مرتبة بعقد Unit وIntegration وE2E وبوابة إثبات نهائية |

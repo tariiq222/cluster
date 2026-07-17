@@ -42,7 +42,7 @@ references:
 ## File Map
 
 | الإجراء | المسار | المسؤولية |
-|---|---|---|
+| --- | --- | --- |
 | Create | `docs/plans/active-delivery-status.md` | حالة التسليم المستقلة والأدلة والخطوة التالية |
 | Modify | `docs/plans/README.md` | إدراج حالة التسليم في فهرس الخطط |
 | Modify | `docs/catalog.yaml` | تسجيل وثيقة حالة التسليم وخطة التنفيذ |
@@ -66,12 +66,14 @@ references:
 ### Task 1: Preserve a Baseline and Create the Independent Handoff
 
 **Files:**
+
 - Create: `docs/plans/active-delivery-status.md`
 - Modify: `docs/plans/README.md`
 - Modify: `docs/catalog.yaml`
 - Modify: `mkdocs.yml`
 
 **Interfaces:**
+
 - Consumes: `docs/plans/implementation-roadmap.md`، `docs/plans/release-1-platform.md`، Git history، وحالة الشجرة الحالية.
 - Produces: وثيقة `PLN-AS-001` التي تسمح بحذف `.planning/` دون فقد الحالة الفريدة.
 
@@ -215,12 +217,14 @@ Expected: لا أخطاء whitespace، والتغييرات المضافة تخ�
 ### Task 2: Replace Generated Instructions and Decouple OpenCode
 
 **Files:**
+
 - Replace: `AGENTS.md`
 - Modify: `.opencode/opencode.json`
 - Modify: `.opencode/instructions/model-swarm.md`
 - Modify: `.opencode/agents/tui.md`
 
 **Interfaces:**
+
 - Consumes: معمارية المشروع الحالية ومسارات التحقق في `Makefile`.
 - Produces: تعليمات مستقلة وإعداد OpenCode لا يستدعي أي ملف سيحذف في Task 3.
 
@@ -326,6 +330,7 @@ Expected: no output and exit `0`.
 ### Task 3: Remove the GSD Runtime and Planning Tree
 
 **Files:**
+
 - Delete: `.opencode/gsd-core/`
 - Delete: `.opencode/command/`
 - Delete: `.opencode/skills/`
@@ -339,6 +344,7 @@ Expected: no output and exit `0`.
 - Delete: `.planning/`
 
 **Interfaces:**
+
 - Consumes: وثيقة التسليم الناجحة من Task 1 وإعداد OpenCode المفصول من Task 2.
 - Produces: مستودع بلا وقت تشغيل أو حالة تخطيط تخص GSD.
 
@@ -424,9 +430,11 @@ Expected: documentation passes before deletion and `.planning` is absent afterwa
 ### Task 4: Verify the Takeover and Record the Result
 
 **Files:**
+
 - Modify: `docs/plans/active-delivery-status.md`
 
 **Interfaces:**
+
 - Consumes: cleaned repository from Task 3 and the baseline captured in Task 1.
 - Produces: evidence that the takeover is complete and product files are unchanged.
 
@@ -463,7 +471,7 @@ Run:
 if python3 -c 'import mkdocs' >/dev/null 2>&1; then
   python3 -m mkdocs build --strict
 else
-  printf '%s\n' 'MkDocs unavailable locally; strict build remains the GitLab gate.'
+  printf '%s\n' 'MkDocs unavailable locally; strict build remains the GitHub Actions gate.'
 fi
 ```
 

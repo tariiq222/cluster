@@ -212,7 +212,7 @@ for directory in sorted(path for path in DOCS.rglob("*") if path.is_dir()):
     except StopIteration:
         add_error(f"empty documentation directory: {relative(directory)}/")
 
-yaml_paths = [ROOT / ".gitlab-ci.yml", ROOT / "mkdocs.yml"]
+yaml_paths = [ROOT / ".github/workflows/ci.yml", ROOT / "mkdocs.yml"]
 yaml_paths.extend(sorted(DOCS.rglob("*.yaml")))
 yaml_paths.extend(sorted(DOCS.rglob("*.yml")))
 yaml_data = {path: load_yaml(path) for path in dict.fromkeys(yaml_paths) if path.is_file()}

@@ -1,0 +1,7 @@
+---
+self-hosted-runner:
+  labels:
+    - ci-general
+    - release-artifacts
+    - release-signing
+    - release-verification

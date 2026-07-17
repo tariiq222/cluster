@@ -112,9 +112,9 @@ RELEASE_ROOT=/secure/release-root \
 make verify-build
 ```
 
-هذا يثبت البنية والhashes محلياً فقط. يلزم pipeline GitLab حية على revision واحد، وصور
+هذا يثبت البنية والhashes محلياً فقط. يلزم workflow GitHub Actions حية على revision واحد، وصور
 أدوات وDocker DinD مثبتة بالـdigest، وregistry credentials وCOSIGN_PRIVATE_KEY / COSIGN_PUBLIC_KEY
-محجوبة حسب البيئات، ثم artifacts
+محجوبة حسب بيئات GitHub المحمية، ثم artifacts
 SBOM وprovenance وsignature وbundle قابلة لإعادة التحقق. hashes خطط migration/rollback بعد
 remediation تُربط بالdescriptor؛ تنفيذها الحي وسجلها يثبتان في DEP-05.
 
