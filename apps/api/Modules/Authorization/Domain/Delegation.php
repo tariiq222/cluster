@@ -44,7 +44,7 @@ final readonly class Delegation
             throw new InvalidArgumentException('Delegation capabilities must be a non-empty unique set.');
         }
         foreach ($capabilityCodes as $capabilityCode) {
-            if (! is_string($capabilityCode) || ! Capability::belongsToModule($capabilityCode, $moduleCode)) {
+            if (! Capability::belongsToModule($capabilityCode, $moduleCode)) {
                 throw new InvalidArgumentException('Delegation capabilities must belong to its module.');
             }
         }

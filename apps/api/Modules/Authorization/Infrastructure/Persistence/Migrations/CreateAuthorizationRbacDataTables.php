@@ -138,6 +138,7 @@ return new class extends Migration
                     AND LOCATE('%', capability_code) = 0
                 )
                 SQL);
+            $this->addMySqlRoleAssignmentOverlapTriggers();
 
             return;
         }
@@ -176,6 +177,52 @@ return new class extends Migration
                     OR instr(NEW.capability_code, '%') > 0
                 BEGIN
                     SELECT RAISE(ABORT, 'delegation_capabilities_code_check');
+                END
+                SQL);
+            DB::unprepared(<<<SQL
+                CREATE TRIGGER role_assignments_{$name}_active_overlap_check
+                BEFORE {$operation} ON role_assignments
+                WHEN NEW.status = 'active'
+                    AND EXISTS (
+                        SELECT 1
+                        FROM role_assignments AS existing
+                        WHERE existing.id <> NEW.id
+                            AND existing.status = 'active'
+                            AND existing.user_id = NEW.user_id
+                            AND existing.role_id = NEW.role_id
+                            AND existing.scope_id IS NEW.scope_id
+                            AND (existing.end_at IS NULL OR existing.end_at > NEW.start_at)
+                            AND (NEW.end_at IS NULL OR NEW.end_at > existing.start_at)
+                    )
+                BEGIN
+                    SELECT RAISE(ABORT, 'role_assignments_active_overlap');
+                END
+                SQL);
+        }
+    }
+
+    private function addMySqlRoleAssignmentOverlapTriggers(): void
+    {
+        foreach (['insert' => 'INSERT', 'update' => 'UPDATE'] as $name => $operation) {
+            DB::unprepared(<<<SQL
+                CREATE TRIGGER role_assignments_{$name}_active_overlap_check
+                BEFORE {$operation} ON role_assignments
+                FOR EACH ROW
+                BEGIN
+                    IF NEW.status = 'active' AND EXISTS (
+                        SELECT 1
+                        FROM role_assignments AS existing
+                        WHERE existing.id <> NEW.id
+                            AND existing.status = 'active'
+                            AND existing.user_id = NEW.user_id
+                            AND existing.role_id = NEW.role_id
+                            AND existing.scope_id <=> NEW.scope_id
+                            AND (existing.end_at IS NULL OR existing.end_at > NEW.start_at)
+                            AND (NEW.end_at IS NULL OR NEW.end_at > existing.start_at)
+                    ) THEN
+                        SIGNAL SQLSTATE '45000'
+                            SET MESSAGE_TEXT = 'role_assignments_active_overlap';
+                    END IF;
                 END
                 SQL);
         }

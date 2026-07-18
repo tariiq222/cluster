@@ -48,8 +48,7 @@ final readonly class SupervisoryRelationship
             throw new InvalidArgumentException('supervisory_relationship_period_invalid');
         }
         foreach ($capabilities as $capability) {
-            if (! $capability instanceof RelationshipCapability
-                || $capability->supervisoryRelationshipId !== $id) {
+            if ($capability->supervisoryRelationshipId !== $id) {
                 throw new InvalidArgumentException('supervisory_relationship_capability_invalid');
             }
         }
