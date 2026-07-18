@@ -205,6 +205,7 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationRbacDataTables.php'),
             base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationExplicitDenyTables.php'),
             base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php'),
+            base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/ZAddAuthorizationHttpTables.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/HardenDocumentUploadSecurityTables.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/ZZAddDocumentUploadPurpose.php'),

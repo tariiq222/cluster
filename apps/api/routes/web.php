@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Authorization\AuthorizationAdminController;
+use App\Http\Controllers\Authorization\DecideAccessController;
+use App\Http\Controllers\Authorization\ExplainAccessDecisionController;
 use App\Http\Controllers\Documents\CompleteDocumentUploadController;
 use App\Http\Controllers\Documents\GetDocumentUploadStatusController;
 use App\Http\Controllers\Documents\InitiateDocumentUploadController;
@@ -40,6 +43,7 @@ use App\Http\Controllers\Organization\ListPositionsController;
 use App\Http\Controllers\Organization\ListTemporaryAssignmentsController;
 use App\Http\Controllers\Organization\RevokeTemporaryAssignmentController;
 use App\Http\Controllers\Organization\SubmitImportJobController;
+use App\Http\Controllers\Organization\SupervisoryRelationshipController;
 use App\Http\Controllers\Organization\TransitionImportJobController;
 use App\Http\Controllers\Organization\UpdateClusterController;
 use App\Http\Controllers\Organization\UpdateFacilityController;
@@ -105,6 +109,8 @@ Route::prefix('api/v1')->group(function (): void {
     Route::get('organization/assignments', ListAssignmentsController::class);
     Route::post('organization/assignments', CreateAssignmentController::class);
     Route::post('organization/assignments/{assignmentId}/end', EndAssignmentController::class);
+    Route::get('organization/supervisory-relationships', SupervisoryRelationshipController::class);
+    Route::post('organization/supervisory-relationships', SupervisoryRelationshipController::class);
     Route::post('organization/import-jobs', SubmitImportJobController::class);
     Route::get('organization/import-jobs/{jobId}', GetImportJobController::class);
     Route::get('organization/import-jobs/{jobId}/rows', ListImportJobRowsController::class);
@@ -116,4 +122,11 @@ Route::prefix('api/v1')->group(function (): void {
     Route::post('work-records', SubmitWorkRecordController::class);
     Route::get('work-records', ListAuthorizedWorkRecordsController::class);
     Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class);
+    Route::post('authorization/access-decisions', DecideAccessController::class);
+    Route::get('authorization/access-decisions/{decisionId}/explanation', ExplainAccessDecisionController::class);
+    Route::get('authorization/{adminResource}', AuthorizationAdminController::class);
+    Route::post('authorization/{adminResource}', AuthorizationAdminController::class);
+    Route::get('authorization/{adminResource}/{resourceId}', AuthorizationAdminController::class);
+    Route::patch('authorization/{adminResource}/{resourceId}', AuthorizationAdminController::class);
+    Route::post('authorization/{adminResource}/{resourceId}/{authorizationAction}', AuthorizationAdminController::class);
 })->withoutMiddleware(['web', PreventRequestForgery::class]);
