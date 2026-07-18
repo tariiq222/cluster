@@ -1,5 +1,27 @@
 <?php
 
+use Modules\Documents\Infrastructure\Storage\PrivateDocumentDiskConfiguration;
+
+$documentsTesting = ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'testing'
+    || in_array('test', $_SERVER['argv'] ?? [], true)
+    || in_array('config:clear', $_SERVER['argv'] ?? [], true)
+    || str_contains(implode(' ', $_SERVER['argv'] ?? []), 'phpstan');
+$documentsQuarantine = [
+    'key' => env('DOCUMENTS_QUARANTINE_AWS_ACCESS_KEY_ID'),
+    'secret' => env('DOCUMENTS_QUARANTINE_AWS_SECRET_ACCESS_KEY'),
+    'region' => env('DOCUMENTS_QUARANTINE_AWS_DEFAULT_REGION'),
+    'bucket' => env('DOCUMENTS_QUARANTINE_AWS_BUCKET'),
+    'kms_key_id' => env('DOCUMENTS_QUARANTINE_KMS_KEY_ID'),
+];
+$documentsAvailable = [
+    'key' => env('DOCUMENTS_AVAILABLE_AWS_ACCESS_KEY_ID'),
+    'secret' => env('DOCUMENTS_AVAILABLE_AWS_SECRET_ACCESS_KEY'),
+    'region' => env('DOCUMENTS_AVAILABLE_AWS_DEFAULT_REGION'),
+    'bucket' => env('DOCUMENTS_AVAILABLE_AWS_BUCKET'),
+    'kms_key_id' => env('DOCUMENTS_AVAILABLE_KMS_KEY_ID'),
+];
+PrivateDocumentDiskConfiguration::assertRuntimeSafe($documentsTesting, $documentsQuarantine, $documentsAvailable);
+
 return [
 
     /*
@@ -58,6 +80,42 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
+        ],
+
+        'documents-quarantine' => [
+            'driver' => 's3',
+            'key' => $documentsQuarantine['key'],
+            'secret' => $documentsQuarantine['secret'],
+            'region' => $documentsQuarantine['region'],
+            'bucket' => $documentsQuarantine['bucket'],
+            'endpoint' => env('DOCUMENTS_QUARANTINE_AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('DOCUMENTS_QUARANTINE_AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'root' => 'documents/quarantine',
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
+            'options' => [
+                'ServerSideEncryption' => 'aws:kms',
+                'SSEKMSKeyId' => $documentsQuarantine['kms_key_id'],
+            ],
+        ],
+
+        'documents-available' => [
+            'driver' => 's3',
+            'key' => $documentsAvailable['key'],
+            'secret' => $documentsAvailable['secret'],
+            'region' => $documentsAvailable['region'],
+            'bucket' => $documentsAvailable['bucket'],
+            'endpoint' => env('DOCUMENTS_AVAILABLE_AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('DOCUMENTS_AVAILABLE_AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'root' => 'documents/available',
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
+            'options' => [
+                'ServerSideEncryption' => 'aws:kms',
+                'SSEKMSKeyId' => $documentsAvailable['kms_key_id'],
+            ],
         ],
 
     ],
