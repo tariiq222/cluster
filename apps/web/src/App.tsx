@@ -15,6 +15,7 @@ import { primaryRoutes, routeFromPath, type AppRoute } from './shell/routes'
 import { OrganizationOverview } from './features/organization/OrganizationOverview'
 import { OrganizationStructure } from './features/organization/OrganizationStructure'
 import { PeopleAssignments } from './features/organization/PeopleAssignments'
+import { TemporaryAssignments } from './features/organization/TemporaryAssignments'
 import { IdentityAccounts } from './features/identity/IdentityAccounts'
 import { ImportReview } from './features/imports/ImportReview'
 
@@ -36,6 +37,7 @@ const text = {
     organization: 'التنظيم',
     organizationStructure: 'الهيكل والمناصب',
     peopleAssignments: 'الأشخاص والتكليفات',
+    temporaryAssignments: 'التكليفات المؤقتة',
     identityAccounts: 'حسابات الهوية',
     administrationNavigation: 'تنقل الإدارة',
     importReview: 'مراجعة الاستيراد',
@@ -90,6 +92,7 @@ const text = {
     organization: 'Organization',
     organizationStructure: 'Structure and positions',
     peopleAssignments: 'People and assignments',
+    temporaryAssignments: 'Temporary assignments',
     identityAccounts: 'Identity accounts',
     administrationNavigation: 'Administration navigation',
     importReview: 'Import review',
@@ -159,7 +162,7 @@ function App() {
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const copy = text[locale]
-  const adminView = ['organization', 'organization-structure', 'people-assignments', 'identity-accounts', 'organization-import'].includes(view.name)
+  const adminView = ['organization', 'organization-structure', 'people-assignments', 'temporary-assignments', 'identity-accounts', 'organization-import'].includes(view.name)
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -382,8 +385,9 @@ function App() {
             [2, copy.organization],
             [3, copy.organizationStructure],
             [4, copy.peopleAssignments],
-            [5, copy.identityAccounts],
-            [6, copy.importReview],
+            [5, copy.temporaryAssignments],
+            [6, copy.identityAccounts],
+            [7, copy.importReview],
           ].map(([index, label]) => {
             const item = primaryRoutes[index as number]
             return <a key={item.path} href={item.path} aria-current={view.name === item.route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(item.route, item.path) }}>{label}</a>
@@ -439,6 +443,9 @@ function App() {
         )}
         {view.name === 'people-assignments' && (
           <PeopleAssignments locale={locale} token={session.access_token} onSessionExpired={expireSession} />
+        )}
+        {view.name === 'temporary-assignments' && (
+          <TemporaryAssignments locale={locale} token={session.access_token} onSessionExpired={expireSession} />
         )}
         {view.name === 'identity-accounts' && (
           <IdentityAccounts locale={locale} token={session.access_token} onSessionExpired={expireSession} />

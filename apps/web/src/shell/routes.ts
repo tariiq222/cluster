@@ -5,6 +5,7 @@ export type AppRoute =
   | { name: 'organization' }
   | { name: 'organization-structure' }
   | { name: 'people-assignments' }
+  | { name: 'temporary-assignments' }
   | { name: 'identity-accounts' }
   | { name: 'organization-import'; jobId?: string }
   | { name: 'not-found' }
@@ -17,6 +18,7 @@ export const primaryRoutes = [
   { route: { name: 'organization' } as const, path: '/admin/organization' },
   { route: { name: 'organization-structure' } as const, path: '/admin/organization/structure' },
   { route: { name: 'people-assignments' } as const, path: '/admin/organization/people' },
+  { route: { name: 'temporary-assignments' } as const, path: '/admin/organization/temporary-assignments' },
   { route: { name: 'identity-accounts' } as const, path: '/admin/identity/accounts' },
   { route: { name: 'organization-import' } as const, path: '/admin/imports/organization' },
 ]
@@ -36,6 +38,9 @@ export function routeFromPath(pathname: string): AppRoute {
   }
   if (pathname === '/admin/organization/people') {
     return { name: 'people-assignments' }
+  }
+  if (pathname === '/admin/organization/temporary-assignments') {
+    return { name: 'temporary-assignments' }
   }
   if (pathname === '/admin/identity/accounts') {
     return { name: 'identity-accounts' }
