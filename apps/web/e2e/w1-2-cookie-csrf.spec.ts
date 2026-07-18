@@ -4,7 +4,6 @@ type JsonResponse<T> = { status: number; headers: Record<string, string>; body: 
 type IdentityLogin = { data: { csrf_token: string } }
 type UploadTicket = { data: { upload_id: string; quarantine_object_id: string; upload_url: string; method: string; required_headers: Record<string, string> } }
 type UploadStatus = { scan_status: string; availability_status: string }
-type ImportJob = { data: { id: string; status: string } }
 type TemporaryAssignment = { data: { id: string; status: string } }
 
 const requiredEnvironment = [

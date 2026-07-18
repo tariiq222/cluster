@@ -130,7 +130,7 @@ final class DocumentsHttpControllerTest extends TestCase
         $this->assertSame([
             'Content-Length' => '512',
             'Content-Type' => 'application/pdf',
-            'x-amz-checksum-sha256' => $this->hashFor('initiate-a.pdf', 512),
+            'x-amz-checksum-sha256' => base64_encode(hex2bin($this->hashFor('initiate-a.pdf', 512))),
             'If-None-Match' => '*',
         ], $payload['required_headers']);
         $this->assertSame((int) config('documents.uploads.max_size_bytes'), $payload['max_size_bytes']);

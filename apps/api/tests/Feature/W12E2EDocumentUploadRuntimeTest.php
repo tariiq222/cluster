@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\Documents\DocumentsApi;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Artisan;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Application\DocumentAuthorizationFacts;
 use Modules\Documents\Application\DocumentMetadata;
@@ -78,7 +79,7 @@ final class W12E2EDocumentUploadRuntimeTest extends TestCase
             DocumentUploadHandler::INITIATE_OPERATION,
             '018f6f7d-0c00-7000-8000-000000000103',
         );
-        $this->assertNotInstanceOf(\Illuminate\Http\JsonResponse::class, $actor);
+        $this->assertNotInstanceOf(JsonResponse::class, $actor);
         try {
             app(DocumentUploadHandler::class)->initiate(
                 $actor,

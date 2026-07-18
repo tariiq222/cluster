@@ -1,8 +1,8 @@
 <?php
 
+use App\Support\W12E2EFixtureSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use App\Support\W12E2EFixtureSeeder;
 use Modules\Identity\Features\ConsumeOrganizationPersonEvents\Worker\IdentityPersonStreamWorker;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use Modules\Organization\Infrastructure\Outbox\Relay\OrganizationPersonOutboxRelay;
