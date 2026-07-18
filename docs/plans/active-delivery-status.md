@@ -125,6 +125,7 @@ references:
 | 2026-07-18 | `./infra/dev/run-w1-1-e2e.sh` ثم `make verify-w1-2` بعد رحلة إدارة W1.2 | أخضر: 3 رحلات Playwright على MySQL وRedis؛ ثبت إنشاء Organization وIdentity وImport والفشل المغلق وRTL/LTR، مع إصلاح `APP_KEY` وشكل استجابة Identity وعزل عداد Outbox حسب نوع الحدث؛ بقيت 103 اختبارات API و20 اختبار Web بتغطية 100% خضراء |
 | 2026-07-18 | CI `29643248979` على `main@4824a804` | أخضر: API وWeb والوثائق وGitleaks وW1.2 readiness وحزمة الإنتاج و`make verify-w1-1-local`؛ استبعدت أدوات OpenCode وOpenSpec المحلية من سلسلة المنتج قبل الدفع |
 | 2026-07-18 | `make verify-w1-2` بوابة دمج W1.2 | أخضر محلياً: `validate-docs` والحدود وOpenAPI/توليد العميل؛ API 209 ناجحاً و5 متخطاة لـMySQL؛ Web build/lint وتغطية 24 اختباراً؛ E2E وS3 وClamAV هي N/A لهذه البوابة المحلية فقط |
+| 2026-07-18 | دمج App Shell وDashboard فوق W1.2 | أخضر: Web build وlint واختبار routes و`validate-docs` وحدود الموديولات؛ Playwright هو N/A لغياب `W1_1_API_ORIGIN` وAPI محلي يعمل |
 
 ## الخطوة التالية
 
@@ -140,6 +141,7 @@ CI المستضاف أخضر على خط أساس W1.2 المنشور. لا يب
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.22.0 | 2026-07-18 | دمج تحسينات App Shell وDashboard مع الحفاظ على مسارات وإدارة W1.2 وتسجيل حدود تحقق Playwright المحلية |
 | 4.21.0 | 2026-07-18 | تسجيل دمج W1.2 في main وCI الأخضر بعد فصل أدوات OpenCode وOpenSpec المحلية |
 | 4.20.0 | 2026-07-18 | إثبات رحلة متصفح W1.2 كاملة وإغلاق انحدارات بيئة login واستجابة Identity وتنسيق Outbox |
 | 4.19.0 | 2026-07-18 | إغلاق واجهة مراجعة ImportJob وانتقالاته المنقحة مع بقاء نقل bytes محجوباً بالعقد |

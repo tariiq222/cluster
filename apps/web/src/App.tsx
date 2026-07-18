@@ -1,4 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { BellRing, CalendarDays, FolderSearch } from 'lucide-react'
+
+import { AppShell } from './app/AppShell'
 
 import {
   ApiError,
@@ -76,6 +79,44 @@ const text = {
     sessionExpired: 'انتهت جلستك. سجّل الدخول للمتابعة.',
     notFound: 'الصفحة غير موجودة',
     notFoundBody: 'تحقق من الرابط أو عد إلى طلباتك.',
+    openNavigation: 'فتح القائمة الرئيسية',
+    closeNavigation: 'إغلاق القائمة الرئيسية',
+    navigationTitle: 'التنقل الرئيسي',
+    services: 'الخدمات',
+    platformUser: 'مستخدم المنصة',
+    internalSystem: 'نظام العمليات الداخلي',
+    rightsReserved: 'جميع الحقوق محفوظة © 2026',
+    organizationName: 'مجمع إرادة والصحة النفسية',
+    officeName: 'مكتب إدارة المشاريع والتحول المؤسسي',
+    ownerName: 'طارق الوليدي',
+    collapseNavigation: 'طي القائمة الجانبية',
+    expandNavigation: 'توسيع القائمة الجانبية',
+    facilityA: 'المنشأة أ',
+    facilityB: 'المنشأة ب',
+    dashboardWelcome: 'مرحباً بك',
+    dashboardSummary: 'إليك ملخص الطلبات والإشعارات ضمن نطاق المنشأة الحالية.',
+    dashboardRange: 'حد العرض: 20 طلباً',
+    overview: 'نظرة عامة',
+    loadedRequests: 'الطلبات المحمّلة',
+    activeRequests: 'طلبات قيد الإجراء',
+    completedRequests: 'طلبات مكتملة',
+    unreadNotifications: 'غير المقروءة المحمّلة',
+    currentPageSource: 'من النتائج المحمّلة',
+    loadedNotificationSource: 'من إشعارات المستخدم المحمّلة',
+    analytics: 'التحليلات',
+    timelineTitle: 'التحليلات الزمنية',
+    timelineUnavailableTitle: 'لا تتوفر سلسلة زمنية بعد',
+    timelineUnavailableBody: 'ستظهر اتجاهات الطلبات عند نشر مصدر التجميع الزمني المعتمد.',
+    statusBreakdown: 'الطلبات حسب الحالة',
+    activeStatus: 'قيد الإجراء',
+    completedStatus: 'مكتملة',
+    otherStatus: 'حالات أخرى',
+    noStatusTitle: 'لا توجد حالات لعرضها',
+    noStatusBody: 'أنشئ أول طلب لتظهر هنا قراءة موجزة لتوزيع الحالات.',
+    recentActivity: 'النشاط المتاح',
+    openNotifications: 'عرض الإشعارات',
+    noNotificationBody: 'ستظهر هنا أحدث التنبيهات المرتبطة بطلبات المنشأة.',
+    noData: 'لا توجد بيانات',
   },
   en: {
     platform: 'Third Health Cluster Platform',
@@ -131,6 +172,69 @@ const text = {
     sessionExpired: 'Your session has expired. Sign in to continue.',
     notFound: 'Page not found',
     notFoundBody: 'Check the address or return to your requests.',
+    openNavigation: 'Open primary navigation',
+    closeNavigation: 'Close primary navigation',
+    navigationTitle: 'Primary navigation',
+    services: 'Services',
+    platformUser: 'Platform user',
+    internalSystem: 'Internal operations system',
+    rightsReserved: 'All rights reserved © 2026',
+    organizationName: 'Eradah and Mental Health Complex',
+    officeName: 'Project Management and Institutional Transformation Office',
+    ownerName: 'Tariq Alwalidi',
+    collapseNavigation: 'Collapse sidebar',
+    expandNavigation: 'Expand sidebar',
+    facilityA: 'Facility A',
+    facilityB: 'Facility B',
+    dashboardWelcome: 'Welcome',
+    dashboardSummary: 'Here is a summary of requests and notifications in the current facility scope.',
+    dashboardRange: 'Display limit: 20 requests',
+    overview: 'Overview',
+    loadedRequests: 'Loaded requests',
+    activeRequests: 'Requests in progress',
+    completedRequests: 'Completed requests',
+    unreadNotifications: 'Loaded unread notifications',
+    currentPageSource: 'From the loaded results',
+    loadedNotificationSource: 'From the user notifications loaded',
+    analytics: 'Analytics',
+    timelineTitle: 'Timeline analytics',
+    timelineUnavailableTitle: 'No timeline is available yet',
+    timelineUnavailableBody: 'Request trends will appear when the governed aggregation source is published.',
+    statusBreakdown: 'Requests by status',
+    activeStatus: 'In progress',
+    completedStatus: 'Completed',
+    otherStatus: 'Other statuses',
+    noStatusTitle: 'No statuses to display',
+    noStatusBody: 'Create the first request to see a concise status distribution here.',
+    recentActivity: 'Available activity',
+    openNotifications: 'View notifications',
+    noNotificationBody: 'The latest alerts related to facility requests will appear here.',
+    noData: 'No data',
+  },
+} as const
+
+const recordStatusText = {
+  ar: {
+    draft: 'مسودة',
+    submitted: 'تم الإرسال',
+    in_review: 'قيد المراجعة',
+    returned: 'معاد للتعديل',
+    approved: 'معتمد',
+    rejected: 'مرفوض',
+    completed: 'مكتمل',
+    cancelled: 'ملغي',
+    archived: 'مؤرشف',
+  },
+  en: {
+    draft: 'Draft',
+    submitted: 'Submitted',
+    in_review: 'In review',
+    returned: 'Returned',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+    archived: 'Archived',
   },
 } as const
 
@@ -272,7 +376,7 @@ function App() {
       if (event.key === 'Escape') {
         event.preventDefault()
         setNotificationsOpen(false)
-        notificationButtonRef.current?.focus()
+        window.requestAnimationFrame(() => notificationButtonRef.current?.focus())
         return
       }
       if (event.key !== 'Tab' || !focusable?.length) return
@@ -316,70 +420,32 @@ function App() {
     )
   }
 
-  return (
-    <div className="app-shell">
-      <header className="site-header">
-        <div className="brand">{copy.platform}</div>
-        <div className="header-actions">
-          <button type="button" className="quiet-button" onClick={() => setLocale((current) => current === 'ar' ? 'en' : 'ar')}>
-            {copy.switchLanguage}
-          </button>
-          <button
-            type="button"
-            className="quiet-button"
-            ref={notificationButtonRef}
-            aria-expanded={notificationsOpen}
-            aria-controls="notification-panel"
-            onClick={() => setNotificationsOpen((open) => !open)}
-          >
-            {copy.notifications}
-          </button>
-          <button type="button" className="quiet-button" onClick={() => {
-            setSession(null)
-            setRecords([])
-            setNotifications([])
-            window.history.replaceState({}, '', '/')
-            setView({ name: 'list' })
-          }}>
-            {copy.logout}
-          </button>
-        </div>
-      </header>
-      <div className="facility-strip">{copy.currentFacility}</div>
-      <nav className="primary-navigation" aria-label={locale === 'ar' ? 'التنقل الرئيسي' : 'Primary navigation'}>
-        <a
-          href={primaryRoutes[0].path}
-          aria-current={view.name === primaryRoutes[0].route.name ? 'page' : undefined}
-          onClick={(event) => {
-            event.preventDefault()
-            navigate({ name: 'list' }, '/')
-          }}
-        >
-          {copy.myRequests}
-        </a>
-        <a
-          href={primaryRoutes[1].path}
-          aria-current={view.name === primaryRoutes[1].route.name ? 'page' : undefined}
-          onClick={(event) => {
-            event.preventDefault()
-            navigate({ name: 'create' }, '/work-records/new')
-          }}
-        >
-          {copy.newRequest}
-        </a>
-        <a
-          href={primaryRoutes[2].path}
-          aria-current={adminView ? 'page' : undefined}
-          onClick={(event) => {
-            event.preventDefault()
-            navigate({ name: 'organization' }, primaryRoutes[2].path)
-          }}
-        >
-          {copy.organization}
-        </a>
-      </nav>
+  const facilityName = session.facility === 'facility-a' ? copy.facilityA : copy.facilityB
+  const unreadNotifications = notifications.filter((notification) => !notification.is_read).length
 
-      <main className="main-content">
+  return (
+    <>
+      <AppShell
+        locale={locale}
+        copy={copy}
+        facilityName={facilityName}
+        activeNavigation={adminView ? 'organization' : view.name === 'create' ? 'create' : 'requests'}
+        unreadNotifications={unreadNotifications}
+        notificationButtonRef={notificationButtonRef}
+        notificationsOpen={notificationsOpen}
+        onLocaleChange={() => setLocale((current) => current === 'ar' ? 'en' : 'ar')}
+        onNotificationsToggle={() => setNotificationsOpen((open) => !open)}
+        onLogout={() => {
+          setSession(null)
+          setRecords([])
+          setNotifications([])
+          window.history.replaceState({}, '', '/')
+          setView({ name: 'list' })
+        }}
+        onNavigateRequests={() => navigate({ name: 'list' }, '/')}
+        onNavigateCreate={() => navigate({ name: 'create' }, '/work-records/new')}
+        onNavigateOrganization={() => navigate({ name: 'organization' }, primaryRoutes[2].path)}
+      >
         {adminView && <nav className="secondary-navigation" aria-label={copy.administrationNavigation}>
           {[
             [2, copy.organization],
@@ -394,14 +460,19 @@ function App() {
           })}
         </nav>}
         {view.name === 'list' && (
-          <RequestList
+          <RequestDashboard
             locale={locale}
             records={records}
+            notifications={notifications}
             loading={recordsLoading}
             error={recordsError}
+            notificationsLoading={notificationsLoading}
+            notificationsError={notificationsError}
+            facilityName={facilityName}
             onRetry={() => void refreshRecords()}
             onCreate={() => navigate({ name: 'create' }, '/work-records/new')}
             onSelect={(recordId) => navigate({ name: 'detail', recordId }, `/work-records/${recordId}`)}
+            onOpenNotifications={() => setNotificationsOpen(true)}
           />
         )}
         {view.name === 'create' && (
@@ -459,7 +530,7 @@ function App() {
             onJobOpen={(jobId) => navigate({ name: 'organization-import', jobId }, `/admin/imports/organization/${jobId}`)}
           />
         )}
-      </main>
+      </AppShell>
 
       {notificationsOpen && (
         <div className="panel-backdrop" onMouseDown={(event) => {
@@ -484,7 +555,7 @@ function App() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -547,50 +618,192 @@ function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenticated }
   )
 }
 
-function RequestList({ locale, records, loading, error, onRetry, onCreate, onSelect }: {
+function RequestDashboard({
+  locale,
+  records,
+  notifications,
+  loading,
+  error,
+  notificationsLoading,
+  notificationsError,
+  facilityName,
+  onRetry,
+  onCreate,
+  onSelect,
+  onOpenNotifications,
+}: {
   locale: Locale
   records: WorkRecord[]
+  notifications: Notification[]
   loading: boolean
   error: boolean
+  notificationsLoading: boolean
+  notificationsError: boolean
+  facilityName: string
   onRetry: () => void
   onCreate: () => void
   onSelect: (recordId: string) => void
+  onOpenNotifications: () => void
 }) {
   const copy = text[locale]
+  const formatter = new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-GB')
+  const activeStatuses = new Set(['submitted', 'in_review', 'returned'])
+  const completedStatuses = new Set(['approved', 'completed'])
+  const activeCount = records.filter((record) => activeStatuses.has(record.status)).length
+  const completedCount = records.filter((record) => completedStatuses.has(record.status)).length
+  const otherCount = Math.max(0, records.length - activeCount - completedCount)
+  const unreadCount = notifications.filter((notification) => !notification.is_read).length
+  const metricValue = (value: number) => loading || error ? '—' : formatter.format(value)
+  const metrics = [
+    { label: copy.loadedRequests, value: metricValue(records.length), source: copy.currentPageSource, tone: 'primary' },
+    { label: copy.activeRequests, value: metricValue(activeCount), source: copy.currentPageSource, tone: 'accent' },
+    { label: copy.completedRequests, value: metricValue(completedCount), source: copy.currentPageSource, tone: 'success' },
+    { label: copy.unreadNotifications, value: notificationsLoading || notificationsError ? '—' : formatter.format(unreadCount), source: copy.loadedNotificationSource, tone: 'muted' },
+  ] as const
+  const statusGroups = [
+    { label: copy.activeStatus, count: activeCount, tone: 'accent' },
+    { label: copy.completedStatus, count: completedCount, tone: 'success' },
+    { label: copy.otherStatus, count: otherCount, tone: 'muted' },
+  ] as const
+
   return (
-    <section aria-labelledby="requests-heading">
-      <div className="page-heading">
-        <h1 id="requests-heading">{copy.myRequests}</h1>
-        <a href="/work-records/new" className="primary-link" onClick={(event) => { event.preventDefault(); onCreate() }}>{copy.newRequest}</a>
-      </div>
-      {loading && <div className="skeleton-list" aria-label={copy.loadingRequests}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-      {!loading && error && <div className="state-panel" role="alert"><p>{copy.listError}</p><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></div>}
-      {!loading && !error && records.length === 0 && (
-        <div className="state-panel">
-          <h2>{copy.emptyTitle}</h2>
-          <p>{copy.emptyBody}</p>
-          <button type="button" className="primary-button" onClick={onCreate}>{copy.submit}</button>
+    <div className="dashboard-page">
+      <section className="dashboard-welcome" aria-labelledby="dashboard-heading">
+        <div>
+          <h1 id="dashboard-heading">{copy.dashboardWelcome}</h1>
+          <p><span className="dashboard-scope-badge">{facilityName}</span>{copy.dashboardSummary}</p>
         </div>
-      )}
-      {!loading && !error && records.length > 0 && (
-        <ul className="request-list">
-          {records.map((record) => (
-            <li key={record.id}>
-              <a href={`/work-records/${record.id}`} onClick={(event) => { event.preventDefault(); onSelect(record.id) }}>
-                <span className="request-copy">
-                  <strong>{record.payload.title ?? copy.noDescription}</strong>
-                  <span>{record.payload.description ?? copy.noDescription}</span>
-                </span>
-                <span className="request-meta">
-                  <span className="status-badge">{copy.submitted}</span>
-                  <time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time>
-                </span>
-              </a>
-            </li>
+        <span className="dashboard-range"><CalendarDays aria-hidden="true" />{copy.dashboardRange}</span>
+      </section>
+
+      <section aria-labelledby="overview-heading">
+        <div className="dashboard-section-heading">
+          <h2 id="overview-heading">{copy.overview}</h2>
+        </div>
+        <div className="dashboard-kpi-grid" aria-label={copy.overview}>
+          {metrics.map((metric) => (
+            <article className="dashboard-kpi" key={metric.label}>
+              <span className="dashboard-kpi-label"><span className="dashboard-kpi-dot" data-tone={metric.tone} />{metric.label}</span>
+              <strong>{metric.value}</strong>
+              <small>{metric.source}</small>
+            </article>
           ))}
-        </ul>
-      )}
-    </section>
+        </div>
+      </section>
+
+      <section aria-labelledby="analytics-heading">
+        <div className="dashboard-section-heading">
+          <h2 id="analytics-heading">{copy.analytics}</h2>
+        </div>
+        <div className="dashboard-panel-grid">
+          <article className="dashboard-panel" aria-labelledby="timeline-heading">
+            <div className="dashboard-panel-heading"><h3 id="timeline-heading">{copy.timelineTitle}</h3></div>
+            <div className="dashboard-empty-state">
+              <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
+              <strong>{copy.timelineUnavailableTitle}</strong>
+              <p>{copy.timelineUnavailableBody}</p>
+            </div>
+          </article>
+
+          <article className="dashboard-panel" aria-labelledby="status-heading">
+            <div className="dashboard-panel-heading"><h3 id="status-heading">{copy.statusBreakdown}</h3></div>
+            {loading && <div className="skeleton-list" aria-label={copy.loadingRequests}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
+            {!loading && error && <div className="dashboard-inline-error" role="alert"><p>{copy.listError}</p><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></div>}
+            {!loading && !error && records.length === 0 && (
+              <div className="dashboard-empty-state">
+                <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
+                <strong>{copy.noStatusTitle}</strong>
+                <p>{copy.noStatusBody}</p>
+              </div>
+            )}
+            {!loading && !error && records.length > 0 && (
+              <div className="dashboard-status-list">
+                {statusGroups.map((group) => {
+                  const percentage = Math.round((group.count / records.length) * 100)
+                  return (
+                    <div className="dashboard-status-row" key={group.label}>
+                      <div><span>{group.label}</span><strong>{formatter.format(group.count)}</strong></div>
+                      <div className="dashboard-progress" role="progressbar" aria-label={group.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}>
+                        <span data-tone={group.tone} style={{ inlineSize: `${percentage}%` }} />
+                      </div>
+                      <small>{formatter.format(percentage)}%</small>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="activity-heading">
+        <div className="dashboard-section-heading">
+          <h2 id="activity-heading">{copy.recentActivity}</h2>
+        </div>
+        <div className="dashboard-panel-grid">
+          <article className="dashboard-panel" aria-labelledby="requests-heading">
+            <div className="dashboard-panel-heading">
+              <h3 id="requests-heading">{copy.myRequests}</h3>
+              <a href="/work-records/new" className="dashboard-panel-link" onClick={(event) => { event.preventDefault(); onCreate() }}>{copy.newRequest}</a>
+            </div>
+            {loading && <div className="skeleton-list" aria-label={copy.loadingRequests}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
+            {!loading && error && <div className="dashboard-inline-error" role="alert"><p>{copy.listError}</p><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></div>}
+            {!loading && !error && records.length === 0 && (
+              <div className="dashboard-empty-state">
+                <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
+                <strong>{copy.emptyTitle}</strong>
+                <p>{copy.emptyBody}</p>
+                <button type="button" className="primary-button dashboard-empty-action" onClick={onCreate}>{copy.submit}</button>
+              </div>
+            )}
+            {!loading && !error && records.length > 0 && (
+              <ul className="request-list dashboard-request-list">
+                {records.slice(0, 4).map((record) => (
+                  <li key={record.id}>
+                    <a href={`/work-records/${record.id}`} onClick={(event) => { event.preventDefault(); onSelect(record.id) }}>
+                      <span className="request-copy">
+                        <strong>{record.payload.title ?? copy.noDescription}</strong>
+                        <span>{record.payload.description ?? copy.noDescription}</span>
+                      </span>
+                      <span className="request-meta">
+                        <span className="status-badge">{recordStatusText[locale][record.status]}</span>
+                        <time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </article>
+
+          <article className="dashboard-panel" aria-labelledby="notifications-dashboard-heading">
+            <div className="dashboard-panel-heading">
+              <h3 id="notifications-dashboard-heading">{copy.notifications}</h3>
+              <button type="button" className="dashboard-panel-link" onClick={onOpenNotifications}>{copy.openNotifications}</button>
+            </div>
+            {notificationsLoading && <div className="skeleton-list" aria-label={copy.refreshingNotifications}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
+            {!notificationsLoading && notificationsError && <p role="alert" className="field-error">{copy.notificationError}</p>}
+            {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+              <div className="dashboard-empty-state">
+                <span className="dashboard-empty-icon" aria-hidden="true"><BellRing /></span>
+                <strong>{copy.noNotifications}</strong>
+                <p>{copy.noNotificationBody}</p>
+              </div>
+            )}
+            {!notificationsLoading && !notificationsError && notifications.length > 0 && (
+              <ul className="dashboard-notification-list">
+                {notifications.slice(0, 4).map((notification) => (
+                  <li key={notification.id}>
+                    <span className="dashboard-notification-copy"><strong>{notification.title}</strong><small>{notification.is_read ? copy.read : copy.unread}</small></span>
+                    <time dateTime={notification.created_at}>{formatDate(notification.created_at, locale)}</time>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </article>
+        </div>
+      </section>
+    </div>
   )
 }
 
