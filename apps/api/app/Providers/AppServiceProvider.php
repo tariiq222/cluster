@@ -116,8 +116,8 @@ class AppServiceProvider extends ServiceProvider
             RevokeTemporaryAssignmentController::class,
         ])->needs(ResolveDevelopmentFixturePrincipal::class)
             ->give(fn ($app) => $app->make(SessionPrincipalResolver::class));
-        $this->app->singleton(S3CompatibleConfiguration::class, fn (): S3CompatibleConfiguration => S3CompatibleConfiguration::fromEnvironment(! $this->documentsProduction()));
-        $this->app->singleton(ClamAvConfiguration::class, fn (): ClamAvConfiguration => ClamAvConfiguration::fromEnvironment(! $this->documentsProduction()));
+        $this->app->singleton(S3CompatibleConfiguration::class, fn (): S3CompatibleConfiguration => S3CompatibleConfiguration::fromEnvironment(! $this->documentsRuntimeEnabled()));
+        $this->app->singleton(ClamAvConfiguration::class, fn (): ClamAvConfiguration => ClamAvConfiguration::fromEnvironment(! $this->documentsRuntimeEnabled()));
         $this->app->bind(ObjectKeyResolver::class, DeterministicObjectKeyResolver::class);
         $this->app->singleton(S3RequestExecutor::class, fn (): S3RequestExecutor => new GuzzleS3RequestExecutor(new GuzzleClient));
         $this->app->singleton(SigV4RequestSigner::class, function (): SigV4RequestSigner {
@@ -138,10 +138,14 @@ class AppServiceProvider extends ServiceProvider
                 $configuration->readTimeoutSeconds,
             );
         });
-        $this->app->bind(PrivateObjectStorage::class, $this->documentsProduction()
-            ? S3CompatiblePrivateObjectStorage::class
-            : UnavailablePrivateObjectStorage::class);
+        $this->app->bind(PrivateObjectStorage::class, fn (): PrivateObjectStorage => $this->documentsRuntimeEnabled()
+            ? $this->app->make(S3CompatiblePrivateObjectStorage::class)
+            : $this->app->make(UnavailablePrivateObjectStorage::class));
         $this->app->singleton(MalwareScanner::class, function (): MalwareScanner {
+            if (! $this->documentsRuntimeEnabled()) {
+                return new UnavailableMalwareScanner;
+            }
+
             $configuration = $this->app->make(ClamAvConfiguration::class);
             if ($configuration->transport === 'disabled') {
                 return new UnavailableMalwareScanner;
@@ -207,7 +211,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
         $this->commands([ExpireTemporaryAssignmentsCommand::class]);
 
-        if ($this->documentsProduction()) {
+        if ($this->documentsRuntimeEnabled()) {
             $this->app->make(S3CompatibleConfiguration::class);
             $this->app->make(ClamAvConfiguration::class);
             $this->app->make(WorkerPrincipalResolver::class);
@@ -223,5 +227,11 @@ class AppServiceProvider extends ServiceProvider
             && ! in_array('test', $arguments, true)
             && ! in_array('config:clear', $arguments, true)
             && ! str_contains(implode(' ', $arguments), 'phpunit');
+    }
+
+    private function documentsRuntimeEnabled(): bool
+    {
+        return $this->documentsProduction()
+            || (app()->environment('testing') && config('documents.runtime.testing_enabled') === true);
     }
 }
