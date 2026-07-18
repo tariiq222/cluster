@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../api'
 import { createDelegation, createRoleAssignment, createSupervisoryRelationship, explainAccessDecision, listAuthorization, listSupervisoryRelationships, type AuthorizationItem, type AuthorizationResource } from '../../api/w1-3/authorization'
 
@@ -18,7 +18,7 @@ export function AuthorizationAdmin({ locale, token, resource, onSessionExpired }
   const [items, setItems] = useState<AuthorizationItem[]>([])
   const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'forbidden' | 'not-found' | 'conflict' | 'stale' | 'error'>('loading')
 
-  async function load() {
+  const load = useCallback(async () => {
     setState('loading')
     try {
       const result = resource === 'supervisory' ? await listSupervisoryRelationships(token) : await listAuthorization(resource, token)
@@ -32,8 +32,8 @@ export function AuthorizationAdmin({ locale, token, resource, onSessionExpired }
       else if (error instanceof ApiError && error.status === 412) setState('stale')
       else setState('error')
     }
-  }
-  useEffect(() => { void load() }, [token, resource])
+  }, [onSessionExpired, resource, token])
+  useEffect(() => { void load() }, [load])
   const title = resource === 'supervisory' ? text.supervisory : text[resource]
   const [formError, setFormError] = useState<string | null>(null)
   async function create(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); setFormError(null); try { const code = String(form.get('code') ?? '').trim(); const name = String(form.get('name') ?? '').trim(); if (!code) return setFormError(text.invalidDecision); if (resource === 'role-assignments') await createRoleAssignment({ code, name }, token); else if (resource === 'delegations') await createDelegation({ code, name }, token); else if (resource === 'supervisory') await createSupervisoryRelationship({ source_unit_id: String(form.get('source_unit_id')), target_unit_id: String(form.get('target_unit_id')), relationship_type: String(form.get('relationship_type')), start_at: String(form.get('start_at')), capability_codes: String(form.get('capability_codes')).split(',').map((value) => value.trim()).filter(Boolean) }, token); await load() } catch (error) { if (error instanceof ApiError && error.status === 401) return onSessionExpired(); setFormError(error instanceof ApiError && (error.status === 409 || error.status === 412 || error.status === 422) ? text.conflict : text.error) } }
