@@ -12,6 +12,12 @@ import type {
   Facility as GeneratedFacility,
   FacilityCollection as GeneratedFacilityCollection,
   FacilityCreate,
+  OrganizationNodeCreate,
+  OrganizationUnit as GeneratedOrganizationUnit,
+  OrganizationUnitCollection as GeneratedOrganizationUnitCollection,
+  Position as GeneratedPosition,
+  PositionCollection as GeneratedPositionCollection,
+  PositionCreate,
 } from './api/generated/w1-2'
 
 export type ProblemFieldError = {
@@ -49,6 +55,12 @@ export type Facility = GeneratedFacility
 export type FacilityCollection = GeneratedFacilityCollection
 export type CreateClusterInput = ClusterCreate
 export type CreateFacilityInput = FacilityCreate
+export type OrganizationUnit = GeneratedOrganizationUnit
+export type OrganizationUnitCollection = GeneratedOrganizationUnitCollection
+export type CreateOrganizationUnitInput = OrganizationNodeCreate
+export type Position = GeneratedPosition
+export type PositionCollection = GeneratedPositionCollection
+export type CreatePositionInput = PositionCreate
 
 export class ApiError extends Error {
   readonly status: number
@@ -251,6 +263,42 @@ export async function createFacility(token: string, input: CreateFacilityInput):
     headers: {
       'Content-Type': 'application/json',
       'Idempotency-Key': `facility-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(input),
+  }, token)
+  return body.data
+}
+
+export function listOrganizationUnits(token: string): Promise<OrganizationUnitCollection> {
+  return requestJson<OrganizationUnitCollection>('/api/v1/organization/units?limit=100', { method: 'GET' }, token)
+}
+
+export async function createOrganizationUnit(token: string, input: CreateOrganizationUnitInput): Promise<OrganizationUnit> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: OrganizationUnit }>('/api/v1/organization/units', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `organization-unit-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(input),
+  }, token)
+  return body.data
+}
+
+export function listPositions(token: string): Promise<PositionCollection> {
+  return requestJson<PositionCollection>('/api/v1/organization/positions?limit=100', { method: 'GET' }, token)
+}
+
+export async function createPosition(token: string, input: CreatePositionInput): Promise<Position> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: Position }>('/api/v1/organization/positions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `position-${correlationId}`,
       'X-Correlation-ID': correlationId,
     },
     body: JSON.stringify(input),

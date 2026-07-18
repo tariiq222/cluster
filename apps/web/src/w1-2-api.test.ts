@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createCluster, createFacility, getCluster, listFacilities } from './api'
+import {
+  createCluster,
+  createFacility,
+  createOrganizationUnit,
+  createPosition,
+  getCluster,
+  listFacilities,
+  listOrganizationUnits,
+  listPositions,
+} from './api'
 
 const token = 'fixture-token'
 const cluster = {
@@ -69,6 +78,63 @@ describe('W1.2 Organization API adapter', () => {
       const headers = new Headers(init?.headers)
       expect(headers.get('Idempotency-Key')).toMatch(/^(cluster|facility)-[0-9a-f-]+$/)
       expect(headers.get('X-Correlation-ID')).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7/)
+    }
+  })
+
+  it('lists and creates units and positions through typed W1.2 routes', async () => {
+    const unit = {
+      id: '018f6f7d-0c00-7000-8000-000000000103',
+      cluster_id: cluster.id,
+      parent_id: cluster.id,
+      parent_type: 'cluster' as const,
+      type_code: 'department',
+      code: 'OPERATIONS',
+      name_ar: 'إدارة التشغيل',
+      name_en: null,
+      status: 'active' as const,
+      path_cache: `/${cluster.id}/018f6f7d-0c00-7000-8000-000000000103`,
+      depth: 1,
+      lock_version: 1,
+    }
+    const position = {
+      id: '018f6f7d-0c00-7000-8000-000000000104',
+      organization_unit_id: unit.id,
+      code: 'OPS_MANAGER',
+      title_ar: 'مدير التشغيل',
+      manager_position_id: null,
+      is_active: true,
+      lock_version: 1,
+    }
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ items: [], next_cursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ items: [], next_cursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ data: unit }, 201))
+      .mockResolvedValueOnce(jsonResponse({ data: position }, 201))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await listOrganizationUnits(token)
+    await listPositions(token)
+    await createOrganizationUnit(token, {
+      cluster_id: cluster.id,
+      type_code: 'department',
+      code: 'OPERATIONS',
+      name: 'إدارة التشغيل',
+    })
+    await createPosition(token, {
+      organization_unit_id: unit.id,
+      code: 'OPS_MANAGER',
+      title: 'مدير التشغيل',
+      manager_position_id: null,
+    })
+
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/api/v1/organization/units?limit=100',
+      '/api/v1/organization/positions?limit=100',
+      '/api/v1/organization/units',
+      '/api/v1/organization/positions',
+    ])
+    for (const [, init] of fetchMock.mock.calls.slice(2)) {
+      expect(new Headers(init?.headers).get('Idempotency-Key')).toMatch(/^(organization-unit|position)-[0-9a-f-]+$/)
     }
   })
 })

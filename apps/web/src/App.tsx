@@ -13,6 +13,7 @@ import {
 } from './api'
 import { primaryRoutes, routeFromPath, type AppRoute } from './shell/routes'
 import { OrganizationOverview } from './features/organization/OrganizationOverview'
+import { OrganizationStructure } from './features/organization/OrganizationStructure'
 
 type Locale = 'ar' | 'en'
 
@@ -30,6 +31,7 @@ const text = {
     myRequests: 'طلباتي',
     newRequest: 'طلب جديد',
     organization: 'التنظيم',
+    organizationStructure: 'الهيكل والمناصب',
     notifications: 'الإشعارات',
     closeNotifications: 'إغلاق الإشعارات',
     logout: 'تسجيل الخروج',
@@ -79,6 +81,7 @@ const text = {
     myRequests: 'My requests',
     newRequest: 'New request',
     organization: 'Organization',
+    organizationStructure: 'Structure and positions',
     notifications: 'Notifications',
     closeNotifications: 'Close notifications',
     logout: 'Sign out',
@@ -359,6 +362,16 @@ function App() {
         >
           {copy.organization}
         </a>
+        <a
+          href={primaryRoutes[3].path}
+          aria-current={view.name === primaryRoutes[3].route.name ? 'page' : undefined}
+          onClick={(event) => {
+            event.preventDefault()
+            navigate({ name: 'organization-structure' }, primaryRoutes[3].path)
+          }}
+        >
+          {copy.organizationStructure}
+        </a>
       </nav>
 
       <main className="main-content">
@@ -406,6 +419,9 @@ function App() {
         )}
         {view.name === 'organization' && (
           <OrganizationOverview locale={locale} token={session.access_token} onSessionExpired={expireSession} />
+        )}
+        {view.name === 'organization-structure' && (
+          <OrganizationStructure locale={locale} token={session.access_token} onSessionExpired={expireSession} />
         )}
       </main>
 
