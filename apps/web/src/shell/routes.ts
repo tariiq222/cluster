@@ -10,6 +10,7 @@ export type AppRoute =
   | { name: 'organization-import'; jobId?: string }
   | { name: 'authorization'; resource: 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'supervisory' }
   | { name: 'access-explanation'; decisionId?: string }
+  | { name: 'workflow-day2' }
   | { name: 'not-found' }
 
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -29,6 +30,7 @@ export const primaryRoutes = [
   { route: { name: 'authorization', resource: 'delegations' } as const, path: '/admin/authorization/delegations' },
   { route: { name: 'authorization', resource: 'supervisory' } as const, path: '/admin/relationships/supervisory' },
   { route: { name: 'access-explanation' } as const, path: '/admin/authorization/explain' },
+  { route: { name: 'workflow-day2' } as const, path: '/admin/workflow/day2' },
 ]
 
 export function routeFromPath(pathname: string): AppRoute {
@@ -59,6 +61,7 @@ export function routeFromPath(pathname: string): AppRoute {
   const authorizationMatch = pathname.match(/^\/admin\/authorization\/(roles|capabilities|role-assignments|delegations)$/)
   if (authorizationMatch) return { name: 'authorization', resource: authorizationMatch[1] as 'roles' | 'capabilities' | 'role-assignments' | 'delegations' }
   if (pathname === '/admin/relationships/supervisory') return { name: 'authorization', resource: 'supervisory' }
+  if (pathname === '/admin/workflow/day2') return { name: 'workflow-day2' }
   const explanationMatch = pathname.match(/^\/admin\/authorization\/explain(?:\/([^/]+))?$/)
   if (explanationMatch) return { name: 'access-explanation', decisionId: explanationMatch[1] }
   const importMatch = pathname.match(/^\/admin\/imports\/organization\/([^/]+)$/)

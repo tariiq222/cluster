@@ -22,6 +22,7 @@ import { TemporaryAssignments } from './features/organization/TemporaryAssignmen
 import { IdentityAccounts } from './features/identity/IdentityAccounts'
 import { ImportReview } from './features/imports/ImportReview'
 import { AccessExplanation, AuthorizationAdmin } from './features/authorization/AuthorizationAdmin'
+import { Day2Workflow } from './features/workflow/Day2Workflow'
 
 type Locale = 'ar' | 'en'
 
@@ -279,7 +280,7 @@ function App() {
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const copy = text[locale]
-  const adminView = ['organization', 'organization-structure', 'people-assignments', 'temporary-assignments', 'identity-accounts', 'organization-import', 'authorization', 'access-explanation'].includes(view.name)
+  const adminView = ['organization', 'organization-structure', 'people-assignments', 'temporary-assignments', 'identity-accounts', 'organization-import', 'authorization', 'access-explanation', 'workflow-day2'].includes(view.name)
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -480,6 +481,7 @@ function App() {
             return <a key={item.path} href={item.path} aria-current={view.name === item.route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(item.route, item.path) }}>{label}</a>
           })}
           {authorizationNav.map(([label, path, route]) => <a key={path} href={path} aria-current={view.name === route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(route, path) }}>{label}</a>)}
+          <a href="/admin/workflow/day2" aria-current={view.name === 'workflow-day2' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'workflow-day2' }, '/admin/workflow/day2') }}>{locale === 'ar' ? 'سير العمل والمهام' : 'Workflow and tasks'}</a>
         </nav>}
         {view.name === 'list' && (
           <RequestDashboard
@@ -554,6 +556,7 @@ function App() {
         )}
         {view.name === 'authorization' && <AuthorizationAdmin locale={locale} token={session.access_token} resource={view.resource} onSessionExpired={expireSession} />}
         {view.name === 'access-explanation' && <AccessExplanation locale={locale} token={session.access_token} decisionId={view.decisionId} onSessionExpired={expireSession} />}
+        {view.name === 'workflow-day2' && <Day2Workflow locale={locale} session={session} onSessionExpired={expireSession} />}
       </AppShell>
 
       {notificationsOpen && (
