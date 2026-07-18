@@ -3,10 +3,8 @@
 namespace Modules\Organization\Tests;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\QueryException;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Organization\Features\TemporaryAssignment\Contracts\ValidateTemporaryAssignmentCapabilities;
@@ -21,7 +19,7 @@ use Throwable;
 
 final class TemporaryAssignmentMySqlConcurrencyTest extends TestCase
 {
-    use DatabaseMigrations;
+    use DatabaseTruncation;
 
     private const ACTOR_ID = '018f6f7d-0c00-7000-8000-000000000721';
 
@@ -32,17 +30,6 @@ final class TemporaryAssignmentMySqlConcurrencyTest extends TestCase
     private const PERSON_ID = '018f6f7d-0c00-7000-8000-000000000724';
 
     private const UNIT_ID = '018f6f7d-0c00-7000-8000-000000000726';
-
-    public function runDatabaseMigrations(): void
-    {
-        $this->artisan('migrate:fresh', $this->migrateFreshUsing());
-        $this->app[Kernel::class]->setArtisan(null);
-
-        $this->beforeApplicationDestroyed(function (): void {
-            $this->artisan('migrate:rollback');
-            RefreshDatabaseState::$migrated = false;
-        });
-    }
 
     protected function setUp(): void
     {
