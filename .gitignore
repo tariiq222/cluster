@@ -21,3 +21,6 @@ __pycache__/
 
 # VPS runtime secrets
 infra/platform/production/.env.production
+
+# Local development service credentials
+infra/dev/.env

@@ -4,17 +4,38 @@ $documentsTesting = ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV'
     || in_array('test', $_SERVER['argv'] ?? [], true)
     || in_array('config:clear', $_SERVER['argv'] ?? [], true)
     || str_contains(implode(' ', $_SERVER['argv'] ?? []), 'phpstan');
-$documentUploadEndpointAllowlist = $documentsTesting
+$documentsTestingRuntimeEnabled = false;
+if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'testing') {
+    $documentsTestingRuntime = $_ENV['DOCUMENTS_TEST_RUNTIME_ENABLED']
+        ?? $_SERVER['DOCUMENTS_TEST_RUNTIME_ENABLED']
+        ?? getenv('DOCUMENTS_TEST_RUNTIME_ENABLED')
+        ?? 'false';
+    if ($documentsTestingRuntime === false) {
+        $documentsTestingRuntime = 'false';
+    }
+    $documentsTestingRuntime = is_string($documentsTestingRuntime)
+        ? strtolower(trim($documentsTestingRuntime))
+        : '';
+    if (! in_array($documentsTestingRuntime, ['true', 'false'], true)) {
+        throw new RuntimeException('DOCUMENTS_TEST_RUNTIME_ENABLED must be exactly true or false.');
+    }
+    $documentsTestingRuntimeEnabled = $documentsTestingRuntime === 'true';
+}
+$documentUploadEndpointAllowlist = $documentsTesting && ! $documentsTestingRuntimeEnabled
     ? ['storage.invalid']
     : array_values(array_filter(array_map(
         static fn (string $host): string => strtolower(trim($host)),
         explode(',', (string) env('DOCUMENTS_UPLOAD_ENDPOINT_ALLOWLIST', '')),
     )));
-if (! $documentsTesting && $documentUploadEndpointAllowlist === []) {
+if ((! $documentsTesting || $documentsTestingRuntimeEnabled) && $documentUploadEndpointAllowlist === []) {
     throw new RuntimeException('Documents upload endpoint allowlist is required outside testing.');
 }
 
 return [
+    'runtime' => [
+        'testing_enabled' => $documentsTestingRuntimeEnabled,
+    ],
+
     'worker' => [
         'token' => env('DOCUMENTS_WORKER_TOKEN', $documentsTesting ? str_repeat('t', 32) : ''),
         'user_id' => env('DOCUMENTS_WORKER_USER_ID', '018f6f7d-0c00-7000-8000-000000000021'),
