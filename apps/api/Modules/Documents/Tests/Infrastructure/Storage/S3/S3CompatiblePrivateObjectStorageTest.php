@@ -34,16 +34,28 @@ final class S3CompatiblePrivateObjectStorageTest extends TestCase
         $this->assertSame('127.0.0.1', parse_url($intent->url, PHP_URL_HOST));
         $this->assertSame(9000, parse_url($intent->url, PHP_URL_PORT));
         $this->assertStringContainsString('/documents-quarantine/', parse_url($intent->url, PHP_URL_PATH) ?: '');
-        $this->assertSame([
-            'Content-Length' => '1024',
-            'Content-Type' => 'application/pdf',
-            'x-amz-checksum-sha256' => str_repeat('a', 64),
-            'If-None-Match' => '*',
-        ], $intent->requiredHeaders);
+        $this->assertSame('1024', $intent->requiredHeaders['content-length']);
+        $this->assertSame('application/pdf', $intent->requiredHeaders['content-type']);
+        $this->assertSame(str_repeat('a', 64), $intent->requiredHeaders['x-amz-content-sha256']);
+        $this->assertSame(base64_encode(hex2bin(str_repeat('a', 64))), $intent->requiredHeaders['x-amz-checksum-sha256']);
+        $this->assertSame('*', $intent->requiredHeaders['if-none-match']);
+        $this->assertSame('private', $intent->requiredHeaders['x-amz-acl']);
+        $this->assertSame('aws:kms', $intent->requiredHeaders['x-amz-server-side-encryption']);
+        $this->assertSame('quarantine-kms-key', $intent->requiredHeaders['x-amz-server-side-encryption-aws-kms-key-id']);
+        $this->assertSame('session-token', $intent->requiredHeaders['x-amz-security-token']);
+        $this->assertArrayHasKey('x-amz-date', $intent->requiredHeaders);
+        $this->assertArrayHasKey('Authorization', $intent->requiredHeaders);
+        $this->assertArrayNotHasKey('host', $intent->requiredHeaders);
+        preg_match('/SignedHeaders=([^,]+)/', $intent->requiredHeaders['Authorization'], $matches);
+        foreach (explode(';', $matches[1] ?? '') as $signedHeader) {
+            if ($signedHeader !== 'host') {
+                $this->assertArrayHasKey($signedHeader, $intent->requiredHeaders);
+            }
+        }
         $this->assertEmpty($executor->requests, 'Pre-signed URLs must not perform outbound traffic.');
     }
 
-    public function test_inspect_uses_signed_head_and_signed_get_for_checksum(): void
+    public function test_inspect_uses_checksum_enabled_signed_head(): void
     {
         [$storage, $executor] = $this->makeStorage();
         $etag = '"d41d8cd98f00b204e9800998ecf8427e"';
@@ -55,15 +67,9 @@ final class S3CompatiblePrivateObjectStorageTest extends TestCase
                     'etag' => $etag,
                     'content-length' => '1024',
                     'content-type' => 'application/pdf',
+                    'x-amz-checksum-sha256' => base64_encode(hex2bin($sha)),
                 ],
                 'body' => '',
-            ],
-            [
-                'status' => 200,
-                'headers' => [
-                    'x-amz-checksum-sha256' => $sha,
-                ],
-                'body' => 'partial',
             ],
         ];
         $properties = $storage->inspectQuarantineObject(new QuarantineObjectReference('018f6f7d-0c00-7000-8000-000000000502'));
@@ -71,12 +77,28 @@ final class S3CompatiblePrivateObjectStorageTest extends TestCase
         $this->assertSame('application/pdf', $properties->detectedMimeType);
         $this->assertSame($sha, $properties->sha256);
         $this->assertSame($etag, $properties->etag);
-        $this->assertCount(2, $executor->requests);
+        $this->assertCount(1, $executor->requests);
         $this->assertSame('HEAD', $executor->requests[0]['method']);
-        $this->assertSame('GET', $executor->requests[1]['method']);
-        foreach ($executor->requests as $request) {
-            $this->assertStringContainsString('AWS4-HMAC-SHA256', $request['headers']['Authorization'] ?? '');
-        }
+        $this->assertSame('ENABLED', $executor->requests[0]['headers']['x-amz-checksum-mode']);
+        $this->assertStringContainsString('AWS4-HMAC-SHA256', $executor->requests[0]['headers']['Authorization'] ?? '');
+    }
+
+    public function test_signed_upload_intent_omits_kms_headers_when_no_quarantine_key_is_configured(): void
+    {
+        [$storage] = $this->makeStorage(quarantineKmsKeyId: null);
+
+        $intent = $storage->issueQuarantineUpload(new QuarantineUploadRequest(
+            '018f6f7d-0c00-7000-8000-000000000501',
+            '018f6f7d-0c00-7000-8000-000000000502',
+            '018f6f7d-0c00-7000-8000-000000000502.blob',
+            'text/csv',
+            1024,
+            str_repeat('a', 64),
+            new \DateTimeImmutable('2026-07-18T12:36:00+00:00'),
+        ));
+
+        $this->assertArrayNotHasKey('x-amz-server-side-encryption', $intent->requiredHeaders);
+        $this->assertArrayNotHasKey('x-amz-server-side-encryption-aws-kms-key-id', $intent->requiredHeaders);
     }
 
     public function test_inspect_returns_404_when_object_missing(): void
@@ -140,7 +162,7 @@ final class S3CompatiblePrivateObjectStorageTest extends TestCase
     /**
      * @return array{0: S3CompatiblePrivateObjectStorage, 1: FakeS3RequestExecutor, 2: SigV4RequestSigner}
      */
-    private function makeStorage(): array
+    private function makeStorage(?string $quarantineKmsKeyId = 'quarantine-kms-key'): array
     {
         $config = S3CompatibleConfiguration::forTesting(
             region: 'us-east-1',
@@ -150,6 +172,8 @@ final class S3CompatiblePrivateObjectStorageTest extends TestCase
             availableBucket: 'documents-available',
             accessKeyId: 'AKIDEXAMPLE',
             secretAccessKey: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
+            sessionToken: 'session-token',
+            quarantineKmsKeyId: $quarantineKmsKeyId,
         );
         $signer = new SigV4RequestSigner('us-east-1', 'AKIDEXAMPLE', 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY');
         $resolver = new DeterministicObjectKeyResolver;

@@ -92,7 +92,7 @@ final class DocumentUploadCoreTest extends TestCase
         $this->assertSame([
             'Content-Length' => '512',
             'Content-Type' => 'application/pdf',
-            'x-amz-checksum-sha256' => $this->hashFor('bound.pdf', 512),
+            'x-amz-checksum-sha256' => base64_encode(hex2bin($this->hashFor('bound.pdf', 512))),
             'If-None-Match' => '*',
         ], $started->uploadIntent->requiredHeaders);
         $storage = DB::table('document_storage_objects')->first();
@@ -107,6 +107,20 @@ final class DocumentUploadCoreTest extends TestCase
         $replayed = $this->initiate('bound.pdf', 'application/pdf', 512, 'signed-conditions');
         $this->assertSame($started->uploadIntent->url, $replayed->uploadIntent->url);
         $this->assertSame(1, $this->storage->issuedIntentCalls);
+    }
+
+    public function test_signed_intent_accepts_canonical_lowercase_signer_headers(): void
+    {
+        $this->storage->returnCanonicalLowercaseIntent = true;
+
+        $started = $this->initiate('canonical-lowercase.pdf', 'application/pdf', 512, 'canonical-lowercase');
+
+        $this->assertSame([
+            'content-length' => '512',
+            'content-type' => 'application/pdf',
+            'x-amz-checksum-sha256' => base64_encode(hex2bin($this->hashFor('canonical-lowercase.pdf', 512))),
+            'if-none-match' => '*',
+        ], $started->uploadIntent->requiredHeaders);
     }
 
     public function test_malformed_storage_signature_rolls_back_intent_creation(): void

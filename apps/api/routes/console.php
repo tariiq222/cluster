@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use App\Support\W12E2EFixtureSeeder;
 use Modules\Identity\Features\ConsumeOrganizationPersonEvents\Worker\IdentityPersonStreamWorker;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use Modules\Organization\Infrastructure\Outbox\Relay\OrganizationPersonOutboxRelay;
@@ -102,3 +103,21 @@ Artisan::command('identity:consume-person-events {--once} {--consumer=}', functi
         return Command::FAILURE;
     }
 })->purpose('Consume one bounded Organization Person event cycle');
+
+Artisan::command('e2e:w1-2:seed', function (): int {
+    if (! app()->environment('testing')) {
+        $this->error('W1.2 E2E fixture seeding is available only when APP_ENV=testing.');
+
+        return Command::FAILURE;
+    }
+
+    try {
+        $this->line(json_encode(app(W12E2EFixtureSeeder::class)->seed(), JSON_THROW_ON_ERROR));
+
+        return Command::SUCCESS;
+    } catch (Throwable) {
+        $this->error('W1.2 E2E fixture seeding failed.');
+
+        return Command::FAILURE;
+    }
+})->purpose('Create one disposable W1.2 browser E2E fixture set for the testing runtime');

@@ -108,8 +108,8 @@ final class StreamSocketClamAvTransport implements ClamAvSocketTransport
                 throw new ClamAvTransportException('clamav_read_failed');
             }
             $buffer .= $char;
-            if ($char === "\n") {
-                return rtrim($buffer, "\r\n");
+            if ($char === "\n" || $char === "\0") {
+                return rtrim($buffer, "\r\n\0");
             }
             if (strlen($buffer) > 65536) {
                 throw new ClamAvTransportException('clamav_response_too_long');
