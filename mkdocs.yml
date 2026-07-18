@@ -86,18 +86,18 @@ nav:
       - ترحيلات قاعدة البيانات: engineering/database-migrations.md
       - لغة تعريف العمل: engineering/definition-dsl.md
   - الخطط:
-      - فهرس الخطط: plans/README.md
-      - خارطة التنفيذ: plans/implementation-roadmap.md
-      - الإصدار الأول: plans/release-1-platform.md
-      - عقد واجهة W1.2: plans/release-1/w1-2-frontend-slices.md
-      - عقد واجهة W1.3: plans/release-1/w1-3-frontend-slices.md
-      - الإصدار الثاني: plans/release-2-strategy-portfolio.md
-      - الإصدار الثالث: plans/release-3-risk.md
-      - جاهزية التشغيل النهائي: plans/readiness-checklist.md
+      - فهرس خطط التنفيذ: plans/README.md
+      - خارطة التنفيذ السريعة: plans/implementation-roadmap.md
+      - خطة R1 السريعة: plans/release-1-platform.md
+      - سجل اكتمال واجهة W1.2: plans/release-1/w1-2-frontend-slices.md
+      - بطاقة تنفيذ واجهة W1.3 – اليوم الأول: plans/release-1/w1-3-frontend-slices.md
+      - خطة R2 السريعة: plans/release-2-strategy-portfolio.md
+      - خطة R3 السريعة: plans/release-3-risk.md
+      - الجاهزية الآلية للتشغيل: plans/readiness-checklist.md
       - حالة التسليم النشطة: plans/active-delivery-status.md
-      - متطلبات التشغيل النهائي: plans/w1-1-remaining-delivery-tasks.md
+      - العمليات المؤجلة من W1.1: plans/w1-1-remaining-delivery-tasks.md
       - تصميم استلام العمل وإزالة GSD: superpowers/specs/2026-07-17-gsd-takeover-design.md
-      - خطة تنفيذ استلام العمل وإزالة GSD: superpowers/plans/2026-07-17-gsd-takeover.md
+      - سجل استلام العمل وإزالة GSD: superpowers/plans/2026-07-17-gsd-takeover.md
   - العقود:
       - فهرس العقود: contracts/README.md
       - عقود الموديولات: contracts/module-contracts.md

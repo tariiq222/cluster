@@ -11,20 +11,20 @@ documents:
   - {path: product/README.md, title: فهرس المنتج, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: product/vision-and-scope.md, title: الرؤية والنطاق, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: product/personas-and-journeys.md, title: الشخصيات ورحلات المستخدم, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
-  - {path: product/releases-and-roadmap.md, title: الإصدارات وخارطة الطريق, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: product/releases-and-roadmap.md, title: الإصدارات وخارطة الطريق, category: product, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: product/success-metrics.md, title: مؤشرات نجاح المنصة, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
-  - {path: plans/README.md, title: فهرس الخطط, category: plans, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: true, generated: false}
-  - {path: plans/implementation-roadmap.md, title: خارطة التنفيذ الرئيسية – منصة التجمع الصحي الثالث, category: plans, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: true, generated: false}
-  - {path: plans/release-1-platform.md, title: خطة إصدار R1 – المنصة العامة الكاملة, category: plans, status: accepted, owner: طارق, phase: R1, source_of_truth: true, generated: false}
-  - {path: plans/release-1/w1-2-frontend-slices.md, title: عقد شرائح واجهة W1.2, category: plans, status: accepted, owner: طارق, phase: R1, source_of_truth: false, generated: false}
-  - {path: plans/release-1/w1-3-frontend-slices.md, title: عقد شرائح واجهة W1.3, category: plans, status: proposed, owner: طارق, phase: R1, source_of_truth: false, generated: false}
-  - {path: plans/release-2-strategy-portfolio.md, title: خطة إصدار R2 – الاستراتيجية والمحافظ والبرامج والمشاريع, category: plans, status: accepted, owner: مدير التجمع للتحول الرقمي, phase: R2, source_of_truth: true, generated: false}
-  - {path: plans/release-3-risk.md, title: خطة إصدار R3 – المخاطر المؤسسية, category: plans, status: accepted, owner: مسؤول المخاطر المؤسسية, phase: R3, source_of_truth: true, generated: false}
-  - {path: plans/readiness-checklist.md, title: قائمة جاهزية التشغيل النهائي على الخادم, category: plans, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: true, generated: false}
-  - {path: plans/active-delivery-status.md, title: حالة التسليم النشطة, category: plans, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: false, generated: false}
-  - {path: plans/w1-1-remaining-delivery-tasks.md, title: متطلبات التشغيل النهائي المرحلة من W1.1, category: plans, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/README.md, title: فهرس خطط التنفيذ, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/implementation-roadmap.md, title: خارطة التنفيذ السريعة – خمسة أيام لبقية النظام, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/release-1-platform.md, title: خطة R1 السريعة – منصة العمل الإداري, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1, source_of_truth: true, generated: false}
+  - {path: plans/release-1/w1-2-frontend-slices.md, title: سجل اكتمال واجهة W1.2, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1, source_of_truth: false, generated: false}
+  - {path: plans/release-1/w1-3-frontend-slices.md, title: بطاقة تنفيذ واجهة W1.3 – اليوم الأول, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1, source_of_truth: false, generated: false}
+  - {path: plans/release-2-strategy-portfolio.md, title: خطة R2 السريعة – الاستراتيجية والمؤشرات والمشاريع, category: plans, status: accepted, owner: التنفيذ التقني, phase: R2, source_of_truth: true, generated: false}
+  - {path: plans/release-3-risk.md, title: خطة R3 السريعة – المخاطر والضوابط والمعالجة, category: plans, status: accepted, owner: التنفيذ التقني, phase: R3, source_of_truth: true, generated: false}
+  - {path: plans/readiness-checklist.md, title: قائمة الجاهزية الآلية للتشغيل النهائي, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/active-delivery-status.md, title: حالة التسليم النشطة, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/w1-1-remaining-delivery-tasks.md, title: العمليات التشغيلية المؤجلة من W1.1, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: superpowers/specs/2026-07-17-gsd-takeover-design.md, title: تصميم استلام Codex للعمل وإزالة GSD, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: false, generated: false}
-  - {path: superpowers/plans/2026-07-17-gsd-takeover.md, title: خطة تنفيذ استلام Codex للعمل وإزالة GSD, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: false, generated: false}
+  - {path: superpowers/plans/2026-07-17-gsd-takeover.md, title: سجل تاريخي لاستلام Codex وإزالة GSD, category: plans, status: superseded, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: false, generated: false}
   - {path: data-security/README.md, title: البيانات والأمن, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: data-security/logical-data-model.md, title: النموذج المنطقي للبيانات, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: data-security/authorization-model.md, title: نموذج الصلاحيات والعزل, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
@@ -74,7 +74,7 @@ documents:
   - {path: operations/incident-response.md, title: الاستجابة للحوادث, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: operations/runbooks.md, title: كتيبات التشغيل التنفيذية, category: operations, status: proposed, owner: مسؤول العمليات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: engineering/README.md, title: دليل الهندسة التنفيذي, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
-  - {path: engineering/delivery-workflow.md, title: تدفق التسليم, category: engineering, status: accepted, owner: طارق, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: engineering/delivery-workflow.md, title: تدفق البناء السريع, category: engineering, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: engineering/vertical-slices.md, title: الشرائح الرأسية داخل الموديولات, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: engineering/coding-and-module-boundaries.md, title: حدود الكود والموديولات, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: engineering/testing-strategy.md, title: استراتيجية الاختبار, category: engineering, status: draft, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}

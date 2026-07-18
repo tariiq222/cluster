@@ -3,186 +3,70 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.26.0
-date: 2026-07-18
-owner: طارق
+version: 5.0.0
+date: 2026-07-19
+owner: التنفيذ التقني
 reviewers: []
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: نهاية كل يوم تنفيذ
 sources:
+- docs/plans/implementation-roadmap.md
 - docs/plans/release-1-platform.md
-- docs/plans/w1-1-remaining-delivery-tasks.md
 references:
 - docs/engineering/delivery-workflow.md
 ---
 # حالة التسليم النشطة
 
-## الغرض
+## الحالة الآن
 
-هذه الوثيقة الوحيدة لحالة التنفيذ. سطر لكل إنجاز: التاريخ والأمر والالتزام
-والنتيجة. لا نسب تقدم، ولا يُنقل بند إلى مكتمل بلا أمر تحقق ونتيجة.
+- **W1.1 مكتملة**: `make verify-w1-1` و`make verify-w1-1-local` أخضران.
+- **W1.2 مكتملة**: شجرة Organization وIdentity والحسابات والتكليفات والاستيراد
+  وواجهاتها ورحلة MinIO/ClamAV موجودة في `main`، و`make verify-w1-2` ورحلة
+  `infra/dev/run-w1-2-e2e.sh` خضراوان في دليل الدمج.
+- **W1.3 قيد التنفيذ**: خط `work-1-3` (bookmark عند `ffa40533`) في المستودع الواحد
+  يحتوي capability catalog وRBAC persistence والعلاقات الإشرافية وسياسات الحقول
+  وتدقيق الوصول الحساس. هذه أعمال غير مدمجة في `main` بعد، وهي بداية اليوم الأول
+  في خارطة الخمسة أيام.
+- **W1.4 وما بعدها**: لم تثبت كرحلات متكاملة بعد؛ هي العمل المهم الآن.
 
-## الموضع الحالي
+لا يعاد التخطيط أو التنفيذ لـW1.1 وW1.2 إلا عند ظهور انحدار.
 
-- الموجة المكتملة محلياً: **W1.1 Walking Skeleton** — `make verify-w1-1` و
-  `make verify-w1-1-local` أخضران، ولا تعاد أعمالها إلا لمعالجة انحدار.
-- الموجة المنجزة محلياً: **W1.2 Organization + Identity + Import** — مرشح `main`
-  يدمج W1.2 مع App Shell/Dashboard اللاحق، و`make verify-w1-2` أخضر محلياً.
-  CI التاريخي أخضر على revision السابقة `4824a804`؛ المرشح المدمج يحتاج إلى CI بعيد
-  جديد بعد الدفع.
-- ADR-024 مقبول، وملكية Person واتجاه `Identity -> Organization` وtaxonomy الحساب
-  وعقود OpenAPI والأحداث والاستيراد والنطاق وbootstrap مجمدة ومتسقة.
-- اكتمل CRUD الخلفي الحالي للتجمع والمنشآت محلياً: إنشاء/قراءة/تعديل التجمع الواحد،
-  وإنشاء/قائمة/قراءة/تعديل/أرشفة المنشآت، مع ETag و`If-Match` وOutbox ذري وتفويض
-  bootstrap مغلق افتراضياً.
-- اكتملت شجرة الوحدات والمناصب محلياً: parent محكوم، `path_cache` و`depth` ذريان
-  للـsubtree، منع الدوران، مدير منصب بلا دورة، optimistic locking وOutbox.
-- اكتملت شريحة Person محلياً: تسجيل/قائمة/قراءة/تعديل ومرجع Identity مصغر،
-  `person_version` وETag وreplay مشفر وOutbox سري بلا أسماء أو PII، مع أعمدة PII
-  ciphertext وlookup hash الجاهزة لمسار الاستيراد المحكوم من دون قبول PII خام غير متعاقد.
-- اكتملت شريحة حساب Identity محلياً: حساب واحد حي لكل Person، تحقق ذري من
-  `person_id` و`person_version`، lifecycle وETag وreplay مشفر وسحب جلسات، مع relay
-  محكوم لأحداث Person وRedis worker وInbox/high-water وDLQ idempotent بلا FK أو join عابر.
-- اكتملت شريحة التكليفات المحكومة محلياً: ربط Person بمنصب ضمن مدى UTC، منع تداخل
-  primary وتداخل شاغلي المنصب، حالات pending/active/ended، إنهاء نهائي مع ETag وreplay
-  وOutbox ذري، من دون نسخ PII أو FK عابر إلى Identity.
-- اكتملت أول شريحة تنفيذية للاستيراد المحكوم `people_assignments` محلياً: حالات
-  received/validated/approved/applied مع reject/cancel/fail، موافقة actor ثان، صفوف مشفرة
-  ونتائج منقحة وETag وreplay وOutbox ذري وتطبيق Person والتكليف وطلب provisioning مرة
-  واحدة. يدعم العقد الحالي مصدر quarantine موقّعاً ومفحوصاً؛ ويبقى fail-closed عند غياب
-  تهيئة التخزين والماسح الصريحة.
-- اكتمل أساس Web لـW1.2 محلياً: عميلان مولدان مستقلان من snapshotي W1.1 وW1.2 مع
-  drift gate واحد، وسجل routes typed يحافظ على direct load وback/forward و404 ولا
-  يكسر رحلة WorkRecords الحالية.
-- اكتملت واجهة إدارة التجمع والمنشآت محلياً: route عربية/إنجليزية متجاوبة تقرأ الجذر
-  والمنشآت وتنشئهما عبر correlation وidempotency، مع loading/empty/403/error وجدول
-  قابل للتمرير ونماذج labels كاملة من دون توسيع صلاحية الواجهة.
-- اكتملت واجهة شجرة الوحدات والمناصب محلياً: route تقرأ hierarchy والمناصب وتنشئ
-  parent من التجمع أو المنشأة أو الوحدة، وتربط المنصب بوحدته ومديره الاختياري، مع
-  عرض عمق الشجرة وحالات الوصول والفشل بالعربية والإنجليزية.
-- اكتملت واجهة الأشخاص والتكليفات محلياً: route تفصل Person عن Identity، تنشئ ملف
-  الشخص بلا حقول حساب، وتعرض التكليفات بتوقيت Asia/Riyadh مع إرسال UTC، وتنشئ
-  التكليف الأساسي ضمن فترة محققة ومراجع Person/Position منشورة.
-- اكتملت واجهة حسابات Identity محلياً: إنشاء pending من Person/version منشور، وعرض
-  lifecycle بلا credentials، وتنفيذ activate/unlock/disable/archive/revoke/force-change
-  بعد GET للـETag وإرسال If-Match، مع fail-closed عند غياب النسخة أو `412`.
-- اكتملت واجهة مراجعة الاستيراد المحكوم محلياً: إنشاء `people_assignments` من مرجع
-  quarantine، مع رفع CSV مباشر موقّع، فتح job مباشر، عرض الحالة والصفوف المنقحة بلا
-  payload، وتنفيذ validate/approve/reject/apply/cancel بعد ETag حديث.
-- بدأت W1.3 بشريحة كتالوج capabilities ثابت داخل Authorization؛ بقي قرار fixture
-  مغلقاً افتراضياً وبلا تغير في المستهلكين، استعداداً لمحرك RBAC + ABAC الحقيقي.
-- نشر VPS المباشر والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
-  النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
+## الهدف الجاري
 
-## قرارات محمولة إلى التنفيذ
+إكمال بقية R1 وR2 وR3 محلياً خلال خمسة أيام عمل وفق
+`docs/plans/implementation-roadmap.md`. لا توجد بوابة بشرية بين الحزم. إغلاق كل يوم
+يعتمد على رحلة تعمل واختبارات آلية خضراء.
 
-- تطبيق المنتج من `apps/api` و`apps/web`، مع React واحد لكل الأدوار.
-- `request` نوع WorkDefinition منشور وليس موديول أعمال مستقلاً.
-- حفظ WorkRecord وOutbox event في معاملة واحدة، والمستهلك idempotent.
-- عزل المنشآت يعتمد على قرار خلفي موحد، ولا تمنح الواجهة صلاحية.
-- التشغيل على VPS واحد عبر Docker Compose مباشر وCaddy وفق ADR-023.
-- Person وPII الأساسية يملكهما Organization، والحساب والجلسة يملكهما Identity بلا FK أو join عابر.
+## ترتيب التنفيذ
 
-## أدلة التحقق
+1. دمج وإغلاق W1.3.
+2. بناء بقية R1 كرحلة واحدة عبر WorkDefinitions وWorkflow وWorkRecords وTasks
+   وDocuments وSearch وReporting.
+3. بناء R2 كشريحة استراتيجية-مؤشر-مشروع-أثر.
+4. بناء R3 كشريحة خطر-ضابط-معالجة-KRI مرتبطة بـR2.
+5. تشغيل التحقق المتكامل ثم الانتقال للنشر الآلي عند توفر مدخلات الخادم.
 
-| التاريخ | الأمر | النتيجة |
+## أدلة خط الأساس
+
+| التاريخ | الدليل | النتيجة |
 |---|---|---|
-| 2026-07-17 | `make verify-w1-1` | أخضر: MySQL وRedis وOutbox/Inbox وإعادة التسليم وDLQ ورحلتا المتصفح RTL/LTR |
-| 2026-07-17 | `make verify-w1-1-local` | أخضر: بناء صور الإنتاج من lockfiles وتشغيل حزمة Compose كاملة |
-| 2026-07-17 | مجموعة API | 56 اختباراً و492 assertion على Identity وWorkDefinitions وWorkRecords وNotifications والحدود |
-| 2026-07-17 | `composer lint` + `composer analyse` | Pint وPHPStan level 5 بلا أخطاء |
-| 2026-07-17 | Vitest + بناء React | 10 اختبارات بتغطية 100%، وlint والبناء ناجحان |
-| 2026-07-17 | `./scripts/validate-docs.sh` | الوثائق والعقود سليمة |
-| 2026-07-17 | دمج W1.1 محلياً في `main` | fast-forward إلى `c107004`، الشجرة نظيفة |
-| 2026-07-17 | ADR-024 صيغ واجتاز التحقق | `validate-docs` و`verify-boundaries` أخضران؛ اعتماده النهائي مع مواءمة وثائق المجال قبل بدء W1.2 |
-| 2026-07-17 | إغلاق تخطيط W12-REQ وW12-FE | دمج REQ/TEST و14 Invariant وبوابة W12-00 وعقد routes/RTL/LTR/a11y في خطة R1؛ `validate-docs` و`verify-boundaries` أخضران؛ اختبار runtime هو N/A لأن الناتج تخطيط فقط |
-| 2026-07-17 | `make verify-w1-1` بعد التحويل إلى Redis | أخضر: 56 اختبار API و492 assertion، 10 اختبارات Web، حدود الموديولات، Gitleaks، ورحلتا المتصفح |
-| 2026-07-17 | `make verify-w1-1-local` على حزمة VPS المباشرة | أخضر: بناء صور runtime، MySQL وRedis محمي، migration، worker، healthchecks، RTL/LTR والعزل؛ Caddy وCompose والوثائق سليمة |
-| 2026-07-18 | دمج مخلفات workspaces في `main` | حُفظ عقد واجهة W1.2 الفريد؛ تغييرات بوابات W1.1 القديمة وADR-024 المكرر superseded بالتبسيط والقرار الموجود |
-| 2026-07-18 | `make verify-w1-1` و`make verify-w1-1-local` و`./scripts/validate-docs.sh` | أخضر: 56 اختبار API و492 assertion، 10 اختبارات Web، الصور، Caddy HTTPS، MySQL/Redis، migration، worker، RTL/LTR والعزل |
-| 2026-07-18 | CI `29613697299` ثم `make verify-w1-1-local` | كشف CI أن PHP 8.3 لا يطابق lockfile وأن Dockerfile ينسخ `resources/` فارغاً غير متتبع؛ رُفع CI إلى PHP 8.4 وحذف COPY غير المستخدم، والبوابة المحلية خضراء |
-| 2026-07-18 | CI `29614091300` ثم مجموعة API | نجحت حزمة الإنتاج وكشف اختبار API اعتماداً ضمنياً على `.env` المحلي؛ أضيف `APP_KEY` اختباري ثابت إلى `phpunit.xml` لإبقاء checkout النظيف قابلاً للتكرار |
-| 2026-07-18 | CI `29614449372` | أخضر: API وWeb والوثائق وGitleaks وحزمة VPS الإنتاجية كاملة على `main` |
-| 2026-07-18 | `make verify-w1-2` | أخضر: عقود W1.2 وOpenAPI الثلاثة والأحداث والحدود، 56 اختبار API و492 assertion، و10 اختبارات Web بتغطية 100% |
-| 2026-07-18 | `php artisan test Modules/Organization/Tests/OrganizationCoreHttpAdapterTest.php` | أخضر: 6 اختبارات و81 assertion للتجمع والمنشآت وcursor وidempotency وrollback الذري للـOutbox |
-| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` | أخضر: migration واختبارات Organization وrollback المعاملة وmigration على MySQL مع Redis وعزل W1.1؛ أزيل اعتماد smoke على `.env` المحلي بإضافة `APP_KEY` اختباري |
-| 2026-07-18 | `make verify-w1-2` بعد W12-ORG-01 | أخضر: 62 اختبار API و573 assertion، الحدود والعقود وOpenAPI، و10 اختبارات Web بتغطية 100% |
-| 2026-07-18 | `make verify-w1-2` بعد CRUD التجمع والمنشآت | أخضر: 66 اختبار API و648 assertion، عقود W1.2 عبر Redocly والحدود، وثبات Orval 8.22.0 لخط أساس W1.1 بلا drift، وبناء Web و10 اختبارات بتغطية 100% |
-| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد optimistic updates | أخضر: MySQL أثبت تحديث/أرشفة Organization و`412` وrollback الذري مع Outbox، ثم عزل W1.1 وRedis وInbox/DLQ |
-| 2026-07-18 | `make verify-w1-2` بعد شجرة الوحدات والمناصب | أخضر: 71 اختبار API و836 assertion، عقود W1.2 وRedocly والحدود، وثبات Orval لخط أساس W1.1، وبناء Web و10 اختبارات بتغطية 100% |
-| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد شجرة Organization | أخضر: MySQL أثبت migrations وsubtree move ومنع الدوران ودورة مدير المنصب و`412` وrollback الذري مع Outbox |
-| 2026-07-18 | `make verify-w1-2` بعد شريحة Person | أخضر: 77 اختبار API و948 assertion، عقود OpenAPI/AsyncAPI والحدود، وثبات Orval لخط أساس W1.1، وبناء Web و10 اختبارات بتغطية 100% |
-| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد شريحة Person | أخضر: MySQL أثبت 21 اختبار Organization و456 assertion للتسجيل وreplay المشفر و`person_version` و`412` وrollback الذري مع Outbox |
-| 2026-07-18 | `make verify-w1-2` بعد شريحة حساب Identity | أخضر: 93 اختبار API، نجح 91 وتخطى 2، و1161 assertion؛ الوثائق والحدود وPHPStan وPint وRedocly وOrval وبناء Web و10 اختبارات Web خضراء |
-| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد relay وworker لأحداث Person | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏21/456، Identity ‏16/213 للحساب وlifecycle وInbox/high-water والـrelay وإعادة التسليم وDLQ |
-| 2026-07-18 | `make verify-w1-2` بعد تكليفات Person وPosition | أخضر: 97 اختبار API، نجح 95 وتخطى 2، و1238 assertion؛ الوثائق والحدود وPHPStan وPint وRedocly وOrval وبناء Web و10 اختبارات Web خضراء |
-| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد تكليفات Person وPosition | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏25/533، Identity ‏16/213؛ أثبت migration وترتيب FKs والتداخل وETag وreplay وrollback الذري |
-| 2026-07-18 | `make verify-w1-2` بعد أول vertical للاستيراد المحكوم | أخضر: 103 اختبارات API، نجح 101 وتخطى 2، و1362 assertion؛ OpenAPI/AsyncAPI والحدود وPint وPHPStan وRedocly وOrval وبناء Web و10 اختبارات Web خضراء |
-| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد `people_assignments` | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏31/657، Identity ‏16/213؛ أثبت تشفير الصفوف والموافقة الثنائية والـapply مرة واحدة والفشل المغلق والrollback |
-| 2026-07-18 | `make verify-w1-2` بعد W1.2 Web shell/client baseline | أخضر: عميل Orval مستقل لكل snapshot بلا drift، 103 اختبارات API و1362 assertion، وبناء Web وlint و12 اختبار Web أخضر |
-| 2026-07-18 | `make verify-w1-2` بعد واجهة التجمع والمنشآت | أخضر: 103 اختبارات API و1362 assertion، و14 اختبار Web بتغطية 100% للعميل، مع Redocly وOrval والبناء وlint بلا أخطاء |
-| 2026-07-18 | `make verify-w1-2` بعد واجهة الوحدات والمناصب | أخضر: 103 اختبارات API و1362 assertion، و15 اختبار Web بتغطية 100% للعميل، مع route typed وبناء RTL/LTR بلا drift |
-| 2026-07-18 | `make verify-w1-2` بعد واجهة الأشخاص والتكليفات | أخضر: 103 اختبارات API و1362 assertion، و16 اختبار Web بتغطية 100% للعميل، مع تحويل العرض Asia/Riyadh والإرسال UTC |
-| 2026-07-18 | `make verify-w1-2` بعد واجهة حسابات Identity | أخضر: 103 اختبارات API و1362 assertion، و18 اختبار Web بتغطية 100% للعميل، مع ETag/If-Match ورفض mutation بلا نسخة |
-| 2026-07-18 | `make verify-w1-2` بعد واجهة مراجعة الاستيراد | أخضر: 103 اختبارات API و1362 assertion، و20 اختبار Web بتغطية 100% للعميل، مع صفوف منقحة وETag لكل انتقال بلا رفع bytes مخترع |
-| 2026-07-18 | `./infra/dev/run-w1-1-e2e.sh` ثم `make verify-w1-2` بعد رحلة إدارة W1.2 | أخضر: 3 رحلات Playwright على MySQL وRedis؛ ثبت إنشاء Organization وIdentity وImport والفشل المغلق وRTL/LTR، مع إصلاح `APP_KEY` وشكل استجابة Identity وعزل عداد Outbox حسب نوع الحدث؛ بقيت 103 اختبارات API و20 اختبار Web بتغطية 100% خضراء |
-| 2026-07-18 | CI `29643248979` على revision السابقة `main@4824a804` | أخضر: API وWeb والوثائق وGitleaks وW1.2 readiness وحزمة الإنتاج و`make verify-w1-1-local`؛ هذا دليل تاريخي ولا يغطي التغييرات المحلية الإضافية |
-| 2026-07-18 | دمج W1.2 محلياً في `main@e6235b76` | `main` متقدم 24 التزاماً على `origin/main@f3bca710`؛ يلزم CI بعيد جديد للتغييرات المحلية الإضافية بعد الدفع |
-| 2026-07-18 | `make verify-w1-2` بوابة دمج W1.2 | أخضر محلياً: `validate-docs` والحدود وOpenAPI/توليد العميل؛ API 209 ناجحاً و5 متخطاة لـMySQL؛ Web build/lint وتغطية 24 اختباراً؛ E2E وS3 وClamAV هي N/A لهذه البوابة المحلية فقط |
-| 2026-07-18 | دمج App Shell وDashboard فوق W1.2 | أخضر: Web build وlint واختبار routes و`validate-docs` وحدود الموديولات؛ Playwright هو N/A لغياب `W1_1_API_ORIGIN` وAPI محلي يعمل |
-| 2026-07-18 | `apps/api/scripts/run-mysql-integration-tests.sh` | أخضر: 5 اختبارات MySQL معزولة، 72 assertion؛ قاعدة وRedis وحاويات Compose مخصصة تُنظف تلقائياً |
-| 2026-07-18 | `infra/dev/run-w1-2-e2e.sh` | أخضر: رحلة Playwright معزولة تثبت cookie + CSRF ورفع CSV الموقّع عبر MinIO وفحص ClamAV وترقية quarantine وImportJob وإنشاء وسحب TemporaryAssignment |
-| 2026-07-18 | `make verify-w1-2` بعد جاهزية W1.2 | أخضر: 219 API ناجحاً و5 متخطاة لمسار MySQL المنفصل، و24 اختبار Web بتغطية 100%؛ عقود ووثائق وحدود وبناء وlint أخضر |
-| 2026-07-18 | `make analyse-api` محلياً | متوقف على البيئة: PHPStan 2.2.5 يخرج 1 بلا stdout/stderr حتى `diagnose` على PHP 8.5.7؛ يلزم CI PHP 8.4 كحكم نهائي قبل التسليم |
-| 2026-07-18 | CI `29658801610` على `main@9d7126a6` | فشل قبل الاختبارات: تحقق Documents كان يحمّل allowlist وأقراص التخزين أثناء `composer package:discover`، بلا بيئة runtime. نُقل التحقق إلى runtime؛ يبقى production مغلقاً افتراضياً وtesting يتطلب opt-in صريحاً. |
-| 2026-07-18 | `php artisan package:discover --ansi` و`make validate-production-bundle` | أخضر: Composer lifecycle يبني image بلا أسرار runtime، وسياسة حزمة الإنتاج صالحة. |
-| 2026-07-18 | `make build-production-images` و`infra/platform/production/run-local-e2e.sh` | أخضر: صور API/Web، Caddy HTTPS، migrations، worker restart، وW1.1 Arabic RTL/English LTR وعزل المنشآت. runner يقصر Playwright على رحلتي W1.1؛ W1.2 لها runtime MinIO/ClamAV منفصل. |
-| 2026-07-18 | `infra/dev/run-w1-2-e2e.sh` بعد إصلاح CI | أخضر: runtime testing المفعّل يتحقق من allowlist وS3/ClamAV، ويثبت رحلة cookie/CSRF وMinIO وClamAV وImportJob والتكليف المؤقت. |
-| 2026-07-18 | `make verify-w1-2` بعد إصلاح CI | أخضر: 219 API ناجحاً و5 متخطاة لمسار MySQL المنفصل، و24 اختبار Web بتغطية 100%؛ الوثائق والحدود وOpenAPI/Orval والبناء وlint أخضر. |
-| 2026-07-18 | CI `29659562157` على `main@6d40940e` | أخضر: secrets وWeb والوثائق وproduction bundle. فشل API في Pint فقط بثلاث مخالفات formatting في ملفات الإصلاح؛ صُححت بـ`composer lint` محلياً، وCI جديد مطلوب. |
-| 2026-07-19 | W13-01 كتالوج capabilities | أخضر: 6 اختبارات Authorization و47 assertions، و23 اختباراً لمستهلكي `DecideAccess` و234 assertions؛ `validate-docs` و`verify-boundaries` أخضران. |
+| 2026-07-17 | `make verify-w1-1` و`make verify-w1-1-local` | W1.1 كاملة محلياً من المتصفح إلى MySQL وRedis |
+| 2026-07-18 | `make verify-w1-2` | عقود W1.2 وAPI وWeb والحدود والبناء خضراء |
+| 2026-07-18 | `infra/dev/run-w1-2-e2e.sh` | رفع CSV وفحصه واستيراده والتكليف المؤقت تعمل على MinIO وClamAV |
+| 2026-07-18 | CI `29659562157` ثم إصلاح التنسيق المدمج | حزمة الإنتاج والوثائق والأمن خضراء؛ إصلاح Pint موجود في تاريخ `main` |
+| 2026-07-19 | تنظيف Jujutsu ومساحات العمل | أزيلت revisions الفارغة غير المرتبطة وبقايا `frontman` وكاشها ومجلد Git worktrees الفارغ؛ بقيت مساحات العمل وتغييراتها، و`main` و`origin/main` عند `e0dbaaab` وقت التسجيل |
+| 2026-07-19 | جرد `work-1-3*` | W1.3 بدأت فعلياً في ست حزم Authorization وOrganization قابلة للدمج |
+| 2026-07-19 | توحيد مساحات jj في مستودع واحد | حُذفت المساحات الثماني وأزيلت 5 نسخ مكررة بعد مقارنة interdiff؛ خط W1.3 كاملاً تحت bookmark `work-1-3@ffa40533` والعمل يستمر من مجلد `cluster` وحده |
 
-## الخطوة التالية
+## قاعدة التحديث
 
-1. دفع `main` إلى `origin` ثم انتظار CI جديد على المرشح الحالي؛ لا يعوض دليل `4824a804` هذا التنفيذ الإضافي.
-2. بعد CI الأخضر، تستمر W1.3 بعقد صلاحيات RBAC+ABAC والعلاقات الإشرافية الفعلية؛ كتالوج capabilities ليس بديلاً عن محرك القرار الإنتاجي.
-3. يبقى نشر VPS مؤجلاً إلى D1 بعد اكتمال R1 وR2 وR3.
-
-لا يغطي CI التاريخي على `4824a804` مرشح `main` المدمج الحالي؛ يلزم CI بعيد جديد بعد
-الدفع. لا يبدأ أي تشغيل على الخادم حتى تصل الخطة إلى `D1`
-وتتوفر قيم `.env.production` وDNS وربط MySQL وRedis الخاص، وذلك بعد اكتمال تطوير
-R1 وR2 وR3.
+يضاف سطر واحد في نهاية كل يوم: revision، أمر التحقق، والرحلة التي أصبحت تعمل.
+لا نسب تقدم، ولا أسماء معتمدين، ولا اجتماعات، ولا سرد لكل commit.
 
 ## سجل التغيير
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
-| 4.26.0 | 2026-07-19 | بدء W1.3 بكتالوج capabilities ثابت مع الحفاظ على قرار fixture مغلق افتراضياً واختبارات المستهلكين |
-| 4.23.0 | 2026-07-18 | دمج App Shell وDashboard مع جاهزية W1.2 المحلية، وإبقاء CI PHP 8.4 بوابة التسليم النهائية |
-| 4.22.0 | 2026-07-18 | تثبيت W1.2 كمكتملة محلياً مع فصل CI التاريخي على `4824a804` عن CI المطلوب للتغييرات المحلية الإضافية |
-| 4.21.0 | 2026-07-18 | تسجيل دمج W1.2 في main وفصل أدوات OpenCode وOpenSpec المحلية |
-| 4.20.0 | 2026-07-18 | إثبات رحلة متصفح W1.2 كاملة وإغلاق انحدارات بيئة login واستجابة Identity وتنسيق Outbox |
-| 4.19.0 | 2026-07-18 | إغلاق واجهة مراجعة ImportJob وانتقالاته المنقحة مع بقاء نقل bytes محجوباً بالعقد |
-| 4.18.0 | 2026-07-18 | إغلاق واجهة حسابات Identity ودورة حياتها المحكومة بـETag وIf-Match |
-| 4.17.0 | 2026-07-18 | إغلاق واجهة Person والتكليفات الزمنية من دون خلط حقول Identity |
-| 4.16.0 | 2026-07-18 | إغلاق واجهة شجرة الوحدات والمناصب وإنشائها المحكوم على عقد W1.2 |
-| 4.15.0 | 2026-07-18 | إغلاق واجهة التجمع والمنشآت على عقد W1.2 المولد مع حالات الوصول والفشل والاستجابة |
-| 4.14.0 | 2026-07-18 | نشر W1.2 Web route registry وعميل Orval ثانٍ مع إبقاء رحلة W1.1 بلا انحدار |
-| 4.13.0 | 2026-07-18 | إغلاق أول vertical لـpeople_assignments مع الصفوف المشفرة والموافقة الثنائية والتطبيق الذري على SQLite وMySQL |
-| 4.12.0 | 2026-07-18 | إغلاق تكليفات Person وPosition ومددها وتداخلها وإنهائها الذري على SQLite وMySQL |
-| 4.11.0 | 2026-07-18 | إغلاق حساب Identity المرتبط بـPerson وlifecycle وrelay/worker وInbox/high-water وDLQ على SQLite وMySQL/Redis |
-| 4.10.0 | 2026-07-18 | إغلاق Person CRUD والمرجع المصغر وperson_version وreplay المشفر وأحداث بلا PII على SQLite وMySQL |
-| 4.9.0 | 2026-07-18 | إغلاق شجرة الوحدات والمناصب مع منع الدوران وpath_cache وOutbox على SQLite وMySQL |
-| 4.8.0 | 2026-07-18 | إغلاق CRUD التجمع والمنشآت مع ETag و`412` والأرشفة وOutbox الذري على SQLite وMySQL |
-| 4.7.0 | 2026-07-18 | إغلاق W12-ORG-01 للتجمع الواحد وإنشاء المنشآت على SQLite وMySQL |
-| 4.6.0 | 2026-07-18 | إغلاق W12-00 محلياً وفتح أول شريحة تنفيذ Organization |
-| 4.5.0 | 2026-07-18 | تسجيل CI الأخضر بعد دمج workspaces وإصلاح انحرافات checkout النظيف |
-| 4.4.0 | 2026-07-18 | إزالة اعتماد اختبارات API الضمني على ملف `.env` المحلي |
-| 4.3.0 | 2026-07-18 | تسجيل انحراف PHP في CI ومدخل Docker غير المتتبع وإصلاحهما |
-| 4.2.0 | 2026-07-18 | دمج العمل الفريد من workspaces وإثبات بوابات W1.1 وحزمة VPS بعد الدمج |
-| 4.1.0 | 2026-07-17 | استبدال Dokploy/Valkey بنشر VPS مباشر وCaddy وRedis وتسجيل البوابات المحلية الخضراء |
-| 4.0.0 | 2026-07-17 | إغلاق W1.1 محلياً وفتح W1.2 ونقل تشغيل الخادم إلى المرحلة النهائية D1 |
-| 3.1.0 | 2026-07-17 | إثبات إغلاق تخطيط W12-REQ وW12-FE وإبقاء W12-00 والتنفيذ كخطوة تالية |
-| 3.0.0 | 2026-07-17 | تبسيط السجل لمطور واحد: حذف بوابات الأدلة الموقعة والمسارات المتوازية وحصر المتبقي في أربع مهام |
-| 2.0.0 | 2026-07-17 | اعتماد سجل المراحل المبسط ونقل W1.1 إلى الاختبار الحي |
-| 1.0.0 | 2026-07-17 | إنشاء سجل التسليم المستقل |
+| 5.0.0 | 2026-07-19 | تثبيت W1.1 وW1.2 كخط أساس منجز وفتح برنامج الخمسة أيام من W1.3 بلا حوكمة بشرية |
+| 4.7.0 | 2026-07-19 | تسجيل تنظيف revisions ومساحات العمل الفارغة أو غير المسجلة دون تغيير كود المنتج |
+| 4.6.0 | 2026-07-18 | تسجيل تحديث صفحة الدخول المحلية وأدلة RTL/LTR والعزل والتراخيص |
