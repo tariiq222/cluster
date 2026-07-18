@@ -40,6 +40,7 @@ use Modules\Documents\Infrastructure\Storage\S3\S3CompatiblePrivateObjectStorage
 use Modules\Documents\Infrastructure\Storage\S3\S3QuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\S3\S3RequestExecutor;
 use Modules\Documents\Infrastructure\Storage\S3\SigV4RequestSigner;
+use Modules\Documents\Infrastructure\Storage\PrivateDocumentDiskConfiguration;
 use Modules\Documents\Infrastructure\Storage\UnavailablePrivateObjectStorage;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
@@ -212,6 +213,13 @@ class AppServiceProvider extends ServiceProvider
         $this->commands([ExpireTemporaryAssignmentsCommand::class]);
 
         if ($this->documentsRuntimeEnabled()) {
+            if (config('documents.storage.upload_endpoint_allowlist') === []) {
+                throw new \RuntimeException('Documents upload endpoint allowlist is required outside testing.');
+            }
+
+            if ($this->documentsProduction()) {
+                $this->assertDocumentsStorageRuntimeSafe();
+            }
             $this->app->make(S3CompatibleConfiguration::class);
             $this->app->make(ClamAvConfiguration::class);
             $this->app->make(WorkerPrincipalResolver::class);
@@ -226,6 +234,7 @@ class AppServiceProvider extends ServiceProvider
             && ! app()->runningUnitTests()
             && ! in_array('test', $arguments, true)
             && ! in_array('config:clear', $arguments, true)
+            && ! in_array('package:discover', $arguments, true)
             && ! str_contains(implode(' ', $arguments), 'phpunit');
     }
 
@@ -233,5 +242,25 @@ class AppServiceProvider extends ServiceProvider
     {
         return $this->documentsProduction()
             || (app()->environment('testing') && config('documents.runtime.testing_enabled') === true);
+    }
+
+    private function assertDocumentsStorageRuntimeSafe(): void
+    {
+        $quarantine = config('filesystems.disks.documents-quarantine');
+        $available = config('filesystems.disks.documents-available');
+
+        PrivateDocumentDiskConfiguration::assertRuntimeSafe(false, [
+            'key' => $quarantine['key'] ?? null,
+            'secret' => $quarantine['secret'] ?? null,
+            'region' => $quarantine['region'] ?? null,
+            'bucket' => $quarantine['bucket'] ?? null,
+            'kms_key_id' => $quarantine['options']['SSEKMSKeyId'] ?? null,
+        ], [
+            'key' => $available['key'] ?? null,
+            'secret' => $available['secret'] ?? null,
+            'region' => $available['region'] ?? null,
+            'bucket' => $available['bucket'] ?? null,
+            'kms_key_id' => $available['options']['SSEKMSKeyId'] ?? null,
+        ]);
     }
 }

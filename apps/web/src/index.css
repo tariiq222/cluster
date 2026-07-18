@@ -198,7 +198,7 @@ a {
 
 .login-page-actions {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   inset-block-start: 24px;
   inset-inline-start: 24px;
   display: flex;
@@ -260,6 +260,7 @@ a {
 }
 
 .login-card::before {
+  pointer-events: none;
   position: absolute;
   inset: 0 0 auto;
   block-size: 152px;

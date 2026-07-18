@@ -27,10 +27,6 @@ $documentUploadEndpointAllowlist = $documentsTesting && ! $documentsTestingRunti
         static fn (string $host): string => strtolower(trim($host)),
         explode(',', (string) env('DOCUMENTS_UPLOAD_ENDPOINT_ALLOWLIST', '')),
     )));
-if ((! $documentsTesting || $documentsTestingRuntimeEnabled) && $documentUploadEndpointAllowlist === []) {
-    throw new RuntimeException('Documents upload endpoint allowlist is required outside testing.');
-}
-
 return [
     'runtime' => [
         'testing_enabled' => $documentsTestingRuntimeEnabled,

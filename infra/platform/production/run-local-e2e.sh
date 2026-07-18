@@ -172,7 +172,7 @@ wait_healthy worker
   W1_1_WEB_ORIGIN="https://localhost:${HTTPS_PORT}" \
   W1_1_ALLOW_SELF_SIGNED=1 \
   PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1}" \
-  ./node_modules/.bin/playwright test --config playwright.production.config.ts
+  ./node_modules/.bin/playwright test --config playwright.production.config.ts e2e/login.spec.ts e2e/walking-skeleton.spec.ts
 ) >>"$LOG_FILE" 2>&1
 
 printf 'PASS: Caddy HTTPS, host-gateway MySQL/Redis, migrations, worker restart, RTL/LTR, and facility isolation passed.\n'

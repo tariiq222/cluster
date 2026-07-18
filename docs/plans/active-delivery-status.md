@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.23.0
+version: 4.24.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -132,6 +132,11 @@ references:
 | 2026-07-18 | `infra/dev/run-w1-2-e2e.sh` | أخضر: رحلة Playwright معزولة تثبت cookie + CSRF ورفع CSV الموقّع عبر MinIO وفحص ClamAV وترقية quarantine وImportJob وإنشاء وسحب TemporaryAssignment |
 | 2026-07-18 | `make verify-w1-2` بعد جاهزية W1.2 | أخضر: 219 API ناجحاً و5 متخطاة لمسار MySQL المنفصل، و24 اختبار Web بتغطية 100%؛ عقود ووثائق وحدود وبناء وlint أخضر |
 | 2026-07-18 | `make analyse-api` محلياً | متوقف على البيئة: PHPStan 2.2.5 يخرج 1 بلا stdout/stderr حتى `diagnose` على PHP 8.5.7؛ يلزم CI PHP 8.4 كحكم نهائي قبل التسليم |
+| 2026-07-18 | CI `29658801610` على `main@9d7126a6` | فشل قبل الاختبارات: تحقق Documents كان يحمّل allowlist وأقراص التخزين أثناء `composer package:discover`، بلا بيئة runtime. نُقل التحقق إلى runtime؛ يبقى production مغلقاً افتراضياً وtesting يتطلب opt-in صريحاً. |
+| 2026-07-18 | `php artisan package:discover --ansi` و`make validate-production-bundle` | أخضر: Composer lifecycle يبني image بلا أسرار runtime، وسياسة حزمة الإنتاج صالحة. |
+| 2026-07-18 | `make build-production-images` و`infra/platform/production/run-local-e2e.sh` | أخضر: صور API/Web، Caddy HTTPS، migrations، worker restart، وW1.1 Arabic RTL/English LTR وعزل المنشآت. runner يقصر Playwright على رحلتي W1.1؛ W1.2 لها runtime MinIO/ClamAV منفصل. |
+| 2026-07-18 | `infra/dev/run-w1-2-e2e.sh` بعد إصلاح CI | أخضر: runtime testing المفعّل يتحقق من allowlist وS3/ClamAV، ويثبت رحلة cookie/CSRF وMinIO وClamAV وImportJob والتكليف المؤقت. |
+| 2026-07-18 | `make verify-w1-2` بعد إصلاح CI | أخضر: 219 API ناجحاً و5 متخطاة لمسار MySQL المنفصل، و24 اختبار Web بتغطية 100%؛ الوثائق والحدود وOpenAPI/Orval والبناء وlint أخضر. |
 
 ## الخطوة التالية
 

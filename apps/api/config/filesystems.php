@@ -1,11 +1,5 @@
 <?php
 
-use Modules\Documents\Infrastructure\Storage\PrivateDocumentDiskConfiguration;
-
-$documentsTesting = ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'testing'
-    || in_array('test', $_SERVER['argv'] ?? [], true)
-    || in_array('config:clear', $_SERVER['argv'] ?? [], true)
-    || str_contains(implode(' ', $_SERVER['argv'] ?? []), 'phpstan');
 $documentsQuarantine = [
     'key' => env('DOCUMENTS_QUARANTINE_AWS_ACCESS_KEY_ID'),
     'secret' => env('DOCUMENTS_QUARANTINE_AWS_SECRET_ACCESS_KEY'),
@@ -20,8 +14,6 @@ $documentsAvailable = [
     'bucket' => env('DOCUMENTS_AVAILABLE_AWS_BUCKET'),
     'kms_key_id' => env('DOCUMENTS_AVAILABLE_KMS_KEY_ID'),
 ];
-PrivateDocumentDiskConfiguration::assertRuntimeSafe($documentsTesting, $documentsQuarantine, $documentsAvailable);
-
 return [
 
     /*
