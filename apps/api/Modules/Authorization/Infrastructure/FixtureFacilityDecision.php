@@ -28,6 +28,8 @@ final class FixtureFacilityDecision implements DecideAccess
         'organization.person.manage',
         'organization.person.read',
         'organization.person.reference',
+        'organization.assignment.manage',
+        'organization.assignment.read',
         'identity.account.manage',
         'identity.account.read',
     ];

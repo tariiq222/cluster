@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/assignment-changed.schema.json",
+  "title": "Assignment Changed Event Data",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assignment", "access_context", "classification"],
+  "properties": {
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "person_id", "position_id", "start_at", "end_at", "is_primary", "status", "end_reason", "lock_version"],
+      "properties": {
+        "id": {"$ref": "#/$defs/uuidv7"},
+        "person_id": {"$ref": "#/$defs/uuidv7"},
+        "position_id": {"$ref": "#/$defs/uuidv7"},
+        "start_at": {"$ref": "#/$defs/utcDateTime"},
+        "end_at": {"oneOf": [{"$ref": "#/$defs/utcDateTime"}, {"type": "null"}]},
+        "is_primary": {"type": "boolean"},
+        "status": {"type": "string", "enum": ["pending", "active", "ended"]},
+        "end_reason": {"type": ["string", "null"], "maxLength": 2000},
+        "lock_version": {"type": "integer", "minimum": 1}
+      }
+    },
+    "access_context": {"$ref": "access-context.schema.json"},
+    "classification": {"const": "internal"}
+  },
+  "$defs": {
+    "uuidv7": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "utcDateTime": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"}
+  }
+}

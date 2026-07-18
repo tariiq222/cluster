@@ -100,6 +100,16 @@ channels:
     messages:
       positionUpdated:
         $ref: '#/components/messages/PositionUpdated'
+  assignment-started:
+    address: platform.organization.assignment-started.v1
+    messages:
+      assignmentStarted:
+        $ref: '#/components/messages/AssignmentStarted'
+  assignment-ended:
+    address: platform.organization.assignment-ended.v1
+    messages:
+      assignmentEnded:
+        $ref: '#/components/messages/AssignmentEnded'
   person-registered:
     address: platform.organization.person-registered.v1
     messages:
@@ -270,6 +280,22 @@ operations:
     action: receive
     channel: {$ref: '#/channels/position-updated'}
     messages: [{$ref: '#/channels/position-updated/messages/positionUpdated'}]
+  publishAssignmentStarted:
+    action: send
+    channel: {$ref: '#/channels/assignment-started'}
+    messages: [{$ref: '#/channels/assignment-started/messages/assignmentStarted'}]
+  consumeAssignmentStarted:
+    action: receive
+    channel: {$ref: '#/channels/assignment-started'}
+    messages: [{$ref: '#/channels/assignment-started/messages/assignmentStarted'}]
+  publishAssignmentEnded:
+    action: send
+    channel: {$ref: '#/channels/assignment-ended'}
+    messages: [{$ref: '#/channels/assignment-ended/messages/assignmentEnded'}]
+  consumeAssignmentEnded:
+    action: receive
+    channel: {$ref: '#/channels/assignment-ended'}
+    messages: [{$ref: '#/channels/assignment-ended/messages/assignmentEnded'}]
   publishPersonRegistered:
     action: send
     channel: {$ref: '#/channels/person-registered'}
@@ -506,6 +532,28 @@ components:
             properties:
               type: {const: com.cluster.organization.positionupdated.v1}
               data: {$ref: '../schemas/position-changed.schema.json'}
+    AssignmentStarted:
+      name: AssignmentStarted
+      title: Organization Person-to-position assignment started or scheduled
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.assignmentstarted.v1}
+              data: {$ref: '../schemas/assignment-changed.schema.json'}
+    AssignmentEnded:
+      name: AssignmentEnded
+      title: Organization Person-to-position assignment ended
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.assignmentended.v1}
+              data: {$ref: '../schemas/assignment-changed.schema.json'}
     PersonRegistered:
       name: PersonRegistered
       title: Organization Person registered without authoritative PII

@@ -20,7 +20,7 @@ references: []
 
 | Module | Owns | Publishes |
 |---|---|---|
-| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `ClusterUpdated`, `FacilityCreated`, `FacilityUpdated`, `FacilityArchived`, `OrganizationUnitCreated`, `OrganizationUnitMoved`, `OrganizationUnitUpdated`, `OrganizationUnitArchived`, `PositionCreated`, `PositionUpdated`, `PersonRegistered`, `PersonUpdated`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
+| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `ClusterUpdated`, `FacilityCreated`, `FacilityUpdated`, `FacilityArchived`, `OrganizationUnitCreated`, `OrganizationUnitMoved`, `OrganizationUnitUpdated`, `OrganizationUnitArchived`, `PositionCreated`, `PositionUpdated`, `PersonRegistered`, `PersonUpdated`, `AssignmentStarted`, `AssignmentEnded`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
 | Identity | UserAccount والحسابات والجلسات وInbox provisioning وcurrent principal | `UserAccountCreated`, `UserAccountChanged`, authenticated access context |
 | Authorization | access decisions | `AccessDecision` |
 | Work Definitions | immutable published work-type versions | definition reads |

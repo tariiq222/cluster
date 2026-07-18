@@ -206,12 +206,15 @@ references:
 - `id` CHAR(36) UUIDv7 PK.
 - `person_id` CHAR(36) UUIDv7 NOT NULL FK.
 - `position_id` CHAR(36) UUIDv7 NOT NULL FK.
-- `role` VARCHAR(32) NOT NULL DEFAULT 'primary'.
-- `start_at` DATE NOT NULL.
-- `end_at` DATE NULL.
+- `is_primary` BOOLEAN NOT NULL DEFAULT TRUE؛ التكليف المؤقت التفصيلي يبقى خارج هذه الشريحة.
+- `start_at` DATETIME(3) UTC NOT NULL.
+- `end_at` DATETIME(3) UTC NULL.
+- `end_reason` TEXT NULL.
+- `ended_by_user_id` CHAR(36) UUIDv7 NULL، معرف actor بلا FK عابر إلى Identity.
+- `lock_version` INT NOT NULL DEFAULT 1.
 - `created_at`، `updated_at` DATETIME.
-- قيد: `start_at <= end_at` أو `end_at IS NULL`.
-- فهارس: `(person_id, end_at)`، `(position_id, start_at, end_at)`.
+- قيد: `start_at < end_at` و`end_at` مستقبلي عند الإنشاء، أو `end_at IS NULL`.
+- فهارس: `(person_id, is_primary, start_at, end_at)`، `(position_id, start_at, end_at)`.
 
 ### 5.9 `supervisory_relationships`
 
@@ -375,8 +378,8 @@ references:
 - لكل `OrganizationUnit` غير الجذر، `parent_id` ليس NULL، والجذر الوحيد هو `Cluster`؛ تكون `Facility` ابناً للتجمع وتكون الوحدات الإدارية داخل التجمع أو المنشأة وفق `Cluster > Facility > Unit`.
 - لا يمكن إنشاء Facility تحت Facility أخرى، ولا Unit خارج Cluster أو Facility إلا إذا سمح نوع الوحدة المحكوم بذلك صراحة.
 - لا يمكن نقل وحدة إلى نسلها (يمنع الدوران).
-- `assignment.start_at <= assignment.end_at` إن وُجد.
-- تكليف واحد فقط لكل (Person، Position، period overlap) مع استثناءات التكليف المتوازي بحسب السياسة.
+- `assignment.start_at < assignment.end_at` إن وُجد، ولا ينشئ API تكليفاً منتهياً تاريخياً بلا مسار إنهاء وتدقيق.
+- لا يتداخل شاغلان على Position نفسها، ولا يتداخل تكليفان primary للشخص نفسه؛ يسمح بالتكليف غير الأساسي المتوازي على Position أخرى.
 - العلاقة الإشرافية يجب أن يكون لها طرفيها محددان، ولا يجوز إنشاء علاقة من شخص لآخر إذا لم تكن سياسات النوع تسمح.
 - العلاقة الإشرافية لا تمنح قدرات ضمنية خارج `relationship_capabilities` المعرّفة.
 - استيراد CSV/XLSX لا يطبق مباشرة: يمر عبر حالات Received → Validated → Approved → Applied.

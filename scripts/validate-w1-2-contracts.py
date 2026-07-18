@@ -67,6 +67,9 @@ ORGANIZATION_RUNTIME_STATUS = {
     ("/organization/people/{personId}", "get"): "implemented",
     ("/organization/people/{personId}", "patch"): "implemented",
     ("/organization/people/{personId}/reference", "get"): "implemented",
+    ("/organization/assignments", "get"): "implemented",
+    ("/organization/assignments", "post"): "implemented",
+    ("/organization/assignments/{assignmentId}/end", "post"): "implemented",
     ("/identity/accounts", "get"): "implemented",
     ("/identity/accounts", "post"): "implemented",
     ("/identity/accounts/{accountId}", "get"): "implemented",
@@ -93,6 +96,9 @@ ORGANIZATION_RESPONSES = {
     ("/organization/people/{personId}", "get"): {"200", "400", "401", "403", "404"},
     ("/organization/people/{personId}", "patch"): {"200", "400", "401", "403", "404", "409", "412", "500"},
     ("/organization/people/{personId}/reference", "get"): {"200", "400", "401", "403", "404"},
+    ("/organization/assignments", "get"): {"200", "400", "401", "403"},
+    ("/organization/assignments", "post"): {"201", "400", "401", "403", "404", "409", "500"},
+    ("/organization/assignments/{assignmentId}/end", "post"): {"200", "400", "401", "403", "404", "409", "412", "500"},
     ("/identity/accounts", "get"): {"200", "400", "401", "403"},
     ("/identity/accounts", "post"): {"201", "400", "401", "403", "409", "500"},
     ("/identity/accounts/{accountId}", "get"): {"200", "400", "401", "403", "404"},
@@ -118,6 +124,9 @@ ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/people", "post", "201"): "#/components/responses/PersonEntity",
     ("/organization/people/{personId}", "get", "200"): "#/components/responses/PersonEntity",
     ("/organization/people/{personId}", "patch", "200"): "#/components/responses/PersonEntity",
+    ("/organization/assignments", "get", "200"): "#/components/responses/AssignmentCollection",
+    ("/organization/assignments", "post", "201"): "#/components/responses/AssignmentEntity",
+    ("/organization/assignments/{assignmentId}/end", "post", "200"): "#/components/responses/AssignmentEntity",
     ("/identity/accounts", "get", "200"): "#/components/responses/UserAccountCollection",
     ("/identity/accounts", "post", "201"): "#/components/responses/UserAccountEntity",
     ("/identity/accounts/{accountId}", "get", "200"): "#/components/responses/UserAccountEntity",
@@ -178,6 +187,16 @@ EXPECTED_EVENTS = {
         "PositionUpdated",
         ROOT / "docs/contracts/schemas/position-changed.schema.json",
         {"position", "access_context", "classification"},
+    ),
+    "assignment-started": (
+        "AssignmentStarted",
+        ROOT / "docs/contracts/schemas/assignment-changed.schema.json",
+        {"assignment", "access_context", "classification"},
+    ),
+    "assignment-ended": (
+        "AssignmentEnded",
+        ROOT / "docs/contracts/schemas/assignment-changed.schema.json",
+        {"assignment", "access_context", "classification"},
     ),
     "person-registered": (
         "PersonRegistered",
@@ -341,6 +360,12 @@ manager_create = position_create.get("properties", {}).get("manager_position_id"
 if {item.get("type", item.get("$ref")) for item in manager_create.get("oneOf", [])} != {"null", "#/components/schemas/UUIDv7"}:
     fail("PositionCreate manager_position_id must allow UUIDv7 or null")
 
+assignment = schemas.get("Assignment", {})
+if set(assignment.get("required", [])) != {"id", "person_id", "position_id", "start_at", "end_at", "is_primary", "status", "end_reason", "lock_version"}:
+    fail("Assignment response must publish period, lifecycle, primary flag, and lock version")
+if set(assignment.get("properties", {})) & {"display_name_ar", "employee_number", "national_id", "email", "phone"}:
+    fail("Assignment response must not duplicate Person PII")
+
 snapshot_schemas = snapshot.get("components", {}).get("schemas", {})
 session_required = set(snapshot_schemas.get("W12Session", {}).get("required", []))
 if not {"account_status", "must_change_password"}.issubset(session_required):
@@ -356,6 +381,8 @@ for path, method, required_refs in (
     ("/organization/positions/{positionId}", "patch", {"#/components/parameters/IfMatch"}),
     ("/organization/people", "post", {"#/components/parameters/IdempotencyKey"}),
     ("/organization/people/{personId}", "patch", {"#/components/parameters/IfMatch"}),
+    ("/organization/assignments", "post", {"#/components/parameters/IdempotencyKey"}),
+    ("/organization/assignments/{assignmentId}/end", "post", {"#/components/parameters/IfMatch", "#/components/parameters/IdempotencyKey"}),
     ("/organization/import-jobs", "post", {"#/components/parameters/IdempotencyKey"}),
     ("/organization/import-jobs/{jobId}/{jobAction}", "post", {"#/components/parameters/IfMatch", "#/components/parameters/IdempotencyKey"}),
     ("/identity/accounts", "post", {"#/components/parameters/IdempotencyKey"}),
@@ -428,6 +455,7 @@ for catalog_path in (
     "contracts/schemas/facility-archived.schema.json",
     "contracts/schemas/organization-unit-changed.schema.json",
     "contracts/schemas/position-changed.schema.json",
+    "contracts/schemas/assignment-changed.schema.json",
     "contracts/schemas/person-changed.schema.json",
     "contracts/schemas/user-account-changed.schema.json",
     "contracts/schemas/identity-provisioning-requested.schema.json",

@@ -2079,8 +2079,9 @@ paths:
     get:
       {
         tags: [Organization Admin],
-        summary: List assignments,
-        operationId: listAssignments,
+         summary: List assignments,
+         operationId: listAssignments,
+         x-implementation-status: implemented,
         parameters:
           [
             { $ref: "#/components/parameters/Cursor" },
@@ -2093,7 +2094,8 @@ paths:
           ],
         responses:
           {
-            "200": { $ref: "#/components/responses/Collection" },
+             "200": { $ref: "#/components/responses/AssignmentCollection" },
+             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
           },
@@ -2101,8 +2103,9 @@ paths:
     post:
       {
         tags: [Organization Admin],
-        summary: Create a dated position assignment,
-        operationId: createAssignment,
+         summary: Create a dated position assignment,
+         operationId: createAssignment,
+         x-implementation-status: implemented,
         parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
         requestBody:
           {
@@ -2115,12 +2118,13 @@ paths:
           },
         responses:
           {
-            "201": { $ref: "#/components/responses/Entity" },
+             "201": { $ref: "#/components/responses/AssignmentEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "404": { $ref: "#/components/responses/NotFound" },
-            "409": { $ref: "#/components/responses/Conflict" },
+             "409": { $ref: "#/components/responses/Conflict" },
+             "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /organization/assignments/{assignmentId}/end:
@@ -2128,8 +2132,9 @@ paths:
     post:
       {
         tags: [Organization Admin],
-        summary: End an active assignment,
-        operationId: endAssignment,
+         summary: End an active assignment,
+         operationId: endAssignment,
+         x-implementation-status: implemented,
         parameters:
           [
             {
@@ -2152,13 +2157,14 @@ paths:
           },
         responses:
           {
-            "200": { $ref: "#/components/responses/Entity" },
+             "200": { $ref: "#/components/responses/AssignmentEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "404": { $ref: "#/components/responses/NotFound" },
             "409": { $ref: "#/components/responses/Conflict" },
-            "412": { $ref: "#/components/responses/PreconditionFailed" },
+             "412": { $ref: "#/components/responses/PreconditionFailed" },
+             "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /organization/supervisory-relationships:
@@ -4466,6 +4472,22 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/PersonCollection" }
+    AssignmentEntity:
+      description: Dated Person-to-position assignment representation
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/AssignmentResponse" }
+    AssignmentCollection:
+      description: Cursor-paginated Person-to-position assignments
+      headers:
+        Link: { schema: { type: string } }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/AssignmentCollection" }
     UserAccountEntity:
       description: User account summary without credentials or tokens
       headers:
@@ -4816,6 +4838,38 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Person" }
+        next_cursor: { type: [string, "null"] }
+    Assignment:
+      type: object
+      additionalProperties: false
+      required: [id, person_id, position_id, start_at, end_at, is_primary, status, end_reason, lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        person_id: { $ref: "#/components/schemas/UUIDv7" }
+        position_id: { $ref: "#/components/schemas/UUIDv7" }
+        start_at: { $ref: "#/components/schemas/UtcDateTime" }
+        end_at:
+          oneOf:
+            - { $ref: "#/components/schemas/UtcDateTime" }
+            - { type: "null" }
+        is_primary: { type: boolean }
+        status: { type: string, enum: [pending, active, ended] }
+        end_reason: { type: [string, "null"], maxLength: 2000 }
+        lock_version: { type: integer, minimum: 1 }
+    AssignmentResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Assignment" }
+    AssignmentCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Assignment" }
         next_cursor: { type: [string, "null"] }
     UUIDv7:
       {

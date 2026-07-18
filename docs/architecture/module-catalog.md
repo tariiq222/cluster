@@ -101,7 +101,8 @@ references: []
 
 - `OrganizationUnitCreated`
 - `OrganizationUnitMoved`
-- `PositionAssigned`
+- `AssignmentStarted`
+- `AssignmentEnded`
 - `PersonAccessStatusChanged`
 - `IdentityProvisioningRequested`
 - `TemporaryAssignmentExpired`

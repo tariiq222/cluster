@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.11.0
+version: 4.12.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -28,7 +28,7 @@ references:
   `make verify-w1-1-local` أخضران، ولا تعاد أعمالها إلا لمعالجة انحدار.
 - الموجة النشطة: **W1.2 Organization + Identity + Import** — تخطيط W12-REQ وW12-FE
   مكتمل، وأغلقت بوابة الجاهزية W12-00 محلياً.
-- خط الأساس المحلي: `main` يتضمن W1.2 حتى شريحة Person؛ يحتاج push فقط
+- خط الأساس المحلي: `main` يتضمن W1.2 حتى شريحة حساب Identity؛ يحتاج push فقط
   ليظهر دليله في CI المستضاف.
 - ADR-024 مقبول، وملكية Person واتجاه `Identity -> Organization` وtaxonomy الحساب
   وعقود OpenAPI والأحداث والاستيراد والنطاق وbootstrap مجمدة ومتسقة.
@@ -43,6 +43,9 @@ references:
 - اكتملت شريحة حساب Identity محلياً: حساب واحد حي لكل Person، تحقق ذري من
   `person_id` و`person_version`، lifecycle وETag وreplay مشفر وسحب جلسات، مع relay
   محكوم لأحداث Person وRedis worker وInbox/high-water وDLQ idempotent بلا FK أو join عابر.
+- اكتملت شريحة التكليفات المحكومة محلياً: ربط Person بمنصب ضمن مدى UTC، منع تداخل
+  primary وتداخل شاغلي المنصب، حالات pending/active/ended، إنهاء نهائي مع ETag وreplay
+  وOutbox ذري، من دون نسخ PII أو FK عابر إلى Identity.
 - نشر VPS المباشر والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
   النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
 
@@ -87,11 +90,13 @@ references:
 | 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد شريحة Person | أخضر: MySQL أثبت 21 اختبار Organization و456 assertion للتسجيل وreplay المشفر و`person_version` و`412` وrollback الذري مع Outbox |
 | 2026-07-18 | `make verify-w1-2` بعد شريحة حساب Identity | أخضر: 93 اختبار API، نجح 91 وتخطى 2، و1161 assertion؛ الوثائق والحدود وPHPStan وPint وRedocly وOrval وبناء Web و10 اختبارات Web خضراء |
 | 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد relay وworker لأحداث Person | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏21/456، Identity ‏16/213 للحساب وlifecycle وInbox/high-water والـrelay وإعادة التسليم وDLQ |
+| 2026-07-18 | `make verify-w1-2` بعد تكليفات Person وPosition | أخضر: 97 اختبار API، نجح 95 وتخطى 2، و1238 assertion؛ الوثائق والحدود وPHPStan وPint وRedocly وOrval وبناء Web و10 اختبارات Web خضراء |
+| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد تكليفات Person وPosition | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏25/533، Identity ‏16/213؛ أثبت migration وترتيب FKs والتداخل وETag وreplay وrollback الذري |
 
 ## الخطوة التالية
 
-1. تضاف التكليفات المحكومة بين Person وPosition داخل Organization.
-2. بعدها يبدأ الاستيراد المحكوم Received → Validated → Approved → Applied وتعبئة PII المشفرة.
+1. يبدأ الاستيراد المحكوم Received → Validated → Approved → Applied وتعبئة PII المشفرة.
+2. تبقى TemporaryAssignment التفصيلية محجوبة حتى ينشر عقد قدراتها الصريحة وسحبها عند الانتهاء.
 3. تبقى credentials والاسترداد الحقيقيان خلف عقد مستقل؛ fixture login الحالي ليس حساب Identity المنشأ.
 
 ينفذ CI الجديد على GitHub-hosted runners عند أول push. لا يبدأ أي تشغيل على الخادم
@@ -101,6 +106,7 @@ references:
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.12.0 | 2026-07-18 | إغلاق تكليفات Person وPosition ومددها وتداخلها وإنهائها الذري على SQLite وMySQL |
 | 4.11.0 | 2026-07-18 | إغلاق حساب Identity المرتبط بـPerson وlifecycle وrelay/worker وInbox/high-water وDLQ على SQLite وMySQL/Redis |
 | 4.10.0 | 2026-07-18 | إغلاق Person CRUD والمرجع المصغر وperson_version وreplay المشفر وأحداث بلا PII على SQLite وMySQL |
 | 4.9.0 | 2026-07-18 | إغلاق شجرة الوحدات والمناصب مع منع الدوران وpath_cache وOutbox على SQLite وMySQL |
