@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.24.0
+version: 4.25.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -137,6 +137,7 @@ references:
 | 2026-07-18 | `make build-production-images` و`infra/platform/production/run-local-e2e.sh` | أخضر: صور API/Web، Caddy HTTPS، migrations، worker restart، وW1.1 Arabic RTL/English LTR وعزل المنشآت. runner يقصر Playwright على رحلتي W1.1؛ W1.2 لها runtime MinIO/ClamAV منفصل. |
 | 2026-07-18 | `infra/dev/run-w1-2-e2e.sh` بعد إصلاح CI | أخضر: runtime testing المفعّل يتحقق من allowlist وS3/ClamAV، ويثبت رحلة cookie/CSRF وMinIO وClamAV وImportJob والتكليف المؤقت. |
 | 2026-07-18 | `make verify-w1-2` بعد إصلاح CI | أخضر: 219 API ناجحاً و5 متخطاة لمسار MySQL المنفصل، و24 اختبار Web بتغطية 100%؛ الوثائق والحدود وOpenAPI/Orval والبناء وlint أخضر. |
+| 2026-07-18 | CI `29659562157` على `main@6d40940e` | أخضر: secrets وWeb والوثائق وproduction bundle. فشل API في Pint فقط بثلاث مخالفات formatting في ملفات الإصلاح؛ صُححت بـ`composer lint` محلياً، وCI جديد مطلوب. |
 
 ## الخطوة التالية
 

@@ -27,6 +27,7 @@ $documentUploadEndpointAllowlist = $documentsTesting && ! $documentsTestingRunti
         static fn (string $host): string => strtolower(trim($host)),
         explode(',', (string) env('DOCUMENTS_UPLOAD_ENDPOINT_ALLOWLIST', '')),
     )));
+
 return [
     'runtime' => [
         'testing_enabled' => $documentsTestingRuntimeEnabled,

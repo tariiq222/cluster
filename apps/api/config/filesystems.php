@@ -14,6 +14,7 @@ $documentsAvailable = [
     'bucket' => env('DOCUMENTS_AVAILABLE_AWS_BUCKET'),
     'kms_key_id' => env('DOCUMENTS_AVAILABLE_KMS_KEY_ID'),
 ];
+
 return [
 
     /*

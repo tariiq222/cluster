@@ -31,6 +31,7 @@ use Modules\Documents\Infrastructure\Security\ClamAvMalwareScanner;
 use Modules\Documents\Infrastructure\Security\ClamAvSocketTransport;
 use Modules\Documents\Infrastructure\Security\StreamSocketClamAvTransport;
 use Modules\Documents\Infrastructure\Security\UnavailableMalwareScanner;
+use Modules\Documents\Infrastructure\Storage\PrivateDocumentDiskConfiguration;
 use Modules\Documents\Infrastructure\Storage\S3\DeterministicObjectKeyResolver;
 use Modules\Documents\Infrastructure\Storage\S3\GuzzleS3RequestExecutor;
 use Modules\Documents\Infrastructure\Storage\S3\ObjectKeyResolver;
@@ -40,7 +41,6 @@ use Modules\Documents\Infrastructure\Storage\S3\S3CompatiblePrivateObjectStorage
 use Modules\Documents\Infrastructure\Storage\S3\S3QuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\S3\S3RequestExecutor;
 use Modules\Documents\Infrastructure\Storage\S3\SigV4RequestSigner;
-use Modules\Documents\Infrastructure\Storage\PrivateDocumentDiskConfiguration;
 use Modules\Documents\Infrastructure\Storage\UnavailablePrivateObjectStorage;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
