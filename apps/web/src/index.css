@@ -282,6 +282,25 @@ tbody tr:hover {
   background: #f3f6f6;
 }
 
+.checkbox-field {
+  display: flex;
+  min-block-size: 44px;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.checkbox-field input {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.tree-label {
+  display: inline-block;
+}
+
 .field textarea {
   max-block-size: 15rem;
   resize: vertical;

@@ -15,6 +15,12 @@ import type {
   OrganizationNodeCreate,
   OrganizationUnit as GeneratedOrganizationUnit,
   OrganizationUnitCollection as GeneratedOrganizationUnitCollection,
+  Assignment as GeneratedAssignment,
+  AssignmentCollection as GeneratedAssignmentCollection,
+  AssignmentCreate,
+  Person as GeneratedPerson,
+  PersonCollection as GeneratedPersonCollection,
+  PersonCreate,
   Position as GeneratedPosition,
   PositionCollection as GeneratedPositionCollection,
   PositionCreate,
@@ -61,6 +67,12 @@ export type CreateOrganizationUnitInput = OrganizationNodeCreate
 export type Position = GeneratedPosition
 export type PositionCollection = GeneratedPositionCollection
 export type CreatePositionInput = PositionCreate
+export type Person = GeneratedPerson
+export type PersonCollection = GeneratedPersonCollection
+export type CreatePersonInput = PersonCreate
+export type Assignment = GeneratedAssignment
+export type AssignmentCollection = GeneratedAssignmentCollection
+export type CreateAssignmentInput = AssignmentCreate
 
 export class ApiError extends Error {
   readonly status: number
@@ -299,6 +311,42 @@ export async function createPosition(token: string, input: CreatePositionInput):
     headers: {
       'Content-Type': 'application/json',
       'Idempotency-Key': `position-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(input),
+  }, token)
+  return body.data
+}
+
+export function listPeople(token: string): Promise<PersonCollection> {
+  return requestJson<PersonCollection>('/api/v1/organization/people?limit=100', { method: 'GET' }, token)
+}
+
+export async function createPerson(token: string, input: CreatePersonInput): Promise<Person> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: Person }>('/api/v1/organization/people', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `person-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(input),
+  }, token)
+  return body.data
+}
+
+export function listAssignments(token: string): Promise<AssignmentCollection> {
+  return requestJson<AssignmentCollection>('/api/v1/organization/assignments?limit=100', { method: 'GET' }, token)
+}
+
+export async function createAssignment(token: string, input: CreateAssignmentInput): Promise<Assignment> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: Assignment }>('/api/v1/organization/assignments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `assignment-${correlationId}`,
       'X-Correlation-ID': correlationId,
     },
     body: JSON.stringify(input),

@@ -4,10 +4,14 @@ import {
   createCluster,
   createFacility,
   createOrganizationUnit,
+  createAssignment,
+  createPerson,
   createPosition,
   getCluster,
   listFacilities,
   listOrganizationUnits,
+  listAssignments,
+  listPeople,
   listPositions,
 } from './api'
 
@@ -136,5 +140,34 @@ describe('W1.2 Organization API adapter', () => {
     for (const [, init] of fetchMock.mock.calls.slice(2)) {
       expect(new Headers(init?.headers).get('Idempotency-Key')).toMatch(/^(organization-unit|position)-[0-9a-f-]+$/)
     }
+  })
+
+  it('lists and creates people and assignments without mixing Identity fields', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ items: [], next_cursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ items: [], next_cursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ data: { id: 'person-id' } }, 201))
+      .mockResolvedValueOnce(jsonResponse({ data: { id: 'assignment-id' } }, 201))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await listPeople(token)
+    await listAssignments(token)
+    await createPerson(token, {
+      employee_number: 'EMP-100', display_name_ar: 'موظف الاختبار', status: 'active',
+    })
+    await createAssignment(token, {
+      person_id: '018f6f7d-0c00-7000-8000-000000000105',
+      position_id: '018f6f7d-0c00-7000-8000-000000000104',
+      start_at: '2026-07-18T08:00:00.000Z',
+      is_primary: true,
+    })
+
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/api/v1/organization/people?limit=100',
+      '/api/v1/organization/assignments?limit=100',
+      '/api/v1/organization/people',
+      '/api/v1/organization/assignments',
+    ])
+    expect(String(fetchMock.mock.calls[2][1]?.body)).not.toContain('identity')
   })
 })

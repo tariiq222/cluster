@@ -14,6 +14,7 @@ import {
 import { primaryRoutes, routeFromPath, type AppRoute } from './shell/routes'
 import { OrganizationOverview } from './features/organization/OrganizationOverview'
 import { OrganizationStructure } from './features/organization/OrganizationStructure'
+import { PeopleAssignments } from './features/organization/PeopleAssignments'
 
 type Locale = 'ar' | 'en'
 
@@ -32,6 +33,7 @@ const text = {
     newRequest: 'طلب جديد',
     organization: 'التنظيم',
     organizationStructure: 'الهيكل والمناصب',
+    peopleAssignments: 'الأشخاص والتكليفات',
     notifications: 'الإشعارات',
     closeNotifications: 'إغلاق الإشعارات',
     logout: 'تسجيل الخروج',
@@ -82,6 +84,7 @@ const text = {
     newRequest: 'New request',
     organization: 'Organization',
     organizationStructure: 'Structure and positions',
+    peopleAssignments: 'People and assignments',
     notifications: 'Notifications',
     closeNotifications: 'Close notifications',
     logout: 'Sign out',
@@ -372,6 +375,16 @@ function App() {
         >
           {copy.organizationStructure}
         </a>
+        <a
+          href={primaryRoutes[4].path}
+          aria-current={view.name === primaryRoutes[4].route.name ? 'page' : undefined}
+          onClick={(event) => {
+            event.preventDefault()
+            navigate({ name: 'people-assignments' }, primaryRoutes[4].path)
+          }}
+        >
+          {copy.peopleAssignments}
+        </a>
       </nav>
 
       <main className="main-content">
@@ -422,6 +435,9 @@ function App() {
         )}
         {view.name === 'organization-structure' && (
           <OrganizationStructure locale={locale} token={session.access_token} onSessionExpired={expireSession} />
+        )}
+        {view.name === 'people-assignments' && (
+          <PeopleAssignments locale={locale} token={session.access_token} onSessionExpired={expireSession} />
         )}
       </main>
 
