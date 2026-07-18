@@ -1,7 +1,7 @@
 asyncapi: 3.1.0
 info:
   title: Cluster Platform Domain Events
-  version: 1.3.0
+  version: 1.4.0
   description: CloudEvents JSON domain events delivered at least once through transactional Outbox, Redis Streams consumer groups, consumer Inbox, and DLQ.
 servers:
   production:
@@ -100,6 +100,16 @@ channels:
     messages:
       positionUpdated:
         $ref: '#/components/messages/PositionUpdated'
+  person-registered:
+    address: platform.organization.person-registered.v1
+    messages:
+      personRegistered:
+        $ref: '#/components/messages/PersonRegistered'
+  person-updated:
+    address: platform.organization.person-updated.v1
+    messages:
+      personUpdated:
+        $ref: '#/components/messages/PersonUpdated'
   dead-letter:
     address: platform.dlq.v1
     messages:
@@ -250,6 +260,22 @@ operations:
     action: receive
     channel: {$ref: '#/channels/position-updated'}
     messages: [{$ref: '#/channels/position-updated/messages/positionUpdated'}]
+  publishPersonRegistered:
+    action: send
+    channel: {$ref: '#/channels/person-registered'}
+    messages: [{$ref: '#/channels/person-registered/messages/personRegistered'}]
+  consumePersonRegistered:
+    action: receive
+    channel: {$ref: '#/channels/person-registered'}
+    messages: [{$ref: '#/channels/person-registered/messages/personRegistered'}]
+  publishPersonUpdated:
+    action: send
+    channel: {$ref: '#/channels/person-updated'}
+    messages: [{$ref: '#/channels/person-updated/messages/personUpdated'}]
+  consumePersonUpdated:
+    action: receive
+    channel: {$ref: '#/channels/person-updated'}
+    messages: [{$ref: '#/channels/person-updated/messages/personUpdated'}]
   consumeDeadLetter:
     action: receive
     channel: {$ref: '#/channels/dead-letter'}
@@ -454,6 +480,28 @@ components:
             properties:
               type: {const: com.cluster.organization.positionupdated.v1}
               data: {$ref: '../schemas/position-changed.schema.json'}
+    PersonRegistered:
+      name: PersonRegistered
+      title: Organization Person registered without authoritative PII
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.personregistered.v1}
+              data: {$ref: '../schemas/person-changed.schema.json'}
+    PersonUpdated:
+      name: PersonUpdated
+      title: Organization Person profile updated without authoritative PII
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.personupdated.v1}
+              data: {$ref: '../schemas/person-changed.schema.json'}
     DeadLetter:
       name: DeadLetter
       title: Dead-letter event

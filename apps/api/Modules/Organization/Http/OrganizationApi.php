@@ -86,6 +86,31 @@ final class OrganizationApi
         array $principal,
         array $details = [],
     ): array {
+        return self::cloudEventData(
+            $type,
+            $subject,
+            $correlationId,
+            $tenantId,
+            $principal,
+            [$resourceKey => $resource, ...$details],
+            'internal',
+        );
+    }
+
+    /**
+     * @param  array{user_id: string, facility_id: string}  $principal
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function cloudEventData(
+        string $type,
+        string $subject,
+        string $correlationId,
+        string $tenantId,
+        array $principal,
+        array $data,
+        string $classification,
+    ): array {
         return [
             'specversion' => '1.0',
             'id' => Str::uuid7()->toString(),
@@ -96,18 +121,17 @@ final class OrganizationApi
             'datacontenttype' => 'application/json',
             'correlationid' => $correlationId,
             'data' => [
-                $resourceKey => $resource,
-                ...$details,
+                ...$data,
                 'access_context' => [
                     'subject_id' => $principal['user_id'],
                     'tenant_id' => $tenantId,
                     'organization_unit_ids' => [],
                     'roles' => ['bootstrap_admin'],
-                    'clearance' => 'internal',
+                    'clearance' => $classification,
                     'break_glass' => false,
                     'correlation_id' => $correlationId,
                 ],
-                'classification' => 'internal',
+                'classification' => $classification,
             ],
         ];
     }

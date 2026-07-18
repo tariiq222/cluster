@@ -42,6 +42,7 @@ class ModuleBoundariesTest extends TestCase
         'unit_types' => 'Organization',
         'organization_units' => 'Organization',
         'positions' => 'Organization',
+        'people' => 'Organization',
         'organization_idempotency_keys' => 'Organization',
         'identities' => 'Identity',
         'authorizations' => 'Authorization',

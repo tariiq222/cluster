@@ -20,7 +20,7 @@ references: []
 
 | Module | Owns | Publishes |
 |---|---|---|
-| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `ClusterUpdated`, `FacilityCreated`, `FacilityUpdated`, `FacilityArchived`, `OrganizationUnitCreated`, `OrganizationUnitMoved`, `OrganizationUnitUpdated`, `OrganizationUnitArchived`, `PositionCreated`, `PositionUpdated`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
+| Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `ClusterUpdated`, `FacilityCreated`, `FacilityUpdated`, `FacilityArchived`, `OrganizationUnitCreated`, `OrganizationUnitMoved`, `OrganizationUnitUpdated`, `OrganizationUnitArchived`, `PositionCreated`, `PositionUpdated`, `PersonRegistered`, `PersonUpdated`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
 | Identity | sessions and current principal | authenticated access context |
 | Authorization | access decisions | `AccessDecision` |
 | Work Definitions | immutable published work-type versions | definition reads |
@@ -33,6 +33,7 @@ No consumer writes another module's persistence. Consumers use the HTTP contract
 ## W1.2 Organization and Identity
 
 - `Organization` يملك Person وحقول PII الأساسية ويزيد `person_version` عند كل تغيير وصول منشور.
+- Person سجل على مستوى التجمع الواحد وليس مملوكاً لمنشأة؛ تحدد التكليفات نطاق المنشأة لاحقاً، لذلك لا يحمل جدول `people` مفتاح منشأة.
 - `Identity` يحتفظ بـ`person_id` كمرجع خارجي بلا FK أو ORM relation أو join، ويتحقق منه
   عبر `ValidatePersonReference` قبل تفعيل الحساب، ويرسل `person_version` المتحقق منه مع
   أمر إنشاء الحساب لمنع سباق تغير حالة Person.

@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.9.0
+version: 4.10.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -28,7 +28,7 @@ references:
   `make verify-w1-1-local` أخضران، ولا تعاد أعمالها إلا لمعالجة انحدار.
 - الموجة النشطة: **W1.2 Organization + Identity + Import** — تخطيط W12-REQ وW12-FE
   مكتمل، وأغلقت بوابة الجاهزية W12-00 محلياً.
-- خط الأساس المحلي: `main` يتضمن W1.2 حتى CRUD التجمع والمنشآت؛ يحتاج push فقط
+- خط الأساس المحلي: `main` يتضمن W1.2 حتى شجرة الوحدات والمناصب؛ يحتاج push فقط
   ليظهر دليله في CI المستضاف.
 - ADR-024 مقبول، وملكية Person واتجاه `Identity -> Organization` وtaxonomy الحساب
   وعقود OpenAPI والأحداث والاستيراد والنطاق وbootstrap مجمدة ومتسقة.
@@ -37,6 +37,9 @@ references:
   bootstrap مغلق افتراضياً.
 - اكتملت شجرة الوحدات والمناصب محلياً: parent محكوم، `path_cache` و`depth` ذريان
   للـsubtree، منع الدوران، مدير منصب بلا دورة، optimistic locking وOutbox.
+- اكتملت شريحة Person محلياً: تسجيل/قائمة/قراءة/تعديل ومرجع Identity مصغر،
+  `person_version` وETag وreplay مشفر وOutbox سري بلا أسماء أو PII، مع أعمدة PII
+  ciphertext وlookup hash الجاهزة لمسار الاستيراد المحكوم من دون قبول PII خام غير متعاقد.
 - نشر VPS المباشر والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
   النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
 
@@ -77,12 +80,14 @@ references:
 | 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد optimistic updates | أخضر: MySQL أثبت تحديث/أرشفة Organization و`412` وrollback الذري مع Outbox، ثم عزل W1.1 وRedis وInbox/DLQ |
 | 2026-07-18 | `make verify-w1-2` بعد شجرة الوحدات والمناصب | أخضر: 71 اختبار API و836 assertion، عقود W1.2 وRedocly والحدود، وثبات Orval لخط أساس W1.1، وبناء Web و10 اختبارات بتغطية 100% |
 | 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد شجرة Organization | أخضر: MySQL أثبت migrations وsubtree move ومنع الدوران ودورة مدير المنصب و`412` وrollback الذري مع Outbox |
+| 2026-07-18 | `make verify-w1-2` بعد شريحة Person | أخضر: 77 اختبار API و948 assertion، عقود OpenAPI/AsyncAPI والحدود، وثبات Orval لخط أساس W1.1، وبناء Web و10 اختبارات بتغطية 100% |
+| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد شريحة Person | أخضر: MySQL أثبت 21 اختبار Organization و456 assertion للتسجيل وreplay المشفر و`person_version` و`412` وrollback الذري مع Outbox |
 
 ## الخطوة التالية
 
-1. تبدأ شريحة Person وPII المشفرة و`person_version` داخل Organization.
-2. يضاف ربط Identity بالحساب عبر `person_id` بلا FK أو join عابر.
-3. بعدها يبدأ الاستيراد المحكوم Received → Validated → Approved → Applied.
+1. يضاف ربط Identity بالحساب عبر `person_id` و`person_version` المتحقق منهما بلا FK أو join عابر.
+2. تضاف التكليفات المحكومة بين Person وPosition داخل Organization.
+3. بعدها يبدأ الاستيراد المحكوم Received → Validated → Approved → Applied وتعبئة PII المشفرة.
 
 ينفذ CI الجديد على GitHub-hosted runners عند أول push. لا يبدأ أي تشغيل على الخادم
 حتى تصل الخطة إلى `D1` وتتوفر قيم `.env.production` وDNS وربط MySQL وRedis الخاص.
@@ -91,6 +96,7 @@ references:
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.10.0 | 2026-07-18 | إغلاق Person CRUD والمرجع المصغر وperson_version وreplay المشفر وأحداث بلا PII على SQLite وMySQL |
 | 4.9.0 | 2026-07-18 | إغلاق شجرة الوحدات والمناصب مع منع الدوران وpath_cache وOutbox على SQLite وMySQL |
 | 4.8.0 | 2026-07-18 | إغلاق CRUD التجمع والمنشآت مع ETag و`412` والأرشفة وOutbox الذري على SQLite وMySQL |
 | 4.7.0 | 2026-07-18 | إغلاق W12-ORG-01 للتجمع الواحد وإنشاء المنشآت على SQLite وMySQL |

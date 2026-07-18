@@ -1973,6 +1973,7 @@ paths:
         tags: [Organization Admin],
         summary: List people,
         operationId: listPeople,
+        x-implementation-status: implemented,
         parameters:
           [
             { $ref: "#/components/parameters/Cursor" },
@@ -1980,7 +1981,8 @@ paths:
           ],
         responses:
           {
-            "200": { $ref: "#/components/responses/Collection" },
+            "200": { $ref: "#/components/responses/PersonCollection" },
+            "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
           },
@@ -1990,6 +1992,7 @@ paths:
         tags: [Organization Admin],
         summary: Register a person,
         operationId: registerPerson,
+        x-implementation-status: implemented,
         parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
         requestBody:
           {
@@ -2002,11 +2005,12 @@ paths:
           },
         responses:
           {
-            "201": { $ref: "#/components/responses/Entity" },
+            "201": { $ref: "#/components/responses/PersonEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "409": { $ref: "#/components/responses/Conflict" },
+            "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /organization/people/{personId}:
@@ -2020,8 +2024,10 @@ paths:
       tags: [Organization Admin]
       summary: Get a Person profile under field policy
       operationId: getPerson
+      x-implementation-status: implemented
       responses:
-        "200": { $ref: "#/components/responses/Entity" }
+        "200": { $ref: "#/components/responses/PersonEntity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2029,6 +2035,7 @@ paths:
       tags: [Organization Admin]
       summary: Update a Person profile or access status
       operationId: updatePerson
+      x-implementation-status: implemented
       parameters: [{ $ref: "#/components/parameters/IfMatch" }]
       requestBody:
         required: true
@@ -2036,13 +2043,14 @@ paths:
           application/merge-patch+json:
             schema: { $ref: "#/components/schemas/PersonPatch" }
       responses:
-        "200": { $ref: "#/components/responses/Entity" }
+        "200": { $ref: "#/components/responses/PersonEntity" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /organization/people/{personId}/reference:
     parameters:
       - { $ref: "#/components/parameters/CorrelationId" }
@@ -2054,6 +2062,7 @@ paths:
       tags: [Organization Internal Contract]
       summary: Validate a Person reference with only the approved display snapshot
       operationId: validatePersonReference
+      x-implementation-status: implemented
       responses:
         "200":
           description: Valid Person reference
@@ -2061,6 +2070,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PersonReference" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -4453,6 +4463,22 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/PositionCollection" }
+    PersonEntity:
+      description: Authorized Person profile representation
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PersonResponse" }
+    PersonCollection:
+      description: Cursor-paginated authorized Person profiles
+      headers:
+        Link: { schema: { type: string } }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PersonCollection" }
     Entity:
       {
         description: Authorized typed resource representation,
@@ -4761,6 +4787,32 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/Position" }
+        next_cursor: { type: [string, "null"] }
+    Person:
+      type: object
+      additionalProperties: false
+      required: [id, employee_number, display_name_ar, display_name_en, status, person_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        employee_number: { type: string, minLength: 1, maxLength: 64 }
+        display_name_ar: { type: string, minLength: 1, maxLength: 255 }
+        display_name_en: { type: [string, "null"], maxLength: 255 }
+        status: { type: string, enum: [active, suspended, left] }
+        person_version: { type: integer, minimum: 1 }
+    PersonResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Person" }
+    PersonCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Person" }
         next_cursor: { type: [string, "null"] }
     UUIDv7:
       {

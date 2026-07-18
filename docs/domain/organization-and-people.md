@@ -191,7 +191,7 @@ references:
 - `id` CHAR(36) UUIDv7 PK.
 - `national_id_ciphertext` VARBINARY NULL، مشفر على مستوى العمود.
 - `national_id_lookup_hash` CHAR(64) NULL UNIQUE، HMAC للبحث ومنع التكرار بلا كشف القيمة.
-- `employee_number` VARCHAR(64) NULL UNIQUE.
+- `employee_number` VARCHAR(64) NOT NULL UNIQUE.
 - `display_name_ar` VARCHAR(255) NOT NULL.
 - `display_name_en` VARCHAR(255) NULL.
 - `primary_email_ciphertext` VARBINARY NULL.
@@ -327,6 +327,7 @@ references:
 - `PositionCreated`
 - `PositionUpdated`
 - `PersonRegistered`
+- `PersonUpdated`
 - `AssignmentStarted`
 - `AssignmentEnded`
 - `SupervisoryRelationshipActivated`

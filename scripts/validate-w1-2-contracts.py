@@ -62,6 +62,11 @@ ORGANIZATION_RUNTIME_STATUS = {
     ("/organization/positions", "post"): "implemented",
     ("/organization/positions/{positionId}", "get"): "implemented",
     ("/organization/positions/{positionId}", "patch"): "implemented",
+    ("/organization/people", "get"): "implemented",
+    ("/organization/people", "post"): "implemented",
+    ("/organization/people/{personId}", "get"): "implemented",
+    ("/organization/people/{personId}", "patch"): "implemented",
+    ("/organization/people/{personId}/reference", "get"): "implemented",
 }
 ORGANIZATION_RESPONSES = {
     ("/organization/cluster", "get"): {"200", "401", "403", "404"},
@@ -79,6 +84,11 @@ ORGANIZATION_RESPONSES = {
     ("/organization/positions", "post"): {"201", "400", "401", "403", "409", "500"},
     ("/organization/positions/{positionId}", "get"): {"200", "400", "401", "403", "404"},
     ("/organization/positions/{positionId}", "patch"): {"200", "400", "401", "403", "404", "409", "412", "500"},
+    ("/organization/people", "get"): {"200", "400", "401", "403"},
+    ("/organization/people", "post"): {"201", "400", "401", "403", "409", "500"},
+    ("/organization/people/{personId}", "get"): {"200", "400", "401", "403", "404"},
+    ("/organization/people/{personId}", "patch"): {"200", "400", "401", "403", "404", "409", "412", "500"},
+    ("/organization/people/{personId}/reference", "get"): {"200", "400", "401", "403", "404"},
 }
 ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/cluster", "get", "200"): "#/components/responses/ClusterEntity",
@@ -96,6 +106,10 @@ ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/positions", "post", "201"): "#/components/responses/PositionEntity",
     ("/organization/positions/{positionId}", "get", "200"): "#/components/responses/PositionEntity",
     ("/organization/positions/{positionId}", "patch", "200"): "#/components/responses/PositionEntity",
+    ("/organization/people", "get", "200"): "#/components/responses/PersonCollection",
+    ("/organization/people", "post", "201"): "#/components/responses/PersonEntity",
+    ("/organization/people/{personId}", "get", "200"): "#/components/responses/PersonEntity",
+    ("/organization/people/{personId}", "patch", "200"): "#/components/responses/PersonEntity",
 }
 EXPECTED_EVENTS = {
     "cluster-created": (
@@ -152,6 +166,16 @@ EXPECTED_EVENTS = {
         "PositionUpdated",
         ROOT / "docs/contracts/schemas/position-changed.schema.json",
         {"position", "access_context", "classification"},
+    ),
+    "person-registered": (
+        "PersonRegistered",
+        ROOT / "docs/contracts/schemas/person-changed.schema.json",
+        {"person", "access_context", "classification"},
+    ),
+    "person-updated": (
+        "PersonUpdated",
+        ROOT / "docs/contracts/schemas/person-changed.schema.json",
+        {"person", "access_context", "classification"},
     ),
     "identity-provisioning-requested": (
         "IdentityProvisioningRequested",
@@ -274,6 +298,12 @@ position = schemas.get("Position", {})
 if set(position.get("required", [])) != {"id", "organization_unit_id", "code", "title_ar", "manager_position_id", "is_active", "lock_version"}:
     fail("Position response must publish unit, manager position, activity, and lock version")
 
+person = schemas.get("Person", {})
+if set(person.get("required", [])) != {"id", "employee_number", "display_name_ar", "display_name_en", "status", "person_version"}:
+    fail("Person response must publish the authorized profile and monotonic person_version")
+if set(person.get("properties", {})) & {"national_id", "primary_email", "primary_phone"}:
+    fail("Person response must not expose authoritative PII")
+
 unit_create = schemas.get("OrganizationNodeCreate", {})
 if unit_create.get("properties", {}).get("type_code", {}).get("pattern") != "^[a-z][a-z0-9_]{1,63}$":
     fail("OrganizationNodeCreate type_code must match the runtime governed taxonomy format")
@@ -296,6 +326,8 @@ for path, method, required_refs in (
     ("/organization/units/{unitId}", "patch", {"#/components/parameters/IfMatch"}),
     ("/organization/positions", "post", {"#/components/parameters/IdempotencyKey"}),
     ("/organization/positions/{positionId}", "patch", {"#/components/parameters/IfMatch"}),
+    ("/organization/people", "post", {"#/components/parameters/IdempotencyKey"}),
+    ("/organization/people/{personId}", "patch", {"#/components/parameters/IfMatch"}),
     ("/organization/import-jobs", "post", {"#/components/parameters/IdempotencyKey"}),
     ("/organization/import-jobs/{jobId}/{jobAction}", "post", {"#/components/parameters/IfMatch", "#/components/parameters/IdempotencyKey"}),
     ("/identity/accounts", "post", {"#/components/parameters/IdempotencyKey"}),
@@ -368,6 +400,7 @@ for catalog_path in (
     "contracts/schemas/facility-archived.schema.json",
     "contracts/schemas/organization-unit-changed.schema.json",
     "contracts/schemas/position-changed.schema.json",
+    "contracts/schemas/person-changed.schema.json",
     "contracts/schemas/identity-provisioning-requested.schema.json",
     "contracts/schemas/person-access-status-changed.schema.json",
 ):
