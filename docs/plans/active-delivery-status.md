@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.20.0
+version: 4.21.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -28,8 +28,8 @@ references:
   `make verify-w1-1-local` أخضران، ولا تعاد أعمالها إلا لمعالجة انحدار.
 - الموجة النشطة: **W1.2 Organization + Identity + Import** — تخطيط W12-REQ وW12-FE
   مكتمل، وأغلقت بوابة الجاهزية W12-00 محلياً.
-- خط الأساس المحلي: `main` يتضمن W1.2 حتى شريحة تكليفات Person وPosition؛ يحتاج push فقط
-  ليظهر دليله في CI المستضاف.
+- خط الأساس المنشور: `main` يتضمن W1.2 حتى رحلة إدارة Organization وIdentity وImport
+  عند `4824a804`، وCI المستضاف `29643248979` أخضر.
 - ADR-024 مقبول، وملكية Person واتجاه `Identity -> Organization` وtaxonomy الحساب
   وعقود OpenAPI والأحداث والاستيراد والنطاق وbootstrap مجمدة ومتسقة.
 - اكتمل CRUD الخلفي الحالي للتجمع والمنشآت محلياً: إنشاء/قراءة/تعديل التجمع الواحد،
@@ -123,6 +123,7 @@ references:
 | 2026-07-18 | `make verify-w1-2` بعد واجهة حسابات Identity | أخضر: 103 اختبارات API و1362 assertion، و18 اختبار Web بتغطية 100% للعميل، مع ETag/If-Match ورفض mutation بلا نسخة |
 | 2026-07-18 | `make verify-w1-2` بعد واجهة مراجعة الاستيراد | أخضر: 103 اختبارات API و1362 assertion، و20 اختبار Web بتغطية 100% للعميل، مع صفوف منقحة وETag لكل انتقال بلا رفع bytes مخترع |
 | 2026-07-18 | `./infra/dev/run-w1-1-e2e.sh` ثم `make verify-w1-2` بعد رحلة إدارة W1.2 | أخضر: 3 رحلات Playwright على MySQL وRedis؛ ثبت إنشاء Organization وIdentity وImport والفشل المغلق وRTL/LTR، مع إصلاح `APP_KEY` وشكل استجابة Identity وعزل عداد Outbox حسب نوع الحدث؛ بقيت 103 اختبارات API و20 اختبار Web بتغطية 100% خضراء |
+| 2026-07-18 | CI `29643248979` على `main@4824a804` | أخضر: API وWeb والوثائق وGitleaks وW1.2 readiness وحزمة الإنتاج و`make verify-w1-1-local`؛ استبعدت أدوات OpenCode وOpenSpec المحلية من سلسلة المنتج قبل الدفع |
 
 ## الخطوة التالية
 
@@ -131,13 +132,14 @@ references:
 3. تبقى TemporaryAssignment التفصيلية محجوبة حتى ينشر عقد قدراتها الصريحة وسحبها عند الانتهاء.
 4. تبقى credentials والاسترداد الحقيقيان خلف عقد مستقل؛ fixture login الحالي ليس حساب Identity المنشأ.
 
-ينفذ CI الجديد على GitHub-hosted runners عند أول push. لا يبدأ أي تشغيل على الخادم
-حتى تصل الخطة إلى `D1` وتتوفر قيم `.env.production` وDNS وربط MySQL وRedis الخاص.
+CI المستضاف أخضر على خط أساس W1.2 المنشور. لا يبدأ أي تشغيل على الخادم حتى تصل
+الخطة إلى `D1` وتتوفر قيم `.env.production` وDNS وربط MySQL وRedis الخاص.
 
 ## سجل التغيير
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.21.0 | 2026-07-18 | تسجيل دمج W1.2 في main وCI الأخضر بعد فصل أدوات OpenCode وOpenSpec المحلية |
 | 4.20.0 | 2026-07-18 | إثبات رحلة متصفح W1.2 كاملة وإغلاق انحدارات بيئة login واستجابة Identity وتنسيق Outbox |
 | 4.19.0 | 2026-07-18 | إغلاق واجهة مراجعة ImportJob وانتقالاته المنقحة مع بقاء نقل bytes محجوباً بالعقد |
 | 4.18.0 | 2026-07-18 | إغلاق واجهة حسابات Identity ودورة حياتها المحكومة بـETag وIf-Match |
