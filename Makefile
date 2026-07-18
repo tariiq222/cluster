@@ -1,4 +1,4 @@
-.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 verify-w1-2 validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
+.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 verify-w1-2 verify-w1-3 validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
@@ -61,6 +61,15 @@ verify-w1-2:
 	$(MAKE) verify-boundaries
 	$(MAKE) test-api
 	$(MAKE) test-web
+
+# بوابة W1.3: قرار Authorization والعزل والحدود وواجهة الإدارة ورحلة المتصفح الحقيقية.
+verify-w1-3:
+	cd apps/api && php artisan test Modules/Authorization/Tests Modules/Organization/Tests/SupervisoryRelationshipTest.php
+	$(MAKE) verify-boundaries
+	npm --prefix apps/web run test:unit -- src/shell/routes.test.ts src/api/w1-3/authorization.test.ts src/api.test.ts src/w1-2-api.test.ts
+	npm --prefix apps/web run lint
+	npm --prefix apps/web run build
+	./infra/dev/run-w1-3-e2e.sh
 
 # حزمة الإنتاج: بناء صور الإنتاج من lockfiles وتشغيلها بحزمة Compose كاملة.
 validate-production-bundle:
