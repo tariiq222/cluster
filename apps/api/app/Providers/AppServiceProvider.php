@@ -69,7 +69,11 @@ use Modules\Organization\Infrastructure\Import\UnavailableQuarantinedImport;
 use Modules\Organization\Infrastructure\Persistence\ValidatePersonReferenceFromPersistence;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedRequestFixture;
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedRequestFixtureFromPersistence;
+use Modules\Workflow\Contracts\AdvanceWorkflowStep;
+use Modules\Workflow\Infrastructure\Persistence\WorkflowStepAdvancer;
 use Predis\Client;
+use Shared\Contracts\TransactionalOutbox;
+use Shared\Infrastructure\Outbox\DatabaseTransactionalOutbox;
 use Shared\Infrastructure\Streams\PredisRedisStreamTransport;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 
@@ -82,6 +86,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(DecideAccess::class, FixtureFacilityDecision::class);
         $this->app->bind(ResolvePublishedRequestFixture::class, ResolvePublishedRequestFixtureFromPersistence::class);
+        $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
+        $this->app->bind(AdvanceWorkflowStep::class, WorkflowStepAdvancer::class);
         $this->app->bind(ResolveQuarantinedImport::class, UnavailableQuarantinedImport::class);
         $this->app->bind(ValidatePersonReference::class, ValidatePersonReferenceFromPersistence::class);
         $this->app->bind(AuthenticateUser::class, AuthenticationHandler::class);
@@ -212,6 +218,8 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateDevelopmentWorkTypeFixturesTable.php'),
             base_path('Modules/WorkRecords/Infrastructure/Persistence/Migrations/CreateWorkRecordsTable.php'),
             base_path('Modules/WorkRecords/Infrastructure/Outbox/Migrations/CreateOutboxTable.php'),
+            base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/CreateWorkflowTables.php'),
+            base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationInboxTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationsTable.php'),
         ]);
