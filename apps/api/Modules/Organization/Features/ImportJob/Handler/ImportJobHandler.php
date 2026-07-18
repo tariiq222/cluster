@@ -12,7 +12,16 @@ use InvalidArgumentException;
 use JsonException;
 use Modules\Organization\Contracts\ResolveQuarantinedImport;
 use Modules\Organization\Features\Assignment\Handler\AssignmentHandler;
+use Modules\Organization\Features\CreateFacility\Handler\CreateFacilityHandler;
+use Modules\Organization\Features\ImportJob\Template\FacilitiesImportTemplate;
+use Modules\Organization\Features\ImportJob\Template\GovernedImportTemplate;
+use Modules\Organization\Features\ImportJob\Template\ImportBatchContext;
+use Modules\Organization\Features\ImportJob\Template\OrganizationUnitsImportTemplate;
+use Modules\Organization\Features\ImportJob\Template\PeopleAssignmentsImportTemplate;
+use Modules\Organization\Features\ImportJob\Template\PositionsImportTemplate;
+use Modules\Organization\Features\OrganizationUnit\Handler\OrganizationUnitHandler;
 use Modules\Organization\Features\Person\Handler\PersonHandler;
+use Modules\Organization\Features\Position\Handler\PositionHandler;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
 use stdClass;
 use UnexpectedValueException;
@@ -25,6 +34,9 @@ final class ImportJobHandler
         private readonly ResolveQuarantinedImport $source,
         private readonly PersonHandler $people,
         private readonly AssignmentHandler $assignments,
+        private readonly CreateFacilityHandler $facilities,
+        private readonly OrganizationUnitHandler $units,
+        private readonly PositionHandler $positions,
         private readonly OrganizationOutbox $outbox,
     ) {}
 
@@ -201,7 +213,8 @@ final class ImportJobHandler
 
             return 'com.cluster.organization.importjobfailed.v1';
         }
-        if ($job->template_code !== 'people_assignments') {
+        $template = $this->template((string) $job->template_code);
+        if ($template === null) {
             $this->updateJob($job, [
                 'status' => 'failed',
                 'decision_reason' => 'template_not_implemented',
@@ -214,8 +227,20 @@ final class ImportJobHandler
         $valid = 0;
         $errors = 0;
         $critical = false;
+        $baseValidations = [];
+        $eligibleRows = [];
         foreach ($resolved['rows'] as $offset => $payload) {
-            $validation = $this->validatePeopleAssignmentRow($payload);
+            $baseValidations[$offset] = $template->validate($payload);
+            if ($baseValidations[$offset] === []) {
+                $eligibleRows[$offset] = $payload;
+            }
+        }
+        $context = ImportBatchContext::from((string) $job->template_code, $eligibleRows);
+        foreach ($resolved['rows'] as $offset => $payload) {
+            $validation = $baseValidations[$offset];
+            if ($validation === []) {
+                $validation = $template->validateBatch($payload, $context, $offset + 1);
+            }
             $rowCritical = in_array('critical', array_column($validation, 'severity'), true);
             $accepted = $validation === [];
             $valid += $accepted ? 1 : 0;
@@ -282,6 +307,10 @@ final class ImportJobHandler
         if ($job->status !== 'approved' || $job->approved_by_user_id === null) {
             throw new DomainException('import_transition_invalid');
         }
+        $template = $this->template((string) $job->template_code);
+        if ($template === null) {
+            throw new DomainException('import_transition_invalid');
+        }
         $rows = DB::table('import_rows')
             ->where('import_job_id', $job->id)
             ->where('decision', 'accepted')
@@ -290,65 +319,15 @@ final class ImportJobHandler
             ->get();
         foreach ($rows as $row) {
             $payload = $this->decryptPayload($row);
-            $person = DB::table('people')->where('employee_number', $payload['employee_number'])->lockForUpdate()->first();
-            if (! $person instanceof stdClass) {
-                $personId = Str::uuid7()->toString();
-                $personResult = $this->people->create(
-                    $personId,
-                    [
-                        'employee_number' => $payload['employee_number'],
-                        'display_name_ar' => $payload['display_name_ar'],
-                        'display_name_en' => $payload['display_name_en'] ?? null,
-                        'status' => $payload['status'],
-                    ],
-                    $this->rowIdempotency($principalId, 'importPerson:'.$row->id, $payload),
-                    fn (array $created): array => [
-                        $eventFactory(
-                            'com.cluster.organization.personregistered.v1',
-                            '/organization/people/'.$created['id'],
-                            ['person' => [
-                                'person_id' => $created['id'],
-                                'person_version' => $created['person_version'],
-                                'status' => $created['status'],
-                            ]],
-                            'confidential',
-                        ),
-                        $eventFactory(
-                            'com.cluster.organization.identityprovisioningrequested.v1',
-                            '/organization/people/'.$created['id'],
-                            [
-                                'person_id' => $created['id'],
-                                'person_version' => $created['person_version'],
-                                'requested_account_status' => $created['status'] === 'active' ? 'pending' : 'disabled',
-                            ],
-                            'confidential',
-                        ),
-                    ],
-                );
-                $personId = $personResult['person']['id'];
-            } else {
-                $personId = (string) $person->id;
-            }
-            $assignmentId = Str::uuid7()->toString();
-            $this->assignments->create(
-                $assignmentId,
-                [
-                    'person_id' => $personId,
-                    'position_id' => $payload['position_id'],
-                    'start_at' => $payload['start_at'],
-                    'end_at' => $payload['end_at'] ?? null,
-                    'is_primary' => $payload['is_primary'] ?? true,
-                ],
-                $this->rowIdempotency($principalId, 'importAssignment:'.$row->id, $payload),
-                fn (array $assignment): array => $eventFactory(
-                    'com.cluster.organization.assignmentstarted.v1',
-                    '/organization/assignments/'.$assignment['id'],
-                    ['assignment' => $assignment],
-                    'internal',
-                ),
+            $targetId = $template->apply(
+                (string) $row->id,
+                $payload,
+                $principalId,
+                $eventFactory,
+                fn (string $operation, array $rowPayload): array => $this->rowIdempotency($principalId, $operation, $rowPayload),
             );
             DB::table('import_rows')->where('id', $row->id)->update([
-                'proposed_target_id' => $personId,
+                'proposed_target_id' => $targetId,
                 'applied_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -371,49 +350,15 @@ final class ImportJobHandler
         return 'com.cluster.organization.importjobcancelled.v1';
     }
 
-    /** @return list<array{code: string, severity: string, field?: string}> */
-    private function validatePeopleAssignmentRow(array $payload): array
+    private function template(string $templateCode): ?GovernedImportTemplate
     {
-        $required = ['employee_number', 'display_name_ar', 'status', 'position_id', 'start_at'];
-        $errors = [];
-        foreach ($required as $field) {
-            if (! isset($payload[$field]) || ! is_string($payload[$field]) || trim($payload[$field]) === '') {
-                $errors[] = ['code' => 'missing_required_field', 'severity' => 'critical', 'field' => $field];
-            }
-        }
-        if ($errors !== []) {
-            return $errors;
-        }
-        if (! in_array($payload['status'], ['active', 'suspended', 'left'], true)) {
-            $errors[] = ['code' => 'invalid_status', 'severity' => 'error', 'field' => 'status'];
-        }
-        if (mb_strlen($payload['employee_number']) > 64) {
-            $errors[] = ['code' => 'invalid_employee_number', 'severity' => 'error', 'field' => 'employee_number'];
-        }
-        if (mb_strlen($payload['display_name_ar']) > 255) {
-            $errors[] = ['code' => 'invalid_display_name', 'severity' => 'error', 'field' => 'display_name_ar'];
-        }
-        if (array_key_exists('display_name_en', $payload)
-            && $payload['display_name_en'] !== null
-            && (! is_string($payload['display_name_en']) || mb_strlen($payload['display_name_en']) > 255)) {
-            $errors[] = ['code' => 'invalid_display_name', 'severity' => 'error', 'field' => 'display_name_en'];
-        }
-        if (array_key_exists('is_primary', $payload) && ! is_bool($payload['is_primary'])) {
-            $errors[] = ['code' => 'invalid_is_primary', 'severity' => 'error', 'field' => 'is_primary'];
-        }
-        if (! $this->isUuidV7($payload['position_id'])
-            || ! DB::table('positions')->where('id', $payload['position_id'])->where('is_active', true)->exists()) {
-            $errors[] = ['code' => 'invalid_position', 'severity' => 'error', 'field' => 'position_id'];
-        }
-        $endAt = $payload['end_at'] ?? null;
-        if (! $this->isUtc($payload['start_at']) || ($endAt !== null && (! is_string($endAt) || ! $this->isUtc($endAt)))) {
-            $errors[] = ['code' => 'invalid_period', 'severity' => 'error'];
-        } elseif (is_string($endAt)
-            && (strtotime($endAt) <= strtotime($payload['start_at']) || strtotime($endAt) <= now('UTC')->getTimestamp())) {
-            $errors[] = ['code' => 'invalid_period', 'severity' => 'error'];
-        }
-
-        return $errors;
+        return match ($templateCode) {
+            'facilities' => new FacilitiesImportTemplate($this->facilities),
+            'organization_units' => new OrganizationUnitsImportTemplate($this->units),
+            'positions' => new PositionsImportTemplate($this->positions),
+            'people_assignments' => new PeopleAssignmentsImportTemplate($this->people, $this->assignments),
+            default => null,
+        };
     }
 
     /** @param array<string, mixed> $changes */
@@ -553,18 +498,6 @@ final class ImportJobHandler
             'decision' => $row->decision,
             'applied_at' => $row->applied_at === null ? null : date('Y-m-d\TH:i:s.v\Z', strtotime((string) $row->applied_at)),
         ];
-    }
-
-    private function isUuidV7(mixed $value): bool
-    {
-        return is_string($value)
-            && preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $value) === 1;
-    }
-
-    private function isUtc(string $value): bool
-    {
-        return preg_match('/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/', $value) === 1
-            && strtotime($value) !== false;
     }
 
     private function encodeCursor(int $rowNumber, string $jobId, int $limit): string

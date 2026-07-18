@@ -250,6 +250,315 @@ class OrganizationImportHttpAdapterTest extends TestCase
         $this->assertDatabaseCount('assignments', 1);
     }
 
+    public function test_facility_import_template_validates_and_applies_create_rows(): void
+    {
+        $submitter = $this->loginToken();
+        $approver = $this->loginToken('fixture-account-b', 'fixture-password-b');
+        $clusterId = $this->clusterReference($submitter, 'import-facility-cluster');
+        $this->bindSource([
+            [
+                'cluster_id' => $clusterId,
+                'type_code' => 'hospital',
+                'code' => 'FAC_IMPORT_001',
+                'name' => 'مرفق مستورد',
+                'name_en' => 'Imported Facility',
+            ],
+            [
+                'cluster_id' => $clusterId,
+                'type_code' => 'unknown_type',
+                'code' => 'FAC_IMPORT_002',
+                'name' => 'مرفق مرفوض',
+            ],
+        ]);
+        $jobId = $this->submit($submitter, 'import-facility-submit', 'facilities');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-facility-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'validated')
+            ->assertJsonPath('data.valid_rows', 1)
+            ->assertJsonPath('data.error_rows', 1);
+        $this->withToken($approver)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/approve", [], $this->actionHeaders('"2"', 'import-facility-approve'))
+            ->assertOk();
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/apply", [], $this->actionHeaders('"3"', 'import-facility-apply'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'applied');
+
+        $facilityId = DB::table('facilities')->where('code', 'FAC_IMPORT_001')->value('id');
+        $this->assertIsString($facilityId);
+        $this->assertDatabaseMissing('facilities', ['code' => 'FAC_IMPORT_002']);
+        $this->assertDatabaseHas('outbox_events', [
+            'aggregate_id' => $facilityId,
+            'event_type' => 'com.cluster.organization.facilitycreated.v1',
+        ]);
+        $this->assertDatabaseHas('import_rows', [
+            'import_job_id' => $jobId,
+            'row_number' => 1,
+            'proposed_target_id' => $facilityId,
+        ]);
+    }
+
+    public function test_facility_import_validation_fails_on_duplicate_codes_before_apply(): void
+    {
+        $submitter = $this->loginToken();
+        $clusterId = $this->clusterReference($submitter, 'import-facility-duplicate-cluster');
+        $this->bindSource([
+            ['cluster_id' => $clusterId, 'type_code' => 'hospital', 'code' => 'FAC_IMPORT_DUP', 'name' => 'مرفق مكرر ١'],
+            ['cluster_id' => $clusterId, 'type_code' => 'hospital', 'code' => 'FAC_IMPORT_DUP', 'name' => 'مرفق مكرر ٢'],
+        ]);
+        $jobId = $this->submit($submitter, 'import-facility-duplicate-submit', 'facilities');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-facility-duplicate-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.valid_rows', 0)
+            ->assertJsonPath('data.error_rows', 2);
+        $this->assertRowHasValidationCode($jobId, 1, 'duplicate_facility_code_in_import');
+        $this->assertRowHasValidationCode($jobId, 2, 'duplicate_facility_code_in_import');
+        $this->assertImportApplyNotReached($submitter, $jobId, 'facility-duplicate');
+        $this->assertDatabaseMissing('facilities', ['code' => 'FAC_IMPORT_DUP']);
+    }
+
+    public function test_invalid_duplicate_row_does_not_poison_valid_facility_import_row(): void
+    {
+        $submitter = $this->loginToken();
+        $approver = $this->loginToken('fixture-account-b', 'fixture-password-b');
+        $clusterId = $this->clusterReference($submitter, 'import-facility-invalid-duplicate-cluster');
+        $this->bindSource([
+            ['cluster_id' => $clusterId, 'type_code' => 'unknown_type', 'code' => 'FAC_IMPORT_PARTIAL', 'name' => 'مرفق غير صالح'],
+            ['cluster_id' => $clusterId, 'type_code' => 'hospital', 'code' => 'FAC_IMPORT_PARTIAL', 'name' => 'مرفق صالح'],
+        ]);
+        $jobId = $this->submit($submitter, 'import-facility-invalid-duplicate-submit', 'facilities');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-facility-invalid-duplicate-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'validated')
+            ->assertJsonPath('data.valid_rows', 1)
+            ->assertJsonPath('data.error_rows', 1);
+        $this->assertRowHasValidationCode($jobId, 1, 'invalid_type');
+        $this->assertRowLacksValidationCode($jobId, 2, 'duplicate_facility_code_in_import');
+
+        $this->withToken($approver)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/approve", [], $this->actionHeaders('"2"', 'import-facility-invalid-duplicate-approve'))
+            ->assertOk();
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/apply", [], $this->actionHeaders('"3"', 'import-facility-invalid-duplicate-apply'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'applied');
+
+        $this->assertDatabaseHas('facilities', ['code' => 'FAC_IMPORT_PARTIAL', 'name_ar' => 'مرفق صالح']);
+        $this->assertSame(1, DB::table('facilities')->where('code', 'FAC_IMPORT_PARTIAL')->count());
+    }
+
+    public function test_unit_import_template_validates_and_applies_create_rows(): void
+    {
+        $submitter = $this->loginToken();
+        $approver = $this->loginToken('fixture-account-b', 'fixture-password-b');
+        $clusterId = $this->clusterReference($submitter, 'import-tree-cluster');
+        $this->bindSource([
+            [
+                'cluster_id' => $clusterId,
+                'type_code' => 'department',
+                'code' => 'UNIT_IMPORT_001',
+                'name' => 'وحدة مستوردة',
+            ],
+        ]);
+        $unitJobId = $this->submit($submitter, 'import-unit-submit', 'organization_units');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$unitJobId}/validate", [], $this->actionHeaders('"1"', 'import-unit-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'validated')
+            ->assertJsonPath('data.valid_rows', 1);
+        $this->withToken($approver)
+            ->postJson("/api/v1/organization/import-jobs/{$unitJobId}/approve", [], $this->actionHeaders('"2"', 'import-unit-approve'))
+            ->assertOk();
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$unitJobId}/apply", [], $this->actionHeaders('"3"', 'import-unit-apply'))
+            ->assertOk();
+        $unitId = DB::table('organization_units')->where('code', 'UNIT_IMPORT_001')->value('id');
+        $this->assertIsString($unitId);
+        $this->assertDatabaseHas('outbox_events', [
+            'aggregate_id' => $unitId,
+            'event_type' => 'com.cluster.organization.organizationunitcreated.v1',
+        ]);
+    }
+
+    public function test_unit_import_validation_fails_on_duplicate_codes_under_parent_before_apply(): void
+    {
+        $submitter = $this->loginToken();
+        $clusterId = $this->clusterReference($submitter, 'import-unit-duplicate-cluster');
+        $this->bindSource([
+            ['cluster_id' => $clusterId, 'type_code' => 'department', 'code' => 'UNIT_IMPORT_DUP', 'name' => 'وحدة مكررة ١'],
+            ['cluster_id' => $clusterId, 'parent_id' => $clusterId, 'type_code' => 'department', 'code' => 'UNIT_IMPORT_DUP', 'name' => 'وحدة مكررة ٢'],
+        ]);
+        $jobId = $this->submit($submitter, 'import-unit-duplicate-submit', 'organization_units');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-unit-duplicate-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.valid_rows', 0)
+            ->assertJsonPath('data.error_rows', 2);
+        $this->assertRowHasValidationCode($jobId, 1, 'duplicate_organization_unit_code_in_import');
+        $this->assertRowHasValidationCode($jobId, 2, 'duplicate_organization_unit_code_in_import');
+        $this->assertImportApplyNotReached($submitter, $jobId, 'unit-duplicate');
+        $this->assertDatabaseMissing('organization_units', ['code' => 'UNIT_IMPORT_DUP']);
+    }
+
+    public function test_position_import_template_validates_and_applies_create_rows(): void
+    {
+        $submitter = $this->loginToken();
+        $approver = $this->loginToken('fixture-account-b', 'fixture-password-b');
+        $unitId = $this->unitReference($submitter, 'import-position-tree');
+
+        $this->bindSource([
+            [
+                'organization_unit_id' => $unitId,
+                'code' => 'POS_IMPORT_001',
+                'title' => 'منصب مستورد',
+            ],
+            [
+                'organization_unit_id' => $unitId,
+                'code' => 'bad-code',
+                'title' => 'منصب مرفوض',
+            ],
+        ]);
+        $positionJobId = $this->submit($submitter, 'import-position-submit', 'positions');
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$positionJobId}/validate", [], $this->actionHeaders('"1"', 'import-position-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'validated')
+            ->assertJsonPath('data.valid_rows', 1)
+            ->assertJsonPath('data.error_rows', 1);
+        $this->withToken($approver)
+            ->postJson("/api/v1/organization/import-jobs/{$positionJobId}/approve", [], $this->actionHeaders('"2"', 'import-position-approve'))
+            ->assertOk();
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$positionJobId}/apply", [], $this->actionHeaders('"3"', 'import-position-apply'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'applied');
+
+        $positionId = DB::table('positions')->where('code', 'POS_IMPORT_001')->value('id');
+        $this->assertIsString($positionId);
+        $this->assertDatabaseMissing('positions', ['code' => 'bad-code']);
+        $this->assertDatabaseHas('outbox_events', [
+            'aggregate_id' => $positionId,
+            'event_type' => 'com.cluster.organization.positioncreated.v1',
+        ]);
+    }
+
+    public function test_position_import_validation_fails_on_duplicate_codes_in_unit_before_apply(): void
+    {
+        $submitter = $this->loginToken();
+        $unitId = $this->unitReference($submitter, 'import-position-duplicate-tree');
+        $this->bindSource([
+            ['organization_unit_id' => $unitId, 'code' => 'POS_IMPORT_DUP', 'title' => 'منصب مكرر ١'],
+            ['organization_unit_id' => $unitId, 'code' => 'POS_IMPORT_DUP', 'title' => 'منصب مكرر ٢'],
+        ]);
+        $jobId = $this->submit($submitter, 'import-position-duplicate-submit', 'positions');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-position-duplicate-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.valid_rows', 0)
+            ->assertJsonPath('data.error_rows', 2);
+        $this->assertRowHasValidationCode($jobId, 1, 'duplicate_position_code_in_import');
+        $this->assertRowHasValidationCode($jobId, 2, 'duplicate_position_code_in_import');
+        $this->assertImportApplyNotReached($submitter, $jobId, 'position-duplicate');
+        $this->assertDatabaseMissing('positions', ['code' => 'POS_IMPORT_DUP']);
+    }
+
+    public function test_people_assignment_import_validation_fails_on_unappliable_status_and_overlaps_before_apply(): void
+    {
+        $submitter = $this->loginToken();
+        $unitId = $this->unitReference($submitter, 'import-assignment-overlap-tree');
+        $existingPositionId = $this->createPosition($submitter, $unitId, 'IMPORT_EXISTING', 'منصب مشغول');
+        $primaryPositionId = $this->createPosition($submitter, $unitId, 'IMPORT_PRIMARY', 'منصب رئيسي');
+        $batchPositionId = $this->createPosition($submitter, $unitId, 'IMPORT_BATCH', 'منصب تداخل ملف');
+        $batchPrimaryAId = $this->createPosition($submitter, $unitId, 'IMPORT_PRIMARY_A', 'منصب رئيسي أ');
+        $batchPrimaryBId = $this->createPosition($submitter, $unitId, 'IMPORT_PRIMARY_B', 'منصب رئيسي ب');
+        $existingPersonId = $this->createPerson($submitter, 'EMP-IMPORT-EXISTING', 'import-existing-person');
+        $this->createAssignment($submitter, $existingPersonId, $existingPositionId, 'import-existing-assignment');
+        $this->bindSource([
+            [...$this->validRow($primaryPositionId, 'EMP-IMPORT-SUSPENDED'), 'status' => 'suspended'],
+            $this->validRow($existingPositionId, 'EMP-IMPORT-POSITION-OVERLAP'),
+            $this->validRow($primaryPositionId, 'EMP-IMPORT-EXISTING'),
+            $this->validRow($batchPositionId, 'EMP-IMPORT-BATCH-A'),
+            $this->validRow($batchPositionId, 'EMP-IMPORT-BATCH-B'),
+            $this->validRow($batchPrimaryAId, 'EMP-IMPORT-BATCH-PRIMARY'),
+            $this->validRow($batchPrimaryBId, 'EMP-IMPORT-BATCH-PRIMARY'),
+        ]);
+        $jobId = $this->submit($submitter, 'import-assignment-overlap-submit');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-assignment-overlap-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.valid_rows', 0)
+            ->assertJsonPath('data.error_rows', 7);
+        $this->assertRowHasValidationCode($jobId, 1, 'person_not_assignable');
+        $this->assertRowHasValidationCode($jobId, 2, 'position_assignment_overlap');
+        $this->assertRowHasValidationCode($jobId, 3, 'primary_assignment_overlap');
+        $this->assertRowHasValidationCode($jobId, 4, 'position_assignment_overlap');
+        $this->assertRowHasValidationCode($jobId, 5, 'position_assignment_overlap');
+        $this->assertRowHasValidationCode($jobId, 6, 'primary_assignment_overlap');
+        $this->assertRowHasValidationCode($jobId, 7, 'primary_assignment_overlap');
+        $this->assertImportApplyNotReached($submitter, $jobId, 'assignment-overlap');
+        $this->assertDatabaseMissing('people', ['employee_number' => 'EMP-IMPORT-SUSPENDED']);
+        $this->assertDatabaseMissing('people', ['employee_number' => 'EMP-IMPORT-BATCH-A']);
+        $this->assertDatabaseCount('assignments', 1);
+    }
+
+    public function test_people_assignment_validation_rejects_position_when_unit_is_inactive_without_poisoning_valid_row(): void
+    {
+        $submitter = $this->loginToken();
+        $approver = $this->loginToken('fixture-account-b', 'fixture-password-b');
+        $clusterId = $this->clusterReference($submitter, 'import-inactive-unit-cluster');
+        $inactiveUnitId = $this->createUnit($submitter, $clusterId, 'import-inactive-unit', 'INACTIVE_IMPORTS');
+        $activeUnitId = $this->createUnit($submitter, $clusterId, 'import-active-unit', 'ACTIVE_IMPORTS');
+        $inactivePositionId = $this->createPosition($submitter, $inactiveUnitId, 'INACTIVE_UNIT_POS', 'منصب وحدة غير فعالة');
+        $activePositionId = $this->createPosition($submitter, $activeUnitId, 'ACTIVE_UNIT_POS', 'منصب وحدة فعالة');
+        $this->withToken($submitter)
+            ->patchJson("/api/v1/organization/units/{$inactiveUnitId}", [
+                'status' => 'inactive',
+                'reason' => 'تعطيل لاختبار الاستيراد',
+            ], $this->patchHeaders('"1"', 'import-inactive-unit-patch'))
+            ->assertOk();
+        $this->bindSource([
+            $this->validRow($inactivePositionId, 'EMP-IMPORT-INACTIVE-UNIT'),
+            $this->validRow($activePositionId, 'EMP-IMPORT-ACTIVE-UNIT'),
+        ]);
+        $jobId = $this->submit($submitter, 'import-inactive-unit-submit');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-inactive-unit-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'validated')
+            ->assertJsonPath('data.valid_rows', 1)
+            ->assertJsonPath('data.error_rows', 1);
+        $this->assertRowHasValidationCode($jobId, 1, 'invalid_position');
+
+        $this->withToken($approver)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/approve", [], $this->actionHeaders('"2"', 'import-inactive-unit-approve'))
+            ->assertOk();
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/apply", [], $this->actionHeaders('"3"', 'import-inactive-unit-apply'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'applied');
+
+        $this->assertDatabaseMissing('people', ['employee_number' => 'EMP-IMPORT-INACTIVE-UNIT']);
+        $activePersonId = DB::table('people')->where('employee_number', 'EMP-IMPORT-ACTIVE-UNIT')->value('id');
+        $this->assertIsString($activePersonId);
+        $this->assertDatabaseHas('assignments', ['person_id' => $activePersonId, 'position_id' => $activePositionId]);
+        $this->assertDatabaseMissing('assignments', ['position_id' => $inactivePositionId]);
+    }
+
     /** @param list<array<string, mixed>> $rows */
     private function bindSource(array $rows): object
     {
@@ -289,35 +598,118 @@ class OrganizationImportHttpAdapterTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function submitBody(): array
+    private function submitBody(string $templateCode = 'people_assignments'): array
     {
         return [
             'quarantine_object_id' => self::QUARANTINE_ID,
-            'template_code' => 'people_assignments',
+            'template_code' => $templateCode,
             'import_type' => 'csv',
             'notes' => 'استيراد محكوم',
         ];
     }
 
-    private function submit(string $token, string $key): string
+    private function submit(string $token, string $key, string $templateCode = 'people_assignments'): string
     {
         return (string) $this->withToken($token)
-            ->postJson('/api/v1/organization/import-jobs', $this->submitBody(), $this->writeHeaders($key))
+            ->postJson('/api/v1/organization/import-jobs', $this->submitBody($templateCode), $this->writeHeaders($key))
             ->assertStatus(202)->json('data.id');
+    }
+
+    private function clusterReference(string $token, string $key): string
+    {
+        return (string) $this->withToken($token)->postJson('/api/v1/organization/cluster', [
+            'code' => 'THC3',
+            'name' => 'التجمع الصحي الثالث',
+        ], $this->writeHeaders($key))->assertCreated()->json('data.id');
+    }
+
+    private function unitReference(string $token, string $key): string
+    {
+        $clusterId = $this->clusterReference($token, $key.'-cluster');
+
+        return $this->createUnit($token, $clusterId, $key.'-unit', 'IMPORTS');
+    }
+
+    private function createUnit(string $token, string $clusterId, string $key, string $code): string
+    {
+        return (string) $this->withToken($token)->postJson('/api/v1/organization/units', [
+            'cluster_id' => $clusterId,
+            'type_code' => 'department',
+            'code' => $code,
+            'name' => 'إدارة الاستيراد',
+        ], $this->writeHeaders($key))->assertCreated()->json('data.id');
+    }
+
+    private function createPosition(string $token, string $unitId, string $code, string $title): string
+    {
+        return (string) $this->withToken($token)->postJson('/api/v1/organization/positions', [
+            'organization_unit_id' => $unitId,
+            'code' => $code,
+            'title' => $title,
+        ], $this->writeHeaders('import-position-'.$code))->assertCreated()->json('data.id');
+    }
+
+    private function createPerson(string $token, string $employeeNumber, string $key): string
+    {
+        return (string) $this->withToken($token)->postJson('/api/v1/organization/people', [
+            'employee_number' => $employeeNumber,
+            'display_name_ar' => 'موظف استيراد',
+            'status' => 'active',
+        ], $this->writeHeaders($key))->assertCreated()->json('data.id');
+    }
+
+    private function createAssignment(string $token, string $personId, string $positionId, string $key): void
+    {
+        $this->withToken($token)->postJson('/api/v1/organization/assignments', [
+            'person_id' => $personId,
+            'position_id' => $positionId,
+            'start_at' => now('UTC')->subHour()->format('Y-m-d\TH:i:s.v\Z'),
+            'end_at' => now('UTC')->addDay()->format('Y-m-d\TH:i:s.v\Z'),
+            'is_primary' => true,
+        ], $this->writeHeaders($key))->assertCreated();
+    }
+
+    private function assertImportApplyNotReached(string $token, string $jobId, string $key): void
+    {
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/approve", [], $this->actionHeaders('"2"', 'import-'.$key.'-approve'))
+            ->assertConflict();
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/apply", [], $this->actionHeaders('"2"', 'import-'.$key.'-apply'))
+            ->assertConflict();
+        $this->assertDatabaseMissing('outbox_events', [
+            'aggregate_id' => $jobId,
+            'event_type' => 'com.cluster.organization.importjobapplied.v1',
+        ]);
+    }
+
+    private function assertRowHasValidationCode(string $jobId, int $rowNumber, string $code): void
+    {
+        $errors = DB::table('import_rows')
+            ->where('import_job_id', $jobId)
+            ->where('row_number', $rowNumber)
+            ->value('validation_errors');
+        $this->assertIsString($errors);
+        $this->assertContains($code, array_column(json_decode($errors, true, 16, JSON_THROW_ON_ERROR), 'code'));
+    }
+
+    private function assertRowLacksValidationCode(string $jobId, int $rowNumber, string $code): void
+    {
+        $errors = DB::table('import_rows')
+            ->where('import_job_id', $jobId)
+            ->where('row_number', $rowNumber)
+            ->value('validation_errors');
+        if ($errors === null) {
+            return;
+        }
+
+        $this->assertIsString($errors);
+        $this->assertNotContains($code, array_column(json_decode($errors, true, 16, JSON_THROW_ON_ERROR), 'code'));
     }
 
     private function positionReference(string $token): string
     {
-        $clusterId = (string) $this->withToken($token)->postJson('/api/v1/organization/cluster', [
-            'code' => 'THC3',
-            'name' => 'التجمع الصحي الثالث',
-        ], $this->writeHeaders('import-cluster'))->assertCreated()->json('data.id');
-        $unitId = (string) $this->withToken($token)->postJson('/api/v1/organization/units', [
-            'cluster_id' => $clusterId,
-            'type_code' => 'department',
-            'code' => 'IMPORTS',
-            'name' => 'إدارة الاستيراد',
-        ], $this->writeHeaders('import-unit'))->assertCreated()->json('data.id');
+        $unitId = $this->unitReference($token, 'import');
 
         return (string) $this->withToken($token)->postJson('/api/v1/organization/positions', [
             'organization_unit_id' => $unitId,
@@ -350,5 +742,11 @@ class OrganizationImportHttpAdapterTest extends TestCase
     private function actionHeaders(string $etag, string $key): array
     {
         return [...$this->writeHeaders($key), 'If-Match' => $etag];
+    }
+
+    /** @return array<string, string> */
+    private function patchHeaders(string $etag, string $key): array
+    {
+        return [...$this->actionHeaders($etag, $key), 'Content-Type' => 'application/merge-patch+json'];
     }
 }
