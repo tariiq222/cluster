@@ -196,7 +196,7 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
     private function checksumFromHeaders(array $headers): string
     {
         $checksum = $headers['x-amz-checksum-sha256'] ?? '';
-        $decoded = is_string($checksum) ? base64_decode($checksum, true) : false;
+        $decoded = base64_decode($checksum, true);
         if ($decoded === false || strlen($decoded) !== 32) {
             throw new DomainException('document_quarantine_checksum_missing');
         }

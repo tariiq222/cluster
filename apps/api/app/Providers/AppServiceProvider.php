@@ -235,6 +235,7 @@ class AppServiceProvider extends ServiceProvider
             && ! in_array('test', $arguments, true)
             && ! in_array('config:clear', $arguments, true)
             && ! in_array('package:discover', $arguments, true)
+            && ! str_contains(implode(' ', $arguments), 'phpstan')
             && ! str_contains(implode(' ', $arguments), 'phpunit');
     }
 
