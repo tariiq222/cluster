@@ -3,7 +3,7 @@ doc_id: CON-MC-001
 title: عقود الموديولات
 type: contracts
 status: accepted
-version: 1.6.0
+version: 1.7.0
 date: 2026-07-18
 owner: مسؤول هندسة البرمجيات
 reviewers:
@@ -12,7 +12,11 @@ reviewers:
 classification: internal
 review_cycle: مع كل تغيير
 sources: []
-references: []
+references:
+- docs/contracts/capabilities/identity-credentials-and-sessions.md
+- docs/contracts/capabilities/document-signed-direct-upload.md
+- docs/contracts/capabilities/organization-import-rows-v1.md
+- docs/contracts/capabilities/temporary-assignment.md
 ---
 # Module Contract Rules
 
@@ -43,6 +47,14 @@ No consumer writes another module's persistence. Consumers use the HTTP contract
   نفسها. يطبق Identity كل `person_version` مرة واحدة مع Inbox وhigh-water mark ذريين.
 - معرفات actor مثل `submitted_by_user_id` و`approved_by_user_id` حقائق تدقيق بلا FK عابر.
 - ملفات الاستيراد الخام مشفرة في quarantine، وأخطاء الصفوف منقحة ولا تعيد payload خاماً.
+- يستهلك Organization مصدر الاستيراد النظيف عبر عقد Documents ومعرف
+  `quarantine_object_id` opaque؛ لا يصل إلى object key أو جدول أو مخزن Documents.
+- صفوف `facilities` و`organization_units` و`positions` في v1 تطابق Create API الحالي
+  وتبقى create-only. schemas المرجعية منشورة في عقد صفوف الاستيراد.
+- Credential والجلسة الحقيقية planned: الحساب بلا Credential يبقى `pending`، والجلسة
+  المستهدفة opaque server-side في Cookie محمية مع CSRF، لا Bearer token في المتصفح.
+- TemporaryAssignment planned ومقيد بوحدة واحدة وقدرات صريحة ومدة لا تتجاوز 90 يوماً؛
+  Organization يقدم الحقائق فقط وAuthorization يصدر القرار.
 - Authorization في W1.2 مغلق افتراضياً، ومحدد النطاق لا يوسع القدرات الممنوحة.
 - Audit append-only: لا يملك كاتب Audit صلاحية update أو delete، وتخزن السلسلة وactor
   وsubject وcorrelation من دون أسرار أو payload استيراد خام.
@@ -75,6 +87,7 @@ Schemas use JSON Schema Draft 2020-12 with `additionalProperties: false` unless 
 
 | Version | Date | Change |
 |---|---|---|
+| 1.7.0 | 2026-07-18 | Publish the remaining planned W1.2 capability boundaries and import row v1 schemas |
 | 1.6.0 | 2026-07-18 | Publish governed ImportJob lifecycle event contracts |
 | 1.5.0 | 2026-07-18 | Publish organization unit tree and position lifecycle contracts |
 | 1.4.0 | 2026-07-18 | Publish optimistic cluster/facility update and facility archive contracts |

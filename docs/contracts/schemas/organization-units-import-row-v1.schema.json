@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/organization-units-import-row-v1.schema.json",
+  "title": "Organization Units Import Row v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cluster_id", "code", "name", "type_code"],
+  "properties": {
+    "cluster_id": {"$ref": "#/$defs/uuidv7"},
+    "parent_id": {"$ref": "#/$defs/uuidv7"},
+    "code": {"type": "string", "pattern": "^[A-Z0-9_-]{2,64}$"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 255},
+    "name_en": {"type": ["string", "null"], "maxLength": 255},
+    "type_code": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"}
+  },
+  "$defs": {
+    "uuidv7": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    }
+  }
+}

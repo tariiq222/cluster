@@ -100,6 +100,10 @@ nav:
   - العقود:
       - فهرس العقود: contracts/README.md
       - عقود الموديولات: contracts/module-contracts.md
+      - بيانات الاعتماد والجلسة: contracts/capabilities/identity-credentials-and-sessions.md
+      - الرفع المباشر الموقع: contracts/capabilities/document-signed-direct-upload.md
+      - صفوف استيراد Organization v1: contracts/capabilities/organization-import-rows-v1.md
+      - التكليف المؤقت: contracts/capabilities/temporary-assignment.md
       - واجهة الإشعارات: contracts/api/notifications.md
   - قرارات المعمارية:
       - فهرس القرارات: adr/README.md
