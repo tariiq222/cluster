@@ -97,6 +97,125 @@ export interface ProblemDetailsSchema {
   [key: string]: unknown
 }
 
+export interface IdentityLoginRequest {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  username: string
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  password: string
+  /** @pattern ^[0-9]{6}$ */
+  totp_code?: string
+}
+
+export type IdentitySessionResponseData = {
+  user_id: UUIDv7
+  expires_at: UtcDateTime
+  restricted: boolean
+  /** @minLength 1 */
+  csrf_token: string
+}
+
+export interface IdentitySessionResponse {
+  data: IdentitySessionResponseData
+}
+
+export interface IdentityActivationRequest {
+  /** @pattern ^[a-f0-9]{64}$ */
+  token: string
+  /**
+   * @minLength 14
+   * @maxLength 128
+   */
+  password: string
+  /** @pattern ^[0-9]{6}$ */
+  totp_code?: string
+}
+
+export type AccountStatus = (typeof AccountStatus)[keyof typeof AccountStatus]
+
+export const AccountStatus = {
+  pending: 'pending',
+  active: 'active',
+  locked: 'locked',
+  disabled: 'disabled',
+  archived: 'archived',
+} as const
+
+export interface UserAccount {
+  id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  username: string
+  person_id: UUIDv7
+  /** @minimum 1 */
+  person_version: number
+  status: AccountStatus
+  must_change_password: boolean
+  /** @minimum 1 */
+  password_version: number
+  locked_until: UtcDateTime | null
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  display_name_ar: string
+  /**
+   * @maxLength 255
+   * @nullable
+   */
+  display_name_en: string | null
+}
+
+export type CurrentIdentityResponseDataPrincipal = {
+  user_id: UUIDv7
+}
+
+export type CurrentIdentityResponseDataSession = {
+  restricted: boolean
+}
+
+export type CurrentIdentityResponseData = {
+  principal: CurrentIdentityResponseDataPrincipal
+  account: UserAccount
+  session: CurrentIdentityResponseDataSession
+}
+
+export interface CurrentIdentityResponse {
+  data: CurrentIdentityResponseData
+}
+
+export interface IdentityPasswordChangeRequest {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  current_password: string
+  /**
+   * @minLength 14
+   * @maxLength 128
+   */
+  new_password: string
+  /**
+   * @minLength 14
+   * @maxLength 128
+   */
+  new_password_confirmation?: string
+}
+
+export interface IdentityActivationIssued {
+  account_id: UUIDv7
+  status: 'activation_issued'
+  expires_at: UtcDateTime
+  delivery: 'controlled'
+}
+
 export type AccessContextSchemaClearance =
   (typeof AccessContextSchemaClearance)[keyof typeof AccessContextSchemaClearance]
 
@@ -345,20 +464,163 @@ export interface DocumentCreate {
   restriction_policy_key: string
 }
 
-export interface UploadRequest {
-  document_id: UUIDv7
+export type DocumentUploadInitiateRequestPurpose =
+  (typeof DocumentUploadInitiateRequestPurpose)[keyof typeof DocumentUploadInitiateRequestPurpose]
+
+export const DocumentUploadInitiateRequestPurpose = {
+  document_version: 'document_version',
+  organization_import_source: 'organization_import_source',
+} as const
+
+export interface DocumentUploadInitiateRequest {
+  purpose: DocumentUploadInitiateRequestPurpose
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  name: string
+  /**
+   * @maxLength 10000
+   * @nullable
+   */
+  description?: string | null
+  classification: Classification
   /**
    * @minLength 1
    * @maxLength 255
    */
   file_name: string
-  /** @pattern ^[^/]+/[^/]+$ */
+  /** @pattern ^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$ */
   content_type: string
   /**
    * @minimum 1
    * @maximum 1073741824
    */
   byte_size: number
+  /** @pattern ^[a-f0-9]{64}$ */
+  sha256: string
+}
+
+export type DocumentUploadInitiatedPurpose =
+  (typeof DocumentUploadInitiatedPurpose)[keyof typeof DocumentUploadInitiatedPurpose]
+
+export const DocumentUploadInitiatedPurpose = {
+  document_version: 'document_version',
+  organization_import_source: 'organization_import_source',
+} as const
+
+export type DocumentUploadInitiatedRequiredHeaders = { [key: string]: string }
+
+export interface DocumentUploadInitiated {
+  upload_id: UUIDv7
+  quarantine_object_id: UUIDv7
+  purpose: DocumentUploadInitiatedPurpose
+  method: string
+  upload_url: string
+  required_headers: DocumentUploadInitiatedRequiredHeaders
+  expires_at: UtcDateTime
+  /** @minimum 1 */
+  max_size_bytes: number
+}
+
+export interface DocumentUploadStatus {
+  document_id: UUIDv7
+  version_id: UUIDv7
+  scan_status: string
+  availability_status: string
+  /** @nullable */
+  detected_mime_type: string | null
+  /**
+   * @minimum 1
+   * @nullable
+   */
+  byte_size: number | null
+  /**
+   * @nullable
+   * @pattern ^[a-f0-9]{64}$
+   */
+  sha256: string | null
+}
+
+export interface DocumentUploadCompletion {
+  accepted: boolean
+  document_id: UUIDv7
+  version_id: UUIDv7
+  scan_status: string
+  availability_status: string
+  failure_codes: string[]
+}
+
+export interface DocumentVersionScan {
+  document_id: UUIDv7
+  version_id: UUIDv7
+  scan_status: string
+  availability_status: string
+}
+
+export type TemporaryAssignmentStatus =
+  (typeof TemporaryAssignmentStatus)[keyof typeof TemporaryAssignmentStatus]
+
+export const TemporaryAssignmentStatus = {
+  scheduled: 'scheduled',
+  active: 'active',
+  revoked: 'revoked',
+  expired: 'expired',
+} as const
+
+export interface TemporaryAssignment {
+  id: UUIDv7
+  person_id: UUIDv7
+  organization_unit_id: UUIDv7
+  capability_codes: string[]
+  start_at: UtcDateTime
+  end_at: UtcDateTime
+  status: TemporaryAssignmentStatus
+  reason: string
+  approved_by_user_id: UUIDv7
+  /** @nullable */
+  revoked_at: string | null
+  /** @nullable */
+  revoke_reason: string | null
+  /** @minimum 1 */
+  lock_version: number
+}
+
+export interface TemporaryAssignmentCollection {
+  items: TemporaryAssignment[]
+  /** @nullable */
+  next_cursor: string | null
+}
+
+export interface TemporaryAssignmentCreate {
+  person_id: UUIDv7
+  organization_unit_id: UUIDv7
+  /**
+   * @minItems 1
+   * @maxItems 100
+   * @items.maxLength 96
+   * @items.pattern ^[a-z][a-z0-9]*(?:[.:-][a-z0-9]+)*$
+   */
+  capability_codes: string[]
+  start_at: UtcDateTime
+  end_at: UtcDateTime
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  reason: string
+}
+
+export interface TemporaryAssignmentResponse {
+  data: TemporaryAssignment
+}
+
+export interface ReasonAction {
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  reason: string
 }
 
 export interface Cluster {
@@ -974,43 +1236,6 @@ export interface ImportTransitionAction {
   reason?: string
 }
 
-export type AccountStatus = (typeof AccountStatus)[keyof typeof AccountStatus]
-
-export const AccountStatus = {
-  pending: 'pending',
-  active: 'active',
-  locked: 'locked',
-  disabled: 'disabled',
-  archived: 'archived',
-} as const
-
-export interface UserAccount {
-  id: UUIDv7
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  username: string
-  person_id: UUIDv7
-  /** @minimum 1 */
-  person_version: number
-  status: AccountStatus
-  must_change_password: boolean
-  /** @minimum 1 */
-  password_version: number
-  locked_until: UtcDateTime | null
-  /**
-   * @minLength 1
-   * @maxLength 255
-   */
-  display_name_ar: string
-  /**
-   * @maxLength 255
-   * @nullable
-   */
-  display_name_en: string | null
-}
-
 export interface UserAccountCollection {
   items: UserAccount[]
   /** @nullable */
@@ -1026,14 +1251,6 @@ export interface UserAccountCreate {
    * @maxLength 128
    */
   username: string
-}
-
-export interface ReasonAction {
-  /**
-   * @minLength 1
-   * @maxLength 2000
-   */
-  reason: string
 }
 
 export type AuthorizationBootstrapStatus =
@@ -1076,19 +1293,44 @@ export type UnauthorizedResponse = ProblemDetailsSchema
 export type ForbiddenResponse = ProblemDetailsSchema
 
 /**
- * Current principal
- */
-export type PrincipalResponse = AccessContextSchema
-
-/**
  * RFC 7807 problem details
  */
 export type ProblemResponse = ProblemDetailsSchema
 
 /**
+ * Safe replay cannot be completed because persisted state is incomplete (RFC 7807)
+ */
+export type InternalServerErrorResponse = ProblemDetailsSchema
+
+/**
+ * Operation completed without a response body
+ */
+export type CorrelationNoContentResponse = void
+
+/**
+ * Semantically invalid request body (RFC 7807)
+ */
+export type UnprocessableEntityResponse = ProblemDetailsSchema
+
+/**
+ * Identity session revoked and its cookie expired
+ */
+export type IdentitySessionRevokedResponse = void
+
+/**
+ * Controlled activation issued without exposing its secret token
+ */
+export type IdentityActivationIssuedResponse = IdentityActivationIssued
+
+/**
  * State or idempotency conflict (RFC 7807)
  */
 export type ConflictResponse = ProblemDetailsSchema
+
+/**
+ * Current principal
+ */
+export type PrincipalResponse = AccessContextSchema
 
 /**
  * If-Match does not match the current version (RFC 7807)
@@ -1106,19 +1348,50 @@ export type CollectionResponse = EntityCollection
 export type EntityResponse = Entity
 
 /**
+ * Signed direct-upload intent for quarantine storage
+ */
+export type DocumentUploadInitiatedResponse = DocumentUploadInitiated
+
+/**
  * Resource not found or intentionally concealed (RFC 7807)
  */
 export type NotFoundResponse = ProblemDetailsSchema
 
 /**
+ * Safe upload-status projection without storage object keys or AV implementation data
+ */
+export type DocumentUploadStatusResponse = DocumentUploadStatus
+
+/**
+ * Document upload completion accepted for scanning
+ */
+export type DocumentUploadCompletedResponse = DocumentUploadCompletion
+
+/**
+ * Document version scan or promotion result
+ */
+export type DocumentVersionScanResponse = DocumentVersionScan
+
+/**
+ * Cursor-paginated temporary assignments in one organization unit
+ */
+export type TemporaryAssignmentCollectionResponse =
+  TemporaryAssignmentCollection
+
+/**
+ * Temporary assignment representation
+ */
+export type TemporaryAssignmentEntityResponse = TemporaryAssignmentResponse
+
+/**
+ * Cached temporary assignment representation remains current
+ */
+export type TemporaryAssignmentNotModifiedResponse = void
+
+/**
  * Singleton cluster representation
  */
 export type ClusterEntityResponse = ClusterResponse
-
-/**
- * Safe replay cannot be completed because persisted state is incomplete (RFC 7807)
- */
-export type InternalServerErrorResponse = ProblemDetailsSchema
 
 /**
  * Cursor-paginated facilities
@@ -1192,15 +1465,26 @@ export type UserAccountEntityResponse = UserAccount
 
 export type CorrelationIdParameter = UUIDv7
 
-export type IfMatchParameter = string
+export type CsrfTokenParameter = string
 
 export type IdempotencyKeyParameter = string
+
+export type IfMatchParameter = string
 
 export type CursorParameter = string
 
 export type LimitParameter = number
 
 export type ClassificationParameter = Classification
+
+export type OrganizationUnitIdQueryParameter = UUIDv7
+
+export type IfNoneMatchParameter = string
+
+/**
+ * Current X-Resource-Version value, not the weak ETag representation validator.
+ */
+export type TemporaryAssignmentIfMatchParameter = string
 
 export type ListDocumentsParams = {
   /**
@@ -1218,6 +1502,28 @@ export type ListDocumentsParams = {
 export type CompleteDocumentUploadBody = {
   /** @pattern ^[a-f0-9]{64}$ */
   sha256: string
+  /**
+   * @minimum 1
+   * @maximum 1073741824
+   */
+  byte_size: number
+}
+
+export type ListTemporaryAssignmentsParams = {
+  /**
+   * Lowercase RFC 9562 UUID version 7
+   * @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+   */
+  organization_unit_id: OrganizationUnitIdQueryParameter
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
 }
 
 export type ListFacilitiesParams = {
@@ -1400,6 +1706,410 @@ export const logout = async (
 
   const data: logoutResponse['data'] = body ? JSON.parse(body) : undefined
   return { data, status: res.status, headers: res.headers } as logoutResponse
+}
+
+export type identityLoginResponse200 = {
+  data: IdentitySessionResponse
+  status: 200
+}
+
+export type identityLoginResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type identityLoginResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type identityLoginResponse429 = {
+  data: ProblemResponse
+  status: 429
+}
+
+export type identityLoginResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type identityLoginResponseSuccess = identityLoginResponse200 & {
+  headers: Headers
+}
+export type identityLoginResponseError = (
+  | identityLoginResponse400
+  | identityLoginResponse401
+  | identityLoginResponse429
+  | identityLoginResponse500
+) & {
+  headers: Headers
+}
+
+export type identityLoginResponse =
+  identityLoginResponseSuccess | identityLoginResponseError
+
+export const getIdentityLoginUrl = () => {
+  return `/api/v1/identity/login`
+}
+
+/**
+ * @summary Authenticate and create an identity session
+ */
+export const identityLogin = async (
+  identityLoginRequest: IdentityLoginRequest,
+  options?: RequestInit,
+): Promise<identityLoginResponse> => {
+  const res = await fetch(getIdentityLoginUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(identityLoginRequest),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: identityLoginResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as identityLoginResponse
+}
+
+export type consumeIdentityActivationResponse204 = {
+  data: CorrelationNoContentResponse
+  status: 204
+}
+
+export type consumeIdentityActivationResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type consumeIdentityActivationResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type consumeIdentityActivationResponse422 = {
+  data: UnprocessableEntityResponse
+  status: 422
+}
+
+export type consumeIdentityActivationResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type consumeIdentityActivationResponseSuccess =
+  consumeIdentityActivationResponse204 & {
+    headers: Headers
+  }
+export type consumeIdentityActivationResponseError = (
+  | consumeIdentityActivationResponse400
+  | consumeIdentityActivationResponse401
+  | consumeIdentityActivationResponse422
+  | consumeIdentityActivationResponse500
+) & {
+  headers: Headers
+}
+
+export type consumeIdentityActivationResponse =
+  | consumeIdentityActivationResponseSuccess
+  | consumeIdentityActivationResponseError
+
+export const getConsumeIdentityActivationUrl = () => {
+  return `/api/v1/identity/activation`
+}
+
+/**
+ * @summary Consume an activation token and set an initial credential
+ */
+export const consumeIdentityActivation = async (
+  identityActivationRequest: IdentityActivationRequest,
+  options?: RequestInit,
+): Promise<consumeIdentityActivationResponse> => {
+  const res = await fetch(getConsumeIdentityActivationUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(identityActivationRequest),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: consumeIdentityActivationResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as consumeIdentityActivationResponse
+}
+
+export type getCurrentIdentityResponse200 = {
+  data: CurrentIdentityResponse
+  status: 200
+}
+
+export type getCurrentIdentityResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type getCurrentIdentityResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getCurrentIdentityResponseSuccess =
+  getCurrentIdentityResponse200 & {
+    headers: Headers
+  }
+export type getCurrentIdentityResponseError = (
+  getCurrentIdentityResponse400 | getCurrentIdentityResponse401
+) & {
+  headers: Headers
+}
+
+export type getCurrentIdentityResponse =
+  getCurrentIdentityResponseSuccess | getCurrentIdentityResponseError
+
+export const getGetCurrentIdentityUrl = () => {
+  return `/api/v1/identity/me`
+}
+
+/**
+ * @summary Get the current identity session and account
+ */
+export const getCurrentIdentity = async (
+  options?: RequestInit,
+): Promise<getCurrentIdentityResponse> => {
+  const res = await fetch(getGetCurrentIdentityUrl(), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getCurrentIdentityResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getCurrentIdentityResponse
+}
+
+export type identityLogoutResponse204 = {
+  data: IdentitySessionRevokedResponse
+  status: 204
+}
+
+export type identityLogoutResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type identityLogoutResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type identityLogoutResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type identityLogoutResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type identityLogoutResponseSuccess = identityLogoutResponse204 & {
+  headers: Headers
+}
+export type identityLogoutResponseError = (
+  | identityLogoutResponse400
+  | identityLogoutResponse401
+  | identityLogoutResponse403
+  | identityLogoutResponse500
+) & {
+  headers: Headers
+}
+
+export type identityLogoutResponse =
+  identityLogoutResponseSuccess | identityLogoutResponseError
+
+export const getIdentityLogoutUrl = () => {
+  return `/api/v1/identity/logout`
+}
+
+/**
+ * @summary Revoke the current identity session
+ */
+export const identityLogout = async (
+  options?: RequestInit,
+): Promise<identityLogoutResponse> => {
+  const res = await fetch(getIdentityLogoutUrl(), {
+    ...options,
+    method: 'POST',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: identityLogoutResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as identityLogoutResponse
+}
+
+export type changeIdentityPasswordResponse204 = {
+  data: IdentitySessionRevokedResponse
+  status: 204
+}
+
+export type changeIdentityPasswordResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type changeIdentityPasswordResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type changeIdentityPasswordResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type changeIdentityPasswordResponse422 = {
+  data: UnprocessableEntityResponse
+  status: 422
+}
+
+export type changeIdentityPasswordResponseSuccess =
+  changeIdentityPasswordResponse204 & {
+    headers: Headers
+  }
+export type changeIdentityPasswordResponseError = (
+  | changeIdentityPasswordResponse400
+  | changeIdentityPasswordResponse401
+  | changeIdentityPasswordResponse403
+  | changeIdentityPasswordResponse422
+) & {
+  headers: Headers
+}
+
+export type changeIdentityPasswordResponse =
+  changeIdentityPasswordResponseSuccess | changeIdentityPasswordResponseError
+
+export const getChangeIdentityPasswordUrl = () => {
+  return `/api/v1/identity/password`
+}
+
+/**
+ * @summary Change the current principal credential and revoke its session
+ */
+export const changeIdentityPassword = async (
+  identityPasswordChangeRequest: IdentityPasswordChangeRequest,
+  options?: RequestInit,
+): Promise<changeIdentityPasswordResponse> => {
+  const res = await fetch(getChangeIdentityPasswordUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(identityPasswordChangeRequest),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: changeIdentityPasswordResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as changeIdentityPasswordResponse
+}
+
+export type issueIdentityActivationResponse202 = {
+  data: IdentityActivationIssuedResponse
+  status: 202
+}
+
+export type issueIdentityActivationResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type issueIdentityActivationResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type issueIdentityActivationResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type issueIdentityActivationResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type issueIdentityActivationResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type issueIdentityActivationResponseSuccess =
+  issueIdentityActivationResponse202 & {
+    headers: Headers
+  }
+export type issueIdentityActivationResponseError = (
+  | issueIdentityActivationResponse400
+  | issueIdentityActivationResponse401
+  | issueIdentityActivationResponse403
+  | issueIdentityActivationResponse409
+  | issueIdentityActivationResponse500
+) & {
+  headers: Headers
+}
+
+export type issueIdentityActivationResponse =
+  issueIdentityActivationResponseSuccess | issueIdentityActivationResponseError
+
+export const getIssueIdentityActivationUrl = (accountId: string) => {
+  return `/api/v1/identity/accounts/${accountId}/activation`
+}
+
+/**
+ * @summary Issue a controlled activation for an account
+ */
+export const issueIdentityActivation = async (
+  accountId: string,
+  options?: RequestInit,
+): Promise<issueIdentityActivationResponse> => {
+  const res = await fetch(getIssueIdentityActivationUrl(accountId), {
+    ...options,
+    method: 'POST',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: issueIdentityActivationResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as issueIdentityActivationResponse
 }
 
 export type getCurrentPrincipalResponse200 = {
@@ -1709,7 +2419,7 @@ export const createDocument = async (
 }
 
 export type initiateDocumentUploadResponse201 = {
-  data: EntityResponse
+  data: DocumentUploadInitiatedResponse
   status: 201
 }
 
@@ -1738,6 +2448,16 @@ export type initiateDocumentUploadResponse409 = {
   status: 409
 }
 
+export type initiateDocumentUploadResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type initiateDocumentUploadResponse503 = {
+  data: ProblemResponse
+  status: 503
+}
+
 export type initiateDocumentUploadResponseSuccess =
   initiateDocumentUploadResponse201 & {
     headers: Headers
@@ -1748,6 +2468,8 @@ export type initiateDocumentUploadResponseError = (
   | initiateDocumentUploadResponse403
   | initiateDocumentUploadResponse404
   | initiateDocumentUploadResponse409
+  | initiateDocumentUploadResponse500
+  | initiateDocumentUploadResponse503
 ) & {
   headers: Headers
 }
@@ -1763,14 +2485,14 @@ export const getInitiateDocumentUploadUrl = () => {
  * @summary Initiate a document upload
  */
 export const initiateDocumentUpload = async (
-  uploadRequest: UploadRequest,
+  documentUploadInitiateRequest: DocumentUploadInitiateRequest,
   options?: RequestInit,
 ): Promise<initiateDocumentUploadResponse> => {
   const res = await fetch(getInitiateDocumentUploadUrl(), {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(uploadRequest),
+    body: JSON.stringify(documentUploadInitiateRequest),
   })
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text()
@@ -1785,8 +2507,95 @@ export const initiateDocumentUpload = async (
   } as initiateDocumentUploadResponse
 }
 
+export type getDocumentUploadStatusResponse200 = {
+  data: DocumentUploadStatusResponse
+  status: 200
+}
+
+export type getDocumentUploadStatusResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type getDocumentUploadStatusResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getDocumentUploadStatusResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getDocumentUploadStatusResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getDocumentUploadStatusResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type getDocumentUploadStatusResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type getDocumentUploadStatusResponse503 = {
+  data: ProblemResponse
+  status: 503
+}
+
+export type getDocumentUploadStatusResponseSuccess =
+  getDocumentUploadStatusResponse200 & {
+    headers: Headers
+  }
+export type getDocumentUploadStatusResponseError = (
+  | getDocumentUploadStatusResponse400
+  | getDocumentUploadStatusResponse401
+  | getDocumentUploadStatusResponse403
+  | getDocumentUploadStatusResponse404
+  | getDocumentUploadStatusResponse409
+  | getDocumentUploadStatusResponse500
+  | getDocumentUploadStatusResponse503
+) & {
+  headers: Headers
+}
+
+export type getDocumentUploadStatusResponse =
+  getDocumentUploadStatusResponseSuccess | getDocumentUploadStatusResponseError
+
+export const getGetDocumentUploadStatusUrl = (uploadId: string) => {
+  return `/api/v1/documents/uploads/${uploadId}`
+}
+
+/**
+ * @summary Get the authorized status of a document upload
+ */
+export const getDocumentUploadStatus = async (
+  uploadId: string,
+  options?: RequestInit,
+): Promise<getDocumentUploadStatusResponse> => {
+  const res = await fetch(getGetDocumentUploadStatusUrl(uploadId), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getDocumentUploadStatusResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentUploadStatusResponse
+}
+
 export type completeDocumentUploadResponse202 = {
-  data: EntityResponse
+  data: DocumentUploadCompletedResponse
   status: 202
 }
 
@@ -1815,6 +2624,16 @@ export type completeDocumentUploadResponse409 = {
   status: 409
 }
 
+export type completeDocumentUploadResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type completeDocumentUploadResponse503 = {
+  data: ProblemResponse
+  status: 503
+}
+
 export type completeDocumentUploadResponseSuccess =
   completeDocumentUploadResponse202 & {
     headers: Headers
@@ -1825,6 +2644,8 @@ export type completeDocumentUploadResponseError = (
   | completeDocumentUploadResponse403
   | completeDocumentUploadResponse404
   | completeDocumentUploadResponse409
+  | completeDocumentUploadResponse500
+  | completeDocumentUploadResponse503
 ) & {
   headers: Headers
 }
@@ -1861,6 +2682,518 @@ export const completeDocumentUpload = async (
     status: res.status,
     headers: res.headers,
   } as completeDocumentUploadResponse
+}
+
+export type scanDocumentVersionResponse202 = {
+  data: DocumentVersionScanResponse
+  status: 202
+}
+
+export type scanDocumentVersionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type scanDocumentVersionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type scanDocumentVersionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type scanDocumentVersionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type scanDocumentVersionResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type scanDocumentVersionResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type scanDocumentVersionResponse503 = {
+  data: ProblemResponse
+  status: 503
+}
+
+export type scanDocumentVersionResponseSuccess =
+  scanDocumentVersionResponse202 & {
+    headers: Headers
+  }
+export type scanDocumentVersionResponseError = (
+  | scanDocumentVersionResponse400
+  | scanDocumentVersionResponse401
+  | scanDocumentVersionResponse403
+  | scanDocumentVersionResponse404
+  | scanDocumentVersionResponse409
+  | scanDocumentVersionResponse500
+  | scanDocumentVersionResponse503
+) & {
+  headers: Headers
+}
+
+export type scanDocumentVersionResponse =
+  scanDocumentVersionResponseSuccess | scanDocumentVersionResponseError
+
+export const getScanDocumentVersionUrl = (versionId: string) => {
+  return `/api/v1/internal/documents/versions/${versionId}/scan`
+}
+
+/**
+ * @summary Scan a quarantined document version
+ */
+export const scanDocumentVersion = async (
+  versionId: string,
+  options?: RequestInit,
+): Promise<scanDocumentVersionResponse> => {
+  const res = await fetch(getScanDocumentVersionUrl(versionId), {
+    ...options,
+    method: 'POST',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: scanDocumentVersionResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as scanDocumentVersionResponse
+}
+
+export type reconcileDocumentPromotionResponse200 = {
+  data: DocumentVersionScanResponse
+  status: 200
+}
+
+export type reconcileDocumentPromotionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type reconcileDocumentPromotionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type reconcileDocumentPromotionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type reconcileDocumentPromotionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type reconcileDocumentPromotionResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type reconcileDocumentPromotionResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type reconcileDocumentPromotionResponse503 = {
+  data: ProblemResponse
+  status: 503
+}
+
+export type reconcileDocumentPromotionResponseSuccess =
+  reconcileDocumentPromotionResponse200 & {
+    headers: Headers
+  }
+export type reconcileDocumentPromotionResponseError = (
+  | reconcileDocumentPromotionResponse400
+  | reconcileDocumentPromotionResponse401
+  | reconcileDocumentPromotionResponse403
+  | reconcileDocumentPromotionResponse404
+  | reconcileDocumentPromotionResponse409
+  | reconcileDocumentPromotionResponse500
+  | reconcileDocumentPromotionResponse503
+) & {
+  headers: Headers
+}
+
+export type reconcileDocumentPromotionResponse =
+  | reconcileDocumentPromotionResponseSuccess
+  | reconcileDocumentPromotionResponseError
+
+export const getReconcileDocumentPromotionUrl = (versionId: string) => {
+  return `/api/v1/internal/documents/versions/${versionId}/reconcile-promotion`
+}
+
+/**
+ * @summary Reconcile promotion of a scanned document version
+ */
+export const reconcileDocumentPromotion = async (
+  versionId: string,
+  options?: RequestInit,
+): Promise<reconcileDocumentPromotionResponse> => {
+  const res = await fetch(getReconcileDocumentPromotionUrl(versionId), {
+    ...options,
+    method: 'POST',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: reconcileDocumentPromotionResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reconcileDocumentPromotionResponse
+}
+
+export type listTemporaryAssignmentsResponse200 = {
+  data: TemporaryAssignmentCollectionResponse
+  status: 200
+}
+
+export type listTemporaryAssignmentsResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type listTemporaryAssignmentsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listTemporaryAssignmentsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listTemporaryAssignmentsResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type listTemporaryAssignmentsResponseSuccess =
+  listTemporaryAssignmentsResponse200 & {
+    headers: Headers
+  }
+export type listTemporaryAssignmentsResponseError = (
+  | listTemporaryAssignmentsResponse400
+  | listTemporaryAssignmentsResponse401
+  | listTemporaryAssignmentsResponse403
+  | listTemporaryAssignmentsResponse404
+) & {
+  headers: Headers
+}
+
+export type listTemporaryAssignmentsResponse =
+  | listTemporaryAssignmentsResponseSuccess
+  | listTemporaryAssignmentsResponseError
+
+export const getListTemporaryAssignmentsUrl = (
+  params: ListTemporaryAssignmentsParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/organization/temporary-assignments?${stringifiedParams}`
+    : `/api/v1/organization/temporary-assignments`
+}
+
+/**
+ * @summary List temporary assignments in an organization unit
+ */
+export const listTemporaryAssignments = async (
+  params: ListTemporaryAssignmentsParams,
+  options?: RequestInit,
+): Promise<listTemporaryAssignmentsResponse> => {
+  const res = await fetch(getListTemporaryAssignmentsUrl(params), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: listTemporaryAssignmentsResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listTemporaryAssignmentsResponse
+}
+
+export type createTemporaryAssignmentResponse201 = {
+  data: TemporaryAssignmentEntityResponse
+  status: 201
+}
+
+export type createTemporaryAssignmentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type createTemporaryAssignmentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createTemporaryAssignmentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type createTemporaryAssignmentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type createTemporaryAssignmentResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type createTemporaryAssignmentResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type createTemporaryAssignmentResponse503 = {
+  data: ProblemResponse
+  status: 503
+}
+
+export type createTemporaryAssignmentResponseSuccess =
+  createTemporaryAssignmentResponse201 & {
+    headers: Headers
+  }
+export type createTemporaryAssignmentResponseError = (
+  | createTemporaryAssignmentResponse400
+  | createTemporaryAssignmentResponse401
+  | createTemporaryAssignmentResponse403
+  | createTemporaryAssignmentResponse404
+  | createTemporaryAssignmentResponse409
+  | createTemporaryAssignmentResponse500
+  | createTemporaryAssignmentResponse503
+) & {
+  headers: Headers
+}
+
+export type createTemporaryAssignmentResponse =
+  | createTemporaryAssignmentResponseSuccess
+  | createTemporaryAssignmentResponseError
+
+export const getCreateTemporaryAssignmentUrl = () => {
+  return `/api/v1/organization/temporary-assignments`
+}
+
+/**
+ * @summary Create a temporary assignment
+ */
+export const createTemporaryAssignment = async (
+  temporaryAssignmentCreate: TemporaryAssignmentCreate,
+  options?: RequestInit,
+): Promise<createTemporaryAssignmentResponse> => {
+  const res = await fetch(getCreateTemporaryAssignmentUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(temporaryAssignmentCreate),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: createTemporaryAssignmentResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as createTemporaryAssignmentResponse
+}
+
+export type getTemporaryAssignmentResponse200 = {
+  data: TemporaryAssignmentEntityResponse
+  status: 200
+}
+
+export type getTemporaryAssignmentResponse304 = {
+  data: TemporaryAssignmentNotModifiedResponse
+  status: 304
+}
+
+export type getTemporaryAssignmentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type getTemporaryAssignmentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getTemporaryAssignmentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getTemporaryAssignmentResponseSuccess =
+  getTemporaryAssignmentResponse200 & {
+    headers: Headers
+  }
+export type getTemporaryAssignmentResponseError = (
+  | getTemporaryAssignmentResponse304
+  | getTemporaryAssignmentResponse400
+  | getTemporaryAssignmentResponse401
+  | getTemporaryAssignmentResponse404
+) & {
+  headers: Headers
+}
+
+export type getTemporaryAssignmentResponse =
+  getTemporaryAssignmentResponseSuccess | getTemporaryAssignmentResponseError
+
+export const getGetTemporaryAssignmentUrl = (temporaryAssignmentId: string) => {
+  return `/api/v1/organization/temporary-assignments/${temporaryAssignmentId}`
+}
+
+/**
+ * @summary Get a temporary assignment
+ */
+export const getTemporaryAssignment = async (
+  temporaryAssignmentId: string,
+  options?: RequestInit,
+): Promise<getTemporaryAssignmentResponse> => {
+  const res = await fetch(getGetTemporaryAssignmentUrl(temporaryAssignmentId), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getTemporaryAssignmentResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getTemporaryAssignmentResponse
+}
+
+export type revokeTemporaryAssignmentResponse200 = {
+  data: TemporaryAssignmentEntityResponse
+  status: 200
+}
+
+export type revokeTemporaryAssignmentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type revokeTemporaryAssignmentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type revokeTemporaryAssignmentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type revokeTemporaryAssignmentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type revokeTemporaryAssignmentResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type revokeTemporaryAssignmentResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type revokeTemporaryAssignmentResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type revokeTemporaryAssignmentResponseSuccess =
+  revokeTemporaryAssignmentResponse200 & {
+    headers: Headers
+  }
+export type revokeTemporaryAssignmentResponseError = (
+  | revokeTemporaryAssignmentResponse400
+  | revokeTemporaryAssignmentResponse401
+  | revokeTemporaryAssignmentResponse403
+  | revokeTemporaryAssignmentResponse404
+  | revokeTemporaryAssignmentResponse409
+  | revokeTemporaryAssignmentResponse412
+  | revokeTemporaryAssignmentResponse500
+) & {
+  headers: Headers
+}
+
+export type revokeTemporaryAssignmentResponse =
+  | revokeTemporaryAssignmentResponseSuccess
+  | revokeTemporaryAssignmentResponseError
+
+export const getRevokeTemporaryAssignmentUrl = (
+  temporaryAssignmentId: string,
+) => {
+  return `/api/v1/organization/temporary-assignments/${temporaryAssignmentId}/revoke`
+}
+
+/**
+ * @summary Revoke an active or scheduled temporary assignment
+ */
+export const revokeTemporaryAssignment = async (
+  temporaryAssignmentId: string,
+  reasonAction: ReasonAction,
+  options?: RequestInit,
+): Promise<revokeTemporaryAssignmentResponse> => {
+  const res = await fetch(
+    getRevokeTemporaryAssignmentUrl(temporaryAssignmentId),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(reasonAction),
+    },
+  )
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: revokeTemporaryAssignmentResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as revokeTemporaryAssignmentResponse
 }
 
 export type getClusterResponse200 = {

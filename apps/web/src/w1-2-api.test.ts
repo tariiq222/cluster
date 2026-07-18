@@ -1,26 +1,48 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  changeIdentityPassword,
+  completeDocumentUpload,
+  consumeIdentityActivation,
   createCluster,
   createFacility,
   createOrganizationUnit,
   createAssignment,
   createPerson,
   createPosition,
+  createTemporaryAssignment,
   createUserAccount,
+  getCurrentIdentity,
   getCluster,
+  getDocumentUploadStatus,
   listFacilities,
   listOrganizationUnits,
   listAssignments,
   listPeople,
   listPositions,
+  listTemporaryAssignments,
   listUserAccounts,
+  getTemporaryAssignment,
+  identityLogin,
+  identityLogout,
+  initiateDocumentUpload,
+  issueIdentityActivation,
+  revokeTemporaryAssignment,
   transitionUserAccount,
   getImportJob,
   listImportJobRows,
   submitImportJob,
   transitionImportJob,
 } from './api'
+import {
+  DocumentUploadInitiateRequestPurpose,
+  getCompleteDocumentUploadUrl,
+  getGetDocumentUploadStatusUrl,
+  getGetTemporaryAssignmentUrl,
+  getIdentityLoginUrl,
+  getListTemporaryAssignmentsUrl,
+  getRevokeTemporaryAssignmentUrl,
+} from './api/generated/w1-2'
 
 const token = 'fixture-token'
 const cluster = {
@@ -39,6 +61,113 @@ function jsonResponse(body: unknown, status = 200): Response {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('W1.2 Organization API adapter', () => {
+  it('retains the generated W1.2 operation URLs and upload purpose contract', () => {
+    const assignmentId = '018f6f7d-0c00-7000-8000-000000000108'
+    const uploadId = '018f6f7d-0c00-7000-8000-000000000109'
+
+    expect(DocumentUploadInitiateRequestPurpose).toEqual({
+      document_version: 'document_version',
+      organization_import_source: 'organization_import_source',
+    })
+    expect(getIdentityLoginUrl()).toBe('/api/v1/identity/login')
+    expect(getGetDocumentUploadStatusUrl(uploadId)).toBe(`/api/v1/documents/uploads/${uploadId}`)
+    expect(getCompleteDocumentUploadUrl(uploadId)).toBe(`/api/v1/documents/uploads/${uploadId}/complete`)
+    expect(getListTemporaryAssignmentsUrl({ organization_unit_id: cluster.id, limit: 20 })).toBe(
+      `/api/v1/organization/temporary-assignments?organization_unit_id=${cluster.id}&limit=20`,
+    )
+    expect(getGetTemporaryAssignmentUrl(assignmentId)).toBe(`/api/v1/organization/temporary-assignments/${assignmentId}`)
+    expect(getRevokeTemporaryAssignmentUrl(assignmentId)).toBe(`/api/v1/organization/temporary-assignments/${assignmentId}/revoke`)
+  })
+
+  it('uses the cookie session and CSRF proof for document uploads and temporary assignments', async () => {
+    const uploadId = '018f6f7d-0c00-7000-8000-000000000109'
+    const assignment = {
+      id: '018f6f7d-0c00-7000-8000-000000000108', person_id: '018f6f7d-0c00-7000-8000-000000000105',
+      organization_unit_id: cluster.id, capability_codes: ['organization.temporary-assignment.manage'],
+      start_at: '2026-07-18T08:00:00Z', end_at: '2026-07-19T08:00:00Z', status: 'active',
+      reason: 'Cover planned leave', approved_by_user_id: '018f6f7d-0c00-7000-8000-000000000021',
+      revoked_at: null, revoke_reason: null, lock_version: 1,
+    }
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { upload_id: uploadId } }, 201))
+      .mockResolvedValueOnce(jsonResponse({ data: { document_id: 'document-id', version_id: 'version-id', scan_status: 'pending', availability_status: 'quarantined', detected_mime_type: null, byte_size: null, sha256: null } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { accepted: true, document_id: 'document-id', version_id: 'version-id', scan_status: 'pending', availability_status: 'quarantined', failure_codes: [] } }, 202))
+      .mockResolvedValueOnce(jsonResponse({ items: [assignment], next_cursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ data: assignment }, 201))
+      .mockResolvedValueOnce(jsonResponse({ data: assignment }))
+      .mockResolvedValueOnce(jsonResponse({ data: { ...assignment, status: 'revoked', lock_version: 2 } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await initiateDocumentUpload('csrf-token', {
+      purpose: 'document_version', name: 'Evidence', classification: 'internal', file_name: 'evidence.pdf',
+      content_type: 'application/pdf', byte_size: 42, sha256: 'a'.repeat(64),
+    })
+    await getDocumentUploadStatus(uploadId)
+    await completeDocumentUpload('csrf-token', uploadId, { byte_size: 42, sha256: 'a'.repeat(64) })
+    await listTemporaryAssignments(cluster.id, 20)
+    await createTemporaryAssignment('csrf-token', {
+      person_id: assignment.person_id, organization_unit_id: cluster.id, capability_codes: assignment.capability_codes,
+      start_at: assignment.start_at, end_at: assignment.end_at, reason: assignment.reason,
+    })
+    await getTemporaryAssignment(assignment.id)
+    await revokeTemporaryAssignment('csrf-token', assignment.id, '"1"', 'Coverage no longer required')
+
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/api/v1/documents/uploads',
+      `/api/v1/documents/uploads/${uploadId}`,
+      `/api/v1/documents/uploads/${uploadId}/complete`,
+      `/api/v1/organization/temporary-assignments?organization_unit_id=${cluster.id}&limit=20`,
+      '/api/v1/organization/temporary-assignments',
+      `/api/v1/organization/temporary-assignments/${assignment.id}`,
+      `/api/v1/organization/temporary-assignments/${assignment.id}/revoke`,
+    ])
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toMatchObject({ credentials: 'same-origin' })
+      expect(new Headers(init?.headers).get('Authorization')).toBeNull()
+    }
+    for (const callIndex of [0, 2, 4, 6]) {
+      const headers = new Headers(fetchMock.mock.calls[callIndex][1]?.headers)
+      expect(headers.get('X-CSRF-Token')).toBe('csrf-token')
+      expect(headers.get('Idempotency-Key')).toBeTruthy()
+    }
+    expect(new Headers(fetchMock.mock.calls[6][1]?.headers).get('If-Match')).toBe('"1"')
+  })
+
+  it('uses cookie-session credential operations with their required CSRF inputs', async () => {
+    const accountId = '018f6f7d-0c00-7000-8000-000000000106'
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { user_id: accountId, expires_at: '2026-07-18T08:00:00Z', restricted: false, csrf_token: 'csrf-token' } }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse({ data: { principal: { user_id: accountId }, account: { id: accountId }, session: { restricted: false } } }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse({ data: { account_id: accountId, status: 'activation_issued', expires_at: '2026-07-18T08:00:00Z', delivery: 'controlled' } }, 202))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await identityLogin({ username: 'employee.100', password: 'correct-password' })
+    await consumeIdentityActivation({ token: 'a'.repeat(64), password: 'new-correct-password' })
+    await getCurrentIdentity()
+    await identityLogout('csrf-token')
+    await changeIdentityPassword('csrf-token', { current_password: 'correct-password', new_password: 'new-correct-password' })
+    await issueIdentityActivation('csrf-token', accountId)
+
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/api/v1/identity/login',
+      '/api/v1/identity/activation',
+      '/api/v1/identity/me',
+      '/api/v1/identity/logout',
+      '/api/v1/identity/password',
+      `/api/v1/identity/accounts/${accountId}/activation`,
+    ])
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toMatchObject({ credentials: 'same-origin' })
+      expect(new Headers(init?.headers).get('Authorization')).toBeNull()
+    }
+    for (const callIndex of [3, 4, 5]) {
+      expect(new Headers(fetchMock.mock.calls[callIndex][1]?.headers).get('X-CSRF-Token')).toBe('csrf-token')
+    }
+  })
+
   it('reads the cluster and facility collection from published routes', async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse({ data: cluster }))

@@ -31,6 +31,20 @@ import type {
   ImportJobCreate,
   ImportJobRowCollection as GeneratedImportJobRowCollection,
   ImportJobRow as GeneratedImportJobRow,
+  CompleteDocumentUploadBody,
+  CurrentIdentityResponseData,
+  DocumentUploadCompletion,
+  DocumentUploadInitiateRequest,
+  DocumentUploadInitiated,
+  DocumentUploadStatus,
+  IdentityActivationIssued,
+  IdentityActivationRequest,
+  IdentityLoginRequest,
+  IdentityPasswordChangeRequest,
+  IdentitySessionResponseData,
+  TemporaryAssignment as GeneratedTemporaryAssignment,
+  TemporaryAssignmentCollection as GeneratedTemporaryAssignmentCollection,
+  TemporaryAssignmentCreate,
 } from './api/generated/w1-2'
 
 export type ProblemFieldError = {
@@ -89,6 +103,20 @@ export type ImportJobRowCollection = GeneratedImportJobRowCollection
 export type ImportJobRow = GeneratedImportJobRow
 export type CreateImportJobInput = ImportJobCreate
 export type ImportJobAction = 'validate' | 'approve' | 'reject' | 'apply' | 'cancel'
+export type InitiateDocumentUploadInput = DocumentUploadInitiateRequest
+export type CompleteDocumentUploadInput = CompleteDocumentUploadBody
+export type DocumentUploadIntent = DocumentUploadInitiated
+export type DocumentUploadState = DocumentUploadStatus
+export type DocumentUploadCompletionResult = DocumentUploadCompletion
+export type TemporaryAssignment = GeneratedTemporaryAssignment
+export type TemporaryAssignmentCollection = GeneratedTemporaryAssignmentCollection
+export type CreateTemporaryAssignmentInput = TemporaryAssignmentCreate
+export type IdentityLoginInput = IdentityLoginRequest
+export type IdentityActivationInput = IdentityActivationRequest
+export type IdentityCredentialChangeInput = IdentityPasswordChangeRequest
+export type IdentitySession = IdentitySessionResponseData
+export type CurrentIdentity = CurrentIdentityResponseData
+export type IdentityActivation = IdentityActivationIssued
 
 export class ApiError extends Error {
   readonly status: number
@@ -191,6 +219,24 @@ async function requestJsonResponse<T>(path: string, init: RequestInit, token?: s
 
 async function requestJson<T>(path: string, init: RequestInit, token?: string): Promise<T> {
   return (await requestJsonResponse<T>(path, init, token)).body
+}
+
+async function requestEmpty(path: string, init: RequestInit): Promise<void> {
+  const headers = new Headers(init.headers)
+  headers.set('Accept', 'application/json, application/problem+json')
+  if (!headers.has('X-Correlation-ID')) {
+    headers.set('X-Correlation-ID', uuidV7())
+  }
+
+  const response = await fetch(path, {
+    ...init,
+    credentials: 'same-origin',
+    headers,
+  })
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await problemFrom(response))
+  }
 }
 
 export async function login(username: string, password: string): Promise<Session> {
@@ -450,5 +496,143 @@ export async function transitionImportJob(token: string, jobId: string, action: 
     },
     body: JSON.stringify(reason ? { reason } : {}),
   }, token)
+  return body.data
+}
+
+export async function initiateDocumentUpload(csrfToken: string, input: InitiateDocumentUploadInput): Promise<DocumentUploadIntent> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: DocumentUploadIntent }>('/api/v1/documents/uploads', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `document-upload-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify(input),
+  })
+  return body.data
+}
+
+export async function getDocumentUploadStatus(uploadId: string): Promise<DocumentUploadState> {
+  const body = await requestJson<{ data: DocumentUploadState }>(`/api/v1/documents/uploads/${encodeURIComponent(uploadId)}`, {
+    method: 'GET',
+  })
+  return body.data
+}
+
+export async function completeDocumentUpload(csrfToken: string, uploadId: string, input: CompleteDocumentUploadInput): Promise<DocumentUploadCompletionResult> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: DocumentUploadCompletionResult }>(`/api/v1/documents/uploads/${encodeURIComponent(uploadId)}/complete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `document-upload-complete-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify(input),
+  })
+  return body.data
+}
+
+export function listTemporaryAssignments(organizationUnitId: string, limit = 100): Promise<TemporaryAssignmentCollection> {
+  const params = new URLSearchParams({ organization_unit_id: organizationUnitId, limit: String(limit) })
+  return requestJson<TemporaryAssignmentCollection>(`/api/v1/organization/temporary-assignments?${params}`, { method: 'GET' })
+}
+
+export async function createTemporaryAssignment(csrfToken: string, input: CreateTemporaryAssignmentInput): Promise<TemporaryAssignment> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: TemporaryAssignment }>('/api/v1/organization/temporary-assignments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `temporary-assignment-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify(input),
+  })
+  return body.data
+}
+
+export async function getTemporaryAssignment(temporaryAssignmentId: string): Promise<TemporaryAssignment> {
+  const body = await requestJson<{ data: TemporaryAssignment }>(`/api/v1/organization/temporary-assignments/${encodeURIComponent(temporaryAssignmentId)}`, {
+    method: 'GET',
+  })
+  return body.data
+}
+
+export async function revokeTemporaryAssignment(csrfToken: string, temporaryAssignmentId: string, ifMatch: string, reason: string): Promise<TemporaryAssignment> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: TemporaryAssignment }>(`/api/v1/organization/temporary-assignments/${encodeURIComponent(temporaryAssignmentId)}/revoke`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `temporary-assignment-revoke-${correlationId}`,
+      'If-Match': ifMatch,
+      'X-Correlation-ID': correlationId,
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify({ reason }),
+  })
+  return body.data
+}
+
+export async function identityLogin(input: IdentityLoginInput): Promise<IdentitySession> {
+  const body = await requestJson<{ data: IdentitySession }>('/api/v1/identity/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  return body.data
+}
+
+export function consumeIdentityActivation(input: IdentityActivationInput): Promise<void> {
+  return requestEmpty('/api/v1/identity/activation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+export async function getCurrentIdentity(): Promise<CurrentIdentity> {
+  const body = await requestJson<{ data: CurrentIdentity }>('/api/v1/identity/me', { method: 'GET' })
+  return body.data
+}
+
+export function identityLogout(csrfToken: string): Promise<void> {
+  const correlationId = uuidV7()
+  return requestEmpty('/api/v1/identity/logout', {
+    method: 'POST',
+    headers: {
+      'Idempotency-Key': `identity-logout-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+      'X-CSRF-Token': csrfToken,
+    },
+  })
+}
+
+export function changeIdentityPassword(csrfToken: string, input: IdentityCredentialChangeInput): Promise<void> {
+  return requestEmpty('/api/v1/identity/password', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify(input),
+  })
+}
+
+export async function issueIdentityActivation(csrfToken: string, accountId: string): Promise<IdentityActivation> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: IdentityActivation }>(`/api/v1/identity/accounts/${encodeURIComponent(accountId)}/activation`, {
+    method: 'POST',
+    headers: {
+      'Idempotency-Key': `identity-activation-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+      'X-CSRF-Token': csrfToken,
+    },
+  })
   return body.data
 }

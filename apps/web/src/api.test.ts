@@ -4,6 +4,7 @@ import {
   ApiError,
   createWorkRecord,
   getWorkRecord,
+  identityLogout,
   listNotifications,
   listWorkRecords,
   login,
@@ -160,6 +161,27 @@ describe('API client', () => {
       status: 500,
       problem: { type: 'about:blank', title: 'Request failed', status: 500 },
     })
+  })
+
+  it('normalizes cookie-session endpoint failures as ApiError instances', async () => {
+    const fetchMock = mockFetch(jsonResponse({
+      type: 'https://example.test/problems/csrf',
+      title: 'Forbidden',
+      status: 403,
+      detail: 'The CSRF proof is invalid.',
+    }, 403))
+
+    await expect(identityLogout('csrf-token')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 403,
+      problem: { title: 'Forbidden', detail: 'The CSRF proof is invalid.' },
+    })
+
+    const [, init] = fetchMock.mock.calls[0]
+    const headers = new Headers(init?.headers)
+    expect(init).toMatchObject({ credentials: 'same-origin' })
+    expect(headers.get('X-CSRF-Token')).toBe('csrf-token')
+    expect(headers.get('Authorization')).toBeNull()
   })
 
   it('creates a work record with matching correlation and idempotency identifiers', async () => {
