@@ -380,7 +380,7 @@ export function listUserAccounts(token: string): Promise<UserAccountCollection> 
 
 export async function createUserAccount(token: string, input: CreateUserAccountInput): Promise<UserAccount> {
   const correlationId = uuidV7()
-  const body = await requestJson<{ data: UserAccount }>('/api/v1/identity/accounts', {
+  return requestJson<UserAccount>('/api/v1/identity/accounts', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -389,17 +389,16 @@ export async function createUserAccount(token: string, input: CreateUserAccountI
     },
     body: JSON.stringify(input),
   }, token)
-  return body.data
 }
 
 export async function transitionUserAccount(token: string, accountId: string, action: UserAccountAction, reason?: string): Promise<UserAccount> {
-  const detail = await requestJsonResponse<{ data: UserAccount }>(`/api/v1/identity/accounts/${encodeURIComponent(accountId)}`, { method: 'GET' }, token)
+  const detail = await requestJsonResponse<UserAccount>(`/api/v1/identity/accounts/${encodeURIComponent(accountId)}`, { method: 'GET' }, token)
   const etag = detail.response.headers.get('ETag')
   if (!etag) {
     throw new ApiError(502, { type: 'about:blank', title: 'Missing account version', status: 502 })
   }
   const correlationId = uuidV7()
-  const body = await requestJson<{ data: UserAccount }>(`/api/v1/identity/accounts/${encodeURIComponent(accountId)}/${action}`, {
+  return requestJson<UserAccount>(`/api/v1/identity/accounts/${encodeURIComponent(accountId)}/${action}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -409,7 +408,6 @@ export async function transitionUserAccount(token: string, accountId: string, ac
     },
     body: JSON.stringify(reason ? { reason } : {}),
   }, token)
-  return body.data
 }
 
 export async function submitImportJob(token: string, input: CreateImportJobInput): Promise<ImportJob> {

@@ -185,16 +185,17 @@ describe('W1.2 Organization API adapter', () => {
       status: 'pending' as const, must_change_password: true, password_version: 1,
       locked_until: null, display_name_ar: 'موظف الاختبار', display_name_en: null,
     }
+    const activeAccount = { ...account, status: 'active' as const }
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse({ items: [], next_cursor: null }))
-      .mockResolvedValueOnce(jsonResponse({ data: account }, 201))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: account }), { status: 200, headers: { 'Content-Type': 'application/json', ETag: '"3"' } }))
-      .mockResolvedValueOnce(jsonResponse({ data: { ...account, status: 'active' } }))
+      .mockResolvedValueOnce(jsonResponse(account, 201))
+      .mockResolvedValueOnce(new Response(JSON.stringify(account), { status: 200, headers: { 'Content-Type': 'application/json', ETag: '"3"' } }))
+      .mockResolvedValueOnce(jsonResponse(activeAccount))
     vi.stubGlobal('fetch', fetchMock)
 
     await listUserAccounts(token)
-    await createUserAccount(token, { person_id: account.person_id, person_version: 1, username: account.username })
-    await transitionUserAccount(token, account.id, 'activate', 'Approved')
+    await expect(createUserAccount(token, { person_id: account.person_id, person_version: 1, username: account.username })).resolves.toEqual(account)
+    await expect(transitionUserAccount(token, account.id, 'activate', 'Approved')).resolves.toEqual(activeAccount)
 
     expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
       '/api/v1/identity/accounts?limit=100',
@@ -211,9 +212,9 @@ describe('W1.2 Organization API adapter', () => {
     const accountId = '018f6f7d-0c00-7000-8000-000000000106'
     const account = { id: accountId, status: 'active' }
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse({ data: account }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: account }), { headers: { 'Content-Type': 'application/json', ETag: '"1"' } }))
-      .mockResolvedValueOnce(jsonResponse({ data: account }))
+      .mockResolvedValueOnce(jsonResponse(account))
+      .mockResolvedValueOnce(new Response(JSON.stringify(account), { headers: { 'Content-Type': 'application/json', ETag: '"1"' } }))
+      .mockResolvedValueOnce(jsonResponse(account))
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(transitionUserAccount(token, accountId, 'disable')).rejects.toMatchObject({

@@ -127,6 +127,7 @@ kill_tree() {
 
 readonly API_ENV=(
   APP_ENV=local
+  APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
   DB_CONNECTION=mysql
   DB_HOST=127.0.0.1
   DB_PORT="$MYSQL_PORT"
@@ -152,7 +153,7 @@ db_count() {
 pending_outbox_count() {
   (
     cd "$API_DIR"
-    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('outbox_events')->whereNull('published_at')->count();" 2>/dev/null | tail -n 1
+    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('outbox_events')->whereNull('published_at')->where('event_type', 'com.cluster.workrecord.submitted.v1')->count();" 2>/dev/null | tail -n 1
   )
 }
 
