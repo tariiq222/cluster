@@ -4622,7 +4622,7 @@ components:
         name: If-Match,
         in: header,
         required: true,
-        description: "Current X-Resource-Version value, not the weak ETag representation validator."
+        description: "Current X-Resource-Version value, not the weak ETag representation validator.",
         schema: { type: string, pattern: '^"[1-9][0-9]*"$' },
       }
     OrganizationUnitIdQuery:
