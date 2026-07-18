@@ -5,6 +5,7 @@ export type AppRoute =
   | { name: 'organization' }
   | { name: 'organization-structure' }
   | { name: 'people-assignments' }
+  | { name: 'identity-accounts' }
   | { name: 'not-found' }
 
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -15,6 +16,7 @@ export const primaryRoutes = [
   { route: { name: 'organization' } as const, path: '/admin/organization' },
   { route: { name: 'organization-structure' } as const, path: '/admin/organization/structure' },
   { route: { name: 'people-assignments' } as const, path: '/admin/organization/people' },
+  { route: { name: 'identity-accounts' } as const, path: '/admin/identity/accounts' },
 ]
 
 export function routeFromPath(pathname: string): AppRoute {
@@ -32,6 +34,9 @@ export function routeFromPath(pathname: string): AppRoute {
   }
   if (pathname === '/admin/organization/people') {
     return { name: 'people-assignments' }
+  }
+  if (pathname === '/admin/identity/accounts') {
+    return { name: 'identity-accounts' }
   }
 
   const match = pathname.match(/^\/work-records\/([^/]+)$/)

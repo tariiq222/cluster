@@ -24,6 +24,9 @@ import type {
   Position as GeneratedPosition,
   PositionCollection as GeneratedPositionCollection,
   PositionCreate,
+  UserAccount as GeneratedUserAccount,
+  UserAccountCollection as GeneratedUserAccountCollection,
+  UserAccountCreate,
 } from './api/generated/w1-2'
 
 export type ProblemFieldError = {
@@ -73,6 +76,10 @@ export type CreatePersonInput = PersonCreate
 export type Assignment = GeneratedAssignment
 export type AssignmentCollection = GeneratedAssignmentCollection
 export type CreateAssignmentInput = AssignmentCreate
+export type UserAccount = GeneratedUserAccount
+export type UserAccountCollection = GeneratedUserAccountCollection
+export type CreateUserAccountInput = UserAccountCreate
+export type UserAccountAction = 'activate' | 'unlock' | 'disable' | 'archive' | 'revoke-sessions' | 'force-password-change'
 
 export class ApiError extends Error {
   readonly status: number
@@ -150,7 +157,7 @@ async function problemFrom(response: Response): Promise<ProblemDetails> {
   }
 }
 
-async function requestJson<T>(path: string, init: RequestInit, token?: string): Promise<T> {
+async function requestJsonResponse<T>(path: string, init: RequestInit, token?: string): Promise<{ body: T; response: Response }> {
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json, application/problem+json')
   if (!headers.has('X-Correlation-ID')) {
@@ -170,7 +177,11 @@ async function requestJson<T>(path: string, init: RequestInit, token?: string): 
     throw new ApiError(response.status, await problemFrom(response))
   }
 
-  return response.json() as Promise<T>
+  return { body: await response.json() as T, response }
+}
+
+async function requestJson<T>(path: string, init: RequestInit, token?: string): Promise<T> {
+  return (await requestJsonResponse<T>(path, init, token)).body
 }
 
 export async function login(username: string, password: string): Promise<Session> {
@@ -350,6 +361,44 @@ export async function createAssignment(token: string, input: CreateAssignmentInp
       'X-Correlation-ID': correlationId,
     },
     body: JSON.stringify(input),
+  }, token)
+  return body.data
+}
+
+export function listUserAccounts(token: string): Promise<UserAccountCollection> {
+  return requestJson<UserAccountCollection>('/api/v1/identity/accounts?limit=100', { method: 'GET' }, token)
+}
+
+export async function createUserAccount(token: string, input: CreateUserAccountInput): Promise<UserAccount> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: UserAccount }>('/api/v1/identity/accounts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `identity-account-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(input),
+  }, token)
+  return body.data
+}
+
+export async function transitionUserAccount(token: string, accountId: string, action: UserAccountAction, reason?: string): Promise<UserAccount> {
+  const detail = await requestJsonResponse<{ data: UserAccount }>(`/api/v1/identity/accounts/${encodeURIComponent(accountId)}`, { method: 'GET' }, token)
+  const etag = detail.response.headers.get('ETag')
+  if (!etag) {
+    throw new ApiError(502, { type: 'about:blank', title: 'Missing account version', status: 502 })
+  }
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: UserAccount }>(`/api/v1/identity/accounts/${encodeURIComponent(accountId)}/${action}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `identity-${action}-${correlationId}`,
+      'If-Match': etag,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(reason ? { reason } : {}),
   }, token)
   return body.data
 }

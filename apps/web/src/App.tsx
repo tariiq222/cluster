@@ -15,6 +15,7 @@ import { primaryRoutes, routeFromPath, type AppRoute } from './shell/routes'
 import { OrganizationOverview } from './features/organization/OrganizationOverview'
 import { OrganizationStructure } from './features/organization/OrganizationStructure'
 import { PeopleAssignments } from './features/organization/PeopleAssignments'
+import { IdentityAccounts } from './features/identity/IdentityAccounts'
 
 type Locale = 'ar' | 'en'
 
@@ -34,6 +35,8 @@ const text = {
     organization: 'التنظيم',
     organizationStructure: 'الهيكل والمناصب',
     peopleAssignments: 'الأشخاص والتكليفات',
+    identityAccounts: 'حسابات الهوية',
+    administrationNavigation: 'تنقل الإدارة',
     notifications: 'الإشعارات',
     closeNotifications: 'إغلاق الإشعارات',
     logout: 'تسجيل الخروج',
@@ -85,6 +88,8 @@ const text = {
     organization: 'Organization',
     organizationStructure: 'Structure and positions',
     peopleAssignments: 'People and assignments',
+    identityAccounts: 'Identity accounts',
+    administrationNavigation: 'Administration navigation',
     notifications: 'Notifications',
     closeNotifications: 'Close notifications',
     logout: 'Sign out',
@@ -151,6 +156,7 @@ function App() {
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const copy = text[locale]
+  const adminView = ['organization', 'organization-structure', 'people-assignments', 'identity-accounts'].includes(view.name)
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -357,7 +363,7 @@ function App() {
         </a>
         <a
           href={primaryRoutes[2].path}
-          aria-current={view.name === primaryRoutes[2].route.name ? 'page' : undefined}
+          aria-current={adminView ? 'page' : undefined}
           onClick={(event) => {
             event.preventDefault()
             navigate({ name: 'organization' }, primaryRoutes[2].path)
@@ -365,29 +371,20 @@ function App() {
         >
           {copy.organization}
         </a>
-        <a
-          href={primaryRoutes[3].path}
-          aria-current={view.name === primaryRoutes[3].route.name ? 'page' : undefined}
-          onClick={(event) => {
-            event.preventDefault()
-            navigate({ name: 'organization-structure' }, primaryRoutes[3].path)
-          }}
-        >
-          {copy.organizationStructure}
-        </a>
-        <a
-          href={primaryRoutes[4].path}
-          aria-current={view.name === primaryRoutes[4].route.name ? 'page' : undefined}
-          onClick={(event) => {
-            event.preventDefault()
-            navigate({ name: 'people-assignments' }, primaryRoutes[4].path)
-          }}
-        >
-          {copy.peopleAssignments}
-        </a>
       </nav>
 
       <main className="main-content">
+        {adminView && <nav className="secondary-navigation" aria-label={copy.administrationNavigation}>
+          {[
+            [2, copy.organization],
+            [3, copy.organizationStructure],
+            [4, copy.peopleAssignments],
+            [5, copy.identityAccounts],
+          ].map(([index, label]) => {
+            const item = primaryRoutes[index as number]
+            return <a key={item.path} href={item.path} aria-current={view.name === item.route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(item.route, item.path) }}>{label}</a>
+          })}
+        </nav>}
         {view.name === 'list' && (
           <RequestList
             locale={locale}
@@ -438,6 +435,9 @@ function App() {
         )}
         {view.name === 'people-assignments' && (
           <PeopleAssignments locale={locale} token={session.access_token} onSessionExpired={expireSession} />
+        )}
+        {view.name === 'identity-accounts' && (
+          <IdentityAccounts locale={locale} token={session.access_token} onSessionExpired={expireSession} />
         )}
       </main>
 

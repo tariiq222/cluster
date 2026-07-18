@@ -399,6 +399,33 @@ tbody tr:hover {
   margin-block-end: 32px;
 }
 
+.secondary-navigation {
+  display: flex;
+  gap: 8px;
+  margin-block: -16px 32px;
+  overflow-x: auto;
+  padding-block: 8px;
+}
+
+.secondary-navigation a {
+  display: inline-flex;
+  min-block-size: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  padding-inline: 16px;
+  border: 1px solid #9aabaa;
+  color: #172126;
+  background: #fff;
+  text-decoration: none;
+}
+
+.secondary-navigation a[aria-current='page'] {
+  border-color: #006c67;
+  color: #fff;
+  background: #006c67;
+  font-weight: 600;
+}
+
 .request-list,
 .notification-list {
   margin: 0;
