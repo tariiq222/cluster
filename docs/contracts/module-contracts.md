@@ -21,7 +21,7 @@ references: []
 | Module | Owns | Publishes |
 |---|---|---|
 | Organization | Person, PII الأساسية، الهيكل والتكليفات والاستيراد | `ClusterCreated`, `ClusterUpdated`, `FacilityCreated`, `FacilityUpdated`, `FacilityArchived`, `OrganizationUnitCreated`, `OrganizationUnitMoved`, `OrganizationUnitUpdated`, `OrganizationUnitArchived`, `PositionCreated`, `PositionUpdated`, `PersonRegistered`, `PersonUpdated`, `ValidatePersonReference`, `IdentityProvisioningRequested`, `PersonAccessStatusChanged` |
-| Identity | sessions and current principal | authenticated access context |
+| Identity | UserAccount والحسابات والجلسات وInbox provisioning وcurrent principal | `UserAccountCreated`, `UserAccountChanged`, authenticated access context |
 | Authorization | access decisions | `AccessDecision` |
 | Work Definitions | immutable published work-type versions | definition reads |
 | Work Records | record envelope, facts, payload and submission | `WorkRecordSubmitted` |

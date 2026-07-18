@@ -114,7 +114,7 @@ references:
 - لا يسمح لأي Query أو Resource بإرجاع `password_hash`.
 - فهرس: `(user_id, password_changed_at)`.
 
-### 5.3 `sessions`
+### 5.3 `identity_sessions`
 
 - `id` CHAR(36) PK.
 - `user_id` CHAR(36) UUIDv7 NOT NULL FK -> `users.id` ON DELETE CASCADE.
@@ -175,6 +175,7 @@ references:
 ### 6.3 Domain وApplication Events
 
 - `UserAccountCreated`
+- `UserAccountChanged` (integration event جامع لتغييرات lifecycle ومصالحة Person).
 - `UserAccountActivated`
 - `UserAccountDisabled`
 - `UserAccountArchived`

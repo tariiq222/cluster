@@ -28,6 +28,8 @@ final class FixtureFacilityDecision implements DecideAccess
         'organization.person.manage',
         'organization.person.read',
         'organization.person.reference',
+        'identity.account.manage',
+        'identity.account.read',
     ];
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
@@ -40,7 +42,7 @@ final class FixtureFacilityDecision implements DecideAccess
             return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'capability_not_supported');
         }
 
-        if (str_starts_with($capability, 'organization.')) {
+        if (str_starts_with($capability, 'organization.') || str_starts_with($capability, 'identity.')) {
             $actorUserId = $actor['user_id'] ?? null;
             if (! is_string($actorUserId) || ! hash_equals(self::BOOTSTRAP_ADMIN_USER_ID, $actorUserId)) {
                 return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'bootstrap_admin_required');

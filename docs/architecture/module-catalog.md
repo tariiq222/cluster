@@ -135,6 +135,7 @@ references: []
 **أحداث:**
 
 - `UserAccountCreated`
+- `UserAccountChanged`
 - `UserAccountDisabled`
 - `UserPasswordChanged`
 - `UserSessionsRevoked`

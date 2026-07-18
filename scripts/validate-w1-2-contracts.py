@@ -67,6 +67,10 @@ ORGANIZATION_RUNTIME_STATUS = {
     ("/organization/people/{personId}", "get"): "implemented",
     ("/organization/people/{personId}", "patch"): "implemented",
     ("/organization/people/{personId}/reference", "get"): "implemented",
+    ("/identity/accounts", "get"): "implemented",
+    ("/identity/accounts", "post"): "implemented",
+    ("/identity/accounts/{accountId}", "get"): "implemented",
+    ("/identity/accounts/{accountId}/{accountAction}", "post"): "implemented",
 }
 ORGANIZATION_RESPONSES = {
     ("/organization/cluster", "get"): {"200", "401", "403", "404"},
@@ -89,6 +93,10 @@ ORGANIZATION_RESPONSES = {
     ("/organization/people/{personId}", "get"): {"200", "400", "401", "403", "404"},
     ("/organization/people/{personId}", "patch"): {"200", "400", "401", "403", "404", "409", "412", "500"},
     ("/organization/people/{personId}/reference", "get"): {"200", "400", "401", "403", "404"},
+    ("/identity/accounts", "get"): {"200", "400", "401", "403"},
+    ("/identity/accounts", "post"): {"201", "400", "401", "403", "409", "500"},
+    ("/identity/accounts/{accountId}", "get"): {"200", "400", "401", "403", "404"},
+    ("/identity/accounts/{accountId}/{accountAction}", "post"): {"200", "400", "401", "403", "404", "409", "412", "500"},
 }
 ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/cluster", "get", "200"): "#/components/responses/ClusterEntity",
@@ -110,6 +118,10 @@ ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/people", "post", "201"): "#/components/responses/PersonEntity",
     ("/organization/people/{personId}", "get", "200"): "#/components/responses/PersonEntity",
     ("/organization/people/{personId}", "patch", "200"): "#/components/responses/PersonEntity",
+    ("/identity/accounts", "get", "200"): "#/components/responses/UserAccountCollection",
+    ("/identity/accounts", "post", "201"): "#/components/responses/UserAccountEntity",
+    ("/identity/accounts/{accountId}", "get", "200"): "#/components/responses/UserAccountEntity",
+    ("/identity/accounts/{accountId}/{accountAction}", "post", "200"): "#/components/responses/UserAccountEntity",
 }
 EXPECTED_EVENTS = {
     "cluster-created": (
@@ -186,6 +198,16 @@ EXPECTED_EVENTS = {
         "PersonAccessStatusChanged",
         ROOT / "docs/contracts/schemas/person-access-status-changed.schema.json",
         {"person_id", "person_version", "access_context", "classification"},
+    ),
+    "user-account-created": (
+        "UserAccountCreated",
+        ROOT / "docs/contracts/schemas/user-account-changed.schema.json",
+        {"account_id", "person_id", "person_version", "status", "action", "lock_version", "access_context", "classification"},
+    ),
+    "user-account-changed": (
+        "UserAccountChanged",
+        ROOT / "docs/contracts/schemas/user-account-changed.schema.json",
+        {"account_id", "person_id", "person_version", "status", "action", "lock_version", "access_context", "classification"},
     ),
 }
 
@@ -271,6 +293,12 @@ if set(person_reference.get("properties", {})) & {"national_id", "primary_email"
 account_create = schemas.get("UserAccountCreate", {})
 if set(account_create.get("required", [])) != {"person_id", "person_version", "username"}:
     fail("UserAccountCreate must bind account creation to the validated person_version")
+
+user_account = schemas.get("UserAccount", {})
+if set(user_account.get("required", [])) != {"id", "username", "person_id", "person_version", "status", "must_change_password", "password_version", "locked_until", "display_name_ar", "display_name_en"}:
+    fail("UserAccount response must publish the approved display snapshot and account lifecycle state")
+if set(user_account.get("properties", {})) & {"password", "password_hash", "token", "national_id", "primary_email", "primary_phone"}:
+    fail("UserAccount response must not expose credentials, tokens, or authoritative Person PII")
 
 import_create = schemas.get("ImportJobCreate", {})
 if set(import_create.get("required", [])) != {"quarantine_object_id", "template_code", "import_type"}:
@@ -401,6 +429,7 @@ for catalog_path in (
     "contracts/schemas/organization-unit-changed.schema.json",
     "contracts/schemas/position-changed.schema.json",
     "contracts/schemas/person-changed.schema.json",
+    "contracts/schemas/user-account-changed.schema.json",
     "contracts/schemas/identity-provisioning-requested.schema.json",
     "contracts/schemas/person-access-status-changed.schema.json",
 ):

@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Identity\CreateUserAccountController;
+use App\Http\Controllers\Identity\GetUserAccountController;
+use App\Http\Controllers\Identity\ListUserAccountsController;
+use App\Http\Controllers\Identity\TransitionUserAccountController;
 use App\Http\Controllers\Organization\CreateClusterController;
 use App\Http\Controllers\Organization\CreateFacilityController;
 use App\Http\Controllers\Organization\CreateOrganizationUnitController;
@@ -53,6 +57,10 @@ Route::prefix('api/v1')->group(function (): void {
     Route::get('organization/people/{personId}/reference', GetPersonReferenceController::class);
     Route::get('organization/people/{personId}', GetPersonController::class);
     Route::patch('organization/people/{personId}', UpdatePersonController::class);
+    Route::get('identity/accounts', ListUserAccountsController::class);
+    Route::post('identity/accounts', CreateUserAccountController::class);
+    Route::get('identity/accounts/{accountId}', GetUserAccountController::class);
+    Route::post('identity/accounts/{accountId}/{accountAction}', TransitionUserAccountController::class);
     Route::post('work-records', SubmitWorkRecordController::class);
     Route::get('work-records', ListAuthorizedWorkRecordsController::class);
     Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class);

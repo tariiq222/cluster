@@ -106,7 +106,7 @@ final class NotificationsStreamWorker
             ];
 
             // Do not acknowledge until the reviewable DLQ record is durable.
-            $this->transport->publishDlq(self::DLQ, $message['id'], $deadLetter);
+            $this->transport->publishDlq(self::DLQ, self::STREAM.'|'.$message['id'], $deadLetter);
         }
 
         $this->transport->ack(self::STREAM, self::GROUP, $message['id']);

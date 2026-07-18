@@ -2325,17 +2325,20 @@ paths:
       tags: [Identity Admin]
       summary: List user accounts
       operationId: listUserAccounts
+      x-implementation-status: implemented
       parameters:
         - { $ref: "#/components/parameters/Cursor" }
         - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { $ref: "#/components/responses/Collection" }
+        "200": { $ref: "#/components/responses/UserAccountCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
       tags: [Identity Admin]
       summary: Create a pending account after validating its Person reference
       operationId: createUserAccount
+      x-implementation-status: implemented
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
@@ -2343,18 +2346,12 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/UserAccountCreate" }
       responses:
-        "201":
-          description: Pending account created
-          headers:
-            X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
-            ETag: { $ref: "#/components/headers/ETag" }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UserAccount" }
+        "201": { $ref: "#/components/responses/UserAccountEntity" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /identity/accounts/{accountId}:
     parameters:
       - { $ref: "#/components/parameters/CorrelationId" }
@@ -2366,15 +2363,10 @@ paths:
       tags: [Identity Admin]
       summary: Get a user account without credentials or tokens
       operationId: getUserAccount
+      x-implementation-status: implemented
       responses:
-        "200":
-          description: Account summary
-          headers:
-            X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
-            ETag: { $ref: "#/components/headers/ETag" }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UserAccount" }
+        "200": { $ref: "#/components/responses/UserAccountEntity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2395,6 +2387,7 @@ paths:
       tags: [Identity Admin]
       summary: Apply a governed account lifecycle action
       operationId: transitionUserAccount
+      x-implementation-status: implemented
       parameters:
         - { $ref: "#/components/parameters/IfMatch" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -2404,20 +2397,14 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ReasonAction" }
       responses:
-        "200":
-          description: Updated account summary
-          headers:
-            X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
-            ETag: { $ref: "#/components/headers/ETag" }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UserAccount" }
+        "200": { $ref: "#/components/responses/UserAccountEntity" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /authorization/bootstrap:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -4479,6 +4466,22 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/PersonCollection" }
+    UserAccountEntity:
+      description: User account summary without credentials or tokens
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/UserAccount" }
+    UserAccountCollection:
+      description: Cursor-paginated user account summaries
+      headers:
+        Link: { schema: { type: string } }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/UserAccountCollection" }
     Entity:
       {
         description: Authorized typed resource representation,
@@ -5343,7 +5346,7 @@ components:
     UserAccount:
       type: object
       additionalProperties: false
-      required: [id, username, person_id, person_version, status, must_change_password, password_version, locked_until]
+      required: [id, username, person_id, person_version, status, must_change_password, password_version, locked_until, display_name_ar, display_name_en]
       properties:
         id: { $ref: "#/components/schemas/UUIDv7" }
         username: { type: string, minLength: 1, maxLength: 128 }
@@ -5358,6 +5361,15 @@ components:
             - { type: "null" }
         display_name_ar: { type: string, minLength: 1, maxLength: 255 }
         display_name_en: { type: [string, "null"], maxLength: 255 }
+    UserAccountCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/UserAccount" }
+        next_cursor: { type: [string, "null"] }
     UserAccountCreate:
       type: object
       additionalProperties: false
