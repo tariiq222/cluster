@@ -21,6 +21,7 @@ import { PeopleAssignments } from './features/organization/PeopleAssignments'
 import { TemporaryAssignments } from './features/organization/TemporaryAssignments'
 import { IdentityAccounts } from './features/identity/IdentityAccounts'
 import { ImportReview } from './features/imports/ImportReview'
+import { AccessExplanation, AuthorizationAdmin } from './features/authorization/AuthorizationAdmin'
 
 type Locale = 'ar' | 'en'
 
@@ -44,6 +45,12 @@ const text = {
     identityAccounts: 'حسابات الهوية',
     administrationNavigation: 'تنقل الإدارة',
     importReview: 'مراجعة الاستيراد',
+    roles: 'الأدوار',
+    capabilities: 'الصلاحيات',
+    roleAssignments: 'إسنادات الأدوار',
+    delegations: 'التفويضات',
+    supervisoryRelationships: 'العلاقات الإشرافية',
+    accessExplanation: 'شرح قرار الوصول',
     notifications: 'الإشعارات',
     closeNotifications: 'إغلاق الإشعارات',
     logout: 'تسجيل الخروج',
@@ -137,6 +144,12 @@ const text = {
     identityAccounts: 'Identity accounts',
     administrationNavigation: 'Administration navigation',
     importReview: 'Import review',
+    roles: 'Roles',
+    capabilities: 'Capabilities',
+    roleAssignments: 'Role assignments',
+    delegations: 'Delegations',
+    supervisoryRelationships: 'Supervisory relationships',
+    accessExplanation: 'Access explanation',
     notifications: 'Notifications',
     closeNotifications: 'Close notifications',
     logout: 'Sign out',
@@ -422,6 +435,14 @@ function App() {
 
   const facilityName = session.facility === 'facility-a' ? copy.facilityA : copy.facilityB
   const unreadNotifications = notifications.filter((notification) => !notification.is_read).length
+  const authorizationNav: Array<[string, string, AppRoute]> = [
+    [copy.roles ?? '', '/admin/authorization/roles', { name: 'authorization', resource: 'roles' }],
+    [copy.capabilities ?? '', '/admin/authorization/capabilities', { name: 'authorization', resource: 'capabilities' }],
+    [copy.roleAssignments ?? '', '/admin/authorization/role-assignments', { name: 'authorization', resource: 'role-assignments' }],
+    [copy.delegations ?? '', '/admin/authorization/delegations', { name: 'authorization', resource: 'delegations' }],
+    [copy.supervisoryRelationships ?? '', '/admin/organization/supervisory-relationships', { name: 'authorization', resource: 'supervisory' }],
+    [copy.accessExplanation ?? '', '/admin/authorization/access-explanation', { name: 'access-explanation' }],
+  ]
 
   return (
     <>
@@ -458,6 +479,7 @@ function App() {
             const item = primaryRoutes[index as number]
             return <a key={item.path} href={item.path} aria-current={view.name === item.route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(item.route, item.path) }}>{label}</a>
           })}
+          {authorizationNav.map(([label, path, route]) => <a key={path} href={path} aria-current={view.name === route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(route, path) }}>{label}</a>)}
         </nav>}
         {view.name === 'list' && (
           <RequestDashboard
@@ -530,6 +552,10 @@ function App() {
             onJobOpen={(jobId) => navigate({ name: 'organization-import', jobId }, `/admin/imports/organization/${jobId}`)}
           />
         )}
+        {view.name === 'authorization' && <AuthorizationAdmin locale={locale} token={session.access_token} resource={view.resource} onSessionExpired={expireSession} />}
+        {view.name === 'access-explanation' && <AccessExplanation locale={locale} token={session.access_token} decisionId={view.decisionId} onSessionExpired={expireSession} />}
+        {view.name === 'authorization' && <AuthorizationAdmin locale={locale} token={session.access_token} resource={view.resource} onSessionExpired={expireSession} />}
+        {view.name === 'access-explanation' && <AccessExplanation locale={locale} token={session.access_token} decisionId={view.decisionId} onSessionExpired={expireSession} />}
       </AppShell>
 
       {notificationsOpen && (

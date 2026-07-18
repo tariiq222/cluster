@@ -27,6 +27,12 @@ export type AppShellCopy = {
   myRequests: string
   newRequest: string
   organization: string
+  roles?: string
+  capabilities?: string
+  roleAssignments?: string
+  delegations?: string
+  supervisoryRelationships?: string
+  accessExplanation?: string
   notifications: string
   logout: string
   rightsReserved: string
