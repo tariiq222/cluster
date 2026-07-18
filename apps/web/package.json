@@ -29,6 +29,7 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@frontman-ai/vite": "^1.0.1",
     "@playwright/test": "1.61.1",
     "@redocly/cli": "2.39.0",
     "@types/node": "^24.13.2",
