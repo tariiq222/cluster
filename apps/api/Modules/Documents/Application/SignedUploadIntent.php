@@ -17,7 +17,8 @@ final readonly class SignedUploadIntent
         public array $requiredHeaders,
     ) {
         UuidV7::assert($this->id, 'Upload intent id');
-        if (! filter_var($this->url, FILTER_VALIDATE_URL) || ! str_starts_with($this->url, 'https://')) {
+        if (! filter_var($this->url, FILTER_VALIDATE_URL)
+            || (! str_starts_with($this->url, 'https://') && ! $this->allowsExplicitTestingHttp())) {
             throw new InvalidArgumentException('Signed upload URL must be HTTPS.');
         }
         if (! in_array($this->method, ['PUT', 'POST'], true)) {
@@ -62,5 +63,23 @@ final readonly class SignedUploadIntent
             new DateTimeImmutable($payload['expires_at']),
             $headers,
         );
+    }
+
+    /**
+     * The isolated browser runtime uses a disposable localhost MinIO endpoint.
+     * HTTP is never accepted unless the real-adapter testing runtime is
+     * explicitly enabled under Laravel's testing environment.
+     */
+    private function allowsExplicitTestingHttp(): bool
+    {
+        $environment = $_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV');
+        $runtime = $_SERVER['DOCUMENTS_TEST_RUNTIME_ENABLED']
+            ?? $_ENV['DOCUMENTS_TEST_RUNTIME_ENABLED']
+            ?? getenv('DOCUMENTS_TEST_RUNTIME_ENABLED');
+
+        return $environment === 'testing'
+            && is_string($runtime)
+            && strtolower(trim($runtime)) === 'true'
+            && str_starts_with($this->url, 'http://');
     }
 }

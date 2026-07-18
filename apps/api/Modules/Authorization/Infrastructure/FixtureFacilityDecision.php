@@ -41,6 +41,7 @@ final class FixtureFacilityDecision implements DecideAccess
         'identity.account.read',
         'documents.initiate-upload',
         'documents.complete-upload',
+        'documents.get-upload-status',
         'documents.scan-version',
         'documents.reconcile-promotion',
     ];

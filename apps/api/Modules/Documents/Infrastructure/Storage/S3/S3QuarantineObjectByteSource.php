@@ -24,7 +24,7 @@ final class S3QuarantineObjectByteSource implements QuarantineObjectByteSource
     public function fetchBytes(string $storageObjectId): string
     {
         $objectKey = $this->keyResolver->quarantineKeyById($storageObjectId);
-        $host = $this->configuration->host();
+        $host = $this->configuration->hostWithPort();
         $uri = $this->configuration->usePathStyle
             ? '/'.$this->configuration->quarantineBucket.'/'.rawurlencode($objectKey)
             : '/'.rawurlencode($objectKey);

@@ -2,14 +2,12 @@ services:
   mysql:
     image: docker.io/library/mysql:8.4.6@sha256:869218921e61d6c3c89820955d63cca42971f0e3e6c1e2792247bbd944ebc6e9
     environment:
-      MYSQL_DATABASE: ${W1_1_MYSQL_DATABASE:-cluster}
-      MYSQL_ROOT_PASSWORD: ${W1_1_MYSQL_ROOT_PASSWORD:-local-dev-root}
-      MYSQL_USER: ${W1_1_MYSQL_USER:-cluster}
-      MYSQL_PASSWORD: ${W1_1_MYSQL_PASSWORD:-local-dev-password}
-    ports:
-      - "127.0.0.1:${W1_1_MYSQL_PORT:-33060}:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
+      MYSQL_DATABASE: ${W1_2_MYSQL_DATABASE:?}
+      MYSQL_ROOT_PASSWORD: ${W1_2_MYSQL_ROOT_PASSWORD:?}
+      MYSQL_USER: ${W1_2_MYSQL_USER:?}
+      MYSQL_PASSWORD: ${W1_2_MYSQL_PASSWORD:?}
+    ports: ["127.0.0.1:${W1_2_MYSQL_PORT:?}:3306"]
+    volumes: ["mysql-data:/var/lib/mysql"]
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
       interval: 2s
@@ -20,33 +18,27 @@ services:
   redis:
     image: docker.io/library/redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "127.0.0.1:${W1_1_REDIS_PORT:-6380}:6379"
-    volumes:
-      - redis-data:/data
+    ports: ["127.0.0.1:${W1_2_REDIS_PORT:?}:6379"]
+    volumes: ["redis-data:/data"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 2s
       timeout: 3s
       retries: 30
-      start_period: 2s
 
   minio:
     image: docker.io/minio/minio:RELEASE.2025-04-08T15-41-24Z@sha256:8834ae47a2de3509b83e0e70da9369c24bbbc22de42f2a2eddc530eee88acd1b
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
-      MINIO_ROOT_USER: ${W1_2_MINIO_ROOT_USER:?W1_2_MINIO_ROOT_USER must be set}
-      MINIO_ROOT_PASSWORD: ${W1_2_MINIO_ROOT_PASSWORD:?W1_2_MINIO_ROOT_PASSWORD must be set}
-      MINIO_API_CORS_ALLOW_ORIGIN: http://127.0.0.1:4173,http://localhost:4173
+      MINIO_ROOT_USER: ${W1_2_MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${W1_2_MINIO_ROOT_PASSWORD:?}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${W1_2_MINIO_CORS_ORIGIN:?}
     ports:
-      - "127.0.0.1:${W1_2_MINIO_API_PORT:-9000}:9000"
-      - "127.0.0.1:${W1_2_MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      - minio-data:/data
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+      - "127.0.0.1:${W1_2_MINIO_API_PORT:?}:9000"
+      - "127.0.0.1:${W1_2_MINIO_CONSOLE_PORT:?}:9001"
+    volumes: ["minio-data:/data"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent --show-error http://127.0.0.1:9000/minio/health/live"]
       interval: 5s
@@ -56,36 +48,23 @@ services:
 
   minio-init:
     image: docker.io/minio/minio:RELEASE.2025-04-08T15-41-24Z@sha256:8834ae47a2de3509b83e0e70da9369c24bbbc22de42f2a2eddc530eee88acd1b
-    entrypoint:
-      - /bin/sh
-      - -ec
-      - >-
-        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}";
-        mc mb --ignore-existing local/documents-quarantine;
-        mc mb --ignore-existing local/documents-available;
-        mc anonymous set none local/documents-quarantine;
-        mc anonymous set none local/documents-available
+    entrypoint: ["/bin/sh", "-ec", "mc alias set local http://minio:9000 \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\"; mc mb --ignore-existing local/documents-quarantine; mc mb --ignore-existing local/documents-available; mc anonymous set none local/documents-quarantine; mc anonymous set none local/documents-available"]
     environment:
-      MINIO_ROOT_USER: ${W1_2_MINIO_ROOT_USER:?W1_2_MINIO_ROOT_USER must be set}
-      MINIO_ROOT_PASSWORD: ${W1_2_MINIO_ROOT_PASSWORD:?W1_2_MINIO_ROOT_PASSWORD must be set}
+      MINIO_ROOT_USER: ${W1_2_MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${W1_2_MINIO_ROOT_PASSWORD:?}
     depends_on:
       minio:
         condition: service_healthy
     restart: "no"
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
 
   clamav:
     image: docker.io/clamav/clamav:1.4.3_base@sha256:629a3050df6a706aedb31859fbb8139e9aaf8f56b0ffefbf251b8358a7c9e76c
     platform: linux/amd64
-    ports:
-      - "127.0.0.1:${W1_2_CLAMAV_PORT:-3310}:3310"
-    volumes:
-      - clamav-data:/var/lib/clamav
-    security_opt:
-      - no-new-privileges:true
+    ports: ["127.0.0.1:${W1_2_CLAMAV_PORT:?}:3310"]
+    volumes: ["clamav-data:/var/lib/clamav"]
+    security_opt: ["no-new-privileges:true"]
     healthcheck:
       test: ["CMD", "clamdscan", "--config-file=/etc/clamav/clamd.conf", "--ping", "1"]
       interval: 10s

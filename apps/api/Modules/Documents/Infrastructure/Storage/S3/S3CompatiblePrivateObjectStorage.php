@@ -22,10 +22,9 @@ use Modules\Documents\Contracts\PrivateObjectStorage;
  *       {@code x-amz-checksum-sha256}, and {@code If-None-Match: *} condition.
  *       The URL embeds the upload intent id so the application server never
  *       reveals the object key to clients.</li>
- *   <li>{@see inspectQuarantineObject()} issues a HEAD to read the ETag and
- *       Content-Length; the actual SHA-256 is read back through a range GET
- *       using {@code x-amz-checksum-sha256} when the object was PUT with a
- *       trailing checksum.</li>
+ *   <li>{@see inspectQuarantineObject()} issues a checksum-enabled HEAD to
+ *       read the ETag, Content-Length, and SHA-256 that were bound to the
+ *       direct upload.</li>
  *   <li>{@see promoteVerifiedObject()} copies the verified source generation
  *       (bound by {@code x-amz-copy-source-if-match}) to the available bucket
  *       and re-reads the new generation.</li>
@@ -53,7 +52,7 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
     public function issueQuarantineUpload(QuarantineUploadRequest $request): SignedUploadIntent
     {
         $objectKey = $this->keyResolver->quarantineKey($request->objectKey());
-        $host = $this->configuration->host();
+        $host = $this->configuration->hostWithPort();
         $canonicalUri = $this->canonicalUri($objectKey, $this->configuration->quarantineBucket);
         $queryString = http_build_query([
             'X-Amz-Expires' => $this->configuration->uploadIntentTtlSeconds,
@@ -63,12 +62,15 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
             'Host' => $this->configuration->hostWithPort(),
             'Content-Length' => (string) $request->expectedSizeBytes,
             'Content-Type' => $request->declaredMimeType,
-            self::CHECKSUM_SHA256_HEADER => $request->expectedSha256,
+            'X-Amz-Content-Sha256' => $request->expectedSha256,
+            self::CHECKSUM_SHA256_HEADER => base64_encode(hex2bin($request->expectedSha256)),
             'If-None-Match' => '*',
             'X-Amz-Acl' => 'private',
-            'X-Amz-Server-Side-Encryption' => 'aws:kms',
-            'X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id' => $this->configuration->quarantineKmsKeyId ?? '',
         ];
+        if ($this->configuration->quarantineKmsKeyId !== null && $this->configuration->quarantineKmsKeyId !== '') {
+            $headers['X-Amz-Server-Side-Encryption'] = 'aws:kms';
+            $headers['X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id'] = $this->configuration->quarantineKmsKeyId;
+        }
         if ($this->configuration->sessionToken !== null && $this->configuration->sessionToken !== '') {
             $headers['X-Amz-Security-Token'] = $this->configuration->sessionToken;
         }
@@ -78,9 +80,14 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
             $canonicalUri,
             $queryString,
             $headers,
-            SigV4RequestSigner::hash(''),
+            $request->expectedSha256,
             $now,
         );
+        // The client must replay every signed request header. Host is the sole
+        // exception: browsers derive it from the upload URL and do not permit
+        // callers to set it explicitly.
+        $requiredHeaders = $headers;
+        unset($requiredHeaders['host']);
         $url = sprintf(
             '%s://%s%s?%s',
             $this->configuration->scheme(),
@@ -94,12 +101,7 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
             $url,
             'PUT',
             (new DateTimeImmutable('@'.$now))->modify('+'.$this->configuration->uploadIntentTtlSeconds.' seconds'),
-            [
-                'Content-Length' => (string) $request->expectedSizeBytes,
-                'Content-Type' => $request->declaredMimeType,
-                self::CHECKSUM_SHA256_HEADER => $request->expectedSha256,
-                'If-None-Match' => '*',
-            ],
+            $requiredHeaders,
         );
     }
 
@@ -109,7 +111,7 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
         $head = $this->headObject($objectKey, $this->configuration->quarantineBucket);
         $etag = $this->etagFromHeaders($head['headers']);
         $sizeBytes = $this->sizeFromHeaders($head['headers']);
-        $sha256 = $this->fetchChecksum($objectKey, $this->configuration->quarantineBucket);
+        $sha256 = $this->checksumFromHeaders($head['headers']);
 
         return new StoredObjectProperties(
             $sha256,
@@ -124,7 +126,7 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
     {
         $sourceKey = $this->keyResolver->quarantineKeyById($object->reference->storageObjectId);
         $destKey = $this->keyResolver->availableKeyById($object->reference->storageObjectId);
-        $host = $this->configuration->host();
+        $host = $this->configuration->hostWithPort();
         $uri = $this->canonicalUri($destKey, $this->configuration->availableBucket);
         $headers = [
             'Host' => $host,
@@ -165,10 +167,11 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
      */
     private function headObject(string $objectKey, string $bucket): array
     {
-        $host = $this->configuration->host();
+        $host = $this->configuration->hostWithPort();
         $uri = $this->canonicalUri($objectKey, $bucket);
         $headers = [
             'Host' => $host,
+            'x-amz-checksum-mode' => 'ENABLED',
         ];
         if ($this->configuration->sessionToken !== null && $this->configuration->sessionToken !== '') {
             $headers['X-Amz-Security-Token'] = $this->configuration->sessionToken;
@@ -189,30 +192,16 @@ final class S3CompatiblePrivateObjectStorage implements PrivateObjectStorage
         return $response;
     }
 
-    private function fetchChecksum(string $objectKey, string $bucket): string
+    /** @param array<string, string> $headers */
+    private function checksumFromHeaders(array $headers): string
     {
-        $host = $this->configuration->host();
-        $uri = $this->canonicalUri($objectKey, $bucket);
-        $headers = [
-            'Host' => $host,
-            'Range' => 'bytes=0-0',
-            'x-amz-checksum-mode' => 'ENABLED',
-        ];
-        if ($this->configuration->sessionToken !== null && $this->configuration->sessionToken !== '') {
-            $headers['X-Amz-Security-Token'] = $this->configuration->sessionToken;
-        }
-        $headers = $this->signer->sign('GET', $host, $uri, '', $headers, SigV4RequestSigner::hash(''));
-        $url = sprintf('%s://%s%s', $this->configuration->scheme(), $host, $uri);
-        $response = $this->executor->execute('GET', $url, $headers, '');
-        if ($response['status'] !== 200 && $response['status'] !== 206) {
-            throw $this->unexpectedResponse('documents_s3_checksum_failed', $response['status']);
-        }
-        $checksum = $response['headers']['x-amz-checksum-sha256'] ?? '';
-        if ($checksum === '') {
+        $checksum = $headers['x-amz-checksum-sha256'] ?? '';
+        $decoded = is_string($checksum) ? base64_decode($checksum, true) : false;
+        if ($decoded === false || strlen($decoded) !== 32) {
             throw new DomainException('document_quarantine_checksum_missing');
         }
 
-        return $checksum;
+        return bin2hex($decoded);
     }
 
     private function canonicalUri(string $objectKey, string $bucket): string

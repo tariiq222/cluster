@@ -20,6 +20,7 @@
     "api:check": "npm run api:lint && node ./check-generated-api.mjs",
     "test:e2e:list": "playwright test --list",
     "test:e2e:local": "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1} playwright test",
+    "test:e2e:w1-2": "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1} playwright test --config playwright.w1-2.config.ts",
     "playwright:install:chromium": "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1} playwright install chromium"
   },
   "dependencies": {

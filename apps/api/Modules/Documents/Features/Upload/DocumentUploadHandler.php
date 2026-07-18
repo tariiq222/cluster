@@ -586,13 +586,14 @@ final class DocumentUploadHandler
         }
         $intent = $this->storage->issueQuarantineUpload($request);
         $required = [
-            'Content-Length' => (string) $request->expectedSizeBytes,
-            'Content-Type' => $request->declaredMimeType,
-            'x-amz-checksum-sha256' => $request->expectedSha256,
-            'If-None-Match' => '*',
+            'content-length' => (string) $request->expectedSizeBytes,
+            'content-type' => $request->declaredMimeType,
+            'x-amz-checksum-sha256' => base64_encode(hex2bin($request->expectedSha256)),
+            'if-none-match' => '*',
         ];
+        $signedHeaders = array_change_key_case($intent->requiredHeaders, CASE_LOWER);
         foreach ($required as $header => $value) {
-            if (($intent->requiredHeaders[$header] ?? null) !== $value) {
+            if (! array_key_exists($header, $signedHeaders) || $signedHeaders[$header] !== $value) {
                 throw new UnexpectedValueException('Signed upload intent does not bind the required object condition.');
             }
         }

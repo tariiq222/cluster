@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.21.0
+version: 4.23.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -26,10 +26,10 @@ references:
 
 - الموجة المكتملة محلياً: **W1.1 Walking Skeleton** — `make verify-w1-1` و
   `make verify-w1-1-local` أخضران، ولا تعاد أعمالها إلا لمعالجة انحدار.
-- الموجة النشطة: **W1.2 Organization + Identity + Import** — تخطيط W12-REQ وW12-FE
-  مكتمل، وأغلقت بوابة الجاهزية W12-00 محلياً.
-- خط الأساس المنشور: `main` يتضمن W1.2 حتى رحلة إدارة Organization وIdentity وImport
-  عند `4824a804`، وCI المستضاف `29643248979` أخضر.
+- الموجة المنجزة محلياً: **W1.2 Organization + Identity + Import** — مرشح `main`
+  يدمج W1.2 مع App Shell/Dashboard اللاحق، و`make verify-w1-2` أخضر محلياً.
+  CI التاريخي أخضر على revision السابقة `4824a804`؛ المرشح المدمج يحتاج إلى CI بعيد
+  جديد بعد الدفع.
 - ADR-024 مقبول، وملكية Person واتجاه `Identity -> Organization` وtaxonomy الحساب
   وعقود OpenAPI والأحداث والاستيراد والنطاق وbootstrap مجمدة ومتسقة.
 - اكتمل CRUD الخلفي الحالي للتجمع والمنشآت محلياً: إنشاء/قراءة/تعديل التجمع الواحد،
@@ -49,7 +49,8 @@ references:
 - اكتملت أول شريحة تنفيذية للاستيراد المحكوم `people_assignments` محلياً: حالات
   received/validated/approved/applied مع reject/cancel/fail، موافقة actor ثان، صفوف مشفرة
   ونتائج منقحة وETag وreplay وOutbox ذري وتطبيق Person والتكليف وطلب provisioning مرة
-  واحدة. يبقى مصدر quarantine الحقيقي مغلقاً افتراضياً حتى ينشر تكامل Documents.
+  واحدة. يدعم العقد الحالي مصدر quarantine موقّعاً ومفحوصاً؛ ويبقى fail-closed عند غياب
+  تهيئة التخزين والماسح الصريحة.
 - اكتمل أساس Web لـW1.2 محلياً: عميلان مولدان مستقلان من snapshotي W1.1 وW1.2 مع
   drift gate واحد، وسجل routes typed يحافظ على direct load وback/forward و404 ولا
   يكسر رحلة WorkRecords الحالية.
@@ -66,8 +67,8 @@ references:
   lifecycle بلا credentials، وتنفيذ activate/unlock/disable/archive/revoke/force-change
   بعد GET للـETag وإرسال If-Match، مع fail-closed عند غياب النسخة أو `412`.
 - اكتملت واجهة مراجعة الاستيراد المحكوم محلياً: إنشاء `people_assignments` من مرجع
-  quarantine، فتح job مباشر، عرض الحالة والصفوف المنقحة بلا payload، وتنفيذ
-  validate/approve/reject/apply/cancel بعد ETag حديث، مع توضيح حجب رفع bytes.
+  quarantine، مع رفع CSV مباشر موقّع، فتح job مباشر، عرض الحالة والصفوف المنقحة بلا
+  payload، وتنفيذ validate/approve/reject/apply/cancel بعد ETag حديث.
 - نشر VPS المباشر والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
   النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
 
@@ -123,26 +124,33 @@ references:
 | 2026-07-18 | `make verify-w1-2` بعد واجهة حسابات Identity | أخضر: 103 اختبارات API و1362 assertion، و18 اختبار Web بتغطية 100% للعميل، مع ETag/If-Match ورفض mutation بلا نسخة |
 | 2026-07-18 | `make verify-w1-2` بعد واجهة مراجعة الاستيراد | أخضر: 103 اختبارات API و1362 assertion، و20 اختبار Web بتغطية 100% للعميل، مع صفوف منقحة وETag لكل انتقال بلا رفع bytes مخترع |
 | 2026-07-18 | `./infra/dev/run-w1-1-e2e.sh` ثم `make verify-w1-2` بعد رحلة إدارة W1.2 | أخضر: 3 رحلات Playwright على MySQL وRedis؛ ثبت إنشاء Organization وIdentity وImport والفشل المغلق وRTL/LTR، مع إصلاح `APP_KEY` وشكل استجابة Identity وعزل عداد Outbox حسب نوع الحدث؛ بقيت 103 اختبارات API و20 اختبار Web بتغطية 100% خضراء |
-| 2026-07-18 | CI `29643248979` على `main@4824a804` | أخضر: API وWeb والوثائق وGitleaks وW1.2 readiness وحزمة الإنتاج و`make verify-w1-1-local`؛ استبعدت أدوات OpenCode وOpenSpec المحلية من سلسلة المنتج قبل الدفع |
+| 2026-07-18 | CI `29643248979` على revision السابقة `main@4824a804` | أخضر: API وWeb والوثائق وGitleaks وW1.2 readiness وحزمة الإنتاج و`make verify-w1-1-local`؛ هذا دليل تاريخي ولا يغطي التغييرات المحلية الإضافية |
+| 2026-07-18 | دمج W1.2 محلياً في `main@e6235b76` | `main` متقدم 24 التزاماً على `origin/main@f3bca710`؛ يلزم CI بعيد جديد للتغييرات المحلية الإضافية بعد الدفع |
 | 2026-07-18 | `make verify-w1-2` بوابة دمج W1.2 | أخضر محلياً: `validate-docs` والحدود وOpenAPI/توليد العميل؛ API 209 ناجحاً و5 متخطاة لـMySQL؛ Web build/lint وتغطية 24 اختباراً؛ E2E وS3 وClamAV هي N/A لهذه البوابة المحلية فقط |
 | 2026-07-18 | دمج App Shell وDashboard فوق W1.2 | أخضر: Web build وlint واختبار routes و`validate-docs` وحدود الموديولات؛ Playwright هو N/A لغياب `W1_1_API_ORIGIN` وAPI محلي يعمل |
+| 2026-07-18 | `apps/api/scripts/run-mysql-integration-tests.sh` | أخضر: 5 اختبارات MySQL معزولة، 72 assertion؛ قاعدة وRedis وحاويات Compose مخصصة تُنظف تلقائياً |
+| 2026-07-18 | `infra/dev/run-w1-2-e2e.sh` | أخضر: رحلة Playwright معزولة تثبت cookie + CSRF ورفع CSV الموقّع عبر MinIO وفحص ClamAV وترقية quarantine وImportJob وإنشاء وسحب TemporaryAssignment |
+| 2026-07-18 | `make verify-w1-2` بعد جاهزية W1.2 | أخضر: 219 API ناجحاً و5 متخطاة لمسار MySQL المنفصل، و24 اختبار Web بتغطية 100%؛ عقود ووثائق وحدود وبناء وlint أخضر |
+| 2026-07-18 | `make analyse-api` محلياً | متوقف على البيئة: PHPStan 2.2.5 يخرج 1 بلا stdout/stderr حتى `diagnose` على PHP 8.5.7؛ يلزم CI PHP 8.4 كحكم نهائي قبل التسليم |
 
 ## الخطوة التالية
 
-1. ينشر تكامل quarantine الحقيقي عبر عقد موديول محكوم، ثم تنفذ قوالب facilities وorganization_units وpositions؛ يبقى adapter الحالي fail-closed حتى ذلك.
-2. تبقى واجهة رفع الاستيراد محجوبة حتى ينشر Documents عقد quarantine القابل للتنفيذ، بينما يمكن بناء قراءة الحالة والصفوف على العقد الحالي.
-3. تبقى TemporaryAssignment التفصيلية محجوبة حتى ينشر عقد قدراتها الصريحة وسحبها عند الانتهاء.
-4. تبقى credentials والاسترداد الحقيقيان خلف عقد مستقل؛ fixture login الحالي ليس حساب Identity المنشأ.
+1. دفع `main` إلى `origin` ثم انتظار CI جديد على المرشح الحالي؛ لا يعوض دليل `4824a804` هذا التنفيذ الإضافي.
+2. بعد CI الأخضر، تبدأ W1.3 بعقد صلاحيات RBAC+ABAC والعلاقات الإشرافية الفعلية؛ fixtures التطوير ليست بديلاً عن القرار الإنتاجي.
+3. يبقى نشر VPS مؤجلاً إلى D1 بعد اكتمال R1 وR2 وR3.
 
-CI المستضاف أخضر على خط أساس W1.2 المنشور. لا يبدأ أي تشغيل على الخادم حتى تصل
-الخطة إلى `D1` وتتوفر قيم `.env.production` وDNS وربط MySQL وRedis الخاص.
+لا يغطي CI التاريخي على `4824a804` مرشح `main` المدمج الحالي؛ يلزم CI بعيد جديد بعد
+الدفع. لا يبدأ أي تشغيل على الخادم حتى تصل الخطة إلى `D1`
+وتتوفر قيم `.env.production` وDNS وربط MySQL وRedis الخاص، وذلك بعد اكتمال تطوير
+R1 وR2 وR3.
 
 ## سجل التغيير
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
-| 4.22.0 | 2026-07-18 | دمج تحسينات App Shell وDashboard مع الحفاظ على مسارات وإدارة W1.2 وتسجيل حدود تحقق Playwright المحلية |
-| 4.21.0 | 2026-07-18 | تسجيل دمج W1.2 في main وCI الأخضر بعد فصل أدوات OpenCode وOpenSpec المحلية |
+| 4.23.0 | 2026-07-18 | دمج App Shell وDashboard مع جاهزية W1.2 المحلية، وإبقاء CI PHP 8.4 بوابة التسليم النهائية |
+| 4.22.0 | 2026-07-18 | تثبيت W1.2 كمكتملة محلياً مع فصل CI التاريخي على `4824a804` عن CI المطلوب للتغييرات المحلية الإضافية |
+| 4.21.0 | 2026-07-18 | تسجيل دمج W1.2 في main وفصل أدوات OpenCode وOpenSpec المحلية |
 | 4.20.0 | 2026-07-18 | إثبات رحلة متصفح W1.2 كاملة وإغلاق انحدارات بيئة login واستجابة Identity وتنسيق Outbox |
 | 4.19.0 | 2026-07-18 | إغلاق واجهة مراجعة ImportJob وانتقالاته المنقحة مع بقاء نقل bytes محجوباً بالعقد |
 | 4.18.0 | 2026-07-18 | إغلاق واجهة حسابات Identity ودورة حياتها المحكومة بـETag وIf-Match |

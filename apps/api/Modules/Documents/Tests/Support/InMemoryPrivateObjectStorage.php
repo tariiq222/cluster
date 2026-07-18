@@ -22,6 +22,8 @@ final class InMemoryPrivateObjectStorage implements PrivateObjectStorage
 
     public bool $returnMalformedIntent = false;
 
+    public bool $returnCanonicalLowercaseIntent = false;
+
     public int $intentExpiryOffsetSeconds = 0;
 
     public ?string $intentUrlOverride = null;
@@ -51,12 +53,17 @@ final class InMemoryPrivateObjectStorage implements PrivateObjectStorage
             $request->expiresAt->modify(($this->intentExpiryOffsetSeconds >= 0 ? '+' : '').$this->intentExpiryOffsetSeconds.' seconds'),
             $this->returnMalformedIntent
                 ? ['Content-Type' => $request->declaredMimeType]
-                : [
+                : ($this->returnCanonicalLowercaseIntent ? [
+                    'content-length' => (string) $request->expectedSizeBytes,
+                    'content-type' => $request->declaredMimeType,
+                    'x-amz-checksum-sha256' => base64_encode(hex2bin($request->expectedSha256)),
+                    'if-none-match' => '*',
+                ] : [
                     'Content-Length' => (string) $request->expectedSizeBytes,
                     'Content-Type' => $request->declaredMimeType,
-                    'x-amz-checksum-sha256' => $request->expectedSha256,
+                    'x-amz-checksum-sha256' => base64_encode(hex2bin($request->expectedSha256)),
                     'If-None-Match' => '*',
-                ],
+                ]),
         );
     }
 
