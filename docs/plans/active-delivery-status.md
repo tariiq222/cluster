@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.18.0
+version: 4.19.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -65,6 +65,9 @@ references:
 - اكتملت واجهة حسابات Identity محلياً: إنشاء pending من Person/version منشور، وعرض
   lifecycle بلا credentials، وتنفيذ activate/unlock/disable/archive/revoke/force-change
   بعد GET للـETag وإرسال If-Match، مع fail-closed عند غياب النسخة أو `412`.
+- اكتملت واجهة مراجعة الاستيراد المحكوم محلياً: إنشاء `people_assignments` من مرجع
+  quarantine، فتح job مباشر، عرض الحالة والصفوف المنقحة بلا payload، وتنفيذ
+  validate/approve/reject/apply/cancel بعد ETag حديث، مع توضيح حجب رفع bytes.
 - نشر VPS المباشر والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
   النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
 
@@ -118,6 +121,7 @@ references:
 | 2026-07-18 | `make verify-w1-2` بعد واجهة الوحدات والمناصب | أخضر: 103 اختبارات API و1362 assertion، و15 اختبار Web بتغطية 100% للعميل، مع route typed وبناء RTL/LTR بلا drift |
 | 2026-07-18 | `make verify-w1-2` بعد واجهة الأشخاص والتكليفات | أخضر: 103 اختبارات API و1362 assertion، و16 اختبار Web بتغطية 100% للعميل، مع تحويل العرض Asia/Riyadh والإرسال UTC |
 | 2026-07-18 | `make verify-w1-2` بعد واجهة حسابات Identity | أخضر: 103 اختبارات API و1362 assertion، و18 اختبار Web بتغطية 100% للعميل، مع ETag/If-Match ورفض mutation بلا نسخة |
+| 2026-07-18 | `make verify-w1-2` بعد واجهة مراجعة الاستيراد | أخضر: 103 اختبارات API و1362 assertion، و20 اختبار Web بتغطية 100% للعميل، مع صفوف منقحة وETag لكل انتقال بلا رفع bytes مخترع |
 
 ## الخطوة التالية
 
@@ -133,6 +137,7 @@ references:
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.19.0 | 2026-07-18 | إغلاق واجهة مراجعة ImportJob وانتقالاته المنقحة مع بقاء نقل bytes محجوباً بالعقد |
 | 4.18.0 | 2026-07-18 | إغلاق واجهة حسابات Identity ودورة حياتها المحكومة بـETag وIf-Match |
 | 4.17.0 | 2026-07-18 | إغلاق واجهة Person والتكليفات الزمنية من دون خلط حقول Identity |
 | 4.16.0 | 2026-07-18 | إغلاق واجهة شجرة الوحدات والمناصب وإنشائها المحكوم على عقد W1.2 |

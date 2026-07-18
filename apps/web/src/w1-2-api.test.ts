@@ -16,6 +16,10 @@ import {
   listPositions,
   listUserAccounts,
   transitionUserAccount,
+  getImportJob,
+  listImportJobRows,
+  submitImportJob,
+  transitionImportJob,
 } from './api'
 
 const token = 'fixture-token'
@@ -220,5 +224,56 @@ describe('W1.2 Organization API adapter', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(fetchMock.mock.calls[2][1]?.body).toBe('{}')
+  })
+
+  it('submits, reads, and transitions a redacted import using a fresh ETag', async () => {
+    const job = {
+      id: '018f6f7d-0c00-7000-8000-000000000107', template_code: 'people_assignments' as const,
+      import_type: 'csv' as const, status: 'received' as const,
+      submitted_by_user_id: '018f6f7d-0c00-7000-8000-000000000021', approved_by_user_id: null,
+      total_rows: 0, valid_rows: 0, error_rows: 0, applied_at: null, lock_version: 1,
+    }
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: job }, 202))
+      .mockResolvedValueOnce(jsonResponse({ data: job }))
+      .mockResolvedValueOnce(jsonResponse({ items: [], next_cursor: null }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: job }), { headers: { 'Content-Type': 'application/json', ETag: '"1"' } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { ...job, status: 'validated', lock_version: 2 } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await submitImportJob(token, { quarantine_object_id: job.id, template_code: 'people_assignments', import_type: 'csv' })
+    await getImportJob(token, job.id)
+    await listImportJobRows(token, job.id)
+    await transitionImportJob(token, job.id, 'validate')
+
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/api/v1/organization/import-jobs',
+      `/api/v1/organization/import-jobs/${job.id}`,
+      `/api/v1/organization/import-jobs/${job.id}/rows?limit=100`,
+      `/api/v1/organization/import-jobs/${job.id}`,
+      `/api/v1/organization/import-jobs/${job.id}/validate`,
+    ])
+    const transitionHeaders = new Headers(fetchMock.mock.calls[4][1]?.headers)
+    expect(transitionHeaders.get('If-Match')).toBe('"1"')
+    expect(String(fetchMock.mock.calls[0][1]?.body)).not.toContain('raw_payload')
+  })
+
+  it('fails closed without an import ETag and sends a governed decision reason', async () => {
+    const jobId = '018f6f7d-0c00-7000-8000-000000000107'
+    const job = { id: jobId, status: 'validated' }
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: job }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: job }), { headers: { 'Content-Type': 'application/json', ETag: '"2"' } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { ...job, status: 'rejected' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(transitionImportJob(token, jobId, 'approve')).rejects.toMatchObject({
+      status: 502,
+      problem: { title: 'Missing import version' },
+    })
+    await transitionImportJob(token, jobId, 'reject', 'Rows require correction')
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock.mock.calls[2][1]?.body).toBe(JSON.stringify({ reason: 'Rows require correction' }))
   })
 })

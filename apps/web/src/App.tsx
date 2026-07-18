@@ -16,6 +16,7 @@ import { OrganizationOverview } from './features/organization/OrganizationOvervi
 import { OrganizationStructure } from './features/organization/OrganizationStructure'
 import { PeopleAssignments } from './features/organization/PeopleAssignments'
 import { IdentityAccounts } from './features/identity/IdentityAccounts'
+import { ImportReview } from './features/imports/ImportReview'
 
 type Locale = 'ar' | 'en'
 
@@ -37,6 +38,7 @@ const text = {
     peopleAssignments: 'الأشخاص والتكليفات',
     identityAccounts: 'حسابات الهوية',
     administrationNavigation: 'تنقل الإدارة',
+    importReview: 'مراجعة الاستيراد',
     notifications: 'الإشعارات',
     closeNotifications: 'إغلاق الإشعارات',
     logout: 'تسجيل الخروج',
@@ -90,6 +92,7 @@ const text = {
     peopleAssignments: 'People and assignments',
     identityAccounts: 'Identity accounts',
     administrationNavigation: 'Administration navigation',
+    importReview: 'Import review',
     notifications: 'Notifications',
     closeNotifications: 'Close notifications',
     logout: 'Sign out',
@@ -156,7 +159,7 @@ function App() {
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const copy = text[locale]
-  const adminView = ['organization', 'organization-structure', 'people-assignments', 'identity-accounts'].includes(view.name)
+  const adminView = ['organization', 'organization-structure', 'people-assignments', 'identity-accounts', 'organization-import'].includes(view.name)
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -380,6 +383,7 @@ function App() {
             [3, copy.organizationStructure],
             [4, copy.peopleAssignments],
             [5, copy.identityAccounts],
+            [6, copy.importReview],
           ].map(([index, label]) => {
             const item = primaryRoutes[index as number]
             return <a key={item.path} href={item.path} aria-current={view.name === item.route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(item.route, item.path) }}>{label}</a>
@@ -438,6 +442,15 @@ function App() {
         )}
         {view.name === 'identity-accounts' && (
           <IdentityAccounts locale={locale} token={session.access_token} onSessionExpired={expireSession} />
+        )}
+        {view.name === 'organization-import' && (
+          <ImportReview
+            locale={locale}
+            token={session.access_token}
+            jobId={view.jobId}
+            onSessionExpired={expireSession}
+            onJobOpen={(jobId) => navigate({ name: 'organization-import', jobId }, `/admin/imports/organization/${jobId}`)}
+          />
         )}
       </main>
 

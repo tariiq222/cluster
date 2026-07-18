@@ -301,6 +301,22 @@ tbody tr:hover {
   display: inline-block;
 }
 
+.import-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 16px;
+  margin-block-end: 32px;
+}
+
+.import-entry-grid .resource-form {
+  margin-block-start: 0;
+}
+
+.inline-errors {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
 .field textarea {
   max-block-size: 15rem;
   resize: vertical;

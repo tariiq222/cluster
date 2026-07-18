@@ -11,6 +11,10 @@ describe('W1.2 shell route registry', () => {
     expect(routeFromPath('/admin/organization/structure')).toEqual({ name: 'organization-structure' })
     expect(routeFromPath('/admin/organization/people')).toEqual({ name: 'people-assignments' })
     expect(routeFromPath('/admin/identity/accounts')).toEqual({ name: 'identity-accounts' })
+    expect(routeFromPath('/admin/imports/organization')).toEqual({ name: 'organization-import' })
+    expect(routeFromPath('/admin/imports/organization/018f6f7d-0c00-7000-8000-000000000107')).toEqual({
+      name: 'organization-import', jobId: '018f6f7d-0c00-7000-8000-000000000107',
+    })
     expect(routeFromPath('/work-records/018f6f7d-0c00-7000-8000-000000000001')).toEqual({
       name: 'detail',
       recordId: '018f6f7d-0c00-7000-8000-000000000001',

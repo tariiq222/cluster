@@ -27,6 +27,10 @@ import type {
   UserAccount as GeneratedUserAccount,
   UserAccountCollection as GeneratedUserAccountCollection,
   UserAccountCreate,
+  ImportJob as GeneratedImportJob,
+  ImportJobCreate,
+  ImportJobRowCollection as GeneratedImportJobRowCollection,
+  ImportJobRow as GeneratedImportJobRow,
 } from './api/generated/w1-2'
 
 export type ProblemFieldError = {
@@ -80,6 +84,11 @@ export type UserAccount = GeneratedUserAccount
 export type UserAccountCollection = GeneratedUserAccountCollection
 export type CreateUserAccountInput = UserAccountCreate
 export type UserAccountAction = 'activate' | 'unlock' | 'disable' | 'archive' | 'revoke-sessions' | 'force-password-change'
+export type ImportJob = GeneratedImportJob
+export type ImportJobRowCollection = GeneratedImportJobRowCollection
+export type ImportJobRow = GeneratedImportJobRow
+export type CreateImportJobInput = ImportJobCreate
+export type ImportJobAction = 'validate' | 'approve' | 'reject' | 'apply' | 'cancel'
 
 export class ApiError extends Error {
   readonly status: number
@@ -395,6 +404,49 @@ export async function transitionUserAccount(token: string, accountId: string, ac
     headers: {
       'Content-Type': 'application/json',
       'Idempotency-Key': `identity-${action}-${correlationId}`,
+      'If-Match': etag,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(reason ? { reason } : {}),
+  }, token)
+  return body.data
+}
+
+export async function submitImportJob(token: string, input: CreateImportJobInput): Promise<ImportJob> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: ImportJob }>('/api/v1/organization/import-jobs', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `import-submit-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(input),
+  }, token)
+  return body.data
+}
+
+export async function getImportJob(token: string, jobId: string): Promise<ImportJob> {
+  const body = await requestJson<{ data: ImportJob }>(`/api/v1/organization/import-jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, token)
+  return body.data
+}
+
+export function listImportJobRows(token: string, jobId: string): Promise<ImportJobRowCollection> {
+  return requestJson<ImportJobRowCollection>(`/api/v1/organization/import-jobs/${encodeURIComponent(jobId)}/rows?limit=100`, { method: 'GET' }, token)
+}
+
+export async function transitionImportJob(token: string, jobId: string, action: ImportJobAction, reason?: string): Promise<ImportJob> {
+  const detail = await requestJsonResponse<{ data: ImportJob }>(`/api/v1/organization/import-jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, token)
+  const etag = detail.response.headers.get('ETag')
+  if (!etag) {
+    throw new ApiError(502, { type: 'about:blank', title: 'Missing import version', status: 502 })
+  }
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: ImportJob }>(`/api/v1/organization/import-jobs/${encodeURIComponent(jobId)}/${action}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `import-${action}-${correlationId}`,
       'If-Match': etag,
       'X-Correlation-ID': correlationId,
     },
