@@ -6,6 +6,13 @@ import type {
   WorkRecordCreate,
   WorkRecordSchema,
 } from './api/generated/cluster'
+import type {
+  Cluster as GeneratedCluster,
+  ClusterCreate,
+  Facility as GeneratedFacility,
+  FacilityCollection as GeneratedFacilityCollection,
+  FacilityCreate,
+} from './api/generated/w1-2'
 
 export type ProblemFieldError = {
   pointer: string
@@ -37,6 +44,11 @@ export type WorkRecordCollection = Omit<GeneratedWorkRecordCollection, 'items'> 
 export type Notification = GeneratedNotification
 export type NotificationCollection = GeneratedNotificationCollection
 export type CreateWorkRecordInput = WorkRecordCreate
+export type Cluster = GeneratedCluster
+export type Facility = GeneratedFacility
+export type FacilityCollection = GeneratedFacilityCollection
+export type CreateClusterInput = ClusterCreate
+export type CreateFacilityInput = FacilityCreate
 
 export class ApiError extends Error {
   readonly status: number
@@ -207,4 +219,41 @@ export async function getWorkRecord(token: string, recordId: string): Promise<Wo
 
 export function listNotifications(token: string): Promise<NotificationCollection> {
   return requestJson<NotificationCollection>('/api/v1/notifications?limit=20', { method: 'GET' }, token)
+}
+
+export async function getCluster(token: string): Promise<Cluster> {
+  const body = await requestJson<{ data: Cluster }>('/api/v1/organization/cluster', { method: 'GET' }, token)
+  return body.data
+}
+
+export async function createCluster(token: string, input: CreateClusterInput): Promise<Cluster> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: Cluster }>('/api/v1/organization/cluster', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `cluster-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(input),
+  }, token)
+  return body.data
+}
+
+export function listFacilities(token: string): Promise<FacilityCollection> {
+  return requestJson<FacilityCollection>('/api/v1/organization/facilities?limit=100', { method: 'GET' }, token)
+}
+
+export async function createFacility(token: string, input: CreateFacilityInput): Promise<Facility> {
+  const correlationId = uuidV7()
+  const body = await requestJson<{ data: Facility }>('/api/v1/organization/facilities', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `facility-${correlationId}`,
+      'X-Correlation-ID': correlationId,
+    },
+    body: JSON.stringify(input),
+  }, token)
+  return body.data
 }

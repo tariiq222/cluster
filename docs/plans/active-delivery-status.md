@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.14.0
+version: 4.15.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -53,6 +53,9 @@ references:
 - اكتمل أساس Web لـW1.2 محلياً: عميلان مولدان مستقلان من snapshotي W1.1 وW1.2 مع
   drift gate واحد، وسجل routes typed يحافظ على direct load وback/forward و404 ولا
   يكسر رحلة WorkRecords الحالية.
+- اكتملت واجهة إدارة التجمع والمنشآت محلياً: route عربية/إنجليزية متجاوبة تقرأ الجذر
+  والمنشآت وتنشئهما عبر correlation وidempotency، مع loading/empty/403/error وجدول
+  قابل للتمرير ونماذج labels كاملة من دون توسيع صلاحية الواجهة.
 - نشر VPS المباشر والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
   النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
 
@@ -102,6 +105,7 @@ references:
 | 2026-07-18 | `make verify-w1-2` بعد أول vertical للاستيراد المحكوم | أخضر: 103 اختبارات API، نجح 101 وتخطى 2، و1362 assertion؛ OpenAPI/AsyncAPI والحدود وPint وPHPStan وRedocly وOrval وبناء Web و10 اختبارات Web خضراء |
 | 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد `people_assignments` | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏31/657، Identity ‏16/213؛ أثبت تشفير الصفوف والموافقة الثنائية والـapply مرة واحدة والفشل المغلق والrollback |
 | 2026-07-18 | `make verify-w1-2` بعد W1.2 Web shell/client baseline | أخضر: عميل Orval مستقل لكل snapshot بلا drift، 103 اختبارات API و1362 assertion، وبناء Web وlint و12 اختبار Web أخضر |
+| 2026-07-18 | `make verify-w1-2` بعد واجهة التجمع والمنشآت | أخضر: 103 اختبارات API و1362 assertion، و14 اختبار Web بتغطية 100% للعميل، مع Redocly وOrval والبناء وlint بلا أخطاء |
 
 ## الخطوة التالية
 
@@ -117,6 +121,7 @@ references:
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.15.0 | 2026-07-18 | إغلاق واجهة التجمع والمنشآت على عقد W1.2 المولد مع حالات الوصول والفشل والاستجابة |
 | 4.14.0 | 2026-07-18 | نشر W1.2 Web route registry وعميل Orval ثانٍ مع إبقاء رحلة W1.1 بلا انحدار |
 | 4.13.0 | 2026-07-18 | إغلاق أول vertical لـpeople_assignments مع الصفوف المشفرة والموافقة الثنائية والتطبيق الذري على SQLite وMySQL |
 | 4.12.0 | 2026-07-18 | إغلاق تكليفات Person وPosition ومددها وتداخلها وإنهائها الذري على SQLite وMySQL |

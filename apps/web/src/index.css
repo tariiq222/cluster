@@ -24,6 +24,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -31,6 +32,7 @@ textarea {
 button,
 a,
 input,
+select,
 textarea {
   border-radius: 4px;
 }
@@ -151,6 +153,7 @@ a {
 }
 
 .field input,
+.field select,
 .field textarea {
   inline-size: 100%;
   min-block-size: 44px;
@@ -158,6 +161,125 @@ a {
   border: 1px solid #829393;
   color: #172126;
   background: #fff;
+}
+
+.organization-page {
+  max-inline-size: 1080px;
+}
+
+.page-heading-copy {
+  align-items: flex-start;
+}
+
+.page-heading-copy p {
+  max-inline-size: 68ch;
+  margin-block: 8px 0;
+  color: #546166;
+}
+
+.organization-layout {
+  display: grid;
+  gap: 32px;
+}
+
+.organization-section {
+  padding-block: 24px;
+  border-block-start: 1px solid #c7d3d3;
+}
+
+.organization-section > h2,
+.section-heading {
+  margin-block-end: 20px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.count-badge {
+  display: inline-flex;
+  min-inline-size: 32px;
+  min-block-size: 32px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 8px;
+  border: 1px solid #9aabaa;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.definition-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 48px;
+  margin: 0;
+}
+
+.definition-grid div {
+  min-inline-size: min(180px, 100%);
+}
+
+.definition-grid dt {
+  margin-block-end: 4px;
+  color: #546166;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.definition-grid dd {
+  margin: 0;
+}
+
+.resource-form {
+  margin-block-start: 24px;
+  padding: 24px;
+  border: 1px solid #c7d3d3;
+  background: #fff;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 0 16px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid #c7d3d3;
+  background: #fff;
+}
+
+table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  text-align: start;
+}
+
+th,
+td {
+  padding: 12px 16px;
+  border-block-end: 1px solid #d8e0e0;
+  text-align: start;
+  vertical-align: middle;
+}
+
+th {
+  color: #3f5056;
+  background: #e8eef0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+tbody tr:hover {
+  background: #f3f6f6;
 }
 
 .field textarea {

@@ -12,6 +12,7 @@ import {
   type WorkRecord,
 } from './api'
 import { primaryRoutes, routeFromPath, type AppRoute } from './shell/routes'
+import { OrganizationOverview } from './features/organization/OrganizationOverview'
 
 type Locale = 'ar' | 'en'
 
@@ -28,6 +29,7 @@ const text = {
     currentFacility: 'نطاق المنشأة الحالية',
     myRequests: 'طلباتي',
     newRequest: 'طلب جديد',
+    organization: 'التنظيم',
     notifications: 'الإشعارات',
     closeNotifications: 'إغلاق الإشعارات',
     logout: 'تسجيل الخروج',
@@ -76,6 +78,7 @@ const text = {
     currentFacility: 'Current facility scope',
     myRequests: 'My requests',
     newRequest: 'New request',
+    organization: 'Organization',
     notifications: 'Notifications',
     closeNotifications: 'Close notifications',
     logout: 'Sign out',
@@ -346,6 +349,16 @@ function App() {
         >
           {copy.newRequest}
         </a>
+        <a
+          href={primaryRoutes[2].path}
+          aria-current={view.name === primaryRoutes[2].route.name ? 'page' : undefined}
+          onClick={(event) => {
+            event.preventDefault()
+            navigate({ name: 'organization' }, primaryRoutes[2].path)
+          }}
+        >
+          {copy.organization}
+        </a>
       </nav>
 
       <main className="main-content">
@@ -390,6 +403,9 @@ function App() {
               navigate({ name: 'list' }, '/')
             }}>{copy.backToRequests}</a>
           </section>
+        )}
+        {view.name === 'organization' && (
+          <OrganizationOverview locale={locale} token={session.access_token} onSessionExpired={expireSession} />
         )}
       </main>
 
