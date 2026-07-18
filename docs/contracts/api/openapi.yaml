@@ -4622,7 +4622,7 @@ components:
         name: If-Match,
         in: header,
         required: true,
-        description: Current X-Resource-Version value, not the weak ETag representation validator.,
+        description: "Current X-Resource-Version value, not the weak ETag representation validator."
         schema: { type: string, pattern: '^"[1-9][0-9]*"$' },
       }
     OrganizationUnitIdQuery:
@@ -4835,7 +4835,7 @@ components:
       headers:
         X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
         X-CSRF-Token: { $ref: "#/components/headers/CsrfToken" }
-        Set-Cookie: { schema: { type: string }, description: Secure, HttpOnly identity-session cookie. }
+        Set-Cookie: { schema: { type: string }, description: "Secure, HttpOnly identity-session cookie." }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/IdentitySessionResponse" }
@@ -4852,7 +4852,7 @@ components:
       description: Identity session revoked and its cookie expired
       headers:
         X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
-        Set-Cookie: { schema: { type: string }, description: Expired Secure, HttpOnly identity-session cookie. }
+        Set-Cookie: { schema: { type: string }, description: "Expired Secure, HttpOnly identity-session cookie." }
     IdentityActivationIssued:
       description: Controlled activation issued without exposing its secret token
       headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
