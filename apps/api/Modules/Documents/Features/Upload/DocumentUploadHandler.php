@@ -157,6 +157,7 @@ final class DocumentUploadHandler
                 'document_id' => $documentId,
                 'document_version_id' => $versionId,
                 'storage_object_id' => $storageObjectId,
+                'purpose' => $request->purpose,
                 'expected_sha256' => $request->file->sha256,
                 'expected_size_bytes' => $request->file->sizeBytes,
                 'expected_mime_type' => $request->file->declaredMimeType,
@@ -205,7 +206,14 @@ final class DocumentUploadHandler
                 'upload_intent_id' => $uploadIntentId,
             ], $now);
 
-            return new InitiatedDocumentUpload($documentPublicId, $versionPublicId, $uploadIntent);
+            return new InitiatedDocumentUpload(
+                $documentPublicId,
+                $versionPublicId,
+                $storageObjectId,
+                $request->purpose,
+                (int) config('documents.uploads.max_size_bytes'),
+                $uploadIntent,
+            );
         });
     }
 
@@ -538,6 +546,9 @@ final class DocumentUploadHandler
         return new InitiatedDocumentUpload(
             (string) $upload->document_public_id,
             (string) $upload->version_public_id,
+            (string) $upload->storage_object_id,
+            (string) $upload->purpose,
+            (int) config('documents.uploads.max_size_bytes'),
             $this->storedSignedIntent($upload),
         );
     }
@@ -625,7 +636,7 @@ final class DocumentUploadHandler
             ->where('intents.id', $uploadIntentId)
             ->select([
                 'intents.id as upload_intent_id', 'intents.completed_at', 'intents.expires_at',
-                'intents.expected_sha256', 'intents.expected_size_bytes', 'intents.expected_mime_type', 'intents.conditional_create', 'intents.signed_intent_payload',
+                'intents.purpose', 'intents.expected_sha256', 'intents.expected_size_bytes', 'intents.expected_mime_type', 'intents.conditional_create', 'intents.signed_intent_payload',
                 'documents.id as document_id', 'documents.public_id as document_public_id', 'documents.owner_organization_unit_id',
                 'versions.id as version_id', 'versions.public_id as version_public_id', 'versions.original_filename',
                 'versions.availability_status', 'objects.id as storage_object_id', 'objects.object_key',

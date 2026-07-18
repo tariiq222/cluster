@@ -1,6 +1,13 @@
 <?php
 
 return [
+    'authorization' => [
+        'default_organization_unit_id' => env(
+            'IDENTITY_DEFAULT_ORGANIZATION_UNIT_ID',
+            env('APP_ENV') === 'production' ? null : '018f6f7d-0c00-7000-8000-000000000011',
+        ),
+    ],
+
     'session' => [
         'cookie' => env('IDENTITY_SESSION_COOKIE', 'cluster_identity_session'),
         'ttl_minutes' => 480,

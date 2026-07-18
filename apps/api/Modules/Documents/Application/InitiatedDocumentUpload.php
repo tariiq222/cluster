@@ -7,6 +7,9 @@ final readonly class InitiatedDocumentUpload
     public function __construct(
         public string $documentId,
         public string $versionId,
+        public string $quarantineObjectId,
+        public string $purpose,
+        public int $maxSizeBytes,
         public SignedUploadIntent $uploadIntent,
     ) {}
 

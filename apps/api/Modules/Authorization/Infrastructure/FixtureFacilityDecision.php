@@ -35,8 +35,14 @@ final class FixtureFacilityDecision implements DecideAccess
         'organization.import.manage',
         'organization.import.approve',
         'organization.import.read',
+        'organization.temporary-assignment.manage',
+        'organization.temporary-assignment.read',
         'identity.account.manage',
         'identity.account.read',
+        'documents.initiate-upload',
+        'documents.complete-upload',
+        'documents.scan-version',
+        'documents.reconcile-promotion',
     ];
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
@@ -49,7 +55,14 @@ final class FixtureFacilityDecision implements DecideAccess
             return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'capability_not_supported');
         }
 
-        if (str_starts_with($capability, 'organization.') || str_starts_with($capability, 'identity.')) {
+        if (str_starts_with($capability, 'organization.temporary-assignment.')
+            && ($facts->organizationUnitId === null || $facts->organizationUnitId === '')) {
+            return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'organization_unit_scope_missing');
+        }
+
+        if (str_starts_with($capability, 'organization.')
+            || str_starts_with($capability, 'identity.')
+            || str_starts_with($capability, 'documents.')) {
             $actorUserId = $actor['user_id'] ?? null;
             if (in_array($capability, ['organization.import.approve', 'organization.import.read'], true)
                 && is_string($actorUserId)

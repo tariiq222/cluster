@@ -45,10 +45,9 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
         $controller = new CreateTemporaryAssignmentController($this->principal(), $access, $gateway);
 
         $response = TestResponse::fromBaseResponse($controller(
-            $this->request('POST', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments', $this->createBody(), [
+            $this->request('POST', '/api/v1/organization/temporary-assignments', $this->createBody(), [
                 'Idempotency-Key' => 'temporary-create',
             ]),
-            self::UNIT_ID,
         ));
 
         $response->assertCreated()
@@ -57,7 +56,9 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
             ->assertJsonPath('data.organization_unit_id', self::UNIT_ID)
             ->assertJsonPath('data.person_id', self::PERSON_ID)
             ->assertJsonMissingPath('data.representation_etag')
-            ->assertJsonMissingPath('data.approved_by_user_id')
+            ->assertJsonPath('data.status', 'scheduled')
+            ->assertJsonPath('data.approved_by_user_id', self::ACTOR_ID)
+            ->assertJsonMissingPath('data.state')
             ->assertJsonMissingPath('data.display_name_ar')
             ->assertJsonMissingPath('data.employee_number');
 
@@ -67,19 +68,17 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
         $this->assertSame('organization_temporary_assignment', $access->facts[0]?->resourceType);
 
         TestResponse::fromBaseResponse($controller(
-            $this->request('POST', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments', [
+            $this->request('POST', '/api/v1/organization/temporary-assignments', [
                 ...$this->createBody(),
                 'approved_by_user_id' => self::OTHER_UNIT_ID,
             ], ['Idempotency-Key' => 'client-actor']),
-            self::UNIT_ID,
         ))->assertBadRequest();
 
         $gateway->conflictAction = 'create';
         TestResponse::fromBaseResponse($controller(
-            $this->request('POST', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments', $this->createBody(), [
+            $this->request('POST', '/api/v1/organization/temporary-assignments', $this->createBody(), [
                 'Idempotency-Key' => 'conflicting-create',
             ]),
-            self::UNIT_ID,
         ))->assertConflict()
             ->assertJsonPath('type', 'https://cluster.example/problems/idempotency-conflict');
     }
@@ -91,8 +90,7 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
         $principal = $this->principal();
 
         $listed = TestResponse::fromBaseResponse((new ListTemporaryAssignmentsController($principal, $access, $gateway))(
-            $this->request('GET', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments?limit=20'),
-            self::UNIT_ID,
+            $this->request('GET', '/api/v1/organization/temporary-assignments?organization_unit_id='.self::UNIT_ID.'&limit=20'),
         ));
         $listed->assertOk()
             ->assertJsonCount(1, 'items')
@@ -104,8 +102,7 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
 
         $get = new GetTemporaryAssignmentController($principal, $access, $gateway);
         $found = TestResponse::fromBaseResponse($get(
-            $this->request('GET', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments/'.self::ASSIGNMENT_ID),
-            self::UNIT_ID,
+            $this->request('GET', '/api/v1/organization/temporary-assignments/'.self::ASSIGNMENT_ID),
             self::ASSIGNMENT_ID,
         ));
         $found->assertOk()
@@ -113,28 +110,24 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
             ->assertHeader('X-Resource-Version', '"1"');
 
         TestResponse::fromBaseResponse($get(
-            $this->request('GET', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments/'.self::ASSIGNMENT_ID, [], [
+            $this->request('GET', '/api/v1/organization/temporary-assignments/'.self::ASSIGNMENT_ID, [], [
                 'If-None-Match' => 'W/"temporary-assignment-'.self::ASSIGNMENT_ID.'-v1-pending"',
             ]),
-            self::UNIT_ID,
             self::ASSIGNMENT_ID,
         ))->assertStatus(304)
             ->assertHeader('ETag', 'W/"temporary-assignment-'.self::ASSIGNMENT_ID.'-v1-pending"');
 
         TestResponse::fromBaseResponse($get(
-            $this->request('GET', '/api/v1/organization/units/'.self::OTHER_UNIT_ID.'/temporary-assignments/'.self::ASSIGNMENT_ID),
+            $this->request('GET', '/api/v1/organization/temporary-assignments/'.self::OTHER_UNIT_ID),
             self::OTHER_UNIT_ID,
-            self::ASSIGNMENT_ID,
         ))->assertNotFound();
 
         $access->allow = false;
         TestResponse::fromBaseResponse((new ListTemporaryAssignmentsController($principal, $access, $gateway))(
-            $this->request('GET', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments'),
-            self::UNIT_ID,
+            $this->request('GET', '/api/v1/organization/temporary-assignments?organization_unit_id='.self::UNIT_ID),
         ))->assertForbidden();
         TestResponse::fromBaseResponse($get(
-            $this->request('GET', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments/'.self::ASSIGNMENT_ID),
-            self::UNIT_ID,
+            $this->request('GET', '/api/v1/organization/temporary-assignments/'.self::ASSIGNMENT_ID),
             self::ASSIGNMENT_ID,
         ))->assertNotFound();
 
@@ -146,20 +139,18 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
         $gateway = new FakeTemporaryAssignmentHttpGateway($this->assignment());
         $access = new FakeTemporaryAssignmentAccess;
         $controller = new RevokeTemporaryAssignmentController($this->principal(), $access, $gateway);
-        $uri = '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments/'.self::ASSIGNMENT_ID.'/revoke';
+        $uri = '/api/v1/organization/temporary-assignments/'.self::ASSIGNMENT_ID.'/revoke';
 
         TestResponse::fromBaseResponse($controller(
             $this->request('POST', $uri, ['reason' => 'انتهاء الحاجة'], [
                 'Idempotency-Key' => 'weak-version',
                 'If-Match' => 'W/"temporary-assignment-'.self::ASSIGNMENT_ID.'-v1-pending"',
             ]),
-            self::UNIT_ID,
             self::ASSIGNMENT_ID,
         ))->assertBadRequest();
 
         TestResponse::fromBaseResponse($controller(
             $this->request('POST', $uri, ['reason' => 'انتهاء الحاجة'], $this->mutationHeaders('"2"', 'stale-version')),
-            self::UNIT_ID,
             self::ASSIGNMENT_ID,
         ))->assertStatus(412)
             ->assertJsonPath('type', 'https://cluster.example/problems/precondition-failed');
@@ -173,19 +164,18 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
         ]);
         $revoked = TestResponse::fromBaseResponse($controller(
             $this->request('POST', $uri, ['reason' => 'انتهاء الحاجة'], $this->mutationHeaders('"1"', 'revoke')),
-            self::UNIT_ID,
             self::ASSIGNMENT_ID,
         ));
         $revoked->assertOk()
             ->assertHeader('ETag', 'W/"temporary-assignment-'.self::ASSIGNMENT_ID.'-v2-revoked"')
             ->assertHeader('X-Resource-Version', '"2"')
-            ->assertJsonPath('data.state', 'revoked');
+            ->assertJsonPath('data.status', 'revoked')
+            ->assertJsonPath('data.revoke_reason', 'انتهاء الحاجة');
         $this->assertSame(self::ACTOR_ID, $gateway->lastActorId);
 
         $gateway->conflictAction = 'revoke';
         TestResponse::fromBaseResponse($controller(
             $this->request('POST', $uri, ['reason' => 'سبب آخر'], $this->mutationHeaders('"2"', 'revoke-conflict')),
-            self::UNIT_ID,
             self::ASSIGNMENT_ID,
         ))->assertConflict()
             ->assertJsonPath('type', 'https://cluster.example/problems/idempotency-conflict');
@@ -193,7 +183,6 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
         $access->allow = false;
         TestResponse::fromBaseResponse($controller(
             $this->request('POST', $uri, ['reason' => 'محاولة مرفوضة'], $this->mutationHeaders('"2"', 'denied')),
-            self::UNIT_ID,
             self::ASSIGNMENT_ID,
         ))->assertNotFound();
     }
@@ -208,10 +197,9 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
         );
 
         TestResponse::fromBaseResponse($controller(
-            $this->request('POST', '/api/v1/organization/units/'.self::UNIT_ID.'/temporary-assignments', $this->createBody(), [
+            $this->request('POST', '/api/v1/organization/temporary-assignments', $this->createBody(), [
                 'Idempotency-Key' => 'anonymous',
             ]),
-            self::UNIT_ID,
         ))->assertUnauthorized();
 
         $this->assertSame([], $gateway->lastCreateInput);
@@ -275,6 +263,7 @@ class OrganizationTemporaryAssignmentHttpAdapterTest extends TestCase
     {
         return [
             'person_id' => self::PERSON_ID,
+            'organization_unit_id' => self::UNIT_ID,
             'capability_codes' => ['records.read'],
             'start_at' => '2026-07-18T11:00:00.000Z',
             'end_at' => '2026-07-19T11:00:00.000Z',
@@ -402,10 +391,9 @@ final class FakeTemporaryAssignmentHttpGateway implements TemporaryAssignmentHtt
         return ['created' => true, 'temporary_assignment' => $this->assignment];
     }
 
-    public function findInUnit(string $organizationUnitId, string $temporaryAssignmentId): ?array
+    public function find(string $temporaryAssignmentId): ?array
     {
-        if ($organizationUnitId !== $this->assignment['organization_unit_id']
-            || $temporaryAssignmentId !== $this->assignment['id']) {
+        if ($temporaryAssignmentId !== $this->assignment['id']) {
             return null;
         }
 
@@ -424,7 +412,6 @@ final class FakeTemporaryAssignmentHttpGateway implements TemporaryAssignmentHtt
     }
 
     public function revoke(
-        string $organizationUnitId,
         string $temporaryAssignmentId,
         int $expectedVersion,
         string $reason,

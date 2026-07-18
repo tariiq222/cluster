@@ -1,7 +1,18 @@
 <?php
 
+use App\Http\Controllers\Documents\CompleteDocumentUploadController;
+use App\Http\Controllers\Documents\GetDocumentUploadStatusController;
+use App\Http\Controllers\Documents\InitiateDocumentUploadController;
+use App\Http\Controllers\Documents\ReconcileDocumentPromotionController;
+use App\Http\Controllers\Documents\ScanDocumentVersionController;
+use App\Http\Controllers\Identity\ChangePasswordController;
+use App\Http\Controllers\Identity\ConsumeActivationController;
 use App\Http\Controllers\Identity\CreateUserAccountController;
+use App\Http\Controllers\Identity\GetCurrentIdentityController;
 use App\Http\Controllers\Identity\GetUserAccountController;
+use App\Http\Controllers\Identity\IdentityLoginController;
+use App\Http\Controllers\Identity\IdentityLogoutController;
+use App\Http\Controllers\Identity\IssueActivationController;
 use App\Http\Controllers\Identity\ListUserAccountsController;
 use App\Http\Controllers\Identity\TransitionUserAccountController;
 use App\Http\Controllers\Organization\CreateAssignmentController;
@@ -10,6 +21,7 @@ use App\Http\Controllers\Organization\CreateFacilityController;
 use App\Http\Controllers\Organization\CreateOrganizationUnitController;
 use App\Http\Controllers\Organization\CreatePersonController;
 use App\Http\Controllers\Organization\CreatePositionController;
+use App\Http\Controllers\Organization\CreateTemporaryAssignmentController;
 use App\Http\Controllers\Organization\EndAssignmentController;
 use App\Http\Controllers\Organization\GetClusterController;
 use App\Http\Controllers\Organization\GetFacilityController;
@@ -18,12 +30,15 @@ use App\Http\Controllers\Organization\GetOrganizationUnitController;
 use App\Http\Controllers\Organization\GetPersonController;
 use App\Http\Controllers\Organization\GetPersonReferenceController;
 use App\Http\Controllers\Organization\GetPositionController;
+use App\Http\Controllers\Organization\GetTemporaryAssignmentController;
 use App\Http\Controllers\Organization\ListAssignmentsController;
 use App\Http\Controllers\Organization\ListFacilitiesController;
 use App\Http\Controllers\Organization\ListImportJobRowsController;
 use App\Http\Controllers\Organization\ListOrganizationUnitsController;
 use App\Http\Controllers\Organization\ListPeopleController;
 use App\Http\Controllers\Organization\ListPositionsController;
+use App\Http\Controllers\Organization\ListTemporaryAssignmentsController;
+use App\Http\Controllers\Organization\RevokeTemporaryAssignmentController;
 use App\Http\Controllers\Organization\SubmitImportJobController;
 use App\Http\Controllers\Organization\TransitionImportJobController;
 use App\Http\Controllers\Organization\UpdateClusterController;
@@ -31,6 +46,8 @@ use App\Http\Controllers\Organization\UpdateFacilityController;
 use App\Http\Controllers\Organization\UpdateOrganizationUnitController;
 use App\Http\Controllers\Organization\UpdatePersonController;
 use App\Http\Controllers\Organization\UpdatePositionController;
+use App\Http\Middleware\IdentityCsrfMiddleware;
+use App\Http\Middleware\IdentitySessionMiddleware;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Features\DevelopmentFixtureLogin\Http\DevelopmentFixtureLoginController;
@@ -43,6 +60,27 @@ Route::prefix('api/v1')->group(function (): void {
     Route::post('auth/login', DevelopmentFixtureLoginController::class)
         ->middleware('web')
         ->withoutMiddleware(PreventRequestForgery::class);
+    Route::post('identity/login', IdentityLoginController::class);
+    Route::post('identity/activation', ConsumeActivationController::class)->middleware('throttle:6,1');
+    Route::get('identity/me', GetCurrentIdentityController::class)->middleware(IdentitySessionMiddleware::class);
+    Route::middleware([IdentitySessionMiddleware::class, IdentityCsrfMiddleware::class])->group(function (): void {
+        Route::post('identity/logout', IdentityLogoutController::class);
+        Route::post('identity/password', ChangePasswordController::class);
+        Route::post('identity/accounts/{accountId}/activation', IssueActivationController::class);
+    });
+    Route::middleware(IdentitySessionMiddleware::class)->group(function (): void {
+        Route::get('documents/uploads/{uploadId}', GetDocumentUploadStatusController::class);
+        Route::get('organization/temporary-assignments', ListTemporaryAssignmentsController::class);
+        Route::get('organization/temporary-assignments/{temporaryAssignmentId}', GetTemporaryAssignmentController::class);
+    });
+    Route::middleware([IdentitySessionMiddleware::class, IdentityCsrfMiddleware::class])->group(function (): void {
+        Route::post('documents/uploads', InitiateDocumentUploadController::class);
+        Route::post('documents/uploads/{uploadId}/complete', CompleteDocumentUploadController::class);
+        Route::post('organization/temporary-assignments', CreateTemporaryAssignmentController::class);
+        Route::post('organization/temporary-assignments/{temporaryAssignmentId}/revoke', RevokeTemporaryAssignmentController::class);
+    });
+    Route::post('internal/documents/versions/{versionId}/scan', ScanDocumentVersionController::class)->middleware('throttle:60,1');
+    Route::post('internal/documents/versions/{versionId}/reconcile-promotion', ReconcileDocumentPromotionController::class)->middleware('throttle:60,1');
     Route::get('notifications', ListMyNotificationsController::class);
     Route::get('organization/cluster', GetClusterController::class);
     Route::post('organization/cluster', CreateClusterController::class);

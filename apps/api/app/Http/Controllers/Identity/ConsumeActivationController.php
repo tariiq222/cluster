@@ -6,21 +6,15 @@ use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\Identity\Exceptions\AuthenticationFailed;
 use Modules\Identity\Exceptions\WeakPassword;
 use Modules\Identity\Features\Activation\Handler\ActivationHandler;
-use Modules\Identity\Features\Totp\Handler\TotpHandler;
 use Modules\Identity\Http\IdentityApi;
-use stdClass;
 
 final class ConsumeActivationController
 {
-    public function __construct(
-        private readonly ActivationHandler $activation,
-        private readonly TotpHandler $totp,
-    ) {}
+    public function __construct(private readonly ActivationHandler $activation) {}
 
     public function __invoke(Request $request): JsonResponse
     {
@@ -58,23 +52,11 @@ final class ConsumeActivationController
 
         $validated = $validator->validated();
         try {
-            DB::transaction(function () use ($validated): void {
-                $activation = DB::table('identity_activation_tokens')
-                    ->where('token_hash', hash('sha256', (string) $validated['token']))
-                    ->lockForUpdate()
-                    ->first(['user_id']);
-                if ($activation instanceof stdClass) {
-                    $user = DB::table('users')->where('id', $activation->user_id)->first(['is_admin']);
-                    if ($user instanceof stdClass && (bool) $user->is_admin) {
-                        $totpCode = isset($validated['totp_code']) ? (string) $validated['totp_code'] : '';
-                        if (! $this->totp->verify((string) $activation->user_id, $totpCode)) {
-                            throw new AuthenticationFailed;
-                        }
-                    }
-                }
-
-                $this->activation->activate((string) $validated['token'], (string) $validated['password']);
-            });
+            $this->activation->activate(
+                (string) $validated['token'],
+                (string) $validated['password'],
+                isset($validated['totp_code']) ? (string) $validated['totp_code'] : null,
+            );
         } catch (WeakPassword) {
             return IdentityApi::problem(
                 422,

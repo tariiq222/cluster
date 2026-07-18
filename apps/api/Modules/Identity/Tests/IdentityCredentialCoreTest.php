@@ -30,7 +30,7 @@ class IdentityCredentialCoreTest extends TestCase
     {
         parent::setUp();
         $this->artisan('migrate', [
-            '--path' => 'Modules/Identity/Infrastructure/Persistence/Migrations/AddIdentityCredentialCoreTables.php',
+            '--path' => 'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php',
         ])->assertSuccessful();
     }
 
@@ -51,6 +51,30 @@ class IdentityCredentialCoreTest extends TestCase
 
         $this->expectException(AuthenticationFailed::class);
         $this->app->make(ActivationHandler::class)->activate($token['token'], 'A different activation phrase 2026!');
+    }
+
+    public function test_pending_admin_receives_controlled_totp_enrollment_and_confirms_it_during_activation(): void
+    {
+        $userId = $this->user('pending.admin');
+        DB::table('users')->where('id', $userId)->update(['is_admin' => true]);
+
+        $activation = $this->app->make(ActivationHandler::class)->issue($userId);
+
+        $this->assertArrayHasKey('totp_secret', $activation);
+        $this->assertArrayHasKey('totp_otpauth_uri', $activation);
+        $this->assertStringNotContainsString(
+            $activation['totp_secret'],
+            (string) DB::table('identity_totp')->where('user_id', $userId)->value('secret_ciphertext'),
+        );
+
+        $this->app->make(ActivationHandler::class)->activate(
+            $activation['token'],
+            'A secure activation phrase 2026!',
+            $this->totpCode($activation['totp_secret'], time()),
+        );
+
+        $this->assertTrue((bool) DB::table('identity_totp')->where('user_id', $userId)->value('enabled'));
+        $this->assertSame('active', DB::table('users')->where('id', $userId)->value('status'));
     }
 
     public function test_credentialless_account_remains_pending_and_cannot_issue_a_session(): void

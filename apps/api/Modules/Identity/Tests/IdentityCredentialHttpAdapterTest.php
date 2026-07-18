@@ -35,7 +35,7 @@ class IdentityCredentialHttpAdapterTest extends TestCase
     {
         parent::setUp();
         $this->artisan('migrate', [
-            '--path' => 'Modules/Identity/Infrastructure/Persistence/Migrations/AddIdentityCredentialCoreTables.php',
+            '--path' => 'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php',
         ])->assertSuccessful();
         $this->app->bind(AuthenticateUser::class, AuthenticationHandler::class);
         $this->app->bind(IssueActivationToken::class, ActivationHandler::class);

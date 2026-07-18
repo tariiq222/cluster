@@ -42,6 +42,7 @@ final class InitiateDocumentUploadController
         }
         $input = $request->json()->all();
         $validator = Validator::make($input, [
+            'purpose' => ['required', 'string', 'in:document_version,organization_import_source'],
             'name' => ['required', 'string', 'min:1', 'max:255'],
             'description' => ['nullable', 'string', 'max:10000'],
             'classification' => ['required', 'string', 'in:public,internal,confidential,top_secret'],
@@ -50,7 +51,7 @@ final class InitiateDocumentUploadController
             'byte_size' => ['required', 'integer', 'min:1', 'max:1073741824'],
             'sha256' => ['required', 'string', 'regex:/\A[a-f0-9]{64}\z/'],
         ]);
-        $allowed = ['name', 'description', 'classification', 'file_name', 'content_type', 'byte_size', 'sha256'];
+        $allowed = ['purpose', 'name', 'description', 'classification', 'file_name', 'content_type', 'byte_size', 'sha256'];
         if ($validator->fails() || array_diff(array_keys($input), $allowed) !== []) {
             return DocumentsApi::problem(400, 'invalid-document-upload', 'Bad Request', 'The document upload payload is invalid.', $correlationId);
         }
@@ -61,6 +62,7 @@ final class InitiateDocumentUploadController
             return $actor;
         }
         $semantics = [
+            'purpose' => (string) $validated['purpose'],
             'name' => (string) $validated['name'],
             'description' => $validated['description'] ?? null,
             'classification' => (string) $validated['classification'],
@@ -74,6 +76,7 @@ final class InitiateDocumentUploadController
             $result = $this->handler->initiate(
                 $actor,
                 new InitiateDocumentUpload(
+                    $semantics['purpose'],
                     new DocumentMetadata($semantics['name'], $semantics['description'], $semantics['classification']),
                     new UploadFileMetadata($semantics['file_name'], $semantics['byte_size'], $semantics['content_type'], $semantics['sha256']),
                 ),
@@ -94,6 +97,15 @@ final class InitiateDocumentUploadController
             return DocumentsApi::domainProblem($exception, $correlationId);
         }
 
-        return DocumentsApi::response($result->toArray(), 201, $correlationId);
+        return DocumentsApi::response([
+            'upload_id' => $result->uploadIntent->id,
+            'quarantine_object_id' => $result->quarantineObjectId,
+            'purpose' => $result->purpose,
+            'method' => $result->uploadIntent->method,
+            'upload_url' => $result->uploadIntent->url,
+            'required_headers' => $result->uploadIntent->requiredHeaders,
+            'expires_at' => $result->uploadIntent->expiresAt->format('Y-m-d\TH:i:s.v\Z'),
+            'max_size_bytes' => $result->maxSizeBytes,
+        ], 201, $correlationId);
     }
 }

@@ -36,11 +36,9 @@ final class TemporaryAssignmentMySqlConcurrencyTest extends TestCase
     public function runDatabaseMigrations(): void
     {
         $this->artisan('migrate:fresh', $this->migrateFreshUsing());
-        $this->migrateTemporaryAssignmentsUp();
         $this->app[Kernel::class]->setArtisan(null);
 
         $this->beforeApplicationDestroyed(function (): void {
-            $this->migrateTemporaryAssignmentsDown();
             $this->artisan('migrate:rollback');
             RefreshDatabaseState::$migrated = false;
         });
@@ -358,18 +356,6 @@ final class TemporaryAssignmentMySqlConcurrencyTest extends TestCase
         } catch (QueryException $exception) {
             $this->assertStringContainsString($constraint, $exception->getMessage());
         }
-    }
-
-    private function migrateTemporaryAssignmentsUp(): void
-    {
-        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateOrganizationTemporaryAssignmentsTable.php';
-        $migration->up();
-    }
-
-    private function migrateTemporaryAssignmentsDown(): void
-    {
-        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateOrganizationTemporaryAssignmentsTable.php';
-        $migration->down();
     }
 }
 

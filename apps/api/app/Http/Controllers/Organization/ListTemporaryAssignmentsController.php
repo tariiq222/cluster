@@ -22,36 +22,35 @@ final class ListTemporaryAssignmentsController
         private readonly TemporaryAssignmentHttpGateway $gateway,
     ) {}
 
-    public function __invoke(Request $request, string $organizationUnitId): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
         $correlationId = OrganizationApi::correlationId($request);
         if ($correlationId === null) {
             return OrganizationApi::problem(400, 'invalid-correlation-id', 'Bad Request', 'X-Correlation-ID must be a lowercase UUIDv7.');
         }
-        if (! OrganizationApi::isUuidV7($organizationUnitId)) {
-            return OrganizationApi::problem(400, 'invalid-organization-unit-id', 'Bad Request', 'organizationUnitId must be a lowercase UUIDv7.', $correlationId);
-        }
         $principal = $this->principalResolver->resolve($request);
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
+        $query = $request->query();
+        $validator = Validator::make($query, [
+            'organization_unit_id' => ['required', 'string', 'regex:/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/'],
+            'cursor' => ['sometimes', 'string', 'min:1', 'max:4096'],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        if ($validator->fails() || array_diff(array_keys($query), ['organization_unit_id', 'cursor', 'limit']) !== []) {
+            return OrganizationApi::problem(400, 'invalid-pagination', 'Bad Request', 'The collection parameters are invalid.', $correlationId);
+        }
+        $validated = $validator->validated();
+        $organizationUnitId = (string) $validated['organization_unit_id'];
         if (! $this->access->decide($principal, 'organization.temporary-assignment.read', new RecordFacts(
             ownerFacilityId: $principal['facility_id'],
             resourceType: 'organization_temporary_assignment',
             classification: 'internal',
+            organizationUnitId: $organizationUnitId,
         ))->isAllowed()) {
             return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }
-
-        $query = $request->query();
-        $validator = Validator::make($query, [
-            'cursor' => ['sometimes', 'string', 'min:1', 'max:4096'],
-            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
-        ]);
-        if ($validator->fails() || array_diff(array_keys($query), ['cursor', 'limit']) !== []) {
-            return OrganizationApi::problem(400, 'invalid-pagination', 'Bad Request', 'The collection parameters are invalid.', $correlationId);
-        }
-        $validated = $validator->validated();
         $limit = (int) ($validated['limit'] ?? 25);
         try {
             $page = $this->gateway->listInUnit($organizationUnitId, $validated['cursor'] ?? null, $limit);
@@ -63,7 +62,8 @@ final class ListTemporaryAssignmentsController
         $response = response()->json(TemporaryAssignmentApi::page($page))
             ->header('X-Correlation-ID', $correlationId);
         if ($page['next_cursor'] !== null) {
-            $response->header('Link', '</api/v1/organization/units/'.$organizationUnitId.'/temporary-assignments?'.http_build_query([
+            $response->header('Link', '</api/v1/organization/temporary-assignments?'.http_build_query([
+                'organization_unit_id' => $organizationUnitId,
                 'cursor' => $page['next_cursor'],
                 'limit' => $limit,
             ], '', '&', PHP_QUERY_RFC3986).'>; rel="next"');

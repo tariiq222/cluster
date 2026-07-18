@@ -367,6 +367,7 @@ final class TemporaryAssignmentHandler
             // Deliberately weak: clock-derived state can change without a mutation.
             'representation_etag' => 'W/"temporary-assignment-'.$id.'-v'.$lockVersion.'-'.$state.'"',
             'reason' => (string) $row->reason,
+            'approved_by_user_id' => (string) $row->approved_by_user_id,
             'revoked_at' => $row->revoked_at === null
                 ? null
                 : $this->timestamp((string) $row->revoked_at)->format('Y-m-d\TH:i:s.v\Z'),

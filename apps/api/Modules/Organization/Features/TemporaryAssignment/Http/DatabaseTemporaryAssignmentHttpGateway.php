@@ -31,26 +31,20 @@ final class DatabaseTemporaryAssignmentHttpGateway implements TemporaryAssignmen
             $correlationId,
             $idempotency,
         );
-        $result['temporary_assignment'] = $this->findRequired(
-            (string) $input['organization_unit_id'],
-            (string) $result['temporary_assignment']['id'],
-        );
+        if ($result['created']) {
+            $result['temporary_assignment'] = $this->findRequired(
+                (string) $result['temporary_assignment']['id'],
+            );
+        }
 
         return $result;
     }
 
-    public function findInUnit(string $organizationUnitId, string $temporaryAssignmentId): ?array
+    public function find(string $temporaryAssignmentId): ?array
     {
-        $this->assertIdentifier($organizationUnitId);
         $this->assertIdentifier($temporaryAssignmentId);
-        $temporaryAssignment = $this->handler->find($temporaryAssignmentId);
-        if ($temporaryAssignment === null
-            || ! is_string($temporaryAssignment['organization_unit_id'] ?? null)
-            || ! hash_equals($organizationUnitId, $temporaryAssignment['organization_unit_id'])) {
-            return null;
-        }
 
-        return $temporaryAssignment;
+        return $this->handler->find($temporaryAssignmentId);
     }
 
     public function listInUnit(string $organizationUnitId, ?string $cursor, int $limit): array
@@ -80,7 +74,7 @@ final class DatabaseTemporaryAssignmentHttpGateway implements TemporaryAssignmen
         $hasMore = count($ids) > $limit;
         $visibleIds = array_slice($ids, 0, $limit);
         $items = array_map(
-            fn (string $id): array => $this->findRequired($organizationUnitId, $id),
+            fn (string $id): array => $this->findRequired($id),
             $visibleIds,
         );
         $lastId = $visibleIds === [] ? null : $visibleIds[array_key_last($visibleIds)];
@@ -94,7 +88,6 @@ final class DatabaseTemporaryAssignmentHttpGateway implements TemporaryAssignmen
     }
 
     public function revoke(
-        string $organizationUnitId,
         string $temporaryAssignmentId,
         int $expectedVersion,
         string $reason,
@@ -102,7 +95,7 @@ final class DatabaseTemporaryAssignmentHttpGateway implements TemporaryAssignmen
         string $correlationId,
         array $idempotency,
     ): array {
-        if ($this->findInUnit($organizationUnitId, $temporaryAssignmentId) === null) {
+        if ($this->find($temporaryAssignmentId) === null) {
             throw new DomainException('temporary_assignment_not_found');
         }
         $result = $this->handler->revoke(
@@ -113,17 +106,19 @@ final class DatabaseTemporaryAssignmentHttpGateway implements TemporaryAssignmen
             $correlationId,
             $idempotency,
         );
-        $result['temporary_assignment'] = $this->findRequired($organizationUnitId, $temporaryAssignmentId);
+        if ($result['changed']) {
+            $result['temporary_assignment'] = $this->findRequired($temporaryAssignmentId);
+        }
 
         return $result;
     }
 
     /** @return array<string, mixed> */
-    private function findRequired(string $organizationUnitId, string $temporaryAssignmentId): array
+    private function findRequired(string $temporaryAssignmentId): array
     {
-        $temporaryAssignment = $this->findInUnit($organizationUnitId, $temporaryAssignmentId);
+        $temporaryAssignment = $this->find($temporaryAssignmentId);
         if ($temporaryAssignment === null) {
-            throw new UnexpectedValueException('The temporary assignment could not be read in its exact OrganizationUnit scope.');
+            throw new UnexpectedValueException('The temporary assignment could not be read after its write.');
         }
 
         return $temporaryAssignment;

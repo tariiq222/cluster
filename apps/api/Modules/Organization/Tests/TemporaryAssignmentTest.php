@@ -55,7 +55,6 @@ class TemporaryAssignmentTest extends TestCase
     protected function migrateDatabases(): void
     {
         $this->artisan('migrate:fresh', $this->migrateFreshUsing());
-        $this->migrateTemporaryAssignments();
     }
 
     protected function setUp(): void
@@ -661,7 +660,7 @@ class TemporaryAssignmentTest extends TestCase
 
     private function migrateTemporaryAssignments(): void
     {
-        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateOrganizationTemporaryAssignmentsTable.php';
+        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/ZCreateOrganizationTemporaryAssignmentsTable.php';
         $migration->up();
     }
 

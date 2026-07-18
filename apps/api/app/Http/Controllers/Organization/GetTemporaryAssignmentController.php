@@ -22,31 +22,29 @@ final class GetTemporaryAssignmentController
 
     public function __invoke(
         Request $request,
-        string $organizationUnitId,
         string $temporaryAssignmentId,
     ): JsonResponse|Response {
         $correlationId = OrganizationApi::correlationId($request);
         if ($correlationId === null) {
             return OrganizationApi::problem(400, 'invalid-correlation-id', 'Bad Request', 'X-Correlation-ID must be a lowercase UUIDv7.');
         }
-        if (! OrganizationApi::isUuidV7($organizationUnitId)
-            || ! OrganizationApi::isUuidV7($temporaryAssignmentId)) {
-            return OrganizationApi::problem(400, 'invalid-temporary-assignment-reference', 'Bad Request', 'The temporary assignment reference must contain lowercase UUIDv7 values.', $correlationId);
+        if (! OrganizationApi::isUuidV7($temporaryAssignmentId)) {
+            return OrganizationApi::problem(400, 'invalid-temporary-assignment-reference', 'Bad Request', 'The temporary assignment reference must be a lowercase UUIDv7.', $correlationId);
         }
         $principal = $this->principalResolver->resolve($request);
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
+        $temporaryAssignment = $this->gateway->find($temporaryAssignmentId);
+        if ($temporaryAssignment === null) {
+            return $this->notFound($correlationId);
+        }
         if (! $this->access->decide($principal, 'organization.temporary-assignment.read', new RecordFacts(
             ownerFacilityId: $principal['facility_id'],
             resourceType: 'organization_temporary_assignment',
             classification: 'internal',
+            organizationUnitId: (string) $temporaryAssignment['organization_unit_id'],
         ))->isAllowed()) {
-            return $this->notFound($correlationId);
-        }
-
-        $temporaryAssignment = $this->gateway->findInUnit($organizationUnitId, $temporaryAssignmentId);
-        if ($temporaryAssignment === null) {
             return $this->notFound($correlationId);
         }
         if (TemporaryAssignmentApi::requestCacheMatches($request, $temporaryAssignment)) {

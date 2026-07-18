@@ -50,8 +50,6 @@ final class DocumentUploadCoreTest extends TestCase
     {
         parent::setUp();
 
-        (require base_path('Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php'))->up();
-        (require base_path('Modules/Documents/Infrastructure/Persistence/Migrations/HardenDocumentUploadSecurityTables.php'))->up();
         $this->storage = new InMemoryPrivateObjectStorage;
         $this->scanner = new InMemoryMalwareScanner;
         $this->handler = new DocumentUploadHandler(
@@ -464,7 +462,7 @@ final class DocumentUploadCoreTest extends TestCase
     public function test_hardening_migration_and_private_disk_configuration_fail_closed_outside_testing(): void
     {
         $this->assertTrue(Schema::hasColumns('document_storage_objects', ['etag', 'generation']));
-        $this->assertTrue(Schema::hasColumns('document_upload_intents', ['expected_sha256', 'expected_size_bytes', 'expected_mime_type', 'conditional_create', 'signed_intent_payload']));
+        $this->assertTrue(Schema::hasColumns('document_upload_intents', ['purpose', 'expected_sha256', 'expected_size_bytes', 'expected_mime_type', 'conditional_create', 'signed_intent_payload']));
         $this->assertTrue(Schema::hasColumn('document_versions', 'promotion_requested_at'));
         $this->assertSame('documents/quarantine', config('filesystems.disks.documents-quarantine.root'));
         $this->assertSame('documents/available', config('filesystems.disks.documents-available.root'));
@@ -508,6 +506,7 @@ final class DocumentUploadCoreTest extends TestCase
     private function initiationRequest(string $filename, string $mimeType, int $sizeBytes, string $classification = 'internal'): InitiateDocumentUpload
     {
         return new InitiateDocumentUpload(
+            'document_version',
             new DocumentMetadata('ملف إداري', 'وصف محكوم', $classification),
             new UploadFileMetadata($filename, $sizeBytes, $mimeType, $this->hashFor($filename, $sizeBytes)),
         );

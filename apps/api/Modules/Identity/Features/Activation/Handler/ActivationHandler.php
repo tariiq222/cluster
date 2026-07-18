@@ -6,8 +6,10 @@ use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Identity\Exceptions\AuthenticationFailed;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
 use Modules\Identity\Features\Credentials\Handler\CredentialHandler;
+use Modules\Identity\Features\Totp\Handler\TotpHandler;
 use Modules\Identity\Infrastructure\Outbox\IdentityOutbox;
 use stdClass;
 
@@ -16,13 +18,14 @@ final class ActivationHandler implements IssueActivationToken
     public function __construct(
         private readonly IdentityOutbox $outbox,
         private readonly CredentialHandler $credentials,
+        private readonly TotpHandler $totp,
     ) {}
 
-    /** @return array{user_id: string, token: string, expires_at: string} */
+    /** @return array{user_id: string, token: string, expires_at: string, totp_secret?: string, totp_otpauth_uri?: string} */
     public function issue(string $userId): array
     {
         return DB::transaction(function () use ($userId): array {
-            $user = DB::table('users')->where('id', $userId)->lockForUpdate()->first(['id', 'status']);
+            $user = DB::table('users')->where('id', $userId)->lockForUpdate()->first(['id', 'status', 'is_admin']);
             if (! $user instanceof stdClass || $user->status !== 'pending') {
                 throw new DomainException('activation_not_available');
             }
@@ -47,18 +50,42 @@ final class ActivationHandler implements IssueActivationToken
                 'updated_at' => $now,
             ]);
             $this->outbox->insertSecurityEvent('activation_token_issued', $userId, ['user_id' => $userId]);
+            $totpEnrollment = (bool) $user->is_admin ? $this->totp->enroll($userId) : null;
 
             return [
                 'user_id' => $userId,
                 'token' => $token,
                 'expires_at' => $expiresAt->format('Y-m-d\TH:i:s\Z'),
+                ...($totpEnrollment === null ? [] : [
+                    'totp_secret' => $totpEnrollment['secret'],
+                    'totp_otpauth_uri' => $totpEnrollment['otpauth_uri'],
+                ]),
             ];
         });
     }
 
     /** @return array{user_id: string, password_version: int} */
-    public function activate(string $token, string $password): array
+    public function activate(string $token, string $password, ?string $totpCode = null): array
     {
-        return $this->credentials->activateWithToken($token, $password);
+        return DB::transaction(function () use ($token, $password, $totpCode): array {
+            $activation = DB::table('identity_activation_tokens')
+                ->where('token_hash', hash('sha256', $token))
+                ->lockForUpdate()
+                ->first(['user_id']);
+            if ($activation instanceof stdClass) {
+                $isAdmin = DB::table('users')->where('id', $activation->user_id)->value('is_admin');
+                if ((bool) $isAdmin) {
+                    $totpEnabled = DB::table('identity_totp')->where('user_id', $activation->user_id)->value('enabled');
+                    $totpAccepted = (bool) $totpEnabled
+                        ? $this->totp->verify((string) $activation->user_id, (string) $totpCode)
+                        : $this->totp->confirm((string) $activation->user_id, (string) $totpCode);
+                    if (! $totpAccepted) {
+                        throw new AuthenticationFailed;
+                    }
+                }
+            }
+
+            return $this->credentials->activateWithToken($token, $password);
+        });
     }
 }

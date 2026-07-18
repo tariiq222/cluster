@@ -58,6 +58,7 @@ final class DocumentsApi
             ownerFacilityId: $facts->ownerOrganizationUnitId,
             resourceType: 'document',
             classification: $facts->classification,
+            organizationUnitId: $facts->ownerOrganizationUnitId,
         ));
         if (! $decision->isAllowed()) {
             return self::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);

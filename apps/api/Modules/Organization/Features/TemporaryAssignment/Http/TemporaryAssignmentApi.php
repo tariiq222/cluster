@@ -17,11 +17,11 @@ final class TemporaryAssignmentApi
         'capability_codes',
         'start_at',
         'end_at',
-        'state',
-        'state_evaluated_at',
+        'status',
         'reason',
+        'approved_by_user_id',
         'revoked_at',
-        'revocation_reason',
+        'revoke_reason',
         'lock_version',
     ];
 
@@ -100,6 +100,9 @@ final class TemporaryAssignmentApi
     /** @return array<string, mixed> */
     private static function minimize(array $temporaryAssignment): array
     {
+        $state = $temporaryAssignment['state'] ?? null;
+        $temporaryAssignment['status'] = $state === 'pending' ? 'scheduled' : $state;
+        $temporaryAssignment['revoke_reason'] = $temporaryAssignment['revocation_reason'] ?? null;
         $resource = [];
         foreach (self::RESPONSE_FIELDS as $field) {
             if (array_key_exists($field, $temporaryAssignment)) {

@@ -67,8 +67,6 @@ final class DocumentsHttpControllerTest extends TestCase
     {
         parent::setUp();
 
-        (require base_path('Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php'))->up();
-        (require base_path('Modules/Documents/Infrastructure/Persistence/Migrations/HardenDocumentUploadSecurityTables.php'))->up();
         $this->storage = new InMemoryPrivateObjectStorage;
         $this->scanner = new InMemoryMalwareScanner;
         $handler = new DocumentUploadHandler(
@@ -125,15 +123,17 @@ final class DocumentsHttpControllerTest extends TestCase
         $this->assertSame(Response::HTTP_CREATED, $response->getStatusCode());
         $this->assertSame(self::CORRELATION_ID, $response->headers->get('X-Correlation-ID'));
         $payload = $response->getData(true);
-        $this->assertArrayHasKey('document_id', $payload);
-        $this->assertArrayHasKey('version_id', $payload);
-        $this->assertSame('PUT', $payload['upload_intent']['method']);
+        $this->assertArrayHasKey('upload_id', $payload);
+        $this->assertArrayHasKey('quarantine_object_id', $payload);
+        $this->assertSame('document_version', $payload['purpose']);
+        $this->assertSame('PUT', $payload['method']);
         $this->assertSame([
             'Content-Length' => '512',
             'Content-Type' => 'application/pdf',
             'x-amz-checksum-sha256' => $this->hashFor('initiate-a.pdf', 512),
             'If-None-Match' => '*',
-        ], $payload['upload_intent']['required_headers']);
+        ], $payload['required_headers']);
+        $this->assertSame((int) config('documents.uploads.max_size_bytes'), $payload['max_size_bytes']);
         $this->assertArrayNotHasKey('object_key', $payload);
         $this->assertArrayNotHasKey('storage_object_id', $payload);
         $this->assertArrayNotHasKey('scan_engine', $payload);
@@ -178,21 +178,21 @@ final class DocumentsHttpControllerTest extends TestCase
     public function test_it_completes_and_reports_upload_status_without_object_or_av_internals(): void
     {
         $started = ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('complete'), 'complete-initiate'))->getData(true);
-        $this->storage->completeUpload($started['upload_intent']['id'], $this->properties('complete.pdf', 512));
+        $this->storage->completeUpload($started['upload_id'], $this->properties('complete.pdf', 512));
 
         $completed = ($this->complete)($this->jsonRequest('POST', [
             'sha256' => $this->hashFor('complete.pdf', 512),
             'byte_size' => 512,
-        ], 'complete'), $started['upload_intent']['id']);
+        ], 'complete'), $started['upload_id']);
         $this->assertSame(Response::HTTP_ACCEPTED, $completed->getStatusCode());
         $this->assertTrue($completed->getData(true)['accepted']);
         $this->assertSame('quarantined', $completed->getData(true)['availability_status']);
 
-        $status = ($this->status)($this->jsonRequest('GET'), $started['upload_intent']['id']);
+        $status = ($this->status)($this->jsonRequest('GET'), $started['upload_id']);
         $this->assertSame(Response::HTTP_OK, $status->getStatusCode());
         $payload = $status->getData(true);
-        $this->assertSame($started['document_id'], $payload['document_id']);
-        $this->assertSame($started['version_id'], $payload['version_id']);
+        $this->assertMatchesRegularExpression('/\A[0-9a-f-]{36}\z/', $payload['document_id']);
+        $this->assertMatchesRegularExpression('/\A[0-9a-f-]{36}\z/', $payload['version_id']);
         $this->assertSame('application/pdf', $payload['detected_mime_type']);
         $this->assertSame(512, $payload['byte_size']);
         $this->assertSame($this->hashFor('complete.pdf', 512), $payload['sha256']);
@@ -206,22 +206,23 @@ final class DocumentsHttpControllerTest extends TestCase
     public function test_internal_scan_and_reconciliation_actions_are_idempotent_and_never_expose_av_details(): void
     {
         $started = ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('scan'), 'scan-initiate'))->getData(true);
-        $this->storage->completeUpload($started['upload_intent']['id'], $this->properties('scan.pdf', 512));
+        $this->storage->completeUpload($started['upload_id'], $this->properties('scan.pdf', 512));
         ($this->complete)($this->jsonRequest('POST', [
             'sha256' => $this->hashFor('scan.pdf', 512),
             'byte_size' => 512,
-        ], 'scan-complete'), $started['upload_intent']['id']);
+        ], 'scan-complete'), $started['upload_id']);
+        $versionId = ($this->status)($this->jsonRequest('GET'), $started['upload_id'])->getData(true)['version_id'];
 
-        $scan = ($this->scan)($this->jsonRequest('POST', [], 'scan-version'), $started['version_id']);
+        $scan = ($this->scan)($this->jsonRequest('POST', [], 'scan-version'), $versionId);
         $this->assertSame(Response::HTTP_ACCEPTED, $scan->getStatusCode());
         $this->assertSame('clean', $scan->getData(true)['scan_status']);
         $this->assertSame('promotion_pending', $scan->getData(true)['availability_status']);
         $this->assertArrayNotHasKey('scan_engine', $scan->getData(true));
 
-        $available = ($this->reconcile)($this->jsonRequest('POST', [], 'reconcile-promotion'), $started['version_id']);
+        $available = ($this->reconcile)($this->jsonRequest('POST', [], 'reconcile-promotion'), $versionId);
         $this->assertSame(Response::HTTP_OK, $available->getStatusCode());
         $this->assertSame('available', $available->getData(true)['availability_status']);
-        $replayed = ($this->reconcile)($this->jsonRequest('POST', [], 'reconcile-promotion'), $started['version_id']);
+        $replayed = ($this->reconcile)($this->jsonRequest('POST', [], 'reconcile-promotion'), $versionId);
         $this->assertSame($available->getData(true), $replayed->getData(true));
         $this->assertSame(1, $this->storage->promotionCalls);
     }
@@ -284,10 +285,11 @@ final class DocumentsHttpControllerTest extends TestCase
         new ScanDocumentVersionController($userOnlyPrincipal, $access, $authorizationFacts, $handler);
     }
 
-    /** @return array{name: string, description: string, classification: string, file_name: string, content_type: string, byte_size: int, sha256: string} */
+    /** @return array{purpose: string, name: string, description: string, classification: string, file_name: string, content_type: string, byte_size: int, sha256: string} */
     private function initiatePayload(string $name): array
     {
         return [
+            'purpose' => 'document_version',
             'name' => 'Document '.$name,
             'description' => 'Governed upload '.$name,
             'classification' => 'internal',

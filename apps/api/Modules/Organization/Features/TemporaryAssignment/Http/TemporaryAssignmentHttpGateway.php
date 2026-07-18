@@ -18,7 +18,7 @@ interface TemporaryAssignmentHttpGateway
     ): array;
 
     /** @return array<string, mixed>|null */
-    public function findInUnit(string $organizationUnitId, string $temporaryAssignmentId): ?array;
+    public function find(string $temporaryAssignmentId): ?array;
 
     /** @return array{items: list<array<string, mixed>>, next_cursor: string|null} */
     public function listInUnit(string $organizationUnitId, ?string $cursor, int $limit): array;
@@ -28,7 +28,6 @@ interface TemporaryAssignmentHttpGateway
      * @return array{changed: bool, temporary_assignment: array<string, mixed>}
      */
     public function revoke(
-        string $organizationUnitId,
         string $temporaryAssignmentId,
         int $expectedVersion,
         string $reason,

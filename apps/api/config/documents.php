@@ -15,6 +15,12 @@ if (! $documentsTesting && $documentUploadEndpointAllowlist === []) {
 }
 
 return [
+    'worker' => [
+        'token' => env('DOCUMENTS_WORKER_TOKEN', $documentsTesting ? str_repeat('t', 32) : ''),
+        'user_id' => env('DOCUMENTS_WORKER_USER_ID', '018f6f7d-0c00-7000-8000-000000000021'),
+        'organization_unit_id' => env('DOCUMENTS_WORKER_ORGANIZATION_UNIT_ID', '018f6f7d-0c00-7000-8000-000000000011'),
+    ],
+
     'storage' => [
         'quarantine_disk' => 'documents-quarantine',
         'available_disk' => 'documents-available',

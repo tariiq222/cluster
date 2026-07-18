@@ -27,16 +27,14 @@ final class RevokeTemporaryAssignmentController
 
     public function __invoke(
         Request $request,
-        string $organizationUnitId,
         string $temporaryAssignmentId,
     ): JsonResponse {
         $correlationId = OrganizationApi::correlationId($request);
         if ($correlationId === null) {
             return OrganizationApi::problem(400, 'invalid-correlation-id', 'Bad Request', 'X-Correlation-ID must be a lowercase UUIDv7.');
         }
-        if (! OrganizationApi::isUuidV7($organizationUnitId)
-            || ! OrganizationApi::isUuidV7($temporaryAssignmentId)) {
-            return OrganizationApi::problem(400, 'invalid-temporary-assignment-reference', 'Bad Request', 'The temporary assignment reference must contain lowercase UUIDv7 values.', $correlationId);
+        if (! OrganizationApi::isUuidV7($temporaryAssignmentId)) {
+            return OrganizationApi::problem(400, 'invalid-temporary-assignment-reference', 'Bad Request', 'The temporary assignment reference must be a lowercase UUIDv7.', $correlationId);
         }
         $expectedVersion = OrganizationApi::ifMatch($request);
         if ($expectedVersion === null) {
@@ -50,10 +48,15 @@ final class RevokeTemporaryAssignmentController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
+        $temporaryAssignment = $this->gateway->find($temporaryAssignmentId);
+        if ($temporaryAssignment === null) {
+            return $this->notFound($correlationId);
+        }
         if (! $this->access->decide($principal, 'organization.temporary-assignment.manage', new RecordFacts(
             ownerFacilityId: $principal['facility_id'],
             resourceType: 'organization_temporary_assignment',
             classification: 'internal',
+            organizationUnitId: (string) $temporaryAssignment['organization_unit_id'],
         ))->isAllowed()) {
             return $this->notFound($correlationId);
         }
@@ -70,7 +73,6 @@ final class RevokeTemporaryAssignmentController
             return OrganizationApi::problem(400, 'invalid-temporary-assignment-revocation', 'Bad Request', 'The revocation payload is invalid.', $correlationId);
         }
         $semantics = [
-            'organization_unit_id' => $organizationUnitId,
             'temporary_assignment_id' => $temporaryAssignmentId,
             'expected_version' => $expectedVersion,
             'reason' => $reason,
@@ -84,7 +86,6 @@ final class RevokeTemporaryAssignmentController
 
         try {
             $result = $this->gateway->revoke(
-                $organizationUnitId,
                 $temporaryAssignmentId,
                 $expectedVersion,
                 $reason,
