@@ -2,7 +2,9 @@ import { type FormEvent, useEffect, useRef, useState } from 'react'
 
 import {
   ApiError,
+  completeDocumentUpload,
   getImportJob,
+  initiateDocumentUpload,
   listImportJobRows,
   submitImportJob,
   transitionImportJob,
@@ -17,7 +19,7 @@ const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const copy = {
   ar: {
     title: 'مراجعة الاستيراد', intro: 'تابع ملف people_assignments من مرجع quarantine من دون عرض الصفوف الخام.',
-    uploadBlocked: 'رفع bytes غير متاح حتى ينشر Documents عقد النقل. استخدم مرجع quarantine محكوماً أو افتح job موجوداً.',
+    uploadTitle: 'رفع ملف الاستيراد', uploadHelp: 'اختر ملف CSV لرفعه مباشرة إلى منطقة الحجر.', file: 'ملف CSV', upload: 'رفع الملف', uploadReady: 'جاهز لرفع الملف.', hashing: 'جارٍ تجهيز الملف…', requestingUpload: 'جارٍ طلب تصريح الرفع…', uploading: 'جارٍ رفع الملف…', completingUpload: 'جارٍ تأكيد الرفع…', uploadComplete: 'اكتمل رفع الملف. راجع مرجع الحجر ثم أنشئ مهمة الاستيراد.', fileRequired: 'اختر ملف CSV للمتابعة.', fileInvalid: 'اختر ملفاً بامتداد CSV.', fileTooLarge: 'حجم الملف غير مدعوم.', uploadError: 'تعذر رفع الملف. حاول مرة أخرى.', uploadHashError: 'تعذر تجهيز الملف للرفع. حاول مرة أخرى.', uploadName: 'مصدر استيراد تنظيمي',
     quarantineId: 'معرف quarantine', submit: 'إنشاء ImportJob', jobId: 'معرف ImportJob', open: 'فتح الاستيراد', saving: 'جارٍ التنفيذ…',
     loading: 'جارٍ تحميل الاستيراد…', forbidden: 'لا تملك صلاحية قراءة هذا الاستيراد.', notFound: 'الاستيراد غير موجود أو غير متاح.', error: 'تعذر تحميل الاستيراد.', retry: 'إعادة المحاولة',
     summary: 'ملخص الحالة', status: 'الحالة', template: 'القالب', total: 'إجمالي الصفوف', valid: 'صالحة', errors: 'بأخطاء', approver: 'المعتمد', notApproved: 'لم يعتمد بعد',
@@ -28,7 +30,7 @@ const copy = {
   },
   en: {
     title: 'Import review', intro: 'Follow a people_assignments file from its quarantine reference without exposing raw rows.',
-    uploadBlocked: 'Byte upload is unavailable until Documents publishes its transport contract. Use a governed quarantine reference or open an existing job.',
+    uploadTitle: 'Upload import file', uploadHelp: 'Choose a CSV file to upload directly to quarantine.', file: 'CSV file', upload: 'Upload file', uploadReady: 'Ready to upload the file.', hashing: 'Preparing file…', requestingUpload: 'Requesting upload permission…', uploading: 'Uploading file…', completingUpload: 'Confirming upload…', uploadComplete: 'File uploaded. Review the quarantine reference, then create the import job.', fileRequired: 'Choose a CSV file to continue.', fileInvalid: 'Choose a file with a CSV extension.', fileTooLarge: 'The file size is not supported.', uploadError: 'The file could not be uploaded. Try again.', uploadHashError: 'The file could not be prepared for upload. Try again.', uploadName: 'Organization import source',
     quarantineId: 'Quarantine ID', submit: 'Create ImportJob', jobId: 'ImportJob ID', open: 'Open import', saving: 'Working…',
     loading: 'Loading import…', forbidden: 'You do not have permission to read this import.', notFound: 'The import does not exist or is unavailable.', error: 'The import could not be loaded.', retry: 'Try again',
     summary: 'Status summary', status: 'Status', template: 'Template', total: 'Total rows', valid: 'Valid', errors: 'Errors', approver: 'Approver', notApproved: 'Not approved yet',
@@ -47,6 +49,7 @@ export function ImportReview({ locale, token, jobId, onJobOpen, onSessionExpired
   const [rows, setRows] = useState<ImportJobRow[]>([])
   const [loading, setLoading] = useState(Boolean(jobId))
   const [state, setState] = useState<'ready' | 'forbidden' | 'not-found' | 'error'>('ready')
+  const [quarantineId, setQuarantineId] = useState('')
 
   async function load() {
     if (!jobId) { setJob(null); setRows([]); setLoading(false); return }
@@ -70,8 +73,8 @@ export function ImportReview({ locale, token, jobId, onJobOpen, onSessionExpired
 
   return <section className="organization-page" aria-labelledby="import-heading">
     <div className="page-heading page-heading-copy"><div><h1 id="import-heading">{text.title}</h1><p>{text.intro}</p></div></div>
-    <p className="status-message" role="status">{text.uploadBlocked}</p>
-    <div className="import-entry-grid"><SubmitForm locale={locale} token={token} onSubmitted={(created) => onJobOpen(created.id)} onSessionExpired={onSessionExpired} /><OpenForm key={jobId ?? 'new'} locale={locale} initialValue={jobId ?? ''} onOpen={onJobOpen} /></div>
+    <ImportUpload locale={locale} csrfToken={token} onUploaded={setQuarantineId} onSessionExpired={onSessionExpired} />
+    <div className="import-entry-grid"><SubmitForm locale={locale} token={token} quarantineId={quarantineId} onQuarantineIdChange={setQuarantineId} onSubmitted={(created) => onJobOpen(created.id)} onSessionExpired={onSessionExpired} /><OpenForm key={jobId ?? 'new'} locale={locale} initialValue={jobId ?? ''} onOpen={onJobOpen} /></div>
     <div aria-live="polite" aria-atomic="true">
       {loading && <div className="skeleton-list" aria-label={text.loading}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
       {!loading && state !== 'ready' && <div className="state-panel" role={state === 'error' ? 'alert' : 'status'}><p>{state === 'forbidden' ? text.forbidden : state === 'not-found' ? text.notFound : text.error}</p>{state === 'error' && <button type="button" className="secondary-button" onClick={() => void load()}>{text.retry}</button>}</div>}
@@ -90,9 +93,57 @@ function RowsTable({ rows, locale }: { rows: ImportJobRow[]; locale: Locale }) {
   return <div className="table-scroll" tabIndex={0} role="region" aria-label={text.rows}><table><thead><tr><th scope="col">{text.row}</th><th scope="col">{text.proposed}</th><th scope="col">{text.decision}</th><th scope="col">{text.validationErrors}</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{number(row.row_number, locale)}</td><td>{row.proposed_action ? text[row.proposed_action] : '—'}</td><td>{row.decision === 'accepted' ? text.accepted : row.decision === 'rejected' ? text.rejectedDecision : '—'}</td><td>{row.validation_errors.length === 0 ? text.noErrors : <ul className="inline-errors">{row.validation_errors.map((error) => <li key={`${error.code}-${error.field ?? ''}`}>{error.code}{error.field ? ` · ${error.field}` : ''}</li>)}</ul>}</td></tr>)}</tbody></table></div>
 }
 
-function SubmitForm({ locale, token, onSubmitted, onSessionExpired }: { locale: Locale; token: string; onSubmitted: (job: ImportJob) => void; onSessionExpired: () => void }) {
+function ImportUpload({ locale, csrfToken, onUploaded, onSessionExpired }: { locale: Locale; csrfToken: string; onUploaded: (quarantineId: string) => void; onSessionExpired: () => void }) {
   const text = copy[locale]
-  const [quarantineId, setQuarantineId] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [phase, setPhase] = useState<'ready' | 'hashing' | 'requesting' | 'uploading' | 'completing' | 'complete'>('ready')
+  const [error, setError] = useState<'file' | 'invalid' | 'size' | 'hash' | 'upload' | null>(null)
+  const errorRef = useRef<HTMLParagraphElement>(null)
+  const busy = !['ready', 'complete'].includes(phase)
+  const status = phase === 'hashing' ? text.hashing : phase === 'requesting' ? text.requestingUpload : phase === 'uploading' ? text.uploading : phase === 'completing' ? text.completingUpload : phase === 'complete' ? text.uploadComplete : text.uploadReady
+  const errorMessage = error === 'file' ? text.fileRequired : error === 'invalid' ? text.fileInvalid : error === 'size' ? text.fileTooLarge : error === 'hash' ? text.uploadHashError : text.uploadError
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!file) return fail('file')
+    if (!file.name.toLowerCase().endsWith('.csv')) return fail('invalid')
+    if (file.size < 1 || file.size > 1_073_741_824) return fail('size')
+    setError(null)
+    try {
+      setPhase('hashing')
+      let sha256: string
+      try { sha256 = await hashFile(file) } catch { return fail('hash') }
+      setPhase('requesting')
+      const ticket = await initiateDocumentUpload(csrfToken, {
+        purpose: 'organization_import_source', name: text.uploadName, description: null, classification: 'confidential', file_name: file.name,
+        content_type: 'text/csv', byte_size: file.size, sha256,
+      })
+      setPhase('uploading')
+      const response = await fetch(ticket.upload_url, { method: ticket.method, headers: ticket.required_headers, body: file })
+      if (!response.ok) return fail('upload')
+      setPhase('completing')
+      const completion = await completeDocumentUpload(csrfToken, ticket.upload_id, { byte_size: file.size, sha256 })
+      if (!completion.accepted) return fail('upload')
+      onUploaded(ticket.quarantine_object_id)
+      setPhase('complete')
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) onSessionExpired()
+      else fail('upload')
+    }
+  }
+
+  function fail(nextError: NonNullable<typeof error>) { setPhase('ready'); setError(nextError); window.requestAnimationFrame(() => errorRef.current?.focus()) }
+
+  return <section className="organization-section" aria-labelledby="import-upload-heading"><h2 id="import-upload-heading">{text.uploadTitle}</h2><p>{text.uploadHelp}</p><form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p id="import-upload-error" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{errorMessage}</p>}<div className="field"><label htmlFor="import-upload-file">{text.file}<span aria-hidden="true"> *</span></label><input id="import-upload-file" type="file" accept=".csv,text/csv" required aria-required="true" aria-invalid={Boolean(error)} aria-describedby={error ? 'import-upload-error' : undefined} disabled={busy} onChange={(event) => { setFile(event.target.files?.[0] ?? null); setError(null); setPhase('ready') }} /></div><p className="status-message" role="status" aria-live="polite" aria-atomic="true">{status}</p><button type="submit" className="primary-button" disabled={busy}>{busy ? status : text.upload}</button></form></section>
+}
+
+async function hashFile(file: File) {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function SubmitForm({ locale, token, quarantineId, onQuarantineIdChange, onSubmitted, onSessionExpired }: { locale: Locale; token: string; quarantineId: string; onQuarantineIdChange: (quarantineId: string) => void; onSubmitted: (job: ImportJob) => void; onSessionExpired: () => void }) {
+  const text = copy[locale]
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(false)
   const errorRef = useRef<HTMLParagraphElement>(null)
@@ -104,7 +155,7 @@ function SubmitForm({ locale, token, onSubmitted, onSessionExpired }: { locale: 
     catch (failure) { if (failure instanceof ApiError && failure.status === 401) onSessionExpired(); else { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()) } }
     finally { setSubmitting(false) }
   }
-  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<Field id="quarantine-id" label={text.quarantineId} value={quarantineId} onChange={setQuarantineId} required invalid={error} /><button type="submit" className="primary-button" disabled={submitting}>{submitting ? text.saving : text.submit}</button></form>
+  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<Field id="quarantine-id" label={text.quarantineId} value={quarantineId} onChange={onQuarantineIdChange} required invalid={error} /><button type="submit" className="primary-button" disabled={submitting}>{submitting ? text.saving : text.submit}</button></form>
 }
 
 function OpenForm({ locale, initialValue, onOpen }: { locale: Locale; initialValue: string; onOpen: (jobId: string) => void }) {
