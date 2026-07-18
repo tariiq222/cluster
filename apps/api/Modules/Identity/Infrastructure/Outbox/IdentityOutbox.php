@@ -4,6 +4,7 @@ namespace Modules\Identity\Infrastructure\Outbox;
 
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 final class IdentityOutbox
 {
@@ -21,5 +22,58 @@ final class IdentityOutbox
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * Persist a security event whose payload is deliberately limited to opaque identifiers
+     * and bounded machine-readable reason values. Secrets, credentials and PII never cross
+     * this boundary.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function insertSecurityEvent(string $type, string $aggregateId, array $data = []): void
+    {
+        $type = preg_match('/\A[a-z][a-z0-9_]{1,63}\z/', $type) === 1 ? $type : 'security_event';
+        $aggregateId = $this->isUuidV7($aggregateId) ? $aggregateId : Str::uuid7()->toString();
+        $allowed = ['user_id', 'session_id', 'credential_id', 'password_version', 'lockout_level', 'source_hash', 'username_hash'];
+        $safeData = [];
+        foreach ($allowed as $key) {
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+            if (in_array($key, ['user_id', 'session_id', 'credential_id'], true) && is_string($data[$key]) && $this->isUuidV7($data[$key])) {
+                $safeData[$key] = $data[$key];
+            } elseif (in_array($key, ['source_hash', 'username_hash'], true) && is_string($data[$key]) && preg_match('/\A[0-9a-f]{64}\z/', $data[$key]) === 1) {
+                $safeData[$key] = $data[$key];
+            } elseif (in_array($key, ['password_version', 'lockout_level'], true) && is_int($data[$key])) {
+                $safeData[$key] = $data[$key];
+            }
+        }
+        $safeCodes = [
+            'manual_logout', 'security_change', 'password_change',
+            'binding_mismatch', 'session_expired',
+            'invalid_credentials', 'source_rate_limited', 'account_rate_limited', 'credential_recovery_required',
+            'throttled', 'account_unavailable', 'mfa_required', 'mfa_failed',
+        ];
+        foreach (['reason_code', 'failure_code'] as $key) {
+            if (isset($data[$key]) && is_string($data[$key]) && in_array($data[$key], $safeCodes, true)) {
+                $safeData[$key] = $data[$key];
+            }
+        }
+        $this->insert([
+            'specversion' => '1.0',
+            'id' => Str::uuid7()->toString(),
+            'source' => '/identity',
+            'type' => 'com.cluster.identity.'.$type.'.v1',
+            'subject' => '/identity/users/'.$aggregateId,
+            'time' => now()->utc()->format('Y-m-d\TH:i:s.v\Z'),
+            'datacontenttype' => 'application/json',
+            'data' => $safeData,
+        ], $aggregateId);
+    }
+
+    private function isUuidV7(string $value): bool
+    {
+        return preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $value) === 1;
     }
 }
