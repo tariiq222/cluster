@@ -11,9 +11,9 @@ import {
   type Session,
   type WorkRecord,
 } from './api'
+import { primaryRoutes, routeFromPath, type AppRoute } from './shell/routes'
 
 type Locale = 'ar' | 'en'
-type View = { name: 'list' } | { name: 'create' } | { name: 'detail'; recordId: string }
 
 const text = {
   ar: {
@@ -61,6 +61,8 @@ const text = {
     read: 'مقروء',
     unread: 'غير مقروء',
     sessionExpired: 'انتهت جلستك. سجّل الدخول للمتابعة.',
+    notFound: 'الصفحة غير موجودة',
+    notFoundBody: 'تحقق من الرابط أو عد إلى طلباتك.',
   },
   en: {
     platform: 'Third Health Cluster Platform',
@@ -107,6 +109,8 @@ const text = {
     read: 'Read',
     unread: 'Unread',
     sessionExpired: 'Your session has expired. Sign in to continue.',
+    notFound: 'Page not found',
+    notFoundBody: 'Check the address or return to your requests.',
   },
 } as const
 
@@ -120,19 +124,11 @@ function initialLocale(): Locale {
   }
 }
 
-function viewFromLocation(): View {
-  const match = window.location.pathname.match(/^\/work-records\/([0-9a-f-]+)$/)
-  if (match) {
-    return { name: 'detail', recordId: match[1] }
-  }
-  return window.location.pathname === '/work-records/new' ? { name: 'create' } : { name: 'list' }
-}
-
 function App() {
   const [locale, setLocale] = useState<Locale>(initialLocale)
   const [session, setSession] = useState<Session | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [view, setView] = useState<View>(viewFromLocation)
+  const [view, setView] = useState<AppRoute>(() => routeFromPath(window.location.pathname))
   const [records, setRecords] = useState<WorkRecord[]>([])
   const [recordsLoading, setRecordsLoading] = useState(false)
   const [recordsError, setRecordsError] = useState(false)
@@ -158,7 +154,7 @@ function App() {
   }, [locale])
 
   useEffect(() => {
-    const onPopState = () => setView(viewFromLocation())
+    const onPopState = () => setView(routeFromPath(window.location.pathname))
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
@@ -274,7 +270,7 @@ function App() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [notificationsOpen])
 
-  function navigate(nextView: View, path: string) {
+  function navigate(nextView: AppRoute, path: string) {
     window.history.pushState({}, '', path)
     setView(nextView)
   }
@@ -293,8 +289,7 @@ function App() {
         onAuthenticated={(authenticatedSession) => {
           setSessionExpired(false)
           setSession(authenticatedSession)
-          window.history.replaceState({}, '', '/')
-          setView({ name: 'list' })
+          setView(routeFromPath(window.location.pathname))
         }}
       />
     )
@@ -332,8 +327,8 @@ function App() {
       <div className="facility-strip">{copy.currentFacility}</div>
       <nav className="primary-navigation" aria-label={locale === 'ar' ? 'التنقل الرئيسي' : 'Primary navigation'}>
         <a
-          href="/"
-          aria-current={view.name === 'list' ? 'page' : undefined}
+          href={primaryRoutes[0].path}
+          aria-current={view.name === primaryRoutes[0].route.name ? 'page' : undefined}
           onClick={(event) => {
             event.preventDefault()
             navigate({ name: 'list' }, '/')
@@ -342,8 +337,8 @@ function App() {
           {copy.myRequests}
         </a>
         <a
-          href="/work-records/new"
-          aria-current={view.name === 'create' ? 'page' : undefined}
+          href={primaryRoutes[1].path}
+          aria-current={view.name === primaryRoutes[1].route.name ? 'page' : undefined}
           onClick={(event) => {
             event.preventDefault()
             navigate({ name: 'create' }, '/work-records/new')
@@ -385,6 +380,16 @@ function App() {
             state={detailState}
             onRetry={() => setView({ ...view })}
           />
+        )}
+        {view.name === 'not-found' && (
+          <section className="state-panel" aria-labelledby="not-found-heading">
+            <h1 id="not-found-heading">{copy.notFound}</h1>
+            <p>{copy.notFoundBody}</p>
+            <a href="/" className="primary-link" onClick={(event) => {
+              event.preventDefault()
+              navigate({ name: 'list' }, '/')
+            }}>{copy.backToRequests}</a>
+          </section>
         )}
       </main>
 
