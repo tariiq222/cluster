@@ -70,6 +70,10 @@ ORGANIZATION_RUNTIME_STATUS = {
     ("/organization/assignments", "get"): "implemented",
     ("/organization/assignments", "post"): "implemented",
     ("/organization/assignments/{assignmentId}/end", "post"): "implemented",
+    ("/organization/import-jobs", "post"): "implemented",
+    ("/organization/import-jobs/{jobId}", "get"): "implemented",
+    ("/organization/import-jobs/{jobId}/rows", "get"): "implemented",
+    ("/organization/import-jobs/{jobId}/{jobAction}", "post"): "implemented",
     ("/identity/accounts", "get"): "implemented",
     ("/identity/accounts", "post"): "implemented",
     ("/identity/accounts/{accountId}", "get"): "implemented",
@@ -99,6 +103,10 @@ ORGANIZATION_RESPONSES = {
     ("/organization/assignments", "get"): {"200", "400", "401", "403"},
     ("/organization/assignments", "post"): {"201", "400", "401", "403", "404", "409", "500"},
     ("/organization/assignments/{assignmentId}/end", "post"): {"200", "400", "401", "403", "404", "409", "412", "500"},
+    ("/organization/import-jobs", "post"): {"202", "400", "401", "403", "409", "500"},
+    ("/organization/import-jobs/{jobId}", "get"): {"200", "400", "401", "403", "404"},
+    ("/organization/import-jobs/{jobId}/rows", "get"): {"200", "400", "401", "403", "404"},
+    ("/organization/import-jobs/{jobId}/{jobAction}", "post"): {"200", "400", "401", "403", "404", "409", "412", "500"},
     ("/identity/accounts", "get"): {"200", "400", "401", "403"},
     ("/identity/accounts", "post"): {"201", "400", "401", "403", "409", "500"},
     ("/identity/accounts/{accountId}", "get"): {"200", "400", "401", "403", "404"},
@@ -127,6 +135,10 @@ ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/assignments", "get", "200"): "#/components/responses/AssignmentCollection",
     ("/organization/assignments", "post", "201"): "#/components/responses/AssignmentEntity",
     ("/organization/assignments/{assignmentId}/end", "post", "200"): "#/components/responses/AssignmentEntity",
+    ("/organization/import-jobs", "post", "202"): "#/components/responses/ImportJobEntity",
+    ("/organization/import-jobs/{jobId}", "get", "200"): "#/components/responses/ImportJobEntity",
+    ("/organization/import-jobs/{jobId}/rows", "get", "200"): "#/components/responses/ImportJobRowCollection",
+    ("/organization/import-jobs/{jobId}/{jobAction}", "post", "200"): "#/components/responses/ImportJobEntity",
     ("/identity/accounts", "get", "200"): "#/components/responses/UserAccountCollection",
     ("/identity/accounts", "post", "201"): "#/components/responses/UserAccountEntity",
     ("/identity/accounts/{accountId}", "get", "200"): "#/components/responses/UserAccountEntity",
@@ -207,6 +219,41 @@ EXPECTED_EVENTS = {
         "PersonUpdated",
         ROOT / "docs/contracts/schemas/person-changed.schema.json",
         {"person", "access_context", "classification"},
+    ),
+    "import-job-submitted": (
+        "ImportJobSubmitted",
+        ROOT / "docs/contracts/schemas/import-job-changed.schema.json",
+        {"import_job", "access_context", "classification"},
+    ),
+    "import-job-validated": (
+        "ImportJobValidated",
+        ROOT / "docs/contracts/schemas/import-job-changed.schema.json",
+        {"import_job", "access_context", "classification"},
+    ),
+    "import-job-approved": (
+        "ImportJobApproved",
+        ROOT / "docs/contracts/schemas/import-job-changed.schema.json",
+        {"import_job", "access_context", "classification"},
+    ),
+    "import-job-rejected": (
+        "ImportJobRejected",
+        ROOT / "docs/contracts/schemas/import-job-changed.schema.json",
+        {"import_job", "access_context", "classification"},
+    ),
+    "import-job-applied": (
+        "ImportJobApplied",
+        ROOT / "docs/contracts/schemas/import-job-changed.schema.json",
+        {"import_job", "access_context", "classification"},
+    ),
+    "import-job-cancelled": (
+        "ImportJobCancelled",
+        ROOT / "docs/contracts/schemas/import-job-changed.schema.json",
+        {"import_job", "access_context", "classification"},
+    ),
+    "import-job-failed": (
+        "ImportJobFailed",
+        ROOT / "docs/contracts/schemas/import-job-changed.schema.json",
+        {"import_job", "access_context", "classification"},
     ),
     "identity-provisioning-requested": (
         "IdentityProvisioningRequested",
@@ -322,6 +369,18 @@ if set(user_account.get("properties", {})) & {"password", "password_hash", "toke
 import_create = schemas.get("ImportJobCreate", {})
 if set(import_create.get("required", [])) != {"quarantine_object_id", "template_code", "import_type"}:
     fail("ImportJobCreate must require an encrypted quarantine reference and governed template")
+
+import_job = schemas.get("ImportJob", {})
+if set(import_job.get("required", [])) != {"id", "template_code", "import_type", "status", "submitted_by_user_id", "approved_by_user_id", "total_rows", "valid_rows", "error_rows", "applied_at", "lock_version"}:
+    fail("ImportJob response must publish only the governed lifecycle summary")
+if set(import_job.get("properties", {})) & {"quarantine_object_id", "source_filename", "notes", "decision_reason", "payload"}:
+    fail("ImportJob response must not expose quarantine references, raw rows, or operator notes")
+
+import_row = schemas.get("ImportJobRow", {})
+if set(import_row.get("required", [])) != {"id", "row_number", "proposed_action", "proposed_target_id", "validation_errors", "decision", "applied_at"}:
+    fail("ImportJobRow response must publish the redacted row decision summary")
+if set(import_row.get("properties", {})) & {"encrypted_payload", "payload", "raw_payload"}:
+    fail("ImportJobRow response must not expose encrypted or raw row payloads")
 
 facility_create = schemas.get("FacilityCreate", {})
 if set(facility_create.get("required", [])) != {"cluster_id", "type_code", "code", "name"}:
@@ -457,6 +516,7 @@ for catalog_path in (
     "contracts/schemas/position-changed.schema.json",
     "contracts/schemas/assignment-changed.schema.json",
     "contracts/schemas/person-changed.schema.json",
+    "contracts/schemas/import-job-changed.schema.json",
     "contracts/schemas/user-account-changed.schema.json",
     "contracts/schemas/identity-provisioning-requested.schema.json",
     "contracts/schemas/person-access-status-changed.schema.json",

@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 4.12.0
+version: 4.13.0
 date: 2026-07-18
 owner: طارق
 reviewers: []
@@ -28,7 +28,7 @@ references:
   `make verify-w1-1-local` أخضران، ولا تعاد أعمالها إلا لمعالجة انحدار.
 - الموجة النشطة: **W1.2 Organization + Identity + Import** — تخطيط W12-REQ وW12-FE
   مكتمل، وأغلقت بوابة الجاهزية W12-00 محلياً.
-- خط الأساس المحلي: `main` يتضمن W1.2 حتى شريحة حساب Identity؛ يحتاج push فقط
+- خط الأساس المحلي: `main` يتضمن W1.2 حتى شريحة تكليفات Person وPosition؛ يحتاج push فقط
   ليظهر دليله في CI المستضاف.
 - ADR-024 مقبول، وملكية Person واتجاه `Identity -> Organization` وtaxonomy الحساب
   وعقود OpenAPI والأحداث والاستيراد والنطاق وbootstrap مجمدة ومتسقة.
@@ -46,6 +46,10 @@ references:
 - اكتملت شريحة التكليفات المحكومة محلياً: ربط Person بمنصب ضمن مدى UTC، منع تداخل
   primary وتداخل شاغلي المنصب، حالات pending/active/ended، إنهاء نهائي مع ETag وreplay
   وOutbox ذري، من دون نسخ PII أو FK عابر إلى Identity.
+- اكتملت أول شريحة تنفيذية للاستيراد المحكوم `people_assignments` محلياً: حالات
+  received/validated/approved/applied مع reject/cancel/fail، موافقة actor ثان، صفوف مشفرة
+  ونتائج منقحة وETag وreplay وOutbox ذري وتطبيق Person والتكليف وطلب provisioning مرة
+  واحدة. يبقى مصدر quarantine الحقيقي مغلقاً افتراضياً حتى ينشر تكامل Documents.
 - نشر VPS المباشر والرجوع والاستعادة مؤجلة إلى مرحلة `D1`
   النهائية بعد اكتمال تطوير R1 وR2 وR3، ولا تحجب W1.2.
 
@@ -92,12 +96,15 @@ references:
 | 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد relay وworker لأحداث Person | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏21/456، Identity ‏16/213 للحساب وlifecycle وInbox/high-water والـrelay وإعادة التسليم وDLQ |
 | 2026-07-18 | `make verify-w1-2` بعد تكليفات Person وPosition | أخضر: 97 اختبار API، نجح 95 وتخطى 2، و1238 assertion؛ الوثائق والحدود وPHPStan وPint وRedocly وOrval وبناء Web و10 اختبارات Web خضراء |
 | 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد تكليفات Person وPosition | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏25/533، Identity ‏16/213؛ أثبت migration وترتيب FKs والتداخل وETag وreplay وrollback الذري |
+| 2026-07-18 | `make verify-w1-2` بعد أول vertical للاستيراد المحكوم | أخضر: 103 اختبارات API، نجح 101 وتخطى 2، و1362 assertion؛ OpenAPI/AsyncAPI والحدود وPint وPHPStan وRedocly وOrval وبناء Web و10 اختبارات Web خضراء |
+| 2026-07-18 | `./infra/dev/run-w1-1-api-worker-smoke.sh` بعد `people_assignments` | أخضر: MySQL وRedis؛ Walking Skeleton ‏2/44، Organization ‏31/657، Identity ‏16/213؛ أثبت تشفير الصفوف والموافقة الثنائية والـapply مرة واحدة والفشل المغلق والrollback |
 
 ## الخطوة التالية
 
-1. يبدأ الاستيراد المحكوم Received → Validated → Approved → Applied وتعبئة PII المشفرة.
-2. تبقى TemporaryAssignment التفصيلية محجوبة حتى ينشر عقد قدراتها الصريحة وسحبها عند الانتهاء.
-3. تبقى credentials والاسترداد الحقيقيان خلف عقد مستقل؛ fixture login الحالي ليس حساب Identity المنشأ.
+1. ينشر تكامل quarantine الحقيقي عبر عقد موديول محكوم، ثم تنفذ قوالب facilities وorganization_units وpositions؛ يبقى adapter الحالي fail-closed حتى ذلك.
+2. تبقى واجهة رفع الاستيراد محجوبة حتى ينشر Documents عقد quarantine القابل للتنفيذ، بينما يمكن بناء قراءة الحالة والصفوف على العقد الحالي.
+3. تبقى TemporaryAssignment التفصيلية محجوبة حتى ينشر عقد قدراتها الصريحة وسحبها عند الانتهاء.
+4. تبقى credentials والاسترداد الحقيقيان خلف عقد مستقل؛ fixture login الحالي ليس حساب Identity المنشأ.
 
 ينفذ CI الجديد على GitHub-hosted runners عند أول push. لا يبدأ أي تشغيل على الخادم
 حتى تصل الخطة إلى `D1` وتتوفر قيم `.env.production` وDNS وربط MySQL وRedis الخاص.
@@ -106,6 +113,7 @@ references:
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 4.13.0 | 2026-07-18 | إغلاق أول vertical لـpeople_assignments مع الصفوف المشفرة والموافقة الثنائية والتطبيق الذري على SQLite وMySQL |
 | 4.12.0 | 2026-07-18 | إغلاق تكليفات Person وPosition ومددها وتداخلها وإنهائها الذري على SQLite وMySQL |
 | 4.11.0 | 2026-07-18 | إغلاق حساب Identity المرتبط بـPerson وlifecycle وrelay/worker وInbox/high-water وDLQ على SQLite وMySQL/Redis |
 | 4.10.0 | 2026-07-18 | إغلاق Person CRUD والمرجع المصغر وperson_version وreplay المشفر وأحداث بلا PII على SQLite وMySQL |

@@ -2223,6 +2223,7 @@ paths:
         tags: [Organization Admin],
         summary: Submit an organization import job,
         operationId: submitOrganizationImport,
+        x-implementation-status: implemented,
         parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
         requestBody:
           {
@@ -2235,11 +2236,12 @@ paths:
           },
         responses:
           {
-            "202": { $ref: "#/components/responses/Entity" },
+            "202": { $ref: "#/components/responses/ImportJobEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "409": { $ref: "#/components/responses/Conflict" },
+            "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /organization/import-jobs/{jobId}:
@@ -2253,8 +2255,10 @@ paths:
       tags: [Organization Admin]
       summary: Get import status and redacted validation summary
       operationId: getOrganizationImport
+      x-implementation-status: implemented
       responses:
-        "200": { $ref: "#/components/responses/Entity" }
+        "200": { $ref: "#/components/responses/ImportJobEntity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2269,11 +2273,13 @@ paths:
       tags: [Organization Admin]
       summary: List redacted row validation results without raw payloads
       operationId: listOrganizationImportRows
+      x-implementation-status: implemented
       parameters:
         - { $ref: "#/components/parameters/Cursor" }
         - { $ref: "#/components/parameters/Limit" }
       responses:
-        "200": { $ref: "#/components/responses/Collection" }
+        "200": { $ref: "#/components/responses/ImportJobRowCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2284,6 +2290,7 @@ paths:
         tags: [Organization Admin],
         summary: "Validate, approve, reject, apply, or cancel an import job",
         operationId: transitionOrganizationImport,
+        x-implementation-status: implemented,
         parameters:
           [
             {
@@ -2311,18 +2318,19 @@ paths:
             content:
               {
                 application/json:
-                  { schema: { $ref: "#/components/schemas/ReasonAction" } },
+                  { schema: { $ref: "#/components/schemas/ImportTransitionAction" } },
               },
           },
         responses:
           {
-            "200": { $ref: "#/components/responses/Entity" },
+            "200": { $ref: "#/components/responses/ImportJobEntity" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "404": { $ref: "#/components/responses/NotFound" },
             "409": { $ref: "#/components/responses/Conflict" },
             "412": { $ref: "#/components/responses/PreconditionFailed" },
+            "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
   /identity/accounts:
@@ -4488,6 +4496,22 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/AssignmentCollection" }
+    ImportJobEntity:
+      description: Governed import job summary without the quarantine reference or raw rows
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ImportJobResponse" }
+    ImportJobRowCollection:
+      description: Cursor-paginated redacted import validation rows
+      headers:
+        Link: { schema: { type: string } }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ImportJobRowCollection" }
     UserAccountEntity:
       description: User account summary without credentials or tokens
       headers:
@@ -5638,6 +5662,76 @@ components:
             notes: { type: string, maxLength: 2000 },
           },
       }
+    ImportTransitionAction:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+    ImportJob:
+      type: object
+      additionalProperties: false
+      required: [id, template_code, import_type, status, submitted_by_user_id, approved_by_user_id, total_rows, valid_rows, error_rows, applied_at, lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        template_code: { type: string, enum: [facilities, organization_units, positions, people_assignments] }
+        import_type: { type: string, enum: [csv, xlsx] }
+        status: { type: string, enum: [received, validated, approved, rejected, applied, cancelled, failed] }
+        submitted_by_user_id: { $ref: "#/components/schemas/UUIDv7" }
+        approved_by_user_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
+        total_rows: { type: integer, minimum: 0, maximum: 1000 }
+        valid_rows: { type: integer, minimum: 0, maximum: 1000 }
+        error_rows: { type: integer, minimum: 0, maximum: 1000 }
+        applied_at:
+          oneOf:
+            - { $ref: "#/components/schemas/UtcDateTime" }
+            - { type: "null" }
+        lock_version: { type: integer, minimum: 1 }
+    ImportJobResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/ImportJob" }
+    ImportJobRowValidationError:
+      type: object
+      additionalProperties: false
+      required: [code, severity]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        severity: { type: string, enum: [error, critical] }
+        field: { type: string, minLength: 1, maxLength: 64 }
+    ImportJobRow:
+      type: object
+      additionalProperties: false
+      required: [id, row_number, proposed_action, proposed_target_id, validation_errors, decision, applied_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        row_number: { type: integer, minimum: 1, maximum: 1000 }
+        proposed_action: { type: [string, "null"], enum: [create, skip, null] }
+        proposed_target_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
+        validation_errors:
+          type: array
+          items: { $ref: "#/components/schemas/ImportJobRowValidationError" }
+        decision: { type: [string, "null"], enum: [accepted, rejected, null] }
+        applied_at:
+          oneOf:
+            - { $ref: "#/components/schemas/UtcDateTime" }
+            - { type: "null" }
+    ImportJobRowCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ImportJobRow" }
+        next_cursor: { type: [string, "null"] }
     AuthorizationAdminCreate:
       {
         type: object,

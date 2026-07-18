@@ -7,7 +7,9 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\DevelopmentFixturePrincipalResolver;
+use Modules\Organization\Contracts\ResolveQuarantinedImport;
 use Modules\Organization\Contracts\ValidatePersonReference;
+use Modules\Organization\Infrastructure\Import\UnavailableQuarantinedImport;
 use Modules\Organization\Infrastructure\Persistence\ValidatePersonReferenceFromPersistence;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedRequestFixture;
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedRequestFixtureFromPersistence;
@@ -24,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(DecideAccess::class, FixtureFacilityDecision::class);
         $this->app->bind(ResolvePublishedRequestFixture::class, ResolvePublishedRequestFixtureFromPersistence::class);
+        $this->app->bind(ResolveQuarantinedImport::class, UnavailableQuarantinedImport::class);
         $this->app->bind(ValidatePersonReference::class, ValidatePersonReferenceFromPersistence::class);
         $this->app->singleton(ResolveDevelopmentFixturePrincipal::class, DevelopmentFixturePrincipalResolver::class);
         $this->app->singleton(RedisStreamTransport::class, function (): RedisStreamTransport {
@@ -61,6 +64,7 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationUnitTypes.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationPeopleTable.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationWorkforceAssignmentsTable.php'),
+            base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationZImportTables.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateDevelopmentFacilitiesTable.php'),
             base_path('Modules/Identity/Infrastructure/Persistence/Migrations/CreateDevelopmentFixtureAccountsTable.php'),
             base_path('Modules/Identity/Infrastructure/Persistence/Migrations/CreateIdentityAccountTables.php'),

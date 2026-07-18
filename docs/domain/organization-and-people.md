@@ -3,8 +3,8 @@ doc_id: DOM-ORG-001
 title: المؤسسة والهيكل التنظيمي
 type: domain
 status: accepted
-version: 1.1.0
-date: 2026-07-15
+version: 1.2.0
+date: 2026-07-18
 owner: مالك موديول Organization
 reviewers:
 - مسؤول هندسة البرمجيات
@@ -340,7 +340,9 @@ references:
 - `ImportJobSubmitted`
 - `ImportJobValidated`
 - `ImportJobApproved`
+- `ImportJobRejected`
 - `ImportJobApplied`
+- `ImportJobCancelled`
 - `ImportJobFailed`
 - `IdentityProvisioningRequested` بعد تطبيق Person فعلياً، ويحمل `person_id` و`person_version` بلا PII.
 - `PersonAccessStatusChanged` عند تغير Active أو Suspended أو Left، ويحمل النسخة نفسها.
@@ -458,5 +460,6 @@ references:
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.2.0 | 2026-07-18 | مالك موديول Organization | نشر حالات الرفض والإلغاء ضمن دورة الاستيراد المحكومة |
 | 1.1.0 | 2026-07-18 | مالك موديول Organization | تثبيت ملكية Person وحدود actor والاستيراد وprovisioning وفق ADR-024 |
 | 1.0.0 | 2026-07-15 | مالك موديول Organization | توحيد الواجهة الأمامية وحدود الموديول |

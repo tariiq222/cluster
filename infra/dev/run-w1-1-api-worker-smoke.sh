@@ -201,8 +201,8 @@ jq -e --arg id "$record_b" '(.items | length) == 1 and .items[0].source.record_i
 (
   cd "$API_DIR"
   env "${api_env[@]}" php vendor/bin/phpunit -c phpunit.mysql.xml --filter=WalkingSkeletonMySqlE2ETest
-  env "${api_env[@]}" php vendor/bin/phpunit -c phpunit.mysql.xml Modules/Organization/Tests/OrganizationCoreHttpAdapterTest.php Modules/Organization/Tests/OrganizationTreeHttpAdapterTest.php Modules/Organization/Tests/OrganizationPersonHttpAdapterTest.php Modules/Organization/Tests/OrganizationAssignmentHttpAdapterTest.php
+  env "${api_env[@]}" php vendor/bin/phpunit -c phpunit.mysql.xml Modules/Organization/Tests/OrganizationCoreHttpAdapterTest.php Modules/Organization/Tests/OrganizationTreeHttpAdapterTest.php Modules/Organization/Tests/OrganizationPersonHttpAdapterTest.php Modules/Organization/Tests/OrganizationAssignmentHttpAdapterTest.php Modules/Organization/Tests/OrganizationImportHttpAdapterTest.php
   env "${api_env[@]}" php vendor/bin/phpunit -c phpunit.mysql.xml Modules/Identity/Tests/IdentityAccountHttpAdapterTest.php Modules/Identity/Tests/IdentityProvisioningConsumerTest.php Modules/Identity/Tests/IdentityPersonStreamWorkerTest.php
   env "${api_env[@]}" php artisan migrate:rollback --force >/dev/null
 )
-printf 'PASS: API/worker smoke proved MySQL Organization assignments and person-linked Identity lifecycle/Inbox/high-water behavior, rollback, isolation, relay, replay, and DLQ coverage.\n'
+printf 'PASS: API/worker smoke proved MySQL Organization assignments/imports and person-linked Identity lifecycle/Inbox/high-water behavior, rollback, isolation, relay, replay, and DLQ coverage.\n'

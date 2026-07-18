@@ -44,6 +44,8 @@ class ModuleBoundariesTest extends TestCase
         'positions' => 'Organization',
         'people' => 'Organization',
         'assignments' => 'Organization',
+        'import_jobs' => 'Organization',
+        'import_rows' => 'Organization',
         'organization_idempotency_keys' => 'Organization',
         'identities' => 'Identity',
         'users' => 'Identity',

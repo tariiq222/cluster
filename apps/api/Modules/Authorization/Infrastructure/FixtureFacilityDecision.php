@@ -12,6 +12,8 @@ final class FixtureFacilityDecision implements DecideAccess
 
     private const BOOTSTRAP_ADMIN_USER_ID = '018f6f7d-0c00-7000-8000-000000000021';
 
+    private const IMPORT_APPROVER_USER_ID = '018f6f7d-0c00-7000-8000-000000000022';
+
     /** @var list<string> */
     private const SUPPORTED_CAPABILITIES = [
         'work_record.submit',
@@ -30,6 +32,9 @@ final class FixtureFacilityDecision implements DecideAccess
         'organization.person.reference',
         'organization.assignment.manage',
         'organization.assignment.read',
+        'organization.import.manage',
+        'organization.import.approve',
+        'organization.import.read',
         'identity.account.manage',
         'identity.account.read',
     ];
@@ -46,6 +51,19 @@ final class FixtureFacilityDecision implements DecideAccess
 
         if (str_starts_with($capability, 'organization.') || str_starts_with($capability, 'identity.')) {
             $actorUserId = $actor['user_id'] ?? null;
+            if (in_array($capability, ['organization.import.approve', 'organization.import.read'], true)
+                && is_string($actorUserId)
+                && hash_equals(self::IMPORT_APPROVER_USER_ID, $actorUserId)) {
+                return new AccessDecision(
+                    decision: 'allow',
+                    action: $capability,
+                    resourceType: $facts->resourceType,
+                    reasonCodes: ['designated_import_approver'],
+                    policyVersion: self::POLICY_VERSION,
+                    factsVersion: $facts->factsVersion,
+                    classification: $facts->classification,
+                );
+            }
             if (! is_string($actorUserId) || ! hash_equals(self::BOOTSTRAP_ADMIN_USER_ID, $actorUserId)) {
                 return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'bootstrap_admin_required');
             }

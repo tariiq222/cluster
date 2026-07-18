@@ -1,7 +1,7 @@
 asyncapi: 3.1.0
 info:
   title: Cluster Platform Domain Events
-  version: 1.5.0
+  version: 1.6.0
   description: CloudEvents JSON domain events delivered at least once through transactional Outbox, Redis Streams consumer groups, consumer Inbox, and DLQ.
 servers:
   production:
@@ -120,6 +120,41 @@ channels:
     messages:
       personUpdated:
         $ref: '#/components/messages/PersonUpdated'
+  import-job-submitted:
+    address: platform.organization.import-job-submitted.v1
+    messages:
+      importJobSubmitted:
+        $ref: '#/components/messages/ImportJobSubmitted'
+  import-job-validated:
+    address: platform.organization.import-job-validated.v1
+    messages:
+      importJobValidated:
+        $ref: '#/components/messages/ImportJobValidated'
+  import-job-approved:
+    address: platform.organization.import-job-approved.v1
+    messages:
+      importJobApproved:
+        $ref: '#/components/messages/ImportJobApproved'
+  import-job-rejected:
+    address: platform.organization.import-job-rejected.v1
+    messages:
+      importJobRejected:
+        $ref: '#/components/messages/ImportJobRejected'
+  import-job-applied:
+    address: platform.organization.import-job-applied.v1
+    messages:
+      importJobApplied:
+        $ref: '#/components/messages/ImportJobApplied'
+  import-job-cancelled:
+    address: platform.organization.import-job-cancelled.v1
+    messages:
+      importJobCancelled:
+        $ref: '#/components/messages/ImportJobCancelled'
+  import-job-failed:
+    address: platform.organization.import-job-failed.v1
+    messages:
+      importJobFailed:
+        $ref: '#/components/messages/ImportJobFailed'
   user-account-created:
     address: platform.identity.user-account-created.v1
     messages:
@@ -312,6 +347,62 @@ operations:
     action: receive
     channel: {$ref: '#/channels/person-updated'}
     messages: [{$ref: '#/channels/person-updated/messages/personUpdated'}]
+  publishImportJobSubmitted:
+    action: send
+    channel: {$ref: '#/channels/import-job-submitted'}
+    messages: [{$ref: '#/channels/import-job-submitted/messages/importJobSubmitted'}]
+  consumeImportJobSubmitted:
+    action: receive
+    channel: {$ref: '#/channels/import-job-submitted'}
+    messages: [{$ref: '#/channels/import-job-submitted/messages/importJobSubmitted'}]
+  publishImportJobValidated:
+    action: send
+    channel: {$ref: '#/channels/import-job-validated'}
+    messages: [{$ref: '#/channels/import-job-validated/messages/importJobValidated'}]
+  consumeImportJobValidated:
+    action: receive
+    channel: {$ref: '#/channels/import-job-validated'}
+    messages: [{$ref: '#/channels/import-job-validated/messages/importJobValidated'}]
+  publishImportJobApproved:
+    action: send
+    channel: {$ref: '#/channels/import-job-approved'}
+    messages: [{$ref: '#/channels/import-job-approved/messages/importJobApproved'}]
+  consumeImportJobApproved:
+    action: receive
+    channel: {$ref: '#/channels/import-job-approved'}
+    messages: [{$ref: '#/channels/import-job-approved/messages/importJobApproved'}]
+  publishImportJobRejected:
+    action: send
+    channel: {$ref: '#/channels/import-job-rejected'}
+    messages: [{$ref: '#/channels/import-job-rejected/messages/importJobRejected'}]
+  consumeImportJobRejected:
+    action: receive
+    channel: {$ref: '#/channels/import-job-rejected'}
+    messages: [{$ref: '#/channels/import-job-rejected/messages/importJobRejected'}]
+  publishImportJobApplied:
+    action: send
+    channel: {$ref: '#/channels/import-job-applied'}
+    messages: [{$ref: '#/channels/import-job-applied/messages/importJobApplied'}]
+  consumeImportJobApplied:
+    action: receive
+    channel: {$ref: '#/channels/import-job-applied'}
+    messages: [{$ref: '#/channels/import-job-applied/messages/importJobApplied'}]
+  publishImportJobCancelled:
+    action: send
+    channel: {$ref: '#/channels/import-job-cancelled'}
+    messages: [{$ref: '#/channels/import-job-cancelled/messages/importJobCancelled'}]
+  consumeImportJobCancelled:
+    action: receive
+    channel: {$ref: '#/channels/import-job-cancelled'}
+    messages: [{$ref: '#/channels/import-job-cancelled/messages/importJobCancelled'}]
+  publishImportJobFailed:
+    action: send
+    channel: {$ref: '#/channels/import-job-failed'}
+    messages: [{$ref: '#/channels/import-job-failed/messages/importJobFailed'}]
+  consumeImportJobFailed:
+    action: receive
+    channel: {$ref: '#/channels/import-job-failed'}
+    messages: [{$ref: '#/channels/import-job-failed/messages/importJobFailed'}]
   publishUserAccountCreated:
     action: send
     channel: {$ref: '#/channels/user-account-created'}
@@ -576,6 +667,83 @@ components:
             properties:
               type: {const: com.cluster.organization.personupdated.v1}
               data: {$ref: '../schemas/person-changed.schema.json'}
+    ImportJobSubmitted:
+      name: ImportJobSubmitted
+      title: Governed organization import submitted
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.importjobsubmitted.v1}
+              data: {$ref: '../schemas/import-job-changed.schema.json'}
+    ImportJobValidated:
+      name: ImportJobValidated
+      title: Governed organization import validated
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.importjobvalidated.v1}
+              data: {$ref: '../schemas/import-job-changed.schema.json'}
+    ImportJobApproved:
+      name: ImportJobApproved
+      title: Governed organization import approved by a distinct actor
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.importjobapproved.v1}
+              data: {$ref: '../schemas/import-job-changed.schema.json'}
+    ImportJobRejected:
+      name: ImportJobRejected
+      title: Governed organization import rejected
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.importjobrejected.v1}
+              data: {$ref: '../schemas/import-job-changed.schema.json'}
+    ImportJobApplied:
+      name: ImportJobApplied
+      title: Governed organization import applied
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.importjobapplied.v1}
+              data: {$ref: '../schemas/import-job-changed.schema.json'}
+    ImportJobCancelled:
+      name: ImportJobCancelled
+      title: Governed organization import cancelled after approval
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.importjobcancelled.v1}
+              data: {$ref: '../schemas/import-job-changed.schema.json'}
+    ImportJobFailed:
+      name: ImportJobFailed
+      title: Governed organization import failed closed during validation
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.organization.importjobfailed.v1}
+              data: {$ref: '../schemas/import-job-changed.schema.json'}
     UserAccountCreated:
       name: UserAccountCreated
       title: Person-linked Identity account created without credentials or display PII
