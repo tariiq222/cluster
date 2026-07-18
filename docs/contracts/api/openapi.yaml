@@ -60,8 +60,108 @@ paths:
                 },
             },
           "401": { $ref: "#/components/responses/Unauthorized" },
-          "403": { $ref: "#/components/responses/Forbidden" },
-        }
+           "403": { $ref: "#/components/responses/Forbidden" },
+         }
+  /identity/login:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Identity]
+      summary: Authenticate and create an identity session
+      operationId: identityLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IdentityLoginRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/IdentitySession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/Problem" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+  /identity/activation:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Identity]
+      summary: Consume an activation token and set an initial credential
+      operationId: consumeIdentityActivation
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IdentityActivationRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/CorrelationNoContent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+  /identity/me:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      tags: [Identity]
+      summary: Get the current identity session and account
+      operationId: getCurrentIdentity
+      security: [{ identitySession: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/CurrentIdentity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /identity/logout:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Identity]
+      summary: Revoke the current identity session
+      operationId: identityLogout
+      security: [{ identitySession: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/CsrfToken" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "204": { $ref: "#/components/responses/IdentitySessionRevoked" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+  /identity/password:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Identity]
+      summary: Change the current principal credential and revoke its session
+      operationId: changeIdentityPassword
+      security: [{ identitySession: [] }]
+      parameters: [{ $ref: "#/components/parameters/CsrfToken" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IdentityPasswordChangeRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/IdentitySessionRevoked" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+  /identity/accounts/{accountId}/activation:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Identity]
+      summary: Issue a controlled activation for an account
+      operationId: issueIdentityActivation
+      security: [{ identitySession: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/AccountId" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "202": { $ref: "#/components/responses/IdentityActivationIssued" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /me:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -1137,33 +1237,56 @@ paths:
     post:
       summary: Initiate a document upload
       operationId: initiateDocumentUpload
-      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      security: [{ identitySession: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/CsrfToken" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
         {
           required: true,
           content:
             {
               application/json:
-                { schema: { $ref: "#/components/schemas/UploadRequest" } },
+                { schema: { $ref: "#/components/schemas/DocumentUploadInitiateRequest" } },
             },
         }
       responses:
         {
-          "201": { $ref: "#/components/responses/Entity" },
+          "201": { $ref: "#/components/responses/DocumentUploadInitiated" },
           "400": { $ref: "#/components/responses/BadRequest" },
           "401": { $ref: "#/components/responses/Unauthorized" },
           "403": { $ref: "#/components/responses/Forbidden" },
           "404": { $ref: "#/components/responses/NotFound" },
           "409": { $ref: "#/components/responses/Conflict" },
+          "500": { $ref: "#/components/responses/InternalServerError" },
+          "503": { $ref: "#/components/responses/Problem" },
         }
+  /documents/uploads/{uploadId}:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      summary: Get the authorized status of a document upload
+      operationId: getDocumentUploadStatus
+      security: [{ identitySession: [] }]
+      parameters: [{ $ref: "#/components/parameters/UploadId" }]
+      responses:
+        "200": { $ref: "#/components/responses/DocumentUploadStatus" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+        "503": { $ref: "#/components/responses/Problem" }
   /documents/uploads/{uploadId}/complete:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     post:
       summary: Complete a document upload
       operationId: completeDocumentUpload
+      security: [{ identitySession: [] }]
       parameters:
         [
           { $ref: "#/components/parameters/UploadId" },
+          { $ref: "#/components/parameters/CsrfToken" },
           { $ref: "#/components/parameters/IdempotencyKey" },
         ]
       requestBody:
@@ -1177,22 +1300,65 @@ paths:
                     {
                       type: object,
                       additionalProperties: false,
-                      required: [sha256],
+                      required: [sha256, byte_size],
                       properties:
-                        { sha256: { type: string, pattern: "^[a-f0-9]{64}$" } },
+                        {
+                          sha256: { type: string, pattern: "^[a-f0-9]{64}$" },
+                          byte_size: { type: integer, minimum: 1, maximum: 1073741824 },
+                        },
                     },
                 },
             },
         }
       responses:
         {
-          "202": { $ref: "#/components/responses/Entity" },
+          "202": { $ref: "#/components/responses/DocumentUploadCompleted" },
           "400": { $ref: "#/components/responses/BadRequest" },
           "401": { $ref: "#/components/responses/Unauthorized" },
           "403": { $ref: "#/components/responses/Forbidden" },
           "404": { $ref: "#/components/responses/NotFound" },
           "409": { $ref: "#/components/responses/Conflict" },
+          "500": { $ref: "#/components/responses/InternalServerError" },
+          "503": { $ref: "#/components/responses/Problem" },
         }
+  /internal/documents/versions/{versionId}/scan:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Documents, Internal]
+      summary: Scan a quarantined document version
+      operationId: scanDocumentVersion
+      security: [{ documentsWorkerToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/VersionId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "202": { $ref: "#/components/responses/DocumentVersionScan" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /internal/documents/versions/{versionId}/reconcile-promotion:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Documents, Internal]
+      summary: Reconcile promotion of a scanned document version
+      operationId: reconcileDocumentPromotion
+      security: [{ documentsWorkerToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/VersionId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { $ref: "#/components/responses/DocumentVersionScan" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+        "503": { $ref: "#/components/responses/Problem" }
   /documents:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -1593,6 +1759,87 @@ paths:
           "200": { $ref: "#/components/responses/Collection" },
           "403": { $ref: "#/components/responses/Problem" },
         }
+  /organization/temporary-assignments:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      tags: [Organization]
+      summary: List temporary assignments in an organization unit
+      operationId: listTemporaryAssignments
+      security: [{ identitySession: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/OrganizationUnitIdQuery" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200": { $ref: "#/components/responses/TemporaryAssignmentCollection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Organization]
+      summary: Create a temporary assignment
+      operationId: createTemporaryAssignment
+      security: [{ identitySession: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/CsrfToken" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TemporaryAssignmentCreate" }
+      responses:
+        "201": { $ref: "#/components/responses/TemporaryAssignmentEntity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /organization/temporary-assignments/{temporaryAssignmentId}:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      tags: [Organization]
+      summary: Get a temporary assignment
+      operationId: getTemporaryAssignment
+      security: [{ identitySession: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/TemporaryAssignmentId" }
+        - { $ref: "#/components/parameters/IfNoneMatch" }
+      responses:
+        "200": { $ref: "#/components/responses/TemporaryAssignmentEntity" }
+        "304": { $ref: "#/components/responses/TemporaryAssignmentNotModified" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /organization/temporary-assignments/{temporaryAssignmentId}/revoke:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Organization]
+      summary: Revoke an active or scheduled temporary assignment
+      operationId: revokeTemporaryAssignment
+      security: [{ identitySession: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/TemporaryAssignmentId" }
+        - { $ref: "#/components/parameters/CsrfToken" }
+        - { $ref: "#/components/parameters/TemporaryAssignmentIfMatch" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonAction" }
+      responses:
+        "200": { $ref: "#/components/responses/TemporaryAssignmentEntity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "500": { $ref: "#/components/responses/InternalServerError" }
   /organization/cluster:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
@@ -4289,7 +4536,17 @@ paths:
       }
 components:
   securitySchemes:
-    { bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT } }
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    identitySession:
+      type: apiKey
+      in: cookie
+      name: cluster_identity_session
+      description: HttpOnly, Secure identity-session cookie issued by `POST /identity/login`.
+    documentsWorkerToken:
+      type: apiKey
+      in: header
+      name: X-Documents-Worker-Token
+      description: Internal document worker credential. It is never issued by this API.
   headers:
     Correlation:
       description: Required request correlation value echoed by the service; lowercase RFC 9562 UUIDv7.
@@ -4300,6 +4557,18 @@ components:
       required: true
       schema:
         type: string
+    CacheETag:
+      description: Weak representation validator used with If-None-Match.
+      required: true
+      schema: { type: string, pattern: '^W/"[A-Za-z0-9._:-]+"$' }
+    ResourceVersion:
+      description: Strong lock version used as the If-Match value for temporary assignment changes.
+      required: true
+      schema: { type: string, pattern: '^"[1-9][0-9]*"$' }
+    CsrfToken:
+      description: CSRF proof issued with the identity session.
+      required: true
+      schema: { type: string, minLength: 1 }
   parameters:
     CorrelationId:
       {
@@ -4344,6 +4613,25 @@ components:
             pattern: '^[\x21-\x7E]+$',
           },
       }
+    CsrfToken:
+      { name: X-CSRF-Token, in: header, required: true, schema: { type: string, minLength: 1 } }
+    IfNoneMatch:
+      { name: If-None-Match, in: header, schema: { type: string, maxLength: 4096 } }
+    TemporaryAssignmentIfMatch:
+      {
+        name: If-Match,
+        in: header,
+        required: true,
+        description: Current X-Resource-Version value, not the weak ETag representation validator.,
+        schema: { type: string, pattern: '^"[1-9][0-9]*"$' },
+      }
+    OrganizationUnitIdQuery:
+      {
+        name: organization_unit_id,
+        in: query,
+        required: true,
+        schema: { $ref: "#/components/schemas/UUIDv7" },
+      }
     DefinitionId:
       {
         name: definitionId,
@@ -4382,6 +4670,20 @@ components:
     UploadId:
       {
         name: uploadId,
+        in: path,
+        required: true,
+        schema: { $ref: "#/components/schemas/UUIDv7" },
+      }
+    TemporaryAssignmentId:
+      {
+        name: temporaryAssignmentId,
+        in: path,
+        required: true,
+        schema: { $ref: "#/components/schemas/UUIDv7" },
+      }
+    AccountId:
+      {
+        name: accountId,
         in: path,
         required: true,
         schema: { $ref: "#/components/schemas/UUIDv7" },
@@ -4528,6 +4830,82 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/UserAccountCollection" }
+    IdentitySession:
+      description: Identity session authenticated by a Secure, HttpOnly cookie
+      headers:
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+        X-CSRF-Token: { $ref: "#/components/headers/CsrfToken" }
+        Set-Cookie: { schema: { type: string }, description: Secure, HttpOnly identity-session cookie. }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/IdentitySessionResponse" }
+    CurrentIdentity:
+      description: Current identity account and session projection
+      headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/CurrentIdentityResponse" }
+    CorrelationNoContent:
+      description: Operation completed without a response body
+      headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+    IdentitySessionRevoked:
+      description: Identity session revoked and its cookie expired
+      headers:
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+        Set-Cookie: { schema: { type: string }, description: Expired Secure, HttpOnly identity-session cookie. }
+    IdentityActivationIssued:
+      description: Controlled activation issued without exposing its secret token
+      headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/IdentityActivationIssued" }
+    DocumentUploadInitiated:
+      description: Signed direct-upload intent for quarantine storage
+      headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/DocumentUploadInitiated" }
+    DocumentUploadCompleted:
+      description: Document upload completion accepted for scanning
+      headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/DocumentUploadCompletion" }
+    DocumentUploadStatus:
+      description: Safe upload-status projection without storage object keys or AV implementation data
+      headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/DocumentUploadStatus" }
+    DocumentVersionScan:
+      description: Document version scan or promotion result
+      headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/DocumentVersionScan" }
+    TemporaryAssignmentEntity:
+      description: Temporary assignment representation
+      headers:
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+        ETag: { $ref: "#/components/headers/CacheETag" }
+        X-Resource-Version: { $ref: "#/components/headers/ResourceVersion" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TemporaryAssignmentResponse" }
+    TemporaryAssignmentCollection:
+      description: Cursor-paginated temporary assignments in one organization unit
+      headers:
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+        Link: { schema: { type: string } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TemporaryAssignmentCollection" }
+    TemporaryAssignmentNotModified:
+      description: Cached temporary assignment representation remains current
+      headers:
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+        ETag: { $ref: "#/components/headers/CacheETag" }
+        X-Resource-Version: { $ref: "#/components/headers/ResourceVersion" }
     Entity:
       {
         description: Authorized typed resource representation,
@@ -4940,6 +5318,177 @@ components:
             next_cursor: { type: [string, "null"] },
           },
       }
+    IdentityLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 128 }
+        password: { type: string, minLength: 1, maxLength: 128 }
+        totp_code: { type: string, pattern: "^[0-9]{6}$" }
+    IdentitySessionResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [user_id, expires_at, restricted, csrf_token]
+          properties:
+            user_id: { $ref: "#/components/schemas/UUIDv7" }
+            expires_at: { $ref: "#/components/schemas/UtcDateTime" }
+            restricted: { type: boolean }
+            csrf_token: { type: string, minLength: 1 }
+    IdentityActivationRequest:
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        token: { type: string, pattern: "^[a-f0-9]{64}$" }
+        password: { type: string, minLength: 14, maxLength: 128 }
+        totp_code: { type: string, pattern: "^[0-9]{6}$" }
+    IdentityPasswordChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string, minLength: 1, maxLength: 128 }
+        new_password: { type: string, minLength: 14, maxLength: 128 }
+        new_password_confirmation: { type: string, minLength: 14, maxLength: 128 }
+    CurrentIdentityResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [principal, account, session]
+          properties:
+            principal:
+              type: object
+              additionalProperties: false
+              required: [user_id]
+              properties: { user_id: { $ref: "#/components/schemas/UUIDv7" } }
+            account: { $ref: "#/components/schemas/UserAccount" }
+            session:
+              type: object
+              additionalProperties: false
+              required: [restricted]
+              properties: { restricted: { type: boolean } }
+    IdentityActivationIssued:
+      type: object
+      additionalProperties: false
+      required: [account_id, status, expires_at, delivery]
+      properties:
+        account_id: { $ref: "#/components/schemas/UUIDv7" }
+        status: { const: activation_issued }
+        expires_at: { $ref: "#/components/schemas/UtcDateTime" }
+        delivery: { const: controlled }
+    DocumentUploadInitiateRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, name, classification, file_name, content_type, byte_size, sha256]
+      properties:
+        purpose: { type: string, enum: [document_version, organization_import_source] }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: [string, "null"], maxLength: 10000 }
+        classification: { $ref: "#/components/schemas/Classification" }
+        file_name: { type: string, minLength: 1, maxLength: 255 }
+        content_type: { type: string, pattern: "^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*$" }
+        byte_size: { type: integer, minimum: 1, maximum: 1073741824 }
+        sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+    DocumentUploadInitiated:
+      type: object
+      additionalProperties: false
+      required: [upload_id, quarantine_object_id, purpose, method, upload_url, required_headers, expires_at, max_size_bytes]
+      properties:
+        upload_id: { $ref: "#/components/schemas/UUIDv7" }
+        quarantine_object_id: { $ref: "#/components/schemas/UUIDv7" }
+        purpose: { type: string, enum: [document_version, organization_import_source] }
+        method: { type: string }
+        upload_url: { type: string, format: uri }
+        required_headers: { type: object, additionalProperties: { type: string } }
+        expires_at: { $ref: "#/components/schemas/UtcDateTime" }
+        max_size_bytes: { type: integer, minimum: 1 }
+    DocumentUploadCompletion:
+      type: object
+      additionalProperties: false
+      required: [accepted, document_id, version_id, scan_status, availability_status, failure_codes]
+      properties:
+        accepted: { type: boolean }
+        document_id: { $ref: "#/components/schemas/UUIDv7" }
+        version_id: { $ref: "#/components/schemas/UUIDv7" }
+        scan_status: { type: string }
+        availability_status: { type: string }
+        failure_codes: { type: array, items: { type: string } }
+    DocumentUploadStatus:
+      type: object
+      additionalProperties: false
+      required: [document_id, version_id, scan_status, availability_status, detected_mime_type, byte_size, sha256]
+      properties:
+        document_id: { $ref: "#/components/schemas/UUIDv7" }
+        version_id: { $ref: "#/components/schemas/UUIDv7" }
+        scan_status: { type: string }
+        availability_status: { type: string }
+        detected_mime_type: { type: [string, "null"] }
+        byte_size: { type: [integer, "null"], minimum: 1 }
+        sha256: { type: [string, "null"], pattern: "^[a-f0-9]{64}$" }
+    DocumentVersionScan:
+      type: object
+      additionalProperties: false
+      required: [document_id, version_id, scan_status, availability_status]
+      properties:
+        document_id: { $ref: "#/components/schemas/UUIDv7" }
+        version_id: { $ref: "#/components/schemas/UUIDv7" }
+        scan_status: { type: string }
+        availability_status: { type: string }
+    TemporaryAssignmentCreate:
+      type: object
+      additionalProperties: false
+      required: [person_id, organization_unit_id, capability_codes, start_at, end_at, reason]
+      properties:
+        person_id: { $ref: "#/components/schemas/UUIDv7" }
+        organization_unit_id: { $ref: "#/components/schemas/UUIDv7" }
+        capability_codes:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, maxLength: 96, pattern: "^[a-z][a-z0-9]*(?:[.:-][a-z0-9]+)*$" }
+        start_at: { $ref: "#/components/schemas/UtcDateTime" }
+        end_at: { $ref: "#/components/schemas/UtcDateTime" }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+    TemporaryAssignment:
+      type: object
+      additionalProperties: false
+      required: [id, person_id, organization_unit_id, capability_codes, start_at, end_at, status, reason, approved_by_user_id, revoked_at, revoke_reason, lock_version]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        person_id: { $ref: "#/components/schemas/UUIDv7" }
+        organization_unit_id: { $ref: "#/components/schemas/UUIDv7" }
+        capability_codes: { type: array, items: { type: string } }
+        start_at: { $ref: "#/components/schemas/UtcDateTime" }
+        end_at: { $ref: "#/components/schemas/UtcDateTime" }
+        status: { type: string, enum: [scheduled, active, revoked, expired] }
+        reason: { type: string }
+        approved_by_user_id: { $ref: "#/components/schemas/UUIDv7" }
+        revoked_at: { type: [string, "null"], format: date-time }
+        revoke_reason: { type: [string, "null"] }
+        lock_version: { type: integer, minimum: 1 }
+    TemporaryAssignmentResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties: { data: { $ref: "#/components/schemas/TemporaryAssignment" } }
+    TemporaryAssignmentCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/TemporaryAssignment" } }
+        next_cursor: { type: [string, "null"] }
     Login:
       {
         type: object,

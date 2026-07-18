@@ -34,12 +34,24 @@ paths:
         "400": {$ref: "./openapi.yaml#/components/responses/BadRequest"}
         "401": {$ref: "./openapi.yaml#/components/responses/Unauthorized"}
   /auth/logout: {$ref: "./openapi.yaml#/paths/~1auth~1logout"}
+  /identity/login: {$ref: "./openapi.yaml#/paths/~1identity~1login"}
+  /identity/activation: {$ref: "./openapi.yaml#/paths/~1identity~1activation"}
+  /identity/me: {$ref: "./openapi.yaml#/paths/~1identity~1me"}
+  /identity/logout: {$ref: "./openapi.yaml#/paths/~1identity~1logout"}
+  /identity/password: {$ref: "./openapi.yaml#/paths/~1identity~1password"}
+  /identity/accounts/{accountId}/activation: {$ref: "./openapi.yaml#/paths/~1identity~1accounts~1{accountId}~1activation"}
   /me: {$ref: "./openapi.yaml#/paths/~1me"}
   /me/scopes: {$ref: "./openapi.yaml#/paths/~1me~1scopes"}
   /me/scope: {$ref: "./openapi.yaml#/paths/~1me~1scope"}
   /documents: {$ref: "./openapi.yaml#/paths/~1documents"}
   /documents/uploads: {$ref: "./openapi.yaml#/paths/~1documents~1uploads"}
+  /documents/uploads/{uploadId}: {$ref: "./openapi.yaml#/paths/~1documents~1uploads~1{uploadId}"}
   /documents/uploads/{uploadId}/complete: {$ref: "./openapi.yaml#/paths/~1documents~1uploads~1{uploadId}~1complete"}
+  /internal/documents/versions/{versionId}/scan: {$ref: "./openapi.yaml#/paths/~1internal~1documents~1versions~1{versionId}~1scan"}
+  /internal/documents/versions/{versionId}/reconcile-promotion: {$ref: "./openapi.yaml#/paths/~1internal~1documents~1versions~1{versionId}~1reconcile-promotion"}
+  /organization/temporary-assignments: {$ref: "./openapi.yaml#/paths/~1organization~1temporary-assignments"}
+  /organization/temporary-assignments/{temporaryAssignmentId}: {$ref: "./openapi.yaml#/paths/~1organization~1temporary-assignments~1{temporaryAssignmentId}"}
+  /organization/temporary-assignments/{temporaryAssignmentId}/revoke: {$ref: "./openapi.yaml#/paths/~1organization~1temporary-assignments~1{temporaryAssignmentId}~1revoke"}
   /organization/cluster: {$ref: "./openapi.yaml#/paths/~1organization~1cluster"}
   /organization/facilities: {$ref: "./openapi.yaml#/paths/~1organization~1facilities"}
   /organization/facilities/{facilityId}: {$ref: "./openapi.yaml#/paths/~1organization~1facilities~1{facilityId}"}
@@ -91,3 +103,5 @@ components:
         data: {$ref: "#/components/schemas/W12Session"}
   securitySchemes:
     bearerAuth: {$ref: "./openapi.yaml#/components/securitySchemes/bearerAuth"}
+    identitySession: {$ref: "./openapi.yaml#/components/securitySchemes/identitySession"}
+    documentsWorkerToken: {$ref: "./openapi.yaml#/components/securitySchemes/documentsWorkerToken"}
