@@ -279,7 +279,7 @@ function App() {
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const copy = text[locale]
-  const adminView = ['organization', 'organization-structure', 'people-assignments', 'temporary-assignments', 'identity-accounts', 'organization-import'].includes(view.name)
+  const adminView = ['organization', 'organization-structure', 'people-assignments', 'temporary-assignments', 'identity-accounts', 'organization-import', 'authorization', 'access-explanation'].includes(view.name)
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -440,8 +440,8 @@ function App() {
     [copy.capabilities ?? '', '/admin/authorization/capabilities', { name: 'authorization', resource: 'capabilities' }],
     [copy.roleAssignments ?? '', '/admin/authorization/role-assignments', { name: 'authorization', resource: 'role-assignments' }],
     [copy.delegations ?? '', '/admin/authorization/delegations', { name: 'authorization', resource: 'delegations' }],
-    [copy.supervisoryRelationships ?? '', '/admin/organization/supervisory-relationships', { name: 'authorization', resource: 'supervisory' }],
-    [copy.accessExplanation ?? '', '/admin/authorization/access-explanation', { name: 'access-explanation' }],
+    [copy.supervisoryRelationships ?? '', '/admin/relationships/supervisory', { name: 'authorization', resource: 'supervisory' }],
+    [copy.accessExplanation ?? '', '/admin/authorization/explain', { name: 'access-explanation' }],
   ]
 
   return (
@@ -552,8 +552,6 @@ function App() {
             onJobOpen={(jobId) => navigate({ name: 'organization-import', jobId }, `/admin/imports/organization/${jobId}`)}
           />
         )}
-        {view.name === 'authorization' && <AuthorizationAdmin locale={locale} token={session.access_token} resource={view.resource} onSessionExpired={expireSession} />}
-        {view.name === 'access-explanation' && <AccessExplanation locale={locale} token={session.access_token} decisionId={view.decisionId} onSessionExpired={expireSession} />}
         {view.name === 'authorization' && <AuthorizationAdmin locale={locale} token={session.access_token} resource={view.resource} onSessionExpired={expireSession} />}
         {view.name === 'access-explanation' && <AccessExplanation locale={locale} token={session.access_token} decisionId={view.decisionId} onSessionExpired={expireSession} />}
       </AppShell>

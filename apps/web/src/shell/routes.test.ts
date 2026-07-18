@@ -30,7 +30,7 @@ describe('W1.2 shell route registry', () => {
   it('resolves W1.3 authorization routes and explanation deep links', () => {
     expect(routeFromPath('/admin/authorization/roles')).toEqual({ name: 'authorization', resource: 'roles' })
     expect(routeFromPath('/admin/authorization/role-assignments')).toEqual({ name: 'authorization', resource: 'role-assignments' })
-    expect(routeFromPath('/admin/organization/supervisory-relationships')).toEqual({ name: 'authorization', resource: 'supervisory' })
-    expect(routeFromPath('/admin/authorization/access-explanation/018f6f7d-0c00-7000-8000-000000000107')).toEqual({ name: 'access-explanation', decisionId: '018f6f7d-0c00-7000-8000-000000000107' })
+    expect(routeFromPath('/admin/relationships/supervisory')).toEqual({ name: 'authorization', resource: 'supervisory' })
+    expect(routeFromPath('/admin/authorization/explain/018f6f7d-0c00-7000-8000-000000000107')).toEqual({ name: 'access-explanation', decisionId: '018f6f7d-0c00-7000-8000-000000000107' })
   })
 })

@@ -23,7 +23,7 @@ test('W1.3 authorization list supports direct load, refresh, and language direct
 
 test('W1.3 access explanation route is reachable without client authorization decisions', async ({ page }) => {
   await signIn(page)
-  await page.goto('/admin/authorization/access-explanation')
+  await page.goto('/admin/authorization/explain')
   await expect(page.getByRole('heading', { name: 'شرح قرار الوصول' })).toBeVisible()
   await expect(page.getByLabel('معرّف القرار')).toBeVisible()
 })
