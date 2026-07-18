@@ -124,6 +124,7 @@ references:
 | 2026-07-18 | `make verify-w1-2` بعد واجهة مراجعة الاستيراد | أخضر: 103 اختبارات API و1362 assertion، و20 اختبار Web بتغطية 100% للعميل، مع صفوف منقحة وETag لكل انتقال بلا رفع bytes مخترع |
 | 2026-07-18 | `./infra/dev/run-w1-1-e2e.sh` ثم `make verify-w1-2` بعد رحلة إدارة W1.2 | أخضر: 3 رحلات Playwright على MySQL وRedis؛ ثبت إنشاء Organization وIdentity وImport والفشل المغلق وRTL/LTR، مع إصلاح `APP_KEY` وشكل استجابة Identity وعزل عداد Outbox حسب نوع الحدث؛ بقيت 103 اختبارات API و20 اختبار Web بتغطية 100% خضراء |
 | 2026-07-18 | CI `29643248979` على `main@4824a804` | أخضر: API وWeb والوثائق وGitleaks وW1.2 readiness وحزمة الإنتاج و`make verify-w1-1-local`؛ استبعدت أدوات OpenCode وOpenSpec المحلية من سلسلة المنتج قبل الدفع |
+| 2026-07-18 | `make verify-w1-2` بوابة دمج W1.2 | أخضر محلياً: `validate-docs` والحدود وOpenAPI/توليد العميل؛ API 209 ناجحاً و5 متخطاة لـMySQL؛ Web build/lint وتغطية 24 اختباراً؛ E2E وS3 وClamAV هي N/A لهذه البوابة المحلية فقط |
 
 ## الخطوة التالية
 
