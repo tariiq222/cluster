@@ -3,6 +3,7 @@
 namespace Modules\Authorization\Infrastructure;
 
 use Modules\Authorization\Contracts\AccessDecision;
+use Modules\Authorization\Contracts\CapabilityCatalog;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 
@@ -14,45 +15,13 @@ final class FixtureFacilityDecision implements DecideAccess
 
     private const IMPORT_APPROVER_USER_ID = '018f6f7d-0c00-7000-8000-000000000022';
 
-    /** @var list<string> */
-    private const SUPPORTED_CAPABILITIES = [
-        'work_record.submit',
-        'work_record.read',
-        'work_record.list',
-        'organization.cluster.manage',
-        'organization.cluster.read',
-        'organization.facility.manage',
-        'organization.facility.read',
-        'organization.unit.manage',
-        'organization.unit.read',
-        'organization.position.manage',
-        'organization.position.read',
-        'organization.person.manage',
-        'organization.person.read',
-        'organization.person.reference',
-        'organization.assignment.manage',
-        'organization.assignment.read',
-        'organization.import.manage',
-        'organization.import.approve',
-        'organization.import.read',
-        'organization.temporary-assignment.manage',
-        'organization.temporary-assignment.read',
-        'identity.account.manage',
-        'identity.account.read',
-        'documents.initiate-upload',
-        'documents.complete-upload',
-        'documents.get-upload-status',
-        'documents.scan-version',
-        'documents.reconcile-promotion',
-    ];
-
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
         if ($facts === null) {
             return $this->deny($capability, 'work_record', 'internal', 'unavailable', 'record_facts_unavailable');
         }
 
-        if (! in_array($capability, self::SUPPORTED_CAPABILITIES, true)) {
+        if (! CapabilityCatalog::supports($capability)) {
             return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'capability_not_supported');
         }
 
