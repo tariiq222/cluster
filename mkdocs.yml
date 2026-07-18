@@ -90,6 +90,7 @@ nav:
       - خارطة التنفيذ: plans/implementation-roadmap.md
       - الإصدار الأول: plans/release-1-platform.md
       - عقد واجهة W1.2: plans/release-1/w1-2-frontend-slices.md
+      - عقد واجهة W1.3: plans/release-1/w1-3-frontend-slices.md
       - الإصدار الثاني: plans/release-2-strategy-portfolio.md
       - الإصدار الثالث: plans/release-3-risk.md
       - جاهزية التشغيل النهائي: plans/readiness-checklist.md
