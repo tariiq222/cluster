@@ -40,7 +40,7 @@ final class WorkDefinitionController
             return $this->problem(400, 'invalid-idempotency-key', 'Idempotency-Key is required.', $c);
         }
         $v = $request->json()->all();
-        if (! is_string($v['code'] ?? null) || preg_match('/\A[a-z][a-z0-9_]{1,95}\z/', $v['code']) !== 1 || ! is_string($v['name'] ?? null) || $v['name'] === '' || ! is_string($v['source_record_type'] ?? null)) {
+        if (! is_string($v['code'] ?? null) || preg_match('/\A[a-z][a-z0-9-]{1,95}\z/', $v['code']) !== 1 || ! is_string($v['name'] ?? null) || $v['name'] === '' || ! in_array($v['default_classification'] ?? null, ['public', 'internal', 'confidential', 'top_secret'], true)) {
             return $this->problem(422, 'invalid-work-definition', 'The request body is invalid.', $c);
         }
         $hash = hash('sha256', json_encode($v, JSON_THROW_ON_ERROR));
@@ -54,7 +54,7 @@ final class WorkDefinitionController
             $row = DB::transaction(function () use ($v, $p, $hash, $keyHash, $operation): array {
                 $id = Str::uuid7()->toString();
                 $now = now();
-                DB::table('work_definitions')->insert(['id' => $id, 'code' => $v['code'], 'name' => $v['name'], 'created_by_user_id' => $p['user_id'], 'status' => 'active', 'lock_version' => 1, 'created_at' => $now, 'updated_at' => $now]);
+                DB::table('work_definitions')->insert(['id' => $id, 'code' => $v['code'], 'name' => $v['name'], 'description' => $v['description'] ?? null, 'default_classification' => $v['default_classification'], 'created_by_user_id' => $p['user_id'], 'status' => 'active', 'lock_version' => 1, 'created_at' => $now, 'updated_at' => $now]);
                 DB::table('work_definition_idempotency_keys')->insert(['principal_id' => $p['user_id'], 'operation' => $operation, 'key_hash' => $keyHash, 'request_hash' => $hash, 'resource_id' => $id, 'created_at' => $now, 'updated_at' => $now]);
                 $this->outbox->append(Str::uuid7()->toString(), $id, 'work_definition.created.v1', ['work_definition_id' => $id]);
 

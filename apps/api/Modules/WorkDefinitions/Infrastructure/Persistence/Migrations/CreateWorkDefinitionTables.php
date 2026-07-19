@@ -12,6 +12,8 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('code', 96)->unique();
             $table->string('name', 255);
+            $table->string('description', 2000)->nullable();
+            $table->string('default_classification', 24)->default('internal');
             $table->uuid('created_by_user_id');
             $table->string('status', 16)->default('active');
             $table->unsignedInteger('lock_version')->default(1);
