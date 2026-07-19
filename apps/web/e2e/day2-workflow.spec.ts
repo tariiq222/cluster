@@ -1,11 +1,25 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { walkingSkeletonFixtures } from '../src/test/setup'
 
-test.describe('day 2 workflow vertical', () => {
-  test('direct load keeps the workflow route and supports locale direction', async ({ page }) => {
-    await page.goto('/admin/workflow/day2')
-    await expect(page).toHaveURL(/\/admin\/workflow\/day2$/)
-    await expect(page.locator('html')).toHaveAttribute('dir', /rtl|ltr/)
-    await page.reload()
-    await expect(page).toHaveURL(/\/admin\/workflow\/day2$/)
-  })
+test('day2 Arabic workflow creates, submits, returns and completes a task, then switches to English', async ({ page }) => {
+  await page.goto('/admin/workflow/day2')
+  await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountA.username)
+  await page.getByLabel('كلمة المرور').fill(walkingSkeletonFixtures.accountA.password)
+  await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
+  await expect(page).toHaveURL(/\/admin\/workflow\/day2$/)
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
+  await page.getByRole('button', { name: 'حفظ ونشر' }).click()
+  await expect(page.getByRole('status')).toContainText('اكتمل الإجراء')
+  await page.getByLabel('عنوان الطلب').fill('طلب رحلة اليوم الثاني')
+  await page.getByLabel('الوصف').fill('وصف طلب يختبر دورة سير العمل كاملة')
+  await page.getByRole('button', { name: 'إنشاء وإرسال الطلب' }).click()
+  await expect(page.getByRole('region', { name: 'المهمة الناتجة' })).toBeVisible()
+  await page.getByRole('button', { name: 'إعادة المهمة' }).click()
+  await page.getByRole('button', { name: 'إكمال المهمة' }).click()
+  await expect(page.getByRole('status')).toContainText('اكتمل الإجراء')
+  await page.getByRole('button', { name: 'English' }).click()
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
+  await expect(page.getByRole('heading', { name: 'Request workflow' })).toBeVisible()
+  await page.reload()
+  await expect(page).toHaveURL(/\/admin\/workflow\/day2$/)
 })
