@@ -74,6 +74,7 @@ verify-w1-3:
 # بوابة اليوم الثاني: W1.4–W1.7 من التعريف المنشور إلى الطلب والمسار والمهمة.
 verify-day2:
 	cd apps/api && php artisan test tests/Feature/Day2HttpVerticalTest.php Modules/WorkDefinitions/Features/PublishRequestFixture/Tests Modules/Workflow/Tests Modules/Tasks/Tests tests/Architecture/ModuleBoundariesTest.php
+	$(MAKE) test-api
 	composer --working-dir=apps/api lint
 	composer --working-dir=apps/api analyse -- --memory-limit=512M
 	npm --prefix apps/web run test:unit -- src/api/day2.test.ts src/shell/routes.test.ts
