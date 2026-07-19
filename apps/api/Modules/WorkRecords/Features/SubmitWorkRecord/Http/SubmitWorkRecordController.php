@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
-use Modules\WorkDefinitions\Contracts\ResolvePublishedRequestFixture;
+use Modules\WorkDefinitions\Contracts\ResolvePublishedWorkDefinition;
 use Modules\WorkRecords\Domain\WorkRecord;
 use Modules\WorkRecords\Features\SubmitWorkRecord\Handler\SubmitWorkRecordHandler;
 use UnexpectedValueException;
@@ -22,7 +22,7 @@ final class SubmitWorkRecordController
 
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
-        private readonly ResolvePublishedRequestFixture $requestFixture,
+        private readonly ResolvePublishedWorkDefinition $workDefinitions,
         private readonly DecideAccess $access,
         private readonly SubmitWorkRecordHandler $handler,
     ) {}
@@ -47,7 +47,7 @@ final class SubmitWorkRecordController
         $input = $request->json()->all();
         $allowedFields = ['work_definition_code', 'title', 'description'];
         $validator = Validator::make($input, [
-            'work_definition_code' => ['required', 'string', 'in:request'],
+            'work_definition_code' => ['required', 'string', 'regex:/\A[a-z][a-z0-9-]{1,95}\z/'],
             'title' => ['required', 'string', 'min:1', 'max:255'],
             'description' => ['required', 'string', 'min:1', 'max:4000'],
         ]);
@@ -79,11 +79,17 @@ final class SubmitWorkRecordController
             return $this->replay($replay, $principal, $correlationId);
         }
 
-        $fixture = $this->requestFixture->resolve();
+        $definition = $this->workDefinitions->resolve($validated['work_definition_code']);
+        if ($definition === null) {
+            return $this->problem(422, 'invalid-work-record', 'Unprocessable Content', 'The requested work definition is unavailable.', $correlationId);
+        }
+        if (array_diff(['title', 'description'], $definition['fields']) !== []) {
+            return $this->problem(422, 'invalid-work-record', 'Unprocessable Content', 'The requested work definition does not accept this payload.', $correlationId);
+        }
         $facts = new RecordFacts(
             ownerFacilityId: $principal['facility_id'],
             resourceType: 'work_record',
-            classification: 'internal',
+            classification: $definition['classification'],
         );
         if (! $this->access->decide(['facility_id' => $principal['facility_id']], 'work_record.submit', $facts)->isAllowed()) {
             return $this->problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
@@ -93,10 +99,10 @@ final class SubmitWorkRecordController
         $record = WorkRecord::submit(
             id: Str::uuid7()->toString(),
             recordNumber: 'WR-'.strtoupper(str_replace('-', '', Str::uuid7()->toString())),
-            workTypeVersionId: $fixture['version_id'],
+            workTypeVersionId: $definition['version_id'],
             ownerFacilityId: $principal['facility_id'],
             creatorUserId: $principal['user_id'],
-            classification: 'internal',
+            classification: $definition['classification'],
             payload: [
                 'title' => $validated['title'],
                 'description' => $validated['description'],
@@ -117,7 +123,7 @@ final class SubmitWorkRecordController
                 'data' => [
                     'record' => $envelope,
                     'access_context' => ['owner_facility_id' => $principal['facility_id']],
-                    'classification' => 'internal',
+                    'classification' => $definition['classification'],
                 ],
             ], $idempotency);
         } catch (UnexpectedValueException) {

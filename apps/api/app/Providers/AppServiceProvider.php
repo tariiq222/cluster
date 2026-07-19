@@ -68,7 +68,9 @@ use Modules\Organization\Infrastructure\Authorization\ConfiguredTemporaryAssignm
 use Modules\Organization\Infrastructure\Import\UnavailableQuarantinedImport;
 use Modules\Organization\Infrastructure\Persistence\ValidatePersonReferenceFromPersistence;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedRequestFixture;
+use Modules\WorkDefinitions\Contracts\ResolvePublishedWorkDefinition;
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedRequestFixtureFromPersistence;
+use Modules\WorkDefinitions\Infrastructure\ResolvePublishedWorkDefinitionFromPersistence;
 use Modules\Workflow\Contracts\AdvanceWorkflowStep;
 use Modules\Workflow\Infrastructure\Persistence\WorkflowStepAdvancer;
 use Predis\Client;
@@ -86,6 +88,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(DecideAccess::class, FixtureFacilityDecision::class);
         $this->app->bind(ResolvePublishedRequestFixture::class, ResolvePublishedRequestFixtureFromPersistence::class);
+        $this->app->bind(ResolvePublishedWorkDefinition::class, ResolvePublishedWorkDefinitionFromPersistence::class);
         $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
         $this->app->bind(AdvanceWorkflowStep::class, WorkflowStepAdvancer::class);
         $this->app->bind(ResolveQuarantinedImport::class, UnavailableQuarantinedImport::class);
