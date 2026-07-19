@@ -1,4 +1,4 @@
-.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 verify-w1-2 verify-w1-3 validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
+.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
@@ -70,6 +70,16 @@ verify-w1-3:
 	npm --prefix apps/web run lint
 	npm --prefix apps/web run build
 	./infra/dev/run-w1-3-e2e.sh
+
+# بوابة اليوم الثاني: W1.4–W1.7 من التعريف المنشور إلى الطلب والمسار والمهمة.
+verify-day2:
+	cd apps/api && php artisan test tests/Feature/Day2HttpVerticalTest.php Modules/WorkDefinitions/Features/PublishRequestFixture/Tests Modules/Workflow/Tests Modules/Tasks/Tests tests/Architecture/ModuleBoundariesTest.php
+	composer --working-dir=apps/api lint
+	composer --working-dir=apps/api analyse -- --memory-limit=512M
+	npm --prefix apps/web run test:unit -- src/api/day2.test.ts src/shell/routes.test.ts
+	npm --prefix apps/web run lint
+	npm --prefix apps/web run build
+	./infra/dev/run-day2-e2e.sh
 
 # حزمة الإنتاج: بناء صور الإنتاج من lockfiles وتشغيلها بحزمة Compose كاملة.
 validate-production-bundle:
