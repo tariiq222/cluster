@@ -32,7 +32,7 @@ return new class extends Migration
             $table->unsignedInteger('lock_version')->default(1);
             $table->timestamp('published_at')->nullable();
             $table->timestamps();
-            $table->unique(['work_definition_id', 'version_number']);
+            $table->unique(['work_definition_id', 'version_number'], 'work_definition_versions_definition_version_unique');
             $table->index(['work_definition_id', 'status']);
         });
         Schema::create('work_definition_idempotency_keys', function (Blueprint $table): void {
@@ -43,7 +43,7 @@ return new class extends Migration
             $table->char('request_hash', 64);
             $table->uuid('resource_id');
             $table->timestamps();
-            $table->unique(['principal_id', 'operation', 'key_hash']);
+            $table->unique(['principal_id', 'operation', 'key_hash'], 'work_definition_idempotency_principal_operation_key_unique');
         });
     }
 

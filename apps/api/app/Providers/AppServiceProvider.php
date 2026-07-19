@@ -201,7 +201,7 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationCoreTables.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationFacilityTypes.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationTreeTables.php'),
-            base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationSupervisoryRelationshipTables.php'),
+            base_path('Modules/Organization/Infrastructure/Persistence/Migrations/ZCreateOrganizationSupervisoryRelationshipTables.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationUnitTypes.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationPeopleTable.php'),
             base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationWorkforceAssignmentsTable.php'),

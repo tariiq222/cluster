@@ -27,6 +27,7 @@ services:
 
   mysql:
     image: docker.io/library/mysql:8.4.6@sha256:869218921e61d6c3c89820955d63cca42971f0e3e6c1e2792247bbd944ebc6e9
+    command: ["--log-bin-trust-function-creators=1"]
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-cluster}
       MYSQL_USER: ${DB_USERNAME:-cluster}

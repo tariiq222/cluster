@@ -224,7 +224,7 @@ class SupervisoryRelationshipTest extends TestCase
 
     private function migrateSupervisoryRelationships(): void
     {
-        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateOrganizationSupervisoryRelationshipTables.php';
+        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/ZCreateOrganizationSupervisoryRelationshipTables.php';
         $migration->up();
     }
 

@@ -51,7 +51,7 @@ return new class extends Migration
             $table->timestamp('recorded_at')->useCurrent();
 
             $table->index(['actor_user_id', 'occurred_at']);
-            $table->index(['resource_type', 'resource_id', 'occurred_at']);
+            $table->index(['resource_type', 'resource_id', 'occurred_at'], 'sensitive_access_events_resource_occurred_index');
             $table->index('correlation_id');
             $table->index('idempotency_key_hash', 'sensitive_access_events_idempotency_hash_index');
         });

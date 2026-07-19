@@ -58,7 +58,7 @@ return new class extends Migration
             $table->uuid('task_id')->nullable();
             $table->unsignedInteger('lock_version')->default(1);
             $table->timestamps();
-            $table->unique(['workflow_instance_id', 'node_key', 'activation_sequence']);
+            $table->unique(['workflow_instance_id', 'node_key', 'activation_sequence'], 'workflow_step_instances_instance_node_activation_unique');
             $table->index(['workflow_instance_id', 'state']);
         });
 

@@ -22,6 +22,22 @@ commits = ["84763f4bb242b47db2eb69ef5de02a7f1c6fdca1"]
 paths = ['''^\.planning/research/STACK\.md$''']
 
 [[allowlists]]
+description = "Day 2 HTTP journey test idempotency keys"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^apps/api/tests/Feature/Day2HttpVerticalTest\.php$''']
+regexTarget = "match"
+regexes = ['''Idempotency-Key' => 'day2-[a-z0-9-]+''']
+
+[[allowlists]]
+description = "W1.2 E2E required environment variable name list"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^apps/web/e2e/w1-2-cookie-csrf\.spec\.ts$''']
+regexTarget = "match"
+regexes = ['''W1_2_[A-Z_0-9]+',\s+'W1_2_[A-Z_0-9]+''']
+
+[[allowlists]]
 description = "Historical Valkey terminology in removed agent artifacts"
 targetRules = ["generic-api-key"]
 condition = "AND"
