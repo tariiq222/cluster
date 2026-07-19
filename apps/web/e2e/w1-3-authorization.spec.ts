@@ -4,7 +4,7 @@ import { walkingSkeletonFixtures } from '../src/test/setup'
 async function signIn(page: Page, path = '/') {
   await page.goto(path)
   await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountA.username)
-  await page.getByLabel('كلمة المرور').fill(walkingSkeletonFixtures.accountA.password)
+  await page.getByLabel('كلمة المرور', { exact: true }).fill(walkingSkeletonFixtures.accountA.password)
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
 }
 
@@ -14,7 +14,7 @@ test('W1.3 authorization list supports direct load, refresh, and language direct
   await expect(page.getByRole('heading', { name: 'الأدوار' })).toBeVisible()
   await page.reload()
   await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountA.username)
-  await page.getByLabel('كلمة المرور').fill(walkingSkeletonFixtures.accountA.password)
+  await page.getByLabel('كلمة المرور', { exact: true }).fill(walkingSkeletonFixtures.accountA.password)
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
   await expect(page.getByRole('heading', { name: 'الأدوار' })).toBeVisible()
   await page.getByRole('button', { name: 'English' }).click()

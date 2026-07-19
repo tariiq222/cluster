@@ -24,6 +24,10 @@ async function openAuthenticatedShell(page: Page, data: { records?: unknown[]; n
     contentType: 'application/json',
     body: JSON.stringify({ items: data.notifications ?? [], next_cursor: null }),
   }))
+  await page.route('**/api/v1/dashboards/*', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { items: [], next_cursor: null, total: 0 } }),
+  }))
 
   await page.goto('/')
   await page.getByLabel('اسم المستخدم').fill('shell-user')
@@ -52,16 +56,16 @@ test('authenticated shell follows the RTL desktop layout', async ({ page }) => {
   const collapseButton = page.locator('.sidebar-collapse-button')
   await expect(collapseButton).toHaveCSS('border-radius', '12px')
   await expect(sidebar.getByRole('link', { name: 'طلباتي' })).toHaveCSS('border-radius', '12px')
-  expect(Math.round((await collapseButton.boundingBox())?.height ?? 0)).toBeGreaterThanOrEqual(44)
+  expect(Math.round((await collapseButton.boundingBox())?.height ?? 0)).toBeGreaterThanOrEqual(40)
   await expect(page.getByRole('contentinfo')).toContainText('جميع الحقوق محفوظة')
-  expect(Math.round(sidebarBox?.width ?? 0)).toBe(286)
+  expect(Math.round(sidebarBox?.width ?? 0)).toBe(264)
   expect(Math.round((sidebarBox?.x ?? 0) + (sidebarBox?.width ?? 0))).toBe(1280)
   expect(Math.round(workspaceBox?.x ?? -1)).toBe(0)
   expect(Math.round((workspaceBox?.width ?? 0) + (sidebarBox?.width ?? 0))).toBe(1280)
 
   await page.getByRole('button', { name: 'طي القائمة الجانبية' }).click()
   await expect(page.locator('.app-shell')).toHaveAttribute('data-sidebar-collapsed', 'true')
-  expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(76)
+  expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(68)
   expect(await page.evaluate(() => window.localStorage.getItem('cluster.sidebar-collapsed'))).toBe('true')
   await expect(sidebar.getByRole('link', { name: 'طلباتي' })).toBeVisible()
   await expect(sidebar.getByRole('link', { name: 'طلب جديد' })).toBeVisible()

@@ -2,8 +2,7 @@ import { type MouseEvent, type ReactNode, type RefObject, useEffect, useRef, use
 import {
   Bell,
   Building2,
-  FilePlus2,
-  Inbox,
+  ChevronDown,
   Languages,
   LogOut,
   Menu,
@@ -18,21 +17,27 @@ import {
 import './AppShell.css'
 
 type Locale = 'ar' | 'en'
-type ActiveNavigation = 'requests' | 'create' | 'organization'
+
+export type SidebarNavigationItem = {
+  key: string
+  label: string
+  path: string
+  icon: ReactNode
+  active: boolean
+  onSelect: () => void
+}
+
+export type SidebarNavigationGroup = {
+  key: string
+  label: string
+  icon: ReactNode
+  items: SidebarNavigationItem[]
+}
 
 export type AppShellCopy = {
   platform: string
   switchLanguage: string
   currentFacility: string
-  myRequests: string
-  newRequest: string
-  organization: string
-  roles?: string
-  capabilities?: string
-  roleAssignments?: string
-  delegations?: string
-  supervisoryRelationships?: string
-  accessExplanation?: string
   notifications: string
   logout: string
   rightsReserved: string
@@ -42,7 +47,6 @@ export type AppShellCopy = {
   openNavigation: string
   closeNavigation: string
   navigationTitle: string
-  services: string
   platformUser: string
   internalSystem: string
   collapseNavigation: string
@@ -53,22 +57,21 @@ type AppShellProps = {
   locale: Locale
   copy: AppShellCopy
   facilityName: string
-  activeNavigation: ActiveNavigation
+  navigationGroups: SidebarNavigationGroup[]
   unreadNotifications: number
   notificationButtonRef: RefObject<HTMLButtonElement | null>
   notificationsOpen: boolean
   onLocaleChange: () => void
   onNotificationsToggle: () => void
   onLogout: () => void
-  onNavigateRequests: () => void
-  onNavigateCreate: () => void
-  onNavigateOrganization: () => void
   children: ReactNode
 }
 
-type SidebarContentProps = Pick<AppShellProps,
-  'activeNavigation' | 'copy' | 'facilityName' | 'onNavigateCreate' | 'onNavigateOrganization' | 'onNavigateRequests'
-> & {
+type SidebarContentProps = {
+  copy: AppShellCopy
+  navigationGroups: SidebarNavigationGroup[]
+  openGroups: Record<string, boolean>
+  onToggleGroup: (groupKey: string) => void
   headingId: string
   onNavigate: () => void
   showCloseButton?: boolean
@@ -76,15 +79,13 @@ type SidebarContentProps = Pick<AppShellProps,
 }
 
 function SidebarContent({
-  activeNavigation,
   copy,
-  facilityName,
   headingId,
+  navigationGroups,
   onClose,
   onNavigate,
-  onNavigateCreate,
-  onNavigateOrganization,
-  onNavigateRequests,
+  onToggleGroup,
+  openGroups,
   showCloseButton = false,
 }: SidebarContentProps) {
   function follow(event: MouseEvent<HTMLAnchorElement>, action: () => void) {
@@ -111,60 +112,55 @@ function SidebarContent({
       </div>
 
       <nav className="primary-navigation" aria-label={copy.navigationTitle}>
-        <p className="navigation-section-label">{copy.services}</p>
-        <a
-          href="/"
-          aria-label={copy.myRequests}
-          aria-current={activeNavigation === 'requests' ? 'page' : undefined}
-          onClick={(event) => follow(event, onNavigateRequests)}
-        >
-          <Inbox aria-hidden="true" />
-          <span>{copy.myRequests}</span>
-        </a>
-        <a
-          href="/work-records/new"
-          aria-label={copy.newRequest}
-          aria-current={activeNavigation === 'create' ? 'page' : undefined}
-          onClick={(event) => follow(event, onNavigateCreate)}
-        >
-          <FilePlus2 aria-hidden="true" />
-          <span>{copy.newRequest}</span>
-        </a>
-        <a
-          href="/admin/organization"
-          aria-label={copy.organization}
-          aria-current={activeNavigation === 'organization' ? 'page' : undefined}
-          onClick={(event) => follow(event, onNavigateOrganization)}
-        >
-          <Building2 aria-hidden="true" />
-          <span>{copy.organization}</span>
-        </a>
+        {navigationGroups.map((group) => {
+          const expanded = openGroups[group.key] === true
+          const listId = `${headingId}-${group.key}`
+          return (
+            <section className="navigation-group" key={group.key}>
+              <button
+                type="button"
+                className="navigation-group-toggle"
+                aria-expanded={expanded}
+                aria-controls={listId}
+                onClick={() => onToggleGroup(group.key)}
+              >
+                <span className="navigation-icon" aria-hidden="true">{group.icon}</span>
+                <span className="navigation-group-label">{group.label}</span>
+                <ChevronDown className="navigation-group-chevron" aria-hidden="true" />
+              </button>
+              <ul id={listId} className="navigation-group-items" hidden={!expanded}>
+                {group.items.map((item) => (
+                  <li key={item.key}>
+                    <a
+                      href={item.path}
+                      aria-label={item.label}
+                      aria-current={item.active ? 'page' : undefined}
+                      onClick={(event) => follow(event, item.onSelect)}
+                    >
+                      <span className="navigation-icon" aria-hidden="true">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        })}
       </nav>
-
-      <div className="sidebar-user-context">
-        <span className="user-avatar" aria-hidden="true">{copy.platformUser.slice(0, 1)}</span>
-        <span>
-          <strong>{copy.platformUser}</strong>
-          <small>{facilityName}</small>
-        </span>
-      </div>
     </div>
   )
 }
 
 export function AppShell({
-  activeNavigation,
   children,
   copy,
   facilityName,
   locale,
+  navigationGroups,
   notificationButtonRef,
   notificationsOpen,
   onLocaleChange,
   onLogout,
-  onNavigateCreate,
-  onNavigateOrganization,
-  onNavigateRequests,
   onNotificationsToggle,
   unreadNotifications,
 }: AppShellProps) {
@@ -176,11 +172,28 @@ export function AppShell({
       return false
     }
   })
+  const activeGroupKey = navigationGroups.find((group) => group.items.some((item) => item.active))?.key
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {}
+    const firstGroup = navigationGroups[0]
+    if (firstGroup) initial[firstGroup.key] = true
+    if (activeGroupKey) initial[activeGroupKey] = true
+    return initial
+  })
   const navigationButtonRef = useRef<HTMLButtonElement>(null)
   const navigationPanelRef = useRef<HTMLElement>(null)
   const notificationLabel = unreadNotifications > 0
     ? `${copy.notifications}: ${new Intl.NumberFormat(locale === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US').format(unreadNotifications)}`
     : copy.notifications
+
+  useEffect(() => {
+    if (!activeGroupKey) return
+    setOpenGroups((current) => current[activeGroupKey] ? current : { ...current, [activeGroupKey]: true })
+  }, [activeGroupKey])
+
+  function toggleGroup(groupKey: string) {
+    setOpenGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))
+  }
 
   function closeNavigation() {
     setNavigationOpen(false)
@@ -255,14 +268,12 @@ export function AppShell({
     >
       <aside className="desktop-sidebar" aria-labelledby="desktop-sidebar-heading">
         <SidebarContent
-          activeNavigation={activeNavigation}
           copy={copy}
-          facilityName={facilityName}
           headingId="desktop-sidebar-heading"
+          navigationGroups={navigationGroups}
           onNavigate={() => undefined}
-          onNavigateCreate={onNavigateCreate}
-          onNavigateOrganization={onNavigateOrganization}
-          onNavigateRequests={onNavigateRequests}
+          onToggleGroup={toggleGroup}
+          openGroups={openGroups}
         />
       </aside>
 
@@ -321,6 +332,14 @@ export function AppShell({
               <LogOut aria-hidden="true" />
             </button>
           </div>
+
+          <div className="header-user-context">
+            <span className="user-avatar" aria-hidden="true">{copy.platformUser.slice(0, 1)}</span>
+            <span className="header-user-copy">
+              <strong>{copy.platformUser}</strong>
+              <small>{facilityName}</small>
+            </span>
+          </div>
         </header>
 
         <div className="content-stage">
@@ -348,15 +367,13 @@ export function AppShell({
             aria-label={copy.navigationTitle}
           >
             <SidebarContent
-              activeNavigation={activeNavigation}
               copy={copy}
-              facilityName={facilityName}
               headingId="mobile-sidebar-heading"
+              navigationGroups={navigationGroups}
               onClose={closeNavigation}
               onNavigate={closeNavigation}
-              onNavigateCreate={onNavigateCreate}
-              onNavigateOrganization={onNavigateOrganization}
-              onNavigateRequests={onNavigateRequests}
+              onToggleGroup={toggleGroup}
+              openGroups={openGroups}
               showCloseButton
             />
           </aside>

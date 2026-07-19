@@ -1,7 +1,41 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { BellRing, CalendarDays, FolderSearch } from 'lucide-react'
+import {
+  BarChart3,
+  Bell,
+  BellRing,
+  Building2,
+  CalendarClock,
+  CalendarDays,
+  ClipboardList,
+  Eye,
+  EyeOff,
+  FileCog,
+  FilePlus2,
+  FileUp,
+  FolderSearch,
+  GitBranch,
+  Handshake,
+  IdCard,
+  Inbox,
+  KeyRound,
+  KeySquare,
+  Languages,
+  LayoutDashboard,
+  Moon,
+  Network,
+  Route,
+  Search,
+  Settings2,
+  ShieldCheck,
+  ShieldQuestion,
+  Sun,
+  UserCheck,
+  UserCog,
+  Users,
+  Workflow,
+} from 'lucide-react'
 
-import { AppShell } from './app/AppShell'
+import { AppShell, type SidebarNavigationGroup } from './app/AppShell'
 
 import {
   ApiError,
@@ -14,7 +48,7 @@ import {
   type Session,
   type WorkRecord,
 } from './api'
-import { primaryRoutes, routeFromPath, type AppRoute } from './shell/routes'
+import { routeFromPath, type AppRoute } from './shell/routes'
 import { OrganizationOverview } from './features/organization/OrganizationOverview'
 import { OrganizationStructure } from './features/organization/OrganizationStructure'
 import { PeopleAssignments } from './features/organization/PeopleAssignments'
@@ -37,7 +71,16 @@ const text = {
     password: 'كلمة المرور',
     signingIn: 'جارٍ تسجيل الدخول…',
     loginError: 'تعذر تسجيل الدخول. تحقق من بيانات الدخول ثم أعد المحاولة.',
-    requiredLogin: 'أكمل اسم المستخدم وكلمة المرور.',
+    requiredLogin: 'أكمل الحقول المطلوبة ثم أعد المحاولة.',
+    welcomeBack: 'مرحباً بعودتك',
+    loginGuidance: 'سجّل الدخول باستخدام حساب المنصة الداخلي.',
+    internalAccess: 'دخول مخصص للحسابات الداخلية المعتمدة',
+    usernameRequired: 'اسم المستخدم مطلوب.',
+    passwordRequired: 'كلمة المرور مطلوبة.',
+    showPassword: 'إظهار كلمة المرور',
+    hidePassword: 'إخفاء كلمة المرور',
+    enableDarkMode: 'تفعيل الوضع الداكن',
+    enableLightMode: 'تفعيل الوضع الفاتح',
     currentFacility: 'نطاق المنشأة الحالية',
     myRequests: 'طلباتي',
     newRequest: 'طلب جديد',
@@ -54,6 +97,14 @@ const text = {
     delegations: 'التفويضات',
     supervisoryRelationships: 'العلاقات الإشرافية',
     accessExplanation: 'شرح قرار الوصول',
+    authorizationGroup: 'الصلاحيات والوصول',
+    workflowGroup: 'سير العمل',
+    workflowTasks: 'سير العمل والمهام',
+    workDefinitions: 'تعريفات العمل',
+    workflowAdmin: 'إدارة المسارات',
+    myTasks: 'مهامي',
+    searchScreen: 'البحث',
+    reportsScreen: 'التقارير',
     notifications: 'الإشعارات',
     closeNotifications: 'إغلاق الإشعارات',
     logout: 'تسجيل الخروج',
@@ -136,7 +187,16 @@ const text = {
     password: 'Password',
     signingIn: 'Signing in…',
     loginError: 'We could not sign you in. Check your credentials and try again.',
-    requiredLogin: 'Complete the username and password fields.',
+    requiredLogin: 'Complete the required fields, then try again.',
+    welcomeBack: 'Welcome back',
+    loginGuidance: 'Sign in with your internal platform account.',
+    internalAccess: 'Access is limited to approved internal accounts',
+    usernameRequired: 'Username is required.',
+    passwordRequired: 'Password is required.',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    enableDarkMode: 'Enable dark mode',
+    enableLightMode: 'Enable light mode',
     currentFacility: 'Current facility scope',
     myRequests: 'My requests',
     newRequest: 'New request',
@@ -153,6 +213,14 @@ const text = {
     delegations: 'Delegations',
     supervisoryRelationships: 'Supervisory relationships',
     accessExplanation: 'Access explanation',
+    authorizationGroup: 'Access and permissions',
+    workflowGroup: 'Workflow',
+    workflowTasks: 'Workflow and tasks',
+    workDefinitions: 'Work definitions',
+    workflowAdmin: 'Workflow administration',
+    myTasks: 'My tasks',
+    searchScreen: 'Search',
+    reportsScreen: 'Reports',
     notifications: 'Notifications',
     closeNotifications: 'Close notifications',
     logout: 'Sign out',
@@ -283,7 +351,6 @@ function App() {
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const copy = text[locale]
-  const adminView = ['organization', 'organization-structure', 'people-assignments', 'temporary-assignments', 'identity-accounts', 'organization-import', 'authorization', 'access-explanation', 'workflow-day2', 'work-definitions', 'workflow-admin'].includes(view.name)
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -447,13 +514,59 @@ function App() {
 
   const facilityName = session.facility === 'facility-a' ? copy.facilityA : copy.facilityB
   const unreadNotifications = notifications.filter((notification) => !notification.is_read).length
-  const authorizationNav: Array<[string, string, AppRoute]> = [
-    [copy.roles ?? '', '/admin/authorization/roles', { name: 'authorization', resource: 'roles' }],
-    [copy.capabilities ?? '', '/admin/authorization/capabilities', { name: 'authorization', resource: 'capabilities' }],
-    [copy.roleAssignments ?? '', '/admin/authorization/role-assignments', { name: 'authorization', resource: 'role-assignments' }],
-    [copy.delegations ?? '', '/admin/authorization/delegations', { name: 'authorization', resource: 'delegations' }],
-    [copy.supervisoryRelationships ?? '', '/admin/relationships/supervisory', { name: 'authorization', resource: 'supervisory' }],
-    [copy.accessExplanation ?? '', '/admin/authorization/explain', { name: 'access-explanation' }],
+  const navigationItem = (key: string, label: string, path: string, icon: SidebarNavigationGroup['items'][number]['icon'], active: boolean, route: AppRoute) => (
+    { key, label, path, icon, active, onSelect: () => navigate(route, path) }
+  )
+  const navigationGroups: SidebarNavigationGroup[] = [
+    {
+      key: 'services',
+      label: copy.services,
+      icon: <Inbox />,
+      items: [
+        navigationItem('requests', copy.myRequests, '/', <Inbox />, view.name === 'list' || view.name === 'detail', { name: 'list' }),
+        navigationItem('create', copy.newRequest, '/work-records/new', <FilePlus2 />, view.name === 'create', { name: 'create' }),
+        ...(allowedScreens.has('tasks') ? [navigationItem('tasks', copy.myTasks, '/tasks', <ClipboardList />, view.name === 'tasks', { name: 'tasks' })] : []),
+        ...(allowedScreens.has('search') ? [navigationItem('search', copy.searchScreen, '/search', <Search />, view.name === 'search', { name: 'search' })] : []),
+        ...(allowedScreens.has('reports') ? [navigationItem('reports', copy.reportsScreen, '/reports', <BarChart3 />, view.name === 'reports', { name: 'reports' })] : []),
+        navigationItem('notifications', copy.notifications, '/notifications', <Bell />, view.name === 'notifications', { name: 'notifications' }),
+      ],
+    },
+    {
+      key: 'organization',
+      label: copy.organization,
+      icon: <Building2 />,
+      items: [
+        navigationItem('organization-overview', copy.overview, '/admin/organization', <LayoutDashboard />, view.name === 'organization', { name: 'organization' }),
+        navigationItem('organization-structure', copy.organizationStructure, '/admin/organization/structure', <Network />, view.name === 'organization-structure', { name: 'organization-structure' }),
+        navigationItem('people-assignments', copy.peopleAssignments, '/admin/organization/people', <Users />, view.name === 'people-assignments', { name: 'people-assignments' }),
+        navigationItem('temporary-assignments', copy.temporaryAssignments, '/admin/organization/temporary-assignments', <CalendarClock />, view.name === 'temporary-assignments', { name: 'temporary-assignments' }),
+        navigationItem('identity-accounts', copy.identityAccounts, '/admin/identity/accounts', <IdCard />, view.name === 'identity-accounts', { name: 'identity-accounts' }),
+        navigationItem('organization-import', copy.importReview, '/admin/imports/organization', <FileUp />, view.name === 'organization-import', { name: 'organization-import' }),
+      ],
+    },
+    {
+      key: 'authorization',
+      label: copy.authorizationGroup,
+      icon: <KeyRound />,
+      items: [
+        navigationItem('roles', copy.roles, '/admin/authorization/roles', <UserCog />, view.name === 'authorization' && view.resource === 'roles', { name: 'authorization', resource: 'roles' }),
+        navigationItem('capabilities', copy.capabilities, '/admin/authorization/capabilities', <KeySquare />, view.name === 'authorization' && view.resource === 'capabilities', { name: 'authorization', resource: 'capabilities' }),
+        navigationItem('role-assignments', copy.roleAssignments, '/admin/authorization/role-assignments', <UserCheck />, view.name === 'authorization' && view.resource === 'role-assignments', { name: 'authorization', resource: 'role-assignments' }),
+        navigationItem('delegations', copy.delegations, '/admin/authorization/delegations', <Handshake />, view.name === 'authorization' && view.resource === 'delegations', { name: 'authorization', resource: 'delegations' }),
+        navigationItem('supervisory', copy.supervisoryRelationships, '/admin/relationships/supervisory', <GitBranch />, view.name === 'authorization' && view.resource === 'supervisory', { name: 'authorization', resource: 'supervisory' }),
+        navigationItem('access-explanation', copy.accessExplanation, '/admin/authorization/explain', <ShieldQuestion />, view.name === 'access-explanation', { name: 'access-explanation' }),
+      ],
+    },
+    {
+      key: 'workflow',
+      label: copy.workflowGroup,
+      icon: <Workflow />,
+      items: [
+        navigationItem('workflow-day2', copy.workflowTasks, '/admin/workflow/day2', <Route />, view.name === 'workflow-day2', { name: 'workflow-day2' }),
+        ...(allowedScreens.has('work-definitions') ? [navigationItem('work-definitions', copy.workDefinitions, '/admin/work-definitions', <FileCog />, view.name === 'work-definitions', { name: 'work-definitions' })] : []),
+        ...(allowedScreens.has('workflow-admin') ? [navigationItem('workflow-admin', copy.workflowAdmin, '/admin/workflow', <Settings2 />, view.name === 'workflow-admin', { name: 'workflow-admin' })] : []),
+      ],
+    },
   ]
 
   return (
@@ -462,7 +575,7 @@ function App() {
         locale={locale}
         copy={copy}
         facilityName={facilityName}
-        activeNavigation={adminView ? 'organization' : view.name === 'create' ? 'create' : 'requests'}
+        navigationGroups={navigationGroups}
         unreadNotifications={unreadNotifications}
         notificationButtonRef={notificationButtonRef}
         notificationsOpen={notificationsOpen}
@@ -475,33 +588,7 @@ function App() {
           window.history.replaceState({}, '', '/')
           setView({ name: 'list' })
         }}
-        onNavigateRequests={() => navigate({ name: 'list' }, '/')}
-        onNavigateCreate={() => navigate({ name: 'create' }, '/work-records/new')}
-        onNavigateOrganization={() => navigate({ name: 'organization' }, primaryRoutes[2].path)}
       >
-        <nav className="secondary-navigation" aria-label={locale === 'ar' ? 'شاشات العمل المصرح بها' : 'Authorized work screens'}>
-          {allowedScreens.has('tasks') && <a href="/tasks" aria-current={view.name === 'tasks' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'tasks' }, '/tasks') }}>{locale === 'ar' ? 'مهامي' : 'My tasks'}</a>}
-          {allowedScreens.has('search') && <a href="/search" aria-current={view.name === 'search' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'search' }, '/search') }}>{locale === 'ar' ? 'البحث' : 'Search'}</a>}
-          {allowedScreens.has('reports') && <a href="/reports" aria-current={view.name === 'reports' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'reports' }, '/reports') }}>{locale === 'ar' ? 'التقارير' : 'Reports'}</a>}
-          <a href="/notifications" aria-current={view.name === 'notifications' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'notifications' }, '/notifications') }}>{locale === 'ar' ? 'الإشعارات' : 'Notifications'}</a>
-        </nav>
-        {adminView && <nav className="secondary-navigation" aria-label={copy.administrationNavigation}>
-          {[
-            [2, copy.organization],
-            [3, copy.organizationStructure],
-            [4, copy.peopleAssignments],
-            [5, copy.temporaryAssignments],
-            [6, copy.identityAccounts],
-            [7, copy.importReview],
-          ].map(([index, label]) => {
-            const item = primaryRoutes[index as number]
-            return <a key={item.path} href={item.path} aria-current={view.name === item.route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(item.route, item.path) }}>{label}</a>
-          })}
-          {authorizationNav.map(([label, path, route]) => <a key={path} href={path} aria-current={view.name === route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(route, path) }}>{label}</a>)}
-          <a href="/admin/workflow/day2" aria-current={view.name === 'workflow-day2' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'workflow-day2' }, '/admin/workflow/day2') }}>{locale === 'ar' ? 'سير العمل والمهام' : 'Workflow and tasks'}</a>
-          {allowedScreens.has('work-definitions') && <a href="/admin/work-definitions" aria-current={view.name === 'work-definitions' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'work-definitions' }, '/admin/work-definitions') }}>{locale === 'ar' ? 'تعريفات العمل' : 'Work definitions'}</a>}
-          {allowedScreens.has('workflow-admin') && <a href="/admin/workflow" aria-current={view.name === 'workflow-admin' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'workflow-admin' }, '/admin/workflow') }}>{locale === 'ar' ? 'إدارة المسارات' : 'Workflow administration'}</a>}
-        </nav>}
         {view.name === 'list' && (
           <RequestDashboard
             locale={locale}
@@ -614,6 +701,16 @@ function App() {
   )
 }
 
+const LOGIN_THEME_KEY = 'cluster.login-theme'
+
+function initialLoginTheme(): 'light' | 'dark' {
+  try {
+    return window.localStorage.getItem(LOGIN_THEME_KEY) === 'dark' ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
+}
+
 function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenticated }: {
   locale: Locale
   sessionExpired: boolean
@@ -623,52 +720,152 @@ function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenticated }
   const copy = text[locale]
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordVisible, setPasswordVisible] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(initialLoginTheme)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState(false)
-  const errorRef = useRef<HTMLParagraphElement>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean }>({})
+  const [authenticationError, setAuthenticationError] = useState(false)
+  const errorRef = useRef<HTMLDivElement>(null)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!username.trim() || !password) {
-      setError(true)
+    const nextFieldErrors = {
+      username: username.trim() ? undefined : true,
+      password: password ? undefined : true,
+    }
+    setFieldErrors(nextFieldErrors)
+    setAuthenticationError(false)
+    if (nextFieldErrors.username || nextFieldErrors.password) {
       window.requestAnimationFrame(() => errorRef.current?.focus())
       return
     }
     setSubmitting(true)
-    setError(false)
     try {
       onAuthenticated(await login(username.trim(), password))
       setPassword('')
     } catch {
-      setError(true)
+      setAuthenticationError(true)
       window.requestAnimationFrame(() => errorRef.current?.focus())
     } finally {
       setSubmitting(false)
     }
   }
 
+  function toggleTheme() {
+    setTheme((current) => {
+      const next = current === 'light' ? 'dark' : 'light'
+      try {
+        window.localStorage.setItem(LOGIN_THEME_KEY, next)
+      } catch {
+        // The theme still changes when browser preference storage is unavailable.
+      }
+      return next
+    })
+  }
+
   return (
-    <main className="login-page">
-      <section className="login-card" aria-labelledby="login-heading">
-        <button type="button" className="language-button" onClick={onLocaleChange}>{copy.switchLanguage}</button>
-        <div className="brand login-brand">{copy.platform}</div>
-        <h1 id="login-heading">{copy.signIn}</h1>
-        {sessionExpired && <p className="status-message" role="status">{copy.sessionExpired}</p>}
-        {error && <p id="login-error" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{username.trim() && password ? copy.loginError : copy.requiredLogin}</p>}
-        <form onSubmit={(event) => void submit(event)} noValidate>
-          <div className="field">
-            <label htmlFor="username">{copy.username}</label>
-            <input id="username" name="username" autoComplete="username" required aria-required="true" value={username} aria-invalid={error} aria-describedby={error ? 'login-error' : undefined} onChange={(event) => setUsername(event.target.value)} />
+    <main className="login-page" data-login-theme={theme}>
+      <div className="login-page-actions">
+        <button type="button" className="language-button" onClick={onLocaleChange}>
+          <Languages aria-hidden="true" />
+          <span>{copy.switchLanguage}</span>
+        </button>
+        <button
+          type="button"
+          className="theme-button"
+          aria-label={theme === 'dark' ? copy.enableLightMode : copy.enableDarkMode}
+          aria-pressed={theme === 'dark'}
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+        </button>
+      </div>
+      <div className="login-frame">
+        <section className="login-card" aria-labelledby="login-heading">
+          <div className="login-card-content">
+            <header className="login-intro">
+              <div className="login-brand">
+                <span className="login-mark" aria-hidden="true"><ShieldCheck /></span>
+                <span>{copy.platform}</span>
+              </div>
+              <h1 id="login-heading">{copy.welcomeBack}</h1>
+              <p className="login-guidance">{copy.loginGuidance}</p>
+            </header>
+
+            {sessionExpired && <p className="status-message" role="status">{copy.sessionExpired}</p>}
+            {(authenticationError || fieldErrors.username || fieldErrors.password) && (
+              <div id="login-error" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>
+                {authenticationError ? copy.loginError : copy.requiredLogin}
+              </div>
+            )}
+
+            <form className="login-form" aria-describedby={authenticationError ? 'login-error' : undefined} onSubmit={(event) => void submit(event)} noValidate>
+              <div className="field">
+                <label htmlFor="username">{copy.username}</label>
+                <input
+                  id="username"
+                  name="username"
+                  dir="auto"
+                  autoComplete="username"
+                  required
+                  aria-required="true"
+                  value={username}
+                  aria-invalid={Boolean(fieldErrors.username)}
+                  aria-describedby={fieldErrors.username ? 'username-error' : undefined}
+                  onChange={(event) => {
+                    setUsername(event.target.value)
+                    if (fieldErrors.username) setFieldErrors((current) => ({ ...current, username: undefined }))
+                  }}
+                />
+                {fieldErrors.username && <p id="username-error" className="field-error">{copy.usernameRequired}</p>}
+              </div>
+              <div className="field">
+                <label htmlFor="password">{copy.password}</label>
+                <div className="password-field">
+                  <input
+                    id="password"
+                    name="password"
+                    type={passwordVisible ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    aria-required="true"
+                    value={password}
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    aria-describedby={fieldErrors.password ? 'password-error' : undefined}
+                    onChange={(event) => {
+                      setPassword(event.target.value)
+                      if (fieldErrors.password) setFieldErrors((current) => ({ ...current, password: undefined }))
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    aria-label={passwordVisible ? copy.hidePassword : copy.showPassword}
+                    aria-pressed={passwordVisible}
+                    onClick={() => setPasswordVisible((visible) => !visible)}
+                  >
+                    {passwordVisible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                  </button>
+                </div>
+                {fieldErrors.password && <p id="password-error" className="field-error">{copy.passwordRequired}</p>}
+              </div>
+              <button type="submit" className="primary-button full-width" disabled={submitting}>
+                {submitting ? copy.signingIn : copy.signIn}
+              </button>
+            </form>
+
+            <p className="login-assurance"><span aria-hidden="true" />{copy.internalAccess}</p>
           </div>
-          <div className="field">
-            <label htmlFor="password">{copy.password}</label>
-            <input id="password" name="password" type="password" autoComplete="current-password" required aria-required="true" value={password} aria-invalid={error} aria-describedby={error ? 'login-error' : undefined} onChange={(event) => setPassword(event.target.value)} />
-          </div>
-          <button type="submit" className="primary-button full-width" disabled={submitting}>
-            {submitting ? copy.signingIn : copy.signIn}
-          </button>
-        </form>
-      </section>
+        </section>
+      </div>
+      <footer className="login-footer">
+        <div className="login-footer-copy" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+          <strong>{copy.rightsReserved}</strong>
+          <span>{copy.organizationName}</span>
+          <span>{copy.officeName}</span>
+          <span>{copy.ownerName}</span>
+        </div>
+      </footer>
     </main>
   )
 }

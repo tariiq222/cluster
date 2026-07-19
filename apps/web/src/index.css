@@ -416,6 +416,7 @@ a {
   --color-border-strong: #527485;
   --color-primary: #7cdeef;
   --color-primary-hover: #7cdeef;
+  --color-on-primary: #071f2b;
   --color-danger-border: #8f3a34;
   --color-danger-strong: #ffd6d1;
   --color-danger-soft: #3b1c1c;
@@ -1229,8 +1230,198 @@ a {
   flex: 0 0 auto;
 }
 
+/* Feature pages (administration and R1 screens) */
+.organization-page,
+.content-page {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+
+.page-heading-copy p {
+  max-inline-size: 72ch;
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.organization-layout,
+.form-grid,
+.definition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.organization-section,
+.surface-card {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-inline-size: 0;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  background: var(--color-surface);
+}
+
+.surface-card h2,
+.section-heading h2 {
+  font-size: 16px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block-end: 12px;
+  border-block-end: 1px solid var(--color-border);
+}
+
+.count-badge {
+  display: inline-grid;
+  min-inline-size: 28px;
+  block-size: 24px;
+  place-items: center;
+  padding-inline: 8px;
+  border-radius: var(--radius-pill);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.card-list,
+.import-entry-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.table-scroll table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table-scroll th {
+  padding: 10px 12px;
+  border-block-end: 1px solid var(--color-border);
+  color: var(--color-muted);
+  background: var(--color-surface-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: start;
+  white-space: nowrap;
+}
+
+.table-scroll td {
+  padding: 10px 12px;
+  border-block-end: 1px solid var(--color-border);
+}
+
+.table-scroll tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.table-scroll tbody tr:hover {
+  background: var(--color-canvas);
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resource-form {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  margin-block-start: 4px;
+  padding-block-start: 16px;
+  border-block-start: 1px dashed var(--color-border-strong);
+}
+
+.resource-form .error-summary,
+.resource-form .field-row {
+  inline-size: 100%;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.field select {
+  inline-size: 100%;
+  min-block-size: var(--control-height);
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  background: var(--color-surface);
+  font: inherit;
+}
+
+.field select:hover {
+  border-color: var(--color-muted);
+}
+
+.field select:focus-visible {
+  border-color: var(--color-border-strong);
+  outline: none;
+  box-shadow: var(--focus-field-shadow);
+}
+
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: var(--control-height);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-chip {
+  display: inline-flex;
+  min-block-size: 24px;
+  align-items: center;
+  padding-inline: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.inline-errors {
+  color: var(--color-danger-strong);
+  font-size: 13px;
+}
+
+.tree-label {
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .dashboard-panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .organization-layout,
+  .form-grid,
+  .definition-grid {
     grid-template-columns: 1fr;
   }
 }

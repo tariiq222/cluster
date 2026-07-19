@@ -4,7 +4,7 @@ import { walkingSkeletonFixtures } from '../src/test/setup'
 test('day2 Arabic workflow creates, submits, returns and completes a task, then switches to English', async ({ page }) => {
   await page.goto('/admin/workflow/day2')
   await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountA.username)
-  await page.getByLabel('كلمة المرور').fill(walkingSkeletonFixtures.accountA.password)
+  await page.getByLabel('كلمة المرور', { exact: true }).fill(walkingSkeletonFixtures.accountA.password)
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
   await expect(page).toHaveURL(/\/admin\/workflow\/day2$/)
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')

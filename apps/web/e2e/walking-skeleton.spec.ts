@@ -102,7 +102,7 @@ async function signIn(page: Page, locale: Locale, username: string, password: st
   await expect(page.locator('html')).toHaveAttribute('lang', labels.lang)
   await expect(page.locator('html')).toHaveAttribute('dir', labels.dir)
   await page.getByLabel(labels.username).fill(username)
-  await page.getByLabel(labels.password).fill(password)
+  await page.getByLabel(labels.password, { exact: true }).fill(password)
   await page.getByRole('button', { name: labels.signIn }).click()
   await expect(page.getByRole('heading', { name: locale === 'ar' ? 'طلباتي' : 'My requests' })).toBeVisible()
 }

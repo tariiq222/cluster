@@ -4,7 +4,7 @@ import { walkingSkeletonFixtures } from '../src/test/setup'
 async function login(page: import('@playwright/test').Page, path: string, locale: 'ar' | 'en') {
   await page.goto(path)
   await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountA.username)
-  await page.getByLabel('كلمة المرور').fill(walkingSkeletonFixtures.accountA.password)
+  await page.getByLabel('كلمة المرور', { exact: true }).fill(walkingSkeletonFixtures.accountA.password)
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
   if (locale === 'en') await page.getByRole('button', { name: 'English' }).click()
   await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr')

@@ -90,7 +90,7 @@ async function fulfillDocumentCompatibilityResponse(route: Route, headers: Recor
 
 async function signInWeb(page: Page): Promise<void> {
   await page.getByLabel('اسم المستخدم').fill(required('W1_2_IMPORT_USERNAME'))
-  await page.getByLabel('كلمة المرور').fill(required('W1_2_IMPORT_PASSWORD'))
+  await page.getByLabel('كلمة المرور', { exact: true }).fill(required('W1_2_IMPORT_PASSWORD'))
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
   await expect(page.getByRole('heading', { name: 'طلباتي' })).toBeVisible()
 }
@@ -139,7 +139,7 @@ test('W1.2 web UI uploads and submits a CSV import, then creates and revokes a t
   const suffix = correlationId()
   const csv = `employee_number,display_name_ar,status,position_id,start_at\nE2E-${suffix},موظف رحلة المتصفح,active,${required('W1_2_IMPORT_POSITION_ID')},2027-01-01T08:00:00Z\n`
 
-  await page.getByRole('link', { name: 'التنظيم' }).click()
+  await page.getByRole('button', { name: 'التنظيم' }).click()
   await page.getByRole('link', { name: 'مراجعة الاستيراد' }).click()
   await expect(page.getByRole('heading', { name: 'مراجعة الاستيراد' })).toBeVisible()
   const initiated = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/documents/uploads' && response.request().method() === 'POST')

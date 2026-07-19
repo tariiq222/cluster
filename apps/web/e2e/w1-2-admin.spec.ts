@@ -5,7 +5,7 @@ import { walkingSkeletonFixtures } from '../src/test/setup'
 async function signIn(page: Page) {
   await page.goto('/')
   await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountA.username)
-  await page.getByLabel('كلمة المرور').fill(walkingSkeletonFixtures.accountA.password)
+  await page.getByLabel('كلمة المرور', { exact: true }).fill(walkingSkeletonFixtures.accountA.password)
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
   await expect(page.getByRole('heading', { name: 'طلباتي' })).toBeVisible()
 }
@@ -13,7 +13,8 @@ async function signIn(page: Page) {
 test('W1.2 Arabic admin journey creates governed organization and identity resources', async ({ page }) => {
   await signIn(page)
 
-  await page.getByRole('link', { name: 'التنظيم' }).first().click()
+  await page.getByRole('button', { name: 'التنظيم' }).click()
+  await page.getByRole('link', { name: 'نظرة عامة' }).click()
   await expect(page.getByRole('heading', { name: 'التجمع والمنشآت' })).toBeVisible()
   await page.getByLabel('رمز التجمع').fill('THC3')
   await page.getByLabel('اسم التجمع بالعربية').fill('التجمع الصحي الثالث')
@@ -62,7 +63,7 @@ test('W1.2 Arabic admin journey creates governed organization and identity resou
   await expect(accountRow.getByText('نشط', { exact: true })).toBeVisible()
 
   await page.getByRole('link', { name: 'مراجعة الاستيراد' }).click()
-  await expect(page.getByText(/رفع bytes غير متاح/)).toBeVisible()
+  await expect(page.getByText(/رفع ملف الاستيراد/)).toBeVisible()
   await page.getByLabel('معرف quarantine').fill('018f6f7d-0c00-7000-8000-000000000690')
   await page.getByRole('button', { name: 'إنشاء ImportJob' }).click()
   await expect(page.getByText('مستلم', { exact: true })).toBeVisible()
