@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\TaskController;
+use App\Http\Controllers\Api\WorkDefinitionController;
+use App\Http\Controllers\Api\WorkflowController;
+use App\Http\Controllers\Api\WorkRecordLifecycleController;
 use App\Http\Controllers\Authorization\AuthorizationAdminController;
 use App\Http\Controllers\Authorization\DecideAccessController;
 use App\Http\Controllers\Authorization\ExplainAccessDecisionController;
@@ -120,6 +124,7 @@ Route::prefix('api/v1')->group(function (): void {
     Route::get('identity/accounts/{accountId}', GetUserAccountController::class);
     Route::post('identity/accounts/{accountId}/{accountAction}', TransitionUserAccountController::class);
     Route::post('work-records', SubmitWorkRecordController::class);
+    Route::post('work-records/{recordId}/{recordAction}', [WorkRecordLifecycleController::class, 'transition'])->whereIn('recordAction', ['submit', 'return', 'complete', 'complete-submission']);
     Route::get('work-records', ListAuthorizedWorkRecordsController::class);
     Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class);
     Route::post('authorization/access-decisions', DecideAccessController::class);
@@ -129,4 +134,20 @@ Route::prefix('api/v1')->group(function (): void {
     Route::get('authorization/{adminResource}/{resourceId}', AuthorizationAdminController::class);
     Route::patch('authorization/{adminResource}/{resourceId}', AuthorizationAdminController::class);
     Route::post('authorization/{adminResource}/{resourceId}/{authorizationAction}', AuthorizationAdminController::class);
+    Route::get('work-definitions', [WorkDefinitionController::class, 'index']);
+    Route::post('work-definitions', [WorkDefinitionController::class, 'store']);
+    Route::get('work-definitions/{definitionId}', [WorkDefinitionController::class, 'show']);
+    Route::match(['get', 'post'], 'work-definitions/{definitionId}/versions', [WorkDefinitionController::class, 'versions']);
+    Route::get('work-definition-versions/{versionId}', [WorkDefinitionController::class, 'showVersionRoute']);
+    Route::post('work-definition-versions/{versionId}/{versionAction}', [WorkDefinitionController::class, 'transition'])->whereIn('versionAction', ['test', 'approve', 'sign', 'publish']);
+    Route::get('workflow/definitions', [WorkflowController::class, 'definitions']);
+    Route::post('workflow/definitions', [WorkflowController::class, 'definitions']);
+    Route::match(['get', 'post'], 'workflow/definitions/{definitionId}/versions', [WorkflowController::class, 'versions']);
+    Route::post('workflow/versions/{versionId}/{workflowLifecycleAction}', [WorkflowController::class, 'publish'])->whereIn('workflowLifecycleAction', ['publish', 'test', 'approve', 'sign']);
+    Route::match(['get', 'post'], 'workflow/instances', [WorkflowController::class, 'instances']);
+    Route::get('workflow/instances/{instanceId}', [WorkflowController::class, 'showInstance']);
+    Route::get('tasks', [TaskController::class, 'index']);
+    Route::post('tasks', [TaskController::class, 'store']);
+    Route::post('tasks/from-step/{stepId}', [TaskController::class, 'fromStep']);
+    Route::post('tasks/{taskId}/{workflowTaskAction}', [TaskController::class, 'transition'])->whereIn('workflowTaskAction', ['start', 'return', 'return-completion', 'submit-completion', 'complete', 'cancel']);
 })->withoutMiddleware(['web', PreventRequestForgery::class]);

@@ -61,11 +61,23 @@ return new class extends Migration
             $table->unique(['workflow_instance_id', 'node_key', 'activation_sequence']);
             $table->index(['workflow_instance_id', 'state']);
         });
+
+        Schema::create('workflow_idempotency_keys', function (Blueprint $table): void {
+            $table->id();
+            $table->uuid('principal_id');
+            $table->string('operation', 96);
+            $table->char('key_hash', 64);
+            $table->char('request_hash', 64);
+            $table->uuid('resource_id');
+            $table->timestamps();
+            $table->unique(['principal_id', 'operation', 'key_hash']);
+        });
     }
 
     public function down(): void
     {
         Schema::dropIfExists('workflow_step_instances');
+        Schema::dropIfExists('workflow_idempotency_keys');
         Schema::dropIfExists('workflow_instances');
         Schema::dropIfExists('workflow_versions');
         Schema::dropIfExists('workflow_definitions');

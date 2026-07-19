@@ -216,6 +216,7 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/HardenDocumentUploadSecurityTables.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/ZZAddDocumentUploadPurpose.php'),
             base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateDevelopmentWorkTypeFixturesTable.php'),
+            base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateWorkDefinitionTables.php'),
             base_path('Modules/WorkRecords/Infrastructure/Persistence/Migrations/CreateWorkRecordsTable.php'),
             base_path('Modules/WorkRecords/Infrastructure/Outbox/Migrations/CreateOutboxTable.php'),
             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/CreateWorkflowTables.php'),
