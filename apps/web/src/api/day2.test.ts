@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createWorkflowDefinition, createTaskFromStep, publishWorkDefinitionVersion, transitionTask } from './day2'
+import { createWorkflowDefinition, createTaskFromStep, publishWorkDefinitionVersion, returnRequest, transitionTask } from './day2'
 
 describe('day2 transport', () => {
   afterEach(() => vi.restoreAllMocks())
@@ -10,7 +10,7 @@ describe('day2 transport', () => {
   })
   it('uses If-Match and the from-step route', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ data: { id: 't', lock_version: 2 } }), { status: 200 }))))
-    await publishWorkDefinitionVersion('token', 'v', 1); await createTaskFromStep('token', 's', 'Task'); await transitionTask('token', 't', 'complete', 2)
-    const calls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls; expect(calls[0][0]).toContain('/work-definition-versions/v/publish'); expect(new Headers(calls[0][1].headers).get('If-Match')).toBe('"1"'); expect(calls[1][0]).toContain('/tasks/from-step/s'); expect(calls[2][0]).toContain('/tasks/t/complete')
+    await publishWorkDefinitionVersion('token', 'v', 1); await createTaskFromStep('token', 's', 'Task'); await returnRequest('token', 'r', 3); await transitionTask('token', 't', 'complete', 2)
+    const calls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls; expect(calls[0][0]).toContain('/work-definition-versions/v/publish'); expect(new Headers(calls[0][1].headers).get('If-Match')).toBe('"1"'); expect(calls[1][0]).toContain('/tasks/from-step/s'); expect(calls[2][0]).toContain('/work-records/r/return'); expect(calls[3][0]).toContain('/tasks/t/complete')
   })
 })

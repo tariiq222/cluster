@@ -26,6 +26,7 @@ export const transitionWorkflowVersion = (token: string, id: string, action: Wor
 export const publishWorkflowVersion = (token: string, id: string, lock?: number) => transitionWorkflowVersion(token, id, 'publish', lock)
 export const createRequest = (token: string, input: Record<string, unknown>) => call<Day2Entity>(token, '/work-records', command(input))
 export const submitRequest = (token: string, id: string, lock?: number) => call<Day2Entity>(token, `/work-records/${encodeURIComponent(id)}/submit`, command(), lock)
+export const returnRequest = (token: string, id: string, lock?: number) => call<Day2Entity>(token, `/work-records/${encodeURIComponent(id)}/return`, command(), lock)
 export const completeRequest = (token: string, id: string, lock?: number) => call<Day2Entity>(token, `/work-records/${encodeURIComponent(id)}/complete`, command(), lock)
 export const startWorkflow = (token: string, input: Record<string, unknown>) => call<Day2Entity>(token, '/workflow/instances', command(input))
 export const getWorkflowInstance = (token: string, id: string) => call<{ instance: Day2Entity; steps: Day2Entity[] }>(token, `/workflow/instances/${encodeURIComponent(id)}`)
