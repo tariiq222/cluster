@@ -1,0 +1,213 @@
+openapi: 3.1.0
+info:
+  title: Cluster Platform R1 Screens API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    url: https://cluster.example/legal
+  description: Executable contract for the complete R1 user-facing screen surface.
+servers:
+  - url: https://api.cluster.example/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /authorization/{adminResource}:
+    $ref: "./openapi.yaml#/paths/~1authorization~1{adminResource}"
+  /authorization/{adminResource}/{resourceId}:
+    $ref: "./openapi.yaml#/paths/~1authorization~1{adminResource}~1{resourceId}"
+  /authorization/{adminResource}/{resourceId}/{authorizationAction}:
+    $ref: "./openapi.yaml#/paths/~1authorization~1{adminResource}~1{resourceId}~1{authorizationAction}"
+  /authorization/access-decisions:
+    $ref: "./openapi.yaml#/paths/~1authorization~1access-decisions"
+  /authorization/access-decisions/{decisionId}/explanation:
+    $ref: "./openapi.yaml#/paths/~1authorization~1access-decisions~1{decisionId}~1explanation"
+  /organization/supervisory-relationships:
+    $ref: "./openapi.yaml#/paths/~1organization~1supervisory-relationships"
+  /work-definitions:
+    $ref: "./openapi.yaml#/paths/~1work-definitions"
+  /work-definitions/{definitionId}:
+    $ref: "./openapi.yaml#/paths/~1work-definitions~1{definitionId}"
+  /work-definitions/{definitionId}/versions:
+    $ref: "./openapi.yaml#/paths/~1work-definitions~1{definitionId}~1versions"
+  /work-definition-versions/{versionId}:
+    $ref: "./openapi.yaml#/paths/~1work-definition-versions~1{versionId}"
+  /work-definition-versions/{versionId}/test:
+    $ref: "./openapi.yaml#/paths/~1work-definition-versions~1{versionId}~1test"
+  /work-definition-versions/{versionId}/approve:
+    $ref: "./openapi.yaml#/paths/~1work-definition-versions~1{versionId}~1approve"
+  /work-definition-versions/{versionId}/sign:
+    $ref: "./openapi.yaml#/paths/~1work-definition-versions~1{versionId}~1sign"
+  /work-definition-versions/{versionId}/publish:
+    $ref: "./openapi.yaml#/paths/~1work-definition-versions~1{versionId}~1publish"
+  /workflow/definitions:
+    $ref: "./openapi.yaml#/paths/~1workflow~1definitions"
+  /workflow/definitions/{definitionId}/versions:
+    $ref: "./openapi.yaml#/paths/~1workflow~1definitions~1{definitionId}~1versions"
+  /workflow/versions/{versionId}/{workflowLifecycleAction}:
+    $ref: "./openapi.yaml#/paths/~1workflow~1versions~1{versionId}~1{workflowLifecycleAction}"
+  /workflow/instances:
+    $ref: "./openapi.yaml#/paths/~1workflow~1instances"
+  /workflow/instances/{instanceId}:
+    $ref: "./openapi.yaml#/paths/~1workflow~1instances~1{instanceId}"
+  /tasks:
+    $ref: "./openapi.yaml#/paths/~1tasks"
+  /tasks/from-step/{stepId}:
+    parameters:
+      - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
+    post:
+      operationId: createTaskFromStep
+      summary: Create the user task for an active workflow step
+      parameters:
+        - name: stepId
+          in: path
+          required: true
+          schema: { $ref: "./openapi.yaml#/components/schemas/UUIDv7" }
+        - $ref: "./openapi.yaml#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                title: { type: string, minLength: 1, maxLength: 255 }
+      responses:
+        "201": { $ref: "./openapi.yaml#/components/responses/Entity" }
+        "400": { $ref: "./openapi.yaml#/components/responses/BadRequest" }
+        "401": { $ref: "./openapi.yaml#/components/responses/Unauthorized" }
+        "403": { $ref: "./openapi.yaml#/components/responses/Forbidden" }
+        "404": { $ref: "./openapi.yaml#/components/responses/NotFound" }
+        "409": { $ref: "./openapi.yaml#/components/responses/Conflict" }
+  /tasks/{taskId}:
+    $ref: "./openapi.yaml#/paths/~1tasks~1{taskId}"
+  /tasks/{taskId}/{workflowTaskAction}:
+    $ref: "./openapi.yaml#/paths/~1tasks~1{taskId}~1{workflowTaskAction}"
+  /work-records:
+    $ref: "./openapi.yaml#/paths/~1work-records"
+  /work-records/{recordId}:
+    $ref: "./openapi.yaml#/paths/~1work-records~1{recordId}"
+  /work-records/{recordId}/{recordAction}:
+    parameters:
+      - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
+    post:
+      operationId: transitionWorkRecord
+      summary: Apply an allowed work-record lifecycle action
+      parameters:
+        - $ref: "./openapi.yaml#/components/parameters/RecordId"
+        - name: recordAction
+          in: path
+          required: true
+          schema: { type: string, enum: [submit, return, complete, complete-submission] }
+        - $ref: "./openapi.yaml#/components/parameters/IfMatch"
+        - $ref: "./openapi.yaml#/components/parameters/IdempotencyKey"
+      responses:
+        "200": { $ref: "./openapi.yaml#/components/responses/WorkRecord" }
+        "400": { $ref: "./openapi.yaml#/components/responses/BadRequest" }
+        "401": { $ref: "./openapi.yaml#/components/responses/Unauthorized" }
+        "403": { $ref: "./openapi.yaml#/components/responses/Forbidden" }
+        "404": { $ref: "./openapi.yaml#/components/responses/NotFound" }
+        "409": { $ref: "./openapi.yaml#/components/responses/Conflict" }
+        "412": { $ref: "./openapi.yaml#/components/responses/PreconditionFailed" }
+  /work-records/{recordId}/documents:
+    parameters:
+      - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
+    post:
+      operationId: linkWorkRecordDocument
+      summary: Link an available document to a work record
+      parameters:
+        - $ref: "./openapi.yaml#/components/parameters/RecordId"
+        - $ref: "./openapi.yaml#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [document_id, relation_type]
+              properties:
+                document_id: { $ref: "./openapi.yaml#/components/schemas/UUIDv7" }
+                relation_type: { type: string, enum: [attachment, evidence, supporting] }
+      responses:
+        "201": { $ref: "./openapi.yaml#/components/responses/Entity" }
+        "400": { $ref: "./openapi.yaml#/components/responses/BadRequest" }
+        "401": { $ref: "./openapi.yaml#/components/responses/Unauthorized" }
+        "403": { $ref: "./openapi.yaml#/components/responses/Forbidden" }
+        "404": { $ref: "./openapi.yaml#/components/responses/NotFound" }
+        "409": { $ref: "./openapi.yaml#/components/responses/Conflict" }
+  /documents/uploads:
+    $ref: "./openapi.yaml#/paths/~1documents~1uploads"
+  /documents/uploads/{uploadId}:
+    $ref: "./openapi.yaml#/paths/~1documents~1uploads~1{uploadId}"
+  /documents/uploads/{uploadId}/complete:
+    $ref: "./openapi.yaml#/paths/~1documents~1uploads~1{uploadId}~1complete"
+  /documents/{documentId}/download:
+    $ref: "./openapi.yaml#/paths/~1documents~1{documentId}~1download"
+  /search:
+    $ref: "./openapi.yaml#/paths/~1search"
+  /reports/{reportId}:
+    parameters:
+      - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
+    get:
+      operationId: getReport
+      summary: Get an authorization-filtered report
+      parameters:
+        - $ref: "./openapi.yaml#/components/parameters/ReportId"
+        - name: scope_id
+          in: query
+          schema: { type: string, maxLength: 128 }
+      responses:
+        "200": { $ref: "./openapi.yaml#/components/responses/Entity" }
+        "401": { $ref: "./openapi.yaml#/components/responses/Unauthorized" }
+        "403": { $ref: "./openapi.yaml#/components/responses/Forbidden" }
+        "404": { $ref: "./openapi.yaml#/components/responses/NotFound" }
+  /reports/{reportId}/exports:
+    $ref: "./openapi.yaml#/paths/~1reports~1{reportId}~1exports"
+  /exports/{exportId}:
+    $ref: "./openapi.yaml#/paths/~1exports~1{exportId}"
+  /dashboards/{dashboardId}:
+    parameters:
+      - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
+    get:
+      operationId: getDashboard
+      summary: Get an adaptive authorization-filtered dashboard
+      parameters:
+        - name: dashboardId
+          in: path
+          required: true
+          schema: { $ref: "./openapi.yaml#/components/schemas/UUIDv7" }
+        - name: scope_id
+          in: query
+          schema: { type: string, maxLength: 128 }
+      responses:
+        "200": { $ref: "./openapi.yaml#/components/responses/Entity" }
+        "401": { $ref: "./openapi.yaml#/components/responses/Unauthorized" }
+        "403": { $ref: "./openapi.yaml#/components/responses/Forbidden" }
+        "404": { $ref: "./openapi.yaml#/components/responses/NotFound" }
+  /notifications:
+    $ref: "./openapi.yaml#/paths/~1notifications"
+  /notifications/{notificationId}/read:
+    parameters:
+      - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
+    post:
+      operationId: markNotificationRead
+      summary: Mark an authorized inbox notification as read
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { $ref: "./openapi.yaml#/components/schemas/UUIDv7" }
+        - $ref: "./openapi.yaml#/components/parameters/IdempotencyKey"
+      responses:
+        "200": { $ref: "./openapi.yaml#/components/responses/Entity" }
+        "400": { $ref: "./openapi.yaml#/components/responses/BadRequest" }
+        "401": { $ref: "./openapi.yaml#/components/responses/Unauthorized" }
+        "403": { $ref: "./openapi.yaml#/components/responses/Forbidden" }
+        "404": { $ref: "./openapi.yaml#/components/responses/NotFound" }
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: "./openapi.yaml#/components/securitySchemes/bearerAuth"
+    identitySession:
+      $ref: "./openapi.yaml#/components/securitySchemes/identitySession"

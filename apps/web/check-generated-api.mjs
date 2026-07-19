@@ -6,6 +6,7 @@ const projectRoot = fileURLToPath(new URL('.', import.meta.url))
 const generatedClients = [
   new URL('./src/api/generated/cluster.ts', import.meta.url),
   new URL('./src/api/generated/w1-2.ts', import.meta.url),
+  new URL('./src/api/generated/r1-screens.ts', import.meta.url),
 ]
 
 const before = new Map()
@@ -38,4 +39,4 @@ for (const generatedClient of generatedClients) {
   }
 }
 
-console.log('Generated API clients match the W1.1 and W1.2 OpenAPI contracts.')
+console.log('Generated API clients match the W1.1, W1.2, and complete R1 screen contracts.')

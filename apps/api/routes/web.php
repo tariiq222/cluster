@@ -9,6 +9,7 @@ use App\Http\Controllers\Authorization\AuthorizationAdminController;
 use App\Http\Controllers\Authorization\DecideAccessController;
 use App\Http\Controllers\Authorization\ExplainAccessDecisionController;
 use App\Http\Controllers\Documents\CompleteDocumentUploadController;
+use App\Http\Controllers\Documents\DownloadDocumentController;
 use App\Http\Controllers\Documents\GetDocumentUploadStatusController;
 use App\Http\Controllers\Documents\InitiateDocumentUploadController;
 use App\Http\Controllers\Documents\ReconcileDocumentPromotionController;
@@ -63,6 +64,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Features\DevelopmentFixtureLogin\Http\DevelopmentFixtureLoginController;
 use Modules\Notifications\Features\ListMyNotifications\Http\ListMyNotificationsController;
+use Modules\Notifications\Features\ListMyNotifications\Http\MarkNotificationReadController;
 use Modules\Reporting\Http\CreateReportExportController;
 use Modules\Reporting\Http\DownloadExportController;
 use Modules\Reporting\Http\GetDashboardController;
@@ -86,6 +88,7 @@ Route::prefix('api/v1')->group(function (): void {
     });
     Route::middleware(IdentitySessionMiddleware::class)->group(function (): void {
         Route::get('documents/uploads/{uploadId}', GetDocumentUploadStatusController::class);
+        Route::get('documents/{documentId}/download', DownloadDocumentController::class);
         Route::get('organization/temporary-assignments', ListTemporaryAssignmentsController::class);
         Route::get('organization/temporary-assignments/{temporaryAssignmentId}', GetTemporaryAssignmentController::class);
     });
@@ -98,6 +101,7 @@ Route::prefix('api/v1')->group(function (): void {
     Route::post('internal/documents/versions/{versionId}/scan', ScanDocumentVersionController::class)->middleware('throttle:60,1');
     Route::post('internal/documents/versions/{versionId}/reconcile-promotion', ReconcileDocumentPromotionController::class)->middleware('throttle:60,1');
     Route::get('notifications', ListMyNotificationsController::class);
+    Route::post('notifications/{notificationId}/read', MarkNotificationReadController::class);
     Route::get('search', SearchController::class);
     Route::get('reports/{reportId}', GetReportController::class);
     Route::post('reports/{reportId}/exports', CreateReportExportController::class);
@@ -166,5 +170,6 @@ Route::prefix('api/v1')->group(function (): void {
     Route::get('tasks', [TaskController::class, 'index']);
     Route::post('tasks', [TaskController::class, 'store']);
     Route::post('tasks/from-step/{stepId}', [TaskController::class, 'fromStep']);
+    Route::get('tasks/{taskId}', [TaskController::class, 'show']);
     Route::post('tasks/{taskId}/{workflowTaskAction}', [TaskController::class, 'transition'])->whereIn('workflowTaskAction', ['start', 'return', 'return-completion', 'submit-completion', 'complete', 'cancel']);
 })->withoutMiddleware(['web', PreventRequestForgery::class]);

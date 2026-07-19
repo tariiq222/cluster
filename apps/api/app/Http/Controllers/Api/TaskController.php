@@ -48,6 +48,23 @@ final class TaskController
         return $this->response($task, 201, $c, (int) ($task['lock_version'] ?? 1));
     }
 
+    public function show(Request $request, string $taskId): mixed
+    {
+        $c = $this->correlation($request);
+        if ($c === null) {
+            return $this->problem(400, 'invalid-correlation-id', 'X-Correlation-ID must be a lowercase UUIDv7.');
+        }
+        $p = $this->principal($request, $this->resolver);
+        if ($p === null) {
+            return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
+        }
+        $task = DB::table('tasks')->where('id', $taskId)->where('assignee_user_id', $p['user_id'])->first();
+
+        return $task === null
+            ? $this->problem(404, 'resource-not-found', 'The task is not available.', $c)
+            : $this->response((array) $task, 200, $c, (int) $task->lock_version);
+    }
+
     public function fromStep(Request $request, string $stepId): mixed
     {
         $c = $this->correlation($request);

@@ -11,6 +11,12 @@ export type AppRoute =
   | { name: 'authorization'; resource: 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'supervisory' }
   | { name: 'access-explanation'; decisionId?: string }
   | { name: 'workflow-day2' }
+  | { name: 'tasks' }
+  | { name: 'work-definitions' }
+  | { name: 'workflow-admin' }
+  | { name: 'search' }
+  | { name: 'reports' }
+  | { name: 'notifications' }
   | { name: 'not-found' }
 
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -31,6 +37,12 @@ export const primaryRoutes = [
   { route: { name: 'authorization', resource: 'supervisory' } as const, path: '/admin/relationships/supervisory' },
   { route: { name: 'access-explanation' } as const, path: '/admin/authorization/explain' },
   { route: { name: 'workflow-day2' } as const, path: '/admin/workflow/day2' },
+  { route: { name: 'tasks' } as const, path: '/tasks' },
+  { route: { name: 'work-definitions' } as const, path: '/admin/work-definitions' },
+  { route: { name: 'workflow-admin' } as const, path: '/admin/workflow' },
+  { route: { name: 'search' } as const, path: '/search' },
+  { route: { name: 'reports' } as const, path: '/reports' },
+  { route: { name: 'notifications' } as const, path: '/notifications' },
 ]
 
 export function routeFromPath(pathname: string): AppRoute {
@@ -62,6 +74,12 @@ export function routeFromPath(pathname: string): AppRoute {
   if (authorizationMatch) return { name: 'authorization', resource: authorizationMatch[1] as 'roles' | 'capabilities' | 'role-assignments' | 'delegations' }
   if (pathname === '/admin/relationships/supervisory') return { name: 'authorization', resource: 'supervisory' }
   if (pathname === '/admin/workflow/day2') return { name: 'workflow-day2' }
+  if (pathname === '/tasks') return { name: 'tasks' }
+  if (pathname === '/admin/work-definitions') return { name: 'work-definitions' }
+  if (pathname === '/admin/workflow') return { name: 'workflow-admin' }
+  if (pathname === '/search') return { name: 'search' }
+  if (pathname === '/reports') return { name: 'reports' }
+  if (pathname === '/notifications') return { name: 'notifications' }
   const explanationMatch = pathname.match(/^\/admin\/authorization\/explain(?:\/([^/]+))?$/)
   if (explanationMatch) return { name: 'access-explanation', decisionId: explanationMatch[1] }
   const importMatch = pathname.match(/^\/admin\/imports\/organization\/([^/]+)$/)

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Http\Authentication\SessionPrincipalResolver;
 use App\Http\Controllers\Documents\CompleteDocumentUploadController;
+use App\Http\Controllers\Documents\DownloadDocumentController;
 use App\Http\Controllers\Documents\GetDocumentUploadStatusController;
 use App\Http\Controllers\Documents\InitiateDocumentUploadController;
 use App\Http\Controllers\Documents\ReconcileDocumentPromotionController;
@@ -17,7 +18,9 @@ use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
+use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
+use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\DocumentUploadStatusReader;
 use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
 use Modules\Documents\Contracts\MalwareScanner;
@@ -42,6 +45,7 @@ use Modules\Documents\Infrastructure\Storage\S3\ObjectKeyResolver;
 use Modules\Documents\Infrastructure\Storage\S3\QuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\S3\S3CompatibleConfiguration;
 use Modules\Documents\Infrastructure\Storage\S3\S3CompatiblePrivateObjectStorage;
+use Modules\Documents\Infrastructure\Storage\S3\S3DocumentDownloadGrantIssuer;
 use Modules\Documents\Infrastructure\Storage\S3\S3QuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\S3\S3RequestExecutor;
 use Modules\Documents\Infrastructure\Storage\S3\SigV4RequestSigner;
@@ -108,6 +112,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ValidateTemporaryAssignmentCapabilities::class, ConfiguredTemporaryAssignmentCapabilityValidator::class);
         $this->app->bind(DocumentAuthorizationFactsReader::class, DatabaseDocumentAuthorizationFactsReader::class);
         $this->app->bind(DocumentUploadStatusReader::class, DatabaseDocumentUploadStatusReader::class);
+        $this->app->bind(DocumentDownloadGrantIssuer::class, S3DocumentDownloadGrantIssuer::class);
+        $this->app->bind(DocumentDownloadService::class);
         $this->app->bind(LinkedResourceAuthorizationFacts::class, WorkRecordAuthorizationFacts::class);
         $this->app->bind(SensitiveAccessEventRecorder::class, DatabaseSensitiveAccessEventRecorder::class);
         $this->app->singleton(DocumentUploadPolicy::class, fn (): DocumentUploadPolicy => DocumentUploadPolicy::fromConfig(config('documents')));
@@ -126,6 +132,7 @@ class AppServiceProvider extends ServiceProvider
             InitiateDocumentUploadController::class,
             CompleteDocumentUploadController::class,
             GetDocumentUploadStatusController::class,
+            DownloadDocumentController::class,
             CreateTemporaryAssignmentController::class,
             ListTemporaryAssignmentsController::class,
             GetTemporaryAssignmentController::class,

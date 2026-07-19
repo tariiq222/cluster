@@ -41,4 +41,4 @@ for _ in {1..30}; do curl --silent --fail --max-time 2 "http://127.0.0.1:${API_P
 curl --silent --fail --max-time 2 "http://127.0.0.1:${API_PORT}/up" >/dev/null
 cd "$WEB_DIR"
 env W1_1_API_ORIGIN="http://127.0.0.1:${API_PORT}" W1_1_WEB_PORT="$WEB_PORT" npm run test:e2e:local -- e2e/login.spec.ts e2e/walking-skeleton.spec.ts
-env W1_1_API_ORIGIN="http://127.0.0.1:${API_PORT}" W1_1_WEB_PORT="$WEB_PORT" npm run test:e2e:local -- e2e/day2-workflow.spec.ts e2e/day3-r1.spec.ts
+env W1_1_API_ORIGIN="http://127.0.0.1:${API_PORT}" W1_1_WEB_PORT="$WEB_PORT" npm run test:e2e:local -- e2e/day2-workflow.spec.ts e2e/day3-r1.spec.ts e2e/r1-screens.spec.ts

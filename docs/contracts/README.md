@@ -26,6 +26,7 @@ references:
 |---|---|
 | [api/openapi.yaml](api/openapi.yaml) | REST API، OpenAPI 3.1 |
 | [api/w1-2.openapi.yaml](api/w1-2.openapi.yaml) | snapshot مجمد لعقود W1.2 قبل التنفيذ |
+| [api/r1-screens.openapi.yaml](api/r1-screens.openapi.yaml) | سطح R1 التنفيذي الذي يولد منه Orval عملاء جميع الشاشات |
 | [api/notifications.md](api/notifications.md) | فهرس عملية قائمة إشعارات المستخدم المحكومة |
 | [events/asyncapi.yaml](events/asyncapi.yaml) | نقل أحداث المجال، AsyncAPI 3.1 |
 | `schemas/` | موارد JSON Schema Draft 2020-12 |

@@ -20,7 +20,7 @@ import {
   getDashboard,
   getNotifications,
   type Day2Entity,
-} from '../../api/day2'
+} from '../../api/r1'
 
 type Locale = 'ar' | 'en'
 const copy = {

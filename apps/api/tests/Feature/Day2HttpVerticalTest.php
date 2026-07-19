@@ -45,6 +45,9 @@ final class Day2HttpVerticalTest extends TestCase
         $task = $this->withToken($token)->postJson('/api/v1/tasks/from-step/'.$step->id, [], [...$headers, 'Idempotency-Key' => 'day2-task'])->assertCreated();
         $replayTask = $this->withToken($token)->postJson('/api/v1/tasks/from-step/'.$step->id, [], [...$headers, 'Idempotency-Key' => 'day2-task'])->assertCreated();
         $this->assertSame($task->json('data.id'), $replayTask->json('data.id'));
+        $this->withToken($token)->getJson('/api/v1/tasks/'.$task->json('data.id'), $headers)
+            ->assertOk()
+            ->assertJsonPath('data.id', $task->json('data.id'));
         $this->withToken($token)->postJson('/api/v1/tasks/'.$task->json('data.id').'/return', [], [...$headers, 'Idempotency-Key' => 'day2-return-task', 'If-Match' => '"1"'])->assertOk();
         $completed = $this->withToken($token)->postJson('/api/v1/tasks/'.$task->json('data.id').'/complete', [], [...$headers, 'Idempotency-Key' => 'day2-complete', 'If-Match' => '"2"'])->assertOk();
         $this->assertSame('completed', $completed->json('data.status'));

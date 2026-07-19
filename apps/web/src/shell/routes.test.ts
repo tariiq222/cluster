@@ -12,6 +12,12 @@ describe('W1.2 shell route registry', () => {
     expect(routeFromPath('/admin/organization/people')).toEqual({ name: 'people-assignments' })
     expect(routeFromPath('/admin/organization/temporary-assignments')).toEqual({ name: 'temporary-assignments' })
     expect(routeFromPath('/admin/identity/accounts')).toEqual({ name: 'identity-accounts' })
+    expect(routeFromPath('/tasks')).toEqual({ name: 'tasks' })
+    expect(routeFromPath('/admin/work-definitions')).toEqual({ name: 'work-definitions' })
+    expect(routeFromPath('/admin/workflow')).toEqual({ name: 'workflow-admin' })
+    expect(routeFromPath('/search')).toEqual({ name: 'search' })
+    expect(routeFromPath('/reports')).toEqual({ name: 'reports' })
+    expect(routeFromPath('/notifications')).toEqual({ name: 'notifications' })
     expect(routeFromPath('/admin/imports/organization')).toEqual({ name: 'organization-import' })
     expect(routeFromPath('/admin/imports/organization/018f6f7d-0c00-7000-8000-000000000107')).toEqual({
       name: 'organization-import', jobId: '018f6f7d-0c00-7000-8000-000000000107',

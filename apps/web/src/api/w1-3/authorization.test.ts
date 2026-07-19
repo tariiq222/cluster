@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createRoleAssignment, listAuthorization, uuidV7 } from './authorization'
+import { createRoleAssignment, listAuthorization, uuidV7 } from '../r1'
 
 describe('W1.3 authorization transport', () => {
   it('creates UUIDv7 correlation and idempotency headers', async () => {

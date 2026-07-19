@@ -97,6 +97,7 @@ final class DocumentsApi
     public static function domainProblem(DomainException $exception, string $correlationId): JsonResponse
     {
         return match ($exception->getMessage()) {
+            'document_access_denied', 'linked_resource_access_denied', 'linked_resource_facts_unavailable' => self::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId),
             'upload_intent_not_found', 'document_version_not_found', 'document_owner_organization_mismatch' => self::problem(404, 'document-upload-not-found', 'Not Found', 'The document upload is not available.', $correlationId),
             'idempotency_request_mismatch', 'idempotency_resource_mismatch' => self::problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId),
             'upload_intent_already_consumed', 'upload_completion_invalid_state', 'document_scan_invalid_state', 'document_promotion_invalid_state' => self::problem(409, 'document-upload-invalid-state', 'Conflict', 'The document upload is not in a state for this action.', $correlationId),

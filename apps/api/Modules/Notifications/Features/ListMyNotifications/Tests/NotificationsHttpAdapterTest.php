@@ -149,6 +149,21 @@ class NotificationsHttpAdapterTest extends TestCase
             ]);
     }
 
+    public function test_recipient_can_mark_notification_read_without_cross_recipient_access(): void
+    {
+        $tokenA = $this->login('fixture-account-a', 'fixture-password-a')->json('data.access_token');
+        $tokenB = $this->login('fixture-account-b', 'fixture-password-b')->json('data.access_token');
+        $notificationId = '018f6f7d-0c00-7000-8000-000000000611';
+        $this->insertNotification($notificationId, '018f6f7d-0c00-7000-8000-000000000711', self::USER_A_ID, '018f6f7d-0c00-7000-8000-000000000411', '2026-07-16 09:00:00');
+
+        $headers = [...$this->correlationHeaders(), 'Idempotency-Key' => 'notification-read-once'];
+        $this->withToken($tokenB)->postJson('/api/v1/notifications/'.$notificationId.'/read', [], $headers)->assertNotFound();
+        $this->withToken($tokenA)->postJson('/api/v1/notifications/'.$notificationId.'/read', [], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.is_read', true);
+        $this->assertTrue((bool) DB::table('notifications')->where('id', $notificationId)->value('is_read'));
+    }
+
     private function requireAdapter(): void
     {
         if (! class_exists(ListMyNotificationsController::class)) {

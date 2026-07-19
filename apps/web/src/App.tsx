@@ -23,6 +23,8 @@ import { IdentityAccounts } from './features/identity/IdentityAccounts'
 import { ImportReview } from './features/imports/ImportReview'
 import { AccessExplanation, AuthorizationAdmin } from './features/authorization/AuthorizationAdmin'
 import { Day2Workflow } from './features/workflow/Day2Workflow'
+import { AdaptiveDashboard, NotificationsScreen, ReportsScreen, SearchScreen, TasksScreen, WorkDefinitionsScreen, WorkflowAdminScreen } from './features/r1/R1Screens'
+import { getDocumentDownloadUrl, getReport as getR1Report, linkDocument as linkR1Document, listTasks as listR1Tasks, listWorkDefinitions as listR1Definitions, listWorkflowDefinitions as listR1Workflows, searchRecords as searchR1Records, transitionRequest } from './api/r1'
 
 type Locale = 'ar' | 'en'
 
@@ -277,10 +279,11 @@ function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsLoading, setNotificationsLoading] = useState(false)
   const [notificationsError, setNotificationsError] = useState(false)
+  const [allowedScreens, setAllowedScreens] = useState<Set<string>>(new Set())
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const copy = text[locale]
-  const adminView = ['organization', 'organization-structure', 'people-assignments', 'temporary-assignments', 'identity-accounts', 'organization-import', 'authorization', 'access-explanation', 'workflow-day2'].includes(view.name)
+  const adminView = ['organization', 'organization-structure', 'people-assignments', 'temporary-assignments', 'identity-accounts', 'organization-import', 'authorization', 'access-explanation', 'workflow-day2', 'work-definitions', 'workflow-admin'].includes(view.name)
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -351,6 +354,14 @@ function App() {
     if (!session) return
     void refreshRecords(session)
     void refreshNotifications(session)
+    const probes: Array<[string, () => Promise<unknown>]> = [
+      ['tasks', () => listR1Tasks(session.access_token)],
+      ['work-definitions', () => listR1Definitions(session.access_token)],
+      ['workflow-admin', () => listR1Workflows(session.access_token)],
+      ['search', () => searchR1Records(session.access_token, '__navigation_probe__')],
+      ['reports', () => getR1Report(session.access_token, '019f7000-0000-7000-8000-000000000901')],
+    ]
+    void Promise.all(probes.map(async ([name, probe]) => { try { await probe(); return name } catch (error) { return error instanceof ApiError && error.status === 403 ? null : name } })).then((values) => setAllowedScreens(new Set(values.filter((value): value is string => value !== null))))
     // Data is reloaded only when a new in-memory session is established.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
@@ -468,6 +479,12 @@ function App() {
         onNavigateCreate={() => navigate({ name: 'create' }, '/work-records/new')}
         onNavigateOrganization={() => navigate({ name: 'organization' }, primaryRoutes[2].path)}
       >
+        <nav className="secondary-navigation" aria-label={locale === 'ar' ? 'شاشات العمل المصرح بها' : 'Authorized work screens'}>
+          {allowedScreens.has('tasks') && <a href="/tasks" aria-current={view.name === 'tasks' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'tasks' }, '/tasks') }}>{locale === 'ar' ? 'مهامي' : 'My tasks'}</a>}
+          {allowedScreens.has('search') && <a href="/search" aria-current={view.name === 'search' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'search' }, '/search') }}>{locale === 'ar' ? 'البحث' : 'Search'}</a>}
+          {allowedScreens.has('reports') && <a href="/reports" aria-current={view.name === 'reports' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'reports' }, '/reports') }}>{locale === 'ar' ? 'التقارير' : 'Reports'}</a>}
+          <a href="/notifications" aria-current={view.name === 'notifications' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'notifications' }, '/notifications') }}>{locale === 'ar' ? 'الإشعارات' : 'Notifications'}</a>
+        </nav>
         {adminView && <nav className="secondary-navigation" aria-label={copy.administrationNavigation}>
           {[
             [2, copy.organization],
@@ -482,6 +499,8 @@ function App() {
           })}
           {authorizationNav.map(([label, path, route]) => <a key={path} href={path} aria-current={view.name === route.name ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(route, path) }}>{label}</a>)}
           <a href="/admin/workflow/day2" aria-current={view.name === 'workflow-day2' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'workflow-day2' }, '/admin/workflow/day2') }}>{locale === 'ar' ? 'سير العمل والمهام' : 'Workflow and tasks'}</a>
+          {allowedScreens.has('work-definitions') && <a href="/admin/work-definitions" aria-current={view.name === 'work-definitions' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'work-definitions' }, '/admin/work-definitions') }}>{locale === 'ar' ? 'تعريفات العمل' : 'Work definitions'}</a>}
+          {allowedScreens.has('workflow-admin') && <a href="/admin/workflow" aria-current={view.name === 'workflow-admin' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate({ name: 'workflow-admin' }, '/admin/workflow') }}>{locale === 'ar' ? 'إدارة المسارات' : 'Workflow administration'}</a>}
         </nav>}
         {view.name === 'list' && (
           <RequestDashboard
@@ -499,6 +518,7 @@ function App() {
             onOpenNotifications={() => setNotificationsOpen(true)}
           />
         )}
+        {view.name === 'list' && <AdaptiveDashboard locale={locale} token={session.access_token} scopeId={session.facility} onSessionExpired={expireSession} />}
         {view.name === 'create' && (
           <RequestForm
             locale={locale}
@@ -514,10 +534,12 @@ function App() {
         {view.name === 'detail' && (
           <RequestDetail
             locale={locale}
+            token={session.access_token}
             record={detail}
             loading={detailLoading}
             state={detailState}
             onRetry={() => setView({ ...view })}
+            onSessionExpired={expireSession}
           />
         )}
         {view.name === 'not-found' && (
@@ -557,6 +579,12 @@ function App() {
         {view.name === 'authorization' && <AuthorizationAdmin locale={locale} token={session.access_token} resource={view.resource} onSessionExpired={expireSession} />}
         {view.name === 'access-explanation' && <AccessExplanation locale={locale} token={session.access_token} decisionId={view.decisionId} onSessionExpired={expireSession} />}
         {view.name === 'workflow-day2' && <Day2Workflow locale={locale} session={session} onSessionExpired={expireSession} />}
+        {view.name === 'tasks' && <TasksScreen locale={locale} token={session.access_token} onSessionExpired={expireSession} />}
+        {view.name === 'work-definitions' && <WorkDefinitionsScreen locale={locale} token={session.access_token} onSessionExpired={expireSession} />}
+        {view.name === 'workflow-admin' && <WorkflowAdminScreen locale={locale} token={session.access_token} onSessionExpired={expireSession} />}
+        {view.name === 'search' && <SearchScreen locale={locale} token={session.access_token} onSessionExpired={expireSession} />}
+        {view.name === 'reports' && <ReportsScreen locale={locale} token={session.access_token} onSessionExpired={expireSession} />}
+        {view.name === 'notifications' && <NotificationsScreen locale={locale} token={session.access_token} notifications={notifications} onSessionExpired={expireSession} onRead={() => void refreshNotifications()} onOpen={(recordId) => navigate({ name: 'detail', recordId }, `/work-records/${recordId}`)} />}
       </AppShell>
 
       {notificationsOpen && (
@@ -953,23 +981,47 @@ function RequestForm({ locale, token, onSessionExpired, onCreated, onBack }: {
   )
 }
 
-function RequestDetail({ locale, record, loading, state, onRetry }: {
+function RequestDetail({ locale, token, record, loading, state, onRetry, onSessionExpired }: {
   locale: Locale
+  token: string
   record: WorkRecord | null
   loading: boolean
   state: 'ready' | 'unavailable' | 'error'
   onRetry: () => void
+  onSessionExpired: () => void
 }) {
   const copy = text[locale]
+  const [busy, setBusy] = useState(false)
+  const [actionState, setActionState] = useState<'idle' | 'done' | 'error' | 'stale'>('idle')
+  const [attachedDocumentId, setAttachedDocumentId] = useState<string | null>(null)
   if (loading) return <section><h1>{copy.loadingDetail}</h1></section>
   if (state === 'unavailable') return <section className="state-panel"><h1>{copy.unavailable}</h1></section>
   if (state === 'error') return <section className="state-panel" role="alert"><h1>{copy.detailError}</h1><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></section>
   if (!record) return <section><h1>{copy.loadingDetail}</h1></section>
+  async function act(action: 'submit' | 'return' | 'complete') {
+    if (!record) return
+    setBusy(true); setActionState('idle')
+    try { await transitionRequest(token, record.id, action, record.lock_version); setActionState('done'); onRetry() }
+    catch (error) { if (error instanceof ApiError && error.status === 401) onSessionExpired(); else setActionState(error instanceof ApiError && (error.status === 409 || error.status === 412) ? 'stale' : 'error') }
+    finally { setBusy(false) }
+  }
+  async function attach(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!record) return
+    const documentId = String(new FormData(event.currentTarget).get('document_id') ?? '')
+    setBusy(true); setActionState('idle')
+    try { await linkR1Document(token, record.id, documentId); setAttachedDocumentId(documentId); setActionState('done'); event.currentTarget.reset(); onRetry() }
+    catch (error) { if (error instanceof ApiError && error.status === 401) onSessionExpired(); else setActionState(error instanceof ApiError && (error.status === 409 || error.status === 412) ? 'stale' : 'error') }
+    finally { setBusy(false) }
+  }
   return (
     <article className="detail-panel">
       <h1>{record.payload.title ?? copy.noDescription}</h1>
       <p>{record.payload.description ?? copy.noDescription}</p>
       <div className="detail-meta"><span className="status-badge">{copy.submitted}</span><time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time></div>
+      <section className="surface-card" aria-labelledby="record-actions-heading"><h2 id="record-actions-heading">{locale === 'ar' ? 'إجراءات الطلب' : 'Request actions'}</h2><div className="table-actions"><button disabled={busy} type="button" className="primary-button" onClick={() => void act('submit')}>{locale === 'ar' ? 'إرسال' : 'Submit'}</button><button disabled={busy} type="button" className="secondary-button" onClick={() => void act('return')}>{locale === 'ar' ? 'إعادة' : 'Return'}</button><button disabled={busy} type="button" className="primary-button" onClick={() => void act('complete')}>{locale === 'ar' ? 'إكمال' : 'Complete'}</button></div></section>
+      <section className="surface-card" aria-labelledby="record-documents-heading"><h2 id="record-documents-heading">{locale === 'ar' ? 'المستندات المرتبطة' : 'Linked documents'}</h2><p>{locale === 'ar' ? 'لا يصبح المستند قابلاً للربط والتنزيل حتى يمر بالحجر والفحص ويصبح متاحاً.' : 'A document cannot be linked or downloaded until quarantine and scanning finish and it becomes available.'}</p><form className="inline-form" onSubmit={(event) => void attach(event)}><label>{locale === 'ar' ? 'معرّف المستند المتاح' : 'Available document ID'}<input name="document_id" required pattern="[0-9a-f-]{36}" /></label><button disabled={busy} className="primary-button">{locale === 'ar' ? 'إرفاق' : 'Attach'}</button></form>{attachedDocumentId && <button type="button" className="secondary-button" onClick={() => void getDocumentDownloadUrl(token, attachedDocumentId).then((url) => window.location.assign(url)).catch((error) => { if (error instanceof ApiError && error.status === 401) onSessionExpired(); else setActionState(error instanceof ApiError && (error.status === 409 || error.status === 412) ? 'stale' : 'error') })}>{locale === 'ar' ? 'تنزيل عبر قرار الوصول' : 'Download through access decision'}</button>}</section>
+      <section className="surface-card" aria-labelledby="record-timeline-heading"><h2 id="record-timeline-heading">{locale === 'ar' ? 'الخط الزمني للنشاط' : 'Activity timeline'}</h2><ol><li><time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time> — {String(record.status)}</li></ol></section>
+      {actionState !== 'idle' && <p className={actionState === 'done' ? 'status-message' : 'error-summary'} role="status">{actionState === 'done' ? (locale === 'ar' ? 'اكتمل الإجراء.' : 'Action completed.') : actionState === 'stale' ? (locale === 'ar' ? 'البيانات قديمة؛ تم طلب التحديث.' : 'The data is stale; refresh requested.') : (locale === 'ar' ? 'تعذر تنفيذ الإجراء.' : 'The action failed.')}</p>}
     </article>
   )
 }

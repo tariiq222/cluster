@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../api'
-import { createDelegation, createRoleAssignment, createSupervisoryRelationship, explainAccessDecision, listAuthorization, listSupervisoryRelationships, type AuthorizationItem, type AuthorizationResource } from '../../api/w1-3/authorization'
+import { createDelegation, createRoleAssignment, createSupervisoryRelationship, explainAccessDecision, listAuthorization, listSupervisoryRelationships, type AuthorizationItem, type AuthorizationResource } from '../../api/r1'
 
 type Locale = 'ar' | 'en'
 const labels = {
