@@ -4,6 +4,7 @@ namespace Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler;
 
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -25,6 +26,7 @@ final class ConsumeWorkRecordSubmittedHandler
             try {
                 DB::table('notification_inbox')->insert([
                     'event_id' => $cloudEvent['id'],
+                    ...(Schema::hasColumn('notification_inbox', 'consumer') ? ['consumer' => 'notifications.work-record-submitted.v1'] : []),
                     'processed_at' => $now,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -37,16 +39,49 @@ final class ConsumeWorkRecordSubmittedHandler
                 throw $exception;
             }
 
-            DB::table('notifications')->insert([
-                'id' => Str::uuid7()->toString(),
-                'event_id' => $cloudEvent['id'],
-                'recipient_user_id' => $cloudEvent['data']['record']['owner']['user_id'],
-                'title' => 'تم تقديم سجل عمل',
-                'source_record_id' => $cloudEvent['data']['record']['id'],
-                'is_read' => false,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            $recipient = $cloudEvent['data']['record']['owner']['user_id'];
+            $sourceRecord = $cloudEvent['data']['record']['id'];
+            $groupKey = 'work-record-submitted|'.$recipient.'|'.$sourceRecord;
+            $existing = Schema::hasColumn('notifications', 'notification_group_key')
+                ? DB::table('notifications')->where('recipient_user_id', $recipient)->where('notification_group_key', $groupKey)->first()
+                : null;
+            if ($existing !== null) {
+                DB::table('notifications')->where('id', $existing->id)->update([
+                    'aggregation_count' => ((int) ($existing->aggregation_count ?? 1)) + 1,
+                    'last_event_id' => $cloudEvent['id'],
+                    'updated_at' => $now,
+                ]);
+                $notificationId = (string) $existing->id;
+            } else {
+                $notificationId = Str::uuid7()->toString();
+                DB::table('notifications')->insert([
+                    'id' => $notificationId,
+                    'event_id' => $cloudEvent['id'],
+                    'recipient_user_id' => $recipient,
+                    'title' => 'تم تقديم سجل عمل',
+                    'source_record_id' => $sourceRecord,
+                    'is_read' => false,
+                    ...(Schema::hasColumn('notifications', 'status') ? ['status' => 'unread'] : []),
+                    ...(Schema::hasColumn('notifications', 'notification_group_key') ? [
+                        'notification_group_key' => $groupKey,
+                        'aggregation_count' => 1,
+                        'last_event_id' => $cloudEvent['id'],
+                    ] : []),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+            if (Schema::hasTable('notification_recipients')) {
+                DB::table('notification_recipients')->insertOrIgnore([
+                    'id' => Str::uuid7()->toString(),
+                    'notification_id' => $notificationId,
+                    'recipient_user_id' => $recipient,
+                    'status' => 'unread',
+                    'read_at' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
 
             return true;
         });

@@ -99,8 +99,12 @@ final class ListAuthorizedWorkRecordsHandler
         ];
     }
 
-    private function timestamp(string $value): string
+    private function timestamp(?string $value): ?string
     {
+        if ($value === null) {
+            return null;
+        }
+
         return (new DateTimeImmutable($value, new DateTimeZone('UTC')))
             ->setTimezone(new DateTimeZone('UTC'))
             ->format('Y-m-d\TH:i:s.v\Z');

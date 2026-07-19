@@ -38,6 +38,8 @@ class CapabilityCatalogTest extends TestCase
             'documents.get-upload-status',
             'documents.scan-version',
             'documents.reconcile-promotion',
+            'documents.link',
+            'documents.download',
         ];
 
         $this->assertSame($expected, CapabilityCatalog::all());

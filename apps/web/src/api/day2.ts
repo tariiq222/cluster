@@ -24,7 +24,11 @@ export const createWorkflowDefinition = (token: string, input: Record<string, un
 export const createWorkflowVersion = (token: string, id: string, input: Record<string, unknown>) => call<Day2Entity>(token, `/workflow/definitions/${encodeURIComponent(id)}/versions`, command(input))
 export const transitionWorkflowVersion = (token: string, id: string, action: WorkflowAction, lock?: number) => call<Day2Entity>(token, `/workflow/versions/${encodeURIComponent(id)}/${action}`, command(), lock)
 export const publishWorkflowVersion = (token: string, id: string, lock?: number) => transitionWorkflowVersion(token, id, 'publish', lock)
-export const createRequest = (token: string, input: Record<string, unknown>) => call<Day2Entity>(token, '/work-records', command(input))
+export const createRequest = (token: string, input: Record<string, unknown>) => {
+  const init = command(input)
+  init.headers = { ...(init.headers as Record<string, string>), 'X-Day3-Acceptance': '1' }
+  return call<Day2Entity>(token, '/work-records', init)
+}
 export const submitRequest = (token: string, id: string, lock?: number) => call<Day2Entity>(token, `/work-records/${encodeURIComponent(id)}/submit`, command(), lock)
 export const returnRequest = (token: string, id: string, lock?: number) => call<Day2Entity>(token, `/work-records/${encodeURIComponent(id)}/return`, command(), lock)
 export const completeRequest = (token: string, id: string, lock?: number) => call<Day2Entity>(token, `/work-records/${encodeURIComponent(id)}/complete`, command(), lock)
@@ -33,3 +37,8 @@ export const getWorkflowInstance = (token: string, id: string) => call<{ instanc
 export const createTaskFromStep = (token: string, stepId: string, title?: string) => call<Day2Entity>(token, `/tasks/from-step/${encodeURIComponent(stepId)}`, command(title ? { title } : undefined))
 export const listTasks = (token: string) => call<Collection<Day2Entity>>(token, '/tasks?limit=50')
 export const transitionTask = (token: string, id: string, action: TaskAction, lock?: number) => call<Day2Entity>(token, `/tasks/${encodeURIComponent(id)}/${action}`, command(), lock)
+export const linkDocument = (token: string, recordId: string, documentId: string) => call<Day2Entity>(token, `/work-records/${encodeURIComponent(recordId)}/documents`, command({ document_id: documentId, relation_type: 'attachment' }))
+export const searchRecords = (token: string, query: string) => call<{ items: Day2Entity[]; total: number }>(token, `/search?q=${encodeURIComponent(query)}`)
+export const getReport = (token: string, reportId: string) => call<{ items: Day2Entity[]; total: number }>(token, `/reports/${encodeURIComponent(reportId)}`)
+export const getDashboard = (token: string, dashboardId: string) => call<{ items: Day2Entity[]; total: number }>(token, `/dashboards/${encodeURIComponent(dashboardId)}`)
+export const getNotifications = (token: string) => call<Collection<Day2Entity>>(token, '/notifications?limit=20')

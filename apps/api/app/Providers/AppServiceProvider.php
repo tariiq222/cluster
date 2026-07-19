@@ -12,20 +12,24 @@ use App\Http\Controllers\Organization\CreateTemporaryAssignmentController;
 use App\Http\Controllers\Organization\GetTemporaryAssignmentController;
 use App\Http\Controllers\Organization\ListTemporaryAssignmentsController;
 use App\Http\Controllers\Organization\RevokeTemporaryAssignmentController;
+use App\Integrations\WorkRecordAuthorizationFacts;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentUploadStatusReader;
+use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
 use Modules\Documents\Contracts\MalwareScanner;
 use Modules\Documents\Contracts\PrivateObjectStorage;
+use Modules\Documents\Contracts\SensitiveAccessEventRecorder;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Infrastructure\Authorization\ConfiguredWorkerPrincipalResolver;
 use Modules\Documents\Infrastructure\Persistence\DatabaseDocumentAuthorizationFactsReader;
 use Modules\Documents\Infrastructure\Persistence\DatabaseDocumentUploadStatusReader;
+use Modules\Documents\Infrastructure\Persistence\DatabaseSensitiveAccessEventRecorder;
 use Modules\Documents\Infrastructure\Security\ClamAvConfiguration;
 use Modules\Documents\Infrastructure\Security\ClamAvMalwareScanner;
 use Modules\Documents\Infrastructure\Security\ClamAvSocketTransport;
@@ -104,6 +108,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ValidateTemporaryAssignmentCapabilities::class, ConfiguredTemporaryAssignmentCapabilityValidator::class);
         $this->app->bind(DocumentAuthorizationFactsReader::class, DatabaseDocumentAuthorizationFactsReader::class);
         $this->app->bind(DocumentUploadStatusReader::class, DatabaseDocumentUploadStatusReader::class);
+        $this->app->bind(LinkedResourceAuthorizationFacts::class, WorkRecordAuthorizationFacts::class);
+        $this->app->bind(SensitiveAccessEventRecorder::class, DatabaseSensitiveAccessEventRecorder::class);
         $this->app->singleton(DocumentUploadPolicy::class, fn (): DocumentUploadPolicy => DocumentUploadPolicy::fromConfig(config('documents')));
         $this->app->singleton(DocumentRetentionPolicy::class, fn (): DocumentRetentionPolicy => DocumentRetentionPolicy::fromConfig(config('documents')));
         $this->app->singleton(ResolveDevelopmentFixturePrincipal::class, DevelopmentFixturePrincipalResolver::class);
@@ -218,6 +224,7 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/HardenDocumentUploadSecurityTables.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/ZZAddDocumentUploadPurpose.php'),
+            base_path('Modules/Documents/Infrastructure/Persistence/Migrations/W18CreateDocumentGovernanceTables.php'),
             base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateDevelopmentWorkTypeFixturesTable.php'),
             base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateWorkDefinitionTables.php'),
             base_path('Modules/WorkRecords/Infrastructure/Persistence/Migrations/CreateWorkRecordsTable.php'),
@@ -226,6 +233,9 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationInboxTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationsTable.php'),
+            base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W18CreateNotificationDeliveryTables.php'),
+            base_path('Modules/Search/Infrastructure/Persistence/Migrations/CreateSearchProjectionTables.php'),
+            base_path('Modules/Reporting/Infrastructure/Persistence/Migrations/CreateReportingProjectionTables.php'),
         ]);
         $this->commands([ExpireTemporaryAssignmentsCommand::class]);
 

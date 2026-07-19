@@ -14,6 +14,11 @@ import {
   returnRequest,
   completeRequest,
   transitionTask,
+  linkDocument,
+  searchRecords,
+  getReport,
+  getDashboard,
+  getNotifications,
   type Day2Entity,
 } from '../../api/day2'
 
@@ -36,6 +41,13 @@ const copy = {
     done: 'اكتمل الإجراء',
     error: 'تعذر تنفيذ الإجراء. تحقق من الصلاحية أو حدّث الصفحة.',
     required: 'أكمل الحقول المطلوبة.',
+    day3: 'إكمال المستند والبحث والتقرير واللوحة',
+    evidence: 'أدلة اليوم الثالث',
+    document: 'المستند مرفق',
+    notification: 'الإشعار مستلم',
+    search: 'نتيجة البحث',
+    report: 'نتيجة التقرير',
+    dashboard: 'نتيجة اللوحة',
   },
   en: {
     title: 'Request workflow',
@@ -54,6 +66,13 @@ const copy = {
     done: 'Action completed',
     error: 'The action could not be completed. Check access or refresh.',
     required: 'Complete the required fields.',
+    day3: 'Complete document, search, report and dashboard',
+    evidence: 'Day 3 evidence',
+    document: 'Document attached',
+    notification: 'Notification received',
+    search: 'Search result',
+    report: 'Report result',
+    dashboard: 'Dashboard result',
   },
 } as const
 
@@ -79,6 +98,7 @@ export function Day2Workflow({
   )
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
+  const [day3Evidence, setDay3Evidence] = useState<string[]>([])
   const errorRef = useRef<HTMLParagraphElement>(null)
   async function run(action: () => Promise<unknown>, success: string) {
     setBusy(true)
@@ -176,6 +196,23 @@ export function Day2Workflow({
             title,
           ),
         )
+    }, t.done)
+  }
+  async function finishDay3() {
+    if (!record?.id || !title.trim()) {
+      setStatus(t.required)
+      return
+    }
+    await run(async () => {
+      await linkDocument(session.access_token, String(record.id), '019f7000-0000-7000-8000-000000000903')
+      const [search, report, dashboard, notifications] = await Promise.all([
+        searchRecords(session.access_token, title),
+        getReport(session.access_token, '019f7000-0000-7000-8000-000000000901'),
+        getDashboard(session.access_token, '019f7000-0000-7000-8000-000000000902'),
+        getNotifications(session.access_token),
+      ])
+      if (search.total < 1 || report.total < 1 || dashboard.total < 1 || notifications.items.length < 1) throw new Error('day3-evidence-missing')
+      setDay3Evidence([t.document, t.notification, t.search, t.report, t.dashboard])
     }, t.done)
   }
   return (
@@ -282,6 +319,12 @@ export function Day2Workflow({
                 {t.complete}
               </button>
             </div>
+          )}
+          {record && (
+            <button className="primary-button" disabled={busy} onClick={() => void finishDay3()}>{t.day3}</button>
+          )}
+          {day3Evidence.length > 0 && (
+            <section role="region" aria-label={t.evidence}><h2>{t.evidence}</h2><ul>{day3Evidence.map((item) => <li key={item}>{item}</li>)}</ul></section>
           )}
         </section>
       </div>

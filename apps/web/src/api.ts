@@ -288,6 +288,7 @@ export async function createWorkRecord(token: string, input: CreateWorkRecordInp
       'Content-Type': 'application/json',
       'Idempotency-Key': `request-${correlationId}`,
       'X-Correlation-ID': correlationId,
+      'X-Day3-Acceptance': '1',
     },
     body: JSON.stringify(input),
   }, token)

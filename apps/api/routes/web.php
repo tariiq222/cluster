@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\LinkDocumentController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\WorkDefinitionController;
 use App\Http\Controllers\Api\WorkflowController;
@@ -54,12 +55,19 @@ use App\Http\Controllers\Organization\UpdateFacilityController;
 use App\Http\Controllers\Organization\UpdateOrganizationUnitController;
 use App\Http\Controllers\Organization\UpdatePersonController;
 use App\Http\Controllers\Organization\UpdatePositionController;
+use App\Http\Middleware\ConsumeSubmittedNotification;
 use App\Http\Middleware\IdentityCsrfMiddleware;
 use App\Http\Middleware\IdentitySessionMiddleware;
+use App\Http\Middleware\ProjectWorkRecordReadModels;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Features\DevelopmentFixtureLogin\Http\DevelopmentFixtureLoginController;
 use Modules\Notifications\Features\ListMyNotifications\Http\ListMyNotificationsController;
+use Modules\Reporting\Http\CreateReportExportController;
+use Modules\Reporting\Http\DownloadExportController;
+use Modules\Reporting\Http\GetDashboardController;
+use Modules\Reporting\Http\GetReportController;
+use Modules\Search\Http\SearchController;
 use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController;
 use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController;
 use Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController;
@@ -90,6 +98,11 @@ Route::prefix('api/v1')->group(function (): void {
     Route::post('internal/documents/versions/{versionId}/scan', ScanDocumentVersionController::class)->middleware('throttle:60,1');
     Route::post('internal/documents/versions/{versionId}/reconcile-promotion', ReconcileDocumentPromotionController::class)->middleware('throttle:60,1');
     Route::get('notifications', ListMyNotificationsController::class);
+    Route::get('search', SearchController::class);
+    Route::get('reports/{reportId}', GetReportController::class);
+    Route::post('reports/{reportId}/exports', CreateReportExportController::class);
+    Route::get('exports/{exportId}', DownloadExportController::class);
+    Route::get('dashboards/{dashboardId}', GetDashboardController::class);
     Route::get('organization/cluster', GetClusterController::class);
     Route::post('organization/cluster', CreateClusterController::class);
     Route::patch('organization/cluster', UpdateClusterController::class);
@@ -123,10 +136,14 @@ Route::prefix('api/v1')->group(function (): void {
     Route::post('identity/accounts', CreateUserAccountController::class);
     Route::get('identity/accounts/{accountId}', GetUserAccountController::class);
     Route::post('identity/accounts/{accountId}/{accountAction}', TransitionUserAccountController::class);
-    Route::post('work-records', SubmitWorkRecordController::class);
-    Route::post('work-records/{recordId}/{recordAction}', [WorkRecordLifecycleController::class, 'transition'])->whereIn('recordAction', ['submit', 'return', 'complete', 'complete-submission']);
+    Route::post('work-records', SubmitWorkRecordController::class)->middleware([
+        ProjectWorkRecordReadModels::class,
+        ConsumeSubmittedNotification::class,
+    ]);
+    Route::post('work-records/{recordId}/{recordAction}', [WorkRecordLifecycleController::class, 'transition'])->whereIn('recordAction', ['submit', 'return', 'complete', 'complete-submission'])->middleware(ProjectWorkRecordReadModels::class);
     Route::get('work-records', ListAuthorizedWorkRecordsController::class);
     Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class);
+    Route::post('work-records/{recordId}/documents', LinkDocumentController::class);
     Route::post('authorization/access-decisions', DecideAccessController::class);
     Route::get('authorization/access-decisions/{decisionId}/explanation', ExplainAccessDecisionController::class);
     Route::get('authorization/{adminResource}', AuthorizationAdminController::class);

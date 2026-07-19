@@ -2,6 +2,9 @@
 
 namespace Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use JsonException;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWorkRecordSubmittedHandler;
@@ -106,6 +109,7 @@ final class NotificationsStreamWorker
             ];
 
             // Do not acknowledge until the reviewable DLQ record is durable.
+            $this->persistDeadLetter(self::STREAM, $message['id'], $deadLetter);
             $this->transport->publishDlq(self::DLQ, self::STREAM.'|'.$message['id'], $deadLetter);
         }
 
@@ -128,5 +132,25 @@ final class NotificationsStreamWorker
         if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z/', $consumer) !== 1) {
             throw new InvalidArgumentException('A bounded stream consumer name is required.');
         }
+    }
+
+    /** @param array<string,mixed> $deadLetter */
+    private function persistDeadLetter(string $stream, string $messageId, array $deadLetter): void
+    {
+        if (! Schema::hasTable('notification_dead_letters')) {
+            return;
+        }
+        DB::table('notification_dead_letters')->insertOrIgnore([
+            'id' => (string) Str::uuid7(),
+            'source_stream' => $stream,
+            'source_message_id' => $messageId,
+            'original_event' => json_encode($deadLetter['original_event'], JSON_THROW_ON_ERROR),
+            'failure_code' => (string) $deadLetter['failure_code'],
+            'attempts' => (int) $deadLetter['attempts'],
+            'consumer' => (string) $deadLetter['consumer'],
+            'failed_at' => $deadLetter['failed_at'],
+            'created_at' => now('UTC'),
+            'updated_at' => now('UTC'),
+        ]);
     }
 }

@@ -1,0 +1,43 @@
+<?php
+
+namespace Modules\Search\Http;
+
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler;
+
+final class SearchController
+{
+    public function __construct(
+        private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
+        private readonly SearchAccessibleRecordsHandler $search,
+    ) {}
+
+    public function __invoke(Request $request): JsonResponse
+    {
+        $correlationId = SearchApi::correlationId($request);
+        if ($correlationId === null) {
+            return SearchApi::problem(400, 'invalid-correlation-id', 'Bad Request', 'X-Correlation-ID must be a lowercase UUIDv7.');
+        }
+        $principal = SearchApi::principalOrProblem($request, $this->principalResolver, $correlationId);
+        if ($principal instanceof JsonResponse) {
+            return $principal;
+        }
+
+        $input = $request->query();
+        $validator = Validator::make($input, [
+            'q' => ['required', 'string', 'min:1', 'max:256'],
+            'scope_id' => ['sometimes', 'string', 'max:128'],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        if ($validator->fails() || array_diff(array_keys($input), ['q', 'scope_id', 'limit']) !== []) {
+            return SearchApi::problem(400, 'invalid-search-query', 'Bad Request', 'The search query is invalid.', $correlationId);
+        }
+        $validated = $validator->validated();
+        $result = $this->search->handle($principal, (string) $validated['q'], $validated['scope_id'] ?? null, (int) ($validated['limit'] ?? 25));
+
+        return SearchApi::response($result, 200, $correlationId);
+    }
+}

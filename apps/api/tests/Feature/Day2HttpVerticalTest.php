@@ -51,6 +51,9 @@ final class Day2HttpVerticalTest extends TestCase
         $this->withToken($token)->postJson('/api/v1/work-records/'.$recordId.'/return', [], [...$headers, 'Idempotency-Key' => 'day2-return-record', 'If-Match' => '"2"'])->assertOk();
         $recordCompleted = $this->withToken($token)->postJson('/api/v1/work-records/'.$recordId.'/complete', [], [...$headers, 'Idempotency-Key' => 'day2-complete-record', 'If-Match' => '"3"'])->assertOk();
         $this->assertSame('completed', $recordCompleted->json('data.status'));
+        $this->withToken($token)->getJson('/api/v1/work-records?limit=20', $headers)
+            ->assertOk()
+            ->assertJsonPath('items.0.id', $recordId);
         $this->assertSame(1, $this->app['db']->table('tasks')->count());
         $this->assertSame(1, $this->app['db']->table('outbox_events')->where('event_type', 'task.created.v1')->count());
         $this->assertSame(1, $this->app['db']->table('outbox_events')->where('event_type', 'task.completed.v1')->count());

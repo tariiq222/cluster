@@ -34,6 +34,8 @@ final class CapabilityCatalog
         'documents.get-upload-status',
         'documents.scan-version',
         'documents.reconcile-promotion',
+        'documents.link',
+        'documents.download',
     ];
 
     private function __construct() {}
