@@ -5665,7 +5665,7 @@ components:
         type: object,
         additionalProperties: false,
         required: [data],
-        properties: { data: { $ref: "#/components/schemas/WorkRecordProjection" } },
+        properties: { data: { $ref: "../schemas/work-record.schema.json" } },
       }
     WorkRecordCollection:
       {
@@ -5677,16 +5677,11 @@ components:
             items:
               {
                 type: array,
-                 items: { $ref: "#/components/schemas/WorkRecordProjection" },
+                items: { $ref: "../schemas/work-record.schema.json" },
               },
             next_cursor: { type: [string, "null"] },
           },
       }
-    WorkRecordProjection:
-      unevaluatedProperties: false
-      allOf:
-        - { $ref: "../schemas/work-record.schema.json" }
-        - { $ref: "#/components/schemas/AccessProjection" }
     Decision:
       {
         type: object,

@@ -705,27 +705,8 @@ export interface WorkflowStepAction {
   reason: string
 }
 
-export type AccessProjectionFieldAccess = {
-  [key: string]: 'hidden' | 'masked' | 'readonly' | 'editable'
-}
-
-/**
- * Server-owned authorization metadata composed with an authorized resource projection.
- */
-export interface AccessProjection {
-  decision_id: UUIDv7 | null
-  /**
-   * @items.minLength 1
-   * @items.maxLength 128
-   */
-  allowed_actions: string[]
-  field_access: AccessProjectionFieldAccess
-}
-
-export type WorkRecordProjection = WorkRecordSchema & AccessProjection
-
 export interface WorkRecordCollection {
-  items: WorkRecordProjection[]
+  items: WorkRecordSchema[]
   /** @nullable */
   next_cursor: string | null
 }
@@ -745,7 +726,7 @@ export interface WorkRecordCreate {
 }
 
 export interface WorkRecordResponse {
-  data: WorkRecordProjection
+  data: WorkRecordSchema
 }
 
 export interface DocumentCreate {

@@ -72,8 +72,30 @@ final class W12E2EFixtureSeeder
             $this->idempotency('e2e.w1-2.cluster', $clusterData),
         );
 
+        // The fixture user needs a real facility in their organization scope so
+        // the trusted PrincipalContext resolver can resolve facility_ids. The
+        // Organization unit handler resolves parent_type from parent_id, so we
+        // insert the fixture facility directly and reference it from the unit.
+        $facilityType = DB::table('facility_types')->where('code', 'center')->first();
+        if (! $facilityType instanceof \stdClass) {
+            throw new \LogicException('W1.2 E2E fixture requires the center facility type.');
+        }
+        DB::table('facilities')->insert([
+            'id' => self::FIXTURE_FACILITY_ID,
+            'cluster_id' => $cluster->id,
+            'facility_type_id' => $facilityType->id,
+            'code' => 'E2E-'.strtoupper($suffix),
+            'name_ar' => 'منشأة اختبار W1.2',
+            'name_en' => 'W1.2 E2E Facility',
+            'status' => 'active',
+            'lock_version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $unitInput = [
             'cluster_id' => $cluster->id,
+            'parent_id' => self::FIXTURE_FACILITY_ID,
             'type_code' => 'department',
             'code' => 'E2E_'.strtoupper($suffix),
             'name' => 'وحدة اختبار W1.2',
@@ -153,6 +175,25 @@ final class W12E2EFixtureSeeder
 
         $username = 'w12-e2e-'.substr($suffix, 0, 10);
         $accountInput = ['person_id' => $person['id'], 'person_version' => $person['person_version'], 'username' => $username];
+
+        // Anchor the seeded person to a live organization position so the
+        // trusted PrincipalContext resolver exposes a non-empty facility list.
+        // Without an active assignment the W1.2 fixture session resolves to a
+        // null facility and every session-only route returns 401.
+        DB::table('assignments')->insert([
+            'id' => Str::uuid7()->toString(),
+            'person_id' => $person['id'],
+            'position_id' => $position['id'],
+            'start_at' => '2026-01-01 00:00:00.000',
+            'end_at' => null,
+            'is_primary' => true,
+            'end_reason' => null,
+            'ended_by_user_id' => null,
+            'lock_version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $this->accounts->create(
             self::BOOTSTRAP_ADMIN_ID,
             $accountInput,

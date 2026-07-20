@@ -162,7 +162,7 @@ class DevelopmentFixtureLoginTest extends TestCase
 
         $this->assertCount(1, $login->headers->getCookies());
         $cookie = $login->headers->getCookies()[0]->getValue();
-        $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+        $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
             ->getJson('/api/v1/work-records', $this->headers())
             ->assertOk();
     }
@@ -178,7 +178,7 @@ class DevelopmentFixtureLoginTest extends TestCase
             ], $this->headers())->assertOk();
 
         $this->assertCount(1, $login->headers->getCookies());
-        $this->withUnencryptedCookie('cluster_identity_session', $login->headers->getCookies()[0]->getValue())
+        $this->withUnencryptedCookie('cluster_identity_session', $login->headers->getCookies()[0]->getValue())->withCredentials()
             ->getJson('/api/v1/authorization/bootstrap', $this->headers())
             ->assertStatus(200);
     }
@@ -200,7 +200,7 @@ class DevelopmentFixtureLoginTest extends TestCase
             '/api/v1/workflow/definitions',
             '/api/v1/documents',
         ] as $uri) {
-            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
                 ->getJson($uri, $headers);
 
             $this->assertNotSame(401, $response->status(), $uri.' must use the Identity session path.');
@@ -213,12 +213,12 @@ class DevelopmentFixtureLoginTest extends TestCase
         [$cookie, $csrf] = $this->identityCookie();
         $uri = '/api/v1/organization/cluster';
 
-        $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+        $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
             ->postJson($uri, [], $this->headers())
             ->assertForbidden()
             ->assertJsonPath('type', 'https://cluster.example/problems/csrf-failed');
 
-        $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+        $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
             ->postJson($uri, [], [...$this->headers(), 'X-CSRF-Token' => $csrf]);
 
         $this->assertNotSame('https://cluster.example/problems/csrf-failed', $response->json('type'));
@@ -260,7 +260,7 @@ class DevelopmentFixtureLoginTest extends TestCase
             '/api/v1/reports',
             '/api/v1/dashboards',
         ] as $uri) {
-            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
                 ->getJson($uri, $headers);
             $this->assertNotSame(401, $response->status(), $uri.' must accept the server session.');
         }
@@ -272,12 +272,12 @@ class DevelopmentFixtureLoginTest extends TestCase
             '/api/v1/tasks',
             '/api/v1/documents',
         ] as $uri) {
-            $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+            $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
                 ->postJson($uri, [], $this->headers())
                 ->assertForbidden()
                 ->assertJsonPath('type', 'https://cluster.example/problems/csrf-failed');
 
-            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
                 ->postJson($uri, [], $headers);
             $this->assertNotSame('https://cluster.example/problems/csrf-failed', $response->json('type'), $uri.' rejected valid CSRF.');
         }
