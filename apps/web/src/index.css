@@ -41,7 +41,16 @@
   --radius-control: 12px;
   --radius-surface: 16px;
   --radius-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --control-height-compact: 36px;
   --control-height: 44px;
+  --icon-size: 18px;
   --badge-height: 28px;
   --shadow-rest: none;
   --shadow-float: 0 6px 22px rgb(11 47 58 / 12%);
@@ -63,6 +72,12 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* Every Lucide icon follows one shared, non-overridable visual size. */
+svg.lucide {
+  inline-size: var(--icon-size) !important;
+  block-size: var(--icon-size) !important;
 }
 
 html {
@@ -212,10 +227,29 @@ a {
   gap: 8px;
 }
 
+/* Login utility controls share the same compact size and surface treatment. */
+.language-button,
+.theme-button {
+  inline-size: 32px;
+  min-inline-size: 32px;
+  block-size: 32px;
+  min-block-size: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  background: var(--color-surface);
+}
+
 .language-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+  font-size: 13px;
+}
+
+.language-button > span {
+  display: block;
 }
 
 .language-button svg {
@@ -226,8 +260,6 @@ a {
 
 .theme-button {
   display: grid;
-  inline-size: var(--control-height);
-  block-size: var(--control-height);
   place-items: center;
   padding: 0;
   border: 1px solid var(--color-border);
@@ -387,6 +419,23 @@ a {
   stroke-width: 1.75;
 }
 
+.development-accounts {
+  display: grid;
+  gap: 4px;
+  margin-block: 20px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-muted);
+  background: var(--color-surface-subtle);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.development-accounts strong {
+  color: var(--color-ink);
+}
+
 .login-assurance {
   display: flex;
   align-items: center;
@@ -529,7 +578,6 @@ a {
   outline-color: var(--focus-outline);
 }
 
-.language-button,
 .quiet-button,
 .secondary-button,
 .primary-button,
@@ -672,7 +720,7 @@ a {
 
 .dashboard-page {
   display: grid;
-  gap: 40px;
+  gap: var(--space-6);
 }
 
 .dashboard-welcome,
@@ -829,7 +877,7 @@ a {
 .dashboard-panel-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  gap: var(--space-5);
   align-items: stretch;
 }
 

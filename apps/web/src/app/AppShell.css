@@ -1,6 +1,8 @@
 .app-shell {
   --shell-sidebar-width: 264px;
   --shell-topbar-height: 56px;
+  --shell-page-gutter: var(--space-6);
+  --shell-sidebar-padding: var(--space-3);
   --shell-overlay: 30;
   --shell-sticky: 20;
   display: flex;
@@ -30,7 +32,7 @@
   block-size: 100%;
   min-block-size: 0;
   flex-direction: column;
-  padding: 20px 12px 12px;
+  padding: var(--space-5) var(--shell-sidebar-padding) var(--shell-sidebar-padding);
 }
 
 .sidebar-brand-row,
@@ -219,10 +221,68 @@
 
 .header-user-context {
   flex: 0 0 auto;
-  gap: 10px;
-  margin-inline-start: 4px;
-  padding-inline-start: 16px;
-  border-inline-start: 1px solid var(--color-border);
+  gap: 8px;
+  min-block-size: var(--header-control-size);
+  padding: 1px 3px 1px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: var(--interactive-duration);
+  transition-timing-function: var(--interactive-easing);
+}
+
+.header-user-context:hover {
+  border-color: var(--color-accent);
+  color: var(--color-primary);
+  background: var(--color-canvas);
+}
+
+.header-user-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.header-user-dropdown {
+  position: absolute;
+  z-index: calc(var(--shell-sticky) + 1);
+  inset-block-start: calc(100% + 8px);
+  inset-inline-start: 0;
+  display: grid;
+  inline-size: max(100%, 160px);
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.header-user-dropdown button {
+  inline-size: 100%;
+  min-block-size: 36px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-control) - 4px);
+  color: var(--color-ink-secondary);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: start;
+  transition: background-color var(--interactive-duration) var(--interactive-easing),
+    border-color var(--interactive-duration) var(--interactive-easing),
+    color var(--interactive-duration) var(--interactive-easing);
+}
+
+.header-user-dropdown button:hover,
+.header-user-dropdown button:focus-visible {
+  border-color: var(--color-border);
+  color: var(--color-primary);
+  background: var(--color-canvas);
 }
 
 .header-user-context strong {
@@ -258,10 +318,73 @@
   padding-inline: 0;
 }
 
+@media (min-width: 761px) and (hover: hover) {
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar {
+    overflow: visible;
+  }
+
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar .primary-navigation {
+    overflow: visible;
+  }
+
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar .navigation-group {
+    position: relative;
+  }
+
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar .navigation-group-items {
+    position: absolute;
+    z-index: calc(var(--shell-sticky) + 1);
+    inset-block-start: 0;
+    inset-inline-start: calc(100% + 8px);
+    display: none;
+    inline-size: 220px;
+    gap: 4px;
+    margin: 0;
+    padding: 42px 6px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-float);
+  }
+
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar .navigation-group-items::before {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    padding: 10px 12px 8px;
+    border-block-end: 1px solid var(--color-border);
+    color: var(--color-ink);
+    content: attr(data-group-label);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar .navigation-group:is(:hover, :focus-within) > .navigation-group-items {
+    display: grid;
+  }
+
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar .navigation-group-items::after {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 100%;
+    inline-size: 9px;
+    content: '';
+  }
+
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar .navigation-group-items a {
+    justify-content: flex-start;
+    padding-inline: 10px;
+  }
+
+  .app-shell[data-sidebar-collapsed='true'] > .desktop-sidebar .navigation-group-items a span:not(.navigation-icon) {
+    display: flex;
+  }
+}
+
 .user-avatar {
   display: grid;
-  inline-size: 32px;
-  block-size: 32px;
+  inline-size: 28px;
+  block-size: 28px;
   flex: 0 0 auto;
   place-items: center;
   border-radius: var(--radius-pill);
@@ -280,28 +403,46 @@
 }
 
 .site-header {
+  --header-control-size: 36px;
   position: sticky;
   inset-block-start: 0;
   z-index: var(--shell-sticky);
   display: flex;
   min-inline-size: 0;
-  min-block-size: var(--shell-topbar-height);
+  min-block-size: 52px;
   align-items: center;
   gap: 12px;
-  padding-inline: 20px;
+  padding-inline: var(--shell-page-gutter);
   border-block-end: 1px solid var(--color-border);
   background: var(--color-surface);
 }
 
+.scope-context,
+.header-actions,
+.header-user-context {
+  min-block-size: var(--header-control-size);
+  align-items: center;
+}
+
 .scope-context {
   min-inline-size: 0;
-  gap: 8px;
+  min-block-size: var(--header-control-size);
+  gap: 6px;
+  padding-inline: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
   color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.scope-context > span {
+  justify-content: center;
 }
 
 .scope-context strong {
   color: var(--color-ink);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .header-actions {
@@ -312,8 +453,12 @@
 
 .shell-icon-button,
 .shell-action-button {
-  min-inline-size: 40px;
-  min-block-size: 40px;
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--header-control-size);
+  min-inline-size: var(--header-control-size);
+  block-size: var(--header-control-size);
+  min-block-size: var(--header-control-size);
   justify-content: center;
   padding: 0;
   border: 1px solid var(--color-border);
@@ -327,8 +472,8 @@
 }
 
 .shell-action-button {
-  gap: 8px;
-  padding-inline: 12px;
+  gap: 0;
+  padding-inline: 0;
   font-weight: 600;
 }
 
@@ -373,7 +518,7 @@
 
 .content-stage {
   min-inline-size: 0;
-  padding: 32px;
+  padding: var(--shell-page-gutter);
   background: var(--color-canvas);
 }
 
@@ -412,8 +557,8 @@
     --shell-sidebar-width: 260px;
   }
 
-  .content-stage {
-    padding: 24px;
+  .app-shell {
+    --shell-page-gutter: var(--space-5);
   }
 }
 

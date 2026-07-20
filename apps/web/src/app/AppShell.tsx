@@ -3,8 +3,6 @@ import {
   Bell,
   Building2,
   ChevronDown,
-  Languages,
-  LogOut,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -39,6 +37,7 @@ export type AppShellCopy = {
   switchLanguage: string
   currentFacility: string
   notifications: string
+  profile: string
   logout: string
   rightsReserved: string
   organizationName: string
@@ -128,7 +127,12 @@ function SidebarContent({
                 <span className="navigation-group-label">{group.label}</span>
                 <ChevronDown className="navigation-group-chevron" aria-hidden="true" />
               </button>
-              <ul id={listId} className="navigation-group-items" hidden={!expanded}>
+              <ul
+                id={listId}
+                className="navigation-group-items"
+                data-group-label={group.label}
+                hidden={!expanded}
+              >
                 {group.items.map((item) => (
                   <li key={item.key}>
                     <a
@@ -165,6 +169,7 @@ export function AppShell({
   unreadNotifications,
 }: AppShellProps) {
   const [navigationOpen, setNavigationOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return window.localStorage.getItem('cluster.sidebar-collapsed') === 'true'
@@ -174,11 +179,8 @@ export function AppShell({
   })
   const activeGroupKey = navigationGroups.find((group) => group.items.some((item) => item.active))?.key
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {}
-    const firstGroup = navigationGroups[0]
-    if (firstGroup) initial[firstGroup.key] = true
-    if (activeGroupKey) initial[activeGroupKey] = true
-    return initial
+    const initialGroupKey = activeGroupKey ?? navigationGroups[0]?.key
+    return initialGroupKey ? { [initialGroupKey]: true } : {}
   })
   const navigationButtonRef = useRef<HTMLButtonElement>(null)
   const navigationPanelRef = useRef<HTMLElement>(null)
@@ -188,11 +190,11 @@ export function AppShell({
 
   useEffect(() => {
     if (!activeGroupKey) return
-    setOpenGroups((current) => current[activeGroupKey] ? current : { ...current, [activeGroupKey]: true })
+    setOpenGroups({ [activeGroupKey]: true })
   }, [activeGroupKey])
 
   function toggleGroup(groupKey: string) {
-    setOpenGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))
+    setOpenGroups((current) => current[groupKey] ? {} : { [groupKey]: true })
   }
 
   function closeNavigation() {
@@ -306,15 +308,13 @@ export function AppShell({
           <div className="scope-context" aria-label={copy.currentFacility}>
             <Building2 aria-hidden="true" />
             <span>
-              <small>{copy.currentFacility}</small>
               <strong>{facilityName}</strong>
             </span>
           </div>
 
           <div className="header-actions">
             <button type="button" className="shell-action-button shell-language-button" aria-label={copy.switchLanguage} onClick={onLocaleChange}>
-              <Languages aria-hidden="true" />
-              <span>{copy.switchLanguage}</span>
+              <span>{copy.switchLanguage.slice(0, 2)}</span>
             </button>
             <button
               type="button"
@@ -328,17 +328,27 @@ export function AppShell({
               <Bell aria-hidden="true" />
               {unreadNotifications > 0 && <span className="notification-count" aria-hidden="true">{Math.min(unreadNotifications, 9)}</span>}
             </button>
-            <button type="button" className="shell-icon-button" aria-label={copy.logout} onClick={onLogout}>
-              <LogOut aria-hidden="true" />
-            </button>
           </div>
 
-          <div className="header-user-context">
-            <span className="user-avatar" aria-hidden="true">{copy.platformUser.slice(0, 1)}</span>
-            <span className="header-user-copy">
-              <strong>{copy.platformUser}</strong>
-              <small>{facilityName}</small>
-            </span>
+          <div className="header-user-menu">
+            <button
+              type="button"
+              className="header-user-context"
+              aria-expanded={userMenuOpen}
+              aria-controls="user-menu"
+              onClick={() => setUserMenuOpen((open) => !open)}
+            >
+              <span className="user-avatar" aria-hidden="true">{copy.platformUser.slice(0, 1)}</span>
+              <span className="header-user-copy">
+                <strong>{copy.platformUser}</strong>
+              </span>
+            </button>
+            {userMenuOpen && (
+              <div id="user-menu" className="header-user-dropdown" role="menu">
+                <button type="button" role="menuitem" onClick={() => setUserMenuOpen(false)}>{copy.profile}</button>
+                <button type="button" role="menuitem" onClick={onLogout}>{copy.logout}</button>
+              </div>
+            )}
           </div>
         </header>
 

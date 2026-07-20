@@ -178,8 +178,8 @@ export function Day2Workflow({
       setRecord(submitted)
       const instance = await startWorkflow(session.access_token, {
         workflow_version_id: String(workflowVersion.id),
-        source_module: 'work',
-        record_type: 'request',
+        source_module: 'work_records',
+        record_type: 'work_record',
         record_id: String(submitted.id),
       })
       const detail = await getWorkflowInstance(

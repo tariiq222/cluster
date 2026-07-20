@@ -19,7 +19,6 @@ import {
   Inbox,
   KeyRound,
   KeySquare,
-  Languages,
   LayoutDashboard,
   Moon,
   Network,
@@ -31,6 +30,7 @@ import {
   Sun,
   UserCheck,
   UserCog,
+  UserRound,
   Users,
   Workflow,
 } from 'lucide-react'
@@ -40,10 +40,13 @@ import { AppShell, type SidebarNavigationGroup } from './app/AppShell'
 import {
   ApiError,
   createWorkRecord,
+  clearSessionMetadata,
   getWorkRecord,
+  identityLogout,
   listNotifications,
   listWorkRecords,
   login,
+  restoreSession,
   type Notification,
   type Session,
   type WorkRecord,
@@ -56,9 +59,11 @@ import { TemporaryAssignments } from './features/organization/TemporaryAssignmen
 import { IdentityAccounts } from './features/identity/IdentityAccounts'
 import { ImportReview } from './features/imports/ImportReview'
 import { AccessExplanation, AuthorizationAdmin } from './features/authorization/AuthorizationAdmin'
+import { AccessContext } from './features/authorization/AccessContext'
+import { RecordProjection } from './features/work-records/RecordProjection'
 import { Day2Workflow } from './features/workflow/Day2Workflow'
 import { AdaptiveDashboard, NotificationsScreen, ReportsScreen, SearchScreen, TasksScreen, WorkDefinitionsScreen, WorkflowAdminScreen } from './features/r1/R1Screens'
-import { getDocumentDownloadUrl, getReport as getR1Report, linkDocument as linkR1Document, listTasks as listR1Tasks, listWorkDefinitions as listR1Definitions, listWorkflowDefinitions as listR1Workflows, searchRecords as searchR1Records, transitionRequest } from './api/r1'
+import { getAuthorizedWorkRecord, getDocumentDownloadUrl, getReport as getR1Report, linkDocument as linkR1Document, listTasks as listR1Tasks, listWorkDefinitions as listR1Definitions, listWorkflowDefinitions as listR1Workflows, searchRecords as searchR1Records, transitionRequest } from './api/r1'
 
 type Locale = 'ar' | 'en'
 
@@ -75,6 +80,9 @@ const text = {
     welcomeBack: 'مرحباً بعودتك',
     loginGuidance: 'سجّل الدخول باستخدام حساب المنصة الداخلي.',
     internalAccess: 'دخول مخصص للحسابات الداخلية المعتمدة',
+    developmentAccounts: 'حسابات التطوير',
+    developmentAdmin: 'مدير: admin / Admin123!',
+    developmentEmployee: 'موظف: employee / Employee123!',
     usernameRequired: 'اسم المستخدم مطلوب.',
     passwordRequired: 'كلمة المرور مطلوبة.',
     showPassword: 'إظهار كلمة المرور',
@@ -106,6 +114,10 @@ const text = {
     searchScreen: 'البحث',
     reportsScreen: 'التقارير',
     notifications: 'الإشعارات',
+    profile: 'ملفي',
+    personalAccess: 'سياق الوصول الشخصي',
+    classificationPolicies: 'سياسات التصنيف',
+    fieldAccessTemplates: 'قوالب وصول الحقول',
     closeNotifications: 'إغلاق الإشعارات',
     logout: 'تسجيل الخروج',
     loadingRequests: 'جارٍ تحميل طلباتك…',
@@ -181,7 +193,7 @@ const text = {
   },
   en: {
     platform: 'Third Health Cluster Platform',
-    switchLanguage: 'العربية',
+    switchLanguage: 'AR',
     signIn: 'Sign in',
     username: 'Username',
     password: 'Password',
@@ -191,6 +203,9 @@ const text = {
     welcomeBack: 'Welcome back',
     loginGuidance: 'Sign in with your internal platform account.',
     internalAccess: 'Access is limited to approved internal accounts',
+    developmentAccounts: 'Development accounts',
+    developmentAdmin: 'Admin: admin / Admin123!',
+    developmentEmployee: 'Employee: employee / Employee123!',
     usernameRequired: 'Username is required.',
     passwordRequired: 'Password is required.',
     showPassword: 'Show password',
@@ -222,6 +237,10 @@ const text = {
     searchScreen: 'Search',
     reportsScreen: 'Reports',
     notifications: 'Notifications',
+    profile: 'My profile',
+    personalAccess: 'Personal access context',
+    classificationPolicies: 'Classification policies',
+    fieldAccessTemplates: 'Field access templates',
     closeNotifications: 'Close notifications',
     logout: 'Sign out',
     loadingRequests: 'Loading your requests…',
@@ -335,12 +354,15 @@ function initialLocale(): Locale {
 function App() {
   const [locale, setLocale] = useState<Locale>(initialLocale)
   const [session, setSession] = useState<Session | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [logoutError, setLogoutError] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
   const [view, setView] = useState<AppRoute>(() => routeFromPath(window.location.pathname))
   const [records, setRecords] = useState<WorkRecord[]>([])
   const [recordsLoading, setRecordsLoading] = useState(false)
   const [recordsError, setRecordsError] = useState(false)
   const [detail, setDetail] = useState<WorkRecord | null>(null)
+  const [authorizedDetail, setAuthorizedDetail] = useState<import('./api/r1').AuthorizedWorkRecord | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailState, setDetailState] = useState<'ready' | 'unavailable' | 'error'>('ready')
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -351,6 +373,10 @@ function App() {
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
   const notificationPanelRef = useRef<HTMLDivElement>(null)
   const copy = text[locale]
+
+  useEffect(() => {
+    void restoreSession().then(setSession).finally(() => setAuthChecked(true))
+  }, [])
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -372,11 +398,28 @@ function App() {
     setSession(null)
     setRecords([])
     setDetail(null)
+    setAuthorizedDetail(null)
     setNotifications([])
     setNotificationsOpen(false)
     setSessionExpired(true)
     window.history.replaceState({}, '', '/')
     setView({ name: 'list' })
+  }
+
+  async function logout() {
+    if (!session) return
+    setLogoutError(false)
+    try {
+      await identityLogout(session.csrf_token)
+      clearSessionMetadata()
+      setSession(null)
+      setRecords([])
+      setNotifications([])
+      window.history.replaceState({}, '', '/')
+      setView({ name: 'list' })
+    } catch {
+      setLogoutError(true)
+    }
   }
 
   async function refreshRecords(activeSession = session) {
@@ -456,6 +499,16 @@ function App() {
       .finally(() => setDetailLoading(false))
     // The selected record is loaded only from the authenticated backend.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [session, view])
+
+  useEffect(() => {
+    if (!session || view.name !== 'detail') return
+    void getAuthorizedWorkRecord(session.access_token, view.recordId)
+      .then(setAuthorizedDetail)
+      .catch((error: unknown) => {
+        setAuthorizedDetail(null)
+        if (error instanceof ApiError && error.status === 401) expireSession()
+      })
   }, [session, view])
 
   useEffect(() => {
@@ -497,6 +550,7 @@ function App() {
     window.requestAnimationFrame(() => notificationButtonRef.current?.focus())
   }
 
+  if (!authChecked) return <section className="state-panel" aria-live="polite"><p>{copy.signingIn}</p></section>
   if (!session) {
     return (
       <LoginScreen
@@ -512,7 +566,7 @@ function App() {
     )
   }
 
-  const facilityName = session.facility === 'facility-a' ? copy.facilityA : copy.facilityB
+  const facilityName = session.facility === 'facility-a' ? copy.facilityA : session.facility === 'facility-b' ? copy.facilityB : copy.platform
   const unreadNotifications = notifications.filter((notification) => !notification.is_read).length
   const navigationItem = (key: string, label: string, path: string, icon: SidebarNavigationGroup['items'][number]['icon'], active: boolean, route: AppRoute) => (
     { key, label, path, icon, active, onSelect: () => navigate(route, path) }
@@ -553,8 +607,11 @@ function App() {
         navigationItem('capabilities', copy.capabilities, '/admin/authorization/capabilities', <KeySquare />, view.name === 'authorization' && view.resource === 'capabilities', { name: 'authorization', resource: 'capabilities' }),
         navigationItem('role-assignments', copy.roleAssignments, '/admin/authorization/role-assignments', <UserCheck />, view.name === 'authorization' && view.resource === 'role-assignments', { name: 'authorization', resource: 'role-assignments' }),
         navigationItem('delegations', copy.delegations, '/admin/authorization/delegations', <Handshake />, view.name === 'authorization' && view.resource === 'delegations', { name: 'authorization', resource: 'delegations' }),
+        navigationItem('classification-policies', copy.classificationPolicies, '/admin/authorization/classification-policies', <ShieldCheck />, view.name === 'authorization' && view.resource === 'classification-policies', { name: 'authorization', resource: 'classification-policies' }),
+        navigationItem('field-access-templates', copy.fieldAccessTemplates, '/admin/authorization/field-access-templates', <KeySquare />, view.name === 'authorization' && view.resource === 'field-access-templates', { name: 'authorization', resource: 'field-access-templates' }),
         navigationItem('supervisory', copy.supervisoryRelationships, '/admin/relationships/supervisory', <GitBranch />, view.name === 'authorization' && view.resource === 'supervisory', { name: 'authorization', resource: 'supervisory' }),
         navigationItem('access-explanation', copy.accessExplanation, '/admin/authorization/explain', <ShieldQuestion />, view.name === 'access-explanation', { name: 'access-explanation' }),
+        navigationItem('personal-access', copy.personalAccess, '/me/access', <UserRound />, view.name === 'access-context', { name: 'access-context' }),
       ],
     },
     {
@@ -581,14 +638,9 @@ function App() {
         notificationsOpen={notificationsOpen}
         onLocaleChange={() => setLocale((current) => current === 'ar' ? 'en' : 'ar')}
         onNotificationsToggle={() => setNotificationsOpen((open) => !open)}
-        onLogout={() => {
-          setSession(null)
-          setRecords([])
-          setNotifications([])
-          window.history.replaceState({}, '', '/')
-          setView({ name: 'list' })
-        }}
+        onLogout={() => void logout()}
       >
+        {logoutError && <div className="state-panel" role="alert"><p>{locale === 'ar' ? 'تعذر تسجيل الخروج من الخادم.' : 'The server could not complete sign out.'}</p><button type="button" className="secondary-button" onClick={() => void logout()}>{copy.retry}</button></div>}
         {view.name === 'list' && (
           <RequestDashboard
             locale={locale}
@@ -605,7 +657,7 @@ function App() {
             onOpenNotifications={() => setNotificationsOpen(true)}
           />
         )}
-        {view.name === 'list' && <AdaptiveDashboard locale={locale} token={session.access_token} scopeId={session.facility} onSessionExpired={expireSession} />}
+        {view.name === 'list' && <AdaptiveDashboard locale={locale} token={session.access_token} scopeId={session.facility ?? ''} onSessionExpired={expireSession} />}
         {view.name === 'create' && (
           <RequestForm
             locale={locale}
@@ -625,6 +677,7 @@ function App() {
             record={detail}
             loading={detailLoading}
             state={detailState}
+            authorizedRecord={authorizedDetail}
             onRetry={() => setView({ ...view })}
             onSessionExpired={expireSession}
           />
@@ -664,6 +717,7 @@ function App() {
           />
         )}
         {view.name === 'authorization' && <AuthorizationAdmin locale={locale} token={session.access_token} resource={view.resource} onSessionExpired={expireSession} />}
+        {view.name === 'access-context' && <AccessContext locale={locale} token={session.access_token} onSessionExpired={expireSession} />}
         {view.name === 'access-explanation' && <AccessExplanation locale={locale} token={session.access_token} decisionId={view.decisionId} onSessionExpired={expireSession} />}
         {view.name === 'workflow-day2' && <Day2Workflow locale={locale} session={session} onSessionExpired={expireSession} />}
         {view.name === 'tasks' && <TasksScreen locale={locale} token={session.access_token} onSessionExpired={expireSession} />}
@@ -767,8 +821,7 @@ function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenticated }
     <main className="login-page" data-login-theme={theme}>
       <div className="login-page-actions">
         <button type="button" className="language-button" onClick={onLocaleChange}>
-          <Languages aria-hidden="true" />
-          <span>{copy.switchLanguage}</span>
+          <span>{copy.switchLanguage.slice(0, 2)}</span>
         </button>
         <button
           type="button"
@@ -1178,12 +1231,13 @@ function RequestForm({ locale, token, onSessionExpired, onCreated, onBack }: {
   )
 }
 
-function RequestDetail({ locale, token, record, loading, state, onRetry, onSessionExpired }: {
+function RequestDetail({ locale, token, record, loading, state, authorizedRecord, onRetry, onSessionExpired }: {
   locale: Locale
   token: string
   record: WorkRecord | null
   loading: boolean
   state: 'ready' | 'unavailable' | 'error'
+  authorizedRecord?: import('./api/r1').AuthorizedWorkRecord | null
   onRetry: () => void
   onSessionExpired: () => void
 }) {
@@ -1209,6 +1263,16 @@ function RequestDetail({ locale, token, record, loading, state, onRetry, onSessi
     try { await linkR1Document(token, record.id, documentId); setAttachedDocumentId(documentId); setActionState('done'); event.currentTarget.reset(); onRetry() }
     catch (error) { if (error instanceof ApiError && error.status === 401) onSessionExpired(); else setActionState(error instanceof ApiError && (error.status === 409 || error.status === 412) ? 'stale' : 'error') }
     finally { setBusy(false) }
+  }
+  if (authorizedRecord) {
+    return <RecordProjection
+      record={authorizedRecord}
+      locale={locale}
+      onRefresh={onRetry}
+      onAction={(action) => {
+        if (action === 'submit' || action === 'return' || action === 'complete') void act(action)
+      }}
+    />
   }
   return (
     <article className="detail-panel">

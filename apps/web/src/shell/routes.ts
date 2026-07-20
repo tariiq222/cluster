@@ -9,6 +9,8 @@ export type AppRoute =
   | { name: 'identity-accounts' }
   | { name: 'organization-import'; jobId?: string }
   | { name: 'authorization'; resource: 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'supervisory' }
+  | { name: 'authorization'; resource: 'classification-policies' | 'field-access-templates' }
+  | { name: 'access-context' }
   | { name: 'access-explanation'; decisionId?: string }
   | { name: 'workflow-day2' }
   | { name: 'tasks' }
@@ -34,8 +36,11 @@ export const primaryRoutes = [
   { route: { name: 'authorization', resource: 'capabilities' } as const, path: '/admin/authorization/capabilities' },
   { route: { name: 'authorization', resource: 'role-assignments' } as const, path: '/admin/authorization/role-assignments' },
   { route: { name: 'authorization', resource: 'delegations' } as const, path: '/admin/authorization/delegations' },
+  { route: { name: 'authorization', resource: 'classification-policies' } as const, path: '/admin/authorization/classification-policies' },
+  { route: { name: 'authorization', resource: 'field-access-templates' } as const, path: '/admin/authorization/field-access-templates' },
   { route: { name: 'authorization', resource: 'supervisory' } as const, path: '/admin/relationships/supervisory' },
   { route: { name: 'access-explanation' } as const, path: '/admin/authorization/explain' },
+  { route: { name: 'access-context' } as const, path: '/me/access' },
   { route: { name: 'workflow-day2' } as const, path: '/admin/workflow/day2' },
   { route: { name: 'tasks' } as const, path: '/tasks' },
   { route: { name: 'work-definitions' } as const, path: '/admin/work-definitions' },
@@ -70,9 +75,10 @@ export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/admin/imports/organization') {
     return { name: 'organization-import' }
   }
-  const authorizationMatch = pathname.match(/^\/admin\/authorization\/(roles|capabilities|role-assignments|delegations)$/)
-  if (authorizationMatch) return { name: 'authorization', resource: authorizationMatch[1] as 'roles' | 'capabilities' | 'role-assignments' | 'delegations' }
+  const authorizationMatch = pathname.match(/^\/admin\/authorization\/(roles|capabilities|role-assignments|delegations|classification-policies|field-access-templates)$/)
+  if (authorizationMatch) return { name: 'authorization', resource: authorizationMatch[1] as 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'classification-policies' | 'field-access-templates' }
   if (pathname === '/admin/relationships/supervisory') return { name: 'authorization', resource: 'supervisory' }
+  if (pathname === '/me/access') return { name: 'access-context' }
   if (pathname === '/admin/workflow/day2') return { name: 'workflow-day2' }
   if (pathname === '/tasks') return { name: 'tasks' }
   if (pathname === '/admin/work-definitions') return { name: 'work-definitions' }
