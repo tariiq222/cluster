@@ -3,8 +3,8 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 5.7.0
-date: 2026-07-19
+version: 5.8.0
+date: 2026-07-20
 owner: التنفيذ التقني
 reviewers: []
 classification: internal
@@ -27,6 +27,12 @@ references:
   المراجعة أثبتت أن `DecideAccess` مربوط بـ`FixtureFacilityDecision` وأن
   `RbacAbacDecideAccess` وإدارة RoleCapability والنطاقات وسياسات الحقول لا تقود
   الوصول التشغيلي كاملاً. خطة الإقفال في `release-1/w1-3-frontend-slices.md`.
+- **Stage 0 من إقفال W1.3 منفذ جزئياً ولم يُغلق بعد**: دُمجت commits
+  `6fc1e36` و`f7d0f4b` و`da64419` للحقائق الموثوقة وحفظ القرارات وBootstrap
+  وعزل الإدارة. إصلاحات التكامل اللاحقة موجودة في مساحة العمل لكنها غير معتمدة؛
+  آخر بوابة مركزة كانت 21/24 ثم أعيد فتح ثلاث حالات في رحلة W1.3 تخص تماسك
+  projection وexplanation وrole deny. لا يعد Stage 0 مكتملاً قبل إخضرار المجموعة
+  المركزة و`make verify-boundaries`.
 - **W1.4–W1.7 مكتملة**: إنشاء ونشر WorkDefinition وWorkflow، تثبيت الإصدار،
   إنشاء WorkRecord وإرساله وإعادته، وإنشاء Task وإكمالها مثبتة ببوابة
   `make verify-day2` الخضراء.
@@ -72,6 +78,7 @@ Strategy الكاملة وPortfolioProjects وربط الأثر وفق
 | 2026-07-19 | دفع `main@92a4cb6` ثم `make verify-w1-1-local` و`make verify-day2` و`make scan-secrets` | أصلح احمرار CI: أسماء فهارس MySQL فوق 64 حرفاً، ترتيب ترحيل العلاقات الإشرافية، صلاحية triggers مع binlog، مواءمة `login.spec.ts` مع تصميم Frontman، واستثناءات gitleaks لقيم اختبارية؛ حزمة الإنتاج ورحلاتها خضراء محلياً |
 | 2026-07-19 | `work-day3-r1@098b78af` ثم الدمج في `main@99a25db`؛ `make verify-day3` و`make verify-w1-1-local` و`make scan-secrets` و`./scripts/validate-docs.sh`؛ CI ‏`29681030768` | أغلقت W1.8–W1.10 واكتمل R1: رحلة W1.3–W1.10 تعمل بالعربية RTL والإنجليزية LTR من إنشاء النوع والمسار إلى المستند والإشعار والبحث والتقرير واللوحة ضمن النطاق |
 | 2026-07-19 | `work-screens-r1`؛ `make verify-screens` و`make verify-w1-1-local` و`make scan-secrets` و`./scripts/validate-docs.sh` | أغلقت فجوة شاشات R1 بعقد Orval مولّد وشاشات RTL/LTR واختبارات API/Web/E2E وبوابة MySQL المحلية الخضراء |
+| 2026-07-20 | Stage 0 commits `6fc1e36` و`f7d0f4b` و`da64419`؛ آخر تشغيل مركز `php artisan test Modules/Authorization/Tests/AuthorizationPolicyAdminHttpAdapterTest.php tests/Feature/SecurityJourneyW13Test.php` | نُفذت الحقائق الموثوقة وBootstrap وعزل الإدارة، لكن الإصلاح المتكامل غير معتمد بعد؛ التالي إغلاق حالات role deny وSearch/Reporting projection وaccess-decision explanation، ثم تشغيل المجموعة المركزة و`make verify-boundaries` قبل module facts adapters وOpenAPI/Orval |
 
 ## قاعدة التحديث
 
@@ -82,6 +89,7 @@ Strategy الكاملة وPortfolioProjects وربط الأثر وفق
 
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
+| 5.8.0 | 2026-07-20 | تسجيل حالة Stage 0 الفعلية: commits المدمجة، بوابة التحقق غير الخضراء، والحالات الثلاث التالية قبل module facts adapters وOpenAPI/Orval |
 | 5.7.0 | 2026-07-19 | توثيق توسعة R2 إلى دورة Strategy الكاملة، وإدخال تقوية Tasks قبلها، وفصل PortfolioProjects وربط الأثر ضمن ترتيب التنفيذ النشط |
 | 5.6.0 | 2026-07-19 | إعادة فتح W1.3 تكاملياً بعد مراجعة ربط محرك القرار، ووضع إقفال Authorization قبل R2 مع بقاء دليل الرحلة الوظيفية محفوظاً |
 | 5.5.0 | 2026-07-19 | إغلاق فجوة شاشات R1 وربطها كاملة بعميل Orval المولّد وإضافة بوابة `verify-screens` |
