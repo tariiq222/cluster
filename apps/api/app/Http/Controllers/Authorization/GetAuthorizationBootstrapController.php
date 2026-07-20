@@ -30,6 +30,10 @@ final class GetAuthorizationBootstrapController
             return AuthorizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
 
-        return response()->json(['data' => $this->bootstrap->current()])->header('X-Correlation-ID', $correlationId);
+        $state = $this->bootstrap->current();
+
+        return response()->json(['data' => $state])
+            ->header('X-Correlation-ID', $correlationId)
+            ->header('ETag', '"'.(string) $state['version'].'"');
     }
 }

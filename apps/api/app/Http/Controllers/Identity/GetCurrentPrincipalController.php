@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Identity;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Infrastructure\Persistence\ListActiveRoleSummariesForUser;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Identity\Http\IdentityApi;
@@ -32,7 +31,7 @@ final class GetCurrentPrincipalController
             return IdentityApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
 
-        $tenantId = $context->clusterIds[0] ?? $this->fallbackTenantId();
+        $tenantId = $context->clusterIds[0] ?? null;
         if ($tenantId === null) {
             return IdentityApi::problem(403, 'scope-unavailable', 'Forbidden', 'No organizational scope is available for the current principal.', $correlationId);
         }
@@ -50,10 +49,4 @@ final class GetCurrentPrincipalController
         ])->header('X-Correlation-ID', $correlationId);
     }
 
-    private function fallbackTenantId(): ?string
-    {
-        $id = DB::table('clusters')->orderBy('code')->value('id');
-
-        return is_string($id) ? $id : null;
-    }
 }

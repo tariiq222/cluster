@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Providers\AppServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
+use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\DevelopmentFixturePrincipalResolver;
@@ -23,7 +24,7 @@ final class ProductionAuthorizationBindingTest extends TestCase
         $this->putEnv('production');
         $this->refreshApplication();
 
-        $this->assertInstanceOf(RbacAbacDecideAccess::class, $this->app->make(DecideAccess::class));
+        $this->assertInstanceOf(BootstrapGatedDecideAccess::class, $this->app->make(DecideAccess::class));
         $this->assertNotInstanceOf(FixtureFacilityDecision::class, $this->app->make(DecideAccess::class));
 
         $principal = $this->app->make(ResolveDevelopmentFixturePrincipal::class);

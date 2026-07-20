@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Authorization;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Http\AuthorizationApi;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationBootstrapState;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Identity\Contracts\ResolveAccountEntitlement;
 
 /**
  * POST /api/v1/authorization/bootstrap/complete — ends the bootstrap window
@@ -18,6 +18,7 @@ final class CompleteAuthorizationBootstrapController
 {
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
+        private readonly ResolveAccountEntitlement $accountEntitlements,
         private readonly AuthorizationBootstrapState $bootstrap,
     ) {}
 
@@ -33,11 +34,11 @@ final class CompleteAuthorizationBootstrapController
             return AuthorizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
 
-        $account = DB::table('users')->where('id', $principal['user_id'])->first(['status', 'is_admin']);
-        if ($account === null) {
+        $entitlement = $this->accountEntitlements->resolve($principal['user_id']);
+        if ($entitlement === null) {
             return AuthorizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if ($account->status !== 'active' || ! (bool) $account->is_admin) {
+        if (! $entitlement['active'] || ! $entitlement['administrator']) {
             return AuthorizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }
 
@@ -62,6 +63,8 @@ final class CompleteAuthorizationBootstrapController
             return AuthorizationApi::problem(409, 'authorization-conflict', 'Conflict', 'The authorization bootstrap is already complete or the key was reused.', $correlationId);
         }
 
-        return response()->json(['data' => $result['payload']], 200)->header('X-Correlation-ID', $correlationId);
+        return response()->json(['data' => $result['payload']], 200)
+            ->header('X-Correlation-ID', $correlationId)
+            ->header('ETag', '"'.(string) $result['payload']['version'].'"');
     }
 }

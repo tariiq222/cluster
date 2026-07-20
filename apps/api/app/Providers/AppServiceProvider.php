@@ -18,6 +18,7 @@ use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
+use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
@@ -52,6 +53,7 @@ use Modules\Documents\Infrastructure\Storage\S3\SigV4RequestSigner;
 use Modules\Documents\Infrastructure\Storage\UnavailablePrivateObjectStorage;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
+use Modules\Identity\Contracts\ResolveAccountEntitlement;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
 use Modules\Identity\Features\Activation\Handler\ActivationHandler;
 use Modules\Identity\Features\Authentication\Contracts\AuthenticateUser;
@@ -64,6 +66,7 @@ use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
 use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
+use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
@@ -102,9 +105,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(DecideAccess::class, fn ($app): DecideAccess => new RbacAbacDecideAccess(
+        $this->app->bind(RbacAbacDecideAccess::class, fn ($app): RbacAbacDecideAccess => new RbacAbacDecideAccess(
             $app->make(GetActiveSupervisoryRelationships::class),
+            $app->bound(\Modules\Authorization\Contracts\PersistAccessDecision::class)
+                ? $app->make(\Modules\Authorization\Contracts\PersistAccessDecision::class)
+                : null,
         ));
+        $this->app->bind(DecideAccess::class, BootstrapGatedDecideAccess::class);
         $this->app->bind(ResolvePublishedRequestFixture::class, ResolvePublishedRequestFixtureFromPersistence::class);
         $this->app->bind(ResolvePublishedWorkDefinition::class, ResolvePublishedWorkDefinitionFromPersistence::class);
         $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
@@ -115,6 +122,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ResolvePersonOrganizationScope::class, DatabaseResolvePersonOrganizationScope::class);
         $this->app->bind(ResolveOrganizationScopeAncestry::class, DatabaseResolveOrganizationScopeAncestry::class);
         $this->app->bind(ResolvePrincipalContext::class, SessionPrincipalContextResolver::class);
+        $this->app->bind(ResolveAccountEntitlement::class, DatabaseResolveAccountEntitlement::class);
         $this->app->bind(AuthenticateUser::class, AuthenticationHandler::class);
         $this->app->bind(PreAuthThrottle::class, PersistentPreAuthThrottle::class);
         $this->app->bind(IssueActivationToken::class, ActivationHandler::class);
@@ -272,7 +280,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
         $this->commands([ExpireTemporaryAssignmentsCommand::class]);
 
-        if ($this->documentsProduction()) {
+        if ($this->authorizationProduction()) {
             $this->assertAuthorizationRuntimeSafe();
         }
 
@@ -308,6 +316,11 @@ class AppServiceProvider extends ServiceProvider
             && ! str_contains(implode(' ', $arguments), 'phpunit');
     }
 
+    private function authorizationProduction(): bool
+    {
+        return app()->environment('production') && ! app()->runningUnitTests();
+    }
+
     private function documentsRuntimeEnabled(): bool
     {
         return $this->documentsProduction()
@@ -322,7 +335,7 @@ class AppServiceProvider extends ServiceProvider
     {
         /** @var DecideAccess $engine */
         $engine = $this->app->make(DecideAccess::class);
-        if (! $engine instanceof RbacAbacDecideAccess) {
+        if (! $engine instanceof BootstrapGatedDecideAccess || ! $engine->usesProductionEngine()) {
             throw new \RuntimeException('Production must bind DecideAccess to the RBAC+ABAC engine.');
         }
 

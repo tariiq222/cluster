@@ -41,6 +41,8 @@ return new class extends Migration
             $table->uuid('capability_id');
             $table->string('effect', 8)->default('allow');
             $table->dateTime('created_at', 3);
+            $table->dateTime('updated_at', 3);
+            $table->unsignedInteger('lock_version')->default(1);
 
             $table->primary(['role_id', 'capability_id'], 'role_capabilities_primary');
             $table->foreign('role_id', 'role_capabilities_role_foreign')
