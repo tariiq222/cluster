@@ -42,7 +42,7 @@ final class CreateUserAccountController
             return IdentityApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
         if (! $this->access->decide($principal, 'identity.account.manage', new RecordFacts(
-            ownerFacilityId: null,
+            ownerFacilityId: $principal['facility_id'],
             resourceType: 'identity_account',
             classification: 'confidential',
         ))->isAllowed()) {

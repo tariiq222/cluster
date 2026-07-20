@@ -5,10 +5,14 @@ namespace App\Http\Authentication;
 use App\Http\Middleware\IdentityRequestAttributes;
 use Illuminate\Http\Request;
 use LogicException;
+use Modules\Identity\Contracts\PrincipalContext;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Identity\Contracts\ResolvePrincipalContext;
 
 final class SessionPrincipalResolver implements ResolveDevelopmentFixturePrincipal
 {
+    public function __construct(private readonly ?ResolvePrincipalContext $principalContexts = null) {}
+
     public function issue(array $principal): array
     {
         throw new LogicException('Production session principals cannot issue development bearer tokens.');
@@ -16,6 +20,11 @@ final class SessionPrincipalResolver implements ResolveDevelopmentFixturePrincip
 
     public function resolve(Request $request): ?array
     {
+        $legacy = $this->principalContext($request)?->toLegacyArray();
+        if ($legacy !== null && is_string($legacy['facility_id'])) {
+            return $legacy;
+        }
+
         $principal = $request->attributes->get(IdentityRequestAttributes::PRINCIPAL);
         $session = $request->attributes->get(IdentityRequestAttributes::SESSION);
         $organizationUnitId = config('identity.authorization.default_organization_unit_id');
@@ -32,5 +41,10 @@ final class SessionPrincipalResolver implements ResolveDevelopmentFixturePrincip
             'user_id' => $principal['user_id'],
             'facility_id' => $organizationUnitId,
         ];
+    }
+
+    public function principalContext(Request $request): ?PrincipalContext
+    {
+        return $this->principalContexts?->resolve($request);
     }
 }

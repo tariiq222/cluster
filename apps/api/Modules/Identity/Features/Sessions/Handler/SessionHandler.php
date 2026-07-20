@@ -191,6 +191,21 @@ final class SessionHandler implements ResolveSession
         return hash_equals($session['csrf_token_hash'], hash('sha256', $rawCsrfToken));
     }
 
+    public function rotateCsrf(string $sessionId): string
+    {
+        return DB::transaction(function () use ($sessionId): string {
+            $token = bin2hex(random_bytes(32));
+            $updated = DB::table('identity_sessions')->where('id', $sessionId)->whereNull('revoked_at')->update([
+                'csrf_token_hash' => hash('sha256', $token),
+                'updated_at' => now(),
+            ]);
+            if ($updated !== 1) {
+                throw new AuthenticationFailed;
+            }
+            return $token;
+        });
+    }
+
     public function revoke(string $sessionId, string $reasonCode = 'manual_logout'): void
     {
         DB::transaction(function () use ($sessionId, $reasonCode): void {

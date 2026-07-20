@@ -186,6 +186,13 @@ final class W12E2EFixtureSeeder
             'updated_at' => now(),
         ]);
 
+        $this->grantJourneyOperatorRole(self::BOOTSTRAP_ADMIN_ID, (string) $unit['id']);
+        $identityAccountId = DB::table('users')->where('username', $username)->value('id');
+        if (is_string($identityAccountId)) {
+            $this->grantJourneyOperatorRole($identityAccountId, self::FIXTURE_FACILITY_ID);
+            $this->grantJourneyOperatorRole($identityAccountId, (string) $unit['id']);
+        }
+
         return [
             'identity_username' => $username,
             'identity_password' => $password,
@@ -196,6 +203,41 @@ final class W12E2EFixtureSeeder
             'temporary_assignment_unit_id' => $unit['id'],
             'temporary_assignment_capability' => 'records.read',
         ];
+    }
+
+    /**
+     * Grants the seeded journey operator role (DevelopmentJourneyAuthorizationSeeder)
+     * to a user at one facility scope. No-op when the role is absent so the
+     * fixture stays usable standalone.
+     */
+    private function grantJourneyOperatorRole(string $userId, string $scopeId): void
+    {
+        $roleId = DB::table('roles')->where('code', 'journey.r1-operator')->value('id');
+        if (! is_string($roleId)) {
+            return;
+        }
+        $exists = DB::table('role_assignments')
+            ->where('user_id', $userId)
+            ->where('role_id', $roleId)
+            ->where('scope_id', $scopeId)
+            ->where('status', 'active')
+            ->exists();
+        if ($exists) {
+            return;
+        }
+        DB::table('role_assignments')->insert([
+            'id' => Str::uuid7()->toString(),
+            'user_id' => $userId,
+            'role_id' => $roleId,
+            'scope_type' => 'facility',
+            'scope_id' => $scopeId,
+            'start_at' => '2026-01-01 00:00:00.000',
+            'end_at' => null,
+            'status' => 'active',
+            'granted_by_user_id' => self::BOOTSTRAP_ADMIN_ID,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /** @param array<string, mixed> $input @return array{principal_id: string, operation: string, key_hash: string, request_hash: string} */

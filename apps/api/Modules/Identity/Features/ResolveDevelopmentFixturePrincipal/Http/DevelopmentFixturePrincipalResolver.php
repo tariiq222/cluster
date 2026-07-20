@@ -7,10 +7,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Identity\Contracts\ResolvePrincipalContext;
 
 final class DevelopmentFixturePrincipalResolver implements ResolveDevelopmentFixturePrincipal
 {
     private const TOKEN_TTL_MINUTES = 120;
+
+    public function __construct(private readonly ?ResolvePrincipalContext $principalContexts = null) {}
 
     /**
      * @param  array{user_id: string, facility_id: string}  $principal
@@ -39,6 +42,19 @@ final class DevelopmentFixturePrincipalResolver implements ResolveDevelopmentFix
     public function resolve(Request $request): ?array
     {
         abort_unless(app()->environment(['local', 'testing']), 404);
+
+        // Protected session routes use this legacy interface in existing
+        // adapters, but must receive the server-derived identity whenever the
+        // session middleware has authenticated the request. Never let a
+        // client bearer override a validated session principal.
+        $sessionPrincipal = $this->principalContexts?->resolve($request)?->toLegacyArray();
+        if ($sessionPrincipal !== null && is_string($sessionPrincipal['facility_id'])) {
+            return $sessionPrincipal;
+        }
+
+        if ($request->attributes->get('identity.session_only') === true) {
+            return null;
+        }
 
         $token = $request->bearerToken();
         if (! is_string($token) || preg_match('/\A[A-Za-z0-9]{64}\z/', $token) !== 1) {

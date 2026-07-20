@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
@@ -138,6 +139,180 @@ class DevelopmentFixtureLoginTest extends TestCase
                 ->assertUnauthorized();
             $this->assertFalse(Cache::store('file')->has($cacheKey));
         }
+    }
+
+    public function test_fixture_bearer_cannot_cross_the_session_only_work_record_path(): void
+    {
+        $token = $this->loginToken();
+
+        $this->withToken($token)
+            ->getJson('/api/v1/work-records', $this->headers())
+            ->assertUnauthorized();
+    }
+
+    public function test_identity_cookie_can_access_the_session_only_work_record_path(): void
+    {
+        Artisan::call('e2e:w1-2:seed');
+        $fixture = json_decode(trim(Artisan::output()), true, 16, JSON_THROW_ON_ERROR);
+        $login = $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1', 'HTTP_USER_AGENT' => 'security-test'])
+            ->postJson('/api/v1/identity/login', [
+            'username' => $fixture['identity_username'],
+            'password' => $fixture['identity_password'],
+        ], $this->headers())->assertOk();
+
+        $this->assertCount(1, $login->headers->getCookies());
+        $cookie = $login->headers->getCookies()[0]->getValue();
+        $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+            ->getJson('/api/v1/work-records', $this->headers())
+            ->assertOk();
+    }
+
+    public function test_identity_cookie_reaches_the_session_only_authorization_path(): void
+    {
+        Artisan::call('e2e:w1-2:seed');
+        $fixture = json_decode(trim(Artisan::output()), true, 16, JSON_THROW_ON_ERROR);
+        $login = $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1', 'HTTP_USER_AGENT' => 'security-test'])
+            ->postJson('/api/v1/identity/login', [
+            'username' => $fixture['identity_username'],
+            'password' => $fixture['identity_password'],
+        ], $this->headers())->assertOk();
+
+        $this->assertCount(1, $login->headers->getCookies());
+        $this->withUnencryptedCookie('cluster_identity_session', $login->headers->getCookies()[0]->getValue())
+            ->getJson('/api/v1/authorization/bootstrap', $this->headers())
+            ->assertStatus(200);
+    }
+
+    public function test_cookie_session_is_used_across_web_used_r1_route_groups(): void
+    {
+        [$cookie, $csrf] = $this->identityCookie();
+        $headers = [...$this->headers(), 'X-CSRF-Token' => $csrf];
+
+        foreach ([
+            '/api/v1/notifications',
+            '/api/v1/search?query=journey',
+            '/api/v1/reports',
+            '/api/v1/dashboards',
+            '/api/v1/organization/cluster',
+            '/api/v1/identity/accounts',
+            '/api/v1/tasks',
+            '/api/v1/work-definitions',
+            '/api/v1/workflow/definitions',
+            '/api/v1/documents',
+        ] as $uri) {
+            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+                ->getJson($uri, $headers);
+
+            $this->assertNotSame(401, $response->status(), $uri.' must use the Identity session path.');
+            $this->assertNotSame(403, $response->status(), $uri.' must use the Identity session path.');
+        }
+    }
+
+    public function test_cookie_mutation_requires_csrf_and_accepts_valid_csrf_proof(): void
+    {
+        [$cookie, $csrf] = $this->identityCookie();
+        $uri = '/api/v1/organization/cluster';
+
+        $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+            ->postJson($uri, [], $this->headers())
+            ->assertForbidden()
+            ->assertJsonPath('type', 'https://cluster.example/problems/csrf-failed');
+
+        $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+            ->postJson($uri, [], [...$this->headers(), 'X-CSRF-Token' => $csrf]);
+
+        $this->assertNotSame('https://cluster.example/problems/csrf-failed', $response->json('type'));
+    }
+
+    public function test_legacy_fixture_bearer_cannot_cross_remaining_r1_route_groups(): void
+    {
+        $token = $this->loginToken();
+
+        foreach ([
+            '/api/v1/notifications',
+            '/api/v1/search?query=journey',
+            '/api/v1/reports',
+            '/api/v1/dashboards',
+            '/api/v1/organization/cluster',
+            '/api/v1/identity/accounts',
+            '/api/v1/tasks',
+            '/api/v1/work-definitions',
+            '/api/v1/workflow/definitions',
+            '/api/v1/documents',
+        ] as $uri) {
+            $this->withToken($token)
+                ->getJson($uri, $this->headers())
+                ->assertUnauthorized();
+        }
+    }
+
+    public function test_cookie_session_and_csrf_cover_final_r1_route_groups(): void
+    {
+        [$cookie, $csrf] = $this->identityCookie();
+        $headers = [...$this->headers(), 'X-CSRF-Token' => $csrf];
+
+        foreach ([
+            '/api/v1/work-definitions',
+            '/api/v1/workflow/definitions',
+            '/api/v1/workflow/instances',
+            '/api/v1/tasks',
+            '/api/v1/documents',
+            '/api/v1/reports',
+            '/api/v1/dashboards',
+        ] as $uri) {
+            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+                ->getJson($uri, $headers);
+            $this->assertNotSame(401, $response->status(), $uri.' must accept the server session.');
+        }
+
+        foreach ([
+            '/api/v1/work-definitions',
+            '/api/v1/workflow/definitions',
+            '/api/v1/workflow/instances',
+            '/api/v1/tasks',
+            '/api/v1/documents',
+        ] as $uri) {
+            $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+                ->postJson($uri, [], $this->headers())
+                ->assertForbidden()
+                ->assertJsonPath('type', 'https://cluster.example/problems/csrf-failed');
+
+            $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)
+                ->postJson($uri, [], $headers);
+            $this->assertNotSame('https://cluster.example/problems/csrf-failed', $response->json('type'), $uri.' rejected valid CSRF.');
+        }
+
+        $token = $this->loginToken();
+        foreach ([
+            '/api/v1/work-definitions',
+            '/api/v1/workflow/definitions',
+            '/api/v1/workflow/instances',
+            '/api/v1/tasks',
+            '/api/v1/documents',
+            '/api/v1/reports',
+            '/api/v1/dashboards',
+        ] as $uri) {
+            $this->withToken($token)->getJson($uri, $this->headers())->assertUnauthorized();
+        }
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function identityCookie(): array
+    {
+        Artisan::call('e2e:w1-2:seed');
+        $fixture = json_decode(trim(Artisan::output()), true, 16, JSON_THROW_ON_ERROR);
+        $login = $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1', 'HTTP_USER_AGENT' => 'security-test'])
+            ->postJson('/api/v1/identity/login', [
+                'username' => $fixture['identity_username'],
+                'password' => $fixture['identity_password'],
+            ], $this->headers())->assertOk();
+
+        $this->assertCount(1, $login->headers->getCookies());
+
+        return [
+            $login->headers->getCookies()[0]->getValue(),
+            (string) $login->json('data.csrf_token'),
+        ];
     }
 
     private function loginToken(): string
