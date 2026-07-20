@@ -4,6 +4,7 @@ namespace Modules\Identity\Tests;
 
 use App\Http\Controllers\Identity\SelectMyScopeController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Contracts\PrincipalContext;
@@ -96,7 +97,7 @@ final class ScopeSelectionHttpAdapterTest extends TestCase
 
 final class FakeScopePrincipalContext implements ResolvePrincipalContext
 {
-    public function resolve(\Illuminate\Http\Request $request): ?PrincipalContext
+    public function resolve(Request $request): ?PrincipalContext
     {
         $request->attributes->set('identity.session', ['session_id' => ScopeSelectionHttpAdapterTest::SESSION_ID]);
 
@@ -113,12 +114,10 @@ final class FakeScopePrincipalContext implements ResolvePrincipalContext
         );
     }
 
-    public function resolveSelectedScope(\Illuminate\Http\Request $request): ?array
+    public function resolveSelectedScope(Request $request): ?array
     {
         return null;
     }
 
-    public function persistSelectedScope(\Illuminate\Http\Request $request, string $scopeType, string $scopeId): void
-    {
-    }
+    public function persistSelectedScope(Request $request, string $scopeType, string $scopeId): void {}
 }

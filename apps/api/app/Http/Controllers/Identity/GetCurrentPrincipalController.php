@@ -48,5 +48,4 @@ final class GetCurrentPrincipalController
             'correlation_id' => $correlationId,
         ])->header('X-Correlation-ID', $correlationId);
     }
-
 }

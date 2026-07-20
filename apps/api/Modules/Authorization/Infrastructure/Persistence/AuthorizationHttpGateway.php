@@ -6,7 +6,6 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Modules\Authorization\Contracts\CapabilityCatalog;
@@ -16,6 +15,7 @@ use Modules\Authorization\Domain\ExplicitDeny;
 use Modules\Authorization\Domain\Role;
 use Modules\Authorization\Domain\RoleAssignment;
 use Modules\Authorization\Domain\UuidV7;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 
 final class AuthorizationHttpGateway
 {
@@ -590,6 +590,9 @@ final class AuthorizationHttpGateway
         if (array_key_exists('end_at', $changes) && $changes['end_at'] !== null) {
             $changes['end_at'] = $this->databaseUtc($this->domainUtc((string) $changes['end_at']));
         }
+        if ($resource === 'explicit-denies' && array_key_exists('expires_at', $changes) && $changes['expires_at'] !== null) {
+            $changes['expires_at'] = $this->databaseUtc($this->domainUtc((string) $changes['expires_at']));
+        }
 
         return $changes;
     }
@@ -631,12 +634,12 @@ final class AuthorizationHttpGateway
         return $values;
     }
 
-
     private function applyActorScope(Builder $query, string $resource, string $actorUserId): void
     {
         $scopes = $this->actorScopes($actorUserId);
         if ($scopes === []) {
             $query->whereRaw('1 = 0');
+
             return;
         }
         match ($resource) {
@@ -654,6 +657,7 @@ final class AuthorizationHttpGateway
     private function actorScopes(string $actorUserId): array
     {
         $now = now()->utc();
+
         return DB::table('role_assignments')
             ->where('user_id', $actorUserId)->where('status', 'active')
             ->where('start_at', '<=', $now)
@@ -662,7 +666,6 @@ final class AuthorizationHttpGateway
                 'scope_type' => (string) $row->scope_type, 'scope_id' => (string) $row->scope_id,
             ])->all();
     }
-
 
     /** @param list<array{scope_type:string,scope_id:string}> $scopes */
     private function applyDirectScopePredicate(Builder $query, array $scopes): void
@@ -691,7 +694,8 @@ final class AuthorizationHttpGateway
         }
         $query->where(function (Builder $candidate) use ($ids, $actorUserId): void {
             $candidate->whereIn('organization_unit_id', array_values(array_unique($ids)))
-                ->orWhere('user_id', $actorUserId);
+                ->orWhere('user_id', $actorUserId)
+                ->orWhere('issued_by_user_id', $actorUserId);
         });
     }
 
@@ -768,6 +772,7 @@ final class AuthorizationHttpGateway
                 }
             }
         }
+
         return $descendants;
     }
 

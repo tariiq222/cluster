@@ -57,6 +57,10 @@ readonly API_ENV=(
 )
 
 (cd "$API_DIR" && env "${API_ENV[@]}" php artisan migrate:fresh --force && env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force) >>"$LOG_FILE" 2>&1
+# The production binding gates every non-setup decision behind the authorization
+# bootstrap lifecycle. The journey fixtures model an already-bootstrapped
+# environment, so close the window exactly like the feature harness does.
+(cd "$API_DIR" && env "${API_ENV[@]}" php artisan tinker --execute="DB::table('authorization_bootstrap')->update(['state' => 'complete', 'completed_by_user_id' => \\Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, 'completed_at' => now(), 'lock_version' => 2, 'updated_at' => now()]);") >>"$LOG_FILE" 2>&1
 (
   cd "$API_DIR"
   exec env "${API_ENV[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT"

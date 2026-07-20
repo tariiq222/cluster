@@ -43,7 +43,7 @@ final class DatabasePersistAccessDecision implements PersistAccessDecision
                     'evaluated_at' => $now,
                     'correlation_id' => $correlationId,
                     'classification' => $decision->classification,
-                    'access_context' => json_encode($this->sanitizedContext($userId, $actor), JSON_THROW_ON_ERROR),
+                    'access_context' => json_encode($this->sanitizedContext($userId, $actor, $facts), JSON_THROW_ON_ERROR),
                     'actor_user_id' => $userId,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -81,7 +81,7 @@ final class DatabasePersistAccessDecision implements PersistAccessDecision
     }
 
     /** @return array<string, string|list<string>> */
-    private function sanitizedContext(string $userId, array $actor): array
+    private function sanitizedContext(string $userId, array $actor, ?RecordFacts $facts = null): array
     {
         $context = ['user_id' => $userId];
         if (is_string($actor['facility_id'] ?? null) && trim($actor['facility_id']) !== '') {
@@ -92,6 +92,12 @@ final class DatabasePersistAccessDecision implements PersistAccessDecision
                 $actor['organization_unit_ids'],
                 static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
             ));
+        }
+        if ($facts !== null && is_string($facts->ownerFacilityId) && trim($facts->ownerFacilityId) !== '') {
+            $context['resource_facility_id'] = $facts->ownerFacilityId;
+        }
+        if ($facts !== null && is_string($facts->organizationUnitId) && trim($facts->organizationUnitId) !== '') {
+            $context['resource_organization_unit_id'] = $facts->organizationUnitId;
         }
 
         return $context;

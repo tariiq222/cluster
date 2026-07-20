@@ -18,9 +18,9 @@ use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\PersistAccessDecision;
-use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
+use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
@@ -53,9 +53,9 @@ use Modules\Documents\Infrastructure\Storage\S3\S3QuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\S3\S3RequestExecutor;
 use Modules\Documents\Infrastructure\Storage\S3\SigV4RequestSigner;
 use Modules\Documents\Infrastructure\Storage\UnavailablePrivateObjectStorage;
+use Modules\Identity\Contracts\ResolveAccountEntitlement;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
-use Modules\Identity\Contracts\ResolveAccountEntitlement;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
 use Modules\Identity\Features\Activation\Handler\ActivationHandler;
 use Modules\Identity\Features\Authentication\Contracts\AuthenticateUser;
@@ -66,9 +66,9 @@ use Modules\Identity\Features\Credentials\Handler\CredentialHandler;
 use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\DevelopmentFixturePrincipalResolver;
 use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Features\Sessions\Handler\SessionHandler;
+use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
 use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
-use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
@@ -110,8 +110,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PersistAccessDecision::class, DatabasePersistAccessDecision::class);
         $this->app->bind(RbacAbacDecideAccess::class, fn ($app): RbacAbacDecideAccess => new RbacAbacDecideAccess(
             $app->make(GetActiveSupervisoryRelationships::class),
-            $app->bound(\Modules\Authorization\Contracts\PersistAccessDecision::class)
-                ? $app->make(\Modules\Authorization\Contracts\PersistAccessDecision::class)
+            $app->bound(PersistAccessDecision::class)
+                ? $app->make(PersistAccessDecision::class)
                 : null,
         ));
         $this->app->bind(DecideAccess::class, BootstrapGatedDecideAccess::class);

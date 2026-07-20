@@ -4,9 +4,8 @@ namespace Tests\Feature;
 
 use App\Providers\AppServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
-use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
+use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\DevelopmentFixturePrincipalResolver;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;

@@ -114,6 +114,7 @@ final class ValidateGrantAuthority
         if ($grantStart === null || $start === null || ($endAt !== null && $end === null)) {
             return false;
         }
+
         return $grantStart <= $start
             && ($end === null ? $grantEnd === null : ($grantEnd === null || $grantEnd >= $end));
     }
@@ -131,6 +132,7 @@ final class ValidateGrantAuthority
         if ($grantRank < 0 || $requestedRank < 0 || $requestedRank >= $grantRank) {
             return false;
         }
+
         return match ($grantType) {
             'cluster' => is_string($requestedAncestry['cluster_id']) && hash_equals($grantScopeId, $requestedAncestry['cluster_id']),
             'facility' => is_string($requestedAncestry['facility_id']) && hash_equals($grantScopeId, $requestedAncestry['facility_id']),
@@ -153,6 +155,7 @@ final class ValidateGrantAuthority
                 return $parsed->getTimestamp();
             }
         }
+
         return null;
     }
 }

@@ -2,10 +2,16 @@
 
 namespace Modules\Authorization\Tests;
 
+use App\Http\Authentication\SessionPrincipalResolver;
+use App\Http\Controllers\Authorization\AuthorizationAdminController;
+use App\Http\Controllers\Authorization\DecideAccessController;
+use App\Http\Controllers\Authorization\ExplainAccessDecisionController;
 use Database\Seeders\DevelopmentJourneyAuthorizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Tests\TestCase;
 
 /**
@@ -35,11 +41,11 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
     {
         parent::setUp();
         $this->app->when([
-            \App\Http\Controllers\Authorization\AuthorizationAdminController::class,
-            \App\Http\Controllers\Authorization\DecideAccessController::class,
-            \App\Http\Controllers\Authorization\ExplainAccessDecisionController::class,
-        ])->needs(\Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal::class)
-            ->give(fn ($app) => $app->make(\App\Http\Authentication\SessionPrincipalResolver::class));
+            AuthorizationAdminController::class,
+            DecideAccessController::class,
+            ExplainAccessDecisionController::class,
+        ])->needs(ResolveDevelopmentFixturePrincipal::class)
+            ->give(fn ($app) => $app->make(SessionPrincipalResolver::class));
         $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
         config()->set('identity.session_only', true);
         DB::table('authorization_bootstrap')->update([
@@ -50,7 +56,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'updated_at' => now(),
         ]);
         $this->bindRealAccessDecision();
-        $this->app->forgetInstance(\Modules\Authorization\Contracts\DecideAccess::class);
+        $this->app->forgetInstance(DecideAccess::class);
     }
 
     public function test_role_capability_is_attached_updated_listed_and_revoked(): void
@@ -342,7 +348,6 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ], $this->writeHeaders('delegation-beyond-window', $csrf))->assertUnprocessable();
     }
 
-
     public function test_admin_rows_are_scoped_before_pagination_and_direct_mutations(): void
     {
         [$cookie, $csrf] = $this->loginAdminSession();
@@ -476,7 +481,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
      */
     private function loginSession(string $username, string $password): array
     {
-        $this->withServerVariables(["REMOTE_ADDR" => "127.0.0.1", "HTTP_USER_AGENT" => "W1.2 E2E test browser"]);
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1', 'HTTP_USER_AGENT' => 'W1.2 E2E test browser']);
         $response = $this->postJson('/api/v1/identity/login', [
             'username' => $username,
             'password' => $password,

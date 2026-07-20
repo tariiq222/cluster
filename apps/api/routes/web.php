@@ -34,8 +34,8 @@ use App\Http\Controllers\Identity\IdentityLogoutController;
 use App\Http\Controllers\Identity\IssueActivationController;
 use App\Http\Controllers\Identity\ListMyScopesController;
 use App\Http\Controllers\Identity\ListUserAccountsController;
-use App\Http\Controllers\Identity\SelectMyScopeController;
 use App\Http\Controllers\Identity\RefreshIdentityCsrfController;
+use App\Http\Controllers\Identity\SelectMyScopeController;
 use App\Http\Controllers\Identity\TransitionUserAccountController;
 use App\Http\Controllers\Organization\CreateAssignmentController;
 use App\Http\Controllers\Organization\CreateClusterController;
@@ -72,8 +72,8 @@ use App\Http\Controllers\Organization\UpdatePositionController;
 use App\Http\Middleware\ConsumeSubmittedNotification;
 use App\Http\Middleware\IdentityCsrfMiddleware;
 use App\Http\Middleware\IdentitySessionMiddleware;
-use App\Http\Middleware\RequireIdentitySessionPrincipal;
 use App\Http\Middleware\ProjectWorkRecordReadModels;
+use App\Http\Middleware\RequireIdentitySessionPrincipal;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Features\DevelopmentFixtureLogin\Http\DevelopmentFixtureLoginController;
@@ -110,7 +110,7 @@ Route::prefix('api/v1')->group(function (): void {
         Route::post('identity/password', ChangePasswordController::class);
         Route::post('identity/accounts/{accountId}/activation', IssueActivationController::class);
     });
-     Route::middleware([IdentitySessionMiddleware::class, RequireIdentitySessionPrincipal::class])->group(function (): void {
+    Route::middleware([IdentitySessionMiddleware::class, RequireIdentitySessionPrincipal::class])->group(function (): void {
         Route::get('documents/uploads/{uploadId}', GetDocumentUploadStatusController::class);
         Route::get('documents/{documentId}/download', DownloadDocumentController::class);
         Route::get('organization/temporary-assignments', ListTemporaryAssignmentsController::class);

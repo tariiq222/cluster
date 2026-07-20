@@ -156,9 +156,9 @@ class DevelopmentFixtureLoginTest extends TestCase
         $fixture = json_decode(trim(Artisan::output()), true, 16, JSON_THROW_ON_ERROR);
         $login = $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1', 'HTTP_USER_AGENT' => 'security-test'])
             ->postJson('/api/v1/identity/login', [
-            'username' => $fixture['identity_username'],
-            'password' => $fixture['identity_password'],
-        ], $this->headers())->assertOk();
+                'username' => $fixture['identity_username'],
+                'password' => $fixture['identity_password'],
+            ], $this->headers())->assertOk();
 
         $this->assertCount(1, $login->headers->getCookies());
         $cookie = $login->headers->getCookies()[0]->getValue();
@@ -173,9 +173,9 @@ class DevelopmentFixtureLoginTest extends TestCase
         $fixture = json_decode(trim(Artisan::output()), true, 16, JSON_THROW_ON_ERROR);
         $login = $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1', 'HTTP_USER_AGENT' => 'security-test'])
             ->postJson('/api/v1/identity/login', [
-            'username' => $fixture['identity_username'],
-            'password' => $fixture['identity_password'],
-        ], $this->headers())->assertOk();
+                'username' => $fixture['identity_username'],
+                'password' => $fixture['identity_password'],
+            ], $this->headers())->assertOk();
 
         $this->assertCount(1, $login->headers->getCookies());
         $this->withUnencryptedCookie('cluster_identity_session', $login->headers->getCookies()[0]->getValue())

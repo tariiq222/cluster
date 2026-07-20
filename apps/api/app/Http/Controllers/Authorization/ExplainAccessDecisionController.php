@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Http\AuthorizationApi;
-use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
+use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 final class ExplainAccessDecisionController
@@ -37,13 +37,15 @@ final class ExplainAccessDecisionController
             return AuthorizationApi::problem(404, 'decision-not-found', 'Not Found', 'The access decision is not available.', $correlationId);
         }
         $context = json_decode((string) $decision->access_context, true);
-        $targetFacilityId = is_array($context) && is_string($context['facility_id'] ?? null)
-            ? $context['facility_id']
-            : null;
+        $targetFacilityId = is_array($context) && is_string($context['resource_facility_id'] ?? null)
+            ? $context['resource_facility_id']
+            : (is_array($context) && is_string($context['facility_id'] ?? null) ? $context['facility_id'] : null);
         $targetUnitIds = is_array($context) && is_array($context['organization_unit_ids'] ?? null)
             ? array_values(array_filter($context['organization_unit_ids'], 'is_string'))
             : [];
-        $targetUnitId = $targetUnitIds[0] ?? null;
+        $targetUnitId = is_array($context) && is_string($context['resource_organization_unit_id'] ?? null)
+            ? $context['resource_organization_unit_id']
+            : ($targetUnitIds[0] ?? null);
         $targetFacts = new RecordFacts(
             ownerFacilityId: $targetFacilityId,
             resourceType: 'authorization_access_decision',

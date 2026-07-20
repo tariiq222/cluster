@@ -202,6 +202,7 @@ final class SessionHandler implements ResolveSession
             if ($updated !== 1) {
                 throw new AuthenticationFailed;
             }
+
             return $token;
         });
     }

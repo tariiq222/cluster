@@ -4,10 +4,16 @@ namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
-use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
+use Modules\Reporting\Features\GetAuthorizedDashboard\Handler\GetAuthorizedDashboardHandler;
+use Modules\Reporting\Features\RunAuthorizedReport\Handler\RunAuthorizedReportHandler;
+use Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler;
+use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler;
+use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler;
+use Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -33,15 +39,15 @@ abstract class TestCase extends BaseTestCase
         );
         $this->app->bind(DecideAccess::class, $factory);
         $this->app->when([
-            \Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler::class,
-            \Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler::class,
-            \Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController::class,
-            \Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler::class,
-            \Modules\Reporting\Features\RunAuthorizedReport\Handler\RunAuthorizedReportHandler::class,
-            \Modules\Reporting\Features\GetAuthorizedDashboard\Handler\GetAuthorizedDashboardHandler::class,
+            GetAuthorizedWorkRecordHandler::class,
+            ListAuthorizedWorkRecordsHandler::class,
+            SubmitWorkRecordController::class,
+            SearchAccessibleRecordsHandler::class,
+            RunAuthorizedReportHandler::class,
+            GetAuthorizedDashboardHandler::class,
         ])->needs(DecideAccess::class)->give($factory);
         $this->app->forgetInstance(DecideAccess::class);
-        $this->app->forgetInstance(\Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler::class);
-        $this->app->forgetInstance(\Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler::class);
+        $this->app->forgetInstance(GetAuthorizedWorkRecordHandler::class);
+        $this->app->forgetInstance(ListAuthorizedWorkRecordsHandler::class);
     }
 }

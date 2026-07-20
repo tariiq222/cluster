@@ -9,8 +9,8 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
 use Modules\Authorization\Http\AuthorizationApi;
-use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
+use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Authorization\Infrastructure\Simulation\RegisteredAuthorizationSimulationFactsResolver;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 

@@ -18,7 +18,6 @@ final class SearchAccessibleRecordsHandler
     {
         $query = trim($query);
         $limit = max(1, min($limit, 100));
-        $scopeId ??= $actor['facility_id'] ?? null;
         $builder = DB::table('search_index_entries')
             ->where('visibility', 'eligible')
             ->orderBy('id');

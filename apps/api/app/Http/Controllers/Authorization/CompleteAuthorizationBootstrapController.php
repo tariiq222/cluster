@@ -6,8 +6,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Authorization\Http\AuthorizationApi;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationBootstrapState;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolveAccountEntitlement;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 /**
  * POST /api/v1/authorization/bootstrap/complete — ends the bootstrap window

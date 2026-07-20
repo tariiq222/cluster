@@ -3,6 +3,12 @@
 namespace Tests\Feature;
 
 use App\Http\Authentication\SessionPrincipalResolver;
+use App\Http\Controllers\Api\LinkDocumentController;
+use App\Http\Controllers\Authorization\AuthorizationAdminController;
+use App\Http\Controllers\Authorization\DecideAccessController;
+use App\Http\Controllers\Authorization\ExplainAccessDecisionController;
+use App\Http\Controllers\Documents\CreateDocumentController;
+use App\Http\Controllers\Documents\CreateDocumentGrantController;
 use App\Http\Controllers\Documents\DownloadDocumentController;
 use App\Http\Middleware\IdentityRequestAttributes;
 use Database\Seeders\AuthorizationCatalogSeeder;
@@ -12,9 +18,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\PersistAccessDecision;
+use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWorkRecordSubmittedHandler;
+use Modules\Notifications\Features\ListMyNotifications\Http\ListMyNotificationsController;
+use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
+use Modules\Reporting\Features\GetAuthorizedDashboard\Handler\GetAuthorizedDashboardHandler;
+use Modules\Reporting\Features\RunAuthorizedReport\Handler\RunAuthorizedReportHandler;
+use Modules\Reporting\Http\GetDashboardController;
+use Modules\Reporting\Http\GetReportController;
+use Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler;
+use Modules\Search\Http\SearchController;
+use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler;
+use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController;
+use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler;
+use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController;
+use Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController;
 use Tests\TestCase;
 
 /**
@@ -71,38 +93,38 @@ final class SecurityJourneyW13Test extends TestCase
     {
         parent::setUp();
         $this->bindRealAccessDecision();
-        $this->app->bind(\Modules\Authorization\Contracts\DecideAccess::class, fn ($app) => new \Modules\Authorization\Infrastructure\RbacAbacDecideAccess(
-            $app->make(\Modules\Organization\Contracts\GetActiveSupervisoryRelationships::class),
-            $app->make(\Modules\Authorization\Contracts\PersistAccessDecision::class),
+        $this->app->bind(DecideAccess::class, fn ($app) => new RbacAbacDecideAccess(
+            $app->make(GetActiveSupervisoryRelationships::class),
+            $app->make(PersistAccessDecision::class),
         ));
-        $engine = new \Modules\Authorization\Infrastructure\RbacAbacDecideAccess(
-            $this->app->make(\Modules\Organization\Contracts\GetActiveSupervisoryRelationships::class),
-            $this->app->make(\Modules\Authorization\Contracts\PersistAccessDecision::class),
+        $engine = new RbacAbacDecideAccess(
+            $this->app->make(GetActiveSupervisoryRelationships::class),
+            $this->app->make(PersistAccessDecision::class),
         );
-        $this->app->instance(\Modules\Authorization\Contracts\DecideAccess::class, $engine);
+        $this->app->instance(DecideAccess::class, $engine);
         $this->app->when([
-            \Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler::class,
-            \Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler::class,
-            \Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler::class,
-            \Modules\Reporting\Features\RunAuthorizedReport\Handler\RunAuthorizedReportHandler::class,
-            \Modules\Reporting\Features\GetAuthorizedDashboard\Handler\GetAuthorizedDashboardHandler::class,
-            \App\Http\Controllers\Authorization\ExplainAccessDecisionController::class,
-        ])->needs(\Modules\Authorization\Contracts\DecideAccess::class)->give(fn () => $engine);
+            GetAuthorizedWorkRecordHandler::class,
+            ListAuthorizedWorkRecordsHandler::class,
+            SearchAccessibleRecordsHandler::class,
+            RunAuthorizedReportHandler::class,
+            GetAuthorizedDashboardHandler::class,
+            ExplainAccessDecisionController::class,
+        ])->needs(DecideAccess::class)->give(fn () => $engine);
         $this->app->when([
             DownloadDocumentController::class,
-            \App\Http\Controllers\Authorization\AuthorizationAdminController::class,
-            \App\Http\Controllers\Authorization\DecideAccessController::class,
-            \App\Http\Controllers\Authorization\ExplainAccessDecisionController::class,
-            \Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController::class,
-            \Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController::class,
-            \Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController::class,
-            \Modules\Search\Http\SearchController::class,
-            \Modules\Reporting\Http\GetReportController::class,
-            \Modules\Reporting\Http\GetDashboardController::class,
-            \Modules\Notifications\Features\ListMyNotifications\Http\ListMyNotificationsController::class,
-            \App\Http\Controllers\Documents\CreateDocumentController::class,
-            \App\Http\Controllers\Documents\CreateDocumentGrantController::class,
-            \App\Http\Controllers\Api\LinkDocumentController::class,
+            AuthorizationAdminController::class,
+            DecideAccessController::class,
+            ExplainAccessDecisionController::class,
+            GetAuthorizedWorkRecordController::class,
+            ListAuthorizedWorkRecordsController::class,
+            SubmitWorkRecordController::class,
+            SearchController::class,
+            GetReportController::class,
+            GetDashboardController::class,
+            ListMyNotificationsController::class,
+            CreateDocumentController::class,
+            CreateDocumentGrantController::class,
+            LinkDocumentController::class,
         ])->needs(ResolveDevelopmentFixturePrincipal::class)
             ->give(fn ($app) => $app->make(SessionPrincipalResolver::class));
         $this->seed(AuthorizationCatalogSeeder::class);

@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Identity;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Exceptions\AuthenticationFailed;
+use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Http\IdentityApi;
 
 final class RefreshIdentityCsrfController
@@ -28,6 +28,7 @@ final class RefreshIdentityCsrfController
         } catch (AuthenticationFailed) {
             return IdentityApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
+
         return response()->json(['data' => ['csrf_token' => $csrfToken]])
             ->header('X-Correlation-ID', $correlationId)
             ->header('X-CSRF-Token', $csrfToken);

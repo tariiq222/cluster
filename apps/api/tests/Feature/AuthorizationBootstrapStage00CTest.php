@@ -2,15 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Authorization\CompleteAuthorizationBootstrapController;
+use App\Http\Controllers\Authorization\GetAuthorizationBootstrapController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationBootstrapState;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
-use App\Http\Controllers\Authorization\CompleteAuthorizationBootstrapController;
-use App\Http\Controllers\Authorization\GetAuthorizationBootstrapController;
-use Illuminate\Http\Request;
 use Modules\Identity\Contracts\ResolveAccountEntitlement;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;

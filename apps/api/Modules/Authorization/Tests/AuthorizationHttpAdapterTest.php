@@ -9,7 +9,9 @@ use App\Http\Controllers\Authorization\ExplainAccessDecisionController;
 use Database\Seeders\DevelopmentJourneyAuthorizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AuthorizationResourceReference;
+use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
@@ -42,7 +44,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
             'lock_version' => 2,
             'updated_at' => now(),
         ]);
-        $this->app->forgetInstance(\Modules\Authorization\Contracts\DecideAccess::class);
+        $this->app->forgetInstance(DecideAccess::class);
         $this->app->bind(ResolveAuthorizationSimulationFacts::class, function (): ResolveAuthorizationSimulationFacts {
             return new class implements ResolveAuthorizationSimulationFacts
             {
@@ -85,7 +87,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
             ->assertCreated()->assertHeader('ETag', '"1"')->assertJsonPath('data.resource_type', 'role');
         $id = (string) $created->json('data.id');
         DB::table('role_assignments')->insert([
-            'id' => \Illuminate\Support\Str::uuid7()->toString(),
+            'id' => Str::uuid7()->toString(),
             'user_id' => DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID,
             'role_id' => $id,
             'scope_type' => 'facility',
