@@ -54,16 +54,16 @@ final class AuthorizationAdminController
 
         try {
             if ($request->isMethod('get') && $resourceId === null) {
-                return $this->list($request, $adminResource, $correlationId);
+                return $this->list($request, $adminResource, $correlationId, $principal['user_id']);
             }
             if ($request->isMethod('get') && $resourceId !== null) {
-                return $this->show($adminResource, $resourceId, $correlationId);
+                return $this->show($adminResource, $resourceId, $correlationId, $principal['user_id']);
             }
             if ($request->isMethod('post') && $resourceId === null) {
                 return $this->create($request, $adminResource, $principal['user_id'], $correlationId);
             }
             if ($request->isMethod('patch') && $resourceId !== null && $authorizationAction === null) {
-                return $this->patch($request, $adminResource, $resourceId, $correlationId);
+                return $this->patch($request, $adminResource, $resourceId, $correlationId, $principal['user_id']);
             }
             if ($request->isMethod('post') && $resourceId !== null && $authorizationAction !== null) {
                 return $this->transition($request, $adminResource, $resourceId, $authorizationAction, $correlationId, $principal['user_id']);
@@ -87,7 +87,7 @@ final class AuthorizationAdminController
         return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
     }
 
-    private function list(Request $request, string $resource, string $correlationId): JsonResponse
+    private function list(Request $request, string $resource, string $correlationId, string $principalId): JsonResponse
     {
         $query = $request->query();
         $validator = Validator::make($query, [
@@ -99,7 +99,7 @@ final class AuthorizationAdminController
         }
         $validated = $validator->validated();
         $limit = (int) ($validated['limit'] ?? 25);
-        $page = $this->gateway->list($resource, $validated['cursor'] ?? null, $limit);
+        $page = $this->gateway->list($resource, $validated['cursor'] ?? null, $limit, $principalId);
         $link = $page['next_cursor'] === null ? null : '/api/v1/authorization/'.$resource.'?'.http_build_query([
             'cursor' => $page['next_cursor'],
             'limit' => $limit,
@@ -108,9 +108,9 @@ final class AuthorizationAdminController
         return AuthorizationApi::collection($page, $correlationId, $link);
     }
 
-    private function show(string $resource, string $resourceId, string $correlationId): JsonResponse
+    private function show(string $resource, string $resourceId, string $correlationId, string $principalId): JsonResponse
     {
-        $entity = $this->gateway->find($resource, $resourceId);
+        $entity = $this->gateway->find($resource, $resourceId, $principalId);
         if ($entity === null) {
             return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
         }
@@ -155,7 +155,7 @@ final class AuthorizationAdminController
         });
     }
 
-    private function patch(Request $request, string $resource, string $resourceId, string $correlationId): JsonResponse
+    private function patch(Request $request, string $resource, string $resourceId, string $correlationId, string $principalId): JsonResponse
     {
         $version = AuthorizationApi::ifMatch($request);
         if ($version === null) {
@@ -168,7 +168,7 @@ final class AuthorizationAdminController
         if ($input === []) {
             return AuthorizationApi::problem(422, 'invalid-authorization-patch', 'Unprocessable Entity', 'The authorization patch is invalid.', $correlationId);
         }
-        $entity = $this->gateway->update($resource, $resourceId, $input, $version);
+        $entity = $this->gateway->update($resource, $resourceId, $input, $version, $principalId);
         if ($entity === null) {
             return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
         }
@@ -186,7 +186,7 @@ final class AuthorizationAdminController
         if ($key === null) {
             return AuthorizationApi::problem(400, 'invalid-idempotency-key', 'Bad Request', 'Idempotency-Key is required.', $correlationId);
         }
-        $current = $this->gateway->find($resource, $resourceId);
+        $current = $this->gateway->find($resource, $resourceId, $principalId);
         if ($current === null) {
             return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
         }
@@ -197,22 +197,28 @@ final class AuthorizationAdminController
         if ($existing !== null) {
             return $existing;
         }
-        $entity = $this->gateway->transition($resource, $resourceId, $action, $version);
+        $entity = DB::transaction(function () use ($resource, $resourceId, $action, $version, $principalId, $operation, $key, $requestHash): ?array {
+            $entity = $this->gateway->transition($resource, $resourceId, $action, $version, $principalId);
+            if ($entity === null) {
+                return null;
+            }
+            DB::table('authorization_idempotency_keys')->insert([
+                'principal_id' => $principalId,
+                'operation' => $operation,
+                'key_hash' => hash('sha256', $key),
+                'request_hash' => $requestHash,
+                'resource_id' => mb_strlen($resourceId) > 64 ? md5($resourceId) : $resourceId,
+                'response_status' => 200,
+                'response_payload' => json_encode(['data' => $entity], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return $entity;
+        });
         if ($entity === null) {
             return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
         }
-
-        DB::table('authorization_idempotency_keys')->insert([
-            'principal_id' => $principalId,
-            'operation' => $operation,
-            'key_hash' => hash('sha256', $key),
-            'request_hash' => $requestHash,
-            'resource_id' => mb_strlen($resourceId) > 64 ? md5($resourceId) : $resourceId,
-            'response_status' => 200,
-            'response_payload' => json_encode(['data' => $entity], JSON_THROW_ON_ERROR),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
 
         return AuthorizationApi::resource($entity, 200, $correlationId, $this->version($entity));
     }

@@ -41,6 +41,13 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ])->needs(\Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal::class)
             ->give(fn ($app) => $app->make(\App\Http\Authentication\SessionPrincipalResolver::class));
         $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
+        DB::table('authorization_bootstrap')->update([
+            'state' => 'complete',
+            'completed_by_user_id' => self::ADMIN_ID,
+            'completed_at' => now(),
+            'lock_version' => 2,
+            'updated_at' => now(),
+        ]);
     }
 
     public function test_role_capability_is_attached_updated_listed_and_revoked(): void
@@ -69,7 +76,13 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'If-Match' => '"1"',
             'Content-Type' => 'application/merge-patch+json',
             'X-CSRF-Token' => $csrf,
-        ])->assertOk()->assertJsonPath('data.effect', 'deny');
+        ])->assertOk()->assertHeader('ETag', '"2"')->assertJsonPath('data.effect', 'deny');
+        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-capabilities/'.$composite, ['effect' => 'allow'], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Content-Type' => 'application/merge-patch+json',
+            'X-CSRF-Token' => $csrf,
+        ])->assertStatus(412);
         $this->assertDatabaseHas('role_capabilities', ['role_id' => $roleId, 'effect' => 'deny']);
 
         $list = $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-capabilities?limit=100', ['X-Correlation-ID' => self::CORRELATION_ID])->assertOk();
@@ -77,11 +90,55 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-capabilities/'.$composite.'/revoke', [], [
             'X-Correlation-ID' => self::CORRELATION_ID,
-            'If-Match' => '"1"',
+            'If-Match' => '"2"',
             'Idempotency-Key' => 'rc-revoke',
             'X-CSRF-Token' => $csrf,
         ])->assertOk()->assertJsonPath('data.status', 'revoked');
         $this->assertDatabaseMissing('role_capabilities', ['role_id' => $roleId]);
+    }
+
+    public function test_role_capability_direct_access_is_scoped_and_cursor_is_reusable(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+        $foreignRole = (string) DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::ROLE_CODE)->value('id');
+        $foreignCapability = (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id');
+        DB::table('role_capabilities')->insert([
+            'role_id' => $foreignRole,
+            'capability_id' => $foreignCapability,
+            'effect' => 'allow',
+            'created_at' => now(),
+            'updated_at' => now(),
+            'lock_version' => 1,
+        ]);
+        $foreignId = $foreignRole.':'.$foreignCapability;
+
+        $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-capabilities/'.$foreignId, [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+        ])->assertNotFound();
+        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-capabilities/'.$foreignId, ['effect' => 'deny'], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Content-Type' => 'application/merge-patch+json',
+            'X-CSRF-Token' => $csrf,
+        ])->assertNotFound();
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-capabilities/'.$foreignId.'/revoke', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Idempotency-Key' => 'foreign-role-capability-revoke',
+            'X-CSRF-Token' => $csrf,
+        ])->assertNotFound();
+
+        $roleId = $this->createRole($cookie, $csrf, 'cursor_role');
+        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
+        $this->attach($cookie, $csrf, $roleId, 'work_record.list');
+        $first = $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-capabilities?limit=1', [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+        ])->assertOk();
+        $cursor = (string) $first->json('next_cursor');
+        $this->assertNotSame('', $cursor);
+        $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-capabilities?limit=1&cursor='.urlencode($cursor), [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+        ])->assertOk();
     }
 
     public function test_role_capability_rejects_unknown_catalog_code(): void
@@ -166,6 +223,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
     {
         [$cookie, $csrf] = $this->loginAdminSession();
         $roleId = $this->createRole($cookie, $csrf, 'scoped_reader');
+        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
             'resource_type' => 'role_assignment',
@@ -198,7 +256,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
     {
         [$cookie, $csrf] = $this->loginAdminSession();
         $this->seedOrgTree();
-        $delegator = '018f6f7d-0c00-7000-8000-00000000dd01';
+        $delegator = self::ADMIN_ID;
         $delegate = '018f6f7d-0c00-7000-8000-00000000dd02';
         $roleId = $this->createRole($cookie, $csrf, 'facility_delegator');
         $this->attach($cookie, $csrf, $roleId, 'work_record.read');
@@ -206,14 +264,26 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations', [
             'resource_type' => 'delegation',
-            'delegator_user_id' => $delegator,
+            'delegator_user_id' => '018f6f7d-0c00-7000-8000-00000000dd01',
             'delegate_user_id' => $delegate,
             'module_code' => 'work_record',
-            'capability_codes' => ['work_record.submit'],
+            'capability_codes' => ['work_record.read'],
             'scope_type' => 'facility',
             'scope_id' => self::FACILITY,
             'start_at' => '2026-07-01T00:00:00.000Z',
             'end_at' => '2026-08-01T00:00:00.000Z',
+        ], $this->writeHeaders('delegation-spoofed', $csrf))->assertUnprocessable();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations', [
+            'resource_type' => 'delegation',
+            'delegator_user_id' => $delegator,
+            'delegate_user_id' => $delegate,
+            'module_code' => 'work_record',
+            'capability_codes' => ['strategy.plan.read'],
+            'scope_type' => 'facility',
+            'scope_id' => self::FACILITY,
+            'start_at' => '2025-07-01T00:00:00.000Z',
+            'end_at' => '2025-08-01T00:00:00.000Z',
         ], $this->writeHeaders('delegation-not-owned', $csrf))->assertUnprocessable();
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations', [
@@ -241,19 +311,95 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ], $this->writeHeaders('delegation-wider', $csrf))->assertUnprocessable();
 
         $windowedRoleId = $this->createRole($cookie, $csrf, 'windowed_delegator');
-        $this->attach($cookie, $csrf, $windowedRoleId, 'work_record.list');
-        $this->assignRole($delegator, $windowedRoleId, 'unit', self::UNIT_B, '2026-07-20 00:00:00.000');
+        $this->attach($cookie, $csrf, $windowedRoleId, 'strategy.plan.read');
+        DB::table('role_assignments')->where('user_id', $delegator)->where('role_id', $windowedRoleId)->delete();
+        $this->assignRole($delegator, $windowedRoleId, 'unit', self::UNIT_B, '2026-07-20 00:00:00.000', '2026-07-10 00:00:00.000');
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations', [
             'resource_type' => 'delegation',
             'delegator_user_id' => $delegator,
             'delegate_user_id' => $delegate,
             'module_code' => 'work_record',
-            'capability_codes' => ['work_record.list'],
+            'capability_codes' => ['strategy.plan.read'],
             'scope_type' => 'unit',
             'scope_id' => self::UNIT_B,
             'start_at' => '2026-07-01T00:00:00.000Z',
             'end_at' => '2026-08-01T00:00:00.000Z',
         ], $this->writeHeaders('delegation-beyond-window', $csrf))->assertUnprocessable();
+    }
+
+
+    public function test_admin_rows_are_scoped_before_pagination_and_direct_mutations(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+        $foreignRole = DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::ROLE_CODE)->value('id');
+        $foreignAssignment = DB::table('role_assignments')
+            ->where('user_id', DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_ID)
+            ->where('role_id', $foreignRole)->value('id');
+        $localAssignment = DB::table('role_assignments')
+            ->where('user_id', self::ADMIN_ID)->where('scope_id', self::FACILITY)->value('id');
+
+        $list = $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-assignments?limit=1', [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+        ])->assertOk();
+        $this->assertSame(1, count($list->json('items')));
+        $this->assertSame($localAssignment, $list->json('items.0.id'));
+        $this->assertNotSame($foreignAssignment, $list->json('items.0.id'));
+
+        $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-assignments/'.$foreignAssignment, [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+        ])->assertNotFound();
+        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-assignments/'.$foreignAssignment, ['status' => 'revoked'], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Content-Type' => 'application/merge-patch+json',
+            'X-CSRF-Token' => $csrf,
+        ])->assertNotFound();
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments/'.$foreignAssignment.'/revoke', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Idempotency-Key' => 'foreign-assignment-revoke',
+            'X-CSRF-Token' => $csrf,
+        ])->assertNotFound();
+        $this->assertDatabaseHas('role_assignments', ['id' => $foreignAssignment, 'status' => 'active']);
+    }
+
+    public function test_facility_actor_cannot_grant_cluster_authority_and_etags_are_enforced(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+        $this->seedOrgTree();
+        $roleId = $this->createRole($cookie, $csrf, 'contained_assignment');
+        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
+            'resource_type' => 'role_assignment',
+            'user_id' => '018f6f7d-0c00-7000-8000-00000000ee01',
+            'role_id' => $roleId,
+            'scope_type' => 'cluster',
+            'scope_id' => self::CLUSTER,
+            'start_at' => '2026-07-01T00:00:00.000Z',
+        ], $this->writeHeaders('cluster-assignment-denied', $csrf))->assertUnprocessable();
+
+        $created = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
+            'resource_type' => 'role_assignment',
+            'user_id' => '018f6f7d-0c00-7000-8000-00000000ee01',
+            'role_id' => $roleId,
+            'scope_type' => 'facility',
+            'scope_id' => self::FACILITY,
+            'start_at' => '2026-07-01T00:00:00.000Z',
+        ], $this->writeHeaders('facility-assignment-contained', $csrf))->assertCreated();
+        $id = (string) $created->json('data.id');
+        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-assignments/'.$id, ['status' => 'active'], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Content-Type' => 'application/merge-patch+json',
+            'X-CSRF-Token' => $csrf,
+        ])->assertOk()->assertHeader('ETag', '"2"');
+        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-assignments/'.$id, ['status' => 'revoked'], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Content-Type' => 'application/merge-patch+json',
+            'X-CSRF-Token' => $csrf,
+        ])->assertStatus(412);
     }
 
     private function createRole(string $cookie, string $csrf, string $code): string
@@ -276,7 +422,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ], $this->writeHeaders('attach-'.$roleId.'-'.$capabilityCode, $csrf))->assertCreated();
     }
 
-    private function assignRole(string $userId, string $roleId, string $scopeType, string $scopeId, ?string $endAt): void
+    private function assignRole(string $userId, string $roleId, string $scopeType, string $scopeId, ?string $endAt, string $startAt = '2026-07-01 00:00:00.000'): void
     {
         DB::table('role_assignments')->insert([
             'id' => Str::uuid7()->toString(),
@@ -284,7 +430,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'role_id' => $roleId,
             'scope_type' => $scopeType,
             'scope_id' => $scopeId,
-            'start_at' => '2026-07-01 00:00:00.000',
+            'start_at' => $startAt,
             'end_at' => $endAt,
             'status' => 'active',
             'granted_by_user_id' => self::ADMIN_ID,

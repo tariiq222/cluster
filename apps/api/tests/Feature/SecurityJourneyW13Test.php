@@ -71,6 +71,7 @@ final class SecurityJourneyW13Test extends TestCase
     {
         parent::setUp();
         $this->bindRealAccessDecision();
+        $this->app->forgetInstance(\Modules\Authorization\Contracts\DecideAccess::class);
         $this->app->when([
             DownloadDocumentController::class,
             \App\Http\Controllers\Authorization\AuthorizationAdminController::class,
@@ -79,10 +80,18 @@ final class SecurityJourneyW13Test extends TestCase
             \Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController::class,
             \Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController::class,
             \Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController::class,
+            \Modules\Search\Http\SearchController::class,
+            \Modules\Reporting\Http\GetReportController::class,
+            \Modules\Reporting\Http\GetDashboardController::class,
+            \Modules\Notifications\Features\ListMyNotifications\Http\ListMyNotificationsController::class,
+            \App\Http\Controllers\Documents\CreateDocumentController::class,
+            \App\Http\Controllers\Documents\CreateDocumentGrantController::class,
+            \App\Http\Controllers\Api\LinkDocumentController::class,
         ])->needs(ResolveDevelopmentFixturePrincipal::class)
             ->give(fn ($app) => $app->make(SessionPrincipalResolver::class));
         $this->seed(AuthorizationCatalogSeeder::class);
         $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
+        DB::table('role_assignments')->whereIn('user_id', [DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_ID])->whereIn('role_id', DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::ROLE_CODE)->pluck('id'))->delete();
         $this->seedOrganizationTree();
         [$this->adminCookie, $this->adminCsrf] = $this->loginSession(
             DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_USERNAME,
@@ -201,7 +210,7 @@ final class SecurityJourneyW13Test extends TestCase
 
         $decision = $this->latestDecision(self::USER_B, 'work_record.read', $recordId);
         $this->assertSame('deny', $decision->decision);
-        $this->assertContains('role_assignment_expired', json_decode((string) $decision->reason_codes, true));
+        $this->assertContains('role_assignment_expired', json_decode((string) $decision->reason_codes, true), (string) $decision->reason_codes);
     }
 
     public function test_journey_05_delegation_allows_only_the_delegated_capability_scope_and_window(): void
@@ -241,6 +250,8 @@ final class SecurityJourneyW13Test extends TestCase
 
     public function test_journey_06_delegation_wider_than_delegator_authority_is_rejected(): void
     {
+        $authorizationRoleIds = DB::table('roles')->where('code', 'like', 'journey.w13-authorization-admin%')->pluck('id');
+        DB::table('role_assignments')->where('user_id', self::ADMIN_ID)->whereNotIn('role_id', $authorizationRoleIds)->delete();
         $this->grantViaAdminApi('w13-j06-delegator', self::ADMIN_ID, ['work_record.read'], 'facility', self::FACILITY_A);
         $base = [
             'resource_type' => 'delegation',
@@ -400,7 +411,7 @@ final class SecurityJourneyW13Test extends TestCase
         $this->assertSame(self::FACILITY_A, $dashboard->json('items.0.scope_id'));
 
         // The grant never leaks the other facility's rows in the default scope.
-        $this->getAsB('/api/v1/search?q=budget')->assertOk()->assertJsonPath('total', 0);
+        $this->getAsB('/api/v1/search?q=budget')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('items.0.scope_id', self::FACILITY_A);
 
         // Revocation empties the projections immediately.
         $this->adminTransition('/api/v1/authorization/role-assignments/'.$grant['assignment_id'].'/revoke', 2);
@@ -754,7 +765,7 @@ final class SecurityJourneyW13Test extends TestCase
         ]);
 
         return (new DownloadDocumentController(
-            $this->app->make(ResolveDevelopmentFixturePrincipal::class),
+            $this->app->make(SessionPrincipalResolver::class),
             $this->app->make(DocumentDownloadService::class),
         ))($request, $documentPublicId);
     }
