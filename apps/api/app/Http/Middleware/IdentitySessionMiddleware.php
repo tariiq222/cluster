@@ -29,12 +29,12 @@ final class IdentitySessionMiddleware
             is_string($rawSessionToken) ? $rawSessionToken : '',
             IdentityRequestBinding::context($request),
         );
-        if ($session === null && app()->environment('testing')) {
-            // Test-only fallback: synthesize an Identity session attribute from a
-            // fixture bearer so the legacy HTTP adapter tests keep working
-            // until they migrate to cookie-based session login. Malformed or
-            // expired fixture states are evicted exactly like the fixture
-            // principal resolver does.
+        if ($session === null && app()->environment(['local', 'testing'])) {
+            // Development-runtime fallback: synthesize an Identity session
+            // attribute from a fixture bearer so the legacy fixture journeys
+            // keep working in local/testing; production stays bound to the
+            // validated session. Malformed or expired fixture states are
+            // evicted exactly like the fixture principal resolver does.
             $bearer = $request->bearerToken();
             if (is_string($bearer) && preg_match('/\A[A-Za-z0-9]{64}\z/', $bearer) === 1) {
                 $cacheKey = 'development-fixture-bearer:'.hash('sha256', $bearer);

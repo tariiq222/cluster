@@ -115,8 +115,8 @@ Artisan::command('e2e:w1-2:seed', function (): int {
         $this->line(json_encode(app(W12E2EFixtureSeeder::class)->seed(), JSON_THROW_ON_ERROR));
 
         return Command::SUCCESS;
-    } catch (Throwable) {
-        $this->error('W1.2 E2E fixture seeding failed.');
+    } catch (Throwable $e) {
+        $this->error('W1.2 E2E fixture seeding failed: '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
 
         return Command::FAILURE;
     }

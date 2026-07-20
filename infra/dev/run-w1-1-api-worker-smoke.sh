@@ -39,6 +39,10 @@ API_PID=""
 CROSS_A=""
 CROSS_B=""
 export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_PORT="$MYSQL_PORT" W1_1_REDIS_PORT="$REDIS_PORT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
+# The shared compose file also declares the W1.2 MinIO/ClamAV services, so
+# docker compose interpolates their env even when only mysql+redis start.
+# These placeholders are never used by the W1.1 smoke.
+export W1_2_MINIO_ROOT_USER="${W1_2_MINIO_ROOT_USER:-w1-1-smoke-minio}" W1_2_MINIO_ROOT_PASSWORD="${W1_2_MINIO_ROOT_PASSWORD:-w1-1-smoke-minio-secret}" W1_2_MINIO_API_PORT="${W1_2_MINIO_API_PORT:-0}" W1_2_MINIO_CONSOLE_PORT="${W1_2_MINIO_CONSOLE_PORT:-0}" W1_2_CLAMAV_PORT="${W1_2_CLAMAV_PORT:-0}"
 
 cleanup() {
   local status=$?
@@ -151,6 +155,11 @@ wait_healthy redis
   cd "$API_DIR"
   env "${api_env[@]}" php artisan migrate:fresh --force >/dev/null
   env "${api_env[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force >/dev/null
+  # The production binding gates every non-setup decision behind the
+  # authorization bootstrap lifecycle; the smoke fixtures model an
+  # already-bootstrapped environment, so close the window like the other
+  # isolated W1.x runners do.
+  env "${api_env[@]}" php artisan tinker --execute="DB::table('authorization_bootstrap')->update(['state' => 'complete', 'completed_by_user_id' => \\Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, 'completed_at' => now(), 'lock_version' => 2, 'updated_at' => now()]);" >/dev/null
   exec env "${api_env[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT"
 ) >"$LOG_FILE" 2>&1 &
 API_PID=$!

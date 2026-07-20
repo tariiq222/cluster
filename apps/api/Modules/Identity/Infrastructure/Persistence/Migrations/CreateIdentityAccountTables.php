@@ -89,6 +89,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Credential tables deliberately have an empty down() and survive the
+        // rollback; drop the account-owned tables with FK checks off so the
+        // surviving credentials table does not block the users drop.
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('identity_person_provisioning');
         Schema::dropIfExists('identity_person_event_watermarks');
         Schema::dropIfExists('identity_inbox');
@@ -96,5 +100,6 @@ return new class extends Migration
         Schema::dropIfExists('identity_sessions');
         Schema::dropIfExists('identity_person_account_claims');
         Schema::dropIfExists('users');
+        Schema::enableForeignKeyConstraints();
     }
 };

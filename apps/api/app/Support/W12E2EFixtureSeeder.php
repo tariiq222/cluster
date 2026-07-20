@@ -5,6 +5,7 @@ namespace App\Support;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Modules\Identity\Domain\PasswordPolicy;
 use Modules\Identity\Features\Activation\Handler\ActivationHandler;
 use Modules\Identity\Features\UserAccount\Handler\UserAccountHandler;
 use Modules\Identity\Http\IdentityApi;
@@ -214,12 +215,12 @@ final class W12E2EFixtureSeeder
             ),
         );
 
-        $password = 'W1!'.bin2hex(random_bytes(24));
+        $password = $this->policySafePassword($username);
         $activation = $this->activations->issue(self::BOOTSTRAP_ADMIN_ID);
         $this->activations->activate($activation['token'], $password);
 
         $importUsername = 'w12-import-'.substr($suffix, 0, 8);
-        $importPassword = 'W1!'.bin2hex(random_bytes(24));
+        $importPassword = $this->policySafePassword($importUsername);
         DB::table('identity_development_fixture_accounts')->where('id', self::BOOTSTRAP_ADMIN_ID)->update([
             'username' => $importUsername,
             'password_hash' => Hash::make($importPassword),
@@ -251,6 +252,24 @@ final class W12E2EFixtureSeeder
      * to a user at one facility scope. No-op when the role is absent so the
      * fixture stays usable standalone.
      */
+    /**
+     * Random hex passwords occasionally trip the password policy (four
+     * repeated characters or a username fragment); loop with the policy
+     * itself as the oracle so seeding never flakes the full suite.
+     */
+    private function policySafePassword(string $username): string
+    {
+        $policy = app(PasswordPolicy::class);
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $candidate = 'W1!'.bin2hex(random_bytes(24));
+            if ($policy->violations($candidate, $username) === []) {
+                return $candidate;
+            }
+        }
+
+        throw new \LogicException('W1.2 E2E fixture could not mint a policy-safe password.');
+    }
+
     private function grantJourneyOperatorRole(string $userId, string $scopeId): void
     {
         $roleId = DB::table('roles')->where('code', 'journey.r1-operator')->value('id');
