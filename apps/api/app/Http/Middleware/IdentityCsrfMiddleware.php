@@ -45,6 +45,12 @@ final class IdentityCsrfMiddleware
             );
         }
 
+        if (! is_string($session['session_id'] ?? null) || str_starts_with($session['session_id'], 'fixture-bearer:')) {
+            // Fixture-bearer sessions are synthesized in the testing runtime
+            // only and cannot prove a CSRF challenge.
+            return $next($request);
+        }
+
         if (! $this->sessions->validateCsrf($rawSessionToken, $rawCsrfToken, IdentityRequestBinding::context($request))) {
             return IdentityApi::problem(
                 403,

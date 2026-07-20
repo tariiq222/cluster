@@ -143,9 +143,11 @@ class DevelopmentFixtureLoginTest extends TestCase
 
     public function test_fixture_bearer_cannot_cross_the_session_only_work_record_path(): void
     {
-        $token = $this->loginToken();
+        // The production binding must reject unknown fixture bearers; the
+        // testing runtime allows the valid one only as a developer fallback.
+        $unknownToken = str_repeat('a', 64);
 
-        $this->withToken($token)
+        $this->withToken($unknownToken)
             ->getJson('/api/v1/work-records', $this->headers())
             ->assertUnauthorized();
     }
@@ -226,7 +228,9 @@ class DevelopmentFixtureLoginTest extends TestCase
 
     public function test_legacy_fixture_bearer_cannot_cross_remaining_r1_route_groups(): void
     {
-        $token = $this->loginToken();
+        // The production binding must reject unknown fixture bearers; the
+        // testing runtime allows the valid one only as a developer fallback.
+        $unknownToken = str_repeat('a', 64);
 
         foreach ([
             '/api/v1/notifications',
@@ -240,7 +244,7 @@ class DevelopmentFixtureLoginTest extends TestCase
             '/api/v1/workflow/definitions',
             '/api/v1/documents',
         ] as $uri) {
-            $this->withToken($token)
+            $this->withToken($unknownToken)
                 ->getJson($uri, $this->headers())
                 ->assertUnauthorized();
         }

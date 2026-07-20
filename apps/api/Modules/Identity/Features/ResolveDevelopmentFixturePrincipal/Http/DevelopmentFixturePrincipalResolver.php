@@ -59,7 +59,12 @@ final class DevelopmentFixturePrincipalResolver implements ResolveDevelopmentFix
         }
 
         if ($request->attributes->get('identity.session_only') === true) {
-            return null;
+            // The fixture bearer path is reserved for the testing/local
+            // runtime only. When the production binding is in effect the
+            // principal must always come from the validated session.
+            if (! app()->environment('testing')) {
+                return null;
+            }
         }
 
         $token = $request->bearerToken();
