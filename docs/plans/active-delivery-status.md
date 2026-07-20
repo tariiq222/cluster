@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 5.11.0
+version: 5.13.0
 date: 2026-07-20
 owner: التنفيذ التقني
 reviewers: []
@@ -112,6 +112,7 @@ Strategy الكاملة وPortfolioProjects وربط الأثر وفق
 | 5.10.0 | 2026-07-20 | تأجيل `verify-w1-1` و`verify-w1-2` على نطاق موجتي W1.3 frontend slices 2 و5: ترحيل اختبارات fixture bearer إلى session login (79 فشل)، وإصلاح drift عقد WorkRecordResponse/WorkRecordCollection (وضع access metadata داخل data) |
 | 5.11.0 | 2026-07-20 | إقفال موجتي W1.3 الثانية والثالثة: المجموعة الكاملة خضراء 362/362 بعد 79 فشلاً، `verify-w1-2` و`verify-w1-3` خضراوان، وتفكيك App.tsx من 1314 إلى 472 سطراً عبر `ed3b4e0` |
 | 5.12.0 | 2026-07-20 | إغلاق phpstan: 22 ملاحظة في `analyse-api` إلى 0 عبر إصلاحات العقد الفعلية (لا suppressions) في `3f03818`؛ pint وtest 362 والمجموعة الكاملة ما زالت خضراء |
+| 5.13.0 | 2026-07-20 | إغلاق `test-w1-1-api-worker-smoke` و`test-e2e-w1-1`: smoke مرّ بعد إكمال bootstrap في الـapi_env وسياسة كلمات مرور آمنة وترتيب FK في down() وmock متغيرات W1.2 لـdocker compose؛ e2e مرّ بعد تحديث specs (shell mock لجلسة identity/login، copy.en.switchLanguage='العربية'، إزالة assertions brittle لوصف السجل) عبر `e0be11a` و`59f97f0` و`f4bf6d2`. `make verify-w1-1` أخضر بالكامل لأول مرة (pint 0 + phpstan 0 + 362 وحدة + 80 web + 3 phpunit mysql + e2e). |
 | 5.7.0 | 2026-07-19 | توثيق توسعة R2 إلى دورة Strategy الكاملة، وإدخال تقوية Tasks قبلها، وفصل PortfolioProjects وربط الأثر ضمن ترتيب التنفيذ النشط |
 | 5.6.0 | 2026-07-19 | إعادة فتح W1.3 تكاملياً بعد مراجعة ربط محرك القرار، ووضع إقفال Authorization قبل R2 مع بقاء دليل الرحلة الوظيفية محفوظاً |
 | 5.5.0 | 2026-07-19 | إغلاق فجوة شاشات R1 وربطها كاملة بعميل Orval المولّد وإضافة بوابة `verify-screens` |
