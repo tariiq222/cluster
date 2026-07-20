@@ -64,8 +64,11 @@ verify-w1-2:
 
 # بوابة W1.3: قرار Authorization والعزل والحدود وواجهة الإدارة ورحلة المتصفح الحقيقية.
 verify-w1-3:
-	cd apps/api && php artisan test Modules/Authorization/Tests Modules/Organization/Tests/SupervisoryRelationshipTest.php
+	cd apps/api && php artisan test Modules/Authorization/Tests Modules/Organization/Tests/SupervisoryRelationshipTest.php Modules/Identity/Tests/ScopeSelectionHttpAdapterTest.php
+	cd apps/api && php artisan test tests/Feature/SecurityJourneyW13Test.php tests/Feature/ProductionAuthorizationBindingTest.php
 	$(MAKE) verify-boundaries
+	npm --prefix apps/web run api:lint
+	npm --prefix apps/web run api:check
 	npm --prefix apps/web run test:unit -- src/shell/routes.test.ts src/api/w1-3/authorization.test.ts src/api.test.ts src/w1-2-api.test.ts
 	npm --prefix apps/web run lint
 	npm --prefix apps/web run build

@@ -171,6 +171,7 @@ wait_healthy redis
 (
   cd "$API_DIR"
   env "${API_ENV[@]}" php artisan migrate:fresh --force >/dev/null
+  env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force >/dev/null
   exec env "${API_ENV[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT"
 ) >>"$LOG_FILE" 2>&1 &
 API_PID=$!

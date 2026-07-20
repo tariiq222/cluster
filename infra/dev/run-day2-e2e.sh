@@ -52,7 +52,7 @@ readonly API_ENV=(
   SESSION_DRIVER=array CACHE_STORE=array
 )
 
-(cd "$API_DIR" && env "${API_ENV[@]}" php artisan migrate:fresh --force) >>"$LOG_FILE" 2>&1
+(cd "$API_DIR" && env "${API_ENV[@]}" php artisan migrate:fresh --force && env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force) >>"$LOG_FILE" 2>&1
 (
   cd "$API_DIR"
   exec env "${API_ENV[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT"

@@ -200,6 +200,7 @@ wait_exited_successfully minio-init
   cd "$API_DIR"
   env "${API_ENV[@]}" php artisan migrate:fresh --force
 ) >>"$LOG_FILE" 2>&1
+(cd "$API_DIR" && env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force) >>"$LOG_FILE" 2>&1
 SEED_JSON="$(cd "$API_DIR" && env "${API_ENV[@]}" php artisan e2e:w1-2:seed)"
 IDENTITY_USERNAME="$(printf '%s' "$SEED_JSON" | json_value identity_username)"
 IDENTITY_PASSWORD="$(printf '%s' "$SEED_JSON" | json_value identity_password)"

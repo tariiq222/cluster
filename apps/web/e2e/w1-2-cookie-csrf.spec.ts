@@ -2,7 +2,8 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 
 type JsonResponse<T> = { status: number; headers: Record<string, string>; body: T }
 type IdentityLogin = { data: { csrf_token: string } }
-type UploadTicket = { data: { upload_id: string; quarantine_object_id: string; upload_url: string; method: string; required_headers: Record<string, string> } }
+type UploadTicket = { upload_id: string; quarantine_object_id: string; upload_url: string; method: string; required_headers: Record<string, string> }
+type UploadCompletion = { accepted: boolean }
 type UploadStatus = { scan_status: string; availability_status: string }
 type TemporaryAssignment = { data: { id: string; status: string } }
 
@@ -85,7 +86,9 @@ async function fulfillDocumentCompatibilityResponse(route: Route, headers: Recor
     return
   }
 
-  await route.fulfill({ response, json: { data: await response.json() } })
+  const body = await response.json() as unknown
+  const isEnvelope = body !== null && typeof body === 'object' && 'data' in body
+  await route.fulfill({ response, json: isEnvelope ? body : { data: body } })
 }
 
 async function signInWeb(page: Page): Promise<void> {
@@ -120,7 +123,7 @@ test('W1.2 browser cookie session and CSRF request a signed CSV upload and obser
     return { status: response.status, body: await response.text(), ticketHeaderNames: Object.keys(ticket.required_headers).sort() }
   }, { ticket: initiated.body, csv })
   expect(uploadResult.status, JSON.stringify(uploadResult)).toBe(200)
-  const completed = await browserJson<{ accepted: boolean }>(page, `/api/v1/documents/uploads/${initiated.body.upload_id}/complete`, {
+  const completed = await browserJson<UploadCompletion>(page, `/api/v1/documents/uploads/${initiated.body.upload_id}/complete`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `e2e-api-complete-${correlationId()}`, 'X-Correlation-ID': correlationId(), 'X-CSRF-Token': csrfToken }, body: JSON.stringify({ byte_size: byteSize, sha256: await sha256(page, csv) }),
   })
   expect(completed.status, JSON.stringify(completed.body)).toBe(202)

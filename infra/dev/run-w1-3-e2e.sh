@@ -18,6 +18,7 @@ readonly DATABASE="$TEMP_DIR/database.sqlite"
 readonly API_PORT="${W1_3_API_PORT:-$(pick_free_port)}"
 readonly WEB_PORT="${W1_3_WEB_PORT:-$(pick_free_port)}"
 readonly LOG_FILE="$TEMP_DIR/runtime.log"
+readonly SESSION_FILES="$TEMP_DIR/sessions"
 readonly APP_KEY='base64:K6z5AWr8AuJy2DLj2Ti8Q0l4iNdaWv7IB9AUrBv7mN0='
 API_PID=''
 
@@ -29,6 +30,7 @@ cleanup() {
     wait "$API_PID" >/dev/null 2>&1 || true
   fi
   if [[ "$status" -ne 0 && -s "$LOG_FILE" ]]; then tail -n 120 "$LOG_FILE" >&2 || true; fi
+  if [[ -d "$SESSION_FILES" ]]; then find "$SESSION_FILES" -mindepth 1 -maxdepth 1 -type f -delete; fi
   rm -rf "$TEMP_DIR"
   exit "$status"
 }
@@ -46,13 +48,15 @@ wait_http() {
 }
 
 touch "$DATABASE"
+mkdir -p "$SESSION_FILES"
 readonly API_ENV=(
   APP_ENV=testing APP_KEY="$APP_KEY"
   DB_CONNECTION=sqlite DB_DATABASE="$DATABASE"
-  SESSION_DRIVER=array CACHE_STORE=array
+  SESSION_DRIVER=file SESSION_FILES="$SESSION_FILES" CACHE_STORE=array
+  IDENTITY_SESSION_SECURE=false
 )
 
-(cd "$API_DIR" && env "${API_ENV[@]}" php artisan migrate:fresh --force) >>"$LOG_FILE" 2>&1
+(cd "$API_DIR" && env "${API_ENV[@]}" php artisan migrate:fresh --force && env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force) >>"$LOG_FILE" 2>&1
 (
   cd "$API_DIR"
   exec env "${API_ENV[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT"
@@ -62,4 +66,6 @@ wait_http "http://127.0.0.1:${API_PORT}/up"
 
 cd "$WEB_DIR"
 env W1_1_API_ORIGIN="http://127.0.0.1:${API_PORT}" W1_1_WEB_PORT="$WEB_PORT" \
+    W1_3_ACCOUNT_A_USERNAME=w13-e2e-account-a W1_3_ACCOUNT_A_PASSWORD='North!River7Quartz2026' \
+    W1_3_ACCOUNT_B_USERNAME=w13-e2e-account-b W1_3_ACCOUNT_B_PASSWORD='Cedar!Orbit8Harbor2026' \
   npm run test:e2e:local -- e2e/w1-3-authorization.spec.ts

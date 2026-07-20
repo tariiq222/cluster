@@ -34,7 +34,7 @@ trap 'exit 130' INT TERM HUP
 
 touch "$DATABASE"
 readonly API_ENV=(APP_ENV=testing APP_KEY="$APP_KEY" DB_CONNECTION=sqlite DB_DATABASE="$DATABASE" SESSION_DRIVER=array CACHE_STORE=array)
-(cd "$API_DIR" && env "${API_ENV[@]}" php artisan migrate:fresh --force && env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\Day3RepresentativeSeeder --force) >>"$LOG_FILE" 2>&1
+(cd "$API_DIR" && env "${API_ENV[@]}" php artisan migrate:fresh --force && env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\Day3RepresentativeSeeder --force && env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force) >>"$LOG_FILE" 2>&1
 (cd "$API_DIR" && exec env "${API_ENV[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT") >>"$LOG_FILE" 2>&1 &
 API_PID=$!
 for _ in {1..30}; do curl --silent --fail --max-time 2 "http://127.0.0.1:${API_PORT}/up" >/dev/null 2>&1 && break; sleep 1; done
