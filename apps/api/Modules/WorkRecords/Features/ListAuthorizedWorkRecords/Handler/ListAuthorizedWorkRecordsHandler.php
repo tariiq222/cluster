@@ -129,14 +129,19 @@ final class ListAuthorizedWorkRecordsHandler
         });
     }
 
-    /** @param array{user_id: string, facility_id: string} $principal */
+    /**
+     * @param  array{user_id: string, facility_id: string}  $principal
+     * @return array{user_id: string, facility_id: string, facility_ids: list<string>, organization_unit_ids: list<string>}
+     */
     private function actor(array $principal): array
     {
+        $facilityIds = [$principal['facility_id']];
+
         return [
             'user_id' => $principal['user_id'],
             'facility_id' => $principal['facility_id'],
-            'facility_ids' => is_array($principal['facility_ids'] ?? null) ? $principal['facility_ids'] : [$principal['facility_id']],
-            'organization_unit_ids' => is_array($principal['organization_unit_ids'] ?? null) ? $principal['organization_unit_ids'] : [],
+            'facility_ids' => $facilityIds,
+            'organization_unit_ids' => [],
         ];
     }
 

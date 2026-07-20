@@ -65,6 +65,6 @@ final class CompleteAuthorizationBootstrapController
 
         return response()->json(['data' => $result['payload']], 200)
             ->header('X-Correlation-ID', $correlationId)
-            ->header('ETag', '"'.(string) $result['payload']['version'].'"');
+            ->header('ETag', '"'.(string) $result['version'].'"');
     }
 }

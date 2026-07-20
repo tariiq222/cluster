@@ -51,7 +51,7 @@ final class AuthorizationBootstrapStage00CTest extends TestCase
         $secondKey = $state->complete($principalId, 'Initial setup complete', 'another-key', $hash);
 
         $this->assertSame('completed', $completed['status']);
-        $this->assertSame(2, $completed['payload']['version']);
+        $this->assertSame(2, $completed['version']);
         $this->assertSame('replay', $replay['status']);
         $this->assertSame($completed['payload'], $replay['payload']);
         $this->assertSame('conflict', $secondKey['status']);
@@ -90,14 +90,14 @@ final class AuthorizationBootstrapStage00CTest extends TestCase
                 return ['access_token' => 'unused', 'expires_at' => now()->addMinute()->toIso8601String()];
             }
 
-            public function resolve(Request $request): ?array
+            public function resolve(Request $request): array
             {
-                return ['user_id' => $this->principalId, 'facility_id' => null];
+                return ['user_id' => $this->principalId, 'facility_id' => '018f6f7d-0c00-7000-8000-000000000011'];
             }
         };
         $entitlements = new class implements ResolveAccountEntitlement
         {
-            public function resolve(string $userId): ?array
+            public function resolve(string $userId): array
             {
                 return ['active' => true, 'administrator' => true];
             }

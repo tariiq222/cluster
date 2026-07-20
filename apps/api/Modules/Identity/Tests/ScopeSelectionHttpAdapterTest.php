@@ -97,7 +97,7 @@ final class ScopeSelectionHttpAdapterTest extends TestCase
 
 final class FakeScopePrincipalContext implements ResolvePrincipalContext
 {
-    public function resolve(Request $request): ?PrincipalContext
+    public function resolve(Request $request): PrincipalContext
     {
         $request->attributes->set('identity.session', ['session_id' => ScopeSelectionHttpAdapterTest::SESSION_ID]);
 

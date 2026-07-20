@@ -69,8 +69,6 @@ final class SecurityJourneyW13Test extends TestCase
 
     private const CLUSTER = '018f6f7d-0c00-7000-8000-00000000c113';
 
-    private const FACILITY_TYPE = '0197f0e0-0000-7000-8000-000000000101';
-
     private const REQUEST_VERSION_ID = '0197f0e0-0000-7000-8000-000000000001';
 
     private const REPORT_ID = '019f7000-0000-7000-8000-000000000901';

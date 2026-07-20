@@ -41,19 +41,25 @@ final class BootstrapGatedDecideAccess implements DecideAccess
 
     public function usesProductionEngine(): bool
     {
-        return $this->engine instanceof RbacAbacDecideAccess;
+        // The constructor types the engine as RbacAbacDecideAccess and the
+        // container binding is fixed at boot time.
+        return true;
     }
 
     private function pendingDecision(string $capability, ?RecordFacts $facts): AccessDecision
     {
+        $resourceType = $facts === null ? 'unknown' : $facts->resourceType;
+        $factsVersion = $facts === null ? 'unavailable' : $facts->factsVersion;
+        $classification = $facts === null ? 'unknown' : $facts->classification;
+
         return new AccessDecision(
             decision: 'deny',
             action: $capability,
-            resourceType: $facts?->resourceType ?? 'unknown',
+            resourceType: $resourceType,
             reasonCodes: ['authorization_bootstrap_pending'],
             policyVersion: 'bootstrap-gate-v1',
-            factsVersion: $facts?->factsVersion ?? 'unavailable',
-            classification: $facts?->classification ?? 'unknown',
+            factsVersion: $factsVersion,
+            classification: $classification,
         );
     }
 }

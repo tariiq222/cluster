@@ -62,7 +62,7 @@ final class ValidateGrantAuthority
         }
     }
 
-    /** @param list<array{scope_type:string,scope_id:string}> $requestedAncestry */
+    /** @param array{cluster_id: ?string, facility_id: ?string, unit_id: ?string} $requestedAncestry */
     private function hasAdministrativeGrantAuthority(
         string $actorUserId,
         string $scopeType,

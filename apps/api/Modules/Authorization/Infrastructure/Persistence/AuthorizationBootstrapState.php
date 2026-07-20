@@ -47,10 +47,13 @@ final class AuthorizationBootstrapState
                     return ['status' => 'conflict', 'payload' => $this->current(), 'version' => 0];
                 }
 
+                $payload = json_decode((string) $existing->response_payload, true, 512, JSON_THROW_ON_ERROR);
+                $payloadVersion = is_array($payload) && isset($payload['version']) ? (int) $payload['version'] : 0;
+
                 return [
                     'status' => 'replay',
-                    'payload' => json_decode((string) $existing->response_payload, true, 512, JSON_THROW_ON_ERROR),
-                    'version' => 200,
+                    'payload' => $payload,
+                    'version' => $payloadVersion,
                 ];
             }
 
@@ -102,7 +105,7 @@ final class AuthorizationBootstrapState
                 'updated_at' => $now,
             ]);
 
-            return ['status' => 'completed', 'payload' => $payload, 'version' => 200];
+            return ['status' => 'completed', 'payload' => $payload, 'version' => (int) $row->lock_version + 1];
         });
     }
 

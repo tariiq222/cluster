@@ -49,7 +49,7 @@ final class DatabasePersistAccessDecision implements PersistAccessDecision
                     'updated_at' => $now,
                 ]);
 
-                if ($sensitive && $facts !== null && is_string($facts->recordId)) {
+                if ($sensitive) {
                     $originalUserId = $actor['original_user_id'] ?? null;
                     DB::table('sensitive_access_events')->insert([
                         'id' => UuidV7::generate(),

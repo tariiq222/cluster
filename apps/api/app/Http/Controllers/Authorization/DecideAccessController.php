@@ -78,9 +78,7 @@ final class DecideAccessController
             'access_context' => [
                 'subject_id' => $principal['user_id'],
                 'tenant_id' => $principal['facility_id'],
-                'organization_unit_ids' => is_array($principal['organization_unit_ids'] ?? null)
-                    ? array_values($principal['organization_unit_ids'])
-                    : [],
+                'organization_unit_ids' => [],
                 'correlation_id' => $correlationId,
             ],
         ];
