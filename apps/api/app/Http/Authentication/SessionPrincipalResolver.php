@@ -20,9 +20,15 @@ final class SessionPrincipalResolver implements ResolveDevelopmentFixturePrincip
 
     public function resolve(Request $request): ?array
     {
-        $legacy = $this->principalContext($request)?->toLegacyArray();
+        $context = $this->principalContext($request);
+        $legacy = $context?->toLegacyArray();
         if ($legacy !== null && is_string($legacy['facility_id'])) {
-            return $legacy;
+            return [
+                ...$legacy,
+                'cluster_ids' => $context->clusterIds,
+                'facility_ids' => $context->facilityIds,
+                'organization_unit_ids' => $context->organizationUnitIds,
+            ];
         }
 
         $principal = $request->attributes->get(IdentityRequestAttributes::PRINCIPAL);

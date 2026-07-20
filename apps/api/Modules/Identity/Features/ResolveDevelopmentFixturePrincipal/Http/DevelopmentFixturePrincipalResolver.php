@@ -47,9 +47,15 @@ final class DevelopmentFixturePrincipalResolver implements ResolveDevelopmentFix
         // adapters, but must receive the server-derived identity whenever the
         // session middleware has authenticated the request. Never let a
         // client bearer override a validated session principal.
-        $sessionPrincipal = $this->principalContexts?->resolve($request)?->toLegacyArray();
+        $context = $this->principalContexts?->resolve($request);
+        $sessionPrincipal = $context?->toLegacyArray();
         if ($sessionPrincipal !== null && is_string($sessionPrincipal['facility_id'])) {
-            return $sessionPrincipal;
+            return [
+                ...$sessionPrincipal,
+                'cluster_ids' => $context->clusterIds,
+                'facility_ids' => $context->facilityIds,
+                'organization_unit_ids' => $context->organizationUnitIds,
+            ];
         }
 
         if ($request->attributes->get('identity.session_only') === true) {

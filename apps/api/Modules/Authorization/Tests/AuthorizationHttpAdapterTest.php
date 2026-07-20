@@ -33,6 +33,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
         ])->needs(ResolveDevelopmentFixturePrincipal::class)
             ->give(fn ($app) => $app->make(SessionPrincipalResolver::class));
         $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
+        config()->set('identity.session_only', true);
         $this->bindRealAccessDecision();
         DB::table('authorization_bootstrap')->update([
             'state' => 'complete',
@@ -41,6 +42,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
             'lock_version' => 2,
             'updated_at' => now(),
         ]);
+        $this->app->forgetInstance(\Modules\Authorization\Contracts\DecideAccess::class);
         $this->app->bind(ResolveAuthorizationSimulationFacts::class, function (): ResolveAuthorizationSimulationFacts {
             return new class implements ResolveAuthorizationSimulationFacts
             {

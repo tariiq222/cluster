@@ -86,6 +86,7 @@ final class AuthorizationCatalogSeeder extends Seeder
                 'capability_id' => (string) $capabilityId,
                 'effect' => 'allow',
                 'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
 

@@ -17,8 +17,10 @@ use App\Integrations\WorkRecordAuthorizationFacts;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
+use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
@@ -105,6 +107,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(PersistAccessDecision::class, DatabasePersistAccessDecision::class);
         $this->app->bind(RbacAbacDecideAccess::class, fn ($app): RbacAbacDecideAccess => new RbacAbacDecideAccess(
             $app->make(GetActiveSupervisoryRelationships::class),
             $app->bound(\Modules\Authorization\Contracts\PersistAccessDecision::class)

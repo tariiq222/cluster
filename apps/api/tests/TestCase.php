@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
+use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 
 abstract class TestCase extends BaseTestCase
@@ -26,8 +27,21 @@ abstract class TestCase extends BaseTestCase
 
     protected function bindRealAccessDecision(): void
     {
-        $this->app->bind(DecideAccess::class, fn ($app): DecideAccess => new RbacAbacDecideAccess(
+        $factory = fn ($app): DecideAccess => new RbacAbacDecideAccess(
             $app->make(GetActiveSupervisoryRelationships::class),
-        ));
+            $app->make(PersistAccessDecision::class),
+        );
+        $this->app->bind(DecideAccess::class, $factory);
+        $this->app->when([
+            \Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler::class,
+            \Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler::class,
+            \Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController::class,
+            \Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler::class,
+            \Modules\Reporting\Features\RunAuthorizedReport\Handler\RunAuthorizedReportHandler::class,
+            \Modules\Reporting\Features\GetAuthorizedDashboard\Handler\GetAuthorizedDashboardHandler::class,
+        ])->needs(DecideAccess::class)->give($factory);
+        $this->app->forgetInstance(DecideAccess::class);
+        $this->app->forgetInstance(\Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler::class);
+        $this->app->forgetInstance(\Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler::class);
     }
 }

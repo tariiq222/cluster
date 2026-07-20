@@ -22,7 +22,7 @@ final class ValidateDelegationAuthority
         string $endAt,
     ): void {
         try {
-            $this->grantAuthority->assertCovered($delegatorUserId, $capabilityCodes, $scopeType, $scopeId, $startAt, $endAt);
+            $this->grantAuthority->assertCovered($delegatorUserId, $capabilityCodes, $scopeType, $scopeId, $startAt, $endAt, false);
         } catch (InvalidArgumentException) {
             throw new InvalidArgumentException('delegation_exceeds_delegator_authority');
         }

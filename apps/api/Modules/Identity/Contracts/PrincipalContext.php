@@ -53,6 +53,6 @@ final readonly class PrincipalContext
 
     private function defaultFacilityId(): ?string
     {
-        return $this->primaryOrganizationUnitId ?? ($this->facilityIds[0] ?? null);
+        return $this->facilityIds[0] ?? null;
     }
 }

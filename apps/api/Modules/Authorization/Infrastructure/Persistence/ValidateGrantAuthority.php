@@ -29,6 +29,7 @@ final class ValidateGrantAuthority
         string $scopeId,
         string $startAt,
         ?string $endAt,
+        bool $allowAdministrativeAuthority = true,
     ): void {
         if ($capabilityCodes === []) {
             throw new InvalidArgumentException('authorization_grant_exceeds_actor_authority');
@@ -46,10 +47,38 @@ final class ValidateGrantAuthority
                     break;
                 }
             }
+            if (! $covered && $allowAdministrativeAuthority && $this->hasAdministrativeGrantAuthority($actorUserId, $scopeType, $scopeId, $startAt, $endAt, $requestedAncestry)) {
+                foreach ($this->actorGrants($actorUserId, 'authorization.assignment.manage') as $grant) {
+                    if ($this->windowCovers($grant, $startAt, $endAt)
+                        && $this->scopeCovers($grant, $scopeType, $scopeId, $requestedAncestry)) {
+                        $covered = true;
+                        break;
+                    }
+                }
+            }
             if (! $covered) {
                 throw new InvalidArgumentException('authorization_grant_exceeds_actor_authority');
             }
         }
+    }
+
+    /** @param list<array{scope_type:string,scope_id:string}> $requestedAncestry */
+    private function hasAdministrativeGrantAuthority(
+        string $actorUserId,
+        string $scopeType,
+        string $scopeId,
+        string $startAt,
+        ?string $endAt,
+        array $requestedAncestry,
+    ): bool {
+        foreach ($this->actorGrants($actorUserId, 'authorization.assignment.manage') as $grant) {
+            if ($this->windowCovers($grant, $startAt, $endAt)
+                && $this->scopeCovers($grant, $scopeType, $scopeId, $requestedAncestry)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return list<stdClass> */

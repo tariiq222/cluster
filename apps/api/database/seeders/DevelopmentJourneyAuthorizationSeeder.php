@@ -113,6 +113,7 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
                 'capability_id' => $capabilityId,
                 'effect' => 'allow',
                 'created_at' => $now,
+                'updated_at' => $now,
             ]);
         }
 
@@ -174,6 +175,7 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
         $now = now();
         $clusterId = '018f6f7d-0c00-7000-8000-00000000c113';
         $facilityTypeId = '0197f0e0-0000-7000-8000-000000000101';
+        $unitTypeId = '0197f0e0-0000-7000-8000-000000000204';
         $people = [
             [
                 'id' => '018f6f7d-0c00-7000-8000-000000000031',
@@ -283,6 +285,52 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
                     'updated_at' => $now,
                 ],
             );
+
+            $unitId = $person['facility_id'] === self::FACILITY_A_ID
+                ? '018f6f7d-0c00-7000-8000-000000000041'
+                : '018f6f7d-0c00-7000-8000-000000000042';
+            $positionId = $person['facility_id'] === self::FACILITY_A_ID
+                ? '018f6f7d-0c00-7000-8000-000000000051'
+                : '018f6f7d-0c00-7000-8000-000000000052';
+            $assignmentId = $person['facility_id'] === self::FACILITY_A_ID
+                ? '018f6f7d-0c00-7000-8000-000000000061'
+                : '018f6f7d-0c00-7000-8000-000000000062';
+            DB::table('organization_units')->insertOrIgnore([
+                'id' => $unitId,
+                'cluster_id' => $clusterId,
+                'parent_id' => $person['facility_id'],
+                'parent_type' => 'facility',
+                'unit_type_id' => $unitTypeId,
+                'code' => 'w13-e2e-unit-'.($person['facility_id'] === self::FACILITY_A_ID ? 'a' : 'b'),
+                'name_ar' => 'وحدة اختبار W1.3',
+                'status' => 'active',
+                'path_cache' => '/'.$clusterId.'/'.$person['facility_id'].'/'.$unitId,
+                'depth' => 2,
+                'lock_version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            DB::table('positions')->insertOrIgnore([
+                'id' => $positionId,
+                'organization_unit_id' => $unitId,
+                'code' => 'W13-E2E-POS',
+                'title_ar' => 'منصب اختبار W1.3',
+                'is_active' => true,
+                'lock_version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            DB::table('assignments')->insertOrIgnore([
+                'id' => $assignmentId,
+                'person_id' => $person['id'],
+                'position_id' => $positionId,
+                'start_at' => '2026-01-01 00:00:00.000',
+                'end_at' => null,
+                'is_primary' => true,
+                'lock_version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
         }
     }
 }

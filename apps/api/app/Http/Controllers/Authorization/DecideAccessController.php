@@ -95,6 +95,6 @@ final class DecideAccessController
             return $this->access->evaluateOnly($principal, 'authorization.decision.read', $facts)->isAllowed();
         }
 
-        return false;
+        return $this->access->decide($principal, 'authorization.decision.read', $facts)->isAllowed();
     }
 }

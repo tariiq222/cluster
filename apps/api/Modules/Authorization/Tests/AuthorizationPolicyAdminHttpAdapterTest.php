@@ -41,6 +41,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ])->needs(\Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal::class)
             ->give(fn ($app) => $app->make(\App\Http\Authentication\SessionPrincipalResolver::class));
         $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
+        config()->set('identity.session_only', true);
         DB::table('authorization_bootstrap')->update([
             'state' => 'complete',
             'completed_by_user_id' => self::ADMIN_ID,
@@ -48,6 +49,8 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'lock_version' => 2,
             'updated_at' => now(),
         ]);
+        $this->bindRealAccessDecision();
+        $this->app->forgetInstance(\Modules\Authorization\Contracts\DecideAccess::class);
     }
 
     public function test_role_capability_is_attached_updated_listed_and_revoked(): void
@@ -100,11 +103,23 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
     public function test_role_capability_direct_access_is_scoped_and_cursor_is_reusable(): void
     {
         [$cookie, $csrf] = $this->loginAdminSession();
-        $foreignRole = (string) DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::ROLE_CODE)->value('id');
+        $foreignRole = Str::uuid7()->toString();
+        DB::table('roles')->insert([
+            'id' => $foreignRole,
+            'code' => 'foreign-only-role',
+            'name_ar' => 'دور خارجي',
+            'role_type' => 'operational',
+            'status' => 'active',
+            'is_system_role' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->assignRole(DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_ID, $foreignRole, 'facility', DevelopmentJourneyAuthorizationSeeder::FACILITY_B_ID, null);
         $foreignCapability = (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id');
-        DB::table('role_capabilities')->insert([
+        DB::table('role_capabilities')->updateOrInsert([
             'role_id' => $foreignRole,
             'capability_id' => $foreignCapability,
+        ], [
             'effect' => 'allow',
             'created_at' => now(),
             'updated_at' => now(),

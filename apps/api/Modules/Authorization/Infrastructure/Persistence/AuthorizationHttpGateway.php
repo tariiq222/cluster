@@ -155,7 +155,26 @@ final class AuthorizationHttpGateway
         $capabilityCodes = $row['_capability_codes'] ?? null;
         unset($row['_capability_codes']);
         if ($resource === 'role-capabilities') {
-            DB::table($table)->insert($row);
+            $existing = DB::table($table)
+                ->where('role_id', $row['role_id'])
+                ->where('capability_id', $row['capability_id'])
+                ->first();
+            if ($existing !== null) {
+                if ((string) $existing->effect === (string) $row['effect']) {
+                    return $this->find($resource, $row['role_id'].':'.$row['capability_id'])
+                        ?? throw new InvalidArgumentException('authorization_resource_not_found');
+                }
+                DB::table($table)
+                    ->where('role_id', $row['role_id'])
+                    ->where('capability_id', $row['capability_id'])
+                    ->update([
+                        'effect' => $row['effect'],
+                        'lock_version' => ((int) $existing->lock_version) + 1,
+                        'updated_at' => $now,
+                    ]);
+            } else {
+                DB::table($table)->insert($row);
+            }
 
             return $this->find($resource, $row['role_id'].':'.$row['capability_id']) ?? throw new InvalidArgumentException('authorization_resource_not_found');
         }
@@ -699,9 +718,26 @@ final class AuthorizationHttpGateway
     /** @param list<array{scope_type:string,scope_id:string}> $scopes */
     private function applyRoleCapabilityScopePredicate(Builder $query, array $scopes): void
     {
-        $query->whereExists(function (Builder $subquery) use ($scopes): void {
-            $subquery->selectRaw('1')->from('role_assignments as scoped_assignments')->whereColumn('scoped_assignments.role_id', 'role_capabilities.role_id');
-            $this->applyDirectScopePredicate($subquery, $scopes);
+        $query->where(function (Builder $candidate) use ($scopes): void {
+            $candidate->whereNotExists(function (Builder $subquery): void {
+                $subquery->selectRaw('1')->from('role_assignments as any_assignments')
+                    ->whereColumn('any_assignments.role_id', 'role_capabilities.role_id')
+                    ->where('any_assignments.status', 'active');
+            })->orWhere(function (Builder $assigned) use ($scopes): void {
+                $assigned->whereExists(function (Builder $subquery) use ($scopes): void {
+                    $subquery->selectRaw('1')->from('role_assignments as scoped_assignments')
+                        ->whereColumn('scoped_assignments.role_id', 'role_capabilities.role_id')
+                        ->where('scoped_assignments.status', 'active');
+                    $this->applyDirectScopePredicate($subquery, $scopes);
+                })->whereNotExists(function (Builder $subquery) use ($scopes): void {
+                    $subquery->selectRaw('1')->from('role_assignments as outside_assignments')
+                        ->whereColumn('outside_assignments.role_id', 'role_capabilities.role_id')
+                        ->where('outside_assignments.status', 'active')
+                        ->whereNot(function (Builder $covered) use ($scopes): void {
+                            $this->applyDirectScopePredicate($covered, $scopes);
+                        });
+                });
+            });
         });
     }
 

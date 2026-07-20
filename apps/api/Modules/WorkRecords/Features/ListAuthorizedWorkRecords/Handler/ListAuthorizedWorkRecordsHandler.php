@@ -38,12 +38,17 @@ final class ListAuthorizedWorkRecordsHandler
         $query = DB::table('work_records')->orderBy('id');
         // Scope predicate before pagination: the principal's facility scopes
         // bound the SQL read; the central decision still authorizes each row.
-        $facilityScopes = array_filter([$principal['facility_id']]);
-        if ($facilityScopes === []) {
-            $query->whereRaw('1 = 0');
-        } else {
-            $query->whereIn('owner_facility_id', $facilityScopes);
-        }
+        $facilityScopes = DB::table('role_assignments')
+            ->where('user_id', $principal['user_id'])
+            ->where('scope_type', 'facility')
+            ->where('status', 'active')
+            ->where('start_at', '<=', now()->utc())
+            ->where(fn ($query) => $query->whereNull('end_at')->orWhere('end_at', '>', now()->utc()))
+            ->pluck('scope_id')
+            ->filter(static fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->values()
+            ->all();
+        $query->whereIn('owner_facility_id', $facilityScopes);
         if ($afterId !== null) {
             $query->where('id', '>', $afterId);
         }
@@ -124,7 +129,8 @@ final class ListAuthorizedWorkRecordsHandler
         return [
             'user_id' => $principal['user_id'],
             'facility_id' => $principal['facility_id'],
-            'organization_unit_ids' => array_filter([$principal['facility_id']]),
+            'facility_ids' => is_array($principal['facility_ids'] ?? null) ? $principal['facility_ids'] : [$principal['facility_id']],
+            'organization_unit_ids' => is_array($principal['organization_unit_ids'] ?? null) ? $principal['organization_unit_ids'] : [],
         ];
     }
 

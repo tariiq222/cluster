@@ -71,7 +71,23 @@ final class SecurityJourneyW13Test extends TestCase
     {
         parent::setUp();
         $this->bindRealAccessDecision();
-        $this->app->forgetInstance(\Modules\Authorization\Contracts\DecideAccess::class);
+        $this->app->bind(\Modules\Authorization\Contracts\DecideAccess::class, fn ($app) => new \Modules\Authorization\Infrastructure\RbacAbacDecideAccess(
+            $app->make(\Modules\Organization\Contracts\GetActiveSupervisoryRelationships::class),
+            $app->make(\Modules\Authorization\Contracts\PersistAccessDecision::class),
+        ));
+        $engine = new \Modules\Authorization\Infrastructure\RbacAbacDecideAccess(
+            $this->app->make(\Modules\Organization\Contracts\GetActiveSupervisoryRelationships::class),
+            $this->app->make(\Modules\Authorization\Contracts\PersistAccessDecision::class),
+        );
+        $this->app->instance(\Modules\Authorization\Contracts\DecideAccess::class, $engine);
+        $this->app->when([
+            \Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler::class,
+            \Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler::class,
+            \Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler::class,
+            \Modules\Reporting\Features\RunAuthorizedReport\Handler\RunAuthorizedReportHandler::class,
+            \Modules\Reporting\Features\GetAuthorizedDashboard\Handler\GetAuthorizedDashboardHandler::class,
+            \App\Http\Controllers\Authorization\ExplainAccessDecisionController::class,
+        ])->needs(\Modules\Authorization\Contracts\DecideAccess::class)->give(fn () => $engine);
         $this->app->when([
             DownloadDocumentController::class,
             \App\Http\Controllers\Authorization\AuthorizationAdminController::class,
@@ -91,6 +107,14 @@ final class SecurityJourneyW13Test extends TestCase
             ->give(fn ($app) => $app->make(SessionPrincipalResolver::class));
         $this->seed(AuthorizationCatalogSeeder::class);
         $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
+        config()->set('identity.session_only', true);
+        DB::table('authorization_bootstrap')->update([
+            'state' => 'complete',
+            'completed_by_user_id' => DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID,
+            'completed_at' => now(),
+            'lock_version' => 2,
+            'updated_at' => now(),
+        ]);
         DB::table('role_assignments')->whereIn('user_id', [DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_ID])->whereIn('role_id', DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::ROLE_CODE)->pluck('id'))->delete();
         $this->seedOrganizationTree();
         [$this->adminCookie, $this->adminCsrf] = $this->loginSession(
@@ -140,6 +164,7 @@ final class SecurityJourneyW13Test extends TestCase
                 'capability_id' => DB::table('capabilities')->where('capability_code', $code)->value('id'),
                 'effect' => 'allow',
                 'created_at' => now(),
+                'updated_at' => now(),
             ]);
         }
         DB::table('role_assignments')->insert([
@@ -169,10 +194,13 @@ final class SecurityJourneyW13Test extends TestCase
             ->assertJsonPath('data.id', $recordId)
             ->assertJsonPath('data.payload.title', 'طلب مرئي')
             ->assertJsonPath('data.owner.facility_id', self::FACILITY_A);
+        $persistedDecisionId = DB::table('access_decisions')->where('resource_id', $recordId)->value('id');
+        $this->assertNotNull($persistedDecisionId);
+        $this->assertSame($persistedDecisionId, $response->json('data.decision_id'), json_encode($response->json(), JSON_UNESCAPED_UNICODE));
         $this->assertNotEmpty($response->json('data.decision_id'));
 
         $listed = $this->getAsB('/api/v1/work-records')->assertOk();
-        $item = collect($listed->json('items'))->firstWhere('id', $recordId);
+        $item = collect($listed->json('items') ?? $listed->json('data.items'))->firstWhere('id', $recordId);
         $this->assertNotNull($item);
         $this->assertNotEmpty($item['decision_id']);
         $this->assertIsArray($item['allowed_actions']);
@@ -193,7 +221,8 @@ final class SecurityJourneyW13Test extends TestCase
     {
         $recordId = $this->seedRecord();
         $grant = $this->grantViaAdminApi('w13-j04-read', self::USER_B, ['work_record.read'], 'facility', self::FACILITY_A);
-        $this->getAsB('/api/v1/work-records/'.$recordId)->assertOk();
+        $firstRead = $this->getAsB('/api/v1/work-records/'.$recordId);
+        $firstRead->assertOk();
 
         $this->adminTransition('/api/v1/authorization/role-assignments/'.$grant['assignment_id'].'/revoke', 2);
         $this->getAsB('/api/v1/work-records/'.$recordId)->assertNotFound();
@@ -314,7 +343,7 @@ final class SecurityJourneyW13Test extends TestCase
         );
 
         // Removing the deny and re-attaching the allow restores access.
-        $this->adminTransition('/api/v1/authorization/role-capabilities/'.$grant['role_capability_ids']['work_record.read'].'/revoke');
+        $this->adminTransition('/api/v1/authorization/role-capabilities/'.$grant['role_capability_ids']['work_record.read'].'/revoke', 2);
         $this->adminPost('/api/v1/authorization/role-capabilities', [
             'resource_type' => 'role_capability',
             'role_id' => $grant['role_id'],

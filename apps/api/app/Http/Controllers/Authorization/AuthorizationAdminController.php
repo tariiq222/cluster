@@ -12,6 +12,8 @@ use Modules\Authorization\Contracts\CapabilityCatalog;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Http\AuthorizationApi;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationHttpGateway;
+use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
+use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Throwable;
 
@@ -44,11 +46,15 @@ final class AuthorizationAdminController
         if ($capability === null) {
             return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
         }
-        if (! $this->access->decide($principal, $capability, new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
+        $facts = new RecordFacts(
+            ownerFacilityId: $this->principalFacilityId($principal),
             resourceType: 'authorization_'.$adminResource,
             classification: 'internal',
-        ))->isAllowed()) {
+        );
+        $decision = $this->access instanceof RbacAbacDecideAccess || $this->access instanceof BootstrapGatedDecideAccess
+            ? $this->access->evaluateOnly($principal, $capability, $facts)
+            : $this->access->decide($principal, $capability, $facts);
+        if (! $decision->isAllowed()) {
             return AuthorizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }
 
@@ -85,6 +91,17 @@ final class AuthorizationAdminController
         }
 
         return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
+    }
+
+    /** @param array<string, mixed> $principal */
+    private function principalFacilityId(array $principal): ?string
+    {
+        $facilityIds = $principal['facility_ids'] ?? null;
+        if (is_array($facilityIds) && is_string($facilityIds[0] ?? null)) {
+            return $facilityIds[0];
+        }
+
+        return is_string($principal['facility_id'] ?? null) ? $principal['facility_id'] : null;
     }
 
     private function list(Request $request, string $resource, string $correlationId, string $principalId): JsonResponse
