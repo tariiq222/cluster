@@ -3,7 +3,6 @@ import { ApiError } from '../../api'
 import {
   createDelegation,
   createRoleAssignment,
-  createSupervisoryRelationship,
   explainAccessDecision,
   listAuthorization,
   listSupervisoryRelationships,
@@ -44,7 +43,9 @@ const labels = {
     simulator: 'Access decision simulator', audit: 'Audit and explanation view', decisionId: 'Decision ID', loadExplanation: 'Show explanation',
     simulate: 'Simulate decision', requestJson: 'Server-provided simulation request (JSON)', invalidJson: 'Enter valid JSON.', invalid: 'Complete the required fields.', saved: 'Saved.',
   },
-} as const
+} satisfies Record<Locale, Record<string, string>>
+
+type Labels = (typeof labels)[Locale]
 
 export const RESOURCE_LABELS: Record<AdminResource, string> = {
   roles: 'Roles', capabilities: 'Capabilities', 'role-assignments': 'Role assignments', delegations: 'Delegations',
@@ -85,7 +86,7 @@ function stateFrom(error: unknown, onSessionExpired: () => void): AdminState {
   return 'error'
 }
 
-function StatusPanel({ state, text, retry }: { state: AdminState; text: typeof labels.ar; retry: () => void }) {
+function StatusPanel({ state, text, retry }: { state: AdminState; text: Labels; retry: () => void }) {
   if (state === 'loading') return <div className="skeleton-list" aria-label={text.loading}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>
   if (state === 'ready') return null
   const message = state === 'empty' ? text.empty : state === 'forbidden' ? text.forbidden : state === 'not-found' ? text.notFound : state === 'conflict' ? text.conflict : state === 'stale' ? text.stale : text.error
@@ -132,7 +133,7 @@ export function AuthorizationAdmin({ locale, token, resource, onSessionExpired }
   const load = useCallback(async () => { setState('loading'); setSelected(null); try { const result = resource === 'supervisory' ? await listSupervisoryRelationships(token) : await listAuthorization(resource, token); setItems(result); setState(result.length ? 'ready' : 'empty') } catch (error) { setState(stateFrom(error, onSessionExpired)) } }, [onSessionExpired, resource, token])
   useEffect(() => { void load() }, [load])
   const title = text[resource]; const matrix = useMemo(() => resource === 'roles' || resource === 'capabilities', [resource])
-  return <section className="organization-page authorization-page" aria-labelledby="authorization-heading" dir={locale === 'ar' ? 'rtl' : 'ltr'}><div className="page-heading page-heading-copy"><div><h1 id="authorization-heading">{title}</h1><p>{text.intro}</p></div></div>{(resource === 'role-assignments' || resource === 'delegations') && <><h2>{text.wizard}</h2><AdminForm resource={resource} locale={locale} token={token} onSessionExpired={onSessionExpired} onSaved={load} /></>}{state === 'loading' || state === 'empty' || state === 'forbidden' || state === 'not-found' || state === 'conflict' || state === 'stale' || state === 'error' ? <StatusPanel state={state} text={text} retry={() => void load()} /> : <><ItemTable items={items} locale={locale} onSelect={setSelected} />{selected && resource !== 'supervisory' && <EditPanel resource={resource} item={selected} locale={locale} token={token} onSessionExpired={onSessionExpired} onSaved={load} />}{matrix && <RoleCapabilityMatrix items={items} locale={locale} /></>}</>}</section>
+  return <section className="organization-page authorization-page" aria-labelledby="authorization-heading" dir={locale === 'ar' ? 'rtl' : 'ltr'}><div className="page-heading page-heading-copy"><div><h1 id="authorization-heading">{title}</h1><p>{text.intro}</p></div></div>{(resource === 'role-assignments' || resource === 'delegations') && <><h2>{text.wizard}</h2><AdminForm resource={resource} locale={locale} token={token} onSessionExpired={onSessionExpired} onSaved={load} /></>}{state === 'loading' || state === 'empty' || state === 'forbidden' || state === 'not-found' || state === 'conflict' || state === 'stale' || state === 'error' ? <StatusPanel state={state} text={text} retry={() => void load()} /> : <><ItemTable items={items} locale={locale} onSelect={setSelected} />{selected && resource !== 'supervisory' && <EditPanel resource={resource} item={selected} locale={locale} token={token} onSessionExpired={onSessionExpired} onSaved={load} />}{matrix && <RoleCapabilityMatrix items={items} locale={locale} />}</>}</section>
 }
 
 export function AccessExplanation({ locale, token, decisionId, onSessionExpired }: { locale: Locale; token: string; decisionId?: string; onSessionExpired: () => void }) {

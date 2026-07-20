@@ -7,8 +7,6 @@ import {
   CalendarClock,
   CalendarDays,
   ClipboardList,
-  Eye,
-  EyeOff,
   FileCog,
   FilePlus2,
   FileUp,
@@ -20,14 +18,12 @@ import {
   KeyRound,
   KeySquare,
   LayoutDashboard,
-  Moon,
   Network,
   Route,
   Search,
   Settings2,
   ShieldCheck,
   ShieldQuestion,
-  Sun,
   UserCheck,
   UserCog,
   UserRound,
@@ -45,13 +41,15 @@ import {
   identityLogout,
   listNotifications,
   listWorkRecords,
-  login,
   restoreSession,
   type Notification,
   type Session,
   type WorkRecord,
 } from './api'
 import { routeFromPath, type AppRoute } from './shell/routes'
+import { text, recordStatusText, LOCALE_KEY, initialLocale } from './app/copy'
+import { LoginScreen } from './app/LoginScreen'
+import { NotificationList, formatDate } from './app/NotificationList'
 import { OrganizationOverview } from './features/organization/OrganizationOverview'
 import { OrganizationStructure } from './features/organization/OrganizationStructure'
 import { PeopleAssignments } from './features/organization/PeopleAssignments'
@@ -66,290 +64,6 @@ import { AdaptiveDashboard, NotificationsScreen, ReportsScreen, SearchScreen, Ta
 import { getAuthorizedWorkRecord, getDocumentDownloadUrl, getReport as getR1Report, linkDocument as linkR1Document, listTasks as listR1Tasks, listWorkDefinitions as listR1Definitions, listWorkflowDefinitions as listR1Workflows, searchRecords as searchR1Records, transitionRequest } from './api/r1'
 
 type Locale = 'ar' | 'en'
-
-const text = {
-  ar: {
-    platform: 'منصة التجمع الصحي الثالث',
-    switchLanguage: 'English',
-    signIn: 'تسجيل الدخول',
-    username: 'اسم المستخدم',
-    password: 'كلمة المرور',
-    signingIn: 'جارٍ تسجيل الدخول…',
-    loginError: 'تعذر تسجيل الدخول. تحقق من بيانات الدخول ثم أعد المحاولة.',
-    requiredLogin: 'أكمل الحقول المطلوبة ثم أعد المحاولة.',
-    welcomeBack: 'مرحباً بعودتك',
-    loginGuidance: 'سجّل الدخول باستخدام حساب المنصة الداخلي.',
-    internalAccess: 'دخول مخصص للحسابات الداخلية المعتمدة',
-    developmentAccounts: 'حسابات التطوير',
-    developmentAdmin: 'مدير: admin / Admin123!',
-    developmentEmployee: 'موظف: employee / Employee123!',
-    usernameRequired: 'اسم المستخدم مطلوب.',
-    passwordRequired: 'كلمة المرور مطلوبة.',
-    showPassword: 'إظهار كلمة المرور',
-    hidePassword: 'إخفاء كلمة المرور',
-    enableDarkMode: 'تفعيل الوضع الداكن',
-    enableLightMode: 'تفعيل الوضع الفاتح',
-    currentFacility: 'نطاق المنشأة الحالية',
-    myRequests: 'طلباتي',
-    newRequest: 'طلب جديد',
-    organization: 'التنظيم',
-    organizationStructure: 'الهيكل والمناصب',
-    peopleAssignments: 'الأشخاص والتكليفات',
-    temporaryAssignments: 'التكليفات المؤقتة',
-    identityAccounts: 'حسابات الهوية',
-    administrationNavigation: 'تنقل الإدارة',
-    importReview: 'مراجعة الاستيراد',
-    roles: 'الأدوار',
-    capabilities: 'الصلاحيات',
-    roleAssignments: 'إسنادات الأدوار',
-    delegations: 'التفويضات',
-    supervisoryRelationships: 'العلاقات الإشرافية',
-    accessExplanation: 'شرح قرار الوصول',
-    authorizationGroup: 'الصلاحيات والوصول',
-    workflowGroup: 'سير العمل',
-    workflowTasks: 'سير العمل والمهام',
-    workDefinitions: 'تعريفات العمل',
-    workflowAdmin: 'إدارة المسارات',
-    myTasks: 'مهامي',
-    searchScreen: 'البحث',
-    reportsScreen: 'التقارير',
-    notifications: 'الإشعارات',
-    profile: 'ملفي',
-    personalAccess: 'سياق الوصول الشخصي',
-    classificationPolicies: 'سياسات التصنيف',
-    fieldAccessTemplates: 'قوالب وصول الحقول',
-    closeNotifications: 'إغلاق الإشعارات',
-    logout: 'تسجيل الخروج',
-    loadingRequests: 'جارٍ تحميل طلباتك…',
-    listError: 'تعذر تحميل طلباتك. أعد المحاولة.',
-    retry: 'إعادة المحاولة',
-    emptyTitle: 'لا توجد طلبات بعد',
-    emptyBody: 'أنشئ أول طلب للمنشأة الحالية لبدء المسار.',
-    noDescription: 'لا يوجد وصف',
-    submitted: 'تم الإرسال',
-    requestTitle: 'عنوان الطلب (مطلوب)',
-    requestDescription: 'وصف الطلب (مطلوب)',
-    titleHelp: 'اكتب عنواناً موجزاً يوضح الغرض من الطلب.',
-    descriptionHelp: 'أضف التفاصيل اللازمة لمعالجة الطلب.',
-    submit: 'إرسال الطلب',
-    submitting: 'جارٍ إرسال الطلب…',
-    validationError: 'أكمل الحقول المطلوبة ثم أعد الإرسال.',
-    titleRequired: 'عنوان الطلب مطلوب.',
-    descriptionRequired: 'وصف الطلب مطلوب.',
-    submitError: 'لم يتم حفظ الطلب. تحقق من اتصالك الداخلي ثم أعد المحاولة.',
-    success: 'تم إرسال طلبك',
-    successBody: 'حُفظ الطلب. سيظهر إشعار داخلي هنا بعد اكتمال المعالجة.',
-    backToRequests: 'العودة إلى طلباتي',
-    loadingDetail: 'جارٍ تحميل الطلب…',
-    detailError: 'تعذر تحميل الطلب. أعد المحاولة.',
-    unavailable: 'لا يمكنك فتح هذا الطلب أو لم يعد متاحاً.',
-    refreshNotifications: 'تحديث الإشعارات',
-    refreshingNotifications: 'جارٍ تحديث الإشعارات…',
-    notificationError: 'تعذر تحميل الإشعارات. أعد المحاولة.',
-    noNotifications: 'لا توجد إشعارات جديدة',
-    read: 'مقروء',
-    unread: 'غير مقروء',
-    sessionExpired: 'انتهت جلستك. سجّل الدخول للمتابعة.',
-    notFound: 'الصفحة غير موجودة',
-    notFoundBody: 'تحقق من الرابط أو عد إلى طلباتك.',
-    openNavigation: 'فتح القائمة الرئيسية',
-    closeNavigation: 'إغلاق القائمة الرئيسية',
-    navigationTitle: 'التنقل الرئيسي',
-    services: 'الخدمات',
-    platformUser: 'مستخدم المنصة',
-    internalSystem: 'نظام العمليات الداخلي',
-    rightsReserved: 'جميع الحقوق محفوظة © 2026',
-    organizationName: 'مجمع إرادة والصحة النفسية',
-    officeName: 'مكتب إدارة المشاريع والتحول المؤسسي',
-    ownerName: 'طارق الوليدي',
-    collapseNavigation: 'طي القائمة الجانبية',
-    expandNavigation: 'توسيع القائمة الجانبية',
-    facilityA: 'المنشأة أ',
-    facilityB: 'المنشأة ب',
-    dashboardWelcome: 'مرحباً بك',
-    dashboardSummary: 'إليك ملخص الطلبات والإشعارات ضمن نطاق المنشأة الحالية.',
-    dashboardRange: 'حد العرض: 20 طلباً',
-    overview: 'نظرة عامة',
-    loadedRequests: 'الطلبات المحمّلة',
-    activeRequests: 'طلبات قيد الإجراء',
-    completedRequests: 'طلبات مكتملة',
-    unreadNotifications: 'غير المقروءة المحمّلة',
-    currentPageSource: 'من النتائج المحمّلة',
-    loadedNotificationSource: 'من إشعارات المستخدم المحمّلة',
-    analytics: 'التحليلات',
-    timelineTitle: 'التحليلات الزمنية',
-    timelineUnavailableTitle: 'لا تتوفر سلسلة زمنية بعد',
-    timelineUnavailableBody: 'ستظهر اتجاهات الطلبات عند نشر مصدر التجميع الزمني المعتمد.',
-    statusBreakdown: 'الطلبات حسب الحالة',
-    activeStatus: 'قيد الإجراء',
-    completedStatus: 'مكتملة',
-    otherStatus: 'حالات أخرى',
-    noStatusTitle: 'لا توجد حالات لعرضها',
-    noStatusBody: 'أنشئ أول طلب لتظهر هنا قراءة موجزة لتوزيع الحالات.',
-    recentActivity: 'النشاط المتاح',
-    openNotifications: 'عرض الإشعارات',
-    noNotificationBody: 'ستظهر هنا أحدث التنبيهات المرتبطة بطلبات المنشأة.',
-    noData: 'لا توجد بيانات',
-  },
-  en: {
-    platform: 'Third Health Cluster Platform',
-    switchLanguage: 'AR',
-    signIn: 'Sign in',
-    username: 'Username',
-    password: 'Password',
-    signingIn: 'Signing in…',
-    loginError: 'We could not sign you in. Check your credentials and try again.',
-    requiredLogin: 'Complete the required fields, then try again.',
-    welcomeBack: 'Welcome back',
-    loginGuidance: 'Sign in with your internal platform account.',
-    internalAccess: 'Access is limited to approved internal accounts',
-    developmentAccounts: 'Development accounts',
-    developmentAdmin: 'Admin: admin / Admin123!',
-    developmentEmployee: 'Employee: employee / Employee123!',
-    usernameRequired: 'Username is required.',
-    passwordRequired: 'Password is required.',
-    showPassword: 'Show password',
-    hidePassword: 'Hide password',
-    enableDarkMode: 'Enable dark mode',
-    enableLightMode: 'Enable light mode',
-    currentFacility: 'Current facility scope',
-    myRequests: 'My requests',
-    newRequest: 'New request',
-    organization: 'Organization',
-    organizationStructure: 'Structure and positions',
-    peopleAssignments: 'People and assignments',
-    temporaryAssignments: 'Temporary assignments',
-    identityAccounts: 'Identity accounts',
-    administrationNavigation: 'Administration navigation',
-    importReview: 'Import review',
-    roles: 'Roles',
-    capabilities: 'Capabilities',
-    roleAssignments: 'Role assignments',
-    delegations: 'Delegations',
-    supervisoryRelationships: 'Supervisory relationships',
-    accessExplanation: 'Access explanation',
-    authorizationGroup: 'Access and permissions',
-    workflowGroup: 'Workflow',
-    workflowTasks: 'Workflow and tasks',
-    workDefinitions: 'Work definitions',
-    workflowAdmin: 'Workflow administration',
-    myTasks: 'My tasks',
-    searchScreen: 'Search',
-    reportsScreen: 'Reports',
-    notifications: 'Notifications',
-    profile: 'My profile',
-    personalAccess: 'Personal access context',
-    classificationPolicies: 'Classification policies',
-    fieldAccessTemplates: 'Field access templates',
-    closeNotifications: 'Close notifications',
-    logout: 'Sign out',
-    loadingRequests: 'Loading your requests…',
-    listError: 'We could not load your requests. Try again.',
-    retry: 'Try again',
-    emptyTitle: 'No requests yet',
-    emptyBody: 'Create the first request for your current facility to begin.',
-    noDescription: 'No description',
-    submitted: 'Submitted',
-    requestTitle: 'Request title (required)',
-    requestDescription: 'Request description (required)',
-    titleHelp: 'Write a short title that explains the purpose of the request.',
-    descriptionHelp: 'Add the details needed to process the request.',
-    submit: 'Submit request',
-    submitting: 'Submitting request…',
-    validationError: 'Complete the required fields, then submit again.',
-    titleRequired: 'Request title is required.',
-    descriptionRequired: 'Request description is required.',
-    submitError: 'The request was not saved. Check your internal connection and try again.',
-    success: 'Your request was submitted',
-    successBody: 'The request was saved. An in-app notification will appear here after processing completes.',
-    backToRequests: 'Back to my requests',
-    loadingDetail: 'Loading request…',
-    detailError: 'We could not load the request. Try again.',
-    unavailable: 'You cannot open this request, or it is no longer available.',
-    refreshNotifications: 'Refresh notifications',
-    refreshingNotifications: 'Refreshing notifications…',
-    notificationError: 'We could not load notifications. Try again.',
-    noNotifications: 'No new notifications',
-    read: 'Read',
-    unread: 'Unread',
-    sessionExpired: 'Your session has expired. Sign in to continue.',
-    notFound: 'Page not found',
-    notFoundBody: 'Check the address or return to your requests.',
-    openNavigation: 'Open primary navigation',
-    closeNavigation: 'Close primary navigation',
-    navigationTitle: 'Primary navigation',
-    services: 'Services',
-    platformUser: 'Platform user',
-    internalSystem: 'Internal operations system',
-    rightsReserved: 'All rights reserved © 2026',
-    organizationName: 'Eradah and Mental Health Complex',
-    officeName: 'Project Management and Institutional Transformation Office',
-    ownerName: 'Tariq Alwalidi',
-    collapseNavigation: 'Collapse sidebar',
-    expandNavigation: 'Expand sidebar',
-    facilityA: 'Facility A',
-    facilityB: 'Facility B',
-    dashboardWelcome: 'Welcome',
-    dashboardSummary: 'Here is a summary of requests and notifications in the current facility scope.',
-    dashboardRange: 'Display limit: 20 requests',
-    overview: 'Overview',
-    loadedRequests: 'Loaded requests',
-    activeRequests: 'Requests in progress',
-    completedRequests: 'Completed requests',
-    unreadNotifications: 'Loaded unread notifications',
-    currentPageSource: 'From the loaded results',
-    loadedNotificationSource: 'From the user notifications loaded',
-    analytics: 'Analytics',
-    timelineTitle: 'Timeline analytics',
-    timelineUnavailableTitle: 'No timeline is available yet',
-    timelineUnavailableBody: 'Request trends will appear when the governed aggregation source is published.',
-    statusBreakdown: 'Requests by status',
-    activeStatus: 'In progress',
-    completedStatus: 'Completed',
-    otherStatus: 'Other statuses',
-    noStatusTitle: 'No statuses to display',
-    noStatusBody: 'Create the first request to see a concise status distribution here.',
-    recentActivity: 'Available activity',
-    openNotifications: 'View notifications',
-    noNotificationBody: 'The latest alerts related to facility requests will appear here.',
-    noData: 'No data',
-  },
-} as const
-
-const recordStatusText = {
-  ar: {
-    draft: 'مسودة',
-    submitted: 'تم الإرسال',
-    in_review: 'قيد المراجعة',
-    returned: 'معاد للتعديل',
-    approved: 'معتمد',
-    rejected: 'مرفوض',
-    completed: 'مكتمل',
-    cancelled: 'ملغي',
-    archived: 'مؤرشف',
-  },
-  en: {
-    draft: 'Draft',
-    submitted: 'Submitted',
-    in_review: 'In review',
-    returned: 'Returned',
-    approved: 'Approved',
-    rejected: 'Rejected',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-    archived: 'Archived',
-  },
-} as const
-
-const LOCALE_KEY = 'cluster.presentation-locale'
-
-function initialLocale(): Locale {
-  try {
-    return window.localStorage.getItem(LOCALE_KEY) === 'en' ? 'en' : 'ar'
-  } catch {
-    return 'ar'
-  }
-}
 
 function App() {
   const [locale, setLocale] = useState<Locale>(initialLocale)
@@ -755,173 +469,7 @@ function App() {
   )
 }
 
-const LOGIN_THEME_KEY = 'cluster.login-theme'
 
-function initialLoginTheme(): 'light' | 'dark' {
-  try {
-    return window.localStorage.getItem(LOGIN_THEME_KEY) === 'dark' ? 'dark' : 'light'
-  } catch {
-    return 'light'
-  }
-}
-
-function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenticated }: {
-  locale: Locale
-  sessionExpired: boolean
-  onLocaleChange: () => void
-  onAuthenticated: (session: Session) => void
-}) {
-  const copy = text[locale]
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [passwordVisible, setPasswordVisible] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark'>(initialLoginTheme)
-  const [submitting, setSubmitting] = useState(false)
-  const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean }>({})
-  const [authenticationError, setAuthenticationError] = useState(false)
-  const errorRef = useRef<HTMLDivElement>(null)
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const nextFieldErrors = {
-      username: username.trim() ? undefined : true,
-      password: password ? undefined : true,
-    }
-    setFieldErrors(nextFieldErrors)
-    setAuthenticationError(false)
-    if (nextFieldErrors.username || nextFieldErrors.password) {
-      window.requestAnimationFrame(() => errorRef.current?.focus())
-      return
-    }
-    setSubmitting(true)
-    try {
-      onAuthenticated(await login(username.trim(), password))
-      setPassword('')
-    } catch {
-      setAuthenticationError(true)
-      window.requestAnimationFrame(() => errorRef.current?.focus())
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  function toggleTheme() {
-    setTheme((current) => {
-      const next = current === 'light' ? 'dark' : 'light'
-      try {
-        window.localStorage.setItem(LOGIN_THEME_KEY, next)
-      } catch {
-        // The theme still changes when browser preference storage is unavailable.
-      }
-      return next
-    })
-  }
-
-  return (
-    <main className="login-page" data-login-theme={theme}>
-      <div className="login-page-actions">
-        <button type="button" className="language-button" onClick={onLocaleChange}>
-          <span>{copy.switchLanguage.slice(0, 2)}</span>
-        </button>
-        <button
-          type="button"
-          className="theme-button"
-          aria-label={theme === 'dark' ? copy.enableLightMode : copy.enableDarkMode}
-          aria-pressed={theme === 'dark'}
-          onClick={toggleTheme}
-        >
-          {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-        </button>
-      </div>
-      <div className="login-frame">
-        <section className="login-card" aria-labelledby="login-heading">
-          <div className="login-card-content">
-            <header className="login-intro">
-              <div className="login-brand">
-                <span className="login-mark" aria-hidden="true"><ShieldCheck /></span>
-                <span>{copy.platform}</span>
-              </div>
-              <h1 id="login-heading">{copy.welcomeBack}</h1>
-              <p className="login-guidance">{copy.loginGuidance}</p>
-            </header>
-
-            {sessionExpired && <p className="status-message" role="status">{copy.sessionExpired}</p>}
-            {(authenticationError || fieldErrors.username || fieldErrors.password) && (
-              <div id="login-error" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>
-                {authenticationError ? copy.loginError : copy.requiredLogin}
-              </div>
-            )}
-
-            <form className="login-form" aria-describedby={authenticationError ? 'login-error' : undefined} onSubmit={(event) => void submit(event)} noValidate>
-              <div className="field">
-                <label htmlFor="username">{copy.username}</label>
-                <input
-                  id="username"
-                  name="username"
-                  dir="auto"
-                  autoComplete="username"
-                  required
-                  aria-required="true"
-                  value={username}
-                  aria-invalid={Boolean(fieldErrors.username)}
-                  aria-describedby={fieldErrors.username ? 'username-error' : undefined}
-                  onChange={(event) => {
-                    setUsername(event.target.value)
-                    if (fieldErrors.username) setFieldErrors((current) => ({ ...current, username: undefined }))
-                  }}
-                />
-                {fieldErrors.username && <p id="username-error" className="field-error">{copy.usernameRequired}</p>}
-              </div>
-              <div className="field">
-                <label htmlFor="password">{copy.password}</label>
-                <div className="password-field">
-                  <input
-                    id="password"
-                    name="password"
-                    type={passwordVisible ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    aria-required="true"
-                    value={password}
-                    aria-invalid={Boolean(fieldErrors.password)}
-                    aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-                    onChange={(event) => {
-                      setPassword(event.target.value)
-                      if (fieldErrors.password) setFieldErrors((current) => ({ ...current, password: undefined }))
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    aria-label={passwordVisible ? copy.hidePassword : copy.showPassword}
-                    aria-pressed={passwordVisible}
-                    onClick={() => setPasswordVisible((visible) => !visible)}
-                  >
-                    {passwordVisible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                  </button>
-                </div>
-                {fieldErrors.password && <p id="password-error" className="field-error">{copy.passwordRequired}</p>}
-              </div>
-              <button type="submit" className="primary-button full-width" disabled={submitting}>
-                {submitting ? copy.signingIn : copy.signIn}
-              </button>
-            </form>
-
-            <p className="login-assurance"><span aria-hidden="true" />{copy.internalAccess}</p>
-          </div>
-        </section>
-      </div>
-      <footer className="login-footer">
-        <div className="login-footer-copy" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-          <strong>{copy.rightsReserved}</strong>
-          <span>{copy.organizationName}</span>
-          <span>{copy.officeName}</span>
-          <span>{copy.ownerName}</span>
-        </div>
-      </footer>
-    </main>
-  )
-}
 
 function RequestDashboard({
   locale,
@@ -1285,30 +833,6 @@ function RequestDetail({ locale, token, record, loading, state, authorizedRecord
       {actionState !== 'idle' && <p className={actionState === 'done' ? 'status-message' : 'error-summary'} role="status">{actionState === 'done' ? (locale === 'ar' ? 'اكتمل الإجراء.' : 'Action completed.') : actionState === 'stale' ? (locale === 'ar' ? 'البيانات قديمة؛ تم طلب التحديث.' : 'The data is stale; refresh requested.') : (locale === 'ar' ? 'تعذر تنفيذ الإجراء.' : 'The action failed.')}</p>}
     </article>
   )
-}
-
-function NotificationList({ locale, items, loading, error }: { locale: Locale; items: Notification[]; loading: boolean; error: boolean }) {
-  const copy = text[locale]
-  if (loading) return <div className="skeleton-list" aria-label={copy.refreshingNotifications}>{[0, 1].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>
-  if (error) return <p role="alert" className="field-error">{copy.notificationError}</p>
-  if (items.length === 0) return <p>{copy.noNotifications}</p>
-  return (
-    <ul className="notification-list" aria-live="polite">
-      {items.map((item) => (
-        <li key={item.id}>
-          <strong>{item.title}</strong>
-          <span>{item.is_read ? copy.read : copy.unread}</span>
-          <time dateTime={item.created_at}>{formatDate(item.created_at, locale)}</time>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function formatDate(value: string, locale: Locale): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
 export default App

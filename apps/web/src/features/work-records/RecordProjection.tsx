@@ -42,10 +42,11 @@ export function projectRecordSummary(record: AuthorizedWorkRecord): ProjectedSum
     ['record_number', record.record_number],
     ['status', record.status],
     ['classification', record.classification],
-  ] as const)
-    .map(([name, value]) => ({ name, value, access: resolveFieldAccess(record.field_access, name) }))
-    .filter((field): field is ProjectedSummaryField => field.access !== undefined && field.access !== 'hidden')
-    .map((field) => ({ ...field, value: field.access === 'masked' ? '***' : field.value }))
+  ] as const).flatMap(([name, value]): ProjectedSummaryField[] => {
+    const access = resolveFieldAccess(record.field_access, name)
+    if (access === undefined || access === 'hidden') return []
+    return [{ name, value: access === 'masked' ? '***' : value, access }]
+  })
 }
 
 const text = {
@@ -125,7 +126,7 @@ export function RecordProjection({ record, state = record ? 'ready' : 'empty', l
       {effectiveState === 'ready' && record && (
         <>
           <dl className="record-summary">
-            {summaryFields.map((field) => <div key={field.name}><dt>{field.name === 'record_number' ? t.recordNumber : field.name === 'status' ? t.status : t.classification}</dt><dd>{field.name === 'record_number' && field.access !== 'masked' ? formatRecordValue(field.value, locale) : field.value}</dd></div>)}
+            {summaryFields.map((field) => <div key={field.name}><dt>{field.name === 'record_number' ? t.recordNumber : field.name === 'status' ? t.status : t.classification}</dt><dd>{field.name === 'record_number' && field.access !== 'masked' ? formatRecordValue(field.value, locale) : formatRecordValue(field.value, locale)}</dd></div>)}
           </dl>
           <div className="record-fields">{fields.map((field) => <RecordField key={field.name} {...field} locale={locale} onChange={onFieldChange ? (value) => onFieldChange(field.name, value) : undefined} />)}</div>
           <section aria-labelledby="record-actions-heading"><h3 id="record-actions-heading">{t.actions}</h3>{record.allowed_actions.length ? <div className="record-actions">{record.allowed_actions.map((action) => <button type="button" key={action} onClick={() => onAction?.(action)} disabled={!onAction}>{action}</button>)}</div> : <p>{t.noActions}</p>}</section>

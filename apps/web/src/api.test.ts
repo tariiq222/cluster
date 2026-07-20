@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   ApiError,
+  clearSessionMetadata,
   createWorkRecord,
   getWorkRecord,
   identityLogout,
@@ -110,6 +111,7 @@ describe('API client', () => {
       .mockResolvedValueOnce(jsonResponse({ data: { principal: { user_id: session.user_id }, account: {}, session: { restricted: false } } }))
       .mockResolvedValueOnce(jsonResponse({ data: { csrf_token: 'fresh-csrf' } }))
     vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('sessionStorage', { clear: vi.fn() })
     sessionStorage.clear()
 
     await expect(restoreSession()).resolves.toMatchObject({ csrf_token: 'fresh-csrf', user_id: session.user_id })
@@ -122,6 +124,50 @@ describe('API client', () => {
     const [, init] = fetchMock.mock.calls[0]
     expect(init?.credentials).toBe('include')
     expect(new Headers(init?.headers).get('Authorization')).toBeNull()
+  })
+
+  it('rejects an empty CSRF response with a 502 ApiError', async () => {
+    mockFetch(jsonResponse({ data: { csrf_token: '' } }))
+    await expect(refreshIdentityCsrf()).rejects.toMatchObject({ status: 502 })
+  })
+
+  it('rejects when CSRF response is missing the data envelope', async () => {
+    mockFetch(jsonResponse({ csrf_token: 'orphan' }))
+    await expect(refreshIdentityCsrf()).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('persists the restricted flag from the live identity session', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { principal: { user_id: session.user_id }, account: {}, session: { restricted: true } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { csrf_token: 'restricted-csrf' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const restored = await restoreSession()
+    expect(restored?.restricted).toBe(true)
+  })
+
+  it('returns null when the live identity session is missing or unauthenticated', async () => {
+    const fetchMock = mockFetch(jsonResponse({ title: 'Unauthorized', status: 401 }, 401))
+    await expect(restoreSession()).resolves.toBeNull()
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init?.credentials).toBe('include')
+  })
+
+  it('rethrows non-auth identity errors instead of silently returning null', async () => {
+    mockFetch(jsonResponse({ title: 'Server error', status: 500 }, 500))
+    await expect(restoreSession()).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('removes the persisted metadata even when sessionStorage is unavailable', () => {
+    const originalWindow = (globalThis as { window?: unknown }).window
+    Object.defineProperty(globalThis, 'window', {
+      value: { sessionStorage: { removeItem: () => { throw new Error('blocked') } } },
+      configurable: true,
+    })
+    try {
+      expect(() => clearSessionMetadata()).not.toThrow()
+    } finally {
+      Object.defineProperty(globalThis, 'window', { value: originalWindow, configurable: true })
+    }
   })
 
   it('does not claim logout succeeded when the server rejects it', async () => {

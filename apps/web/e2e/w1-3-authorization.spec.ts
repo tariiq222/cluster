@@ -178,6 +178,10 @@ test('W1.3 real browser security journey uses server identity, scoped projection
     expect((projection.data as JsonBody).field_access).toBeDefined()
     expect((projection.data as JsonBody).allowed_actions).toBeDefined()
 
+    // The API journey above uses fetch-based identity login; reload so the app
+    // bootstraps the session cookie and renders the authenticated shell whose
+    // language toggle carries the English accessible name.
+    await pageA.reload()
     await expect(pageA.locator('html')).toHaveAttribute('dir', 'rtl')
     await pageA.getByRole('button', { name: 'English' }).click()
     await expect(pageA.locator('html')).toHaveAttribute('dir', 'ltr')

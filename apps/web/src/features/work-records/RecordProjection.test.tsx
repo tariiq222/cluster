@@ -64,7 +64,7 @@ describe('Record projection pure helpers', () => {
   })
 
   it.each([
-    ['readonly', 'readonly', 'raw value'],
+    ['readonly', 'readonly', 'shown'],
     ['masked', 'masked', '***'],
     ['hidden', 'hidden', undefined],
   ] as const)('applies a %s wildcard to payload fields', (_label, access, expected) => {

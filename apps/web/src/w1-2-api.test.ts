@@ -122,7 +122,7 @@ describe('W1.2 Organization API adapter', () => {
       `/api/v1/organization/temporary-assignments/${assignment.id}/revoke`,
     ])
     for (const [, init] of fetchMock.mock.calls) {
-      expect(init).toMatchObject({ credentials: 'same-origin' })
+      expect(init).toMatchObject({ credentials: 'include' })
       expect(new Headers(init?.headers).get('Authorization')).toBeNull()
     }
     for (const callIndex of [0, 2, 4, 6]) {
@@ -160,7 +160,7 @@ describe('W1.2 Organization API adapter', () => {
       `/api/v1/identity/accounts/${accountId}/activation`,
     ])
     for (const [, init] of fetchMock.mock.calls) {
-      expect(init).toMatchObject({ credentials: 'same-origin' })
+      expect(init).toMatchObject({ credentials: 'include' })
       expect(new Headers(init?.headers).get('Authorization')).toBeNull()
     }
     for (const callIndex of [3, 4, 5]) {
@@ -182,7 +182,7 @@ describe('W1.2 Organization API adapter', () => {
       '/api/v1/organization/facilities?limit=100',
     ])
     for (const [, init] of fetchMock.mock.calls) {
-      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer fixture-token')
+      expect(new Headers(init?.headers).get('Authorization')).toBeNull()
     }
   })
 
