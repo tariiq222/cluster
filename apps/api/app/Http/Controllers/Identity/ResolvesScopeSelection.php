@@ -51,12 +51,12 @@ trait ResolvesScopeSelection
 
     private function scopeLabel(string $table, string $id): string
     {
-        $row = DB::table($table)->where('id', $id)->first(['name_ar', 'name_en', 'name', 'code']);
+        $row = DB::table($table)->where('id', $id)->first(['name_ar', 'name_en', 'code']);
         if ($row === null) {
             return $id;
         }
 
-        foreach (['name_ar', 'name_en', 'name', 'code'] as $column) {
+        foreach (['name_ar', 'name_en', 'code'] as $column) {
             $value = $row->{$column} ?? null;
             if (is_string($value) && trim($value) !== '') {
                 return $value;
