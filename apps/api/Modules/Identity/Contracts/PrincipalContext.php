@@ -53,6 +53,9 @@ final readonly class PrincipalContext
 
     private function defaultFacilityId(): ?string
     {
-        return $this->facilityIds[0] ?? null;
+        // The legacy facility slot carries the principal's home facility so
+        // owner-facility matching stays facility-consistent; the primary
+        // organization unit is only a fallback for principals without one.
+        return $this->facilityIds[0] ?? $this->primaryOrganizationUnitId;
     }
 }

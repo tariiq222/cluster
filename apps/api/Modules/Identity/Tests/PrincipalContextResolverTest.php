@@ -101,14 +101,14 @@ class PrincipalContextResolverTest extends TestCase
         $this->assertInstanceOf(PrincipalContext::class, $context);
         $this->assertSame([
             'user_id' => self::USER_ID,
-            'facility_id' => 'unit-1',
+            'facility_id' => 'facility-1',
             'cluster_ids' => ['cluster-1'],
             'facility_ids' => ['facility-1', 'facility-2'],
             'organization_unit_ids' => ['unit-1'],
             'correlation_id' => '018f6f7d-0c00-7000-8000-000000000505',
         ], $context->toActorArray('018f6f7d-0c00-7000-8000-000000000505'));
         $this->assertNull($context->toActorArray()['correlation_id']);
-        $this->assertSame(['user_id' => self::USER_ID, 'facility_id' => 'unit-1'], $context->toLegacyArray());
+        $this->assertSame(['user_id' => self::USER_ID, 'facility_id' => 'facility-1'], $context->toLegacyArray());
     }
 
     public function test_persist_selected_scope_merges_metadata_without_dropping_existing_keys(): void
@@ -143,7 +143,13 @@ class PrincipalContextResolverTest extends TestCase
         $request = $this->requestWithSession();
 
         $this->assertSame(
-            ['user_id' => self::USER_ID, 'facility_id' => 'unit-1'],
+            [
+                'user_id' => self::USER_ID,
+                'facility_id' => 'facility-1',
+                'cluster_ids' => ['cluster-1'],
+                'facility_ids' => ['facility-1', 'facility-2'],
+                'organization_unit_ids' => ['unit-1'],
+            ],
             $legacy->resolve($request),
         );
         $this->assertInstanceOf(PrincipalContext::class, $legacy->principalContext($request));

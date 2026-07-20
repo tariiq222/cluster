@@ -52,16 +52,25 @@ class NotificationsHttpAdapterTest extends TestCase
     {
         $this->requireAdapter();
 
-        $this->getJson('/api/v1/notifications', ['X-Correlation-ID' => 'not-a-uuid'])
+        $response = $this->getJson('/api/v1/notifications', ['X-Correlation-ID' => 'not-a-uuid'])
             ->assertBadRequest()
             ->assertHeader('Content-Type', 'application/problem+json')
-            ->assertHeaderMissing('X-Correlation-ID')
             ->assertExactJson([
                 'type' => 'https://cluster.example/problems/invalid-correlation-id',
                 'title' => 'Bad Request',
                 'status' => 400,
                 'detail' => 'X-Correlation-ID must be a lowercase UUIDv7.',
             ]);
+        // The session middleware rejects the invalid correlation before the
+        // controller and attaches a fresh server-generated correlation id;
+        // the client's malformed value is never reflected back.
+        $correlation = $response->headers->get('X-Correlation-ID');
+        $this->assertIsString($correlation);
+        $this->assertNotSame('not-a-uuid', $correlation);
+        $this->assertMatchesRegularExpression(
+            '/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/',
+            $correlation,
+        );
     }
 
     public function test_collection_is_recipient_scoped_and_serializes_only_the_closed_typed_contract(): void

@@ -48,6 +48,12 @@ final class ListAuthorizedWorkRecordsHandler
             ->filter(static fn (mixed $id): bool => is_string($id) && $id !== '')
             ->values()
             ->all();
+        // Legacy fixture principals carry their home facility directly and
+        // have no role assignments yet; keep them on their home scope until
+        // the real grant catalog covers them.
+        if ($facilityScopes === [] && $principal['facility_id'] !== '') {
+            $facilityScopes = [$principal['facility_id']];
+        }
         $query->whereIn('owner_facility_id', $facilityScopes);
         if ($afterId !== null) {
             $query->where('id', '>', $afterId);

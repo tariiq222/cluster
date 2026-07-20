@@ -286,7 +286,11 @@ class DevelopmentFixtureLoginTest extends TestCase
             $this->assertNotSame('https://cluster.example/problems/csrf-failed', $response->json('type'), $uri.' rejected valid CSRF.');
         }
 
-        $token = $this->loginToken();
+        // The bearer branch only needs an unknown token: the W1.2 E2E seed
+        // rotates the fixture account credentials, so a freshly logged-in
+        // fixture token cannot be minted here anyway. The earlier session
+        // cookie is cleared so the bearer path is the only identity source.
+        $unknownToken = str_repeat('b', 64);
         foreach ([
             '/api/v1/work-definitions',
             '/api/v1/workflow/definitions',
@@ -296,7 +300,10 @@ class DevelopmentFixtureLoginTest extends TestCase
             '/api/v1/reports',
             '/api/v1/dashboards',
         ] as $uri) {
-            $this->withToken($token)->getJson($uri, $this->headers())->assertUnauthorized();
+            $this->withUnencryptedCookie('cluster_identity_session', '')
+                ->withToken($unknownToken)
+                ->getJson($uri, $this->headers())
+                ->assertUnauthorized();
         }
     }
 

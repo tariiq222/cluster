@@ -68,6 +68,20 @@ final class FixtureFacilityDecision implements DecideAccess
         }
 
         if ($facts->ownerFacilityId === null || $facts->ownerFacilityId === '') {
+            // Cluster-scoped facts (e.g. the published report definition
+            // catalog) are shared with every authenticated fixture principal.
+            if ($facts->clusterId !== null && $facts->clusterId !== '') {
+                return new AccessDecision(
+                    decision: 'allow',
+                    action: $capability,
+                    resourceType: $facts->resourceType,
+                    reasonCodes: ['cluster_scope_shared'],
+                    policyVersion: self::POLICY_VERSION,
+                    factsVersion: $facts->factsVersion,
+                    classification: $facts->classification,
+                );
+            }
+
             return $this->deny($capability, $facts->resourceType, $facts->classification, $facts->factsVersion, 'owner_facility_missing');
         }
 

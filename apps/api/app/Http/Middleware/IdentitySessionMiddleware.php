@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Http\IdentityApi;
 
@@ -31,12 +32,24 @@ final class IdentitySessionMiddleware
         if ($session === null && app()->environment('testing')) {
             // Test-only fallback: synthesize an Identity session attribute from a
             // fixture bearer so the legacy HTTP adapter tests keep working
-            // until they migrate to cookie-based session login.
+            // until they migrate to cookie-based session login. Malformed or
+            // expired fixture states are evicted exactly like the fixture
+            // principal resolver does.
             $bearer = $request->bearerToken();
             if (is_string($bearer) && preg_match('/\A[A-Za-z0-9]{64}\z/', $bearer) === 1) {
-                $credential = \Illuminate\Support\Facades\Cache::store('file')
-                    ->get('development-fixture-bearer:'.hash('sha256', $bearer));
-                if (is_array($credential) && is_array($credential['principal'] ?? null)) {
+                $cacheKey = 'development-fixture-bearer:'.hash('sha256', $bearer);
+                $store = Cache::store('file');
+                $credential = $store->get($cacheKey);
+                $valid = is_array($credential)
+                    && is_int($credential['expires_at'] ?? null)
+                    && $credential['expires_at'] > now()->getTimestamp()
+                    && is_array($credential['principal'] ?? null)
+                    && is_string($credential['principal']['user_id'] ?? null)
+                    && is_string($credential['principal']['facility_id'] ?? null);
+                if ($credential !== null && ! $valid) {
+                    $store->forget($cacheKey);
+                }
+                if ($valid) {
                     $session = [
                         'user_id' => (string) $credential['principal']['user_id'],
                         'session_id' => 'fixture-bearer:'.hash('sha256', $bearer),
