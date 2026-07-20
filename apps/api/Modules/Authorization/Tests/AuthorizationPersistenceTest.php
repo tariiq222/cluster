@@ -61,6 +61,78 @@ class AuthorizationPersistenceTest extends TestCase
         ));
     }
 
+    public function test_scope_type_migration_backfills_fail_closed_and_enforces_supported_scope_types(): void
+    {
+        $this->seedRole();
+
+        $this->insertRoleAssignment([
+            'id' => '018f6f7d-0c00-7000-8000-000000000819',
+            'scope_id' => self::SCOPE_ID,
+            'start_at' => '2026-07-20 10:00:00.000',
+            'end_at' => '2026-07-22 10:00:00.000',
+            'status' => 'active',
+        ]);
+        $this->insertRoleAssignment([
+            'id' => '018f6f7d-0c00-7000-8000-000000000820',
+            'scope_id' => null,
+            'start_at' => '2026-07-20 10:00:00.000',
+            'end_at' => '2026-07-22 10:00:00.000',
+            'status' => 'active',
+        ]);
+        DB::table('delegations')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000826',
+            'delegator_user_id' => self::USER_ID,
+            'delegate_user_id' => self::OTHER_USER_ID,
+            'module_code' => 'organization',
+            'scope_id' => null,
+            'start_at' => '2026-07-20 10:00:00.000',
+            'end_at' => '2026-07-21 10:00:00.000',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/W13AddAuthorizationScopeTypes.php';
+        $migration->up();
+
+        $this->assertTrue(Schema::hasColumns('role_assignments', ['scope_id', 'scope_type']));
+        $this->assertTrue(Schema::hasColumns('delegations', ['scope_id', 'scope_type']));
+        $this->assertDatabaseHas('role_assignments', [
+            'id' => '018f6f7d-0c00-7000-8000-000000000819',
+            'scope_type' => 'unit',
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('role_assignments', [
+            'id' => '018f6f7d-0c00-7000-8000-000000000820',
+            'scope_type' => 'cluster',
+            'status' => 'revoked',
+        ]);
+        $this->assertDatabaseHas('delegations', [
+            'id' => '018f6f7d-0c00-7000-8000-000000000826',
+            'scope_type' => 'cluster',
+            'status' => 'revoked',
+        ]);
+
+        $this->assertQueryRejected(fn () => $this->insertRoleAssignment([
+            'id' => '018f6f7d-0c00-7000-8000-000000000827',
+            'scope_id' => self::SCOPE_ID,
+            'scope_type' => 'galaxy',
+            'start_at' => '2026-07-23 10:00:00.000',
+            'end_at' => '2026-07-24 10:00:00.000',
+            'status' => 'pending',
+        ]));
+        $this->insertRoleAssignment([
+            'id' => '018f6f7d-0c00-7000-8000-000000000828',
+            'scope_id' => self::SCOPE_ID,
+            'scope_type' => 'facility',
+            'start_at' => '2026-07-23 10:00:00.000',
+            'end_at' => '2026-07-24 10:00:00.000',
+            'status' => 'pending',
+        ]);
+
+        $this->assertDatabaseCount('role_assignments', 3);
+    }
+
     public function test_database_rejects_explicit_denies_without_a_target_or_with_an_invalid_window(): void
     {
         $this->assertQueryRejected(fn () => $this->insertExplicitDeny([
@@ -190,7 +262,7 @@ class AuthorizationPersistenceTest extends TestCase
         ]);
     }
 
-    /** @param array{id: string, scope_id: ?string, start_at: string, end_at: ?string, status: string} $assignment */
+    /** @param array{id: string, scope_id: ?string, scope_type?: string, start_at: string, end_at: ?string, status: string} $assignment */
     private function insertRoleAssignment(array $assignment): void
     {
         DB::table('role_assignments')->insert([
