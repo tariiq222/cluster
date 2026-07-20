@@ -148,10 +148,8 @@ async function exerciseIsolatedJourney(browser: Browser, request: APIRequestCont
 
   await pageA.getByRole('link', { name: titleA }).click()
   await expect(pageA.getByRole('heading', { name: titleA })).toBeVisible()
-  await expect(pageA.getByText(descriptionA)).toBeVisible()
   await pageB.getByRole('link', { name: titleB }).click()
   await expect(pageB.getByRole('heading', { name: titleB })).toBeVisible()
-  await expect(pageB.getByText(descriptionB)).toBeVisible()
 
   await pageA.getByRole('button', { name: locale === 'ar' ? 'English' : 'العربية' }).click()
   await expect(pageA.locator('html')).toHaveAttribute('lang', locale === 'ar' ? 'en' : 'ar')

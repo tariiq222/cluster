@@ -126,7 +126,7 @@ export const text = {
   },
   en: {
     platform: 'Third Health Cluster Platform',
-    switchLanguage: 'AR',
+    switchLanguage: 'العربية',
     signIn: 'Sign in',
     username: 'Username',
     password: 'Password',
