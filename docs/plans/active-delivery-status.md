@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 5.10.0
+version: 5.11.0
 date: 2026-07-20
 owner: التنفيذ التقني
 reviewers: []
@@ -43,6 +43,13 @@ references:
   (وضع access metadata داخل data بدلاً من المستوى الأعلى) هو نطاق الموجة
   الخامسة («إسقاط الواجهة: endpoint للسياق الشخصي وallowed_actions وfield_access»).
   الخطوة التالية تفكيك هاتين الفجوتين كقطعتي عمل مستقلتين.
+- **موجتا إقفال W1.3 الثانية والثالثة أُغلقتا**: commits `00c510d` و`b0f7df2`
+  و`e52293c` و`f692341` أكملت ترحيل fixture bearer إلى جلسة الهوية في بيئة
+  الاختبار مع بقاء production مربوطاً بالجلسة المثبتة فقط. المجموعة الكاملة
+  `php artisan test` خضراء: ‏362/362 ناجحاً بعد أن كانت 79 فشلاً، وبوابتا
+  `verify-w1-2` و`verify-w1-3` خضراوان. بقايا معروفة: `analyse-api` عند 22
+  ملاحظة phpstan (مقابل 23 على main؛ لم تكن ظاهرة لأن pint كان يوقف البوابة
+  قبلها).
 - **W1.4–W1.7 مكتملة**: إنشاء ونشر WorkDefinition وWorkflow، تثبيت الإصدار،
   إنشاء WorkRecord وإرساله وإعادته، وإنشاء Task وإكمالها مثبتة ببوابة
   `make verify-day2` الخضراء.
@@ -103,6 +110,7 @@ Strategy الكاملة وPortfolioProjects وربط الأثر وفق
 | 5.8.0 | 2026-07-20 | تسجيل حالة Stage 0 الفعلية: commits المدمجة، بوابة التحقق غير الخضراء، والحالات الثلاث التالية قبل module facts adapters وOpenAPI/Orval |
 | 5.9.0 | 2026-07-20 | تسجيل إقفال Stage 0: commits `3e31d54` و`420aa0e`، بوابة `verify-w1-3` ورحلة المتصفح خضراوان، الخطوة التالية W1.3 frontend slices ثم تقوية Tasks |
 | 5.10.0 | 2026-07-20 | تأجيل `verify-w1-1` و`verify-w1-2` على نطاق موجتي W1.3 frontend slices 2 و5: ترحيل اختبارات fixture bearer إلى session login (79 فشل)، وإصلاح drift عقد WorkRecordResponse/WorkRecordCollection (وضع access metadata داخل data) |
+| 5.11.0 | 2026-07-20 | إقفال موجتي W1.3 الثانية والثالثة: المجموعة الكاملة خضراء 362/362 بعد 79 فشلاً، `verify-w1-2` و`verify-w1-3` خضراوان، وتفكيك App.tsx من 1314 إلى 472 سطراً عبر `ed3b4e0` |
 | 5.7.0 | 2026-07-19 | توثيق توسعة R2 إلى دورة Strategy الكاملة، وإدخال تقوية Tasks قبلها، وفصل PortfolioProjects وربط الأثر ضمن ترتيب التنفيذ النشط |
 | 5.6.0 | 2026-07-19 | إعادة فتح W1.3 تكاملياً بعد مراجعة ربط محرك القرار، ووضع إقفال Authorization قبل R2 مع بقاء دليل الرحلة الوظيفية محفوظاً |
 | 5.5.0 | 2026-07-19 | إغلاق فجوة شاشات R1 وربطها كاملة بعميل Orval المولّد وإضافة بوابة `verify-screens` |
