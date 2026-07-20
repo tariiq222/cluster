@@ -113,6 +113,15 @@ function StatePanel({ state, locale, onRetry, onRefresh }: Pick<RecordProjection
   )
 }
 
+function recordTitle(record: AuthorizedWorkRecord): string {
+  const payload = record.payload as Record<string, unknown>
+  if (typeof payload.title === 'string' && payload.title !== '') {
+    return payload.title
+  }
+  return record.record_number
+}
+
+
 export function RecordProjection({ record, state = record ? 'ready' : 'empty', locale = 'ar', direction = locale === 'ar' ? 'rtl' : 'ltr', decisionTrace, onAction, onRetry, onRefresh, onFieldChange }: RecordProjectionProps) {
   const t = text[locale]
   const fields = record ? projectRecordFields(record) : []
@@ -121,6 +130,7 @@ export function RecordProjection({ record, state = record ? 'ready' : 'empty', l
 
   return (
     <section className="record-projection" dir={direction} aria-labelledby="record-projection-heading">
+      {record && <h1 className="record-projection-title">{recordTitle(record)}</h1>}
       <h2 id="record-projection-heading">{t.title}</h2>
       <StatePanel state={effectiveState} locale={locale} onRetry={onRetry} onRefresh={onRefresh} />
       {effectiveState === 'ready' && record && (

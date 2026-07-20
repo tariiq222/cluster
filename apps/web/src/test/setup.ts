@@ -1,13 +1,15 @@
 export const walkingSkeletonFixtures = {
+  // The W1.3 journey seeder provisions these real accounts on facilities A
+  // and B; the UI and session APIs only accept server-issued identities.
   accountA: {
-    username: 'fixture-account-a',
-    password: 'fixture-password-a',
+    username: 'w13-e2e-account-a',
+    password: 'North!River7Quartz2026',
     title: 'طلب حساب أ',
     description: 'وصف لا يراه إلا حساب المنشأة أ.',
   },
   accountB: {
-    username: 'fixture-account-b',
-    password: 'fixture-password-b',
+    username: 'w13-e2e-account-b',
+    password: 'Cedar!Orbit8Harbor2026',
   },
   unavailableRecordId: '018f6f7d-0c00-7000-8000-000000000010',
 } as const

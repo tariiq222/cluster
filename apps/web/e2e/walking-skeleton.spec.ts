@@ -4,12 +4,6 @@ import { walkingSkeletonFixtures, walkingSkeletonLocales } from '../src/test/set
 
 type Locale = 'ar' | 'en'
 
-type SessionEnvelope = {
-  data: {
-    access_token: string
-  }
-}
-
 type WorkRecord = {
   id: string
   payload: {
@@ -72,20 +66,17 @@ function correlationId(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-async function apiToken(request: APIRequestContext, username: string, password: string): Promise<string> {
-  const response = await request.post('/api/v1/auth/login', {
+async function apiSession(request: APIRequestContext, username: string, password: string): Promise<void> {
+  const response = await request.post('/api/v1/identity/login', {
     headers: { 'X-Correlation-ID': correlationId() },
     data: { username, password },
   })
   expect(response.status()).toBe(200)
-  const envelope = await response.json() as SessionEnvelope
-  return envelope.data.access_token
 }
 
-async function apiRecords(request: APIRequestContext, token: string): Promise<WorkRecordCollection> {
+async function apiRecords(request: APIRequestContext): Promise<WorkRecordCollection> {
   const response = await request.get('/api/v1/work-records?limit=100', {
     headers: {
-      Authorization: `Bearer ${token}`,
       'X-Correlation-ID': correlationId(),
     },
   })
@@ -140,10 +131,12 @@ async function exerciseIsolatedJourney(browser: Browser, request: APIRequestCont
   await signIn(pageB, locale, walkingSkeletonFixtures.accountB.username, walkingSkeletonFixtures.accountB.password)
   await submitRequest(pageB, locale, titleB, descriptionB)
 
-  const tokenA = await apiToken(request, walkingSkeletonFixtures.accountA.username, walkingSkeletonFixtures.accountA.password)
-  const tokenB = await apiToken(request, walkingSkeletonFixtures.accountB.username, walkingSkeletonFixtures.accountB.password)
-  const recordsA = await apiRecords(request, tokenA)
-  const recordsB = await apiRecords(request, tokenB)
+  // The request context carries the session cookie of the most recent
+  // login, so each API read re-authenticates as the intended principal.
+  await apiSession(request, walkingSkeletonFixtures.accountA.username, walkingSkeletonFixtures.accountA.password)
+  const recordsA = await apiRecords(request)
+  await apiSession(request, walkingSkeletonFixtures.accountB.username, walkingSkeletonFixtures.accountB.password)
+  const recordsB = await apiRecords(request)
   const recordA = recordsA.items.find((record) => record.payload.title === titleA)
   const recordB = recordsB.items.find((record) => record.payload.title === titleB)
   expect(recordA).toBeTruthy()
@@ -167,12 +160,13 @@ async function exerciseIsolatedJourney(browser: Browser, request: APIRequestCont
   await pageA.getByRole('button', { name: locale === 'ar' ? 'العربية' : 'English' }).click()
 
   const sharedCorrelation = correlationId()
-  const crossHeaders = (token: string) => ({
-    Authorization: `Bearer ${token}`,
+  const crossHeaders = () => ({
     'X-Correlation-ID': sharedCorrelation,
   })
-  const aReadsB = await request.get(`/api/v1/work-records/${recordB!.id}`, { headers: crossHeaders(tokenA) })
-  const bReadsA = await request.get(`/api/v1/work-records/${recordA!.id}`, { headers: crossHeaders(tokenB) })
+  await apiSession(request, walkingSkeletonFixtures.accountA.username, walkingSkeletonFixtures.accountA.password)
+  const aReadsB = await request.get(`/api/v1/work-records/${recordB!.id}`, { headers: crossHeaders() })
+  await apiSession(request, walkingSkeletonFixtures.accountB.username, walkingSkeletonFixtures.accountB.password)
+  const bReadsA = await request.get(`/api/v1/work-records/${recordA!.id}`, { headers: crossHeaders() })
   expect(aReadsB.status()).toBe(404)
   expect(aReadsB.status()).toBe(bReadsA.status())
   const aReadsBBody = await aReadsB.body()

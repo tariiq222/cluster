@@ -68,7 +68,7 @@ export function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenti
   return (
     <main className="login-page" data-login-theme={theme}>
       <div className="login-page-actions">
-        <button type="button" className="language-button" onClick={onLocaleChange}>
+        <button type="button" className="language-button" aria-label={copy.switchLanguage} onClick={onLocaleChange}>
           <span>{copy.switchLanguage.slice(0, 2)}</span>
         </button>
         <button

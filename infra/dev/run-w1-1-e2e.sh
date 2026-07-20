@@ -41,6 +41,10 @@ API_PID=""
 VITE_PID=""
 COORDINATOR_PID=""
 export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_PORT="$MYSQL_PORT" W1_1_REDIS_PORT="$REDIS_PORT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
+# The shared compose file also declares the W1.2 MinIO/ClamAV services, so
+# docker compose interpolates their env even when this runner never starts
+# them. These placeholders are unused by the W1.1 journey.
+export W1_2_MINIO_ROOT_USER="${W1_2_MINIO_ROOT_USER:-w1-1-e2e-minio}" W1_2_MINIO_ROOT_PASSWORD="${W1_2_MINIO_ROOT_PASSWORD:-w1-1-e2e-minio-secret}" W1_2_MINIO_API_PORT="${W1_2_MINIO_API_PORT:-0}" W1_2_MINIO_CONSOLE_PORT="${W1_2_MINIO_CONSOLE_PORT:-0}" W1_2_CLAMAV_PORT="${W1_2_CLAMAV_PORT:-0}"
 
 cleanup() {
   local status=$?
@@ -138,6 +142,7 @@ readonly API_ENV=(
   REDIS_HOST=127.0.0.1
   REDIS_PORT="$REDIS_PORT"
   SESSION_DRIVER=array
+  IDENTITY_SESSION_SECURE=false
   OUTBOX_RELAY_BATCH_SIZE=2
   NOTIFICATIONS_STREAM_BATCH_SIZE=2
 )
@@ -172,6 +177,11 @@ wait_healthy redis
   cd "$API_DIR"
   env "${API_ENV[@]}" php artisan migrate:fresh --force >/dev/null
   env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force >/dev/null
+  # The production binding gates every non-setup decision behind the
+  # authorization bootstrap lifecycle; the journey fixtures model an
+  # already-bootstrapped environment, so close the window like the other
+  # isolated W1.x runners do.
+  env "${API_ENV[@]}" php artisan tinker --execute="DB::table('authorization_bootstrap')->update(['state' => 'complete', 'completed_by_user_id' => \\Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, 'completed_at' => now(), 'lock_version' => 2, 'updated_at' => now()]);" >/dev/null
   exec env "${API_ENV[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT"
 ) >>"$LOG_FILE" 2>&1 &
 API_PID=$!
@@ -221,7 +231,7 @@ if ! (
   W1_1_API_ORIGIN="http://127.0.0.1:${API_PORT}" \
   W1_1_WEB_PORT="$WEB_PORT" \
   PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1}" \
-  ./node_modules/.bin/playwright test
+  ./node_modules/.bin/playwright test e2e/walking-skeleton.spec.ts e2e/login.spec.ts e2e/shell.spec.ts
 ) >>"$LOG_FILE" 2>&1; then
   printf 'ERROR: Playwright walking-skeleton suite failed; see bounded local log for diagnostics.\n' >&2
   exit 1
