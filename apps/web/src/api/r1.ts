@@ -1,13 +1,59 @@
 import { ApiError, type ProblemDetails } from '../api'
 import * as generated from './generated/r1-screens'
+import { getCurrentPrincipal, listMyScopes, selectMyScope, type ScopeSelection, type ScopeSelectionUpdate } from './generated/w1-2'
 
 export type R1Entity = Record<string, unknown> & { id?: string; lock_version?: number }
 export type R1Collection<T = R1Entity> = { items: T[]; next_cursor?: string | null; total: number }
-export type AuthorizationResource = 'roles' | 'capabilities' | 'role-assignments' | 'delegations'
+export type AuthorizationResource =
+  | 'roles'
+  | 'capabilities'
+  | 'role-assignments'
+  | 'delegations'
+  | 'classification-policies'
+  | 'field-access-templates'
 export type AuthorizationItem = R1Entity & { name?: string; code?: string; status?: string }
 export type Day2Entity = R1Entity
 export type WorkflowAction = 'publish' | 'test' | 'approve' | 'sign'
 export type TaskAction = 'start' | 'return-completion' | 'submit-completion' | 'complete'
+export type AllowedAction = string
+export type FieldAccessState = 'hidden' | 'masked' | 'readonly' | 'editable'
+export type FieldAccess = Record<string, FieldAccessState>
+export type AccessProjection = {
+  decision_id: string | null
+  allowed_actions: AllowedAction[]
+  field_access: FieldAccess
+}
+export type AccessContext = generated.AccessContextSchema
+export type AccessDecisionRequest = generated.AccessDecisionRequest
+export type AccessDecision = generated.AccessDecisionResponse
+export type AuthorizedWorkRecord = generated.WorkRecordSchema & AccessProjection
+export type AuthorizationAdminPatch = generated.AuthorizationAdminPatch
+export type AuthorizationAdminResource = AuthorizationResource
+export type ScopeSelectionSnapshot = {
+  selection: ScopeSelection
+  lockVersion: number | null
+}
+
+export async function getMyAccessContext(token: string): Promise<AccessContext> {
+  const response = await getCurrentPrincipal(options(token))
+  return unwrap<AccessContext>(response)
+}
+
+export async function listMyAccessScopes(token: string): Promise<ScopeSelectionSnapshot> {
+  const response = await listMyScopes(options(token))
+  return {
+    selection: unwrap<ScopeSelection>(response),
+    lockVersion: parseStrongEtag(response.headers.get('ETag')),
+  }
+}
+
+export async function selectMyAccessScope(token: string, input: ScopeSelectionUpdate, lockVersion: number): Promise<ScopeSelectionSnapshot> {
+  const response = await selectMyScope(input, { ...options(token, true, lockVersion) })
+  return {
+    selection: unwrap<ScopeSelection>(response),
+    lockVersion: parseStrongEtag(response.headers.get('ETag')),
+  }
+}
 
 export function uuidV7(): string {
   const bytes = new Uint8Array(16)
@@ -25,15 +71,24 @@ export function uuidV7(): string {
 
 type GeneratedResponse = { status: number; data: unknown; headers: Headers }
 
-function options(token: string, command = false, lockVersion?: number): RequestInit {
+export function parseStrongEtag(value: string | null): number | null {
+  if (!value || !/^"[1-9]\d*"$/.test(value)) return null
+  return Number(value.slice(1, -1))
+}
+
+function options(token: string, command = false, lockVersion?: number, mutation = false): RequestInit {
   const headers: Record<string, string> = {
     Accept: 'application/json, application/problem+json',
-    Authorization: `Bearer ${token}`,
     'X-Correlation-ID': uuidV7(),
   }
-  if (command) headers['Idempotency-Key'] = uuidV7()
+  if (command) {
+    headers['Idempotency-Key'] = uuidV7()
+  }
+  if (command || mutation) {
+    headers['X-CSRF-Token'] = token
+  }
   if (lockVersion !== undefined) headers['If-Match'] = `"${lockVersion}"`
-  return { credentials: 'same-origin', headers }
+  return { credentials: 'include', headers }
 }
 
 function unwrap<T>(response: GeneratedResponse): T {
@@ -78,7 +133,9 @@ export const transitionTask = async (token: string, id: string, action: TaskActi
 
 export const createRequest = async (token: string, input: Record<string, unknown>) => unwrap<R1Entity>(await generated.createWorkRecord(input as unknown as generated.WorkRecordCreate, { ...options(token, true), headers: { ...options(token, true).headers, 'X-Day3-Acceptance': '1' } }))
 export const listR1WorkRecords = async (token: string) => unwrap<R1Collection>(await generated.listWorkRecords({ limit: 50 }, options(token)))
-export const getR1WorkRecord = async (token: string, id: string) => unwrap<R1Entity>(await generated.getWorkRecord(id, options(token)))
+export const listAuthorizedWorkRecords = async (token: string): Promise<R1Collection<AuthorizedWorkRecord>> => unwrap<R1Collection<AuthorizedWorkRecord>>(await generated.listWorkRecords({ limit: 50 }, options(token)))
+export const getR1WorkRecord = async (token: string, id: string) => unwrap<AuthorizedWorkRecord>(await generated.getWorkRecord(id, options(token)))
+export const getAuthorizedWorkRecord = getR1WorkRecord
 export const transitionRequest = async (token: string, id: string, action: 'submit' | 'return' | 'complete' | 'complete-submission', lock = 1) => unwrap<R1Entity>(await generated.transitionWorkRecord(id, action, options(token, true, lock)))
 export const submitRequest = (token: string, id: string, lock = 1) => transitionRequest(token, id, 'submit', lock)
 export const returnRequest = (token: string, id: string, lock = 1) => transitionRequest(token, id, 'return', lock)
@@ -115,6 +172,28 @@ export async function createDelegation(input: Record<string, unknown>, token: st
 export async function createSupervisoryRelationship(input: generated.SupervisoryRelationshipCreate, token: string) {
   return unwrap<AuthorizationItem>(await generated.createSupervisoryRelationship(input, options(token, true)))
 }
-export async function explainAccessDecision(decisionId: string, token: string) {
-  return unwrap<AuthorizationItem>(await generated.explainAccessDecision(decisionId, options(token)))
+export async function explainAccessDecision(decisionId: string, token: string): Promise<AccessDecision> {
+  return unwrap<AccessDecision>(await generated.explainAccessDecision(decisionId, options(token)))
 }
+
+export const getAuthorizationAudit = explainAccessDecision
+
+export async function getAuthorizationAdminResource(resource: AuthorizationResource, resourceId: string, token: string) {
+  return unwrap<AuthorizationItem>(await generated.getAuthorizationAdminResource(resource, resourceId, options(token)))
+}
+
+export async function updateAuthorizationAdminResource(
+  resource: AuthorizationResource,
+  resourceId: string,
+  input: AuthorizationAdminPatch,
+  token: string,
+  lockVersion?: number,
+) {
+  return unwrap<AuthorizationItem>(await generated.updateAuthorizationAdminResource(resource, resourceId, input, options(token, false, lockVersion, true)))
+}
+
+export async function simulateAccessDecision(input: AccessDecisionRequest, token: string): Promise<AccessDecision> {
+  return unwrap<AccessDecision>(await generated.decideAccess(input, options(token, false, undefined, true)))
+}
+
+export const decideAccess = simulateAccessDecision

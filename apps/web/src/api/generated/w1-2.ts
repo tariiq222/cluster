@@ -298,6 +298,10 @@ export const WorkRecordSchemaClassification = {
 
 export type WorkRecordSchemaPayload = { [key: string]: unknown }
 
+export type WorkRecordSchemaFieldAccess = {
+  [key: string]: 'hidden' | 'masked' | 'readonly' | 'editable'
+}
+
 export interface WorkRecordSchema {
   id: Uuidv7
   /**
@@ -314,6 +318,13 @@ export interface WorkRecordSchema {
   payload: WorkRecordSchemaPayload
   /** @minimum 1 */
   lock_version: number
+  /**
+   * @items.minLength 1
+   * @items.maxLength 128
+   */
+  allowed_actions: string[]
+  field_access: WorkRecordSchemaFieldAccess
+  decision_id: Uuidv7 | null
   submitted_at?: UtcDateTime
   created_at: UtcDateTime
   updated_at: UtcDateTime

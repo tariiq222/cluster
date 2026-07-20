@@ -109,6 +109,29 @@ paths:
         "200": { $ref: "#/components/responses/CurrentIdentity" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /identity/csrf:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    post:
+      tags: [Identity]
+      summary: Rotate the CSRF proof for the current identity session
+      operationId: refreshIdentityCsrf
+      security: [{ identitySession: [] }]
+      responses:
+        "200":
+          description: Current session CSRF proof
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [csrf_token]
+                    properties:
+                      csrf_token: { type: string, minLength: 1 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /identity/logout:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     post:
@@ -1662,6 +1685,18 @@ paths:
             in: query,
             required: true,
             schema: { type: string, minLength: 1, maxLength: 256 },
+          },
+          {
+            name: type,
+            in: query,
+            required: false,
+            schema: { type: string, minLength: 1, maxLength: 64 },
+          },
+          {
+            name: status,
+            in: query,
+            required: false,
+            schema: { type: string, minLength: 1, maxLength: 64 },
           },
           { $ref: "#/components/parameters/Cursor" },
           { $ref: "#/components/parameters/Limit" },
@@ -5108,6 +5143,24 @@ components:
           },
       }
   schemas:
+    AccessProjection:
+      type: object
+      description: Server-owned authorization metadata composed with an authorized resource projection.
+      required: [decision_id, allowed_actions, field_access]
+      properties:
+        decision_id:
+          anyOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 128 }
+        field_access:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [hidden, masked, readonly, editable]
     Cluster:
       type: object
       additionalProperties: false
@@ -5612,7 +5665,7 @@ components:
         type: object,
         additionalProperties: false,
         required: [data],
-        properties: { data: { $ref: "../schemas/work-record.schema.json" } },
+        properties: { data: { $ref: "#/components/schemas/WorkRecordProjection" } },
       }
     WorkRecordCollection:
       {
@@ -5624,11 +5677,16 @@ components:
             items:
               {
                 type: array,
-                items: { $ref: "../schemas/work-record.schema.json" },
+                 items: { $ref: "#/components/schemas/WorkRecordProjection" },
               },
             next_cursor: { type: [string, "null"] },
           },
       }
+    WorkRecordProjection:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: "../schemas/work-record.schema.json" }
+        - { $ref: "#/components/schemas/AccessProjection" }
     Decision:
       {
         type: object,

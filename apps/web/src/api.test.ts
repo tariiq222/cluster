@@ -8,16 +8,19 @@ import {
   listNotifications,
   listWorkRecords,
   login,
+  restoreSession,
+  refreshIdentityCsrf,
 } from './api'
 
 const session = {
-  access_token: 'fixture-token',
-  token_type: 'Bearer' as const,
+  access_token: 'csrf-token',
+  csrf_token: 'csrf-token',
+  user_id: '018f6f7d-0c00-7000-8000-000000000021',
+  restricted: false,
   expires_at: '2026-07-17T12:00:00Z',
   facility: 'facility-a' as const,
-  principal: {
-    user_id: '018f6f7d-0c00-7000-8000-000000000021',
-    facility_id: '018f6f7d-0c00-7000-8000-000000000011',
+    principal: {
+      user_id: '018f6f7d-0c00-7000-8000-000000000021',
   },
 }
 
@@ -40,45 +43,41 @@ afterEach(() => {
 
 describe('API client', () => {
   it('logs in with correlation metadata and accepts the data envelope', async () => {
-    const fetchMock = mockFetch(jsonResponse({ data: session }))
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { user_id: session.user_id, expires_at: session.expires_at, restricted: false, csrf_token: session.csrf_token } }))
+    vi.stubGlobal('fetch', fetchMock)
 
-    await expect(login('fixture-user', 'fixture-password')).resolves.toEqual(session)
+    await expect(login('fixture-user', 'fixture-password')).resolves.toMatchObject({ csrf_token: 'csrf-token', user_id: session.user_id })
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [path, init] = fetchMock.mock.calls[0]
     const headers = new Headers(init?.headers)
-    expect(path).toBe('/api/v1/auth/login')
-    expect(init).toMatchObject({ method: 'POST', credentials: 'same-origin' })
+    expect(path).toBe('/api/v1/identity/login')
+    expect(init).toMatchObject({ method: 'POST', credentials: 'include' })
     expect(headers.get('Accept')).toBe('application/json, application/problem+json')
     expect(headers.get('Content-Type')).toBe('application/json')
     expect(headers.get('X-Correlation-ID')).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     )
     expect(init?.body).toBe(JSON.stringify({ username: 'fixture-user', password: 'fixture-password' }))
+    expect(headers.get('Authorization')).toBeNull()
   })
 
   it('rejects an invalid login response', async () => {
     const invalidSessions: unknown[] = [
       null,
       {},
-      { ...session, access_token: 42 },
-      { ...session, access_token: '' },
-      { ...session, token_type: 'Basic' },
+      { ...session, csrf_token: 42 },
+      { ...session, csrf_token: '' },
       { ...session, expires_at: null },
       { ...session, expires_at: 'not-a-timestamp' },
-      { ...session, facility: 'facility-c' },
-      { ...session, principal: 'invalid' },
-      { ...session, principal: null },
-      { ...session, principal: { facility_id: session.principal.facility_id } },
-      { ...session, principal: { user_id: session.principal.user_id } },
-      { ...session, principal: { ...session.principal, user_id: 42 } },
-      { ...session, principal: { ...session.principal, facility_id: 42 } },
-      { ...session, principal: { ...session.principal, user_id: 'not-a-uuid' } },
-      { ...session, principal: { ...session.principal, facility_id: 'not-a-uuid' } },
+      { ...session, user_id: 'not-a-uuid' },
     ]
 
     for (const invalidSession of invalidSessions) {
-      mockFetch(jsonResponse({ data: invalidSession }))
+      const fetchMock = vi.fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse({ data: invalidSession }))
+      vi.stubGlobal('fetch', fetchMock)
       await expect(login('fixture-user', 'fixture-password')).rejects.toMatchObject({
         name: 'ApiError',
         status: 502,
@@ -91,6 +90,63 @@ describe('API client', () => {
     mockFetch(jsonResponse(session))
 
     await expect(login('fixture-user', 'fixture-password')).rejects.toMatchObject({ status: 502 })
+  })
+
+  it('restores a cookie-backed session from identity/me without sending a bearer header', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { principal: { user_id: session.user_id }, account: {}, session: { restricted: false } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { csrf_token: 'fresh-csrf' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(restoreSession()).resolves.toMatchObject({ csrf_token: 'fresh-csrf', user_id: session.user_id })
+
+    const [, init] = fetchMock.mock.calls[1]
+    expect(init).toMatchObject({ credentials: 'include' })
+    expect(new Headers(init?.headers).get('Authorization')).toBeNull()
+  })
+
+  it('restores after sessionStorage loss when identity/me returns a fresh CSRF token', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { principal: { user_id: session.user_id }, account: {}, session: { restricted: false } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { csrf_token: 'fresh-csrf' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    sessionStorage.clear()
+
+    await expect(restoreSession()).resolves.toMatchObject({ csrf_token: 'fresh-csrf', user_id: session.user_id })
+    expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get('Authorization')).toBeNull()
+  })
+
+  it('refreshes CSRF through the authenticated cookie session without a bearer header', async () => {
+    const fetchMock = mockFetch(jsonResponse({ data: { csrf_token: 'rotated-csrf' } }))
+    await expect(refreshIdentityCsrf()).resolves.toEqual({ csrf_token: 'rotated-csrf' })
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init?.credentials).toBe('include')
+    expect(new Headers(init?.headers).get('Authorization')).toBeNull()
+  })
+
+  it('does not claim logout succeeded when the server rejects it', async () => {
+    mockFetch(jsonResponse({ title: 'Forbidden', status: 403 }, 403))
+    await expect(identityLogout('csrf-token')).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('uses the cookie-backed logout endpoint on success', async () => {
+    const fetchMock = mockFetch(new Response(null, { status: 204 }))
+    await expect(identityLogout('csrf-token')).resolves.toBeUndefined()
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init?.credentials).toBe('include')
+    expect(new Headers(init?.headers).get('X-CSRF-Token')).toBe('csrf-token')
+    expect(new Headers(init?.headers).get('Authorization')).toBeNull()
+  })
+
+  it('does not restore after a successful logout has invalidated the server session', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse({ title: 'Unauthorized', status: 401 }, 401))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(identityLogout('csrf-token')).resolves.toBeUndefined()
+    await expect(restoreSession()).resolves.toBeNull()
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual(['/api/v1/identity/logout', '/api/v1/identity/me'])
   })
 
   it('preserves safe problem details and filters malformed field errors', async () => {
@@ -179,7 +235,7 @@ describe('API client', () => {
 
     const [, init] = fetchMock.mock.calls[0]
     const headers = new Headers(init?.headers)
-    expect(init).toMatchObject({ credentials: 'same-origin' })
+    expect(init).toMatchObject({ credentials: 'include' })
     expect(headers.get('X-CSRF-Token')).toBe('csrf-token')
     expect(headers.get('Authorization')).toBeNull()
   })
@@ -203,7 +259,8 @@ describe('API client', () => {
     const [, init] = fetchMock.mock.calls[0]
     const headers = new Headers(init?.headers)
     const correlationId = headers.get('X-Correlation-ID')
-    expect(headers.get('Authorization')).toBe('Bearer fixture-token')
+    expect(headers.get('Authorization')).toBeNull()
+    expect(headers.get('X-CSRF-Token')).toBe('csrf-token')
     expect(headers.get('Idempotency-Key')).toBe(`request-${correlationId}`)
   })
 

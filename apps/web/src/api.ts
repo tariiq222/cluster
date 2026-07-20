@@ -1,7 +1,6 @@
 import type {
   Notification as GeneratedNotification,
   NotificationCollection as GeneratedNotificationCollection,
-  Session as GeneratedSession,
   WorkRecordCollection as GeneratedWorkRecordCollection,
   WorkRecordCreate,
   WorkRecordSchema,
@@ -61,7 +60,16 @@ export type ProblemDetails = {
   errors?: ProblemFieldError[]
 }
 
-export type Session = GeneratedSession
+export type Session = {
+  csrf_token: string
+  user_id: string
+  expires_at: string
+  restricted: boolean
+  facility?: 'facility-a' | 'facility-b'
+  principal: { user_id: string; facility_id?: string }
+  /** @deprecated Compatibility alias for legacy callers; contains the CSRF token, never a bearer token. */
+  access_token: string
+}
 
 export type WorkRecord = Omit<WorkRecordSchema, 'payload'> & {
   payload: WorkRecordSchema['payload'] & {
@@ -194,19 +202,19 @@ async function problemFrom(response: Response): Promise<ProblemDetails> {
   }
 }
 
-async function requestJsonResponse<T>(path: string, init: RequestInit, token?: string): Promise<{ body: T; response: Response }> {
+async function requestJsonResponse<T>(path: string, init: RequestInit, csrfToken?: string): Promise<{ body: T; response: Response }> {
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json, application/problem+json')
   if (!headers.has('X-Correlation-ID')) {
     headers.set('X-Correlation-ID', uuidV7())
   }
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`)
+  if (csrfToken && init.method && init.method !== 'GET' && init.method !== 'HEAD') {
+    headers.set('X-CSRF-Token', csrfToken)
   }
 
   const response = await fetch(path, {
     ...init,
-    credentials: 'same-origin',
+    credentials: 'include',
     headers,
   })
 
@@ -217,8 +225,8 @@ async function requestJsonResponse<T>(path: string, init: RequestInit, token?: s
   return { body: await response.json() as T, response }
 }
 
-async function requestJson<T>(path: string, init: RequestInit, token?: string): Promise<T> {
-  return (await requestJsonResponse<T>(path, init, token)).body
+async function requestJson<T>(path: string, init: RequestInit, csrfToken?: string): Promise<T> {
+  return (await requestJsonResponse<T>(path, init, csrfToken)).body
 }
 
 async function requestEmpty(path: string, init: RequestInit): Promise<void> {
@@ -230,7 +238,7 @@ async function requestEmpty(path: string, init: RequestInit): Promise<void> {
 
   const response = await fetch(path, {
     ...init,
-    credentials: 'same-origin',
+    credentials: 'include',
     headers,
   })
 
@@ -240,36 +248,14 @@ async function requestEmpty(path: string, init: RequestInit): Promise<void> {
 }
 
 export async function login(username: string, password: string): Promise<Session> {
-  const body = await requestJson<{ data?: unknown }>('/api/v1/auth/login', {
+  const body = await requestJson<{ data: IdentitySession }>('/api/v1/identity/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   })
 
   const session = body.data
-  if (
-    typeof session !== 'object'
-    || session === null
-    || !('access_token' in session)
-    || !('token_type' in session)
-    || !('expires_at' in session)
-    || !('facility' in session)
-    || !('principal' in session)
-    || typeof session.access_token !== 'string'
-    || session.access_token === ''
-    || session.token_type !== 'Bearer'
-    || typeof session.expires_at !== 'string'
-    || !UTC_DATE_TIME_PATTERN.test(session.expires_at)
-    || (session.facility !== 'facility-a' && session.facility !== 'facility-b')
-    || typeof session.principal !== 'object'
-    || session.principal === null
-    || !('user_id' in session.principal)
-    || !('facility_id' in session.principal)
-    || typeof session.principal.user_id !== 'string'
-    || typeof session.principal.facility_id !== 'string'
-    || !UUID_V7_PATTERN.test(session.principal.user_id)
-    || !UUID_V7_PATTERN.test(session.principal.facility_id)
-  ) {
+  if (!session || typeof session !== 'object' || typeof session.csrf_token !== 'string' || session.csrf_token === '' || typeof session.user_id !== 'string' || !UUID_V7_PATTERN.test(session.user_id) || typeof session.expires_at !== 'string' || !UTC_DATE_TIME_PATTERN.test(session.expires_at)) {
     throw new ApiError(502, {
       type: 'about:blank',
       title: 'Invalid session response',
@@ -277,7 +263,43 @@ export async function login(username: string, password: string): Promise<Session
     })
   }
 
-  return session as Session
+  const restored = { csrf_token: session.csrf_token, user_id: session.user_id, expires_at: session.expires_at, restricted: session.restricted, principal: { user_id: session.user_id }, access_token: session.csrf_token }
+  persistSessionMetadata(restored)
+  return restored
+}
+
+export const SESSION_METADATA_KEY = 'cluster.identity-session'
+
+function persistSessionMetadata(session: Session): void {
+  try {
+    window.sessionStorage.setItem(SESSION_METADATA_KEY, JSON.stringify({ csrf_token: session.csrf_token, user_id: session.user_id, expires_at: session.expires_at, restricted: session.restricted }))
+  } catch {
+    // Session restoration remains available through the live cookie when storage is unavailable.
+  }
+}
+
+export async function restoreSession(): Promise<Session | null> {
+  const current = await getCurrentIdentity().catch((error: unknown) => {
+    if (error instanceof ApiError && [401, 403].includes(error.status)) return null
+    throw error
+  })
+  if (!current) return null
+  const csrf = await refreshIdentityCsrf()
+  const restored = { csrf_token: csrf.csrf_token, user_id: current.principal.user_id, expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), restricted: current.session.restricted, principal: { user_id: current.principal.user_id }, access_token: csrf.csrf_token }
+  persistSessionMetadata(restored)
+  return restored
+}
+
+export async function refreshIdentityCsrf(): Promise<{ csrf_token: string }> {
+  const body = await requestJson<{ data: { csrf_token?: unknown } }>('/api/v1/identity/csrf', { method: 'POST' })
+  if (typeof body.data?.csrf_token !== 'string' || body.data.csrf_token === '') {
+    throw new ApiError(502, { type: 'about:blank', title: 'Invalid CSRF response', status: 502 })
+  }
+  return { csrf_token: body.data.csrf_token }
+}
+
+export function clearSessionMetadata(): void {
+  try { window.sessionStorage.removeItem(SESSION_METADATA_KEY) } catch { /* ignore unavailable storage */ }
 }
 
 export async function createWorkRecord(token: string, input: CreateWorkRecordInput): Promise<WorkRecord> {

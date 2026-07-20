@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createWorkflowDefinition, createTaskFromStep, publishWorkDefinitionVersion, returnRequest, transitionTask } from './r1'
+import { createWorkflowDefinition, createTaskFromStep, publishWorkDefinitionVersion, returnRequest, startWorkflow, transitionTask } from './r1'
 
 describe('day2 transport', () => {
   afterEach(() => vi.restoreAllMocks())
@@ -12,5 +12,16 @@ describe('day2 transport', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ data: { id: 't', lock_version: 2 } }), { status: 200 }))))
     await publishWorkDefinitionVersion('token', 'v', 1); await createTaskFromStep('token', 's', 'Task'); await returnRequest('token', 'r', 3); await transitionTask('token', 't', 'complete', 2)
     const calls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls; expect(calls[0][0]).toContain('/work-definition-versions/v/publish'); expect(new Headers(calls[0][1].headers).get('If-Match')).toBe('"1"'); expect(calls[1][0]).toContain('/tasks/from-step/s'); expect(calls[2][0]).toContain('/work-records/r/return'); expect(calls[3][0]).toContain('/tasks/t/complete')
+  })
+  it('starts the day2 workflow against the work-records contract', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: 'i' } }), { status: 201 })))
+    await startWorkflow('token', {
+      workflow_version_id: '019f7000-0000-7000-8000-000000000001',
+      source_module: 'work_records',
+      record_type: 'work_record',
+      record_id: '019f7000-0000-7000-8000-000000000002',
+    })
+    const init = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit
+    expect(JSON.parse(String(init.body))).toMatchObject({ source_module: 'work_records', record_type: 'work_record' })
   })
 })

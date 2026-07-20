@@ -51,6 +51,10 @@ export const WorkRecordSchemaClassification = {
 
 export type WorkRecordSchemaPayload = { [key: string]: unknown }
 
+export type WorkRecordSchemaFieldAccess = {
+  [key: string]: 'hidden' | 'masked' | 'readonly' | 'editable'
+}
+
 export interface WorkRecordSchema {
   id: Uuidv7
   /**
@@ -67,6 +71,13 @@ export interface WorkRecordSchema {
   payload: WorkRecordSchemaPayload
   /** @minimum 1 */
   lock_version: number
+  /**
+   * @items.minLength 1
+   * @items.maxLength 128
+   */
+  allowed_actions: string[]
+  field_access: WorkRecordSchemaFieldAccess
+  decision_id: Uuidv7 | null
   submitted_at?: UtcDateTime
   created_at: UtcDateTime
   updated_at: UtcDateTime
@@ -644,6 +655,21 @@ export interface TaskPatch {
   due_at?: UtcDateTime
 }
 
+export interface ParticipantCreate {
+  user_id: UUIDv7
+  /** @maxLength 64 */
+  role?: string
+}
+
+export interface CommentCreate {
+  /**
+   * @minLength 1
+   * @maxLength 4000
+   */
+  body: string
+  mentioned_user_ids?: UUIDv7[]
+}
+
 export interface TaskAction {
   /** @maxLength 2000 */
   reason?: string
@@ -653,8 +679,53 @@ export interface TaskAction {
   decision_id?: UUIDv7
 }
 
+export type DecisionDecision =
+  (typeof DecisionDecision)[keyof typeof DecisionDecision]
+
+export const DecisionDecision = {
+  approve: 'approve',
+  reject: 'reject',
+  return: 'return',
+  accept: 'accept',
+  decline: 'decline',
+} as const
+
+export interface Decision {
+  decision: DecisionDecision
+  /** @maxLength 2000 */
+  reason?: string
+}
+
+export interface WorkflowStepAction {
+  target_user_id?: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  reason: string
+}
+
+export type AccessProjectionFieldAccess = {
+  [key: string]: 'hidden' | 'masked' | 'readonly' | 'editable'
+}
+
+/**
+ * Server-owned authorization metadata composed with an authorized resource projection.
+ */
+export interface AccessProjection {
+  decision_id: UUIDv7 | null
+  /**
+   * @items.minLength 1
+   * @items.maxLength 128
+   */
+  allowed_actions: string[]
+  field_access: AccessProjectionFieldAccess
+}
+
+export type WorkRecordProjection = WorkRecordSchema & AccessProjection
+
 export interface WorkRecordCollection {
-  items: WorkRecordSchema[]
+  items: WorkRecordProjection[]
   /** @nullable */
   next_cursor: string | null
 }
@@ -674,7 +745,72 @@ export interface WorkRecordCreate {
 }
 
 export interface WorkRecordResponse {
-  data: WorkRecordSchema
+  data: WorkRecordProjection
+}
+
+export interface DocumentCreate {
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  title: string
+  /** @maxLength 2000 */
+  description?: string
+  classification: Classification
+  owner_organization_unit_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  restriction_policy_key: string
+}
+
+export interface DocumentPatch {
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  title?: string
+  /** @maxLength 2000 */
+  description?: string
+  classification?: Classification
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  classification_change_reason?: string
+}
+
+export interface DocumentVersionCreate {
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  file_name: string
+  /** @pattern ^[^/]+/[^/]+$ */
+  content_type: string
+  /**
+   * @minimum 1
+   * @maximum 1073741824
+   */
+  byte_size: number
+}
+
+export interface DocumentLinkCreate {
+  source: SourceReference
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  relation_type: string
+  /** @maxLength 128 */
+  constraint_policy_key?: string
+}
+
+export interface DocumentGrantRequest {
+  version_id: UUIDv7
+  /** @maxLength 500 */
+  purpose?: string
 }
 
 export type DocumentUploadInitiateRequestPurpose =
@@ -997,6 +1133,18 @@ export type CreateTaskFromStepBody = {
   title?: string
 }
 
+export type ListTaskCommentsParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
 export type ListWorkRecordsParams = {
   /**
    * Opaque continuation token bound to the originating limit and classification query plus the effective principal and facility scope; malformed or mismatched reuse receives the same metadata-safe 400 response.
@@ -1034,6 +1182,43 @@ export type LinkWorkRecordDocumentBody = {
   relation_type: LinkWorkRecordDocumentBodyRelationType
 }
 
+export type ListDocumentsParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+  classification?: ClassificationParameter
+}
+
+export type ListDocumentVersionsParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
+export type ListDocumentLinksParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
 export type CompleteDocumentUploadBody = {
   /** @pattern ^[a-f0-9]{64}$ */
   sha256: string
@@ -1050,6 +1235,28 @@ export type SearchParams = {
    * @maxLength 256
    */
   q: string
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  type?: string
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  status?: string
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
+export type ListReportsParams = {
   /**
    * @minLength 1
    */
@@ -1082,6 +1289,18 @@ export type CreateReportExportBodyFilters = { [key: string]: unknown }
 export type CreateReportExportBody = {
   format: CreateReportExportBodyFormat
   filters?: CreateReportExportBodyFilters
+}
+
+export type ListDashboardsParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
 }
 
 export type GetDashboardParams = {
@@ -3734,6 +3953,239 @@ export const updateTask = async (
   } as updateTaskResponse
 }
 
+export type addTaskParticipantResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type addTaskParticipantResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type addTaskParticipantResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type addTaskParticipantResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type addTaskParticipantResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type addTaskParticipantResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type addTaskParticipantResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type addTaskParticipantResponseSuccess =
+  addTaskParticipantResponse200 & {
+    headers: Headers
+  }
+export type addTaskParticipantResponseError = (
+  | addTaskParticipantResponse400
+  | addTaskParticipantResponse401
+  | addTaskParticipantResponse403
+  | addTaskParticipantResponse404
+  | addTaskParticipantResponse409
+  | addTaskParticipantResponse412
+) & {
+  headers: Headers
+}
+
+export type addTaskParticipantResponse =
+  addTaskParticipantResponseSuccess | addTaskParticipantResponseError
+
+export const getAddTaskParticipantUrl = (taskId: string) => {
+  return `/api/v1/tasks/${taskId}/participants`
+}
+
+/**
+ * @summary Add a task participant
+ */
+export const addTaskParticipant = async (
+  taskId: string,
+  participantCreate: ParticipantCreate,
+  options?: RequestInit,
+): Promise<addTaskParticipantResponse> => {
+  const res = await fetch(getAddTaskParticipantUrl(taskId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(participantCreate),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: addTaskParticipantResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as addTaskParticipantResponse
+}
+
+export type listTaskCommentsResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listTaskCommentsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listTaskCommentsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listTaskCommentsResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type listTaskCommentsResponseSuccess = listTaskCommentsResponse200 & {
+  headers: Headers
+}
+export type listTaskCommentsResponseError = (
+  | listTaskCommentsResponse401
+  | listTaskCommentsResponse403
+  | listTaskCommentsResponse404
+) & {
+  headers: Headers
+}
+
+export type listTaskCommentsResponse =
+  listTaskCommentsResponseSuccess | listTaskCommentsResponseError
+
+export const getListTaskCommentsUrl = (
+  taskId: string,
+  params?: ListTaskCommentsParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/tasks/${taskId}/comments?${stringifiedParams}`
+    : `/api/v1/tasks/${taskId}/comments`
+}
+
+/**
+ * @summary List task comments
+ */
+export const listTaskComments = async (
+  taskId: string,
+  params?: ListTaskCommentsParams,
+  options?: RequestInit,
+): Promise<listTaskCommentsResponse> => {
+  const res = await fetch(getListTaskCommentsUrl(taskId, params), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: listTaskCommentsResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listTaskCommentsResponse
+}
+
+export type addTaskCommentResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type addTaskCommentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type addTaskCommentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type addTaskCommentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type addTaskCommentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type addTaskCommentResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type addTaskCommentResponseSuccess = addTaskCommentResponse201 & {
+  headers: Headers
+}
+export type addTaskCommentResponseError = (
+  | addTaskCommentResponse400
+  | addTaskCommentResponse401
+  | addTaskCommentResponse403
+  | addTaskCommentResponse404
+  | addTaskCommentResponse409
+) & {
+  headers: Headers
+}
+
+export type addTaskCommentResponse =
+  addTaskCommentResponseSuccess | addTaskCommentResponseError
+
+export const getAddTaskCommentUrl = (taskId: string) => {
+  return `/api/v1/tasks/${taskId}/comments`
+}
+
+/**
+ * @summary Add a task comment and mentions
+ */
+export const addTaskComment = async (
+  taskId: string,
+  commentCreate: CommentCreate,
+  options?: RequestInit,
+): Promise<addTaskCommentResponse> => {
+  const res = await fetch(getAddTaskCommentUrl(taskId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(commentCreate),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: addTaskCommentResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as addTaskCommentResponse
+}
+
 export type transitionTaskResponse200 = {
   data: EntityResponse
   status: 200
@@ -3833,6 +4285,256 @@ export const transitionTask = async (
     status: res.status,
     headers: res.headers,
   } as transitionTaskResponse
+}
+
+export type recordWorkflowDecisionResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type recordWorkflowDecisionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type recordWorkflowDecisionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type recordWorkflowDecisionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type recordWorkflowDecisionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type recordWorkflowDecisionResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type recordWorkflowDecisionResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type recordWorkflowDecisionResponseSuccess =
+  recordWorkflowDecisionResponse201 & {
+    headers: Headers
+  }
+export type recordWorkflowDecisionResponseError = (
+  | recordWorkflowDecisionResponse400
+  | recordWorkflowDecisionResponse401
+  | recordWorkflowDecisionResponse403
+  | recordWorkflowDecisionResponse404
+  | recordWorkflowDecisionResponse409
+  | recordWorkflowDecisionResponse412
+) & {
+  headers: Headers
+}
+
+export type recordWorkflowDecisionResponse =
+  recordWorkflowDecisionResponseSuccess | recordWorkflowDecisionResponseError
+
+export const getRecordWorkflowDecisionUrl = (stepId: string) => {
+  return `/api/v1/workflow/steps/${stepId}/decisions`
+}
+
+/**
+ * @summary Record a workflow decision
+ */
+export const recordWorkflowDecision = async (
+  stepId: string,
+  decision: Decision,
+  options?: RequestInit,
+): Promise<recordWorkflowDecisionResponse> => {
+  const res = await fetch(getRecordWorkflowDecisionUrl(stepId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(decision),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: recordWorkflowDecisionResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as recordWorkflowDecisionResponse
+}
+
+export type actOnWorkflowStepResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type actOnWorkflowStepResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type actOnWorkflowStepResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type actOnWorkflowStepResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type actOnWorkflowStepResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type actOnWorkflowStepResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type actOnWorkflowStepResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type actOnWorkflowStepResponseSuccess = actOnWorkflowStepResponse200 & {
+  headers: Headers
+}
+export type actOnWorkflowStepResponseError = (
+  | actOnWorkflowStepResponse400
+  | actOnWorkflowStepResponse401
+  | actOnWorkflowStepResponse403
+  | actOnWorkflowStepResponse404
+  | actOnWorkflowStepResponse409
+  | actOnWorkflowStepResponse412
+) & {
+  headers: Headers
+}
+
+export type actOnWorkflowStepResponse =
+  actOnWorkflowStepResponseSuccess | actOnWorkflowStepResponseError
+
+export const getActOnWorkflowStepUrl = (
+  stepId: string,
+  stepAction: 'reassign' | 'escalate',
+) => {
+  return `/api/v1/workflow/steps/${stepId}/${stepAction}`
+}
+
+/**
+ * @summary Reassign or escalate an active workflow step
+ */
+export const actOnWorkflowStep = async (
+  stepId: string,
+  stepAction: 'reassign' | 'escalate',
+  workflowStepAction: WorkflowStepAction,
+  options?: RequestInit,
+): Promise<actOnWorkflowStepResponse> => {
+  const res = await fetch(getActOnWorkflowStepUrl(stepId, stepAction), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workflowStepAction),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: actOnWorkflowStepResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as actOnWorkflowStepResponse
+}
+
+export type cancelWorkflowResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type cancelWorkflowResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type cancelWorkflowResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type cancelWorkflowResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type cancelWorkflowResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type cancelWorkflowResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type cancelWorkflowResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type cancelWorkflowResponseSuccess = cancelWorkflowResponse200 & {
+  headers: Headers
+}
+export type cancelWorkflowResponseError = (
+  | cancelWorkflowResponse400
+  | cancelWorkflowResponse401
+  | cancelWorkflowResponse403
+  | cancelWorkflowResponse404
+  | cancelWorkflowResponse409
+  | cancelWorkflowResponse412
+) & {
+  headers: Headers
+}
+
+export type cancelWorkflowResponse =
+  cancelWorkflowResponseSuccess | cancelWorkflowResponseError
+
+export const getCancelWorkflowUrl = (instanceId: UUIDv7) => {
+  return `/api/v1/workflow/instances/${instanceId}/cancel`
+}
+
+/**
+ * @summary Cancel an active workflow
+ */
+export const cancelWorkflow = async (
+  instanceId: UUIDv7,
+  reasonAction: ReasonAction,
+  options?: RequestInit,
+): Promise<cancelWorkflowResponse> => {
+  const res = await fetch(getCancelWorkflowUrl(instanceId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reasonAction),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: cancelWorkflowResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cancelWorkflowResponse
 }
 
 export type listWorkRecordsResponse200 = {
@@ -4213,6 +4915,168 @@ export const transitionWorkRecord = async (
   } as transitionWorkRecordResponse
 }
 
+export type cancelWorkRecordResponse200 = {
+  data: WorkRecordResponse
+  status: 200
+}
+
+export type cancelWorkRecordResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type cancelWorkRecordResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type cancelWorkRecordResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type cancelWorkRecordResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type cancelWorkRecordResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type cancelWorkRecordResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type cancelWorkRecordResponseSuccess = cancelWorkRecordResponse200 & {
+  headers: Headers
+}
+export type cancelWorkRecordResponseError = (
+  | cancelWorkRecordResponse400
+  | cancelWorkRecordResponse401
+  | cancelWorkRecordResponse403
+  | cancelWorkRecordResponse404
+  | cancelWorkRecordResponse409
+  | cancelWorkRecordResponse412
+) & {
+  headers: Headers
+}
+
+export type cancelWorkRecordResponse =
+  cancelWorkRecordResponseSuccess | cancelWorkRecordResponseError
+
+export const getCancelWorkRecordUrl = (recordId: string) => {
+  return `/api/v1/work-records/${recordId}/cancel`
+}
+
+/**
+ * @summary Cancel a work record without physical deletion
+ */
+export const cancelWorkRecord = async (
+  recordId: string,
+  reasonAction: ReasonAction,
+  options?: RequestInit,
+): Promise<cancelWorkRecordResponse> => {
+  const res = await fetch(getCancelWorkRecordUrl(recordId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reasonAction),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: cancelWorkRecordResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cancelWorkRecordResponse
+}
+
+export type archiveWorkRecordResponse200 = {
+  data: WorkRecordResponse
+  status: 200
+}
+
+export type archiveWorkRecordResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type archiveWorkRecordResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type archiveWorkRecordResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type archiveWorkRecordResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type archiveWorkRecordResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type archiveWorkRecordResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type archiveWorkRecordResponseSuccess = archiveWorkRecordResponse200 & {
+  headers: Headers
+}
+export type archiveWorkRecordResponseError = (
+  | archiveWorkRecordResponse400
+  | archiveWorkRecordResponse401
+  | archiveWorkRecordResponse403
+  | archiveWorkRecordResponse404
+  | archiveWorkRecordResponse409
+  | archiveWorkRecordResponse412
+) & {
+  headers: Headers
+}
+
+export type archiveWorkRecordResponse =
+  archiveWorkRecordResponseSuccess | archiveWorkRecordResponseError
+
+export const getArchiveWorkRecordUrl = (recordId: string) => {
+  return `/api/v1/work-records/${recordId}/archive`
+}
+
+/**
+ * @summary Archive a terminal work record subject to retention and holds
+ */
+export const archiveWorkRecord = async (
+  recordId: string,
+  reasonAction: ReasonAction,
+  options?: RequestInit,
+): Promise<archiveWorkRecordResponse> => {
+  const res = await fetch(getArchiveWorkRecordUrl(recordId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reasonAction),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: archiveWorkRecordResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as archiveWorkRecordResponse
+}
+
 export type linkWorkRecordDocumentResponse201 = {
   data: EntityResponse
   status: 201
@@ -4289,6 +5153,768 @@ export const linkWorkRecordDocument = async (
     status: res.status,
     headers: res.headers,
   } as linkWorkRecordDocumentResponse
+}
+
+export type listDocumentsResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listDocumentsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listDocumentsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listDocumentsResponseSuccess = listDocumentsResponse200 & {
+  headers: Headers
+}
+export type listDocumentsResponseError = (
+  listDocumentsResponse401 | listDocumentsResponse403
+) & {
+  headers: Headers
+}
+
+export type listDocumentsResponse =
+  listDocumentsResponseSuccess | listDocumentsResponseError
+
+export const getListDocumentsUrl = (params?: ListDocumentsParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/documents?${stringifiedParams}`
+    : `/api/v1/documents`
+}
+
+/**
+ * @summary List authorized document metadata
+ */
+export const listDocuments = async (
+  params?: ListDocumentsParams,
+  options?: RequestInit,
+): Promise<listDocumentsResponse> => {
+  const res = await fetch(getListDocumentsUrl(params), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: listDocumentsResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listDocumentsResponse
+}
+
+export type createDocumentResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type createDocumentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type createDocumentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createDocumentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type createDocumentResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type createDocumentResponseSuccess = createDocumentResponse201 & {
+  headers: Headers
+}
+export type createDocumentResponseError = (
+  | createDocumentResponse400
+  | createDocumentResponse401
+  | createDocumentResponse403
+  | createDocumentResponse409
+) & {
+  headers: Headers
+}
+
+export type createDocumentResponse =
+  createDocumentResponseSuccess | createDocumentResponseError
+
+export const getCreateDocumentUrl = () => {
+  return `/api/v1/documents`
+}
+
+/**
+ * @summary Create document metadata before uploading bytes
+ */
+export const createDocument = async (
+  documentCreate: DocumentCreate,
+  options?: RequestInit,
+): Promise<createDocumentResponse> => {
+  const res = await fetch(getCreateDocumentUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(documentCreate),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: createDocumentResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as createDocumentResponse
+}
+
+export type getDocumentResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type getDocumentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getDocumentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getDocumentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getDocumentResponseSuccess = getDocumentResponse200 & {
+  headers: Headers
+}
+export type getDocumentResponseError = (
+  getDocumentResponse401 | getDocumentResponse403 | getDocumentResponse404
+) & {
+  headers: Headers
+}
+
+export type getDocumentResponse =
+  getDocumentResponseSuccess | getDocumentResponseError
+
+export const getGetDocumentUrl = (documentId: string) => {
+  return `/api/v1/documents/${documentId}`
+}
+
+/**
+ * @summary Get authorized document metadata
+ */
+export const getDocument = async (
+  documentId: string,
+  options?: RequestInit,
+): Promise<getDocumentResponse> => {
+  const res = await fetch(getGetDocumentUrl(documentId), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: getDocumentResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getDocumentResponse
+}
+
+export type updateDocumentResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type updateDocumentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type updateDocumentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type updateDocumentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type updateDocumentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type updateDocumentResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type updateDocumentResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type updateDocumentResponseSuccess = updateDocumentResponse200 & {
+  headers: Headers
+}
+export type updateDocumentResponseError = (
+  | updateDocumentResponse400
+  | updateDocumentResponse401
+  | updateDocumentResponse403
+  | updateDocumentResponse404
+  | updateDocumentResponse409
+  | updateDocumentResponse412
+) & {
+  headers: Headers
+}
+
+export type updateDocumentResponse =
+  updateDocumentResponseSuccess | updateDocumentResponseError
+
+export const getUpdateDocumentUrl = (documentId: string) => {
+  return `/api/v1/documents/${documentId}`
+}
+
+/**
+ * @summary Update document metadata or classification with a reason
+ */
+export const updateDocument = async (
+  documentId: string,
+  documentPatch: DocumentPatch,
+  options?: RequestInit,
+): Promise<updateDocumentResponse> => {
+  const res = await fetch(getUpdateDocumentUrl(documentId), {
+    ...options,
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/merge-patch+json',
+      ...options?.headers,
+    },
+    body: JSON.stringify(documentPatch),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: updateDocumentResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as updateDocumentResponse
+}
+
+export type listDocumentVersionsResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listDocumentVersionsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listDocumentVersionsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listDocumentVersionsResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type listDocumentVersionsResponseSuccess =
+  listDocumentVersionsResponse200 & {
+    headers: Headers
+  }
+export type listDocumentVersionsResponseError = (
+  | listDocumentVersionsResponse401
+  | listDocumentVersionsResponse403
+  | listDocumentVersionsResponse404
+) & {
+  headers: Headers
+}
+
+export type listDocumentVersionsResponse =
+  listDocumentVersionsResponseSuccess | listDocumentVersionsResponseError
+
+export const getListDocumentVersionsUrl = (
+  documentId: string,
+  params?: ListDocumentVersionsParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/documents/${documentId}/versions?${stringifiedParams}`
+    : `/api/v1/documents/${documentId}/versions`
+}
+
+/**
+ * @summary List immutable document versions
+ */
+export const listDocumentVersions = async (
+  documentId: string,
+  params?: ListDocumentVersionsParams,
+  options?: RequestInit,
+): Promise<listDocumentVersionsResponse> => {
+  const res = await fetch(getListDocumentVersionsUrl(documentId, params), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: listDocumentVersionsResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listDocumentVersionsResponse
+}
+
+export type addDocumentVersionResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type addDocumentVersionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type addDocumentVersionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type addDocumentVersionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type addDocumentVersionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type addDocumentVersionResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type addDocumentVersionResponseSuccess =
+  addDocumentVersionResponse201 & {
+    headers: Headers
+  }
+export type addDocumentVersionResponseError = (
+  | addDocumentVersionResponse400
+  | addDocumentVersionResponse401
+  | addDocumentVersionResponse403
+  | addDocumentVersionResponse404
+  | addDocumentVersionResponse409
+) & {
+  headers: Headers
+}
+
+export type addDocumentVersionResponse =
+  addDocumentVersionResponseSuccess | addDocumentVersionResponseError
+
+export const getAddDocumentVersionUrl = (documentId: string) => {
+  return `/api/v1/documents/${documentId}/versions`
+}
+
+/**
+ * @summary Initiate upload of a new document version
+ */
+export const addDocumentVersion = async (
+  documentId: string,
+  documentVersionCreate: DocumentVersionCreate,
+  options?: RequestInit,
+): Promise<addDocumentVersionResponse> => {
+  const res = await fetch(getAddDocumentVersionUrl(documentId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(documentVersionCreate),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: addDocumentVersionResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as addDocumentVersionResponse
+}
+
+export type listDocumentLinksResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listDocumentLinksResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listDocumentLinksResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listDocumentLinksResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type listDocumentLinksResponseSuccess = listDocumentLinksResponse200 & {
+  headers: Headers
+}
+export type listDocumentLinksResponseError = (
+  | listDocumentLinksResponse401
+  | listDocumentLinksResponse403
+  | listDocumentLinksResponse404
+) & {
+  headers: Headers
+}
+
+export type listDocumentLinksResponse =
+  listDocumentLinksResponseSuccess | listDocumentLinksResponseError
+
+export const getListDocumentLinksUrl = (
+  documentId: string,
+  params?: ListDocumentLinksParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/documents/${documentId}/links?${stringifiedParams}`
+    : `/api/v1/documents/${documentId}/links`
+}
+
+/**
+ * @summary List active source links
+ */
+export const listDocumentLinks = async (
+  documentId: string,
+  params?: ListDocumentLinksParams,
+  options?: RequestInit,
+): Promise<listDocumentLinksResponse> => {
+  const res = await fetch(getListDocumentLinksUrl(documentId, params), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: listDocumentLinksResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listDocumentLinksResponse
+}
+
+export type linkDocumentResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type linkDocumentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type linkDocumentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type linkDocumentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type linkDocumentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type linkDocumentResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type linkDocumentResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type linkDocumentResponseSuccess = linkDocumentResponse201 & {
+  headers: Headers
+}
+export type linkDocumentResponseError = (
+  | linkDocumentResponse400
+  | linkDocumentResponse401
+  | linkDocumentResponse403
+  | linkDocumentResponse404
+  | linkDocumentResponse409
+  | linkDocumentResponse412
+) & {
+  headers: Headers
+}
+
+export type linkDocumentResponse =
+  linkDocumentResponseSuccess | linkDocumentResponseError
+
+export const getLinkDocumentUrl = (documentId: string) => {
+  return `/api/v1/documents/${documentId}/links`
+}
+
+/**
+ * @summary Link a document to a source record
+ */
+export const linkDocument = async (
+  documentId: string,
+  documentLinkCreate: DocumentLinkCreate,
+  options?: RequestInit,
+): Promise<linkDocumentResponse> => {
+  const res = await fetch(getLinkDocumentUrl(documentId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(documentLinkCreate),
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: linkDocumentResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as linkDocumentResponse
+}
+
+export type transitionDocumentResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type transitionDocumentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type transitionDocumentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type transitionDocumentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type transitionDocumentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type transitionDocumentResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type transitionDocumentResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type transitionDocumentResponseSuccess =
+  transitionDocumentResponse200 & {
+    headers: Headers
+  }
+export type transitionDocumentResponseError = (
+  | transitionDocumentResponse400
+  | transitionDocumentResponse401
+  | transitionDocumentResponse403
+  | transitionDocumentResponse404
+  | transitionDocumentResponse409
+  | transitionDocumentResponse412
+) & {
+  headers: Headers
+}
+
+export type transitionDocumentResponse =
+  transitionDocumentResponseSuccess | transitionDocumentResponseError
+
+export const getTransitionDocumentUrl = (
+  documentId: string,
+  documentAction: 'archive' | 'place-hold' | 'release-hold',
+) => {
+  return `/api/v1/documents/${documentId}/${documentAction}`
+}
+
+/**
+ * @summary Archive, place on hold, or release hold without physical deletion
+ */
+export const transitionDocument = async (
+  documentId: string,
+  documentAction: 'archive' | 'place-hold' | 'release-hold',
+  reasonAction: ReasonAction,
+  options?: RequestInit,
+): Promise<transitionDocumentResponse> => {
+  const res = await fetch(
+    getTransitionDocumentUrl(documentId, documentAction),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(reasonAction),
+    },
+  )
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: transitionDocumentResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as transitionDocumentResponse
+}
+
+export type createDocumentAccessGrantResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type createDocumentAccessGrantResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type createDocumentAccessGrantResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createDocumentAccessGrantResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type createDocumentAccessGrantResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type createDocumentAccessGrantResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type createDocumentAccessGrantResponseSuccess =
+  createDocumentAccessGrantResponse201 & {
+    headers: Headers
+  }
+export type createDocumentAccessGrantResponseError = (
+  | createDocumentAccessGrantResponse400
+  | createDocumentAccessGrantResponse401
+  | createDocumentAccessGrantResponse403
+  | createDocumentAccessGrantResponse404
+  | createDocumentAccessGrantResponse409
+) & {
+  headers: Headers
+}
+
+export type createDocumentAccessGrantResponse =
+  | createDocumentAccessGrantResponseSuccess
+  | createDocumentAccessGrantResponseError
+
+export const getCreateDocumentAccessGrantUrl = (
+  documentId: string,
+  grantType: 'preview' | 'download',
+) => {
+  return `/api/v1/documents/${documentId}/${grantType}-grant`
+}
+
+/**
+ * @summary Issue a one-time preview or download grant after authorization and audit
+ */
+export const createDocumentAccessGrant = async (
+  documentId: string,
+  grantType: 'preview' | 'download',
+  documentGrantRequest: DocumentGrantRequest,
+  options?: RequestInit,
+): Promise<createDocumentAccessGrantResponse> => {
+  const res = await fetch(
+    getCreateDocumentAccessGrantUrl(documentId, grantType),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(documentGrantRequest),
+    },
+  )
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: createDocumentAccessGrantResponse['data'] = body
+    ? JSON.parse(body)
+    : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as createDocumentAccessGrantResponse
 }
 
 export type initiateDocumentUploadResponse201 = {
@@ -4678,6 +6304,71 @@ export const search = async (
   return { data, status: res.status, headers: res.headers } as searchResponse
 }
 
+export type listReportsResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listReportsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listReportsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listReportsResponseSuccess = listReportsResponse200 & {
+  headers: Headers
+}
+export type listReportsResponseError = (
+  listReportsResponse401 | listReportsResponse403
+) & {
+  headers: Headers
+}
+
+export type listReportsResponse =
+  listReportsResponseSuccess | listReportsResponseError
+
+export const getListReportsUrl = (params?: ListReportsParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports?${stringifiedParams}`
+    : `/api/v1/reports`
+}
+
+/**
+ * @summary List available reports
+ */
+export const listReports = async (
+  params?: ListReportsParams,
+  options?: RequestInit,
+): Promise<listReportsResponse> => {
+  const res = await fetch(getListReportsUrl(params), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: listReportsResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listReportsResponse
+}
+
 export type getReportResponse200 = {
   data: EntityResponse
   status: 200
@@ -4861,6 +6552,71 @@ export const getExport = async (
 
   const data: getExportResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getExportResponse
+}
+
+export type listDashboardsResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listDashboardsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listDashboardsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listDashboardsResponseSuccess = listDashboardsResponse200 & {
+  headers: Headers
+}
+export type listDashboardsResponseError = (
+  listDashboardsResponse401 | listDashboardsResponse403
+) & {
+  headers: Headers
+}
+
+export type listDashboardsResponse =
+  listDashboardsResponseSuccess | listDashboardsResponseError
+
+export const getListDashboardsUrl = (params?: ListDashboardsParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/dashboards?${stringifiedParams}`
+    : `/api/v1/dashboards`
+}
+
+/**
+ * @summary List published dashboards available to the principal
+ */
+export const listDashboards = async (
+  params?: ListDashboardsParams,
+  options?: RequestInit,
+): Promise<listDashboardsResponse> => {
+  const res = await fetch(getListDashboardsUrl(params), {
+    ...options,
+    method: 'GET',
+  })
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+
+  const data: listDashboardsResponse['data'] = body ? JSON.parse(body) : {}
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listDashboardsResponse
 }
 
 export type getDashboardResponse200 = {

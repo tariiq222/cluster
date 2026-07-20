@@ -3,8 +3,8 @@
   "$id": "https://contracts.cluster.example/schemas/work-record.schema.json",
   "title": "Work Record",
   "type": "object",
-  "additionalProperties": false,
-  "required": ["id", "record_number", "work_type_version_id", "owner", "status", "classification", "payload", "lock_version", "created_at", "updated_at"],
+  "unevaluatedProperties": false,
+  "required": ["id", "record_number", "work_type_version_id", "owner", "status", "classification", "payload", "lock_version", "allowed_actions", "field_access", "decision_id", "created_at", "updated_at"],
   "properties": {
     "id": {"$ref": "#/$defs/uuidv7"},
     "record_number": {"type": "string", "minLength": 1, "maxLength": 64},
@@ -16,6 +16,9 @@
     "classification": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]},
     "payload": {"type": "object"},
     "lock_version": {"type": "integer", "minimum": 1},
+    "allowed_actions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 128}},
+    "field_access": {"type": "object", "additionalProperties": {"type": "string", "enum": ["hidden", "masked", "readonly", "editable"]}},
+    "decision_id": {"anyOf": [{"$ref": "#/$defs/uuidv7"}, {"type": "null"}]},
     "submitted_at": {"$ref": "#/$defs/utcDateTime"},
     "created_at": {"$ref": "#/$defs/utcDateTime"},
     "updated_at": {"$ref": "#/$defs/utcDateTime"}

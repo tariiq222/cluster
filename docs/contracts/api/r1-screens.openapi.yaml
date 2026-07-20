@@ -81,8 +81,18 @@ paths:
         "409": { $ref: "./openapi.yaml#/components/responses/Conflict" }
   /tasks/{taskId}:
     $ref: "./openapi.yaml#/paths/~1tasks~1{taskId}"
+  /tasks/{taskId}/participants:
+    $ref: "./openapi.yaml#/paths/~1tasks~1{taskId}~1participants"
+  /tasks/{taskId}/comments:
+    $ref: "./openapi.yaml#/paths/~1tasks~1{taskId}~1comments"
   /tasks/{taskId}/{workflowTaskAction}:
     $ref: "./openapi.yaml#/paths/~1tasks~1{taskId}~1{workflowTaskAction}"
+  /workflow/steps/{stepId}/decisions:
+    $ref: "./openapi.yaml#/paths/~1workflow~1steps~1{stepId}~1decisions"
+  /workflow/steps/{stepId}/{stepAction}:
+    $ref: "./openapi.yaml#/paths/~1workflow~1steps~1{stepId}~1{stepAction}"
+  /workflow/instances/{instanceId}/cancel:
+    $ref: "./openapi.yaml#/paths/~1workflow~1instances~1{instanceId}~1cancel"
   /work-records:
     $ref: "./openapi.yaml#/paths/~1work-records"
   /work-records/{recordId}:
@@ -109,6 +119,10 @@ paths:
         "404": { $ref: "./openapi.yaml#/components/responses/NotFound" }
         "409": { $ref: "./openapi.yaml#/components/responses/Conflict" }
         "412": { $ref: "./openapi.yaml#/components/responses/PreconditionFailed" }
+  /work-records/{recordId}/cancel:
+    $ref: "./openapi.yaml#/paths/~1work-records~1{recordId}~1cancel"
+  /work-records/{recordId}/archive:
+    $ref: "./openapi.yaml#/paths/~1work-records~1{recordId}~1archive"
   /work-records/{recordId}/documents:
     parameters:
       - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
@@ -136,6 +150,18 @@ paths:
         "403": { $ref: "./openapi.yaml#/components/responses/Forbidden" }
         "404": { $ref: "./openapi.yaml#/components/responses/NotFound" }
         "409": { $ref: "./openapi.yaml#/components/responses/Conflict" }
+  /documents:
+    $ref: "./openapi.yaml#/paths/~1documents"
+  /documents/{documentId}:
+    $ref: "./openapi.yaml#/paths/~1documents~1{documentId}"
+  /documents/{documentId}/versions:
+    $ref: "./openapi.yaml#/paths/~1documents~1{documentId}~1versions"
+  /documents/{documentId}/links:
+    $ref: "./openapi.yaml#/paths/~1documents~1{documentId}~1links"
+  /documents/{documentId}/{documentAction}:
+    $ref: "./openapi.yaml#/paths/~1documents~1{documentId}~1{documentAction}"
+  /documents/{documentId}/{grantType}-grant:
+    $ref: "./openapi.yaml#/paths/~1documents~1{documentId}~1{grantType}-grant"
   /documents/uploads:
     $ref: "./openapi.yaml#/paths/~1documents~1uploads"
   /documents/uploads/{uploadId}:
@@ -146,6 +172,8 @@ paths:
     $ref: "./openapi.yaml#/paths/~1documents~1{documentId}~1download"
   /search:
     $ref: "./openapi.yaml#/paths/~1search"
+  /reports:
+    $ref: "./openapi.yaml#/paths/~1reports"
   /reports/{reportId}:
     parameters:
       - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
@@ -166,6 +194,19 @@ paths:
     $ref: "./openapi.yaml#/paths/~1reports~1{reportId}~1exports"
   /exports/{exportId}:
     $ref: "./openapi.yaml#/paths/~1exports~1{exportId}"
+  /dashboards:
+    parameters:
+      - $ref: "./openapi.yaml#/components/parameters/CorrelationId"
+    get:
+      operationId: listDashboards
+      summary: List published dashboards available to the principal
+      parameters:
+        - $ref: "./openapi.yaml#/components/parameters/Cursor"
+        - $ref: "./openapi.yaml#/components/parameters/Limit"
+      responses:
+        "200": { $ref: "./openapi.yaml#/components/responses/Collection" }
+        "401": { $ref: "./openapi.yaml#/components/responses/Unauthorized" }
+        "403": { $ref: "./openapi.yaml#/components/responses/Forbidden" }
   /dashboards/{dashboardId}:
     parameters:
       - $ref: "./openapi.yaml#/components/parameters/CorrelationId"

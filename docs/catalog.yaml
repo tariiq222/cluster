@@ -14,11 +14,11 @@ documents:
   - {path: product/releases-and-roadmap.md, title: الإصدارات وخارطة الطريق, category: product, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: product/success-metrics.md, title: مؤشرات نجاح المنصة, category: product, status: accepted, owner: مسؤول المنتج, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: plans/README.md, title: فهرس خطط التنفيذ, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
-  - {path: plans/implementation-roadmap.md, title: خارطة التنفيذ السريعة – خمسة أيام لبقية النظام, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/implementation-roadmap.md, title: خارطة التنفيذ المتكامل – من إقفال R1 إلى R3, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: plans/release-1-platform.md, title: خطة R1 السريعة – منصة العمل الإداري, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1, source_of_truth: true, generated: false}
   - {path: plans/release-1/w1-2-frontend-slices.md, title: سجل اكتمال واجهة W1.2, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1, source_of_truth: false, generated: false}
-  - {path: plans/release-1/w1-3-frontend-slices.md, title: بطاقة تنفيذ واجهة W1.3 – اليوم الأول, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1, source_of_truth: false, generated: false}
-  - {path: plans/release-2-strategy-portfolio.md, title: خطة R2 السريعة – الاستراتيجية والمؤشرات والمشاريع, category: plans, status: accepted, owner: التنفيذ التقني, phase: R2, source_of_truth: true, generated: false}
+  - {path: plans/release-1/w1-3-frontend-slices.md, title: خطة إقفال W1.3 – التفويض المركزي وتجربة الوصول, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1, source_of_truth: false, generated: false}
+  - {path: plans/release-2-strategy-portfolio.md, title: خطة R2 المتكاملة – دورة الاستراتيجية والمحافظ والمشاريع, category: plans, status: accepted, owner: التنفيذ التقني, phase: R2, source_of_truth: true, generated: false}
   - {path: plans/release-3-risk.md, title: خطة R3 السريعة – المخاطر والضوابط والمعالجة, category: plans, status: accepted, owner: التنفيذ التقني, phase: R3, source_of_truth: true, generated: false}
   - {path: plans/readiness-checklist.md, title: قائمة الجاهزية الآلية للتشغيل النهائي, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: plans/active-delivery-status.md, title: حالة التسليم النشطة, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
