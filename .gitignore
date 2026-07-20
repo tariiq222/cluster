@@ -24,3 +24,7 @@ infra/platform/production/.env.production
 
 # Local development service credentials
 infra/dev/.env
+
+# Local Kilo planning memory
+.kilo/state/plans/*
+!.kilo/state/plans/.gitkeep

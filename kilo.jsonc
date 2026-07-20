@@ -1,0 +1,320 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "provider": {
+    "webvue": {
+      "name": "ai.webvue",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://ai.webvue.pro/v1"
+      },
+      "models": {
+        "gpt-5.6-sol": {
+          "name": "gpt-5.6-sol",
+          "attachment": true,
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "reasoning": true
+        },
+        "gpt-5.6-luna": { "name": "gpt-5.6-luna" },
+        "gpt-5.6-terra": { "name": "gpt-5.6-terra" },
+        "kimi-k3": { "name": "kimi-k3", "reasoning": true },
+        "MiniMax-M3": { "name": "MiniMax-M3" },
+        "claude-fable-5": { "name": "claude-fable-5", "reasoning": true },
+        "codex-auto-review": { "name": "codex-auto-review" },
+        "gpt-image-2": {
+          "name": "gpt-image-2",
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          }
+        }
+      }
+    }
+  },
+  "enabled_providers": ["webvue", "openai"],
+  "default_agent": "orchestrator",
+  "instructions": [
+    "AGENTS.md",
+    ".kilo/instructions/language-policy.md",
+    ".kilo/instructions/project-operating-model.md"
+  ],
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "tail_turns": 2
+  },
+  "watcher": {
+    "ignore": [
+      ".kilo/state/plans/**",
+      ".claude/worktrees/**",
+      "apps/api/vendor/**",
+      "apps/web/node_modules/**",
+      "site/**",
+      "build/**",
+      "artifacts/**"
+    ]
+  },
+  "command": {
+    "plan-fast": {
+      "description": "Create a cost-efficient evidence-backed implementation plan",
+      "agent": "plan",
+      "model": "openai/gpt-5.3-codex",
+      "template": "Create a fast project plan for: $ARGUMENTS\n\nUse Kimi research and MiniMax structuring, then produce the Sol final plan. Skip Fable unless repository evidence exposes cross-module, security, migration, transaction, contract, or deployment risk. Persist the plan under .kilo/state/plans and return an Arabic summary to the user."
+    },
+    "plan-deep": {
+      "description": "Run the bounded Kimi, MiniMax, Sol, Fable planning loop",
+      "agent": "plan",
+      "model": "openai/gpt-5.3-codex",
+      "template": "Create a deep persistent implementation plan for: $ARGUMENTS\n\nRun the full bounded pipeline: Kimi evidence research, MiniMax requirements and dependency structure, Sol draft, independent Fable review, Sol revision, and MiniMax cold-start readiness. Allow at most three Fable reviews. Persist all artifacts under .kilo/state/plans and return an Arabic summary with the final verdict."
+    },
+    "plan-critical": {
+      "description": "Run the strict deep planning loop for high-risk changes",
+      "agent": "plan",
+      "model": "openai/gpt-5.3-codex",
+      "template": "Create a critical implementation plan for: $ARGUMENTS\n\nTreat this as architecture, authorization, identity, sensitive documents, migration, transaction, Outbox, cross-module, or production-infrastructure risk. Require Kimi evidence, MiniMax requirement and dependency matrices, Sol synthesis, Fable approval, Sol consistency revision, and MiniMax cold-start PASS. Use at most three Fable rounds. Do not implement product code."
+    },
+    "plan-resume": {
+      "description": "Resume the active persistent project plan",
+      "agent": "plan",
+      "model": "openai/gpt-5.3-codex",
+      "template": "Resume the active persistent plan matching: $ARGUMENTS\n\nRead .kilo/state/plans/.active-plan when present, restore state.json and the latest artifacts, verify the current Git revision and dirty-worktree state, then continue from next_stage without repeating completed research or review."
+    },
+    "plan-status": {
+      "description": "Report active planning state without changing product files",
+      "agent": "plan",
+      "model": "webvue/MiniMax-M3",
+      "template": "Report the persistent planning status for: $ARGUMENTS\n\nRead only the active plan metadata, decision ledger, latest verdict, readiness result, blockers, and next stage. Do not revise the plan. Return a concise Arabic status to the user."
+    },
+    "work": {
+      "description": "Implement a task through the cost-aware project orchestrator",
+      "agent": "orchestrator",
+      "model": "openai/gpt-5.3-codex",
+      "template": "Implement and verify: $ARGUMENTS\n\nInspect repository evidence, preserve the dirty worktree, execute tiny work directly, and use no more than three independent direct subagents when parallelism is real. Prefer MiniMax and Kimi for economical work, Luna for production complexity, and Terra only for proven escalation."
+    },
+    "fix": {
+      "description": "Reproduce and fix a defect with focused verification",
+      "agent": "orchestrator",
+      "model": "openai/gpt-5.3-codex",
+      "template": "Diagnose and fix this defect: $ARGUMENTS\n\nReproduce it with the narrowest failing test, identify the owning module or frontend slice, implement the smallest correction, rerun the regression test, then run proportionate affected checks. Preserve unrelated changes."
+    },
+    "verify": {
+      "description": "Select and run proportionate checks for current changes",
+      "agent": "orchestrator",
+      "model": "webvue/kimi-k3",
+      "template": "Verify the requested scope or current relevant changes: $ARGUMENTS\n\nSelect the narrowest checks from repository evidence. Add module boundaries for cross-module changes, web build for frontend changes, contract generation checks for OpenAPI or Orval changes, and broader gates only when risk justifies them. Do not modify product behavior unless verification exposes a clear defect within scope."
+    },
+    "review": {
+      "description": "Review changes for defects, regressions, and missing tests",
+      "agent": "reviewer",
+      "model": "webvue/codex-auto-review",
+      "subtask": true,
+      "template": "Review this scope without editing product files: $ARGUMENTS\n\nPrioritize behavioral defects, authorization and data exposure, module boundaries, transaction and Outbox correctness, migration safety, contract drift, generated-file misuse, and missing high-value tests. Present findings first by severity with file and line references."
+    },
+    "inspect-image": {
+      "description": "Inspect an attached image or repository image file with the OpenAI Codex model",
+      "agent": "visual-inspector",
+      "model": "openai/gpt-5.3-codex",
+      "template": "Inspect the attached image or image file referenced in: $ARGUMENTS\n\nDescribe only evidence visible in the image. For UI screenshots, identify layout, text, states, errors, accessibility concerns, RTL or LTR behavior, and likely affected repository surfaces. Do not edit files. Return the user-facing explanation in Arabic."
+    }
+  },
+  "agent": {
+    "title": {
+      "model": "webvue/MiniMax-M3",
+      "steps": 4
+    },
+    "summary": {
+      "model": "webvue/MiniMax-M3",
+      "steps": 8
+    },
+    "compaction": {
+      "model": "webvue/kimi-k3",
+      "steps": 12
+    },
+    "orchestrator": {
+      "description": "Primary cost-aware project orchestrator for verified parallel delivery",
+      "mode": "primary",
+      "model": "openai/gpt-5.3-codex",
+      "steps": 60,
+      "color": "#B7D71B",
+      "prompt": "{file:./.kilo/prompts/cluster-orchestrator.md}",
+      "permission": {
+        "task": {
+          "*": "deny",
+          "explorer-kimi": "allow",
+          "mechanical-worker-minimax": "allow",
+          "economy-worker-kimi": "allow",
+          "module-worker-luna": "allow",
+          "complex-worker-luna": "allow",
+          "visual-inspector": "allow",
+          "reviewer": "allow",
+          "risk-reviewer-terra": "allow"
+        },
+        "external_directory": "deny"
+      }
+    },
+    "plan": {
+      "description": "Persistent deep planner with Kimi research, MiniMax structure, Sol synthesis, and Fable review",
+      "mode": "primary",
+      "model": "openai/gpt-5.3-codex",
+      "steps": 80,
+      "color": "#AD7BF9",
+      "prompt": "{file:./.kilo/prompts/cluster-deep-planner.md}",
+      "permission": {
+        "edit": {
+          "*": "deny",
+          ".kilo/state/plans/**": "allow",
+          "docs/plans/**": "ask"
+        },
+        "task": {
+          "*": "deny",
+          "plan-researcher-kimi": "allow",
+          "plan-structurer-minimax": "allow",
+          "plan-critic-fable": "allow",
+          "executor-readiness-minimax": "allow"
+        },
+        "external_directory": "deny"
+      }
+    },
+    "plan-researcher-kimi": {
+      "description": "Read-only Kimi researcher for verified planning evidence",
+      "mode": "subagent",
+      "model": "webvue/kimi-k3",
+      "steps": 35,
+      "hidden": true,
+      "color": "#40C977",
+      "prompt": "{file:./.kilo/prompts/plan-researcher-kimi.md}",
+      "permission": { "edit": "deny", "task": "deny", "external_directory": "deny" }
+    },
+    "plan-structurer-minimax": {
+      "description": "Read-only MiniMax planner for requirements, dependencies, ownership, and gaps",
+      "mode": "subagent",
+      "model": "webvue/MiniMax-M3",
+      "steps": 30,
+      "hidden": true,
+      "color": "#F0B429",
+      "prompt": "{file:./.kilo/prompts/plan-structurer-minimax.md}",
+      "permission": { "edit": "deny", "task": "deny", "external_directory": "deny" }
+    },
+    "plan-critic-fable": {
+      "description": "Independent Fable adversarial reviewer for deep plans",
+      "mode": "subagent",
+      "model": "webvue/claude-fable-5",
+      "steps": 35,
+      "hidden": true,
+      "color": "#FA423E",
+      "prompt": "{file:./.kilo/prompts/plan-critic-fable.md}",
+      "permission": { "edit": "deny", "task": "deny", "external_directory": "deny" }
+    },
+    "executor-readiness-minimax": {
+      "description": "MiniMax cold-start simulator for execution packet completeness",
+      "mode": "subagent",
+      "model": "webvue/MiniMax-M3",
+      "steps": 25,
+      "hidden": true,
+      "color": "#F0B429",
+      "prompt": "{file:./.kilo/prompts/executor-readiness-minimax.md}",
+      "permission": { "edit": "deny", "task": "deny", "external_directory": "deny" }
+    },
+    "explorer-kimi": {
+      "description": "Read-only Kimi codebase explorer for cost-efficient evidence gathering",
+      "mode": "subagent",
+      "model": "webvue/kimi-k3",
+      "steps": 24,
+      "hidden": true,
+      "color": "#40C977",
+      "prompt": "{file:./.kilo/prompts/explorer-kimi.md}",
+      "permission": { "edit": "deny", "task": "deny", "external_directory": "deny" }
+    },
+    "mechanical-worker-minimax": {
+      "description": "MiniMax worker for deterministic edits, fixtures, formatting, and focused tests",
+      "mode": "subagent",
+      "model": "webvue/MiniMax-M3",
+      "steps": 28,
+      "hidden": true,
+      "color": "#F0B429",
+      "prompt": "{file:./.kilo/prompts/mechanical-worker-minimax.md}",
+      "permission": { "task": "deny", "external_directory": "deny" }
+    },
+    "economy-worker-kimi": {
+      "description": "Kimi implementation worker for bounded low-to-medium-risk slices",
+      "mode": "subagent",
+      "model": "webvue/kimi-k3",
+      "steps": 38,
+      "hidden": true,
+      "color": "#40C977",
+      "prompt": "{file:./.kilo/prompts/economy-worker-kimi.md}",
+      "permission": { "task": "deny", "external_directory": "deny" }
+    },
+    "module-worker-luna": {
+      "description": "Default Luna production worker for routine Laravel, React, contract, and test changes",
+      "mode": "subagent",
+      "model": "openai/gpt-5.3-codex",
+      "steps": 45,
+      "hidden": true,
+      "color": "#64B5F6",
+      "prompt": "{file:./.kilo/prompts/module-worker-luna.md}",
+      "permission": { "task": "deny", "external_directory": "deny" }
+    },
+    "complex-worker-luna": {
+      "description": "Deep Luna worker for bounded difficult debugging, transactions, and integration logic",
+      "mode": "subagent",
+      "model": "openai/gpt-5.3-codex",
+      "steps": 60,
+      "hidden": true,
+      "color": "#42A5F5",
+      "prompt": "{file:./.kilo/prompts/complex-worker-luna.md}",
+      "permission": { "task": "deny", "external_directory": "deny" }
+    },
+    "reviewer": {
+      "description": "Independent reviewer for bugs, regressions, boundaries, and missing tests",
+      "mode": "subagent",
+      "model": "webvue/codex-auto-review",
+      "steps": 35,
+      "hidden": true,
+      "color": "#FFB74D",
+      "prompt": "{file:./.kilo/prompts/reviewer.md}",
+      "permission": { "edit": "deny", "task": "deny", "external_directory": "deny" }
+    },
+    "visual-inspector": {
+      "description": "Visual inspection for screenshots and image files using the OpenAI Codex model",
+      "mode": "all",
+      "model": "openai/gpt-5.3-codex",
+      "steps": 20,
+      "color": "#26C6DA",
+      "prompt": "{file:./.kilo/prompts/visual-inspector.md}",
+      "permission": { "edit": "deny", "task": "deny", "external_directory": "deny" }
+    },
+    "risk-reviewer-terra": {
+      "description": "Terra escalation reviewer for genuine architecture, security, migration, or transaction risk",
+      "mode": "subagent",
+      "model": "openai/gpt-5.3-codex",
+      "steps": 45,
+      "hidden": true,
+      "color": "#EF5350",
+      "prompt": "{file:./.kilo/prompts/risk-reviewer-terra.md}",
+      "permission": { "edit": "deny", "task": "deny", "external_directory": "deny" }
+    }
+  },
+  "share": "manual",
+  "permission": {
+    "skill": {
+      "*": "deny",
+      "cluster-*": "allow",
+      "laravel-patterns": "allow",
+      "laravel-tdd": "allow",
+      "laravel-security": "allow",
+      "react-patterns": "allow",
+      "react-testing": "allow",
+      "frontend-a11y": "allow",
+      "orval": "allow",
+      "database-migrations": "allow",
+      "mysql-patterns": "allow",
+      "e2e-testing": "allow",
+      "security-review": "allow",
+      "docker-patterns": "allow"
+    },
+    "external_directory": "deny"
+  }
+}
