@@ -3,7 +3,7 @@ doc_id: PLN-AS-001
 title: حالة التسليم النشطة
 type: plans
 status: accepted
-version: 5.8.0
+version: 5.10.0
 date: 2026-07-20
 owner: التنفيذ التقني
 reviewers: []
@@ -27,12 +27,22 @@ references:
   المراجعة أثبتت أن `DecideAccess` مربوط بـ`FixtureFacilityDecision` وأن
   `RbacAbacDecideAccess` وإدارة RoleCapability والنطاقات وسياسات الحقول لا تقود
   الوصول التشغيلي كاملاً. خطة الإقفال في `release-1/w1-3-frontend-slices.md`.
-- **Stage 0 من إقفال W1.3 منفذ جزئياً ولم يُغلق بعد**: دُمجت commits
-  `6fc1e36` و`f7d0f4b` و`da64419` للحقائق الموثوقة وحفظ القرارات وBootstrap
-  وعزل الإدارة. إصلاحات التكامل اللاحقة موجودة في مساحة العمل لكنها غير معتمدة؛
-  آخر بوابة مركزة كانت 21/24 ثم أعيد فتح ثلاث حالات في رحلة W1.3 تخص تماسك
-  projection وexplanation وrole deny. لا يعد Stage 0 مكتملاً قبل إخضرار المجموعة
-  المركزة و`make verify-boundaries`.
+- **Stage 0 من إقفال W1.3 أُغلق**: دُمجت commits `3e31d54` و`420aa0e`
+  لإصلاحات role deny وexplanation وprojection coherence إلى جانب
+  commits `6fc1e36` و`f7d0f4b` و`da64419` السابقة. `make verify-w1-3` و
+  `infra/dev/run-w1-3-e2e.sh` خضراوان: 85/85 وحدة و17/17 رحلة و4/4 حدود
+  و40/40 web ورحلة متصفح. الخطوة التالية تنفيذ
+  `release-1/w1-3-frontend-slices.md` بعد إعادة تحقق R1 كاملاً بالمحرك
+  الحقيقي.
+- **`make verify-w1-1` و`make verify-w1-2` معلّقتان على موجتين لاحقتين من خطة
+  W1.3 frontend slices**: 79 فشل اختبار في `test-api` تنبع من ترحيل جميع مسارات
+  API إلى `RequireIdentitySessionPrincipal` بينما اختبارات الموديولات لا تزال
+  تستخدم fixture bearer من `/api/v1/auth/login`؛ هذا هو نطاق الموجة الثانية
+  («ربط SessionPrincipalResolver والمحرك الحقيقي، وإبقاء fixture في
+  `local/testing`»). وكذلك drift عقد WorkRecordResponse وWorkRecordCollection
+  (وضع access metadata داخل data بدلاً من المستوى الأعلى) هو نطاق الموجة
+  الخامسة («إسقاط الواجهة: endpoint للسياق الشخصي وallowed_actions وfield_access»).
+  الخطوة التالية تفكيك هاتين الفجوتين كقطعتي عمل مستقلتين.
 - **W1.4–W1.7 مكتملة**: إنشاء ونشر WorkDefinition وWorkflow، تثبيت الإصدار،
   إنشاء WorkRecord وإرساله وإعادته، وإنشاء Task وإكمالها مثبتة ببوابة
   `make verify-day2` الخضراء.
@@ -79,6 +89,7 @@ Strategy الكاملة وPortfolioProjects وربط الأثر وفق
 | 2026-07-19 | `work-day3-r1@098b78af` ثم الدمج في `main@99a25db`؛ `make verify-day3` و`make verify-w1-1-local` و`make scan-secrets` و`./scripts/validate-docs.sh`؛ CI ‏`29681030768` | أغلقت W1.8–W1.10 واكتمل R1: رحلة W1.3–W1.10 تعمل بالعربية RTL والإنجليزية LTR من إنشاء النوع والمسار إلى المستند والإشعار والبحث والتقرير واللوحة ضمن النطاق |
 | 2026-07-19 | `work-screens-r1`؛ `make verify-screens` و`make verify-w1-1-local` و`make scan-secrets` و`./scripts/validate-docs.sh` | أغلقت فجوة شاشات R1 بعقد Orval مولّد وشاشات RTL/LTR واختبارات API/Web/E2E وبوابة MySQL المحلية الخضراء |
 | 2026-07-20 | Stage 0 commits `6fc1e36` و`f7d0f4b` و`da64419`؛ آخر تشغيل مركز `php artisan test Modules/Authorization/Tests/AuthorizationPolicyAdminHttpAdapterTest.php tests/Feature/SecurityJourneyW13Test.php` | نُفذت الحقائق الموثوقة وBootstrap وعزل الإدارة، لكن الإصلاح المتكامل غير معتمد بعد؛ التالي إغلاق حالات role deny وSearch/Reporting projection وaccess-decision explanation، ثم تشغيل المجموعة المركزة و`make verify-boundaries` قبل module facts adapters وOpenAPI/Orval |
+| 2026-07-20 | commits `3e31d54` و`420aa0e`؛ `make verify-w1-3` و`infra/dev/run-w1-3-e2e.sh` | أُغلق Stage 0 فعلياً: 85/85 وحدة و17/17 رحلة و4/4 حدود و40/40 web ورحلة متصفح خضراء؛ أصلح role deny وexplanation وprojection coherence؛ أزيل اعتماد fixture من ركيزة قرار الوصول؛ الخطوة التالية W1.3 frontend slices ثم تقوية Tasks |
 
 ## قاعدة التحديث
 
@@ -90,6 +101,8 @@ Strategy الكاملة وPortfolioProjects وربط الأثر وفق
 | الإصدار | التاريخ | التغيير |
 |---|---|---|
 | 5.8.0 | 2026-07-20 | تسجيل حالة Stage 0 الفعلية: commits المدمجة، بوابة التحقق غير الخضراء، والحالات الثلاث التالية قبل module facts adapters وOpenAPI/Orval |
+| 5.9.0 | 2026-07-20 | تسجيل إقفال Stage 0: commits `3e31d54` و`420aa0e`، بوابة `verify-w1-3` ورحلة المتصفح خضراوان، الخطوة التالية W1.3 frontend slices ثم تقوية Tasks |
+| 5.10.0 | 2026-07-20 | تأجيل `verify-w1-1` و`verify-w1-2` على نطاق موجتي W1.3 frontend slices 2 و5: ترحيل اختبارات fixture bearer إلى session login (79 فشل)، وإصلاح drift عقد WorkRecordResponse/WorkRecordCollection (وضع access metadata داخل data) |
 | 5.7.0 | 2026-07-19 | توثيق توسعة R2 إلى دورة Strategy الكاملة، وإدخال تقوية Tasks قبلها، وفصل PortfolioProjects وربط الأثر ضمن ترتيب التنفيذ النشط |
 | 5.6.0 | 2026-07-19 | إعادة فتح W1.3 تكاملياً بعد مراجعة ربط محرك القرار، ووضع إقفال Authorization قبل R2 مع بقاء دليل الرحلة الوظيفية محفوظاً |
 | 5.5.0 | 2026-07-19 | إغلاق فجوة شاشات R1 وربطها كاملة بعميل Orval المولّد وإضافة بوابة `verify-screens` |
