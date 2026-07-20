@@ -46,6 +46,7 @@ class WorkRecordEnvelopeTest extends TestCase
             'owner' => ['facility_id' => self::FACILITY_ID, 'user_id' => self::CREATOR_ID],
             'status' => 'submitted',
             'classification' => 'internal',
+            'field_policy_key' => null,
             'payload' => ['title' => 'طلب اختبار', 'description' => 'وصف الاختبار'],
             'lock_version' => 1,
             'submitted_at' => '2026-07-16T10:00:00.000Z',

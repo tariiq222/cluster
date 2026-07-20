@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedWorkDefinition;
@@ -91,7 +92,8 @@ final class SubmitWorkRecordController
             resourceType: 'work_record',
             classification: $definition['classification'],
         );
-        if (! $this->access->decide(['facility_id' => $principal['facility_id']], 'work_record.submit', $facts)->isAllowed()) {
+        $decision = $this->access->decide($this->actor($principal), 'work_record.submit', $facts);
+        if (! $decision->isAllowed()) {
             return $this->problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }
 
@@ -108,6 +110,7 @@ final class SubmitWorkRecordController
                 'description' => $validated['description'],
             ],
             submittedAt: $submittedAt,
+            fieldPolicyKey: null,
         );
         $envelope = $record->toEnvelope();
         try {
@@ -131,7 +134,7 @@ final class SubmitWorkRecordController
         }
 
         return $result['created']
-            ? $this->created($result['record'], $correlationId)
+            ? $this->created($result['record'], $correlationId, AccessProjection::fromDecision($decision))
             : $this->replay($result, $principal, $correlationId);
     }
 
@@ -147,7 +150,8 @@ final class SubmitWorkRecordController
             resourceType: 'work_record',
             classification: $record['classification'],
         );
-        if (! $this->access->decide(['facility_id' => $principal['facility_id']], 'work_record.read', $facts)->isAllowed()) {
+        $decision = $this->access->decide($this->actor($principal), 'work_record.read', $facts);
+        if (! $decision->isAllowed()) {
             return $this->problem(404, 'work-record-unavailable', 'Not Found', 'لا يمكنك فتح هذا الطلب أو لم يعد متاحاً.', $correlationId);
         }
 
@@ -155,16 +159,43 @@ final class SubmitWorkRecordController
             return $this->problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId);
         }
 
-        return $this->created($record, $correlationId);
+        return $this->created($record, $correlationId, AccessProjection::fromDecision($decision));
     }
 
     /** @param array<string, mixed> $record */
-    private function created(array $record, string $correlationId): JsonResponse
+    private function created(array $record, string $correlationId, ?AccessProjection $projection = null): JsonResponse
     {
+        if ($projection !== null) {
+            $record = $projection->compose($record, function (array $payload, array $fieldAccess): array {
+                $wildcard = $fieldAccess['*'] ?? null;
+                foreach ($payload as $field => $value) {
+                    $state = $fieldAccess[$field] ?? $wildcard;
+                    if ($state === 'hidden') {
+                        unset($payload[$field]);
+                    } elseif ($state === 'masked') {
+                        $payload[$field] = '***';
+                    }
+                }
+
+                return $payload;
+            });
+        }
+
         return response()->json(['data' => $record], 201)->withHeaders([
             'X-Correlation-ID' => $correlationId,
             'ETag' => '"'.$record['lock_version'].'"',
         ]);
+    }
+
+    /** @param array{user_id: string, facility_id: string} $principal */
+    private function actor(array $principal): array
+    {
+        return [
+            'user_id' => $principal['user_id'],
+            'facility_id' => $principal['facility_id'],
+            'organization_unit_ids' => array_filter([$principal['facility_id']]),
+            'correlation_id' => null,
+        ];
     }
 
     private function correlationId(Request $request): ?string

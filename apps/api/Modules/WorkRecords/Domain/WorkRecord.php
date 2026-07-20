@@ -23,6 +23,7 @@ final readonly class WorkRecord
         private string $classification,
         private array $payload,
         private DateTimeImmutable $submittedAt,
+        private ?string $fieldPolicyKey,
     ) {}
 
     /**
@@ -37,6 +38,7 @@ final readonly class WorkRecord
         string $classification,
         array $payload,
         DateTimeImmutable $submittedAt,
+        ?string $fieldPolicyKey = null,
     ): self {
         self::requireUuidV7($id, 'id');
         self::requireUuidV7($workTypeVersionId, 'work type version');
@@ -64,11 +66,12 @@ final readonly class WorkRecord
             $classification,
             $payload,
             $submittedAt,
+            $fieldPolicyKey,
         );
     }
 
     /**
-     * @return array{id: string, record_number: string, work_type_version_id: string, owner: array{facility_id: string, user_id: string}, status: string, classification: string, payload: array<string, mixed>, lock_version: int, submitted_at: string, created_at: string, updated_at: string}
+     * @return array{id: string, record_number: string, work_type_version_id: string, owner: array{facility_id: string, user_id: string}, status: string, classification: string, field_policy_key: ?string, payload: array<string, mixed>, lock_version: int, submitted_at: string, created_at: string, updated_at: string}
      */
     public function toEnvelope(): array
     {
@@ -84,6 +87,7 @@ final readonly class WorkRecord
             ],
             'status' => 'submitted',
             'classification' => $this->classification,
+            'field_policy_key' => $this->fieldPolicyKey,
             'payload' => $this->payload,
             'lock_version' => 1,
             'submitted_at' => $timestamp,

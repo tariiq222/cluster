@@ -20,6 +20,9 @@ final class WorkRecordAuthorizationFacts implements LinkedResourceAuthorizationF
             (string) $record->owner_facility_id,
             'work_record',
             (string) $record->classification,
+            fieldPolicyKey: isset($record->field_policy_key) && is_string($record->field_policy_key)
+                ? $record->field_policy_key
+                : null,
         );
     }
 }

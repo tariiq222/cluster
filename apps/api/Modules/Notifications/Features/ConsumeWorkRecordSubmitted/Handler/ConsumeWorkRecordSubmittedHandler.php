@@ -60,6 +60,10 @@ final class ConsumeWorkRecordSubmittedHandler
                     'recipient_user_id' => $recipient,
                     'title' => 'تم تقديم سجل عمل',
                     'source_record_id' => $sourceRecord,
+                    ...(Schema::hasColumn('notifications', 'source_owner_facility_id') ? [
+                        'source_owner_facility_id' => $cloudEvent['data']['access_context']['owner_facility_id'] ?? null,
+                        'source_classification' => $cloudEvent['data']['classification'] ?? null,
+                    ] : []),
                     'is_read' => false,
                     ...(Schema::hasColumn('notifications', 'status') ? ['status' => 'unread'] : []),
                     ...(Schema::hasColumn('notifications', 'notification_group_key') ? [

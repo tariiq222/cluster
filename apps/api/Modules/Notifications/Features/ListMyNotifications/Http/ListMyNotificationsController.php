@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use JsonException;
+use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use stdClass;
 
@@ -20,6 +22,7 @@ final class ListMyNotificationsController
 {
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
+        private readonly DecideAccess $access,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -75,23 +78,51 @@ final class ListMyNotificationsController
         $lastRow = $rows->last();
 
         return response()->json([
-            'items' => $rows->map(fn (stdClass $row): array => $this->serialize($row))->values()->all(),
+            'items' => $rows->map(fn (stdClass $row): array => $this->serialize($row, $principal))->values()->all(),
             'next_cursor' => $hasNextPage && $lastRow instanceof stdClass
                 ? $this->encodeCursor($lastRow, $principal['user_id'], $limit)
                 : null,
         ])->header('X-Correlation-ID', $correlationId);
     }
 
-    /** @return array{id: string, title: string, source: array{source_module: string, record_type: string, record_id: string}, is_read: bool, created_at: string} */
-    private function serialize(stdClass $row): array
+    /**
+     * A notification never leaks a source the recipient can no longer read:
+     * the central decision is re-evaluated against the stored source facts
+     * and denied sources are masked (title and reference), not just hidden
+     * in the UI.
+     *
+     * @param  array{user_id: string, facility_id: string}  $principal
+     * @return array{id: string, title: string, source: array{source_module: string, record_type: string, record_id: string}, is_read: bool, created_at: string}
+     */
+    private function serialize(stdClass $row, array $principal): array
     {
+        $masked = false;
+        $sourceFacilityId = $row->source_owner_facility_id ?? null;
+        if (is_string($sourceFacilityId) && $sourceFacilityId !== '') {
+            $decision = $this->access->decide(
+                [
+                    'user_id' => $principal['user_id'],
+                    'facility_id' => $principal['facility_id'],
+                    'organization_unit_ids' => array_filter([$principal['facility_id']]),
+                ],
+                'work_record.read',
+                new RecordFacts(
+                    ownerFacilityId: $sourceFacilityId,
+                    resourceType: 'work_record',
+                    classification: is_string($row->source_classification ?? null) ? $row->source_classification : 'internal',
+                    recordId: (string) $row->source_record_id,
+                ),
+            );
+            $masked = ! $decision->isAllowed();
+        }
+
         return [
             'id' => (string) $row->id,
-            'title' => (string) $row->title,
+            'title' => $masked ? 'إشعار غير متاح حالياً' : (string) $row->title,
             'source' => [
                 'source_module' => 'work_records',
                 'record_type' => 'work_record',
-                'record_id' => (string) $row->source_record_id,
+                'record_id' => $masked ? '' : (string) $row->source_record_id,
             ],
             'is_read' => (bool) $row->is_read,
             'created_at' => $this->timestamp((string) $row->created_at),

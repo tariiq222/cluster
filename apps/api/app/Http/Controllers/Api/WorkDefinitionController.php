@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Shared\Contracts\TransactionalOutbox;
 
@@ -12,7 +15,25 @@ final class WorkDefinitionController
 {
     use HttpSupport;
 
-    public function __construct(private readonly ResolveDevelopmentFixturePrincipal $resolver, private readonly TransactionalOutbox $outbox) {}
+    public function __construct(private readonly ResolveDevelopmentFixturePrincipal $resolver, private readonly TransactionalOutbox $outbox, private readonly DecideAccess $access) {}
+
+    private function gate(array $p, string $capability, string $c): ?JsonResponse
+    {
+        $clusterId = DB::table('clusters')->orderBy('code')->value('id');
+        $decision = $this->access->decide([
+            'user_id' => $p['user_id'],
+            'facility_id' => $p['facility_id'] ?? null,
+            'organization_unit_ids' => array_filter([$p['facility_id'] ?? null]),
+            'correlation_id' => $c,
+        ], $capability, new RecordFacts(
+            ownerFacilityId: $p['facility_id'] ?? null,
+            resourceType: 'work_definition',
+            classification: 'internal',
+            clusterId: is_string($clusterId) ? $clusterId : null,
+        ));
+
+        return $decision->isAllowed() ? null : $this->problem(403, 'access-denied', 'Access denied.', $c);
+    }
 
     public function index(Request $request): mixed
     {
@@ -22,6 +43,9 @@ final class WorkDefinitionController
         }
         if (($p = $this->principal($request, $this->resolver)) === null) {
             return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
+        }
+        if (($deny = $this->gate($p, 'work_definition.read', $c)) !== null) {
+            return $deny;
         }
 
         return response()->json(['items' => DB::table('work_definitions')->orderBy('created_at')->get()->map(fn ($r) => (array) $r), 'next_cursor' => null])->header('X-Correlation-ID', $c);
@@ -38,6 +62,9 @@ final class WorkDefinitionController
         }
         if ($key === '') {
             return $this->problem(400, 'invalid-idempotency-key', 'Idempotency-Key is required.', $c);
+        }
+        if (($deny = $this->gate($p, 'work_definition.create', $c)) !== null) {
+            return $deny;
         }
         $v = $request->json()->all();
         if (! is_string($v['code'] ?? null) || preg_match('/\A[a-z][a-z0-9-]{1,95}\z/', $v['code']) !== 1 || ! is_string($v['name'] ?? null) || $v['name'] === '' || ! in_array($v['default_classification'] ?? null, ['public', 'internal', 'confidential', 'top_secret'], true)) {
@@ -78,6 +105,10 @@ final class WorkDefinitionController
         }
         if (! DB::table('work_definitions')->where('id', $definitionId)->exists()) {
             return $this->problem(404, 'resource-not-found', 'The work definition is not available.', $c);
+        }
+        $p = $this->principal($request, $this->resolver);
+        if (($deny = $this->gate($p, $request->isMethod('get') ? 'work_definition.read' : 'work_definition.create', $c)) !== null) {
+            return $deny;
         }
         if ($request->isMethod('get')) {
             return response()->json(['items' => DB::table('work_definition_versions')->where('work_definition_id', $definitionId)->orderBy('version_number')->get()->map(fn ($r) => $this->decode((array) $r)), 'next_cursor' => null])->header('X-Correlation-ID', $c);
@@ -126,6 +157,9 @@ final class WorkDefinitionController
         } $row = DB::table('work_definition_versions')->where('id', $versionId)->first();
         if ($row === null) {
             return $this->problem(404, 'resource-not-found', 'The work definition version is not available.', $c);
+        }
+        if (($deny = $this->gate($p, $action === 'publish' ? 'work_definition.publish' : 'work_definition.update', $c)) !== null) {
+            return $deny;
         } $expected = $this->versionFromMatch($request);
         if ($expected === null || $expected !== (int) $row->lock_version) {
             return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);

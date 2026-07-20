@@ -10,13 +10,16 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use JsonException;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use stdClass;
 
 final class ListAuthorizedWorkRecordsHandler
 {
     public function __construct(
         private readonly DecideAccess $access,
+        private readonly ResolveOrganizationScopeAncestry $ancestry,
     ) {}
 
     /**
@@ -33,6 +36,14 @@ final class ListAuthorizedWorkRecordsHandler
             ? null
             : $this->decodeCursor($cursor, $principal, $limit, $classification);
         $query = DB::table('work_records')->orderBy('id');
+        // Scope predicate before pagination: the principal's facility scopes
+        // bound the SQL read; the central decision still authorizes each row.
+        $facilityScopes = array_filter([$principal['facility_id']]);
+        if ($facilityScopes === []) {
+            $query->whereRaw('1 = 0');
+        } else {
+            $query->whereIn('owner_facility_id', $facilityScopes);
+        }
         if ($afterId !== null) {
             $query->where('id', '>', $afterId);
         }
@@ -43,17 +54,13 @@ final class ListAuthorizedWorkRecordsHandler
         $authorized = [];
         foreach ($query->get() as $row) {
             $decision = $this->access->decide(
-                ['facility_id' => $principal['facility_id']],
+                $this->actor($principal),
                 'work_record.list',
-                new RecordFacts(
-                    ownerFacilityId: $row->owner_facility_id,
-                    resourceType: 'work_record',
-                    classification: $row->classification,
-                ),
+                $this->factsFor($row),
             );
 
             if ($decision->isAllowed()) {
-                $authorized[] = $this->serialize($row);
+                $authorized[] = $this->serialize($row, AccessProjection::fromDecision($decision));
                 if (count($authorized) > $limit) {
                     break;
                 }
@@ -79,9 +86,9 @@ final class ListAuthorizedWorkRecordsHandler
     }
 
     /** @return array<string, mixed> */
-    private function serialize(stdClass $row): array
+    private function serialize(stdClass $row, AccessProjection $projection): array
     {
-        return [
+        return $projection->compose([
             'id' => $row->id,
             'record_number' => $row->record_number,
             'work_type_version_id' => $row->work_type_version_id,
@@ -96,7 +103,47 @@ final class ListAuthorizedWorkRecordsHandler
             'submitted_at' => $this->timestamp($row->submitted_at),
             'created_at' => $this->timestamp($row->created_at),
             'updated_at' => $this->timestamp($row->updated_at),
+        ], function (array $payload, array $fieldAccess): array {
+            $wildcard = $fieldAccess['*'] ?? null;
+            foreach ($payload as $field => $value) {
+                $state = $fieldAccess[$field] ?? $wildcard;
+                if ($state === 'hidden') {
+                    unset($payload[$field]);
+                } elseif ($state === 'masked') {
+                    $payload[$field] = '***';
+                }
+            }
+
+            return $payload;
+        });
+    }
+
+    /** @param array{user_id: string, facility_id: string} $principal */
+    private function actor(array $principal): array
+    {
+        return [
+            'user_id' => $principal['user_id'],
+            'facility_id' => $principal['facility_id'],
+            'organization_unit_ids' => array_filter([$principal['facility_id']]),
         ];
+    }
+
+    private function factsFor(stdClass $row): RecordFacts
+    {
+        $ancestry = $this->ancestry->ancestry('facility', (string) $row->owner_facility_id);
+
+        return new RecordFacts(
+            ownerFacilityId: $row->owner_facility_id,
+            resourceType: 'work_record',
+            classification: $row->classification,
+            clusterId: $ancestry['cluster_id'] ?? null,
+            recordId: (string) $row->id,
+            createdByUserId: (string) $row->creator_user_id,
+            lifecycleState: (string) $row->status,
+            fieldPolicyKey: $row->field_policy_key ?? null,
+            workTypeVersionId: (string) $row->work_type_version_id,
+            lockVersion: (int) $row->lock_version,
+        );
     }
 
     private function timestamp(?string $value): ?string
