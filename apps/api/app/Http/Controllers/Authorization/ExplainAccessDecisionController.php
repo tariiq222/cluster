@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Http\AuthorizationApi;
+use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
+use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 final class ExplainAccessDecisionController
@@ -34,16 +36,28 @@ final class ExplainAccessDecisionController
         if ($decision === null) {
             return AuthorizationApi::problem(404, 'decision-not-found', 'Not Found', 'The access decision is not available.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'authorization.decision.read', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
+        $context = json_decode((string) $decision->access_context, true);
+        $targetFacilityId = is_array($context) && is_string($context['facility_id'] ?? null)
+            ? $context['facility_id']
+            : null;
+        $targetUnitIds = is_array($context) && is_array($context['organization_unit_ids'] ?? null)
+            ? array_values(array_filter($context['organization_unit_ids'], 'is_string'))
+            : [];
+        $targetUnitId = $targetUnitIds[0] ?? null;
+        $targetFacts = new RecordFacts(
+            ownerFacilityId: $targetFacilityId,
             resourceType: 'authorization_access_decision',
             classification: (string) $decision->classification,
             factsVersion: (string) $decision->facts_version,
-        ))->isAllowed()) {
-            return AuthorizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
+            organizationUnitId: is_string($targetUnitId) ? $targetUnitId : null,
+            recordId: (string) $decision->id,
+        );
+        if ($targetFacilityId === null || ! $this->authorizeWithoutPersistence(
+            [...$principal, 'correlation_id' => $correlationId],
+            $targetFacts,
+        )) {
+            return AuthorizationApi::problem(404, 'decision-not-found', 'Not Found', 'The access decision is not available.', $correlationId);
         }
-
-        $context = json_decode((string) $decision->access_context, true);
         $reasonCodes = json_decode((string) $decision->reason_codes, true);
         $payload = [
             'decision_id' => $decision->id,
@@ -60,12 +74,22 @@ final class ExplainAccessDecisionController
             'classification' => $decision->classification,
             'access_context' => is_array($context) ? $context : [
                 'subject_id' => $decision->actor_user_id,
-                'tenant_id' => $principal['facility_id'],
+                'tenant_id' => $targetFacilityId,
                 'clearance' => 'internal',
                 'correlation_id' => $correlationId,
             ],
         ];
 
         return response()->json($payload)->header('X-Correlation-ID', $correlationId);
+    }
+
+    /** @param array<string, mixed> $principal */
+    private function authorizeWithoutPersistence(array $principal, RecordFacts $facts): bool
+    {
+        if ($this->access instanceof RbacAbacDecideAccess || $this->access instanceof BootstrapGatedDecideAccess) {
+            return $this->access->evaluateOnly($principal, 'authorization.decision.read', $facts)->isAllowed();
+        }
+
+        return false;
     }
 }

@@ -5,6 +5,8 @@ namespace Modules\Authorization\Tests;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Modules\Authorization\Contracts\AccessDecision;
+use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
@@ -717,6 +719,59 @@ class RbacAbacDecideAccessTest extends TestCase
         ]);
     }
 
+    public function test_evaluate_only_does_not_persist_a_decision_or_sensitive_event(): void
+    {
+        $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit', sensitivity: 'sensitive');
+
+        $decision = $this->decider()->evaluateOnly(
+            ['user_id' => self::USER_ID, 'correlation_id' => self::CORRELATION_ID],
+            'work_record.read',
+            $this->facts('confidential', self::ORGANIZATION_UNIT_A, recordId: self::RECORD_ID),
+        );
+
+        $this->assertTrue($decision->isAllowed());
+        $this->assertNull($decision->decisionId);
+        $this->assertDatabaseCount('access_decisions', 0);
+        $this->assertDatabaseCount('sensitive_access_events', 0);
+    }
+
+    public function test_evaluate_only_denies_without_persisting_when_authorization_is_missing(): void
+    {
+        $decision = $this->decider()->evaluateOnly(
+            ['user_id' => self::USER_ID],
+            'work_record.read',
+            $this->facts('internal', self::ORGANIZATION_UNIT_A),
+        );
+
+        $this->assertSame('deny', $decision->decision);
+        $this->assertNull($decision->decisionId);
+        $this->assertDatabaseCount('access_decisions', 0);
+        $this->assertDatabaseCount('sensitive_access_events', 0);
+    }
+
+    public function test_persistence_failure_returns_a_fail_closed_decision_without_identity(): void
+    {
+        $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit');
+        $persistence = new class implements PersistAccessDecision
+        {
+            public function persist(AccessDecision $decision, ?RecordFacts $facts, array $actor): bool
+            {
+                return false;
+            }
+        };
+        $decider = new RbacAbacDecideAccess($this->supervisoryRelationships, $persistence);
+
+        $decision = $decider->decide(
+            ['user_id' => self::USER_ID],
+            'work_record.read',
+            $this->facts('internal', self::ORGANIZATION_UNIT_A),
+        );
+
+        $this->assertSame('deny', $decision->decision);
+        $this->assertSame(['decision_persistence_unavailable'], $decision->reasonCodes);
+        $this->assertNull($decision->decisionId);
+    }
+
     public function test_allowed_actions_projects_same_module_scope_matched_grants(): void
     {
         $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit');
@@ -826,6 +881,7 @@ class RbacAbacDecideAccessTest extends TestCase
             'capability_id' => $capabilityId,
             'effect' => $effect,
             'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 

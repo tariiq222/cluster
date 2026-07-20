@@ -10,14 +10,15 @@ use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\CapabilityCatalog;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Domain\AuthorizationScope;
 use Modules\Authorization\Domain\ClassificationLevel;
 use Modules\Authorization\Domain\ExplicitDeny;
 use Modules\Authorization\Domain\UuidV7;
+use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use stdClass;
-use Throwable;
 
 final class RbacAbacDecideAccess implements DecideAccess
 {
@@ -25,10 +26,25 @@ final class RbacAbacDecideAccess implements DecideAccess
 
     public function __construct(
         private readonly GetActiveSupervisoryRelationships $supervisoryRelationships,
+        private readonly ?PersistAccessDecision $decisionPersistence = null,
     ) {}
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
+        return $this->decideWithPersistence($actor, $capability, $facts, true);
+    }
+
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decideWithPersistence($actor, $capability, $facts, false);
+    }
+
+    private function decideWithPersistence(
+        array $actor,
+        string $capability,
+        ?RecordFacts $facts,
+        bool $persist,
+    ): AccessDecision {
         $outcome = $this->evaluate($actor, $capability, $facts);
 
         $resourceType = $facts->resourceType ?? 'unknown';
@@ -51,9 +67,9 @@ final class RbacAbacDecideAccess implements DecideAccess
         }
 
         $fieldAccess = $this->resolveFieldAccess($facts, $capability);
-        $decisionId = UuidV7::generate();
-        $persisted = $this->persistDecision(
-            $decisionId,
+        $decisionId = $persist ? UuidV7::generate() : null;
+        $persisted = ! $persist || $this->persistDecision(
+            (string) $decisionId,
             $outcome['decision'],
             $capability,
             $facts,
@@ -64,16 +80,18 @@ final class RbacAbacDecideAccess implements DecideAccess
             $actor,
         );
 
-        if (! $persisted && $outcome['decision'] === 'allow' && $this->requiresSensitiveAudit($facts)) {
+        if (! $persisted) {
             return new AccessDecision(
                 decision: 'deny',
                 action: $capability,
                 resourceType: $resourceType,
-                reasonCodes: ['sensitive_audit_unavailable'],
+                reasonCodes: [$outcome['decision'] === 'allow' && $this->requiresSensitiveAudit($facts)
+                    ? 'sensitive_audit_unavailable'
+                    : 'decision_persistence_unavailable'],
                 policyVersion: self::POLICY_VERSION,
                 factsVersion: $factsVersion,
                 classification: $classification,
-                decisionId: $decisionId,
+                decisionId: null,
                 fieldAccess: $fieldAccess,
             );
         }
@@ -725,100 +743,19 @@ final class RbacAbacDecideAccess implements DecideAccess
             return true;
         }
 
-        $now = now()->utc();
-        $correlationId = $actor['correlation_id'] ?? null;
-        $correlationId = is_string($correlationId) && trim($correlationId) !== ''
-            ? $correlationId
-            : UuidV7::generate();
-        $recordSensitiveEvent = $decision === 'allow'
-            && $this->requiresSensitiveAudit($facts)
-            && $facts !== null
-            && is_string($facts->recordId)
-            && trim($facts->recordId) !== '';
+        $result = new AccessDecision(
+            decision: $decision,
+            action: $capability,
+            resourceType: $facts->resourceType ?? 'unknown',
+            reasonCodes: $reasonCodes,
+            policyVersion: self::POLICY_VERSION,
+            factsVersion: $factsVersion,
+            classification: $classification,
+            decisionId: $decisionId,
+        );
 
-        try {
-            DB::transaction(function () use (
-                $decisionId,
-                $decision,
-                $capability,
-                $facts,
-                $reasonCodes,
-                $factsVersion,
-                $classification,
-                $userId,
-                $actor,
-                $now,
-                $correlationId,
-                $recordSensitiveEvent,
-            ): void {
-                DB::table('access_decisions')->insert([
-                    'id' => $decisionId,
-                    'decision' => $decision,
-                    'action' => $capability,
-                    'resource_type' => $facts->resourceType ?? 'unknown',
-                    'resource_id' => $facts?->recordId,
-                    'reason_codes' => json_encode($reasonCodes, JSON_THROW_ON_ERROR),
-                    'policy_version' => self::POLICY_VERSION,
-                    'facts_version' => $factsVersion,
-                    'authorization_trace_id' => UuidV7::generate(),
-                    'evaluated_at' => $now,
-                    'correlation_id' => $correlationId,
-                    'classification' => $classification,
-                    'access_context' => json_encode($this->sanitizedAccessContext($userId, $actor), JSON_THROW_ON_ERROR),
-                    'actor_user_id' => $userId,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-
-                if ($recordSensitiveEvent && is_string($facts->recordId)) {
-                    $originalUserId = $actor['original_user_id'] ?? null;
-                    DB::table('sensitive_access_events')->insert([
-                        'id' => UuidV7::generate(),
-                        'access_decision_id' => $decisionId,
-                        'actor_user_id' => $userId,
-                        'original_actor_user_id' => is_string($originalUserId) && trim($originalUserId) !== ''
-                            ? $originalUserId
-                            : $userId,
-                        'resource_type' => $facts->resourceType,
-                        'resource_id' => $facts->recordId,
-                        'action' => $capability,
-                        'classification_code' => $facts->classification,
-                        'correlation_id' => $correlationId,
-                        'idempotency_key_hash' => hash('sha256', $decisionId),
-                        'occurred_at' => $now,
-                        'recorded_at' => $now,
-                    ]);
-                }
-            });
-        } catch (Throwable $exception) {
-            logger()->error('authorization.access_decision_persist_failed', [
-                'decision_id' => $decisionId,
-                'action' => $capability,
-                'error' => $exception->getMessage(),
-            ]);
-
-            return false;
-        }
-
-        return true;
-    }
-
-    /** @return array<string, string|list<string>> */
-    private function sanitizedAccessContext(string $userId, array $actor): array
-    {
-        $context = ['user_id' => $userId];
-
-        $facilityId = $actor['facility_id'] ?? null;
-        if (is_string($facilityId) && trim($facilityId) !== '') {
-            $context['facility_id'] = $facilityId;
-        }
-
-        $organizationUnitIds = $this->actorOrganizationUnitIds($actor);
-        if ($organizationUnitIds !== null) {
-            $context['organization_unit_ids'] = $organizationUnitIds;
-        }
-
-        return $context;
+        return ($this->decisionPersistence ?? new DatabasePersistAccessDecision)
+            ->persist($result, $facts, $actor);
     }
 
     private function requiresSensitiveAudit(?RecordFacts $facts): bool
