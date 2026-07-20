@@ -1,16 +1,13 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   BarChart3,
   Bell,
-  BellRing,
   Building2,
   CalendarClock,
-  CalendarDays,
   ClipboardList,
   FileCog,
   FilePlus2,
   FileUp,
-  FolderSearch,
   GitBranch,
   Handshake,
   IdCard,
@@ -35,7 +32,6 @@ import { AppShell, type SidebarNavigationGroup } from './app/AppShell'
 
 import {
   ApiError,
-  createWorkRecord,
   clearSessionMetadata,
   getWorkRecord,
   identityLogout,
@@ -47,9 +43,9 @@ import {
   type WorkRecord,
 } from './api'
 import { routeFromPath, type AppRoute } from './shell/routes'
-import { text, recordStatusText, LOCALE_KEY, initialLocale } from './app/copy'
+import { text, LOCALE_KEY, initialLocale } from './app/copy'
 import { LoginScreen } from './app/LoginScreen'
-import { NotificationList, formatDate } from './app/NotificationList'
+import { NotificationList } from './app/NotificationList'
 import { OrganizationOverview } from './features/organization/OrganizationOverview'
 import { OrganizationStructure } from './features/organization/OrganizationStructure'
 import { PeopleAssignments } from './features/organization/PeopleAssignments'
@@ -58,10 +54,12 @@ import { IdentityAccounts } from './features/identity/IdentityAccounts'
 import { ImportReview } from './features/imports/ImportReview'
 import { AccessExplanation, AuthorizationAdmin } from './features/authorization/AuthorizationAdmin'
 import { AccessContext } from './features/authorization/AccessContext'
-import { RecordProjection } from './features/work-records/RecordProjection'
 import { Day2Workflow } from './features/workflow/Day2Workflow'
+import { RequestDashboard } from './features/requests/RequestDashboard'
+import { RequestForm } from './features/requests/RequestForm'
+import { RequestDetail } from './features/requests/RequestDetail'
 import { AdaptiveDashboard, NotificationsScreen, ReportsScreen, SearchScreen, TasksScreen, WorkDefinitionsScreen, WorkflowAdminScreen } from './features/r1/R1Screens'
-import { getAuthorizedWorkRecord, getDocumentDownloadUrl, getReport as getR1Report, linkDocument as linkR1Document, listTasks as listR1Tasks, listWorkDefinitions as listR1Definitions, listWorkflowDefinitions as listR1Workflows, searchRecords as searchR1Records, transitionRequest } from './api/r1'
+import { getAuthorizedWorkRecord, getReport as getR1Report, listTasks as listR1Tasks, listWorkDefinitions as listR1Definitions, listWorkflowDefinitions as listR1Workflows, searchRecords as searchR1Records } from './api/r1'
 
 type Locale = 'ar' | 'en'
 
@@ -470,369 +468,5 @@ function App() {
 }
 
 
-
-function RequestDashboard({
-  locale,
-  records,
-  notifications,
-  loading,
-  error,
-  notificationsLoading,
-  notificationsError,
-  facilityName,
-  onRetry,
-  onCreate,
-  onSelect,
-  onOpenNotifications,
-}: {
-  locale: Locale
-  records: WorkRecord[]
-  notifications: Notification[]
-  loading: boolean
-  error: boolean
-  notificationsLoading: boolean
-  notificationsError: boolean
-  facilityName: string
-  onRetry: () => void
-  onCreate: () => void
-  onSelect: (recordId: string) => void
-  onOpenNotifications: () => void
-}) {
-  const copy = text[locale]
-  const formatter = new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-GB')
-  const activeStatuses = new Set(['submitted', 'in_review', 'returned'])
-  const completedStatuses = new Set(['approved', 'completed'])
-  const activeCount = records.filter((record) => activeStatuses.has(record.status)).length
-  const completedCount = records.filter((record) => completedStatuses.has(record.status)).length
-  const otherCount = Math.max(0, records.length - activeCount - completedCount)
-  const unreadCount = notifications.filter((notification) => !notification.is_read).length
-  const metricValue = (value: number) => loading || error ? '—' : formatter.format(value)
-  const metrics = [
-    { label: copy.loadedRequests, value: metricValue(records.length), source: copy.currentPageSource, tone: 'primary' },
-    { label: copy.activeRequests, value: metricValue(activeCount), source: copy.currentPageSource, tone: 'accent' },
-    { label: copy.completedRequests, value: metricValue(completedCount), source: copy.currentPageSource, tone: 'success' },
-    { label: copy.unreadNotifications, value: notificationsLoading || notificationsError ? '—' : formatter.format(unreadCount), source: copy.loadedNotificationSource, tone: 'muted' },
-  ] as const
-  const statusGroups = [
-    { label: copy.activeStatus, count: activeCount, tone: 'accent' },
-    { label: copy.completedStatus, count: completedCount, tone: 'success' },
-    { label: copy.otherStatus, count: otherCount, tone: 'muted' },
-  ] as const
-
-  return (
-    <div className="dashboard-page">
-      <section className="dashboard-welcome" aria-labelledby="dashboard-heading">
-        <div>
-          <h1 id="dashboard-heading">{copy.dashboardWelcome}</h1>
-          <p><span className="dashboard-scope-badge">{facilityName}</span>{copy.dashboardSummary}</p>
-        </div>
-        <span className="dashboard-range"><CalendarDays aria-hidden="true" />{copy.dashboardRange}</span>
-      </section>
-
-      <section aria-labelledby="overview-heading">
-        <div className="dashboard-section-heading">
-          <h2 id="overview-heading">{copy.overview}</h2>
-        </div>
-        <div className="dashboard-kpi-grid" aria-label={copy.overview}>
-          {metrics.map((metric) => (
-            <article className="dashboard-kpi" key={metric.label}>
-              <span className="dashboard-kpi-label"><span className="dashboard-kpi-dot" data-tone={metric.tone} />{metric.label}</span>
-              <strong>{metric.value}</strong>
-              <small>{metric.source}</small>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="analytics-heading">
-        <div className="dashboard-section-heading">
-          <h2 id="analytics-heading">{copy.analytics}</h2>
-        </div>
-        <div className="dashboard-panel-grid">
-          <article className="dashboard-panel" aria-labelledby="timeline-heading">
-            <div className="dashboard-panel-heading"><h3 id="timeline-heading">{copy.timelineTitle}</h3></div>
-            <div className="dashboard-empty-state">
-              <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
-              <strong>{copy.timelineUnavailableTitle}</strong>
-              <p>{copy.timelineUnavailableBody}</p>
-            </div>
-          </article>
-
-          <article className="dashboard-panel" aria-labelledby="status-heading">
-            <div className="dashboard-panel-heading"><h3 id="status-heading">{copy.statusBreakdown}</h3></div>
-            {loading && <div className="skeleton-list" aria-label={copy.loadingRequests}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-            {!loading && error && <div className="dashboard-inline-error" role="alert"><p>{copy.listError}</p><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></div>}
-            {!loading && !error && records.length === 0 && (
-              <div className="dashboard-empty-state">
-                <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
-                <strong>{copy.noStatusTitle}</strong>
-                <p>{copy.noStatusBody}</p>
-              </div>
-            )}
-            {!loading && !error && records.length > 0 && (
-              <div className="dashboard-status-list">
-                {statusGroups.map((group) => {
-                  const percentage = Math.round((group.count / records.length) * 100)
-                  return (
-                    <div className="dashboard-status-row" key={group.label}>
-                      <div><span>{group.label}</span><strong>{formatter.format(group.count)}</strong></div>
-                      <div className="dashboard-progress" role="progressbar" aria-label={group.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}>
-                        <span data-tone={group.tone} style={{ inlineSize: `${percentage}%` }} />
-                      </div>
-                      <small>{formatter.format(percentage)}%</small>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </article>
-        </div>
-      </section>
-
-      <section aria-labelledby="activity-heading">
-        <div className="dashboard-section-heading">
-          <h2 id="activity-heading">{copy.recentActivity}</h2>
-        </div>
-        <div className="dashboard-panel-grid">
-          <article className="dashboard-panel" aria-labelledby="requests-heading">
-            <div className="dashboard-panel-heading">
-              <h3 id="requests-heading">{copy.myRequests}</h3>
-              <a href="/work-records/new" className="dashboard-panel-link" onClick={(event) => { event.preventDefault(); onCreate() }}>{copy.newRequest}</a>
-            </div>
-            {loading && <div className="skeleton-list" aria-label={copy.loadingRequests}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-            {!loading && error && <div className="dashboard-inline-error" role="alert"><p>{copy.listError}</p><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></div>}
-            {!loading && !error && records.length === 0 && (
-              <div className="dashboard-empty-state">
-                <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
-                <strong>{copy.emptyTitle}</strong>
-                <p>{copy.emptyBody}</p>
-                <button type="button" className="primary-button dashboard-empty-action" onClick={onCreate}>{copy.submit}</button>
-              </div>
-            )}
-            {!loading && !error && records.length > 0 && (
-              <ul className="request-list dashboard-request-list">
-                {records.slice(0, 4).map((record) => (
-                  <li key={record.id}>
-                    <a href={`/work-records/${record.id}`} onClick={(event) => { event.preventDefault(); onSelect(record.id) }}>
-                      <span className="request-copy">
-                        <strong>{record.payload.title ?? copy.noDescription}</strong>
-                        <span>{record.payload.description ?? copy.noDescription}</span>
-                      </span>
-                      <span className="request-meta">
-                        <span className="status-badge">{recordStatusText[locale][record.status]}</span>
-                        <time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time>
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
-
-          <article className="dashboard-panel" aria-labelledby="notifications-dashboard-heading">
-            <div className="dashboard-panel-heading">
-              <h3 id="notifications-dashboard-heading">{copy.notifications}</h3>
-              <button type="button" className="dashboard-panel-link" onClick={onOpenNotifications}>{copy.openNotifications}</button>
-            </div>
-            {notificationsLoading && <div className="skeleton-list" aria-label={copy.refreshingNotifications}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-            {!notificationsLoading && notificationsError && <p role="alert" className="field-error">{copy.notificationError}</p>}
-            {!notificationsLoading && !notificationsError && notifications.length === 0 && (
-              <div className="dashboard-empty-state">
-                <span className="dashboard-empty-icon" aria-hidden="true"><BellRing /></span>
-                <strong>{copy.noNotifications}</strong>
-                <p>{copy.noNotificationBody}</p>
-              </div>
-            )}
-            {!notificationsLoading && !notificationsError && notifications.length > 0 && (
-              <ul className="dashboard-notification-list">
-                {notifications.slice(0, 4).map((notification) => (
-                  <li key={notification.id}>
-                    <span className="dashboard-notification-copy"><strong>{notification.title}</strong><small>{notification.is_read ? copy.read : copy.unread}</small></span>
-                    <time dateTime={notification.created_at}>{formatDate(notification.created_at, locale)}</time>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
-        </div>
-      </section>
-    </div>
-  )
-}
-
-function RequestForm({ locale, token, onSessionExpired, onCreated, onBack }: {
-  locale: Locale
-  token: string
-  onSessionExpired: () => void
-  onCreated: (record: WorkRecord) => void
-  onBack: () => void
-}) {
-  const copy = text[locale]
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [errors, setErrors] = useState<{ title?: boolean; description?: boolean }>({})
-  const [formError, setFormError] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [created, setCreated] = useState<WorkRecord | null>(null)
-  const summaryRef = useRef<HTMLDivElement>(null)
-  const successRef = useRef<HTMLHeadingElement>(null)
-
-  useEffect(() => {
-    if (created) successRef.current?.focus()
-  }, [created])
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const nextErrors = {
-      title: title.trim() ? undefined : true,
-      description: description.trim() ? undefined : true,
-    }
-    setErrors(nextErrors)
-    setFormError(false)
-    if (nextErrors.title || nextErrors.description) {
-      window.requestAnimationFrame(() => summaryRef.current?.focus())
-      return
-    }
-    setSubmitting(true)
-    try {
-      const record = await createWorkRecord(token, {
-        work_definition_code: 'request',
-        title: title.trim(),
-        description: description.trim(),
-      })
-      setCreated(record)
-      onCreated(record)
-      window.requestAnimationFrame(() => successRef.current?.focus())
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        onSessionExpired()
-        return
-      }
-      if (error instanceof ApiError && error.problem.errors?.length) {
-        const fieldErrors: { title?: boolean; description?: boolean } = {}
-        for (const fieldError of error.problem.errors) {
-          if (fieldError.pointer.endsWith('/title')) fieldErrors.title = true
-          if (fieldError.pointer.endsWith('/description')) fieldErrors.description = true
-        }
-        setErrors(fieldErrors)
-      }
-      setFormError(true)
-      window.requestAnimationFrame(() => summaryRef.current?.focus())
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  if (created) {
-    return (
-      <section className="success-panel" aria-labelledby="success-heading" aria-live="polite">
-        <h1 id="success-heading" ref={successRef} tabIndex={-1}>{copy.success}</h1>
-        <p className="submitted-title">{created.payload.title}</p>
-        <p>{copy.successBody}</p>
-        <a href="/" className="primary-link" onClick={(event) => { event.preventDefault(); onBack() }}>{copy.backToRequests}</a>
-      </section>
-    )
-  }
-
-  return (
-    <section className="request-form-section" aria-labelledby="new-request-heading">
-      <h1 id="new-request-heading">{locale === 'ar' ? 'إرسال طلب جديد' : 'Submit a new request'}</h1>
-      {(formError || errors.title || errors.description) && (
-        <div className="error-summary" role="alert" tabIndex={-1} ref={summaryRef}>
-          <strong>{copy.validationError}</strong>
-          {formError && <p>{copy.submitError}</p>}
-        </div>
-      )}
-      <form onSubmit={(event) => void submit(event)} noValidate>
-        <div className="field">
-          <label htmlFor="request-title">{copy.requestTitle}</label>
-          <input
-            id="request-title"
-            value={title}
-            required
-            aria-required="true"
-            aria-invalid={Boolean(errors.title)}
-            aria-describedby={`request-title-help${errors.title ? ' request-title-error' : ''}`}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-          <p id="request-title-help" className="field-help">{copy.titleHelp}</p>
-          {errors.title && <p id="request-title-error" className="field-error">{copy.titleRequired}</p>}
-        </div>
-        <div className="field">
-          <label htmlFor="request-description">{copy.requestDescription}</label>
-          <textarea
-            id="request-description"
-            value={description}
-            rows={6}
-            required
-            aria-required="true"
-            aria-invalid={Boolean(errors.description)}
-            aria-describedby={`request-description-help${errors.description ? ' request-description-error' : ''}`}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-          <p id="request-description-help" className="field-help">{copy.descriptionHelp}</p>
-          {errors.description && <p id="request-description-error" className="field-error">{copy.descriptionRequired}</p>}
-        </div>
-        <button type="submit" className="primary-button" disabled={submitting}>{submitting ? copy.submitting : copy.submit}</button>
-      </form>
-    </section>
-  )
-}
-
-function RequestDetail({ locale, token, record, loading, state, authorizedRecord, onRetry, onSessionExpired }: {
-  locale: Locale
-  token: string
-  record: WorkRecord | null
-  loading: boolean
-  state: 'ready' | 'unavailable' | 'error'
-  authorizedRecord?: import('./api/r1').AuthorizedWorkRecord | null
-  onRetry: () => void
-  onSessionExpired: () => void
-}) {
-  const copy = text[locale]
-  const [busy, setBusy] = useState(false)
-  const [actionState, setActionState] = useState<'idle' | 'done' | 'error' | 'stale'>('idle')
-  const [attachedDocumentId, setAttachedDocumentId] = useState<string | null>(null)
-  if (loading) return <section><h1>{copy.loadingDetail}</h1></section>
-  if (state === 'unavailable') return <section className="state-panel"><h1>{copy.unavailable}</h1></section>
-  if (state === 'error') return <section className="state-panel" role="alert"><h1>{copy.detailError}</h1><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></section>
-  if (!record) return <section><h1>{copy.loadingDetail}</h1></section>
-  async function act(action: 'submit' | 'return' | 'complete') {
-    if (!record) return
-    setBusy(true); setActionState('idle')
-    try { await transitionRequest(token, record.id, action, record.lock_version); setActionState('done'); onRetry() }
-    catch (error) { if (error instanceof ApiError && error.status === 401) onSessionExpired(); else setActionState(error instanceof ApiError && (error.status === 409 || error.status === 412) ? 'stale' : 'error') }
-    finally { setBusy(false) }
-  }
-  async function attach(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!record) return
-    const documentId = String(new FormData(event.currentTarget).get('document_id') ?? '')
-    setBusy(true); setActionState('idle')
-    try { await linkR1Document(token, record.id, documentId); setAttachedDocumentId(documentId); setActionState('done'); event.currentTarget.reset(); onRetry() }
-    catch (error) { if (error instanceof ApiError && error.status === 401) onSessionExpired(); else setActionState(error instanceof ApiError && (error.status === 409 || error.status === 412) ? 'stale' : 'error') }
-    finally { setBusy(false) }
-  }
-  if (authorizedRecord) {
-    return <RecordProjection
-      record={authorizedRecord}
-      locale={locale}
-      onRefresh={onRetry}
-      onAction={(action) => {
-        if (action === 'submit' || action === 'return' || action === 'complete') void act(action)
-      }}
-    />
-  }
-  return (
-    <article className="detail-panel">
-      <h1>{record.payload.title ?? copy.noDescription}</h1>
-      <p>{record.payload.description ?? copy.noDescription}</p>
-      <div className="detail-meta"><span className="status-badge">{copy.submitted}</span><time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time></div>
-      <section className="surface-card" aria-labelledby="record-actions-heading"><h2 id="record-actions-heading">{locale === 'ar' ? 'إجراءات الطلب' : 'Request actions'}</h2><div className="table-actions"><button disabled={busy} type="button" className="primary-button" onClick={() => void act('submit')}>{locale === 'ar' ? 'إرسال' : 'Submit'}</button><button disabled={busy} type="button" className="secondary-button" onClick={() => void act('return')}>{locale === 'ar' ? 'إعادة' : 'Return'}</button><button disabled={busy} type="button" className="primary-button" onClick={() => void act('complete')}>{locale === 'ar' ? 'إكمال' : 'Complete'}</button></div></section>
-      <section className="surface-card" aria-labelledby="record-documents-heading"><h2 id="record-documents-heading">{locale === 'ar' ? 'المستندات المرتبطة' : 'Linked documents'}</h2><p>{locale === 'ar' ? 'لا يصبح المستند قابلاً للربط والتنزيل حتى يمر بالحجر والفحص ويصبح متاحاً.' : 'A document cannot be linked or downloaded until quarantine and scanning finish and it becomes available.'}</p><form className="inline-form" onSubmit={(event) => void attach(event)}><label>{locale === 'ar' ? 'معرّف المستند المتاح' : 'Available document ID'}<input name="document_id" required pattern="[0-9a-f-]{36}" /></label><button disabled={busy} className="primary-button">{locale === 'ar' ? 'إرفاق' : 'Attach'}</button></form>{attachedDocumentId && <button type="button" className="secondary-button" onClick={() => void getDocumentDownloadUrl(token, attachedDocumentId).then((url) => window.location.assign(url)).catch((error) => { if (error instanceof ApiError && error.status === 401) onSessionExpired(); else setActionState(error instanceof ApiError && (error.status === 409 || error.status === 412) ? 'stale' : 'error') })}>{locale === 'ar' ? 'تنزيل عبر قرار الوصول' : 'Download through access decision'}</button>}</section>
-      <section className="surface-card" aria-labelledby="record-timeline-heading"><h2 id="record-timeline-heading">{locale === 'ar' ? 'الخط الزمني للنشاط' : 'Activity timeline'}</h2><ol><li><time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time> — {String(record.status)}</li></ol></section>
-      {actionState !== 'idle' && <p className={actionState === 'done' ? 'status-message' : 'error-summary'} role="status">{actionState === 'done' ? (locale === 'ar' ? 'اكتمل الإجراء.' : 'Action completed.') : actionState === 'stale' ? (locale === 'ar' ? 'البيانات قديمة؛ تم طلب التحديث.' : 'The data is stale; refresh requested.') : (locale === 'ar' ? 'تعذر تنفيذ الإجراء.' : 'The action failed.')}</p>}
-    </article>
-  )
-}
 
 export default App
