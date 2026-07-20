@@ -59,7 +59,7 @@ final class DecideAccessController
             factsVersion: $factsInput['facts_version'],
             organizationUnitId: $factsInput['owner_organization_unit_id'] ?? null,
         );
-        if (! $this->access->decide($principal, 'identity.account.read', $facts)->isAllowed()) {
+        if (! $this->access->decide($principal, 'authorization.decision.read', $facts)->isAllowed()) {
             return AuthorizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }
         $decision = $this->access->decide($principal, $input['action'], $facts);

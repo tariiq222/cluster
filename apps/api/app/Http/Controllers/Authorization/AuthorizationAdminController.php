@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\CapabilityCatalog;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Http\AuthorizationApi;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationHttpGateway;
@@ -37,9 +38,14 @@ final class AuthorizationAdminController
         }
 
         $mutation = $request->isMethod('post') || $request->isMethod('patch');
-        $capability = $mutation ? 'identity.account.manage' : 'identity.account.read';
+        $capability = $mutation
+            ? CapabilityCatalog::adminManage($adminResource)
+            : CapabilityCatalog::adminRead($adminResource);
+        if ($capability === null) {
+            return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
+        }
         if (! $this->access->decide($principal, $capability, new RecordFacts(
-            ownerFacilityId: null,
+            ownerFacilityId: $principal['facility_id'],
             resourceType: 'authorization_'.$adminResource,
             classification: 'internal',
         ))->isAllowed()) {
@@ -132,12 +138,13 @@ final class AuthorizationAdminController
         return DB::transaction(function () use ($resource, $input, $principalId, $correlationId, $key, $operation, $requestHash): JsonResponse {
             $entity = $this->gateway->create($resource, $input, $principalId);
             $payload = ['data' => $entity];
+            $entityId = (string) $entity['id'];
             DB::table('authorization_idempotency_keys')->insert([
                 'principal_id' => $principalId,
                 'operation' => $operation,
                 'key_hash' => hash('sha256', $key),
                 'request_hash' => $requestHash,
-                'resource_id' => (string) $entity['id'],
+                'resource_id' => mb_strlen($entityId) > 64 ? md5($entityId) : $entityId,
                 'response_status' => 201,
                 'response_payload' => json_encode($payload, JSON_THROW_ON_ERROR),
                 'created_at' => now(),
@@ -200,7 +207,7 @@ final class AuthorizationAdminController
             'operation' => $operation,
             'key_hash' => hash('sha256', $key),
             'request_hash' => $requestHash,
-            'resource_id' => $resourceId,
+            'resource_id' => mb_strlen($resourceId) > 64 ? md5($resourceId) : $resourceId,
             'response_status' => 200,
             'response_payload' => json_encode(['data' => $entity], JSON_THROW_ON_ERROR),
             'created_at' => now(),
@@ -215,10 +222,11 @@ final class AuthorizationAdminController
     {
         $allowed = [
             'resource_type', 'code', 'name', 'name_ar', 'name_en', 'role_type', 'is_system_role',
-            'module_code', 'capability_code', 'action', 'sensitivity', 'subject_user_id', 'user_id',
+            'module_code', 'capability_code', 'capability_id', 'action', 'sensitivity', 'subject_user_id', 'user_id',
             'role_id', 'scope_type', 'scope_id', 'start_at', 'end_at', 'delegator_user_id', 'delegate_user_id',
             'capability_codes', 'policy_document', 'field_policy_key', 'policy_version', 'classification_code',
             'minimum_capability', 'export_policy', 'download_policy', 'is_active',
+            'effect', 'reason', 'classification', 'organization_unit_id', 'resource_pattern', 'issued_at', 'expires_at', 'revocable',
         ];
         if (array_diff(array_keys($input), $allowed) !== []) {
             return false;
@@ -226,8 +234,10 @@ final class AuthorizationAdminController
         $expected = match ($resource) {
             'roles' => 'role',
             'capabilities' => 'capability',
+            'role-capabilities' => 'role_capability',
             'role-assignments' => 'role_assignment',
             'delegations' => 'delegation',
+            'explicit-denies' => 'explicit_deny',
             'classification-policies' => 'classification_policy',
             'field-access-templates' => 'field_access_template',
             default => null,

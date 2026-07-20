@@ -35,7 +35,7 @@ final class SupervisoryRelationshipController
         $mutation = $request->isMethod('post');
         $capability = $mutation ? 'organization.unit.manage' : 'organization.unit.read';
         if (! $this->access->decide($principal, $capability, new RecordFacts(
-            ownerFacilityId: null,
+            ownerFacilityId: $principal['facility_id'],
             resourceType: 'supervisory_relationship',
             classification: 'internal',
         ))->isAllowed()) {

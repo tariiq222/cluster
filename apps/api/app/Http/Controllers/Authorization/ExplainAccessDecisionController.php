@@ -34,8 +34,8 @@ final class ExplainAccessDecisionController
         if ($decision === null) {
             return AuthorizationApi::problem(404, 'decision-not-found', 'Not Found', 'The access decision is not available.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'identity.account.read', new RecordFacts(
-            ownerFacilityId: null,
+        if (! $this->access->decide($principal, 'authorization.decision.read', new RecordFacts(
+            ownerFacilityId: $principal['facility_id'],
             resourceType: 'authorization_access_decision',
             classification: (string) $decision->classification,
             factsVersion: (string) $decision->facts_version,

@@ -17,7 +17,7 @@ use App\Integrations\WorkRecordAuthorizationFacts;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Infrastructure\FixtureFacilityDecision;
+use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
@@ -51,6 +51,7 @@ use Modules\Documents\Infrastructure\Storage\S3\S3RequestExecutor;
 use Modules\Documents\Infrastructure\Storage\S3\SigV4RequestSigner;
 use Modules\Documents\Infrastructure\Storage\UnavailablePrivateObjectStorage;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
 use Modules\Identity\Features\Activation\Handler\ActivationHandler;
 use Modules\Identity\Features\Authentication\Contracts\AuthenticateUser;
@@ -62,6 +63,10 @@ use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\Developmen
 use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
+use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
+use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use Modules\Organization\Contracts\ResolveQuarantinedImport;
 use Modules\Organization\Contracts\ValidatePersonReference;
 use Modules\Organization\Features\TemporaryAssignment\Console\ExpireTemporaryAssignmentsCommand;
@@ -74,6 +79,9 @@ use Modules\Organization\Features\TemporaryAssignment\Http\DatabaseTemporaryAssi
 use Modules\Organization\Features\TemporaryAssignment\Http\TemporaryAssignmentHttpGateway;
 use Modules\Organization\Infrastructure\Authorization\ConfiguredTemporaryAssignmentCapabilityValidator;
 use Modules\Organization\Infrastructure\Import\UnavailableQuarantinedImport;
+use Modules\Organization\Infrastructure\Persistence\DatabaseGetActiveSupervisoryRelationships;
+use Modules\Organization\Infrastructure\Persistence\DatabaseResolveOrganizationScopeAncestry;
+use Modules\Organization\Infrastructure\Persistence\DatabaseResolvePersonOrganizationScope;
 use Modules\Organization\Infrastructure\Persistence\ValidatePersonReferenceFromPersistence;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedRequestFixture;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedWorkDefinition;
@@ -94,13 +102,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(DecideAccess::class, FixtureFacilityDecision::class);
+        $this->app->bind(DecideAccess::class, fn ($app): DecideAccess => new RbacAbacDecideAccess(
+            $app->make(GetActiveSupervisoryRelationships::class),
+        ));
         $this->app->bind(ResolvePublishedRequestFixture::class, ResolvePublishedRequestFixtureFromPersistence::class);
         $this->app->bind(ResolvePublishedWorkDefinition::class, ResolvePublishedWorkDefinitionFromPersistence::class);
         $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
         $this->app->bind(AdvanceWorkflowStep::class, WorkflowStepAdvancer::class);
         $this->app->bind(ResolveQuarantinedImport::class, UnavailableQuarantinedImport::class);
         $this->app->bind(ValidatePersonReference::class, ValidatePersonReferenceFromPersistence::class);
+        $this->app->bind(GetActiveSupervisoryRelationships::class, DatabaseGetActiveSupervisoryRelationships::class);
+        $this->app->bind(ResolvePersonOrganizationScope::class, DatabaseResolvePersonOrganizationScope::class);
+        $this->app->bind(ResolveOrganizationScopeAncestry::class, DatabaseResolveOrganizationScopeAncestry::class);
+        $this->app->bind(ResolvePrincipalContext::class, SessionPrincipalContextResolver::class);
         $this->app->bind(AuthenticateUser::class, AuthenticationHandler::class);
         $this->app->bind(PreAuthThrottle::class, PersistentPreAuthThrottle::class);
         $this->app->bind(IssueActivationToken::class, ActivationHandler::class);
@@ -118,7 +132,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SensitiveAccessEventRecorder::class, DatabaseSensitiveAccessEventRecorder::class);
         $this->app->singleton(DocumentUploadPolicy::class, fn (): DocumentUploadPolicy => DocumentUploadPolicy::fromConfig(config('documents')));
         $this->app->singleton(DocumentRetentionPolicy::class, fn (): DocumentRetentionPolicy => DocumentRetentionPolicy::fromConfig(config('documents')));
-        $this->app->singleton(ResolveDevelopmentFixturePrincipal::class, DevelopmentFixturePrincipalResolver::class);
+        $this->app->singleton(ResolveDevelopmentFixturePrincipal::class, function (): ResolveDevelopmentFixturePrincipal {
+            if (! $this->developmentFixturesAllowed()) {
+                return $this->app->make(SessionPrincipalResolver::class);
+            }
+
+            return $this->app->make(DevelopmentFixturePrincipalResolver::class);
+        });
         $this->app->singleton(SessionPrincipalResolver::class);
         $this->app->singleton(WorkerPrincipalResolver::class, fn (): WorkerPrincipalResolver => new ConfiguredWorkerPrincipalResolver(
             (string) config('documents.worker.token'),
@@ -228,6 +248,9 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationExplicitDenyTables.php'),
             base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php'),
             base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/ZAddAuthorizationHttpTables.php'),
+            base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/W13AddAuthorizationScopeTypes.php'),
+            base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/W13CreateAuthorizationBootstrapTable.php'),
+            base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/W13AddExplicitDenyLockVersion.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/HardenDocumentUploadSecurityTables.php'),
             base_path('Modules/Documents/Infrastructure/Persistence/Migrations/ZZAddDocumentUploadPurpose.php'),
@@ -235,16 +258,23 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateDevelopmentWorkTypeFixturesTable.php'),
             base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateWorkDefinitionTables.php'),
             base_path('Modules/WorkRecords/Infrastructure/Persistence/Migrations/CreateWorkRecordsTable.php'),
+            base_path('Modules/WorkRecords/Infrastructure/Persistence/Migrations/W13AddWorkRecordFieldPolicyKey.php'),
             base_path('Modules/WorkRecords/Infrastructure/Outbox/Migrations/CreateOutboxTable.php'),
             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/CreateWorkflowTables.php'),
             base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
+            base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/W13CreateTaskEngagementTables.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationInboxTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationsTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W18CreateNotificationDeliveryTables.php'),
+            base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W13AddNotificationSourceFacts.php'),
             base_path('Modules/Search/Infrastructure/Persistence/Migrations/CreateSearchProjectionTables.php'),
             base_path('Modules/Reporting/Infrastructure/Persistence/Migrations/CreateReportingProjectionTables.php'),
         ]);
         $this->commands([ExpireTemporaryAssignmentsCommand::class]);
+
+        if ($this->documentsProduction()) {
+            $this->assertAuthorizationRuntimeSafe();
+        }
 
         if ($this->documentsRuntimeEnabled()) {
             if (config('documents.storage.upload_endpoint_allowlist') === []) {
@@ -258,6 +288,11 @@ class AppServiceProvider extends ServiceProvider
             $this->app->make(ClamAvConfiguration::class);
             $this->app->make(WorkerPrincipalResolver::class);
         }
+    }
+
+    private function developmentFixturesAllowed(): bool
+    {
+        return app()->environment('local') || app()->environment('testing');
     }
 
     private function documentsProduction(): bool
@@ -277,6 +312,25 @@ class AppServiceProvider extends ServiceProvider
     {
         return $this->documentsProduction()
             || (app()->environment('testing') && config('documents.runtime.testing_enabled') === true);
+    }
+
+    /**
+     * Production boot guard: user-facing paths must never resolve the fixture
+     * decision engine or the development bearer principal.
+     */
+    private function assertAuthorizationRuntimeSafe(): void
+    {
+        /** @var DecideAccess $engine */
+        $engine = $this->app->make(DecideAccess::class);
+        if (! $engine instanceof RbacAbacDecideAccess) {
+            throw new \RuntimeException('Production must bind DecideAccess to the RBAC+ABAC engine.');
+        }
+
+        /** @var ResolveDevelopmentFixturePrincipal $principalResolver */
+        $principalResolver = $this->app->make(ResolveDevelopmentFixturePrincipal::class);
+        if (! $principalResolver instanceof SessionPrincipalResolver) {
+            throw new \RuntimeException('Production must resolve user principals from Identity sessions.');
+        }
     }
 
     private function assertDocumentsStorageRuntimeSafe(): void

@@ -44,7 +44,7 @@ final class UpdatePersonController
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
         if (! $this->access->decide($principal, 'organization.person.manage', new RecordFacts(
-            ownerFacilityId: null,
+            ownerFacilityId: $principal['facility_id'],
             resourceType: 'organization_person',
             classification: 'confidential',
         ))->isAllowed()) {
