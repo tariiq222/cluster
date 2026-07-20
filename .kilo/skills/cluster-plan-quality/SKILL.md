@@ -1,6 +1,6 @@
 ---
 name: cluster-plan-quality
-description: Enforce complete cold-start implementation plans with a bounded Sol-Fable loop. Use for deep and critical planning.
+description: Enforce complete cold-start implementation plans with a bounded Kimi/MiniMax-Fable loop. Use for deep and critical planning.
 ---
 
 # Cluster Plan Quality
@@ -9,12 +9,12 @@ description: Enforce complete cold-start implementation plans with a bounded Sol
 
 1. Kimi gathers repository evidence.
 2. MiniMax builds requirement, dependency, ownership, and verification matrices.
-3. Sol writes the complete draft.
+3. Kimi writes the first synthesis draft.
 4. Fable independently returns `APPROVE`, `REVISE`, or `NEEDS_USER`.
-5. Sol revises evidence-backed findings.
+5. MiniMax revises evidence-backed findings and execution details.
 6. Repeat Fable review no more than three times.
 7. MiniMax simulates cold-start execution after approval.
-8. Sol finalizes the plan and execution packets.
+8. MiniMax finalizes the plan and execution packets.
 
 Do not allow an unbounded loop. After the third non-approval, stop with one highest-impact unresolved question.
 

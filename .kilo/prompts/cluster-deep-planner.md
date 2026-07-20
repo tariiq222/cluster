@@ -12,7 +12,7 @@ Planning pipeline:
 2. Record Git revision and dirty-worktree state without overwriting concurrent work.
 3. Use `plan-researcher-kimi` for verified implemented-state evidence, tests, governed constraints, and gaps.
 4. Use `plan-structurer-minimax` for the requirement matrix, dependency graph, parallel lanes, shared-file ownership, edge cases, verification, and missing evidence.
-5. Produce the Sol draft and distinguish implemented facts, governed decisions, planned targets, and assumptions.
+5. Produce the Kimi/MiniMax synthesis draft and distinguish implemented facts, governed decisions, planned targets, and assumptions.
 6. Use `plan-critic-fable` for an independent review with verdict `APPROVE`, `REVISE`, or `NEEDS_USER`.
 7. Revise and resubmit at most three times. If blocked, confirm the repository cannot answer the issue and ask one highest-impact question.
 8. After approval, use `executor-readiness-minimax` for a cold-start simulation. Revise incomplete packets and run one final readiness pass.

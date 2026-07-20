@@ -11,26 +11,26 @@ All models must use the `webvue` provider.
 
 | Work | Agent | Model |
 |---|---|---|
-| Primary orchestration and final integration | `orchestrator` | `webvue/gpt-5.6-sol` |
-| Deep plan ownership and final synthesis | `plan` | `webvue/gpt-5.6-sol` |
+| Primary orchestration and final integration | `orchestrator` | `webvue/kimi-k3` |
+| Deep plan ownership and final synthesis | `plan` | `webvue/kimi-k3` |
 | Repository and planning research | `plan-researcher-kimi`, `explorer-kimi` | `webvue/kimi-k3` |
 | Requirement structure and readiness | `plan-structurer-minimax`, `executor-readiness-minimax` | `webvue/MiniMax-M3` |
 | Mechanical changes and focused tests | `mechanical-worker-minimax` | `webvue/MiniMax-M3` |
 | Bounded low-to-medium-risk implementation | `economy-worker-kimi` | `webvue/kimi-k3` |
-| Routine production implementation | `module-worker-luna` | `webvue/gpt-5.6-luna` |
-| Difficult bounded implementation | `complex-worker-luna` | `webvue/gpt-5.6-luna` |
-| Independent plan critique | `plan-critic-fable` | `webvue/claude-fable-5` |
-| Independent code review | `reviewer` | `webvue/codex-auto-review` |
+| Routine production implementation | `module-worker-luna` | `webvue/MiniMax-M3` |
+| Difficult bounded implementation | `complex-worker-luna` | `webvue/kimi-k3` |
+| Independent plan critique | `plan-critic-fable` | `webvue/MiniMax-M3` |
+| Independent code review | `reviewer` | `webvue/MiniMax-M3` |
 | Screenshot and image inspection | `visual-inspector` | `webvue/gpt-image-2` |
 | Proven high-risk escalation | `risk-reviewer-terra` | `webvue/gpt-5.6-terra` |
 
 ## Escalation
 
-1. MiniMax handles deterministic tasks only.
-2. Kimi handles research and bounded implementation with explicit acceptance criteria.
-3. Luna handles production complexity or a failed Kimi package.
+1. MiniMax handles deterministic tasks, focused verification, and independent review.
+2. Kimi handles research, bounded implementation, and difficult-but-contained diagnosis.
+3. GPT-family models are reserved for rare escalation and image-only inspection.
 4. Terra is allowed only after evidence shows unresolved architecture, security, migration, transaction, Outbox, or cross-module risk.
-5. Sol remains the manager and final integrator rather than the default worker.
+5. Kimi and MiniMax remain the default pairing; GPT usage stays minimal by design.
 
 ## Image Routing
 

@@ -35,4 +35,4 @@ Use `.kilo/state/plans/<plan-id>/` as planning working memory. This directory is
 
 ## Completion
 
-A plan is approved only when Fable returns `APPROVE`, Sol completes consistency review, and MiniMax readiness returns `PASS`.
+A plan is approved only when Fable returns `APPROVE`, Kimi completes consistency review, and MiniMax readiness returns `PASS`.
