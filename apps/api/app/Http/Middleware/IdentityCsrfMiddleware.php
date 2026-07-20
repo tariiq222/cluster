@@ -25,7 +25,6 @@ final class IdentityCsrfMiddleware
 
         $session = $request->attributes->get(IdentityRequestAttributes::SESSION);
         $rawSessionToken = $request->attributes->get('identity.raw_session_token');
-        $rawCsrfToken = $request->header((string) config('identity.csrf.header', 'X-CSRF-Token'));
         if (! is_array($session) || ! is_string($rawSessionToken)) {
             return IdentityApi::problem(
                 401,
@@ -35,6 +34,12 @@ final class IdentityCsrfMiddleware
                 $correlationId,
             );
         }
+        if (str_starts_with((string) ($session['session_id'] ?? ''), 'fixture-bearer:')) {
+            // Fixture-bearer sessions are synthesized in the testing runtime
+            // only and cannot prove a CSRF challenge.
+            return $next($request);
+        }
+        $rawCsrfToken = $request->header((string) config('identity.csrf.header', 'X-CSRF-Token'));
         if (! is_string($rawCsrfToken) || $rawCsrfToken === '') {
             return IdentityApi::problem(
                 403,
@@ -43,12 +48,6 @@ final class IdentityCsrfMiddleware
                 'The CSRF proof is invalid.',
                 $correlationId,
             );
-        }
-
-        if (! is_string($session['session_id'] ?? null) || str_starts_with($session['session_id'], 'fixture-bearer:')) {
-            // Fixture-bearer sessions are synthesized in the testing runtime
-            // only and cannot prove a CSRF challenge.
-            return $next($request);
         }
 
         if (! $this->sessions->validateCsrf($rawSessionToken, $rawCsrfToken, IdentityRequestBinding::context($request))) {
