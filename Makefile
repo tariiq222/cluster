@@ -1,10 +1,15 @@
-.PHONY: verify-intake test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
+.PHONY: verify-intake api\:inventory test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
 	test -f apps/web/package-lock.json
 	composer --working-dir=apps/api validate --strict
 	npm --prefix apps/web ci --ignore-scripts --dry-run
+
+INVENTORY_MODE ?= --check
+
+api\:inventory:
+	python3 scripts/inventory-routes.py $(INVENTORY_MODE)
 
 test-api-smoke:
 	cd apps/api && composer test
