@@ -5,18 +5,20 @@ namespace App\Http\Controllers\Identity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Authorization\Infrastructure\Persistence\ListActiveRoleSummariesForUser;
+use Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Identity\Http\IdentityApi;
 
 /**
- * GET /api/v1/me — the contracted AccessContext projection of the trusted
- * PrincipalContext. The browser never supplies roles, scopes or clearance.
+ * GET /api/v1/me — the contracted PrincipalContext projection of the trusted
+ * principal. The browser never supplies roles, scopes, clearance or capabilities.
  */
 final class GetCurrentPrincipalController
 {
     public function __construct(
         private readonly ResolvePrincipalContext $principalContexts,
         private readonly ListActiveRoleSummariesForUser $roleSummaries,
+        private readonly ListEffectiveCapabilitiesForUser $capabilities,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -43,6 +45,7 @@ final class GetCurrentPrincipalController
             'tenant_id' => $tenantId,
             'organization_unit_ids' => $context->organizationUnitIds,
             'roles' => array_map(static fn (array $role): string => $role['code'], $summary['roles']),
+            'capabilities' => $this->capabilities->forUser($context->userId),
             'clearance' => $summary['clearance'],
             'break_glass' => false,
             'correlation_id' => $correlationId,

@@ -5366,7 +5366,7 @@ components:
         content:
           {
             application/json:
-              { schema: { $ref: "../schemas/access-context.schema.json" } },
+              { schema: { $ref: "../schemas/principal-context.schema.json" } },
           },
       }
     Problem:

@@ -1097,6 +1097,35 @@ export interface IdentityActivationIssued {
   delivery: 'controlled'
 }
 
+export type PrincipalContextSchemaClearance =
+  (typeof PrincipalContextSchemaClearance)[keyof typeof PrincipalContextSchemaClearance]
+
+export const PrincipalContextSchemaClearance = {
+  public: 'public',
+  internal: 'internal',
+  confidential: 'confidential',
+  top_secret: 'top_secret',
+} as const
+
+/**
+ * The server-owned projection of the current principal returned by GET /me. It is the Access Context plus the capability codes the principal currently holds, which the shell uses to decide which navigation entries to render. The list is a navigation hint only: every endpoint still runs its own record-scoped decision.
+ */
+export interface PrincipalContextSchema {
+  subject_id: Uuidv7
+  tenant_id: Uuidv7
+  organization_unit_ids?: Uuidv7[]
+  /** @items.minLength 1 */
+  roles?: string[]
+  /**
+   * Capability codes granted to the principal by an active role assignment or delegation, sorted ascending.
+   * @items.pattern ^[a-z][a-z0-9_]*(\.[a-z0-9_-]+)+$
+   */
+  capabilities?: string[]
+  clearance: PrincipalContextSchemaClearance
+  break_glass?: boolean
+  correlation_id: Uuidv7
+}
+
 export interface ScopeSelection {
   available_scopes: ScopeOption[]
   effective_scope: ScopeOption
@@ -2389,7 +2418,7 @@ export type IdentityActivationIssuedResponse = IdentityActivationIssued
 /**
  * Current principal
  */
-export type PrincipalResponse = AccessContextSchema
+export type PrincipalResponse = PrincipalContextSchema
 
 /**
  * Document version scan or promotion result
