@@ -199,7 +199,10 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
             ],
         ];
 
-        if (! DB::table('clusters')->where('id', $clusterId)->exists()) {
+        $existingClusterId = DB::table('clusters')->where('singleton_key', 1)->value('id');
+        if (is_string($existingClusterId)) {
+            $clusterId = $existingClusterId;
+        } elseif (! DB::table('clusters')->where('id', $clusterId)->exists()) {
             DB::table('clusters')->insert([
                 'id' => $clusterId,
                 'singleton_key' => 1,

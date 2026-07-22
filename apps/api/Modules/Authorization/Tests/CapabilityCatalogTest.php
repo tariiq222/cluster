@@ -43,6 +43,7 @@ class CapabilityCatalogTest extends TestCase
             'tasks.comment',
             'tasks.participant-manage',
             'documents.create',
+            'documents.update',
             'documents.read',
             'documents.list',
             'documents.initiate-upload',
