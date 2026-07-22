@@ -28,6 +28,8 @@ class CapabilityCatalogTest extends TestCase
             'workflow.read',
             'workflow.list',
             'workflow.manage',
+            'workflow.author',
+            'workflow.approve',
             'workflow.decide',
             'workflow.reassign',
             'workflow.escalate',

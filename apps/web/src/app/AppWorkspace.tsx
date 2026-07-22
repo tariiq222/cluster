@@ -46,6 +46,7 @@ import {
   TasksScreen,
 } from '../features/r1/R1Screens'
 import { CoverageScreen } from '../features/portal/CoverageScreen'
+import { PersonalSecurity } from '../features/identity/PersonalSecurity'
 import { DocumentsWorkspace } from '../features/documents/DocumentsWorkspace'
 import {
   ApiError,
@@ -692,6 +693,8 @@ export function AppWorkspace({
             }}
           />
         )
+      case 'personal-security':
+        return <PersonalSecurity />
       case 'coverage':
         return <CoverageScreen locale={locale} />
       case 'api-docs':
@@ -739,6 +742,10 @@ export function AppWorkspace({
           setNotificationsDialogOpen((current) => !current)
         }
         onLogout={onLogout}
+        personalSecurity={{
+          path: routeToPath({ name: 'personal-security' }),
+          onSelect: () => navigate(routeToPath({ name: 'personal-security' })),
+        }}
         notificationPanel={
           <NotificationList
             locale={locale}

@@ -188,6 +188,61 @@
   font-weight: 600;
 }
 
+/* Status badges default to the success tone; these modifiers carry the other
+   lifecycle states so a table row reads its meaning from colour, not only text. */
+.status-badge.status-pending {
+  border-color: var(--color-info-border);
+  color: var(--color-info-strong);
+  background: var(--color-info-soft);
+}
+
+.status-badge.status-locked,
+.status-badge.status-disabled {
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-strong);
+  background: var(--color-danger-soft);
+}
+
+.status-badge.status-archived {
+  border-color: var(--color-border-strong);
+  color: var(--color-muted);
+  background: var(--color-surface-subtle);
+}
+
+/* Key/value summary at the top of a drawer: what the record is, before the
+   actions that change it. */
+.detail-list {
+  display: grid;
+  gap: 8px;
+  margin-block-end: 8px;
+}
+
+.detail-list > div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.detail-list dt {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.detail-list dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* One action per block: the button, then the plain-language consequence. */
+.account-action {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding-block: 12px;
+  border-block-start: 1px solid var(--color-border);
+}
+
 .inline-errors {
   color: var(--color-danger-strong);
   font-size: 13px;

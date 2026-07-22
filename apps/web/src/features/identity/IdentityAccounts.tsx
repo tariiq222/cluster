@@ -2,13 +2,12 @@ import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { formattingLocale } from '../../app/copy'
 import { useLocale, useToken } from '../../app/session-context'
 
-import { Users } from 'lucide-react'
+import { UserPlus, Users } from 'lucide-react'
 
 import {
   ApiError,
   createUserAccount,
   issueIdentityActivation,
-  changeIdentityPassword,
   listPeople,
   listUserAccounts,
   transitionUserAccount,
@@ -19,47 +18,184 @@ import {
 } from '../../api'
 import {
   Button,
+  Drawer,
   EmptyState,
   Field as UiField,
   InlineError,
   Page,
   PageHeader,
   Panel,
-  PanelGrid,
   Select as UiSelect,
   SkeletonList,
+  StatusBadge,
 } from '../../ui'
 
 type Locale = 'ar' | 'en'
 
 const copy = {
   ar: {
-    title: 'حسابات الهوية', intro: 'إدارة الحسابات المرتبطة بسجل Person من دون عرض بيانات اعتماد أو أسرار.',
-    loading: 'جارٍ تحميل الحسابات…', forbidden: 'لا تملك صلاحية إدارة حسابات الهوية.', error: 'تعذر تحميل الحسابات.', retry: 'إعادة المحاولة',
-    accounts: 'الحسابات', noAccounts: 'لا توجد حسابات بعد.', username: 'اسم المستخدم', person: 'الشخص', status: 'الحالة', password: 'تغيير كلمة المرور', required: 'مطلوب', notRequired: 'غير مطلوب',
-    addAccount: 'إنشاء حساب pending', action: 'إجراء على الحساب', account: 'الحساب', reason: 'سبب الإجراء', execute: 'تنفيذ الإجراء', saving: 'جارٍ الحفظ…',
-    validation: 'اختر Person واكتب اسم مستخدم صحيحاً.', saveError: 'لم يُحفظ التغيير. أعد تحميل البيانات أو راجع حالة الحساب.', stale: 'تغيرت نسخة الحساب. أعد المحاولة بعد التحديث.',
-    pending: 'بانتظار التفعيل', active: 'نشط', locked: 'مقفل', disabled: 'معطل', archived: 'مؤرشف',
-    activate: 'تفعيل', unlock: 'فك القفل', disable: 'تعطيل', archive: 'أرشفة', revokeSessions: 'إنهاء الجلسات', forcePassword: 'فرض تغيير كلمة المرور',
-    noEligiblePeople: 'لا يوجد Person نشط بلا حساب حالياً.', activation: 'إصدار تفعيل', activationIssued: 'تم إصدار التفعيل', activationExpiry: 'ينتهي في', activationDelivery: 'التسليم', activationError: 'تعذر إصدار التفعيل.', currentPassword: 'كلمة المرور الحالية', newPassword: 'كلمة المرور الجديدة', confirmPassword: 'تأكيد كلمة المرور', changeOwnPassword: 'تغيير كلمة مرور المستخدم الحالي', passwordChanged: 'تم تغيير كلمة المرور. ستنتهي الجلسة الحالية.', passwordError: 'تعذر تغيير كلمة المرور.',
+    title: 'حسابات الدخول',
+    intro: 'أنشئ حساب دخول لكل موظف وتحكم في وصوله. لا تُعرض كلمات المرور هنا أبداً.',
+    loading: 'جارٍ تحميل الحسابات…',
+    forbidden: 'لا تملك صلاحية إدارة حسابات الدخول.',
+    error: 'تعذر تحميل الحسابات.',
+    retry: 'إعادة المحاولة',
+    accounts: 'الحسابات',
+    noAccounts: 'لا توجد حسابات دخول بعد.',
+    noAccountsBody: 'ابدأ بإنشاء حساب لموظف حتى يتمكن من تسجيل الدخول.',
+    employee: 'الموظف',
+    username: 'اسم الدخول',
+    status: 'الحالة',
+    manage: 'إدارة',
+    manageAccount: 'إدارة الحساب',
+    close: 'إغلاق',
+    addAccount: 'إضافة حساب',
+    addAccountTitle: 'إضافة حساب دخول',
+    addAccountIntro: 'اختر الموظف واكتب اسم الدخول. يُنشأ الحساب بانتظار التفعيل، ثم أرسل له رابط التفعيل.',
+    create: 'إنشاء الحساب',
+    saving: 'جارٍ الحفظ…',
+    usernameHint: '٣ أحرف فأكثر: حروف إنجليزية وأرقام و . _ - فقط.',
+    validation: 'اختر موظفاً واكتب اسم دخول صحيحاً.',
+    saveError: 'لم يُحفظ التغيير. حدّث الصفحة أو راجع حالة الحساب.',
+    stale: 'تغيّرت بيانات الحساب من مكان آخر. حدّث الصفحة وأعد المحاولة.',
+    pending: 'بانتظار التفعيل',
+    active: 'نشط',
+    locked: 'مقفل',
+    disabled: 'معطل',
+    archived: 'مؤرشف',
+    pendingHint: 'أُنشئ الحساب ولم يُستخدم بعد. أرسل رابط التفعيل ليضبط الموظف كلمة مروره.',
+    activeHint: 'الموظف يستطيع تسجيل الدخول الآن.',
+    lockedHint: 'أُقفل الحساب بعد محاولات دخول فاشلة. فك القفل ليعود للعمل.',
+    disabledHint: 'أوقفنا الدخول لهذا الحساب. يمكن تفعيله متى لزم.',
+    archivedHint: 'حساب مؤرشف، ولا يمكن إجراء أي تغيير عليه.',
+    mustChangePassword: 'مطلوب من الموظف تغيير كلمة المرور عند الدخول القادم.',
+    noEligiblePeople: 'كل الموظفين النشطين لديهم حساب دخول بالفعل.',
+    sendActivation: 'إرسال رابط التفعيل',
+    activationIssued: 'أُرسل رابط التفعيل.',
+    activationExpiry: 'ينتهي في',
+    activationDelivery: 'طريقة الإرسال',
+    activationError: 'تعذر إرسال رابط التفعيل.',
+    reason: 'سبب الإجراء (اختياري)',
+    reasonHint: 'يُحفظ في سجل التدقيق ليُعرف لاحقاً سبب التغيير.',
+    activate: 'تفعيل الحساب',
+    unlock: 'فك القفل',
+    disable: 'تعطيل الحساب',
+    archive: 'أرشفة الحساب',
+    revokeSessions: 'إنهاء الجلسات المفتوحة',
+    forcePassword: 'إلزامه بتغيير كلمة المرور',
+    activateHint: 'يعيد للموظف القدرة على تسجيل الدخول.',
+    unlockHint: 'يلغي القفل الناتج عن محاولات الدخول الفاشلة.',
+    disableHint: 'يمنع الدخول مؤقتاً مع الاحتفاظ بالحساب.',
+    archiveHint: 'إغلاق نهائي للحساب. لا يمكن التراجع.',
+    revokeSessionsHint: 'يخرج الموظف من كل الأجهزة فوراً.',
+    forcePasswordHint: 'يطلب منه كلمة مرور جديدة عند الدخول القادم.',
+    noActions: 'لا توجد إجراءات متاحة على هذا الحساب.',
+    done: 'تم تنفيذ الإجراء.',
   },
   en: {
-    title: 'Identity accounts', intro: 'Manage Person-linked accounts without exposing credentials or secrets.',
-    loading: 'Loading accounts…', forbidden: 'You do not have permission to manage Identity accounts.', error: 'Accounts could not be loaded.', retry: 'Try again',
-    accounts: 'Accounts', noAccounts: 'No accounts yet.', username: 'Username', person: 'Person', status: 'Status', password: 'Password change', required: 'Required', notRequired: 'Not required',
-    addAccount: 'Create pending account', action: 'Account action', account: 'Account', reason: 'Action reason', execute: 'Execute action', saving: 'Saving…',
-    validation: 'Select a Person and enter a valid username.', saveError: 'The change was not saved. Reload or review the account state.', stale: 'The account version changed. Reload and try again.',
-    pending: 'Pending', active: 'Active', locked: 'Locked', disabled: 'Disabled', archived: 'Archived',
-    activate: 'Activate', unlock: 'Unlock', disable: 'Disable', archive: 'Archive', revokeSessions: 'Revoke sessions', forcePassword: 'Force password change',
-    noEligiblePeople: 'There is no active Person without an account.', activation: 'Issue activation', activationIssued: 'Activation issued', activationExpiry: 'Expires', activationDelivery: 'Delivery', activationError: 'Activation could not be issued.', currentPassword: 'Current password', newPassword: 'New password', confirmPassword: 'Confirm password', changeOwnPassword: 'Change current user password', passwordChanged: 'Password changed. This session will be revoked.', passwordError: 'Password could not be changed.',
+    title: 'Sign-in accounts',
+    intro: 'Create a sign-in account for each employee and control their access. Passwords are never shown here.',
+    loading: 'Loading accounts…',
+    forbidden: 'You do not have permission to manage sign-in accounts.',
+    error: 'Accounts could not be loaded.',
+    retry: 'Try again',
+    accounts: 'Accounts',
+    noAccounts: 'No sign-in accounts yet.',
+    noAccountsBody: 'Start by creating an account so an employee can sign in.',
+    employee: 'Employee',
+    username: 'Username',
+    status: 'Status',
+    manage: 'Manage',
+    manageAccount: 'Manage account',
+    close: 'Close',
+    addAccount: 'Add account',
+    addAccountTitle: 'Add a sign-in account',
+    addAccountIntro: 'Pick the employee and choose a username. The account starts as awaiting activation — then send the activation link.',
+    create: 'Create account',
+    saving: 'Saving…',
+    usernameHint: 'At least 3 characters: letters, digits, and . _ - only.',
+    validation: 'Select an employee and enter a valid username.',
+    saveError: 'The change was not saved. Refresh the page or review the account state.',
+    stale: 'This account changed elsewhere. Refresh and try again.',
+    pending: 'Awaiting activation',
+    active: 'Active',
+    locked: 'Locked',
+    disabled: 'Disabled',
+    archived: 'Archived',
+    pendingHint: 'Created but never used. Send the activation link so the employee can set a password.',
+    activeHint: 'The employee can sign in right now.',
+    lockedHint: 'Locked after failed sign-in attempts. Unlock to restore access.',
+    disabledHint: 'Sign-in is switched off for this account. You can activate it again anytime.',
+    archivedHint: 'Archived account — no further changes are possible.',
+    mustChangePassword: 'The employee must set a new password at next sign-in.',
+    noEligiblePeople: 'Every active employee already has a sign-in account.',
+    sendActivation: 'Send activation link',
+    activationIssued: 'Activation link sent.',
+    activationExpiry: 'Expires',
+    activationDelivery: 'Delivery',
+    activationError: 'The activation link could not be sent.',
+    reason: 'Reason (optional)',
+    reasonHint: 'Stored in the audit trail so the change can be explained later.',
+    activate: 'Activate account',
+    unlock: 'Unlock',
+    disable: 'Disable account',
+    archive: 'Archive account',
+    revokeSessions: 'End open sessions',
+    forcePassword: 'Require a password change',
+    activateHint: 'Restores the employee’s ability to sign in.',
+    unlockHint: 'Clears the lock caused by failed sign-in attempts.',
+    disableHint: 'Blocks sign-in temporarily while keeping the account.',
+    archiveHint: 'Closes the account for good. This cannot be undone.',
+    revokeSessionsHint: 'Signs the employee out of every device immediately.',
+    forcePasswordHint: 'Asks for a new password at their next sign-in.',
+    noActions: 'No actions are available on this account.',
+    done: 'Action completed.',
   },
 } as const
 
-const actions: Array<{ value: UserAccountAction; label: keyof typeof copy.ar }> = [
-  { value: 'activate', label: 'activate' }, { value: 'unlock', label: 'unlock' },
-  { value: 'disable', label: 'disable' }, { value: 'archive', label: 'archive' },
-  { value: 'revoke-sessions', label: 'revokeSessions' }, { value: 'force-password-change', label: 'forcePassword' },
-]
+type CopyKey = keyof typeof copy.ar
+
+/**
+ * Which transitions the API accepts per state, in the order an administrator is
+ * most likely to want them. Keeping this table here — rather than a flat action
+ * dropdown — is what lets a row offer only the handful of moves that make sense
+ * for the account in front of the user.
+ */
+const ACTIONS_BY_STATUS: Record<string, Array<{ action: UserAccountAction; label: CopyKey; hint: CopyKey; danger?: boolean }>> = {
+  pending: [
+    { action: 'archive', label: 'archive', hint: 'archiveHint', danger: true },
+  ],
+  active: [
+    { action: 'revoke-sessions', label: 'revokeSessions', hint: 'revokeSessionsHint' },
+    { action: 'force-password-change', label: 'forcePassword', hint: 'forcePasswordHint' },
+    { action: 'disable', label: 'disable', hint: 'disableHint' },
+    { action: 'archive', label: 'archive', hint: 'archiveHint', danger: true },
+  ],
+  locked: [
+    { action: 'unlock', label: 'unlock', hint: 'unlockHint' },
+    { action: 'disable', label: 'disable', hint: 'disableHint' },
+    { action: 'archive', label: 'archive', hint: 'archiveHint', danger: true },
+  ],
+  disabled: [
+    { action: 'activate', label: 'activate', hint: 'activateHint' },
+    { action: 'archive', label: 'archive', hint: 'archiveHint', danger: true },
+  ],
+  archived: [],
+}
+
+const STATUS_HINT: Record<string, CopyKey> = {
+  pending: 'pendingHint',
+  active: 'activeHint',
+  locked: 'lockedHint',
+  disabled: 'disabledHint',
+  archived: 'archivedHint',
+}
+
+const USERNAME_PATTERN = /^[a-zA-Z0-9._-]{3,128}$/
+
+function personName(account: UserAccount, locale: Locale): string {
+  return locale === 'en' && account.display_name_en ? account.display_name_en : account.display_name_ar
+}
 
 export function IdentityAccounts() {
   const locale = useLocale()
@@ -69,6 +205,9 @@ export function IdentityAccounts() {
   const [people, setPeople] = useState<Person[]>([])
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState<'ready' | 'forbidden' | 'error'>('ready')
+  const [addOpen, setAddOpen] = useState(false)
+  const [managedId, setManagedId] = useState<string | null>(null)
+
   async function load() {
     setLoading(true); setState('ready')
     try {
@@ -79,129 +218,228 @@ export function IdentityAccounts() {
       setState(stateFromError(error) === 'forbidden' ? 'forbidden' : 'error')
     } finally { setLoading(false) }
   }
+
   useEffect(() => {
     void load()
     // This route reloads only when the authenticated session changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
+
   const claimedPeople = new Set(accounts.filter((account) => account.status !== 'archived').map((account) => account.person_id))
   const eligiblePeople = people.filter((person) => person.status === 'active' && !claimedPeople.has(person.id))
+  const managed = accounts.find((account) => account.id === managedId) ?? null
 
   return <Page>
     <PageHeader id="identity-heading" title={text.title} description={text.intro} />
     {loading && <SkeletonList label={text.loading} />}
     {!loading && state === 'forbidden' && <div className="state-panel" role="status"><p>{text.forbidden}</p></div>}
     {!loading && state === 'error' && <InlineError message={text.error} retryLabel={text.retry} onRetry={() => void load()} />}
-    {!loading && state === 'ready' && <PanelGrid>
-      <Panel id="accounts-heading" title={text.accounts} level={2} actions={<span className="count-badge">{new Intl.NumberFormat(formattingLocale(locale)).format(accounts.length)}</span>}>
-        {accounts.length === 0 ? <EmptyState icon={<Users />} title={text.noAccounts} /> : <AccountTable accounts={accounts} locale={locale} />}
-        {eligiblePeople.length > 0 ? <AccountForm locale={locale} token={token} people={eligiblePeople} onCreated={(account) => setAccounts((current) => [...current, account])} /> : <p className="status-message" role="status">{text.noEligiblePeople}</p>}
-        <AccountActivationForm locale={locale} token={token} accounts={accounts} />
-        <PasswordChangeForm locale={locale} token={token} />
+    {!loading && state === 'ready' && <>
+      <Panel
+        id="accounts-heading"
+        title={text.accounts}
+        level={2}
+        actions={<>
+          <span className="count-badge">{new Intl.NumberFormat(formattingLocale(locale)).format(accounts.length)}</span>
+          {eligiblePeople.length > 0 && <Button onClick={() => setAddOpen(true)}>{text.addAccount}</Button>}
+        </>}
+      >
+        {accounts.length === 0
+          ? <EmptyState
+              icon={<Users />}
+              title={text.noAccounts}
+              body={eligiblePeople.length > 0 ? text.noAccountsBody : text.noEligiblePeople}
+              action={eligiblePeople.length > 0 ? <Button onClick={() => setAddOpen(true)}><UserPlus aria-hidden="true" /> {text.addAccount}</Button> : undefined}
+            />
+          : <AccountTable accounts={accounts} locale={locale} onManage={setManagedId} />}
+        {accounts.length > 0 && eligiblePeople.length === 0 && <p className="status-message" role="status">{text.noEligiblePeople}</p>}
       </Panel>
-      {accounts.length > 0 && <Panel id="account-action-heading" title={text.action} level={2}><AccountActionForm locale={locale} token={token} accounts={accounts} onChanged={(account) => setAccounts((current) => current.map((item) => item.id === account.id ? account : item))} /></Panel>}
-    </PanelGrid>}
+
+      <AddAccountDrawer
+        open={addOpen}
+        locale={locale}
+        token={token}
+        people={eligiblePeople}
+        onClose={() => setAddOpen(false)}
+        onCreated={(account) => { setAccounts((current) => [...current, account]); setAddOpen(false) }}
+      />
+
+      <ManageAccountDrawer
+        account={managed}
+        locale={locale}
+        token={token}
+        onClose={() => setManagedId(null)}
+        onChanged={(account) => setAccounts((current) => current.map((item) => item.id === account.id ? account : item))}
+      />
+    </>}
   </Page>
 }
 
-function AccountTable({ accounts, locale }: { accounts: UserAccount[]; locale: Locale }) {
+function AccountTable({ accounts, locale, onManage }: { accounts: UserAccount[]; locale: Locale; onManage: (id: string) => void }) {
   const text = copy[locale]
-  return <div className="table-scroll" tabIndex={0} role="region" aria-label={text.accounts}><table><thead><tr><th scope="col">{text.username}</th><th scope="col">{text.person}</th><th scope="col">{text.status}</th><th scope="col">{text.password}</th></tr></thead><tbody>{accounts.map((account) => <tr key={account.id}><td dir="ltr">{account.username}</td><td>{locale === 'en' && account.display_name_en ? account.display_name_en : account.display_name_ar}</td><td><span className="status-badge">{text[account.status]}</span></td><td>{account.must_change_password ? text.required : text.notRequired}</td></tr>)}</tbody></table></div>
+  return <div className="table-scroll" tabIndex={0} role="region" aria-label={text.accounts}>
+    <table className="data-table">
+      <thead><tr>
+        <th scope="col">{text.employee}</th>
+        <th scope="col">{text.username}</th>
+        <th scope="col">{text.status}</th>
+        <th scope="col"><span className="visually-hidden">{text.manage}</span></th>
+      </tr></thead>
+      <tbody>{accounts.map((account) => <tr key={account.id}>
+        <td>{personName(account, locale)}</td>
+        <td dir="ltr">{account.username}</td>
+        <td><StatusBadge className={`status-${account.status}`}>{text[account.status as CopyKey]}</StatusBadge></td>
+        <td>
+          <div className="table-actions">
+            <Button variant="quiet" onClick={() => onManage(account.id)}>
+              {text.manage}<span className="visually-hidden"> — {personName(account, locale)}</span>
+            </Button>
+          </div>
+        </td>
+      </tr>)}</tbody>
+    </table>
+  </div>
 }
 
-function AccountForm({ locale, token, people, onCreated }: { locale: Locale; token: string; people: Person[]; onCreated: (account: UserAccount) => void; }) {
+function AddAccountDrawer({ open, locale, token, people, onClose, onCreated }: {
+  open: boolean
+  locale: Locale
+  token: string
+  people: Person[]
+  onClose: () => void
+  onCreated: (account: UserAccount) => void
+}) {
   const text = copy[locale]
-  const [personId, setPersonId] = useState(people[0]?.id ?? '')
+  const [personId, setPersonId] = useState('')
   const [username, setUsername] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(false)
   const errorRef = useRef<HTMLParagraphElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setPersonId(people[0]?.id ?? ''); setUsername(''); setError(false)
+  }, [open, people])
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const person = people.find((item) => item.id === personId)
-    if (!person || !/^[a-zA-Z0-9._-]{3,128}$/.test(username)) { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()); return }
+    if (!person || !USERNAME_PATTERN.test(username)) { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()); return }
     setSubmitting(true); setError(false)
     try { onCreated(await createUserAccount(token, { person_id: person.id, person_version: person.person_version, username })) }
     catch { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()) }
     finally { setSubmitting(false) }
   }
-  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>
-    {error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}
-    <div className="field-row"><Select id="account-person" label={text.person} value={personId} onChange={setPersonId} options={people.map((person) => ({ value: person.id, label: person.display_name_ar }))} /><Field id="account-username" label={text.username} value={username} onChange={setUsername} required invalid={error && !/^[a-zA-Z0-9._-]{3,128}$/.test(username)} /></div>
-    <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.addAccount}</Button>
-  </form>
+
+  return <Drawer open={open} onClose={onClose} title={text.addAccountTitle} ariaLabelClose={text.close} dismissable={!submitting}>
+    <p className="ui-drawer-intro">{text.addAccountIntro}</p>
+    <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>
+      {error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}
+      <Select id="account-person" label={text.employee} value={personId} onChange={setPersonId} options={people.map((person) => ({ value: person.id, label: person.display_name_ar }))} />
+      <Field id="account-username" label={text.username} value={username} onChange={setUsername} required hint={text.usernameHint} invalid={error && !USERNAME_PATTERN.test(username)} />
+      <div className="table-actions">
+        <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.create}</Button>
+        <Button variant="secondary" type="button" onClick={onClose} disabled={submitting}>{text.close}</Button>
+      </div>
+    </form>
+  </Drawer>
 }
 
-function AccountActionForm({ locale, token, accounts, onChanged }: { locale: Locale; token: string; accounts: UserAccount[]; onChanged: (account: UserAccount) => void; }) {
+/**
+ * One place to see what an account is and everything that can be done to it.
+ * The available moves come from the account's own state, so the administrator
+ * never has to re-pick the account or guess which transition is legal.
+ */
+function ManageAccountDrawer({ account, locale, token, onClose, onChanged }: {
+  account: UserAccount | null
+  locale: Locale
+  token: string
+  onClose: () => void
+  onChanged: (account: UserAccount) => void
+}) {
   const text = copy[locale]
-  const available = accounts.filter((account) => account.status !== 'archived')
-  const [accountId, setAccountId] = useState(available[0]?.id ?? '')
-  const [action, setAction] = useState<UserAccountAction>('activate')
   const [reason, setReason] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<'save' | 'stale' | null>(null)
+  const [pending, setPending] = useState<UserAccountAction | 'activation' | null>(null)
+  const [error, setError] = useState<'save' | 'stale' | 'activation' | null>(null)
+  const [activation, setActivation] = useState<IdentityActivationResult | null>(null)
+  const [done, setDone] = useState(false)
   const errorRef = useRef<HTMLParagraphElement>(null)
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setSubmitting(true); setError(null)
-    try { onChanged(await transitionUserAccount(token, accountId, action, reason.trim() || undefined)) }
-    catch (failure) {
-      { setError(failure instanceof ApiError && failure.status === 412 ? 'stale' : 'save'); window.requestAnimationFrame(() => errorRef.current?.focus()) }
-    } finally { setSubmitting(false) }
-  }
-  if (available.length === 0) return null
-  return <form className="resource-form" onSubmit={(event) => void submit(event)}>
-    {error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{error === 'stale' ? text.stale : text.saveError}</p>}
-    <div className="field-row"><Select id="action-account" label={text.account} value={accountId} onChange={setAccountId} options={available.map((account) => ({ value: account.id, label: account.username }))} /><Select id="account-action" label={text.action} value={action} onChange={(value) => setAction(value as UserAccountAction)} options={actions.map((item) => ({ value: item.value, label: text[item.label] }))} /><Field id="action-reason" label={text.reason} value={reason} onChange={setReason} /></div>
-    <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.execute}</Button>
-  </form>
-}
+  const accountId = account?.id ?? null
 
-function AccountActivationForm({ locale, token, accounts }: { locale: Locale; token: string; accounts: UserAccount[]; }) {
-  const text = copy[locale]
-  const pending = accounts.filter((account) => account.status === 'pending')
-  const [accountId, setAccountId] = useState(pending[0]?.id ?? '')
-  const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState<IdentityActivationResult | null>(null)
-  const [error, setError] = useState(false)
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setSubmitting(true); setError(false); setMessage(null)
-    try { setMessage(await issueIdentityActivation(token, accountId)) }
-    catch { setError(true) }
-    finally { setSubmitting(false) }
+  useEffect(() => {
+    setReason(''); setPending(null); setError(null); setActivation(null); setDone(false)
+  }, [accountId])
+
+  if (!account) return null
+
+  const id = account.id
+  const status = account.status
+  const available = ACTIONS_BY_STATUS[status] ?? []
+  const busy = pending !== null
+
+  function fail(kind: 'save' | 'stale' | 'activation') {
+    setError(kind); window.requestAnimationFrame(() => errorRef.current?.focus())
   }
-  if (pending.length === 0) return null
-  return <form className="resource-form" onSubmit={(event) => void submit(event)}>
-    <div className="field-row"><Select id="activation-account" label={text.account} value={accountId} onChange={setAccountId} options={pending.map((account) => ({ value: account.id, label: account.username }))} /></div>
-    {error && <p className="error-summary" role="alert">{text.activationError}</p>}
-    {message && <p className="status-message" role="status">{text.activationIssued} — {text.activationExpiry}: <span dir="ltr">{message.expires_at}</span>; {text.activationDelivery}: {message.delivery}</p>}
-    <Button type="submit" disabled={submitting || !accountId}>{submitting ? text.saving : text.activation}</Button>
-  </form>
+
+  async function run(action: UserAccountAction) {
+    setPending(action); setError(null); setDone(false)
+    try { onChanged(await transitionUserAccount(token, id, action, reason.trim() || undefined)); setReason(''); setDone(true) }
+    catch (failure) { fail(failure instanceof ApiError && failure.status === 412 ? 'stale' : 'save') }
+    finally { setPending(null) }
+  }
+
+  async function sendActivation() {
+    setPending('activation'); setError(null); setActivation(null); setDone(false)
+    try { setActivation(await issueIdentityActivation(token, id)) }
+    catch { fail('activation') }
+    finally { setPending(null) }
+  }
+
+  return <Drawer open onClose={onClose} title={text.manageAccount} ariaLabelClose={text.close} dismissable={!busy}>
+    <dl className="detail-list">
+      <div><dt>{text.employee}</dt><dd>{personName(account, locale)}</dd></div>
+      <div><dt>{text.username}</dt><dd dir="ltr">{account.username}</dd></div>
+      <div><dt>{text.status}</dt><dd><StatusBadge className={`status-${status}`}>{text[status as CopyKey]}</StatusBadge></dd></div>
+    </dl>
+    <p className="ui-drawer-intro">{text[STATUS_HINT[status] ?? 'activeHint']}</p>
+    {account.must_change_password && <p className="status-message" role="status">{text.mustChangePassword}</p>}
+
+    {error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>
+      {error === 'stale' ? text.stale : error === 'activation' ? text.activationError : text.saveError}
+    </p>}
+    {done && <p className="status-message" role="status">{text.done}</p>}
+    {activation && <p className="status-message" role="status">
+      {text.activationIssued} {text.activationExpiry}: <span dir="ltr">{activation.expires_at}</span> — {text.activationDelivery}: {activation.delivery}
+    </p>}
+
+    {/* The activation link is the only thing worth doing to an unused account,
+        so it leads — the state transitions below stay secondary. */}
+    {status === 'pending' && <div className="account-action">
+      <Button onClick={() => void sendActivation()} disabled={busy}>{pending === 'activation' ? text.saving : text.sendActivation}</Button>
+    </div>}
+
+    {available.length > 0 && <>
+      <Field id="account-reason" label={text.reason} value={reason} onChange={setReason} hint={text.reasonHint} />
+      {available.map((item) => <div className="account-action" key={item.action}>
+        <Button variant={item.danger ? 'secondary' : 'primary'} onClick={() => void run(item.action)} disabled={busy}>
+          {pending === item.action ? text.saving : text[item.label]}
+        </Button>
+        <p className="field-help">{text[item.hint]}</p>
+      </div>)}
+    </>}
+
+    {available.length === 0 && status !== 'pending' && <p className="status-message" role="status">{text.noActions}</p>}
+  </Drawer>
 }
 
 type IdentityActivationResult = Awaited<ReturnType<typeof issueIdentityActivation>>
 
-function PasswordChangeForm({ locale, token }: { locale: Locale; token: string; }) {
-  const text = copy[locale]
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmation, setConfirmation] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<'success' | 'error' | null>(null)
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setSubmitting(true); setResult(null)
-    if (newPassword.length < 14 || newPassword !== confirmation) { setResult('error'); setSubmitting(false); return }
-    try { await changeIdentityPassword(token, { current_password: currentPassword, new_password: newPassword, new_password_confirmation: confirmation }); setResult('success'); setCurrentPassword(''); setNewPassword(''); setConfirmation('') }
-    catch { setResult('error') }
-    finally { setSubmitting(false) }
-  }
-  return <form className="resource-form" onSubmit={(event) => void submit(event)} aria-label={text.changeOwnPassword}>
-    <h3>{text.changeOwnPassword}</h3>
-    {result === 'error' && <p className="error-summary" role="alert">{text.passwordError}</p>}
-    {result === 'success' && <p className="status-message" role="status">{text.passwordChanged}</p>}
-    <div className="field-row"><Field id="current-password" type="password" label={text.currentPassword} value={currentPassword} onChange={setCurrentPassword} required /><Field id="new-password" type="password" label={text.newPassword} value={newPassword} onChange={setNewPassword} required /><Field id="confirm-password" type="password" label={text.confirmPassword} value={confirmation} onChange={setConfirmation} required /></div>
-    <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.changeOwnPassword}</Button>
-  </form>
+function Field({ id, label, value, onChange, type = 'text', required = false, invalid = false, hint }: { id: string; label: string; value: string; onChange: (value: string) => void; type?: 'text' | 'password'; required?: boolean; invalid?: boolean; hint?: string }) {
+  return <UiField id={id} label={label} required={required} help={hint}>
+    <input id={id} type={type} value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} />
+  </UiField>
 }
 
-function Field({ id, label, value, onChange, type = 'text', required = false, invalid = false }: { id: string; label: string; value: string; onChange: (value: string) => void; type?: 'text' | 'password'; required?: boolean; invalid?: boolean }) { return <UiField id={id} label={label} required={required}><input id={id} type={type} value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} /></UiField> }
-function Select({ id, label, value, onChange, options }: { id: string; label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) { return <UiField id={id} label={label}><UiSelect id={id} value={value} onChange={onChange} options={options} /></UiField> }
+function Select({ id, label, value, onChange, options }: { id: string; label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
+  return <UiField id={id} label={label}><UiSelect id={id} value={value} onChange={onChange} options={options} /></UiField>
+}

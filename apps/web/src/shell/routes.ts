@@ -13,6 +13,7 @@ export type AppRoute =
   | { name: 'authorization'; resource: 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'supervisory' }
   | { name: 'authorization'; resource: 'classification-policies' | 'field-access-templates' }
   | { name: 'access-context' }
+  | { name: 'personal-security' }
   | { name: 'access-explanation'; decisionId?: string }
   | { name: 'workflow-day2' }
   | { name: 'tasks' }
@@ -61,6 +62,7 @@ const ROUTE_WORKSPACE: Record<AppRoute['name'], RouteWorkspace | null> = {
   'coverage': null,
   'api-docs': null,
   'notifications': null,
+  'personal-security': null,
   'not-found': null,
 }
 
@@ -99,6 +101,7 @@ export const primaryRoutes = [
   { route: { name: 'authorization', resource: 'supervisory' } as const, path: '/admin/relationships/supervisory' },
   { route: { name: 'access-explanation' } as const, path: '/admin/authorization/explain' },
   { route: { name: 'access-context' } as const, path: '/me/access' },
+  { route: { name: 'personal-security' } as const, path: '/me/security' },
   { route: { name: 'workflow-day2' } as const, path: '/admin/workflow/day2' },
   { route: { name: 'tasks' } as const, path: '/tasks' },
   { route: { name: 'work-definitions' } as const, path: '/admin/work-definitions' },
@@ -128,6 +131,7 @@ export function pathFromRoute(route: AppRoute): string {
         ? '/admin/relationships/supervisory'
         : `/admin/authorization/${route.resource}`
     case 'access-context': return '/me/access'
+    case 'personal-security': return '/me/security'
     case 'access-explanation': return route.decisionId ? `/admin/authorization/explain/${route.decisionId}` : '/admin/authorization/explain'
     case 'workflow-day2': return '/admin/workflow/day2'
     case 'tasks': return '/tasks'
@@ -174,6 +178,7 @@ export function routeFromPath(pathname: string): AppRoute {
   if (authorizationMatch) return { name: 'authorization', resource: authorizationMatch[1] as 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'classification-policies' | 'field-access-templates' }
   if (pathname === '/admin/relationships/supervisory') return { name: 'authorization', resource: 'supervisory' }
   if (pathname === '/me/access') return { name: 'access-context' }
+  if (pathname === '/me/security') return { name: 'personal-security' }
   if (pathname === '/admin/workflow/day2') return { name: 'workflow-day2' }
   if (pathname === '/tasks') return { name: 'tasks' }
   if (pathname === '/admin/work-definitions') return { name: 'work-definitions' }

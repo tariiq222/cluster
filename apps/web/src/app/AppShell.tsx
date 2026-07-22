@@ -67,6 +67,8 @@ type AppShellProps = {
   onLocaleChange: () => void
   onNotificationsToggle: () => void
   onLogout: () => void
+  /** Where the user-menu profile entry points. Omit to hide the entry. */
+  personalSecurity?: { path: string; onSelect: () => void }
   notificationPanel: ReactNode
   children: ReactNode
   globalSearchLabel?: string
@@ -174,6 +176,7 @@ export function AppShell({
   onLocaleChange,
   onLogout,
   onNotificationsToggle,
+  personalSecurity,
   notificationPanel,
   unreadNotifications,
   globalSearchLabel,
@@ -416,7 +419,19 @@ export function AppShell({
             </button>
             {userMenuOpen && (
               <div id="user-menu" className="header-user-dropdown" role="menu">
-                <button type="button" role="menuitem" onClick={() => setUserMenuOpen(false)}>{copy.profile}</button>
+                {personalSecurity && (
+                  <a
+                    href={personalSecurity.path}
+                    role="menuitem"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      setUserMenuOpen(false)
+                      personalSecurity.onSelect()
+                    }}
+                  >
+                    {copy.profile}
+                  </a>
+                )}
                 <button type="button" role="menuitem" onClick={onLogout}>{copy.logout}</button>
               </div>
             )}

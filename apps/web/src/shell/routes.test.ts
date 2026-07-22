@@ -20,6 +20,8 @@ describe('W1.2 shell route registry', () => {
     expect(routeFromPath('/admin/organization/people')).toEqual({ name: 'people-assignments' })
     expect(routeFromPath('/admin/organization/temporary-assignments')).toEqual({ name: 'temporary-assignments' })
     expect(routeFromPath('/admin/identity/accounts')).toEqual({ name: 'identity-accounts' })
+    expect(routeFromPath('/me/security')).toEqual({ name: 'personal-security' })
+    expect(pathFromRoute({ name: 'personal-security' })).toBe('/me/security')
     expect(routeFromPath('/tasks')).toEqual({ name: 'tasks' })
     expect(routeFromPath('/admin/work-definitions')).toEqual({ name: 'work-definitions' })
     expect(routeFromPath('/admin/workflow')).toEqual({ name: 'workflow-admin' })

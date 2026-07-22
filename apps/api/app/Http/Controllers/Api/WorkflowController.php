@@ -90,7 +90,7 @@ final class WorkflowController
         $graph = ['nodes' => $v['nodes'], 'transitions' => $v['transitions'], 'decision_policy' => $v['decision_policy'] ?? []];
         $versionId = Str::uuid7()->toString();
         $now = now();
-        DB::table('workflow_versions')->insert(['id' => $versionId, 'workflow_definition_id' => $definitionId, 'version_number' => (int) DB::table('workflow_versions')->where('workflow_definition_id', $definitionId)->max('version_number') + 1, 'definition_state' => 'draft', 'graph_document' => json_encode($graph, JSON_THROW_ON_ERROR), 'graph_hash' => hash('sha256', json_encode($graph, JSON_THROW_ON_ERROR)), 'dsl_version' => '1', 'created_at' => $now, 'updated_at' => $now]);
+        DB::table('workflow_versions')->insert(['id' => $versionId, 'workflow_definition_id' => $definitionId, 'version_number' => (int) DB::table('workflow_versions')->where('workflow_definition_id', $definitionId)->max('version_number') + 1, 'definition_state' => 'draft', 'submitted_by_user_id' => $p['user_id'], 'approval_status' => 'draft', 'graph_document' => json_encode($graph, JSON_THROW_ON_ERROR), 'graph_hash' => hash('sha256', json_encode($graph, JSON_THROW_ON_ERROR)), 'dsl_version' => '1', 'created_at' => $now, 'updated_at' => $now]);
         $this->outbox->append(Str::uuid7()->toString(), $versionId, 'workflow.version.created.v1', ['workflow_version_id' => $versionId, 'actor_user_id' => $p['user_id']]);
 
         return $this->response($this->decode((array) DB::table('workflow_versions')->where('id', $versionId)->first()), 201, $c, 1);
@@ -101,7 +101,8 @@ final class WorkflowController
         $c = $this->correlation($request);
         if ($c === null) {
             return $this->problem(400, 'invalid-correlation-id', 'X-Correlation-ID must be a lowercase UUIDv7.');
-        } if ($this->principal($request, $this->resolver) === null) {
+        } $p = $this->principal($request, $this->resolver);
+        if ($p === null) {
             return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
         } $key = $this->commandHeaders($request);
         if ($key === '') {
@@ -109,7 +110,15 @@ final class WorkflowController
         } $row = DB::table('workflow_versions')->where('id', $versionId)->first();
         if ($row === null) {
             return $this->problem(404, 'resource-not-found', 'The workflow version is not available.', $c);
-        } if ($action !== 'publish') {
+        }
+        if (is_string($row->submitted_by_user_id ?? null) && $row->submitted_by_user_id !== '' && $row->submitted_by_user_id === $p['user_id']) {
+            return $this->problem(403, 'self-approval-forbidden', 'The submitter cannot approve their own workflow version.', $c);
+        }
+        $definition = DB::table('workflow_definitions')->where('id', $row->workflow_definition_id)->first();
+        if ($definition !== null && (bool) ($definition->is_system ?? false)) {
+            return $this->problem(403, 'system-path-readonly', 'System workflows cannot be modified.', $c);
+        }
+        if ($action !== 'publish') {
             return $this->problem(409, 'invalid-lifecycle-transition', 'Only publish is available in this vertical.', $c);
         } if ($row->definition_state === 'published') {
             return $this->response($this->decode((array) $row), 200, $c, 1);
