@@ -16,6 +16,7 @@ return new class extends Migration
             $table->uuid('assignee_user_id');
             $table->uuid('owner_organization_unit_id')->nullable();
             $table->string('status', 32)->index();
+            $table->timestamp('due_at')->nullable()->index();
             $table->string('priority', 16)->default('normal');
             $table->string('classification', 24)->default('internal');
             $table->string('completion_policy', 32)->default('direct');
@@ -26,7 +27,7 @@ return new class extends Migration
             $table->unsignedInteger('lock_version')->default(1);
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
-            $table->index(['assignee_user_id', 'status']);
+            $table->index(['assignee_user_id', 'status', 'due_at']);
         });
 
         Schema::create('task_idempotency_keys', function (Blueprint $table): void {

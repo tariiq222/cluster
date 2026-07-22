@@ -49,15 +49,129 @@ final class TaskController
         } $key = $this->commandHeaders($request);
         if ($key === '') {
             return $this->problem(400, 'invalid-idempotency-key', 'Idempotency-Key is required.', $c);
-        } $v = $request->json()->all();
-        if (! is_string($v['title'] ?? null) || $v['title'] === '') {
+        }
+
+        $v = $request->json()->all();
+        $title = $v['title'] ?? null;
+        $description = array_key_exists('description', $v) ? $v['description'] : null;
+        $ownerUnitId = $v['owner_organization_unit_id'] ?? null;
+        $assigneeUserId = array_key_exists('assignee_user_id', $v) ? $v['assignee_user_id'] : $p['user_id'];
+        $priority = $v['priority'] ?? null;
+        $dueAt = $v['due_at'] ?? null;
+        $classification = $v['classification'] ?? null;
+        $completionPolicy = array_key_exists('completion_policy', $v) ? $v['completion_policy'] : 'direct';
+        $source = array_key_exists('source', $v) ? $this->normalizeSourceReference($v['source']) : null;
+
+        if (! is_string($title) || trim($title) === '' || mb_strlen($title) > 255) {
             return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
         }
-        if (! $this->allowed($p, null, 'tasks.create', $c, is_string($v['owner_organization_unit_id'] ?? null) ? $v['owner_organization_unit_id'] : null)) {
+        if (array_key_exists('description', $v) && (! is_string($description) || mb_strlen($description) > 4000)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+        if (! $this->isUuidV7($ownerUnitId)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+        if (! $this->isUuidV7($assigneeUserId)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+        if (! $this->isTaskPriority($priority)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+        if (! $this->isUtcDateTime($dueAt)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+        if (! $this->isTaskClassification($classification)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+        if (! $this->isTaskCompletionPolicy($completionPolicy)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+        if ($source === null && array_key_exists('source', $v)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+        if (! $this->allowed($p, null, 'tasks.create', $c, $ownerUnitId)) {
             return $this->problem(403, 'access-denied', 'Access denied.', $c);
-        } $task = $this->creator->handle(['step_id' => (string) ($v['workflow_step_id'] ?? Str::uuid7()->toString()), 'title' => $v['title'], 'description' => $v['description'] ?? null, 'assignee_user_id' => $v['assignee_user_id'] ?? $p['user_id'], 'owner_organization_unit_id' => $v['owner_organization_unit_id'] ?? null], $p['user_id']);
+        } $task = $this->creator->handle([
+            'title' => $title,
+            'description' => $description,
+            'assignee_user_id' => $assigneeUserId,
+            'owner_organization_unit_id' => $ownerUnitId,
+            'priority' => $priority,
+            'due_at' => $dueAt,
+            'classification' => $classification,
+            'completion_policy' => $completionPolicy,
+            'source' => $source,
+        ], $p['user_id']);
 
         return $this->response($task, 201, $c, (int) ($task['lock_version'] ?? 1));
+    }
+
+    public function update(Request $request, string $taskId): mixed
+    {
+        $c = $this->correlation($request);
+        if ($c === null) {
+            return $this->problem(400, 'invalid-correlation-id', 'X-Correlation-ID must be a lowercase UUIDv7.');
+        }
+        $p = $this->principal($request, $this->resolver);
+        if ($p === null) {
+            return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
+        }
+
+        $task = DB::table('tasks')->where('id', $taskId)->first();
+        if ($task === null) {
+            return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
+        }
+        if (! $this->allowed($p, $task, 'tasks.update', $c)) {
+            return $this->problem(403, 'access-denied', 'Access denied.', $c);
+        }
+
+        $expected = $this->versionFromMatch($request);
+        if ($expected === null || $expected !== (int) $task->lock_version) {
+            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
+        }
+
+        $v = $request->json()->all();
+        $updates = [];
+        if (array_key_exists('title', $v)) {
+            if (! is_string($v['title']) || trim($v['title']) === '' || mb_strlen($v['title']) > 255) {
+                return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+            }
+            $updates['title'] = $v['title'];
+        }
+        if (array_key_exists('description', $v)) {
+            if (! is_string($v['description']) || mb_strlen($v['description']) > 4000) {
+                return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+            }
+            $updates['description'] = $v['description'];
+        }
+        if (array_key_exists('assignee_user_id', $v)) {
+            if (! $this->isUuidV7($v['assignee_user_id'])) {
+                return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+            }
+            $updates['assignee_user_id'] = $v['assignee_user_id'];
+        }
+        if (array_key_exists('priority', $v)) {
+            if (! $this->isTaskPriority($v['priority'])) {
+                return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+            }
+            $updates['priority'] = $v['priority'];
+        }
+        if (array_key_exists('due_at', $v)) {
+            if (! $this->isUtcDateTime($v['due_at'])) {
+                return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+            }
+            $updates['due_at'] = $v['due_at'];
+        }
+        if ($updates === []) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
+
+        $now = now();
+        $updates['lock_version'] = $expected + 1;
+        $updates['updated_at'] = $now;
+        DB::table('tasks')->where('id', $taskId)->where('lock_version', $expected)->update($updates);
+
+        return $this->response((array) DB::table('tasks')->where('id', $taskId)->first(), 200, $c, $expected + 1);
     }
 
     public function show(Request $request, string $taskId): mixed
@@ -99,7 +213,17 @@ final class TaskController
         }
         if (! $this->allowed($p, null, 'tasks.create', $c)) {
             return $this->problem(403, 'access-denied', 'Access denied.', $c);
-        } $task = $this->creator->handle(['step_id' => $stepId, 'title' => $request->input('title', 'Workflow task'), 'assignee_user_id' => $p['user_id']], $p['user_id']);
+        } $task = $this->creator->handle([
+            'step_id' => $stepId,
+            'title' => $request->input('title', 'Workflow task'),
+            'description' => $request->input('description'),
+            'owner_organization_unit_id' => $p['facility_id'] ?? null,
+            'assignee_user_id' => $p['user_id'],
+            'source_module' => 'workflow',
+            'source_type' => 'workflow_step',
+            'source_id' => $stepId,
+            'completion_policy' => 'direct',
+        ], $p['user_id']);
 
         return $this->response($task, 201, $c, (int) ($task['lock_version'] ?? 1));
     }
@@ -149,6 +273,56 @@ final class TaskController
         $this->outbox->append(Str::uuid7()->toString(), $taskId, 'task.'.$action.'.v1', ['task_id' => $taskId, 'actor_user_id' => $p['user_id']]);
 
         return $this->response((array) DB::table('tasks')->where('id', $taskId)->first(), 200, $c, $expected + 1);
+    }
+
+    private function isUuidV7(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $value) === 1;
+    }
+
+    private function isUtcDateTime(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/', $value) === 1;
+    }
+
+    private function isTaskPriority(mixed $value): bool
+    {
+        return is_string($value) && in_array($value, ['low', 'normal', 'high', 'critical'], true);
+    }
+
+    private function isTaskClassification(mixed $value): bool
+    {
+        return is_string($value) && in_array($value, ['public', 'internal', 'confidential', 'top_secret'], true);
+    }
+
+    private function isTaskCompletionPolicy(mixed $value): bool
+    {
+        return is_string($value) && in_array($value, ['direct', 'requires_acceptance'], true);
+    }
+
+    private function normalizeSourceReference(mixed $source): ?array
+    {
+        if ($source === null) {
+            return null;
+        }
+        if (! is_array($source)) {
+            return null;
+        }
+        if (! is_string($source['source_module'] ?? null) || preg_match('/\A[a-z][a-z0-9_]{1,63}\z/', $source['source_module']) !== 1) {
+            return null;
+        }
+        if (! is_string($source['record_type'] ?? null) || $source['record_type'] === '' || mb_strlen($source['record_type']) > 128) {
+            return null;
+        }
+        if (! $this->isUuidV7($source['record_id'] ?? null)) {
+            return null;
+        }
+
+        return [
+            'source_module' => $source['source_module'],
+            'record_type' => $source['record_type'],
+            'record_id' => $source['record_id'],
+        ];
     }
 
     private function allowed(array $principal, ?\stdClass $task, string $capability, string $correlationId, ?string $ownerUnitId = null): bool
