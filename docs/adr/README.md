@@ -51,6 +51,7 @@ review_by: 2027-01-15
 | [022](022-portfolio-projects-and-risk-boundaries.md) | حدود المحافظ والمشاريع والمخاطر | accepted |
 | [023](023-single-host-dokploy-deployment.md) | تشغيل VPS مباشر عبر Docker Compose | accepted |
 | [024](024-organization-identity-import-boundaries.md) | ملكية Organization وIdentity وحدود الاستيراد | accepted |
+| [025](025-job-titles-reference-normalization.md) | تطبيع المسمى الوظيفي عبر مرجع job_titles | proposed |
 
 القالب المعتمد: [template.md](template.md).
 
@@ -58,6 +59,7 @@ review_by: 2027-01-15
 
 | الإصدار | التاريخ | الدور | التغيير |
 |---|---|---|---|
+| 1.3.0 | 2026-07-21 | طارق | إضافة ADR-025 المقترح (تطبيع المسمى الوظيفي) |
 | 1.2.0 | 2026-07-18 | طارق | اعتماد ADR-024 بعد مواءمة عقود W1.2 |
 | 1.1.0 | 2026-07-17 | مجلس معمارية المنصة | إضافة ADR-024 المقترح |
 | 1.0.0 | 2026-07-15 | مجلس معمارية المنصة | إنشاء فهرس قرارات المعمارية |
