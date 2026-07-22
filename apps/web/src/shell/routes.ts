@@ -19,6 +19,12 @@ export type AppRoute =
   | { name: 'tasks' }
   | { name: 'work-definitions' }
   | { name: 'workflow-admin' }
+  | { name: 'procedure-authoring' }
+  | { name: 'procedure-office-review' }
+  | { name: 'procedure-guide'; procedureId?: string }
+  | { name: 'approval-inbox' }
+  | { name: 'my-requests' }
+  | { name: 'new-procedure-request' }
   | { name: 'search' }
   | { name: 'reports' }
   | { name: 'coverage' }
@@ -51,6 +57,12 @@ const ROUTE_WORKSPACE: Record<AppRoute['name'], RouteWorkspace | null> = {
   'workflow-day2': 'workflow',
   'work-definitions': 'workflow',
   'workflow-admin': 'workflow',
+  'procedure-authoring': 'workflow',
+  'procedure-office-review': 'workflow',
+  'procedure-guide': 'workflow',
+  'approval-inbox': 'workflow',
+  'my-requests': 'workflow',
+  'new-procedure-request': 'workflow',
   'list': null,
   'documents': null,
   'document-detail': null,
@@ -106,6 +118,12 @@ export const primaryRoutes = [
   { route: { name: 'tasks' } as const, path: '/tasks' },
   { route: { name: 'work-definitions' } as const, path: '/admin/work-definitions' },
   { route: { name: 'workflow-admin' } as const, path: '/admin/workflow' },
+  { route: { name: 'procedure-authoring' } as const, path: '/admin/procedures/authoring' },
+  { route: { name: 'procedure-office-review' } as const, path: '/admin/procedures/review' },
+  { route: { name: 'procedure-guide' } as const, path: '/procedures' },
+  { route: { name: 'approval-inbox' } as const, path: '/approvals' },
+  { route: { name: 'my-requests' } as const, path: '/my-requests' },
+  { route: { name: 'new-procedure-request' } as const, path: '/procedures/new' },
   { route: { name: 'search' } as const, path: '/search' },
   { route: { name: 'reports' } as const, path: '/reports' },
   { route: { name: 'coverage' } as const, path: '/coverage' },
@@ -137,6 +155,13 @@ export function pathFromRoute(route: AppRoute): string {
     case 'tasks': return '/tasks'
     case 'work-definitions': return '/admin/work-definitions'
     case 'workflow-admin': return '/admin/workflow'
+    case 'procedure-authoring': return '/admin/procedures/authoring'
+    case 'procedure-office-review': return '/admin/procedures/review'
+    case 'procedure-guide':
+      return route.procedureId ? `/procedures/${route.procedureId}` : '/procedures'
+    case 'approval-inbox': return '/approvals'
+    case 'my-requests': return '/my-requests'
+    case 'new-procedure-request': return '/procedures/new'
     case 'search': return '/search'
     case 'reports': return '/reports'
     case 'coverage': return '/coverage'
@@ -183,6 +208,17 @@ export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/tasks') return { name: 'tasks' }
   if (pathname === '/admin/work-definitions') return { name: 'work-definitions' }
   if (pathname === '/admin/workflow') return { name: 'workflow-admin' }
+  if (pathname === '/admin/procedures/authoring') return { name: 'procedure-authoring' }
+  if (pathname === '/admin/procedures/review') return { name: 'procedure-office-review' }
+  if (pathname === '/procedures') return { name: 'procedure-guide' }
+  if (pathname === '/procedures/submit') return { name: 'procedure-guide', procedureId: 'submit' }
+  if (pathname === '/procedures/new') return { name: 'new-procedure-request' }
+  const procedureSubmitMatch = pathname.match(/^\/procedures\/([^/]+)\/submit$/)
+  if (procedureSubmitMatch) return { name: 'procedure-guide', procedureId: procedureSubmitMatch[1] }
+  const procedureMatch = pathname.match(/^\/procedures\/([^/]+)$/)
+  if (procedureMatch) return { name: 'procedure-guide', procedureId: procedureMatch[1] }
+  if (pathname === '/approvals') return { name: 'approval-inbox' }
+  if (pathname === '/my-requests') return { name: 'my-requests' }
   if (pathname === '/search') return { name: 'search' }
   if (pathname === '/reports') return { name: 'reports' }
   if (pathname === '/coverage') return { name: 'coverage' }
@@ -201,4 +237,92 @@ export function routeFromPath(pathname: string): AppRoute {
   }
 
   return { name: 'not-found' }
+}
+
+/**
+ * The capability code, if any, that gates a route. `null` means the route is
+ * open to any authenticated principal; the sidebar uses the value to decide
+ * whether to render the entry. The map is exhaustive on purpose: adding a new
+ * `AppRoute` without classifying it here is a compile error rather than a
+ * silently unclassified sidebar entry.
+ */
+export function capabilityForRoute(route: AppRoute): string | null {
+  switch (route.name) {
+    case 'list':
+    case 'documents':
+    case 'document-detail':
+    case 'create':
+    case 'detail':
+    case 'access-context':
+    case 'personal-security':
+    case 'coverage':
+    case 'api-docs':
+    case 'notifications':
+    case 'search':
+    case 'not-found':
+    case 'procedure-guide':
+      return null
+    case 'organization':
+    case 'organization-structure':
+    case 'people-assignments':
+    case 'temporary-assignments':
+    case 'organization-import':
+      return 'organization.unit.read'
+    case 'identity-accounts':
+      return 'identity.account.read'
+    case 'authorization':
+      switch (route.resource) {
+        case 'roles':
+        case 'capabilities':
+          return 'authorization.role.read'
+        case 'role-assignments':
+          return 'authorization.assignment.read'
+        case 'delegations':
+          return 'authorization.delegation.read'
+        case 'classification-policies':
+        case 'field-access-templates':
+          return 'authorization.policy.read'
+        case 'supervisory':
+          return 'authorization.assignment.read'
+      }
+      return null
+    case 'access-explanation':
+      return 'authorization.decision.read'
+    case 'workflow-day2':
+    case 'work-definitions':
+    case 'workflow-admin':
+      return 'work_definition.read'
+    case 'procedure-authoring':
+      return 'workflow.author'
+    case 'procedure-office-review':
+      return 'workflow.approve'
+    case 'approval-inbox':
+    case 'my-requests':
+      return 'workflow.read'
+    case 'new-procedure-request':
+      return 'workflow.author'
+    case 'tasks':
+      return 'tasks.read'
+    case 'reports':
+      return 'reporting.list'
+  }
+}
+
+/**
+ * Decides whether a sidebar entry pointing at `route` should render for a
+ * principal with the given capabilities.
+ *
+ * `null` means the principal context is still loading; gated routes stay
+ * hidden until the context resolves so we never advertise what is withheld.
+ * An empty array means the principal context resolved with no capabilities;
+ * open routes stay visible and gated routes stay hidden.
+ */
+export function isRouteVisible(
+  route: AppRoute,
+  capabilities: readonly string[] | null,
+): boolean {
+  const required = capabilityForRoute(route)
+  if (required === null) return true
+  if (capabilities === null) return false
+  return capabilities.includes(required)
 }

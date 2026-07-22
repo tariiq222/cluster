@@ -169,6 +169,9 @@ export const text = {
     manageFacilitiesStructurePeopleAnd: 'أدر منشآت التجمع وهيكله التنظيمي وموظفيه من مساحة واحدة.',
     operateWorkThenDefineThe: 'شغّل الأعمال، ثم عرّف البيانات والمسارات التي تحكم انتقالها.',
     markNotificationRead: (title: string) => `تحديد الإشعار كمقروء: ${title}`,
+    myIndicators: 'مؤشراتي',
+    indicatorsInScope: 'مؤشرات داخل النطاق',
+    openIndicator: 'فتح التفاصيل',
   },
   en: {
     platform: 'Institutional Work Portal',
@@ -338,6 +341,9 @@ export const text = {
     manageFacilitiesStructurePeopleAnd: 'Manage cluster facilities, organization structure, and employees from one workspace.',
     operateWorkThenDefineThe: 'Operate work, then define the data and paths that govern it.',
     markNotificationRead: (title: string) => `Mark notification as read: ${title}`,
+    myIndicators: 'My indicators',
+    indicatorsInScope: 'Indicators in scope',
+    openIndicator: 'Open indicator',
   },
 } as const
 

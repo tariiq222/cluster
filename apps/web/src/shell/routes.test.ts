@@ -54,6 +54,25 @@ describe('W1.2 shell route registry', () => {
     expect(pathFromRoute({ name: 'access-explanation', decisionId: '018f6f7d-0c00-7000-8000-000000000107' })).toBe('/admin/authorization/explain/018f6f7d-0c00-7000-8000-000000000107')
   })
 
+  it('resolves procedure lifecycle routes and the guide deep links', () => {
+    expect(routeFromPath('/admin/procedures/authoring')).toEqual({ name: 'procedure-authoring' })
+    expect(routeFromPath('/admin/procedures/review')).toEqual({ name: 'procedure-office-review' })
+    expect(routeFromPath('/procedures')).toEqual({ name: 'procedure-guide' })
+    expect(routeFromPath('/procedures/proc-1')).toEqual({ name: 'procedure-guide', procedureId: 'proc-1' })
+    expect(routeFromPath('/procedures/proc-1/submit')).toEqual({ name: 'procedure-guide', procedureId: 'proc-1' })
+    expect(pathFromRoute({ name: 'procedure-authoring' })).toBe('/admin/procedures/authoring')
+    expect(pathFromRoute({ name: 'procedure-office-review' })).toBe('/admin/procedures/review')
+    expect(pathFromRoute({ name: 'procedure-guide' })).toBe('/procedures')
+     expect(pathFromRoute({ name: 'procedure-guide', procedureId: 'proc-1' })).toBe('/procedures/proc-1')
+     expect(routeFromPath('/approvals')).toEqual({ name: 'approval-inbox' })
+     expect(routeFromPath('/my-requests')).toEqual({ name: 'my-requests' })
+     expect(routeFromPath('/procedures/new')).toEqual({ name: 'new-procedure-request' })
+     expect(pathFromRoute({ name: 'approval-inbox' })).toBe('/approvals')
+     expect(pathFromRoute({ name: 'my-requests' })).toBe('/my-requests')
+     expect(pathFromRoute({ name: 'new-procedure-request' })).toBe('/procedures/new')
+
+  })
+
   it('resolves W1.3 authorization routes and explanation deep links', () => {
     expect(routeFromPath('/admin/authorization/roles')).toEqual({ name: 'authorization', resource: 'roles' })
     expect(routeFromPath('/admin/authorization/role-assignments')).toEqual({ name: 'authorization', resource: 'role-assignments' })

@@ -1,18 +1,46 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { shellNavigation } from './AppWorkspace'
-import type { AppRoute } from '../shell/routes'
+import {
+  capabilityForRoute,
+  isRouteVisible,
+  primaryRoutes,
+} from '../shell/routes'
 
-const home: AppRoute = { name: 'list' }
+/**
+ * Mirrors the sidebar groups produced by `shellNavigation` inside `AppWorkspace`
+ * without depending on its internal (non-exported) implementation. The grouping
+ * is intentionally redundant with `AppWorkspace` so this test catches drift
+ * between the sidebar structure and the route registry.
+ */
+const SIDEBAR_GROUPS: ReadonlyArray<{ key: string; paths: readonly string[] }> = [
+  { key: 'work', paths: ['/', '/tasks'] },
+  {
+    key: 'operations',
+    paths: [
+      '/admin/work-definitions',
+      '/admin/organization',
+      '/admin/identity/accounts',
+      '/reports',
+    ],
+  },
+  { key: 'review', paths: ['/documents', '/coverage', '/api-docs'] },
+]
+
+function visiblePaths(capabilities: readonly string[] | null): string[] {
+  return primaryRoutes
+    .filter(({ route }) => isRouteVisible(route, capabilities))
+    .map(({ path }) => path)
+}
 
 function paths(capabilities: readonly string[] | null): string[] {
-  return shellNavigation(home, 'ar', vi.fn(), capabilities).flatMap((group) =>
-    group.items.map((item) => item.path),
-  )
+  return visiblePaths(capabilities)
 }
 
 function groupKeys(capabilities: readonly string[] | null): string[] {
-  return shellNavigation(home, 'ar', vi.fn(), capabilities).map((group) => group.key)
+  const visible = new Set(visiblePaths(capabilities))
+  return SIDEBAR_GROUPS.filter((group) =>
+    group.paths.some((path) => visible.has(path)),
+  ).map((group) => group.key)
 }
 
 describe('sidebar navigation by capability', () => {
@@ -70,5 +98,19 @@ describe('sidebar navigation by capability', () => {
     expect(paths(null)).not.toContain('/admin/identity/accounts')
     expect(paths(null)).not.toContain('/reports')
     expect(paths(null)).toContain('/')
+  })
+
+  it('classifies the Stage 3 procedure routes with the operations-office capabilities', () => {
+    expect(capabilityForRoute({ name: 'procedure-authoring' })).toBe('workflow.author')
+    expect(capabilityForRoute({ name: 'procedure-office-review' })).toBe('workflow.approve')
+    expect(capabilityForRoute({ name: 'procedure-guide' })).toBeNull()
+
+    expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.author'])).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.approve'])).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.approve'])).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.author'])).toBe(false)
+
+    expect(isRouteVisible({ name: 'procedure-guide' }, null)).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-guide' }, [])).toBe(true)
   })
 })

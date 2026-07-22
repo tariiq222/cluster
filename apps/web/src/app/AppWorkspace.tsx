@@ -48,6 +48,12 @@ import {
 import { CoverageScreen } from '../features/portal/CoverageScreen'
 import { PersonalSecurity } from '../features/identity/PersonalSecurity'
 import { DocumentsWorkspace } from '../features/documents/DocumentsWorkspace'
+import { ProcedureAuthoring } from '../features/workflow/ProcedureAuthoring'
+import { ProcedureOfficeReview } from '../features/workflow/ProcedureOfficeReview'
+import { ProcedureGuide } from '../features/workflow/ProcedureGuide'
+import { ApprovalInbox } from '../features/workflow/ApprovalInbox'
+import { MyRequests } from '../features/workflow/MyRequests'
+import { NewProcedureRequest } from '../features/workflow/NewProcedureRequest'
 import {
   ApiError,
   getWorkRecord,
@@ -713,6 +719,24 @@ export function AppWorkspace({
             <SwaggerUiScreen locale={locale} />
           </Suspense>
         )
+      case 'procedure-authoring':
+        return <ProcedureAuthoring locale={locale} session={session} />
+      case 'procedure-office-review':
+        return <ProcedureOfficeReview locale={locale} session={session} />
+      case 'procedure-guide':
+        return (
+          <ProcedureGuide
+            locale={locale}
+            session={session}
+            highlightedProcedureId={route.name === 'procedure-guide' ? route.procedureId : undefined}
+          />
+        )
+      case 'approval-inbox':
+        return <ApprovalInbox locale={locale} session={session} />
+      case 'my-requests':
+        return <MyRequests locale={locale} session={session} />
+      case 'new-procedure-request':
+        return <NewProcedureRequest locale={locale} />
       case 'not-found':
         return <RouteNotFound locale={locale} />
     }

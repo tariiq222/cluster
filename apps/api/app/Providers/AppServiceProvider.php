@@ -16,9 +16,11 @@ use App\Http\Controllers\Organization\RevokeTemporaryAssignmentController;
 use App\Integrations\WorkRecordAuthorizationFacts;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
+use Modules\Authorization\Contracts\CountOperationsOfficeMembers;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
+use Modules\Authorization\Infrastructure\Persistence\CountOperationsOfficeMembers as DatabaseCountOperationsOfficeMembers;
 use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Documents\Application\DocumentDownloadService;
@@ -56,6 +58,7 @@ use Modules\Documents\Infrastructure\Storage\UnavailablePrivateObjectStorage;
 use Modules\Identity\Contracts\ResolveAccountEntitlement;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
+use Modules\Identity\Contracts\ResolveUserForPerson;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
 use Modules\Identity\Features\Activation\Handler\ActivationHandler;
 use Modules\Identity\Features\Authentication\Contracts\AuthenticateUser;
@@ -69,6 +72,7 @@ use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
 use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
+use Modules\Identity\Infrastructure\Persistence\ResolveUserForPerson as DatabaseResolveUserForPerson;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
@@ -93,6 +97,8 @@ use Modules\WorkDefinitions\Contracts\ResolvePublishedWorkDefinition;
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedRequestFixtureFromPersistence;
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedWorkDefinitionFromPersistence;
 use Modules\Workflow\Contracts\AdvanceWorkflowStep;
+use Modules\Workflow\Contracts\ResolveStepAssignee;
+use Modules\Workflow\Domain\AssignmentRules;
 use Modules\Workflow\Infrastructure\Persistence\WorkflowStepAdvancer;
 use Predis\Client;
 use Shared\Contracts\TransactionalOutbox;
@@ -108,6 +114,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PersistAccessDecision::class, DatabasePersistAccessDecision::class);
+        $this->app->bind(CountOperationsOfficeMembers::class, DatabaseCountOperationsOfficeMembers::class);
         $this->app->bind(RbacAbacDecideAccess::class, fn ($app): RbacAbacDecideAccess => new RbacAbacDecideAccess(
             $app->make(GetActiveSupervisoryRelationships::class),
             $app->bound(PersistAccessDecision::class)
@@ -119,6 +126,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ResolvePublishedWorkDefinition::class, ResolvePublishedWorkDefinitionFromPersistence::class);
         $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
         $this->app->bind(AdvanceWorkflowStep::class, WorkflowStepAdvancer::class);
+        $this->app->bind(ResolveStepAssignee::class, AssignmentRules::class);
         $this->app->bind(ResolveQuarantinedImport::class, UnavailableQuarantinedImport::class);
         $this->app->bind(ValidatePersonReference::class, ValidatePersonReferenceFromPersistence::class);
         $this->app->bind(GetActiveSupervisoryRelationships::class, DatabaseGetActiveSupervisoryRelationships::class);
@@ -126,6 +134,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ResolveOrganizationScopeAncestry::class, DatabaseResolveOrganizationScopeAncestry::class);
         $this->app->bind(ResolvePrincipalContext::class, SessionPrincipalContextResolver::class);
         $this->app->bind(ResolveAccountEntitlement::class, DatabaseResolveAccountEntitlement::class);
+        $this->app->bind(ResolveUserForPerson::class, DatabaseResolveUserForPerson::class);
         $this->app->bind(AuthenticateUser::class, AuthenticationHandler::class);
         $this->app->bind(PreAuthThrottle::class, PersistentPreAuthThrottle::class);
         $this->app->bind(IssueActivationToken::class, ActivationHandler::class);
@@ -276,7 +285,9 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/WorkRecords/Infrastructure/Outbox/Migrations/CreateOutboxTable.php'),
             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/CreateWorkflowTables.php'),
             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W14AddWorkflowStepAssignee.php'),
-            base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
+             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php'),
+             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W17AddApprovalColumnsToWorkflowVersions.php'),
+             base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
             base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/W13CreateTaskEngagementTables.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationInboxTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationsTable.php'),

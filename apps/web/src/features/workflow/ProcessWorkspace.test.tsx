@@ -21,32 +21,33 @@ vi.mock('./RequestListScreens', () => ({
 
 const session = {
   access_token: 'test-token',
+  csrf_token: 'test-token',
+  user_id: 'user-1',
   expires_at: '2026-07-22T00:00:00.000Z',
+  restricted: false,
+  principal: { user_id: 'user-1' },
   user: { id: 'user-1', username: 'test-user' },
 }
 
 describe('ProcessWorkspace', () => {
-  it('renders the five stable workflow destinations without promoting the day 2 compatibility route', () => {
+  it('renders the workspace navigation with the three stable sections and renders the active screen', () => {
     render(
       <ProcessWorkspace
         locale="ar"
         session={session}
-        activeRouteName="tasks"
+        activeRouteName="workflow-day2"
         navigate={vi.fn()}
       />,
     )
 
-    const navigation = screen.getByRole('navigation', { name: 'أقسام سير العمل والطلبات' })
+    const navigation = screen.getByRole('navigation', { name: 'أقسام الإجراءات وسير العمل' })
     const links = within(navigation).getAllByRole('link')
 
-    expect(links).toHaveLength(5)
-    expect(screen.getByRole('link', { name: 'طلباتي' })).toHaveAttribute('href', '/requests')
-    expect(screen.getByRole('link', { name: 'بانتظار إجراء مني' })).toHaveAttribute('href', '/tasks')
-    expect(screen.getByRole('link', { name: 'إدارة الطلبات' })).toHaveAttribute('href', '/admin/requests')
-    expect(screen.getByRole('link', { name: 'أنواع الطلبات' })).toHaveAttribute('href', '/admin/work-definitions')
-    expect(screen.getByRole('link', { name: 'مسارات الموافقة' })).toHaveAttribute('href', '/admin/workflow')
-    expect(screen.queryByRole('link', { name: /day 2/i })).toBeNull()
-    expect(screen.getByText('Tasks screen')).toBeInTheDocument()
+    expect(links).toHaveLength(3)
+    expect(links[0].getAttribute('href')).toBe('/admin/workflow/day2')
+    expect(links[1].getAttribute('href')).toBe('/admin/work-definitions')
+    expect(links[2].getAttribute('href')).toBe('/admin/workflow')
+    expect(screen.getByText('Day 2 compatibility view')).toBeTruthy()
   })
 
   afterEach(() => {

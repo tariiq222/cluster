@@ -30,6 +30,30 @@ describe('navigation capability gating', () => {
     expect(isRouteVisible({ name: 'reports' }, ['reporting.list'])).toBe(true)
   })
 
+  it('gates the procedure authoring and office review routes on workflow capabilities and leaves the guide open', () => {
+    expect(capabilityForRoute({ name: 'procedure-authoring' })).toBe('workflow.author')
+    expect(capabilityForRoute({ name: 'procedure-office-review' })).toBe('workflow.approve')
+    expect(capabilityForRoute({ name: 'procedure-guide' })).toBeNull()
+
+    expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.author'])).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.approve'])).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.approve'])).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.author'])).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-guide' }, [])).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-guide' }, null)).toBe(true)
+  })
+
+  it('gates Stage 4 request routes on workflow capabilities', () => {
+    expect(capabilityForRoute({ name: 'approval-inbox' })).toBe('workflow.read')
+    expect(capabilityForRoute({ name: 'my-requests' })).toBe('workflow.read')
+    expect(capabilityForRoute({ name: 'new-procedure-request' })).toBe('workflow.author')
+
+    expect(isRouteVisible({ name: 'approval-inbox' }, ['workflow.read'])).toBe(true)
+    expect(isRouteVisible({ name: 'my-requests' }, ['workflow.read'])).toBe(true)
+    expect(isRouteVisible({ name: 'new-procedure-request' }, ['workflow.author'])).toBe(true)
+    expect(isRouteVisible({ name: 'new-procedure-request' }, ['workflow.read'])).toBe(false)
+  })
+
   it('gates each authorization tab on its own resource capability', () => {
     expect(capabilityForRoute({ name: 'authorization', resource: 'roles' })).toBe('authorization.role.read')
     expect(capabilityForRoute({ name: 'authorization', resource: 'delegations' })).toBe('authorization.delegation.read')

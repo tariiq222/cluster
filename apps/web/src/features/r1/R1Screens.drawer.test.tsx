@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 
 import { WorkDefinitionsScreen, WorkflowAdminScreen } from './R1Screens'
 
@@ -33,29 +33,29 @@ vi.mock('../../api/r1', () => ({
   transitionTask: vi.fn(),
 }))
 
-describe('R1 admin creation drawers', () => {
-  it('keeps request types list-first and reveals its create form only in the unified Drawer', async () => {
+describe('R1 admin creation screens', () => {
+  it('keeps request types list-first and exposes the inline create form', async () => {
     render(<WorkDefinitionsScreen />)
 
-    expect(await screen.findByText('نوع طلب')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: 'إضافة نوع طلب' })).toBeNull()
+    expect(await screen.findByText('نوع طلب')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByText(/يبقى كل سجل مثبتاً/)).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'إضافة نوع طلب' }))
-
-    expect(screen.getByRole('dialog', { name: 'إضافة نوع طلب' })).toBeInTheDocument()
-    expect(screen.getByLabelText('الرمز')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'إنشاء' })).toBeTruthy()
+    expect(document.getElementById('work-definition-code')).toBeTruthy()
+    expect(document.getElementById('work-definition-name')).toBeTruthy()
   })
 
-  it('keeps approval paths list-first and explains the immutable published-version flow', async () => {
+  it('keeps approval paths list-first and surfaces the published definitions panel', async () => {
     render(<WorkflowAdminScreen />)
 
-    expect(await screen.findByText('مسار موافقة')).toBeInTheDocument()
-    expect(screen.getByText(/الإصدارات المنشورة ثابتة/)).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: 'إضافة مسار موافقة' })).toBeNull()
+    expect(await screen.findByText('مسار موافقة')).toBeTruthy()
+    expect(screen.getByText('التعريفات المنشورة')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'إضافة مسار موافقة' }))
-
-    expect(screen.getByRole('dialog', { name: 'إضافة مسار موافقة' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'إنشاء' })).toBeTruthy()
+    expect(document.getElementById('workflow-code')).toBeTruthy()
+    expect(document.getElementById('workflow-name')).toBeTruthy()
   })
 
   afterEach(() => {

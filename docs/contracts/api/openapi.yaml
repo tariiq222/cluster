@@ -928,26 +928,17 @@ paths:
   /workflow/instances/{instanceId}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     get:
-      {
-        summary: Get workflow instance state and active steps,
-        operationId: getWorkflowInstance,
-        parameters:
-          [
-            {
-              name: instanceId,
-              in: path,
-              required: true,
-              schema: { $ref: "#/components/schemas/UUIDv7" },
-            },
-          ],
-        responses:
-          {
-            "200": { $ref: "#/components/responses/Entity" },
-            "401": { $ref: "#/components/responses/Unauthorized" },
-            "403": { $ref: "#/components/responses/Forbidden" },
-            "404": { $ref: "#/components/responses/NotFound" },
-          },
-      }
+      tags: [Requests, Workflow]
+      summary: Get workflow instance state, current owner, age, and step history for request tracking,
+      operationId: getWorkflowInstance,
+      parameters: [{ name: instanceId, in: path, required: true, schema: { $ref: "#/components/schemas/UUIDv7" } }]
+      responses:
+        {
+          "200": { $ref: "#/components/responses/WorkflowInstanceTrackingResponse" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+        }
   /workflow/instances/{instanceId}/cancel:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     post:
@@ -1050,6 +1041,199 @@ paths:
           "404": { $ref: "#/components/responses/NotFound" },
           "409": { $ref: "#/components/responses/Conflict" },
           "412": { $ref: "#/components/responses/PreconditionFailed" },
+        }
+  /workflow/operations-office/versions/{versionId}/submit:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
+    post:
+      tags: [Operations Office, Workflow]
+      summary: Submit a Draft workflow version for office review (draft -> pending_review)
+      operationId: submitWorkflowVersionForReview
+      parameters:
+        [
+          { $ref: "#/components/parameters/VersionId" },
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: false,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/OperationsOfficeSubmission" } },
+            },
+        }
+      responses:
+        {
+          "200": { $ref: "#/components/responses/OperationsOfficeVersionResponse" },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { description: Operations-office authorization denied, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:forbidden" } } }] } } } },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { description: Operations-office lifecycle conflict, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:lifecycle-conflict" } } }] } } } },
+          "412": { $ref: "#/components/responses/PreconditionFailed" },
+          "422": { description: Invalid operations-office payload, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:operations-office:invalid-payload" } } }] } } } },
+        }
+  /workflow/operations-office/versions/{versionId}/return:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
+    post:
+      tags: [Operations Office, Workflow]
+      summary: Return a pending_review version to the author with a reason (pending_review -> draft)
+      operationId: returnWorkflowVersionForRevision
+      parameters:
+        [
+          { $ref: "#/components/parameters/VersionId" },
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/OperationsOfficeReturn" } },
+            },
+        }
+      responses:
+        {
+          "200": { $ref: "#/components/responses/OperationsOfficeVersionResponse" },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { description: Operations-office authorization denied, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:forbidden" } } }] } } } },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { description: Operations-office lifecycle conflict, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:lifecycle-conflict" } } }] } } } },
+          "412": { $ref: "#/components/responses/PreconditionFailed" },
+        }
+  /workflow/operations-office/versions/{versionId}/approve:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
+    post:
+      tags: [Operations Office, Workflow]
+      summary: Approve a pending_review workflow version (pending_review -> approved, ready to publish)
+      operationId: approveWorkflowVersion
+      parameters:
+        [
+          { $ref: "#/components/parameters/VersionId" },
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/OperationsOfficeApproval" } },
+            },
+        }
+      responses:
+        {
+          "200": { $ref: "#/components/responses/OperationsOfficeVersionResponse" },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { description: Operations-office authorization denied, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:forbidden" } } }] } } } },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { description: Operations-office lifecycle conflict, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:lifecycle-conflict" } } }] } } } },
+          "412": { $ref: "#/components/responses/PreconditionFailed" },
+          "422": { description: Invalid operations-office payload, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:operations-office:invalid-payload" } } }] } } } },
+        }
+  /workflow/operations-office/versions/{versionId}/publish:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
+    post:
+      tags: [Operations Office, Workflow]
+      summary: Publish an approved workflow version with audience scope; atomic with its work-definition version
+      operationId: publishWorkflowVersion
+      parameters:
+        [
+          { $ref: "#/components/parameters/VersionId" },
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/OperationsOfficePublication" } },
+            },
+        }
+      responses:
+        {
+          "200": { $ref: "#/components/responses/OperationsOfficePublicationResponse" },
+          "400": { $ref: "#/components/responses/BadRequest" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { description: Operations-office authorization denied, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:forbidden" } } }] } } } },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "409": { description: Operations-office lifecycle conflict, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:lifecycle-conflict" } } }] } } } },
+          "412": { $ref: "#/components/responses/PreconditionFailed" },
+          "422": { description: Invalid operations-office payload, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:operations-office:invalid-payload" } } }] } } } },
+        }
+  /workflow/operations-office/versions/{versionId}/audit:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
+    get:
+      tags: [Operations Office, Workflow]
+      summary: Read the operations-office audit trail for a workflow version
+      operationId: getWorkflowVersionOfficeAudit
+      parameters:
+        [
+          { $ref: "#/components/parameters/VersionId" },
+          { $ref: "#/components/parameters/Cursor" },
+          { $ref: "#/components/parameters/Limit" },
+        ]
+      responses:
+        {
+          "200": { $ref: "#/components/responses/OperationsOfficeAuditCollection" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { description: Operations-office authorization denied, content: { application/problem+json: { schema: { allOf: [{ $ref: "../schemas/problem-details.schema.json" }, { type: object, required: [type], properties: { type: { const: "urn:cluster:problem:operations-office:forbidden" } } }] } } } },
+          "404": { $ref: "#/components/responses/NotFound" },
+        }
+  /workflow/steps:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
+    get:
+      tags: [Approval Inbox, Workflow]
+      summary: List approval inbox steps assigned to the current principal
+      operationId: listWorkflowStepsInbox
+      parameters:
+        [
+          { $ref: "#/components/parameters/Cursor" },
+          { $ref: "#/components/parameters/Limit" },
+          {
+            name: state,
+            in: query,
+            required: false,
+            schema:
+              {
+                type: string,
+                enum: [waiting, active, completed, rejected, cancelled, all],
+              },
+          },
+          {
+            name: assignee,
+            in: query,
+            required: false,
+            schema: { type: string, enum: [me] },
+            description: "When `me`, server filters to the current principal; principal leakage of steps owned by others is forbidden.",
+          },
+          {
+            name: assignee_user_id,
+            in: query,
+            required: false,
+            schema: { $ref: "#/components/schemas/UUIDv7" },
+            description: "Explicit assignee filter; ignored unless caller holds operations-office review authority.",
+          },
+        ]
+      responses:
+        {
+          "200": { $ref: "#/components/responses/WorkflowStepCollection" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
         }
   /tasks:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
@@ -5490,7 +5674,239 @@ components:
               { schema: { $ref: "../schemas/access-decision.schema.json" } },
           },
       }
+    WorkflowInstanceTrackingResponse:
+      {
+        description: "Workflow instance tracking projection with state, current owner, age, and step history",
+        headers:
+          {
+            ETag: { $ref: "#/components/headers/ETag" },
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" },
+          },
+        content:
+          {
+            application/json:
+              { schema: { $ref: "#/components/schemas/WorkflowInstanceTracking" } },
+          },
+      }
+    WorkflowStepCollection:
+      {
+        description: Cursor-paginated workflow step instances assigned to the current principal,
+        headers:
+          {
+            Link: { schema: { type: string } },
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" },
+          },
+        content:
+          {
+            application/json:
+              { schema: { $ref: "#/components/schemas/WorkflowStepCollection" } },
+          },
+      }
+    OperationsOfficeVersionResponse:
+      {
+        description: Operations-office workflow version projection after lifecycle transition,
+        headers:
+          {
+            ETag: { $ref: "#/components/headers/ETag" },
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" },
+          },
+        content:
+          {
+            application/json:
+              { schema: { $ref: "#/components/schemas/OperationsOfficeVersion" } },
+          },
+      }
+    OperationsOfficePublicationResponse:
+      {
+        description: "Operations-office publication result, including self-approval override and notification outcome",
+        headers:
+          {
+            ETag: { $ref: "#/components/headers/ETag" },
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" },
+          },
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  { $ref: "#/components/schemas/OperationsOfficePublicationResult" },
+              },
+          },
+      }
+    OperationsOfficeAuditCollection:
+      {
+        description: Cursor-paginated operations-office audit entries for a workflow version,
+        headers:
+          {
+            Link: { schema: { type: string } },
+            X-Correlation-ID: { $ref: "#/components/headers/Correlation" },
+          },
+        content:
+          {
+            application/json:
+              { schema: { $ref: "#/components/schemas/OperationsOfficeAuditCollection" } },
+          },
+      }
   schemas:
+    OperationsOfficeSubmission:
+      type: object
+      additionalProperties: false
+      required: [workflow_version_id]
+      properties:
+        workflow_version_id: { $ref: "#/components/schemas/UUIDv7" }
+        idempotency_key: { type: string, minLength: 1, maxLength: 255 }
+    OperationsOfficeReturn:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, maxLength: 2000 }
+        idempotency_key: { type: string, minLength: 1, maxLength: 255 }
+    OperationsOfficeApproval:
+      type: object
+      additionalProperties: false
+      properties:
+        graph_hash_observed: { type: string, minLength: 32, maxLength: 128 }
+        idempotency_key: { type: string, minLength: 1, maxLength: 255 }
+    OperationsOfficePublication:
+      type: object
+      additionalProperties: false
+      required: [scope, usage_description]
+      properties:
+        scope: { $ref: "#/components/schemas/AudienceScope" }
+        usage_description: { type: string, maxLength: 1000 }
+        idempotency_key: { type: string, minLength: 1, maxLength: 255 }
+    OperationsOfficePublicationResult:
+      type: object
+      additionalProperties: false
+      required: [version, self_approval_override, audience_summary]
+      properties:
+        version: { $ref: "#/components/schemas/OperationsOfficeVersion" }
+        self_approval_override: { type: boolean }
+        audience_summary:
+          type: object
+          additionalProperties: false
+          required: [matched_users, audience_keys]
+          properties:
+            matched_users: { type: integer }
+            audience_keys:
+              type: array
+              items: { type: string }
+    OperationsOfficeVersion:
+      allOf:
+        - { $ref: "#/components/schemas/DomainResource" }
+        - type: object
+          required: [workflow_definition_id, version_number, lifecycle_state, author_user_id, current_owner_user_id, single_member_bootstrap_approval, last_transition_at, published_at]
+          properties:
+            workflow_definition_id: { $ref: "#/components/schemas/UUIDv7" }
+            version_number: { type: integer }
+            lifecycle_state: { type: string, enum: [draft, pending_review, published, returned] }
+            author_user_id:
+              oneOf:
+                - { $ref: "#/components/schemas/UUIDv7" }
+                - { type: "null" }
+            current_owner_user_id:
+              oneOf:
+                - { $ref: "#/components/schemas/UUIDv7" }
+                - { type: "null" }
+            single_member_bootstrap_approval: { type: boolean }
+            last_transition_at:
+              oneOf:
+                - { $ref: "#/components/schemas/UtcDateTime" }
+                - { type: "null" }
+            published_at:
+              oneOf:
+                - { $ref: "#/components/schemas/UtcDateTime" }
+                - { type: "null" }
+    WorkflowInstanceTracking:
+      allOf:
+        - { $ref: "#/components/schemas/DomainResource" }
+        - type: object
+          required: [workflow_version_id, source_module, source_type, source_id, state, current_owner_user_id, age_seconds, step_history]
+          properties:
+            workflow_version_id: { $ref: "#/components/schemas/UUIDv7" }
+            source_module: { type: string }
+            source_type: { type: string }
+            source_id: { type: string }
+            state: { type: string }
+            current_owner_user_id:
+              oneOf:
+                - { $ref: "#/components/schemas/UUIDv7" }
+                - { type: "null" }
+            age_seconds: { type: integer }
+            step_history:
+              type: array
+              items: { $ref: "#/components/schemas/WorkflowStepHistoryEntry" }
+    WorkflowStepHistoryEntry:
+      type: object
+      additionalProperties: false
+      required: [step_id, node_key, node_type, state, assignee_user_id, activated_at, completed_at, actor_user_id, decision, reason]
+      properties:
+        step_id: { $ref: "#/components/schemas/UUIDv7" }
+        node_key: { type: string }
+        node_type: { type: string }
+        state: { type: string }
+        assignee_user_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
+        activated_at:
+          oneOf:
+            - { $ref: "#/components/schemas/UtcDateTime" }
+            - { type: "null" }
+        completed_at:
+          oneOf:
+            - { $ref: "#/components/schemas/UtcDateTime" }
+            - { type: "null" }
+        actor_user_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
+        decision: { type: [string, "null"] }
+        reason: { type: [string, "null"] }
+    AudienceScope:
+      type: object
+      additionalProperties: false
+      required: [audience_type, audience_reference]
+      properties:
+        audience_type: { type: string, enum: [all, facility, roles] }
+        audience_reference:
+          type: array
+          items: { $ref: "#/components/schemas/UUIDv7" }
+    OperationsOfficeAuditEntry:
+      type: object
+      additionalProperties: false
+      required: [id, version_id, actor_user_id, decision, reason, correlation_id, recorded_at, single_member_bootstrap_approval]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        version_id: { $ref: "#/components/schemas/UUIDv7" }
+        actor_user_id: { $ref: "#/components/schemas/UUIDv7" }
+        decision: { type: string }
+        reason: { type: [string, "null"] }
+        correlation_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
+        recorded_at: { $ref: "#/components/schemas/UtcDateTime" }
+        single_member_bootstrap_approval: { type: boolean }
+    OperationsOfficeAuditCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OperationsOfficeAuditEntry" }
+        next_cursor: { type: [string, "null"] }
+    WorkflowStepCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/WorkflowStepHistoryEntry" }
+        next_cursor: { type: [string, "null"] }
     AccessProjection:
       type: object
       description: Server-owned authorization metadata composed with an authorized resource projection.
@@ -6078,6 +6494,7 @@ components:
                 enum: [approve, reject, return, accept, decline],
               },
             reason: { type: string, maxLength: 2000 },
+            graph_hash_observed: { type: string, minLength: 32, maxLength: 128 },
           },
       }
     ReasonAction:

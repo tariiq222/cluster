@@ -5,11 +5,15 @@ namespace Modules\Workflow\Features\StartWorkflow\Handler;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use LogicException;
+use Modules\Workflow\Features\Engine\Handler\AdvanceAfterDecision;
 use Shared\Contracts\TransactionalOutbox;
 
 final class StartWorkflowHandler
 {
-    public function __construct(private readonly TransactionalOutbox $outbox) {}
+    public function __construct(
+        private readonly TransactionalOutbox $outbox,
+        private readonly ?AdvanceAfterDecision $advancer = null,
+    ) {}
 
     /** @return array<string, mixed> */
     public function start(string $workflowVersionId, string $sourceModule, string $sourceType, string $sourceId, string $actorUserId): array
@@ -46,19 +50,28 @@ final class StartWorkflowHandler
                 'updated_at' => $now,
             ]);
             $graph = json_decode((string) $version->graph_document, true, 512, JSON_THROW_ON_ERROR);
-            $taskNode = collect($graph['nodes'] ?? $graph)->first(fn (mixed $node): bool => is_array($node) && ($node['type'] ?? null) === 'task');
-            if (is_array($taskNode)) {
-                DB::table('workflow_step_instances')->insert([
-                    'id' => Str::uuid7()->toString(),
-                    'workflow_instance_id' => $instanceId,
-                    'node_key' => (string) ($taskNode['key'] ?? 'task'),
-                    'node_type' => 'task',
-                    'state' => 'waiting',
-                    'activation_sequence' => 1,
-                    'assignee_user_id' => $this->assignee($taskNode, $actorUserId),
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
+            $taskNodes = collect($graph['nodes'] ?? $graph)
+                ->filter(fn (mixed $node): bool => is_array($node) && in_array(($node['type'] ?? null), ['task', 'approval', 'decision'], true));
+            if ($taskNodes->count() > 1 && $this->advancer !== null) {
+                // Multi-step graphs walk the linear transition chain via the engine
+                // so the first step, its assignee, and any rule resolution stay in
+                // one transaction with the same idempotency guarantees.
+                $this->advancer->fromStart($instanceId, $actorUserId);
+            } else {
+                $taskNode = $taskNodes->first();
+                if (is_array($taskNode)) {
+                    DB::table('workflow_step_instances')->insert([
+                        'id' => Str::uuid7()->toString(),
+                        'workflow_instance_id' => $instanceId,
+                        'node_key' => (string) ($taskNode['key'] ?? 'task'),
+                        'node_type' => (string) ($taskNode['type'] ?? 'task'),
+                        'state' => 'waiting',
+                        'activation_sequence' => 1,
+                        'assignee_user_id' => $this->assignee($taskNode, $actorUserId),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
             }
             $this->outbox->append(Str::uuid7()->toString(), $instanceId, 'workflow.instance.started.v1', [
                 'workflow_instance_id' => $instanceId,

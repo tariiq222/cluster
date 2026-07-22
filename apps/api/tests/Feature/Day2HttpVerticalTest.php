@@ -15,6 +15,7 @@ final class Day2HttpVerticalTest extends TestCase
     {
         $headers = ['X-Correlation-ID' => self::C];
         $token = $this->postJson('/api/v1/auth/login', ['username' => 'fixture-account-a', 'password' => 'fixture-password-a'], $headers)->assertOk()->json('data.access_token');
+        $approverToken = $this->postJson('/api/v1/auth/login', ['username' => 'fixture-account-b', 'password' => 'fixture-password-b'], $headers)->assertOk()->json('data.access_token');
         $h = [...$headers, 'Idempotency-Key' => 'day2-definition'];
         $definition = $this->withToken($token)->postJson('/api/v1/work-definitions', ['code' => 'request-day2', 'name' => 'Request', 'default_classification' => 'internal'], $h)->assertCreated();
         $definition->assertHeader('ETag', '"1"');
@@ -34,7 +35,7 @@ final class Day2HttpVerticalTest extends TestCase
         $instance = $this->withToken($token)->postJson('/api/v1/workflow/instances', ['workflow_version_id' => $workflowVersion, 'source_module' => 'work_records', 'record_type' => 'work_record', 'record_id' => $recordId], [...$headers, 'Idempotency-Key' => 'day2-start'])->assertCreated();
         $this->assertSame($workflowVersion, $instance->json('data.workflow_version_id'));
         $v2 = $this->withToken($token)->postJson('/api/v1/workflow/definitions/'.$workflowDefinitionId.'/versions', ['nodes' => [['key' => 'start', 'type' => 'start'], ['key' => 'task2', 'type' => 'task'], ['key' => 'end', 'type' => 'end']], 'transitions' => [['from' => 'start', 'to' => 'task2'], ['from' => 'task2', 'to' => 'end']], 'decision_policy' => ['default' => 'owner']], [...$headers, 'Idempotency-Key' => 'day2-flow-v2'])->assertCreated();
-        $this->withToken($token)->postJson('/api/v1/workflow/versions/'.$v2->json('data.id').'/publish', [], [...$headers, 'Idempotency-Key' => 'day2-flow-v2-publish'])->assertOk();
+        $this->withToken($approverToken)->postJson('/api/v1/workflow/versions/'.$v2->json('data.id').'/publish', [], [...$headers, 'Idempotency-Key' => 'day2-flow-v2-publish'])->assertOk();
         $v2WorkDefinition = $this->withToken($token)->postJson('/api/v1/work-definitions/'.$id.'/versions', ['schema_document' => ['type' => 'object', 'properties' => ['title' => ['type' => 'string'], 'description' => ['type' => 'string'], 'priority' => ['type' => 'string']]], 'field_policy_key' => 'request-v2'], [...$headers, 'Idempotency-Key' => 'day2-version-v2'])->assertCreated();
         $v2WorkDefinitionId = $v2WorkDefinition->json('data.id');
         $this->withToken($token)->postJson('/api/v1/work-definition-versions/'.$v2WorkDefinitionId.'/publish', [], [...$headers, 'Idempotency-Key' => 'day2-publish-v2', 'If-Match' => '"1"'])->assertOk();

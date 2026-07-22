@@ -11,13 +11,14 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Workflow\Features\StartWorkflow\Handler\StartWorkflowHandler;
+use Modules\Workflow\Features\Engine\Handler\RecordDecisionHandler;
 use Shared\Contracts\TransactionalOutbox;
 
 final class WorkflowController
 {
     use HttpSupport;
 
-    public function __construct(private readonly ResolveDevelopmentFixturePrincipal $resolver, private readonly TransactionalOutbox $outbox, private readonly StartWorkflowHandler $starter, private readonly DecideAccess $access) {}
+    public function __construct(private readonly ResolveDevelopmentFixturePrincipal $resolver, private readonly TransactionalOutbox $outbox, private readonly StartWorkflowHandler $starter, private readonly DecideAccess $access, private readonly ?RecordDecisionHandler $recordDecision = null) {}
 
     public function definitions(Request $request): mixed
     {
@@ -236,6 +237,13 @@ final class WorkflowController
                 'actor_user_id' => $p['user_id'],
                 'correlation_id' => $c,
             ]);
+            // Persist a queryable decision row inside the same transaction so the
+            // reason survives outbox trim/retention. The handler is optional to
+            // keep this controller invokable when only the legacy outbox path is
+            // wired (older deployments or staged rollouts).
+            if ($this->recordDecision !== null) {
+                $this->recordDecision->record((string) $step->id, (string) $v['decision'], is_string($v['reason'] ?? null) ? $v['reason'] : null, (string) $p['user_id'], $c);
+            }
         });
         $this->remember($p['user_id'], 'recordWorkflowDecision', $key, $v, (string) $step->id);
 
