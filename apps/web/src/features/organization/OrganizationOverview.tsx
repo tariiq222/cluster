@@ -1,4 +1,8 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { formattingLocale } from '../../app/copy'
+import { useLocale, useToken } from '../../app/session-context'
+
+import { Building2, Hospital } from 'lucide-react'
 
 import {
   ApiError,
@@ -9,6 +13,18 @@ import {
   type Cluster,
   type Facility,
 } from '../../api'
+import {
+  Button,
+  EmptyState,
+  Field as UiField,
+  InlineError,
+  Page,
+  PageHeader,
+  Panel,
+  PanelGrid,
+  Select as UiSelect,
+  SkeletonList,
+} from '../../ui'
 
 type Locale = 'ar' | 'en'
 
@@ -88,11 +104,9 @@ const facilityTypes = [
   ['shared_services', 'sharedServices'],
 ] as const
 
-export function OrganizationOverview({ locale, token, onSessionExpired }: {
-  locale: Locale
-  token: string
-  onSessionExpired: () => void
-}) {
+export function OrganizationOverview() {
+  const locale = useLocale()
+  const token = useToken()
   const text = copy[locale]
   const [cluster, setCluster] = useState<Cluster | null>(null)
   const [facilities, setFacilities] = useState<Facility[]>([])
@@ -116,9 +130,7 @@ export function OrganizationOverview({ locale, token, onSessionExpired }: {
     } catch (error) {
       setCluster(null)
       setFacilities([])
-      if (error instanceof ApiError && error.status === 401) {
-        onSessionExpired()
-      } else if (error instanceof ApiError && error.status === 403) {
+      if (error instanceof ApiError && error.status === 403) {
         setState('forbidden')
       } else {
         setState('error')
@@ -135,52 +147,48 @@ export function OrganizationOverview({ locale, token, onSessionExpired }: {
   }, [token])
 
   return (
-    <section className="organization-page" aria-labelledby="organization-heading">
-      <div className="page-heading page-heading-copy">
-        <div>
-          <h1 id="organization-heading">{text.title}</h1>
-          <p>{text.intro}</p>
-        </div>
-      </div>
+    <Page>
+      <PageHeader id="organization-heading" title={text.title} description={text.intro} />
 
-      {loading && <div className="skeleton-list" aria-label={text.loading}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-      {!loading && state !== 'ready' && (
-        <div className="state-panel" role={state === 'error' ? 'alert' : 'status'}>
-          <p>{state === 'forbidden' ? text.forbidden : text.error}</p>
-          {state === 'error' && <button type="button" className="secondary-button" onClick={() => void load()}>{text.retry}</button>}
-        </div>
+      {loading && <SkeletonList label={text.loading} />}
+      {!loading && state === 'forbidden' && (
+        <div className="state-panel" role="status"><p>{text.forbidden}</p></div>
+      )}
+      {!loading && state === 'error' && (
+        <InlineError message={text.error} retryLabel={text.retry} onRetry={() => void load()} />
       )}
       {!loading && state === 'ready' && (
-        <div className="organization-layout">
-          <section className="organization-section" aria-labelledby="cluster-heading">
-            <h2 id="cluster-heading">{text.cluster}</h2>
+        <PanelGrid>
+          <Panel id="cluster-heading" title={text.cluster} level={2}>
             {cluster ? <ClusterSummary cluster={cluster} locale={locale} /> : (
               <>
-                <p>{text.noCluster}</p>
-                <ClusterForm locale={locale} token={token} onCreated={setCluster} onSessionExpired={onSessionExpired} />
+                <EmptyState icon={<Building2 />} title={text.noCluster} />
+                <ClusterForm locale={locale} token={token} onCreated={setCluster} />
               </>
             )}
-          </section>
+          </Panel>
 
-          <section className="organization-section" aria-labelledby="facilities-heading">
-            <div className="section-heading">
-              <h2 id="facilities-heading">{text.facilities}</h2>
-              <span className="count-badge">{new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-GB').format(facilities.length)}</span>
-            </div>
-            {facilities.length === 0 ? <p>{text.noFacilities}</p> : <FacilityTable facilities={facilities} locale={locale} />}
+          <Panel
+            id="facilities-heading"
+            title={text.facilities}
+            level={2}
+            actions={<span className="count-badge">{new Intl.NumberFormat(formattingLocale(locale)).format(facilities.length)}</span>}
+          >
+            {facilities.length === 0
+              ? <EmptyState icon={<Hospital />} title={text.noFacilities} />
+              : <FacilityTable facilities={facilities} locale={locale} />}
             {cluster && (
               <FacilityForm
                 locale={locale}
                 token={token}
                 clusterId={cluster.id}
                 onCreated={(facility) => setFacilities((current) => [...current, facility])}
-                onSessionExpired={onSessionExpired}
               />
             )}
-          </section>
-        </div>
+          </Panel>
+        </PanelGrid>
       )}
-    </section>
+    </Page>
   )
 }
 
@@ -216,11 +224,10 @@ function FacilityTable({ facilities, locale }: { facilities: Facility[]; locale:
   )
 }
 
-function ClusterForm({ locale, token, onCreated, onSessionExpired }: {
+function ClusterForm({ locale, token, onCreated }: {
   locale: Locale
   token: string
   onCreated: (cluster: Cluster) => void
-  onSessionExpired: () => void
 }) {
   const text = copy[locale]
   const [code, setCode] = useState('')
@@ -241,13 +248,9 @@ function ClusterForm({ locale, token, onCreated, onSessionExpired }: {
     setError(null)
     try {
       onCreated(await createCluster(token, { code, name: name.trim(), name_en: nameEn.trim() || null }))
-    } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 401) {
-        onSessionExpired()
-      } else {
+    } catch {
         setError('save')
         window.requestAnimationFrame(() => errorRef.current?.focus())
-      }
     } finally {
       setSubmitting(false)
     }
@@ -260,16 +263,15 @@ function ClusterForm({ locale, token, onCreated, onSessionExpired }: {
       <Field id="cluster-name" label={text.clusterName} required value={name} onChange={setName} invalid={Boolean(error && !name.trim())} />
       <Field id="cluster-name-en" label={text.clusterNameEn} value={nameEn} onChange={setNameEn} />
     </div>
-    <button type="submit" className="primary-button" disabled={submitting}>{submitting ? text.creating : text.createCluster}</button>
+    <Button type="submit" disabled={submitting}>{submitting ? text.creating : text.createCluster}</Button>
   </form>
 }
 
-function FacilityForm({ locale, token, clusterId, onCreated, onSessionExpired }: {
+function FacilityForm({ locale, token, clusterId, onCreated }: {
   locale: Locale
   token: string
   clusterId: string
   onCreated: (facility: Facility) => void
-  onSessionExpired: () => void
 }) {
   const text = copy[locale]
   const [code, setCode] = useState('')
@@ -301,13 +303,9 @@ function FacilityForm({ locale, token, clusterId, onCreated, onSessionExpired }:
       setCode('')
       setName('')
       setNameEn('')
-    } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 401) {
-        onSessionExpired()
-      } else {
+    } catch {
         setError('save')
         window.requestAnimationFrame(() => errorRef.current?.focus())
-      }
     } finally {
       setSubmitting(false)
     }
@@ -319,14 +317,16 @@ function FacilityForm({ locale, token, clusterId, onCreated, onSessionExpired }:
       <Field id="facility-code" label={text.facilityCode} required value={code} onChange={(value) => setCode(value.toUpperCase())} invalid={Boolean(error && !/^[A-Z0-9_-]{2,64}$/.test(code))} />
       <Field id="facility-name" label={text.facilityName} required value={name} onChange={setName} invalid={Boolean(error && !name.trim())} />
       <Field id="facility-name-en" label={text.facilityNameEn} value={nameEn} onChange={setNameEn} />
-      <div className="field">
-        <label htmlFor="facility-type">{text.facilityType}</label>
-        <select id="facility-type" value={typeCode} onChange={(event) => setTypeCode(event.target.value)}>
-          {facilityTypes.map(([value, label]) => <option key={value} value={value}>{text[label]}</option>)}
-        </select>
-      </div>
+      <UiField id="facility-type" label={text.facilityType}>
+        <UiSelect
+          id="facility-type"
+          value={typeCode}
+          onChange={setTypeCode}
+          options={facilityTypes.map(([value, label]) => ({ value, label: text[label] }))}
+        />
+      </UiField>
     </div>
-    <button type="submit" className="primary-button" disabled={submitting}>{submitting ? text.creating : text.addFacility}</button>
+    <Button type="submit" disabled={submitting}>{submitting ? text.creating : text.addFacility}</Button>
   </form>
 }
 
@@ -338,8 +338,7 @@ function Field({ id, label, value, onChange, required = false, invalid = false }
   required?: boolean
   invalid?: boolean
 }) {
-  return <div className="field">
-    <label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+  return <UiField id={id} label={label} required={required}>
     <input id={id} value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} />
-  </div>
+  </UiField>
 }

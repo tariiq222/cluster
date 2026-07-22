@@ -1,4 +1,8 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { formattingLocale } from '../../app/copy'
+import { useLocale, useToken } from '../../app/session-context'
+
+import { CalendarClock } from 'lucide-react'
 
 import {
   ApiError,
@@ -9,6 +13,18 @@ import {
   type OrganizationUnit,
   type TemporaryAssignment,
 } from '../../api'
+import {
+  Button,
+  EmptyState,
+  Field as UiField,
+  InlineError,
+  Page,
+  PageHeader,
+  PageSection,
+  Panel,
+  PanelGrid,
+  Select,
+} from '../../ui'
 
 type Locale = 'ar' | 'en'
 type PageState = 'ready' | 'forbidden' | 'not-found' | 'error'
@@ -27,6 +43,8 @@ const copy = {
     validation: 'أكمل الحقول المطلوبة: سبب واضح، رموز صلاحيات فريدة، وفترة UTC لا تتجاوز 90 يوماً وتبدأ من الآن أو بعده.',
     conflict: 'تعارض التغيير مع حالة التكليف الحالية. حدّث القائمة ثم أعد المحاولة.', refresh: 'تغيّرت نسخة التكليف على الخادم. حدّث القائمة قبل المحاولة مجدداً.',
     saveError: 'لم يُحفظ التغيير. راجع البيانات ثم أعد المحاولة.', revokeValidation: 'أدخل سبباً واضحاً لإلغاء التكليف.',
+    searchUnits: 'ابحث عن وحدة…',
+    noMatchingResults: 'لا توجد نتائج مطابقة',
   },
   en: {
     title: 'Temporary assignments', intro: 'Manage time-bound permissions for one organization unit at a time.',
@@ -40,14 +58,14 @@ const copy = {
     validation: 'Complete the required fields: a clear reason, unique capability codes, and a UTC period of no more than 90 days starting now or later.',
     conflict: 'The change conflicts with the assignment’s current state. Refresh the list and try again.', refresh: 'The assignment changed on the server. Refresh the list before trying again.',
     saveError: 'The change was not saved. Review the data and try again.', revokeValidation: 'Enter a clear reason for revoking the assignment.',
+    searchUnits: 'Search units…',
+    noMatchingResults: 'No matching results',
   },
 } as const
 
-export function TemporaryAssignments({ locale, token, onSessionExpired }: {
-  locale: Locale
-  token: string
-  onSessionExpired: () => void
-}) {
+export function TemporaryAssignments() {
+  const locale = useLocale()
+  const token = useToken()
   const text = copy[locale]
   const [units, setUnits] = useState<OrganizationUnit[]>([])
   const [organizationUnitId, setOrganizationUnitId] = useState('')
@@ -56,9 +74,7 @@ export function TemporaryAssignments({ locale, token, onSessionExpired }: {
   const [state, setState] = useState<PageState>('ready')
 
   function handleFailure(error: unknown) {
-    if (error instanceof ApiError && error.status === 401) {
-      onSessionExpired()
-    } else if (error instanceof ApiError && error.status === 403) {
+    if (error instanceof ApiError && error.status === 403) {
       setState('forbidden')
     } else if (error instanceof ApiError && error.status === 404) {
       setState('not-found')
@@ -115,44 +131,60 @@ export function TemporaryAssignments({ locale, token, onSessionExpired }: {
 
   useEffect(() => {
     if (organizationUnitId) void loadAssignments(organizationUnitId)
-    else setAssignments([])
+    setAssignments([])
     // The list is scoped exclusively to the selected organization unit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationUnitId])
 
-  return <section className="organization-page" aria-labelledby="temporary-assignments-heading">
-    <div className="page-heading page-heading-copy"><div><h1 id="temporary-assignments-heading">{text.title}</h1><p>{text.intro}</p></div></div>
+  return <Page>
+    <PageHeader id="temporary-assignments-heading" title={text.title} description={text.intro} />
     {loading && <div className="skeleton-list" role="status" aria-label={text.loading}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-    {!loading && state !== 'ready' && <div className="state-panel" role={state === 'error' ? 'alert' : 'status'}><p>{state === 'forbidden' ? text.forbidden : state === 'not-found' ? text.notFound : text.error}</p>{state === 'error' && <button type="button" className="secondary-button" onClick={() => void loadAssignments()}>{text.retry}</button>}</div>}
-    {!loading && state === 'ready' && <div className="organization-layout">
-      <section className="organization-section" aria-labelledby="temporary-unit-heading">
+    {!loading && (state === 'forbidden' || state === 'not-found') && (
+      <div className="state-panel" role="status"><p>{state === 'forbidden' ? text.forbidden : text.notFound}</p></div>
+    )}
+    {!loading && state === 'error' && <InlineError message={text.error} retryLabel={text.retry} onRetry={() => void loadAssignments()} />}
+    {!loading && state === 'ready' && <PanelGrid>
+      <Panel id="temporary-unit-heading" level={2} title={<label htmlFor="temporary-unit">{text.unit}</label>}>
         <div className="field">
-          <label id="temporary-unit-heading" htmlFor="temporary-unit">{text.unit}</label>
-          <select id="temporary-unit" value={organizationUnitId} onChange={(event) => setOrganizationUnitId(event.target.value)} disabled={units.length === 0}>
-            {units.map((unit) => <option key={unit.id} value={unit.id}>{locale === 'en' && unit.name_en ? unit.name_en : unit.name_ar}</option>)}
-          </select>
+          <Select
+            id="temporary-unit"
+            value={organizationUnitId}
+            onChange={setOrganizationUnitId}
+            disabled={units.length === 0}
+            options={units.map((unit) => ({
+              value: unit.id,
+              label: locale === 'en' && unit.name_en ? unit.name_en : unit.name_ar,
+            }))}
+            searchPlaceholder={copy[locale].searchUnits}
+            emptyLabel={copy[locale].noMatchingResults}
+          />
         </div>
-        {units.length === 0 ? <p className="status-message" role="status">{text.noUnits}</p> : <>
-          <div className="section-heading"><h2>{text.assignments}</h2><span className="count-badge">{formatNumber(assignments.length, locale)}</span></div>
-          {assignments.length === 0 ? <p>{text.noAssignments}</p> : <AssignmentsTable assignments={assignments} locale={locale} token={token} onSessionExpired={onSessionExpired} onFailure={handleFailure} onRefresh={() => void loadAssignments()} onRevoked={(assignment) => setAssignments((current) => current.map((item) => item.id === assignment.id ? assignment : item))} />}
-          <TemporaryAssignmentForm locale={locale} token={token} organizationUnitId={organizationUnitId} onSessionExpired={onSessionExpired} onFailure={handleFailure} onCreated={(assignment) => setAssignments((current) => [assignment, ...current.filter((item) => item.id !== assignment.id)])} />
-        </>}
-      </section>
-    </div>}
-  </section>
+        {units.length === 0 ? <p className="status-message" role="status">{text.noUnits}</p> : (
+          <PageSection
+            id="temporary-assignments-list-heading"
+            title={text.assignments}
+            actions={<span className="count-badge">{formatNumber(assignments.length, locale)}</span>}
+          >
+            {assignments.length === 0
+              ? <EmptyState icon={<CalendarClock />} title={text.noAssignments} />
+              : <AssignmentsTable assignments={assignments} locale={locale} token={token} onFailure={handleFailure} onRefresh={() => void loadAssignments()} onRevoked={(assignment) => setAssignments((current) => current.map((item) => item.id === assignment.id ? assignment : item))} />}
+            <TemporaryAssignmentForm locale={locale} token={token} organizationUnitId={organizationUnitId} onFailure={handleFailure} onCreated={(assignment) => setAssignments((current) => [assignment, ...current.filter((item) => item.id !== assignment.id)])} />
+          </PageSection>
+        )}
+      </Panel>
+    </PanelGrid>}
+  </Page>
 }
 
-function AssignmentsTable({ assignments, locale, token, onSessionExpired, onFailure, onRefresh, onRevoked }: {
-  assignments: TemporaryAssignment[]; locale: Locale; token: string; onSessionExpired: () => void
-  onFailure: (error: unknown) => void; onRefresh: () => void; onRevoked: (assignment: TemporaryAssignment) => void
+function AssignmentsTable({ assignments, locale, token, onFailure, onRefresh, onRevoked }: {
+  assignments: TemporaryAssignment[]; locale: Locale; token: string;  onFailure: (error: unknown) => void; onRefresh: () => void; onRevoked: (assignment: TemporaryAssignment) => void
 }) {
   const text = copy[locale]
-  return <div className="table-scroll" tabIndex={0} role="region" aria-label={text.assignments}><table><thead><tr><th scope="col">{text.personId}</th><th scope="col">{text.capabilities}</th><th scope="col">{text.start}</th><th scope="col">{text.end}</th><th scope="col">{text.status}</th><th scope="col">{text.revoke}</th></tr></thead><tbody>{assignments.map((assignment) => <tr key={assignment.id}><td dir="ltr">{assignment.person_id}</td><td dir="ltr">{assignment.capability_codes.join(', ')}</td><td><time dateTime={assignment.start_at}>{formatDate(assignment.start_at, locale)}</time></td><td><time dateTime={assignment.end_at}>{formatDate(assignment.end_at, locale)}</time></td><td><span className="status-badge">{text[assignment.status]}</span></td><td>{assignment.status === 'scheduled' || assignment.status === 'active' ? <RevokeForm assignment={assignment} locale={locale} token={token} onSessionExpired={onSessionExpired} onFailure={onFailure} onRefresh={onRefresh} onRevoked={onRevoked} /> : '—'}</td></tr>)}</tbody></table></div>
+  return <div className="table-scroll" tabIndex={0} role="region" aria-label={text.assignments}><table><thead><tr><th scope="col">{text.personId}</th><th scope="col">{text.capabilities}</th><th scope="col">{text.start}</th><th scope="col">{text.end}</th><th scope="col">{text.status}</th><th scope="col">{text.revoke}</th></tr></thead><tbody>{assignments.map((assignment) => <tr key={assignment.id}><td dir="ltr">{assignment.person_id}</td><td dir="ltr">{assignment.capability_codes.join(', ')}</td><td><time dateTime={assignment.start_at}>{formatDate(assignment.start_at, locale)}</time></td><td><time dateTime={assignment.end_at}>{formatDate(assignment.end_at, locale)}</time></td><td><span className="status-badge">{text[assignment.status]}</span></td><td>{assignment.status === 'scheduled' || assignment.status === 'active' ? <RevokeForm assignment={assignment} locale={locale} token={token} onFailure={onFailure} onRefresh={onRefresh} onRevoked={onRevoked} /> : '—'}</td></tr>)}</tbody></table></div>
 }
 
-function TemporaryAssignmentForm({ locale, token, organizationUnitId, onSessionExpired, onFailure, onCreated }: {
-  locale: Locale; token: string; organizationUnitId: string; onSessionExpired: () => void
-  onFailure: (error: unknown) => void; onCreated: (assignment: TemporaryAssignment) => void
+function TemporaryAssignmentForm({ locale, token, organizationUnitId, onFailure, onCreated }: {
+  locale: Locale; token: string; organizationUnitId: string;  onFailure: (error: unknown) => void; onCreated: (assignment: TemporaryAssignment) => void
 }) {
   const text = copy[locale]
   const [personId, setPersonId] = useState('')
@@ -182,10 +214,9 @@ function TemporaryAssignmentForm({ locale, token, organizationUnitId, onSessionE
       onCreated(assignment)
       setPersonId(''); setCapabilityCodes(''); setReason(''); setStartAt(''); setEndAt('')
     } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 401) onSessionExpired()
-      else if (failure instanceof ApiError && failure.status === 403) onFailure(failure)
-      else if (failure instanceof ApiError && failure.status === 404) onFailure(failure)
-      else {
+      if (failure instanceof ApiError && failure.status === 403) onFailure(failure)
+      if (failure instanceof ApiError && failure.status === 404) onFailure(failure)
+      {
         setError(failure instanceof ApiError && failure.status === 409 ? 'conflict' : 'save')
         window.requestAnimationFrame(() => errorRef.current?.focus())
       }
@@ -201,13 +232,12 @@ function TemporaryAssignmentForm({ locale, token, organizationUnitId, onSessionE
       <Field id="temporary-start" label={text.startAt} type="datetime-local" value={startAt} onChange={setStartAt} required invalid={Boolean(error)} direction="ltr" />
       <Field id="temporary-end" label={text.endAt} type="datetime-local" value={endAt} onChange={setEndAt} required invalid={Boolean(error)} direction="ltr" />
     </div>
-    <button type="submit" className="primary-button" disabled={submitting}>{submitting ? text.saving : text.create}</button>
+    <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.create}</Button>
   </form>
 }
 
-function RevokeForm({ assignment, locale, token, onSessionExpired, onFailure, onRefresh, onRevoked }: {
-  assignment: TemporaryAssignment; locale: Locale; token: string; onSessionExpired: () => void
-  onFailure: (error: unknown) => void; onRefresh: () => void; onRevoked: (assignment: TemporaryAssignment) => void
+function RevokeForm({ assignment, locale, token, onFailure, onRefresh, onRevoked }: {
+  assignment: TemporaryAssignment; locale: Locale; token: string;  onFailure: (error: unknown) => void; onRefresh: () => void; onRevoked: (assignment: TemporaryAssignment) => void
 }) {
   const text = copy[locale]
   const [reason, setReason] = useState('')
@@ -228,9 +258,8 @@ function RevokeForm({ assignment, locale, token, onSessionExpired, onFailure, on
     try {
       onRevoked(await revokeTemporaryAssignment(token, assignment.id, `"${assignment.lock_version}"`, reason.trim()))
     } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 401) onSessionExpired()
-      else if (failure instanceof ApiError && (failure.status === 403 || failure.status === 404)) onFailure(failure)
-      else {
+      if (failure instanceof ApiError && (failure.status === 403 || failure.status === 404)) onFailure(failure)
+      {
         setError(failure instanceof ApiError && failure.status === 412 ? 'refresh' : failure instanceof ApiError && failure.status === 409 ? 'conflict' : 'save')
         window.requestAnimationFrame(() => errorRef.current?.focus())
       }
@@ -238,17 +267,17 @@ function RevokeForm({ assignment, locale, token, onSessionExpired, onFailure, on
   }
 
   return <form onSubmit={(event) => void submit(event)} noValidate>
-    {error && <div className="field-error" role="alert" tabIndex={-1} ref={errorRef}><p>{text[error === 'validation' ? 'revokeValidation' : error === 'conflict' ? 'conflict' : error === 'refresh' ? 'refresh' : 'saveError']}</p>{error === 'refresh' && <button type="button" className="secondary-button" onClick={onRefresh}>{text.retry}</button>}</div>}
+    {error && <div className="field-error" role="alert" tabIndex={-1} ref={errorRef}><p>{text[error === 'validation' ? 'revokeValidation' : error === 'conflict' ? 'conflict' : error === 'refresh' ? 'refresh' : 'saveError']}</p>{error === 'refresh' && <Button variant="secondary" onClick={onRefresh}>{text.retry}</Button>}</div>}
     <label htmlFor={fieldId}>{text.revokeReason}</label>
     <input id={fieldId} value={reason} required aria-required="true" aria-invalid={Boolean(error)} onChange={(event) => setReason(event.target.value)} />
-    <button type="submit" className="secondary-button" disabled={submitting}>{submitting ? text.revoking : text.revoke}</button>
+    <Button variant="secondary" type="submit" disabled={submitting}>{submitting ? text.revoking : text.revoke}</Button>
   </form>
 }
 
 function Field({ id, label, value, onChange, type = 'text', required = false, invalid = false, direction }: {
   id: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; invalid?: boolean; direction?: 'ltr'
 }) {
-  return <div className="field"><label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label><input id={id} type={type} value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} dir={direction} /></div>
+  return <UiField id={id} label={label} required={required}><input id={id} type={type} value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} dir={direction} /></UiField>
 }
 
 function toUtcTimestamp(value: string): Date | null {
@@ -257,5 +286,5 @@ function toUtcTimestamp(value: string): Date | null {
   return Number.isNaN(timestamp.valueOf()) ? null : timestamp
 }
 
-function formatNumber(value: number, locale: Locale) { return new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-GB').format(value) }
-function formatDate(value: string, locale: Locale) { return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Riyadh' }).format(new Date(value)) }
+function formatNumber(value: number, locale: Locale) { return new Intl.NumberFormat(formattingLocale(locale)).format(value) }
+function formatDate(value: string, locale: Locale) { return new Intl.DateTimeFormat(formattingLocale(locale), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Riyadh' }).format(new Date(value)) }

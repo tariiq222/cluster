@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 
-import { ApiError, createPosition, type Position } from '../../api'
+import { createPosition, type Position } from '../../api'
 import { Button, Drawer, Field, Select } from '../../ui'
 
 type Locale = 'ar' | 'en'
@@ -24,6 +24,10 @@ const copy = {
     validation: 'أكمل الحقول المطلوبة بالصيغة الصحيحة.',
     saveError: 'لم يُحفظ التغيير. راجع البيانات ثم أعد المحاولة.',
     codePatternHint: 'حروف إنجليزية كبيرة وأرقام وشرطات فقط (2–64).',
+    searchJobTitles: 'ابحث عن مسمى…',
+    noMatchingResults: 'لا توجد نتائج مطابقة',
+    searchUnits: 'ابحث عن وحدة…',
+    searchPositions: 'ابحث عن منصب…',
   },
   en: {
     title: 'Add position',
@@ -44,6 +48,10 @@ const copy = {
     validation: 'Complete the required fields using the expected format.',
     saveError: 'The change was not saved. Review the data and try again.',
     codePatternHint: 'Uppercase letters, digits, hyphen or underscore (2–64).',
+    searchJobTitles: 'Search job titles…',
+    noMatchingResults: 'No matching results',
+    searchUnits: 'Search units…',
+    searchPositions: 'Search positions…',
   },
 } as const
 
@@ -62,7 +70,6 @@ export function AddPositionDrawer({
   jobTitles,
   preselectedUnitId,
   onCreated,
-  onSessionExpired,
 }: {
   open: boolean
   onClose: () => void
@@ -73,7 +80,6 @@ export function AddPositionDrawer({
   jobTitles: { id: string; title_ar: string; code: string }[]
   preselectedUnitId?: string
   onCreated: (position: Position) => void
-  onSessionExpired: () => void
 }) {
   const text = copy[locale]
   const [unitId, setUnitId] = useState<string>(
@@ -121,10 +127,8 @@ export function AddPositionDrawer({
       })
       onCreated(created)
       reset()
-    } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 401)
-        onSessionExpired()
-      else setError('save')
+    } catch {
+      setError('save')
     } finally {
       setSubmitting(false)
     }
@@ -206,10 +210,10 @@ export function AddPositionDrawer({
               })),
             ]}
             searchPlaceholder={
-              locale === 'ar' ? 'ابحث عن مسمى…' : 'Search job titles…'
+              copy[locale].searchJobTitles
             }
             emptyLabel={
-              locale === 'ar' ? 'لا توجد نتائج مطابقة' : 'No matching results'
+              copy[locale].noMatchingResults
             }
           />
         </Field>
@@ -223,10 +227,10 @@ export function AddPositionDrawer({
               label: `${'— '.repeat(Math.min(unit.depth, 4))}${unit.name_ar}`,
             }))}
             searchPlaceholder={
-              locale === 'ar' ? 'ابحث عن وحدة…' : 'Search units…'
+              copy[locale].searchUnits
             }
             emptyLabel={
-              locale === 'ar' ? 'لا توجد نتائج مطابقة' : 'No matching results'
+              copy[locale].noMatchingResults
             }
           />
         </Field>
@@ -243,10 +247,10 @@ export function AddPositionDrawer({
               })),
             ]}
             searchPlaceholder={
-              locale === 'ar' ? 'ابحث عن منصب…' : 'Search positions…'
+              copy[locale].searchPositions
             }
             emptyLabel={
-              locale === 'ar' ? 'لا توجد نتائج مطابقة' : 'No matching results'
+              copy[locale].noMatchingResults
             }
           />
         </Field>
