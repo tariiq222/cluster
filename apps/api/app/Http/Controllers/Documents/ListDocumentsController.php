@@ -57,11 +57,22 @@ final class ListDocumentsController
             $query->where('id', '>', $cursor);
         }
 
-        $rows = $query->limit($limit + 1)->get()->all();
         $allowed = [];
-        foreach ($rows as $row) {
-            if ($this->decideOnDocument($principal, $this->access, $row, 'documents.read', $correlationId) === null) {
-                $allowed[] = $row;
+        $scanCursor = is_string($cursor) && $cursor !== '' ? $cursor : null;
+        $exhausted = false;
+        while (count($allowed) <= $limit && ! $exhausted) {
+            $batchQuery = clone $query;
+            if ($scanCursor !== null) {
+                $batchQuery->where('id', '>', $scanCursor);
+            }
+            $rows = $batchQuery->limit(max($limit + 1, 25))->get()->all();
+            $exhausted = count($rows) < max($limit + 1, 25);
+            foreach ($rows as $row) {
+                $scanCursor = (string) $row->id;
+                $actions = $this->allowedActionsForDocument($principal, $row, $correlationId);
+                if ($actions !== []) {
+                    $allowed[] = [$row, $actions];
+                }
             }
         }
 
@@ -69,10 +80,11 @@ final class ListDocumentsController
         if ($hasNextPage) {
             array_pop($allowed);
         }
-        $nextCursor = $hasNextPage && $allowed !== [] ? (string) end($allowed)->id : null;
+        $lastAllowed = $allowed === [] ? null : $allowed[count($allowed) - 1];
+        $nextCursor = $hasNextPage && is_array($lastAllowed) ? (string) $lastAllowed[0]->id : null;
 
         return response()->json([
-            'items' => array_map(fn (\stdClass $row): array => $this->serializeDocument($row), $allowed),
+            'items' => array_map(fn (array $item): array => $this->serializeDocument($item[0], $item[1]), $allowed),
             'next_cursor' => $nextCursor,
         ])->header('X-Correlation-ID', $correlationId);
     }

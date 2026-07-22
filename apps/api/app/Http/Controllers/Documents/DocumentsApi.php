@@ -32,6 +32,24 @@ final class DocumentsApi
         return is_string($value) && preg_match('/\A[\x21-\x7E]{1,255}\z/', $value) === 1 ? $value : null;
     }
 
+    public static function ifMatch(Request $request): ?int
+    {
+        $value = $request->header('If-Match');
+        if (! is_string($value) || preg_match('/\A"([1-9][0-9]*)"\z/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        return (int) $matches[1];
+    }
+
+    public static function isMergePatch(Request $request): bool
+    {
+        $contentType = $request->header('Content-Type');
+
+        return is_string($contentType)
+            && preg_match('/\Aapplication\/merge-patch\+json(?:\s*;|\z)/i', $contentType) === 1;
+    }
+
     /** @return array{user_id: string, facility_id: string}|JsonResponse */
     public static function principalOrProblem(
         Request $request,

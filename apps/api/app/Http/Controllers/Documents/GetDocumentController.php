@@ -43,7 +43,7 @@ final class GetDocumentController
             return $deny;
         }
 
-        return response()->json(['data' => $this->serializeDocument($document)])
+        return response()->json(['data' => $this->serializeDocument($document, $this->allowedActionsForDocument($principal, $document, $correlationId))])
             ->header('X-Correlation-ID', $correlationId)
             ->header('ETag', '"'.(int) $document->lock_version.'"');
     }

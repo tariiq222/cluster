@@ -2,20 +2,26 @@
 
 namespace Modules\Documents\Tests\Http;
 
+use App\Http\Controllers\Documents\AddDocumentVersionController;
 use App\Http\Controllers\Documents\CompleteDocumentUploadController;
+use App\Http\Controllers\Documents\CreateDocumentGrantController;
 use App\Http\Controllers\Documents\GetDocumentUploadStatusController;
 use App\Http\Controllers\Documents\InitiateDocumentUploadController;
 use App\Http\Controllers\Documents\ReconcileDocumentPromotionController;
 use App\Http\Controllers\Documents\ScanDocumentVersionController;
+use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Documents\Application\DocumentDownloadGrant;
 use Modules\Documents\Application\QuarantineObjectReference;
 use Modules\Documents\Application\StoredObjectProperties;
 use Modules\Documents\Application\VerifiedQuarantineObject;
+use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
@@ -57,11 +63,15 @@ final class DocumentsHttpControllerTest extends TestCase
 
     private CompleteDocumentUploadController $complete;
 
+    private AddDocumentVersionController $addVersion;
+
     private GetDocumentUploadStatusController $status;
 
     private ScanDocumentVersionController $scan;
 
     private ReconcileDocumentPromotionController $reconcile;
+
+    private CreateDocumentGrantController $grant;
 
     protected function setUp(): void
     {
@@ -111,9 +121,33 @@ final class DocumentsHttpControllerTest extends TestCase
         $reader = new DatabaseDocumentUploadStatusReader;
         $this->initiate = new InitiateDocumentUploadController($this->principals, $this->access, $handler);
         $this->complete = new CompleteDocumentUploadController($this->principals, $this->access, $authorizationFacts, $handler);
+        $this->addVersion = new AddDocumentVersionController($this->principals, $this->access, $handler);
         $this->status = new GetDocumentUploadStatusController($this->principals, $this->access, $authorizationFacts, $reader);
         $this->scan = new ScanDocumentVersionController($this->principals, $this->access, $authorizationFacts, $handler);
         $this->reconcile = new ReconcileDocumentPromotionController($this->principals, $this->access, $authorizationFacts, $handler);
+        $this->grant = new CreateDocumentGrantController($this->principals, $this->access, new class implements DocumentDownloadGrantIssuer
+        {
+            public function issue(string $documentId, string $versionId, string $principalId): DocumentDownloadGrant
+            {
+                return new DocumentDownloadGrant($documentId, $versionId, 'https://download.invalid/'.$versionId, new DateTimeImmutable('+5 minutes'), 'test-correlation');
+            }
+        });
+    }
+
+    public function test_grants_only_available_versions_belonging_to_the_document(): void
+    {
+        ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('grant-state'), 'grant-state-initiate'));
+        $documentId = (string) DB::table('documents')->value('public_id');
+        $versionId = (string) DB::table('document_versions')->value('public_id');
+
+        $rejected = ($this->grant)($this->jsonRequest('POST', ['version_id' => $versionId], 'grant-state-rejected'), $documentId, 'download');
+        $this->assertSame(Response::HTTP_CONFLICT, $rejected->getStatusCode());
+        $this->assertSame(0, DB::table('document_idempotency_keys')->where('operation', 'documents.download-grant')->count());
+
+        DB::table('document_versions')->where('public_id', $versionId)->update(['availability_status' => 'available']);
+        $allowed = ($this->grant)($this->jsonRequest('POST', ['version_id' => $versionId], 'grant-state-available'), $documentId, 'download');
+        $this->assertSame(Response::HTTP_CREATED, $allowed->getStatusCode());
+        $this->assertSame($versionId, $allowed->getData(true)['data']['version_id']);
     }
 
     public function test_it_initiates_an_opaque_signed_quarantine_upload_from_the_trusted_principal_only(): void
@@ -201,6 +235,46 @@ final class DocumentsHttpControllerTest extends TestCase
         $this->assertArrayNotHasKey('scan_engine', $payload);
         $this->assertArrayNotHasKey('scan_signature_version', $payload);
         $this->assertArrayNotHasKey('scanner_outcome', $payload);
+    }
+
+    public function test_it_starts_a_new_version_on_an_existing_document_through_the_same_quarantine_flow(): void
+    {
+        ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('version-parent'), 'version-parent-initiate'));
+        $documentId = (string) DB::table('documents')->value('public_id');
+        $hash = $this->hashFor('version-two.pdf', 1024);
+
+        $response = ($this->addVersion)($this->jsonRequest('POST', [
+            'file_name' => 'version-two.pdf',
+            'content_type' => 'application/pdf',
+            'byte_size' => 1024,
+            'sha256' => $hash,
+        ], 'version-two'), $documentId);
+
+        $this->assertSame(Response::HTTP_CREATED, $response->getStatusCode());
+        $payload = $response->getData(true);
+        $this->assertSame('document_version', $payload['purpose']);
+        $this->assertArrayHasKey('upload_id', $payload);
+        $this->assertSame(1, DB::table('documents')->count());
+        $this->assertSame(2, DB::table('document_versions')->count());
+        $this->assertSame($documentId, DB::table('document_upload_intents as intents')
+            ->join('documents', 'documents.id', '=', 'intents.document_id')
+            ->where('intents.id', $payload['upload_id'])
+            ->value('documents.public_id'));
+        $replayed = ($this->addVersion)($this->jsonRequest('POST', [
+            'file_name' => 'version-two.pdf',
+            'content_type' => 'application/pdf',
+            'byte_size' => 1024,
+            'sha256' => $hash,
+        ], 'version-two'), $documentId);
+        $this->assertSame($payload, $replayed->getData(true));
+        $this->assertSame(2, DB::table('document_versions')->count());
+        $this->storage->completeUpload($payload['upload_id'], $this->properties('version-two.pdf', 1024));
+        $completed = ($this->complete)($this->jsonRequest('POST', [
+            'sha256' => $hash,
+            'byte_size' => 1024,
+        ], 'version-two-complete'), $payload['upload_id']);
+        $this->assertSame(Response::HTTP_ACCEPTED, $completed->getStatusCode());
+        $this->assertTrue($completed->getData(true)['accepted']);
     }
 
     public function test_internal_scan_and_reconciliation_actions_are_idempotent_and_never_expose_av_details(): void

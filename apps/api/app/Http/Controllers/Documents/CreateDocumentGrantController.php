@@ -67,6 +67,9 @@ final class CreateDocumentGrantController
         if ($version === null) {
             return DocumentsApi::problem(404, 'document-upload-not-found', 'Not Found', 'The document version is not available.', $correlationId);
         }
+        if ($version->availability_status !== 'available') {
+            return DocumentsApi::problem(409, 'document-upload-invalid-state', 'Conflict', 'The document version is not available for a grant.', $correlationId);
+        }
 
         $operation = 'documents.'.$documentGrantType.'-grant';
         $keyHash = hash('sha256', $idempotencyKey);

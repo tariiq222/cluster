@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Documents;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use stdClass;
@@ -28,7 +29,19 @@ trait DocumentAccessSupport
         string $capability,
         string $correlationId,
     ): ?JsonResponse {
-        $decision = $access->decide(
+        return $this->documentDecision($principal, $access, $document, $capability, $correlationId)->isAllowed()
+            ? null
+            : DocumentsApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
+    }
+
+    private function documentDecision(
+        array $principal,
+        DecideAccess $access,
+        stdClass $document,
+        string $capability,
+        string $correlationId,
+    ): AccessDecision {
+        return $access->decide(
             [
                 'user_id' => $principal['user_id'],
                 'facility_id' => $principal['facility_id'] ?? null,
@@ -47,16 +60,12 @@ trait DocumentAccessSupport
                 lockVersion: (int) $document->lock_version,
             ),
         );
-
-        return $decision->isAllowed()
-            ? null
-            : DocumentsApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
     }
 
     /** @return array<string, mixed> */
-    private function serializeDocument(stdClass $document): array
+    private function serializeDocument(stdClass $document, ?array $allowedActions = null): array
     {
-        return [
+        $resource = [
             'id' => $document->public_id,
             'title' => $document->name,
             'description' => $document->description,
@@ -71,6 +80,53 @@ trait DocumentAccessSupport
             'created_at' => $document->created_at,
             'updated_at' => $document->updated_at,
         ];
+
+        if ($allowedActions !== null) {
+            $resource['allowed_actions'] = array_values(array_unique($allowedActions));
+        }
+
+        return $resource;
+    }
+
+    /** @return list<string> */
+    private function allowedActionsForDocument(array $principal, stdClass $document, string $correlationId): array
+    {
+        if (! $this->documentDecision($principal, $this->access, $document, 'documents.read', $correlationId)->isAllowed()) {
+            return [];
+        }
+
+        $actions = ['read'];
+        $decisionCapabilities = [
+            'update' => 'documents.update',
+            'initiate-upload' => 'documents.initiate-upload',
+        ];
+        $currentVersionAvailable = $document->current_version_id !== null
+            && DB::table('document_versions')->where('id', $document->current_version_id)->where('availability_status', 'available')->exists();
+        if ($currentVersionAvailable) {
+            $decisionCapabilities += [
+                'link' => 'documents.link',
+                'download' => 'documents.download',
+                'grant' => 'documents.grant',
+            ];
+        }
+        if ($document->status !== 'archived') {
+            $decisionCapabilities['archive'] = 'documents.archive';
+        }
+        if (! (bool) $document->legal_hold) {
+            $decisionCapabilities['place-hold'] = 'documents.hold';
+        } else {
+            $decisionCapabilities['release-hold'] = 'documents.hold';
+        }
+        foreach ($decisionCapabilities as $action => $capability) {
+            if ($this->documentDecision($principal, $this->access, $document, $capability, $correlationId)->isAllowed()) {
+                $actions[] = $action;
+                if ($action === 'initiate-upload') {
+                    $actions[] = 'add-version';
+                }
+            }
+        }
+
+        return $actions;
     }
 
     private function recordAccessEvent(stdClass $document, string $actorUserId, string $action, string $decision, string $reasonCode): void
