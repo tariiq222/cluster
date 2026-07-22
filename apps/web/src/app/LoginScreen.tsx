@@ -13,6 +13,13 @@ export function initialLoginTheme(): 'light' | 'dark' {
   }
 }
 
+const DEV_LOGIN_ACCOUNTS = import.meta.env.DEV
+  ? ([
+      { username: 'w13-e2e-account-a', password: 'North!River7Quartz2026' },
+      { username: 'w13-e2e-account-b', password: 'Cedar!Orbit8Harbor2026' },
+    ] as const)
+  : ([] as const)
+
 export function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenticated }: {
   locale: Locale
   sessionExpired: boolean
@@ -51,6 +58,13 @@ export function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenti
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function fillDevelopmentCredentials(accountUsername: string, accountPassword: string) {
+    setUsername(accountUsername)
+    setPassword(accountPassword)
+    setFieldErrors({})
+    setAuthenticationError(false)
   }
 
   function toggleTheme() {
@@ -155,12 +169,28 @@ export function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenti
               </button>
             </form>
 
+            {DEV_LOGIN_ACCOUNTS.length > 0 && (
+              <section className="login-dev-hints" aria-label={copy.developmentAccounts}>
+                <p className="login-dev-hints-title">{copy.developmentAccounts}</p>
+                {DEV_LOGIN_ACCOUNTS.map((account) => (
+                  <button
+                    key={account.username}
+                    type="button"
+                    className="login-dev-hint"
+                    onClick={() => fillDevelopmentCredentials(account.username, account.password)}
+                  >
+                    {`${account.username} / ${account.password}`}
+                  </button>
+                ))}
+              </section>
+            )}
+
             <p className="login-assurance"><span aria-hidden="true" />{copy.internalAccess}</p>
           </div>
         </section>
       </div>
       <footer className="login-footer">
-        <div className="login-footer-copy" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="login-footer-copy" dir={text[locale].ltr}>
           <strong>{copy.rightsReserved}</strong>
           <span>{copy.organizationName}</span>
           <span>{copy.officeName}</span>

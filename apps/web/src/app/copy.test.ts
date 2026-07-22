@@ -8,10 +8,22 @@ describe('app/copy text parity', () => {
     expect(arKeys).toEqual(enKeys)
   })
 
-  it('uses Arabic as the default locale', () => {
-    expect(text.ar.platform).toBe('منصة التجمع الصحي الثالث')
-    expect(text.en.platform).toBe('Third Health Cluster Platform')
+  it('uses the current platform name in both locales', () => {
+    expect(text.ar.platform).toBe('بوابة العمل المؤسسي')
+    expect(text.en.platform).toBe('Institutional Work Portal')
     expect(LOCALE_KEY).toBe('cluster.presentation-locale')
+  })
+
+  it('keeps production-facing localization free of development credentials', () => {
+    const copy = JSON.stringify(text)
+    for (const credential of [
+      'w13-e2e-account-a',
+      'w13-e2e-account-b',
+      'North!River7Quartz2026',
+      'Cedar!Orbit8Harbor2026',
+    ]) {
+      expect(copy).not.toContain(credential)
+    }
   })
 
   it('falls back to Arabic when localStorage is unavailable', () => {
