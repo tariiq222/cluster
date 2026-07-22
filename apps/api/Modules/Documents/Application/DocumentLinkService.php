@@ -25,6 +25,7 @@ final class DocumentLinkService
         string $relationType,
         string $principalId,
         string $facilityId,
+        ?string $constraintPolicyKey = null,
     ): string {
         UuidV7::assert($documentId, 'Document id');
         UuidV7::assert($principalId, 'Document link principal id');
@@ -54,22 +55,7 @@ final class DocumentLinkService
             $facts,
         );
 
-        $now = now('UTC');
-        $linkId = UuidV7::generate();
-        DB::table('document_links')->insertOrIgnore([
-            'id' => $linkId,
-            'document_id' => $document->id,
-            'source_module' => $reference->sourceModule,
-            'source_type' => $reference->sourceType,
-            'source_id' => $reference->sourceId,
-            'relation_type' => $relationType,
-            'link_classification' => $facts->classification,
-            'linked_by_user_id' => $principalId,
-            'status' => 'active',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
+        $normalizedConstraintPolicyKey = $constraintPolicyKey !== null ? trim($constraintPolicyKey) : null;
         $existing = DB::table('document_links')
             ->where('document_id', $document->id)
             ->where('source_module', $reference->sourceModule)
@@ -77,9 +63,49 @@ final class DocumentLinkService
             ->where('source_id', $reference->sourceId)
             ->where('relation_type', $relationType)
             ->where('status', 'active')
-            ->value('id');
+            ->first();
+        if ($existing instanceof stdClass) {
+            if (($existing->constraint_policy_key ?? null) !== $normalizedConstraintPolicyKey) {
+                throw new DomainException('document_link_conflict');
+            }
 
-        return is_string($existing) ? $existing : $linkId;
+            return (string) $existing->id;
+        }
+
+        $now = now('UTC');
+        $linkId = UuidV7::generate();
+        $inserted = DB::table('document_links')->insertOrIgnore([
+            'id' => $linkId,
+            'document_id' => $document->id,
+            'source_module' => $reference->sourceModule,
+            'source_type' => $reference->sourceType,
+            'source_id' => $reference->sourceId,
+            'relation_type' => $relationType,
+            'constraint_policy_key' => $normalizedConstraintPolicyKey,
+            'link_classification' => $facts->classification,
+            'linked_by_user_id' => $principalId,
+            'status' => 'active',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        if ($inserted !== 1) {
+            $persisted = DB::table('document_links')
+                ->where('document_id', $document->id)
+                ->where('source_module', $reference->sourceModule)
+                ->where('source_type', $reference->sourceType)
+                ->where('source_id', $reference->sourceId)
+                ->where('relation_type', $relationType)
+                ->where('status', 'active')
+                ->first();
+            if (! $persisted instanceof stdClass || ($persisted->constraint_policy_key ?? null) !== $normalizedConstraintPolicyKey) {
+                throw new DomainException('document_link_conflict');
+            }
+
+            return (string) $persisted->id;
+        }
+
+        return $linkId;
     }
 
     private function assertAllowed(array $actor, string $capability, RecordFacts $facts): void

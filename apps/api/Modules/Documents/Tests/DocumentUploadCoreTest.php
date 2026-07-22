@@ -85,6 +85,31 @@ final class DocumentUploadCoreTest extends TestCase
         ]);
     }
 
+    public function test_initiating_a_version_targets_the_existing_document_and_issues_a_quarantine_intent(): void
+    {
+        $first = $this->initiate('first.pdf', 'application/pdf', 512, 'existing-version-first');
+        $request = new InitiateDocumentUpload(
+            'document_version',
+            new DocumentMetadata('ignored for existing document', null, 'internal'),
+            new UploadFileMetadata('second.pdf', 1024, 'application/pdf', $this->hashFor('second.pdf', 1024)),
+            $first->documentId,
+        );
+
+        $second = $this->handler->initiate(
+            $this->actor(DocumentUploadHandler::INITIATE_OPERATION),
+            $request,
+            $this->idempotency(DocumentUploadHandler::INITIATE_OPERATION, 'existing-version-second', 'existing-version-second'),
+        );
+
+        $this->assertSame($first->documentId, $second->documentId);
+        $this->assertNotSame($first->versionId, $second->versionId);
+        $this->assertSame(1, DB::table('documents')->where('public_id', $first->documentId)->count());
+        $this->assertSame(2, DB::table('document_versions')->where('document_id', DB::table('documents')->where('public_id', $first->documentId)->value('id'))->count());
+        $this->assertSame($first->documentId, DB::table('document_upload_intents')->where('id', $second->uploadIntent->id)->value('document_id')
+            ? DB::table('documents')->where('id', DB::table('document_upload_intents')->where('id', $second->uploadIntent->id)->value('document_id'))->value('public_id')
+            : null);
+    }
+
     public function test_signed_intent_binds_exact_content_conditions_and_opaque_root_relative_key(): void
     {
         $started = $this->initiate('bound.pdf', 'application/pdf', 512, 'signed-conditions');

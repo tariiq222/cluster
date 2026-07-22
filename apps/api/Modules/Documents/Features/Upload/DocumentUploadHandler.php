@@ -73,10 +73,23 @@ final class DocumentUploadHandler
             }
 
             $now = $this->now();
-            $retention = $this->retentionPolicy->resolve($request->metadata->classification, $now);
+            $targetDocument = null;
+            if ($request->documentId !== null) {
+                UuidV7::assert($request->documentId, 'Document id');
+                $targetDocument = DB::table('documents')->where('public_id', $request->documentId)->lockForUpdate()->first();
+                if (! $targetDocument instanceof stdClass) {
+                    throw new DomainException('document_not_found');
+                }
+                if ((string) $targetDocument->classification !== $request->metadata->classification) {
+                    throw new DomainException('document_classification_mismatch');
+                }
+            }
+            $retention = $targetDocument === null
+                ? $this->retentionPolicy->resolve($request->metadata->classification, $now)
+                : null;
             $expiresAt = $now->modify('+'.$this->uploadIntentTtlSeconds().' seconds');
-            $documentId = UuidV7::generate();
-            $documentPublicId = UuidV7::generate();
+            $documentId = $targetDocument?->id ?? UuidV7::generate();
+            $documentPublicId = $targetDocument?->public_id ?? UuidV7::generate();
             $versionId = UuidV7::generate();
             $versionPublicId = UuidV7::generate();
             $storageObjectId = UuidV7::generate();
@@ -94,27 +107,29 @@ final class DocumentUploadHandler
                 return $this->replayInitiation($actor, $concurrent, $idempotency);
             }
 
-            DB::table('documents')->insert([
-                'id' => $documentId,
-                'public_id' => $documentPublicId,
-                'owner_organization_unit_id' => $actor->organizationUnitId,
-                'created_by_user_id' => $actor->principalId,
-                'name' => $request->metadata->name,
-                'description' => $request->metadata->description,
-                'classification' => $request->metadata->classification,
-                'status' => $retention->legalHold
-                    ? DocumentStatus::Held->value
-                    : DocumentStatus::Draft->value,
-                'current_version_id' => null,
-                'retention_until' => $this->databaseTimestamp($retention->retentionUntil),
-                'retention_policy_key' => $retention->policyKey,
-                'legal_hold' => $retention->legalHold,
-                'legal_hold_reason' => $retention->legalHoldReason,
-                'legal_hold_at' => $retention->legalHold ? $this->databaseTimestamp($now) : null,
-                'lock_version' => 1,
-                'created_at' => $this->databaseTimestamp($now),
-                'updated_at' => $this->databaseTimestamp($now),
-            ]);
+            if ($targetDocument === null) {
+                DB::table('documents')->insert([
+                    'id' => $documentId,
+                    'public_id' => $documentPublicId,
+                    'owner_organization_unit_id' => $actor->organizationUnitId,
+                    'created_by_user_id' => $actor->principalId,
+                    'name' => $request->metadata->name,
+                    'description' => $request->metadata->description,
+                    'classification' => $request->metadata->classification,
+                    'status' => $retention->legalHold
+                        ? DocumentStatus::Held->value
+                        : DocumentStatus::Draft->value,
+                    'current_version_id' => null,
+                    'retention_until' => $this->databaseTimestamp($retention->retentionUntil),
+                    'retention_policy_key' => $retention->policyKey,
+                    'legal_hold' => $retention->legalHold,
+                    'legal_hold_reason' => $retention->legalHoldReason,
+                    'legal_hold_at' => $retention->legalHold ? $this->databaseTimestamp($now) : null,
+                    'lock_version' => 1,
+                    'created_at' => $this->databaseTimestamp($now),
+                    'updated_at' => $this->databaseTimestamp($now),
+                ]);
+            }
 
             // Disk roots own zone prefixes; persisted object keys are root-relative and opaque.
             $objectKey = $storageObjectId.'.blob';
@@ -135,7 +150,9 @@ final class DocumentUploadHandler
                 'public_id' => $versionPublicId,
                 'document_id' => $documentId,
                 'storage_object_id' => $storageObjectId,
-                'version_number' => 1,
+                'version_number' => $targetDocument === null
+                    ? 1
+                    : ((int) DB::table('document_versions')->where('document_id', $documentId)->max('version_number')) + 1,
                 'original_filename' => $request->file->originalFilename,
                 'declared_mime_type' => $request->file->declaredMimeType,
                 'detected_mime_type' => null,
@@ -186,6 +203,12 @@ final class DocumentUploadHandler
                 'created_at' => $this->databaseTimestamp($now),
                 'updated_at' => $this->databaseTimestamp($now),
             ]);
+            if ($targetDocument !== null) {
+                DB::table('documents')->where('id', $documentId)->update([
+                    'lock_version' => (int) $targetDocument->lock_version + 1,
+                    'updated_at' => $this->databaseTimestamp($now),
+                ]);
+            }
 
             $uploadIntent = $this->issueSignedIntent(new QuarantineUploadRequest(
                 $uploadIntentId,

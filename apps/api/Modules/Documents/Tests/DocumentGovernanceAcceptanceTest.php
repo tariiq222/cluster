@@ -69,6 +69,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
             'attachment',
             self::CREATOR_ID,
             self::OWNER_ID,
+            'work_record_constraint_v1',
         );
         $grant = $this->downloadService($access, $facts)->download(
             $started->documentId,
@@ -77,11 +78,28 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
         );
 
         $this->assertSame($linkId, DB::table('document_links')->value('id'));
+        $this->assertSame('work_record_constraint_v1', DB::table('document_links')->value('constraint_policy_key'));
         $this->assertSame($started->documentId, $grant->documentId);
         $this->assertSame('available', DB::table('document_versions')->where('public_id', $started->versionId)->value('availability_status'));
         $this->assertSame(1, $storage->promotionCalls);
         $this->assertSame(1, DB::table('document_access_events')->where('action', 'download')->count());
         unset($handler);
+    }
+
+    public function test_duplicate_link_returns_the_persisted_id_and_different_policy_conflicts(): void
+    {
+        [$started] = $this->availableDocument('internal', 'duplicate-link');
+        $service = new DocumentLinkService(new AcceptanceDecideAccess, new AcceptanceLinkedFacts);
+        $reference = new DocumentSourceReference('work_records', 'work_record', self::RECORD_ID);
+
+        $first = $service->link($started->documentId, $reference, 'attachment', self::CREATOR_ID, self::OWNER_ID, 'policy-a');
+        $second = $service->link($started->documentId, $reference, 'attachment', self::CREATOR_ID, self::OWNER_ID, 'policy-a');
+
+        $this->assertSame($first, $second);
+        $this->assertSame(1, DB::table('document_links')->where('document_id', DB::table('documents')->where('public_id', $started->documentId)->value('id'))->count());
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('document_link_conflict');
+        $service->link($started->documentId, $reference, 'attachment', self::CREATOR_ID, self::OWNER_ID, 'policy-b');
     }
 
     public function test_quarantined_or_rejected_document_never_becomes_downloadable(): void
