@@ -98,6 +98,7 @@ nav:
       - خطة R3 السريعة: plans/release-3-risk.md
       - الجاهزية الآلية للتشغيل: plans/readiness-checklist.md
       - حالة التسليم النشطة: plans/active-delivery-status.md
+      - خطة موديول الطلبات والاعتمادات: plans/approvals-and-requests.md
       - العمليات المؤجلة من W1.1: plans/w1-1-remaining-delivery-tasks.md
       - خطة إغلاق تغطية الواجهة: plans/frontend-coverage-completion.md
       - تصميم استلام العمل وإزالة GSD: superpowers/specs/2026-07-17-gsd-takeover-design.md

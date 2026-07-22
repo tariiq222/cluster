@@ -3,8 +3,8 @@ doc_id: PLN-IDX-001
 title: فهرس خطط التنفيذ
 type: plans
 status: accepted
-version: 4.1.0
-date: 2026-07-19
+version: 4.2.0
+date: 2026-07-22
 owner: التنفيذ التقني
 reviewers: []
 classification: internal
@@ -21,6 +21,7 @@ references: []
 |---|---|
 | [خارطة التنفيذ](implementation-roadmap.md) | اعتماديات الإقفال من W1.3 إلى دورة Strategy والمشاريع وR3 |
 | [حالة التسليم](active-delivery-status.md) | ما اكتمل فعلياً وما يُنفذ الآن |
+| [الطلبات والاعتمادات](approvals-and-requests.md) | مراحل فصل الاعتماد عن المهمة وبناء المحرّك ومسار الحوكمة |
 | [R1](release-1-platform.md) | بقية قدرات المنصة العامة واختبارها الآلي |
 | [إقفال W1.3](release-1/w1-3-frontend-slices.md) | بوابة قطع محرك Authorization الحقيقي وأثرها على موديولات R1 قبل R2 |
 | [R2](release-2-strategy-portfolio.md) | دورة الاستراتيجية الكاملة ثم المحافظ والمشاريع وربط الأثر |

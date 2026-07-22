@@ -24,6 +24,7 @@ documents:
   - {path: plans/active-delivery-status.md, title: حالة التسليم النشطة, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: plans/w1-1-remaining-delivery-tasks.md, title: العمليات التشغيلية المؤجلة من W1.1, category: plans, status: accepted, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: plans/frontend-coverage-completion.md, title: خطة إغلاق تغطية الواجهة للعقود, category: plans, status: draft, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
+  - {path: plans/approvals-and-requests.md, title: خطة موديول الطلبات والاعتمادات, category: plans, status: draft, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: superpowers/specs/2026-07-17-gsd-takeover-design.md, title: تصميم استلام Codex للعمل وإزالة GSD, category: plans, status: proposed, owner: مكتب هندسة المنصة, phase: R1-R3, source_of_truth: false, generated: false}
   - {path: superpowers/plans/2026-07-17-gsd-takeover.md, title: سجل تاريخي لاستلام Codex وإزالة GSD, category: plans, status: superseded, owner: التنفيذ التقني, phase: R1-R3, source_of_truth: false, generated: false}
   - {path: data-security/README.md, title: البيانات والأمن, category: data-security, status: draft, owner: مسؤول أمن المعلومات, phase: R1-R3, source_of_truth: true, generated: false}
@@ -100,6 +101,7 @@ documents:
   - {path: api/rbac-matrix.md, title: RBAC Matrix, category: engineering, status: accepted, owner: مكتب هندسة البرمجيات, phase: R3, source_of_truth: false, generated: true}
   - {path: contracts/events/asyncapi.yaml, title: AsyncAPI, category: contract-events, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1-R3, source_of_truth: true, generated: false}
   - {path: contracts/schemas/access-context.schema.json, title: Access Context schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
+  - {path: contracts/schemas/principal-context.schema.json, title: Principal Context schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/access-decision.schema.json, title: Access Decision schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/document-scan-completed.schema.json, title: Document Scan Completed schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
   - {path: contracts/schemas/event-envelope.schema.json, title: Event Envelope schema, category: contract-schema, status: accepted, owner: مسؤول هندسة البرمجيات, phase: R1, source_of_truth: true, generated: false}
