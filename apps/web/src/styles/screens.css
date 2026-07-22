@@ -1,0 +1,317 @@
+/* Feature page layouts and the responsive rules for the shell. */
+
+/* Feature pages (R1 content screens) */
+.content-page {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+
+.page-heading-copy p {
+  max-inline-size: 72ch;
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.form-grid,
+.definition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.surface-card {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-inline-size: 0;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  background: var(--color-surface);
+}
+
+.surface-card h2,
+.section-heading h2 {
+  font-size: 16px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block-end: 12px;
+  border-block-end: 1px solid var(--color-border);
+}
+
+.count-badge {
+  display: inline-grid;
+  min-inline-size: 28px;
+  block-size: 24px;
+  place-items: center;
+  padding-inline: 8px;
+  border-radius: var(--radius-pill);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.card-list,
+.import-entry-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.table-scroll table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table-scroll th {
+  padding: 10px 12px;
+  border-block-end: 1px solid var(--color-gray-200);
+  color: var(--color-gray-700);
+  background: var(--color-gray-50);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: start;
+  white-space: nowrap;
+}
+
+.table-scroll td {
+  padding: 10px 12px;
+  border-block-end: 1px solid var(--color-gray-100);
+  color: var(--color-ink);
+  background: var(--color-surface);
+}
+
+.table-scroll tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.table-scroll tbody tr:hover td {
+  background: var(--color-gray-50);
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resource-form {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  margin-block-start: 4px;
+  padding-block-start: 16px;
+  border-block-start: 1px dashed var(--color-border-strong);
+}
+
+.resource-form .error-summary,
+.resource-form .field-row {
+  inline-size: 100%;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+@media (max-width: 620px) {
+  .inline-form {
+    grid-template-columns: 1fr;
+    padding: var(--space-4);
+  }
+
+  .inline-form > .primary-button,
+  .inline-form > .secondary-button,
+  .inline-form > .quiet-button {
+    inline-size: 100%;
+  }
+}
+
+.field select {
+  inline-size: 100%;
+  min-block-size: var(--control-height);
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  background: var(--color-surface);
+  font: inherit;
+}
+
+.field select:hover {
+  border-color: var(--color-muted);
+}
+
+.field select:focus-visible {
+  border-color: var(--color-border-strong);
+  outline: none;
+  box-shadow: var(--focus-field-shadow);
+}
+
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: var(--control-height);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-chip {
+  display: inline-flex;
+  min-block-size: 24px;
+  align-items: center;
+  padding-inline: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.inline-errors {
+  color: var(--color-danger-strong);
+  font-size: 13px;
+}
+
+.tree-label {
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .ui-panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid,
+  .definition-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .login-page {
+    gap: 24px;
+    padding-block-start: 84px;
+  }
+
+  .login-frame {
+    inline-size: min(calc(100% - 32px), 420px);
+  }
+
+  .login-page::before {
+    background-size:
+      auto,
+      24px 24px,
+      24px 24px;
+  }
+
+  .login-card {
+    padding: 24px;
+    box-shadow: var(--shadow-float);
+    transform: translateY(-2px);
+  }
+
+  .login-page[data-login-theme='dark'] .login-card {
+    box-shadow: var(--shadow-float);
+  }
+
+  .login-footer {
+    padding: 16px;
+  }
+
+  .login-footer-copy {
+    max-inline-size: 44ch;
+  }
+
+  .login-page-actions {
+    inset-block-start: 16px;
+    inset-inline-start: 16px;
+  }
+
+  .page-heading,
+  .request-list a {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .request-meta {
+    align-items: flex-start;
+  }
+
+  .notification-panel {
+    inset-block: auto 16px;
+    inset-inline: 16px;
+    inline-size: auto;
+    max-block-size: calc(100svh - 32px);
+  }
+}
+
+@media (max-width: 620px) {
+  .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-kpi {
+    min-block-size: 104px;
+  }
+
+  .dashboard-panel {
+    min-block-size: 0;
+    padding: 24px;
+  }
+
+  .dashboard-notification-list li,
+  .dashboard-request-list a {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 359px) {
+  .login-card {
+    padding: 24px;
+  }
+}
+
+@media (max-height: 620px) {
+  .login-page {
+    padding-block: 16px;
+  }
+
+  .login-frame {
+    align-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .primary-button:active:not(:disabled) {
+    transform: none;
+  }
+}

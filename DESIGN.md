@@ -2,22 +2,22 @@
 name: Third Health Cluster Platform
 description: Approved unified design system for an Arabic-first internal operations platform.
 colors:
-  canvas: "#F2FBFD"
+  canvas: "#F6F7F9"
   surface: "#FFFFFF"
-  ink: "#0B2F3A"
-  muted: "#496A75"
-  border: "#CDEEF7"
-  primary: "#0077B6"
-  primary-hover: "#005F92"
-  accent: "#00B4D8"
+  ink: "#1A2735"
+  muted: "#5A6875"
+  border: "#E4E4E7"
+  primary: "#293B85"
+  primary-hover: "#253679"
+  accent: "#3DAAE1"
   success: "#247A42"
   warning: "#9A5B00"
   danger: "#B42318"
   on-color: "#FFFFFF"
-  dark-canvas: "#071F2B"
-  dark-surface: "#0D2B38"
-  dark-muted: "#A9C2CC"
-  dark-border: "#315363"
+  dark-canvas: "#000E22"
+  dark-surface: "#082036"
+  dark-muted: "#9EB0C3"
+  dark-border: "#223A55"
 typography:
   display:
     fontFamily: "IBM Plex Sans Arabic, Tahoma, Arial, sans-serif"
@@ -106,8 +106,10 @@ components:
 
 > **OWNER-APPROVED BASELINE — 2026-07-18**
 >
-> اعتمد المالك اتجاه `rrrr.html` مرجعاً بصرياً للـDashboard والـApp Shell. يطبّق
-> الهيكل والألوان والكثافة محلياً، مع بقاء بيانات العرض وCDN والأصول الخارجية خارج المنتج.
+> اعتمد المالك اتجاه `access-management-dashboard.html` مرجعاً بصرياً للـDashboard والـApp Shell.
+> يطبّق الهيكل والألوان والكثافة محلياً، مع بقاء بيانات العرض وCDN والأصول الخارجية خارج المنتج.
+> اللوحة المعتمدة كحلاً أزرق مؤسسي (Institutional Navy) مع لمسة سماوية (Sky Accent) على
+> خلفية رمادية محايدة، بديلاً عن اللوحة المخضرّة السابقة، مع الحفاظ على بوابات التباين نفسها.
 
 ## 1. Overview
 
@@ -128,7 +130,7 @@ components:
 - أيقونات Lucide موحدة ومضمنة في bundle، وApache ECharts هي مكتبة الرسوم الافتراضية خلف مكونات React داخلية موحدة.
 - لا اتصال إنترنت خارجي مطلوب وقت التشغيل، ولا fallback صامت إلى مورد عام.
 
-**The One System Rule.** يوجد مصدر واحد للألوان والخطوط والمسافات والحواف، ومكتبة مكونات واحدة داخل `apps/web/src/components/ui`. يمنع إنشاء primitive مواز داخل موديول أعمال.
+**The One System Rule.** يوجد مصدر واحد للألوان والخطوط والمسافات والحواف، ومكتبة مكونات واحدة داخل `apps/web/src/ui`، بينما تنسّق `apps/web/src/app/AppShell.css` و`apps/web/src/index.css` سطح التطبيق العام. يمنع إنشاء primitive مواز داخل موديول أعمال.
 
 **The Runtime-Local Rule.** كل font وicon وimage وscript وstyle مطلوب وقت التشغيل يخدم من نفس الأصل. `connect-src 'self'` هو الحد الافتراضي، وأي استثناء يحتاج قراراً محكوماً ومراجعة أمنية قبل التنفيذ.
 
@@ -136,17 +138,17 @@ components:
 
 ## 2. Colors
 
-لوحة باردة وواضحة مستمدة من المرجع، لكن بدرجات داكنة تحقق WCAG 2.2 AA بدلاً من السماوي الفاتح منخفض التباين. اللون لا يحمل المعنى منفرداً؛ يرافقه نص أو رمز أو نمط خط.
+لوحة زرقاء مؤسسية هادئة مستمدة من المرجع المعتمد، بدرجة كحلية عالية التباين تحقق WCAG 2.2 AA على خلفية رمادية محايدة. اللون لا يحمل المعنى منفرداً؛ يرافقه نص أو رمز أو نمط خط.
 
 ### Primary
 
-- **Operational Teal** (`primary`): للإجراء الأساسي، التحديد الحالي، والروابط المهمة فقط. الأبيض عليه يحقق تباين `5.86:1`.
-- **Deep Operational Teal** (`primary-hover`): لحالات hover وactive. الأبيض عليه يحقق `7.70:1`.
+- **Institutional Navy** (`primary` `#293B85`): للإجراء الأساسي، التحديد الحالي، والروابط المهمة فقط. الأبيض عليه يحقق تباين `10.20:1`، وعلى canvas يحقق `9.52:1`.
+- **Deep Navy** (`primary-hover` `#253679`): لحالات hover وactive. الأبيض عليه يحقق `11.16:1`.
 
 ### Secondary
 
-- **Dashboard Cyan** (`accent`): لفواصل الأقسام والنقاط والمؤشرات الثانوية فقط. لا
-  يستخدم لنص عادي أو زر أساسي لأن تباينه على الأبيض غير كافٍ لهذا الدور.
+- **Sky Accent** (`accent` `#3DAAE1`): لفواصل الأقسام والنقاط والمؤشرات الثانوية فقط. لا
+  يستخدم لنص عادي أو زر أساسي لأن تباينه على الأبيض (`2.61:1`) غير كافٍ لهذا الدور، ويقتصر على عناصر الرسم غير النصية التي تحقق `3:1`.
 
 ### Tertiary
 
@@ -156,13 +158,13 @@ components:
 
 ### Neutral
 
-- **Quiet Canvas** (`canvas`): خلفية التطبيق الفاتحة.
-- **Clear Surface** (`surface`): الألواح والقوائم والحقول.
-- **Operational Ink** (`ink`): النص والعناوين؛ تباينه على canvas هو `13.40:1`.
-- **Readable Muted** (`muted`): النص الثانوي؛ تباينه على canvas هو `5.51:1`.
-- **Structural Border** (`border`): فواصل وحدود هادئة، وليست بديلاً عن التباعد.
-- **Night Canvas / Surface** (`dark-canvas`, `dark-surface`): طبقتا الوضع الداكن. لا تترك مناطق بيضاء بين المحتوى والتذييل.
-- **Night Muted** (`dark-muted`): نص ثانوي يحقق `9.09:1` على dark canvas.
+- **Neutral Canvas** (`canvas` `#F6F7F9`): خلفية التطبيق الرمادية المحايدة الهادئة.
+- **Clear Surface** (`surface` `#FFFFFF`): الألواح والقوائم والحقول.
+- **Navy Ink** (`ink` `#1A2735`): النص والعناوين؛ تباينه على canvas هو `14.14:1`.
+- **Readable Muted** (`muted` `#5A6875`): النص الثانوي؛ تباينه على canvas هو `5.34:1`.
+- **Structural Border** (`border` `#E4E4E7`): فواصل وحدود هادئة، وليست بديلاً عن التباعد.
+- **Night Canvas / Surface** (`dark-canvas` `#000E22`, `dark-surface` `#082036`): طبقتا الوضع الداكن الكحلي. لا تترك مناطق بيضاء بين المحتوى والتذييل.
+- **Night Muted** (`dark-muted` `#9EB0C3`): نص ثانوي يحقق `8.70:1` على dark canvas.
 
 **The Ten Percent Rule.** لا يتجاوز اللون الرئيسي نحو 10% من الشاشة، ويقتصر على الأفعال والتحديد والحالة.
 
@@ -214,7 +216,7 @@ components:
 
 ## 5. Components
 
-توجد primitives العامة داخل `apps/web/src/components/ui` فقط. كل مكون يملك API صغيراً، ويدعم العربية والإنجليزية، ويوثق الحالات التالية حيث تنطبق: default، hover، focus، active، selected، disabled، loading، empty، error، stale، وrestricted.
+توجد primitives العامة داخل `apps/web/src/ui` فقط. كل مكون يملك API صغيراً، ويدعم العربية والإنجليزية، ويوثق الحالات التالية حيث تنطبق: default، hover، focus، active، selected، disabled، loading، empty، error، stale، وrestricted.
 
 ### Buttons
 
@@ -301,7 +303,7 @@ components:
 
 ### Do:
 
-- **Do** استخدم tokens هذا الملف ومكونات `apps/web/src/components/ui` لكل الموديولات.
+- **Do** استخدم tokens هذا الملف ومكونات `apps/web/src/ui` لكل الموديولات.
 - **Do** استخدم `lucide-react` فقط للأيقونات، مع imports صريحة وحفظ إشعار ترخيص ISC.
 - **Do** استخدم Apache ECharts عبر `DashboardChart` فقط، مع `SVGRenderer` وimports انتقائية وحفظ متطلبات Apache-2.0.
 - **Do** حمّل IBM Plex Sans Arabic داخل bundle واحفظ ترخيص OFL-1.1.
