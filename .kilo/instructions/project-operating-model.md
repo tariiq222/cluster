@@ -12,7 +12,7 @@ Never treat a plan or target document as implemented without runnable evidence.
 
 ## Execution Rules
 
-- The primary `orchestrator` mode uses Kimi K3 first with MiniMax M3 for deterministic lanes, and owns decomposition, file ownership, integration, conflict resolution, and final verification.
+- The primary `orchestrator` mode uses Sol as the top-level control layer, with subagents handling the bounded lanes underneath it, and owns decomposition, file ownership, integration, conflict resolution, and final verification.
 - The primary `plan` mode uses the persistent Kimi, MiniMax, and Fable planning loop, with GPT-family escalation kept rare.
 - Execute a small change locally when delegation would cost more than the change.
 - For non-trivial work, delegate only independent, verifiable packages with non-overlapping write surfaces.
@@ -56,7 +56,7 @@ Every implementation follows a complete, risk-proportionate pipeline:
 6. Run an independent read-only review for security, authorization, boundaries, regressions, data and transaction safety, contract drift, diff quality, and missing tests. Resolve material findings and rerun affected gates.
 7. Finish only after reconciling acceptance criteria, inspecting the integrated diff, updating genuinely affected governed documentation or status, and reporting actual verification evidence.
 
-Use Kimi K3 first for evidence and bounded work, prefer MiniMax for deterministic module lanes and focused tests, reserve GPT-family models for rare escalation, and use Terra only for proven unresolved high risk. Up to nine independent agents may run per wave, but shared files, generation, builds, E2E, Docker, and deployment remain serialized unless isolation is proven.
+Use Sol as the top-level control layer, keep subagents beneath it for evidence and bounded work, prefer MiniMax for deterministic module lanes and focused tests, reserve GPT-family models for rare escalation, and use Terra only for proven unresolved high risk. Up to nine independent agents may run per wave, but shared files, generation, builds, E2E, Docker, and deployment remain serialized unless isolation is proven.
 
 ## Verification Selection
 
