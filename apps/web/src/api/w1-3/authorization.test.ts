@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  archiveRequest,
+  cancelRequest,
   createRoleAssignment,
   getAuthorizationAdminResource,
   listAuthorization,
   simulateAccessDecision,
+  transitionAuthorizationAdminResource,
   updateAuthorizationAdminResource,
   uuidV7,
 } from '../r1'
@@ -62,6 +65,37 @@ describe('W1.3 authorization transport', () => {
     expect(new Headers(simulatorRequest.headers).get('X-CSRF-Token')).toBe('token')
     expect(new Headers(simulatorRequest.headers).get('Authorization')).toBeNull()
     expect(simulatorRequest.credentials).toBe('include')
+    vi.unstubAllGlobals()
+  })
+
+  it('posts governed transitions through the generated wrapper with a required reason', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: '1', status: 'revoked' } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await transitionAuthorizationAdminResource('role-assignments', '018f6f7d-0c00-7000-8000-000000000002', 'revoke', 'No longer assigned', 'token', 4)
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/authorization/role-assignments/018f6f7d-0c00-7000-8000-000000000002/revoke')
+    const request = fetchMock.mock.calls[0][1] as RequestInit
+    expect(JSON.parse(String(request.body))).toEqual({ reason: 'No longer assigned' })
+    expect(new Headers(request.headers).get('If-Match')).toBe('"4"')
+    expect(new Headers(request.headers).get('X-CSRF-Token')).toBe('token')
+    vi.unstubAllGlobals()
+  })
+
+  it('routes cancel and archive through reasoned generated work-record commands', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: '1', status: 'cancelled' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: '1', status: 'archived' } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await cancelRequest('token', 'record-1', 'Withdrawn by requester', 2)
+    await archiveRequest('token', 'record-1', 'Retention completed', 3)
+    await expect(cancelRequest('token', 'record-1', '  ', 4)).rejects.toMatchObject({ status: 400 })
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/work-records/record-1/cancel')
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/work-records/record-1/archive')
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toEqual({ reason: 'Withdrawn by requester' })
+    expect(new Headers((fetchMock.mock.calls[1][1] as RequestInit).headers).get('If-Match')).toBe('"3"')
     vi.unstubAllGlobals()
   })
 })

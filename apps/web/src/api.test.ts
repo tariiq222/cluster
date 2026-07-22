@@ -11,6 +11,8 @@ import {
   login,
   restoreSession,
   refreshIdentityCsrf,
+  registerSessionExpiredHandler,
+  stateFromError,
 } from './api'
 
 const session = {
@@ -326,5 +328,41 @@ describe('API client', () => {
       '/api/v1/notifications?limit=20',
       '/api/v1/work-records/record%2Fid',
     ])
+  })
+})
+
+describe('cross-cutting session expiry', () => {
+  afterEach(() => {
+    registerSessionExpiredHandler(null)
+  })
+
+  it('routes a 401 from any endpoint to the registered handler', async () => {
+    const expired = vi.fn()
+    registerSessionExpiredHandler(expired)
+    mockFetch(jsonResponse({ title: 'Unauthorized', status: 401 }, 401))
+
+    await expect(listWorkRecords(session.access_token)).rejects.toBeInstanceOf(ApiError)
+    expect(expired).toHaveBeenCalledOnce()
+  })
+
+  it('leaves other failures to the calling screen', async () => {
+    const expired = vi.fn()
+    registerSessionExpiredHandler(expired)
+    mockFetch(jsonResponse({ title: 'Forbidden', status: 403 }, 403))
+
+    await expect(listWorkRecords(session.access_token)).rejects.toBeInstanceOf(ApiError)
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it('maps problem statuses onto the shared resource states', () => {
+    const problem = (status: number) =>
+      new ApiError(status, { type: 'about:blank', title: 'x', status })
+
+    expect(stateFromError(problem(403))).toBe('forbidden')
+    expect(stateFromError(problem(404))).toBe('not-found')
+    expect(stateFromError(problem(409))).toBe('conflict')
+    expect(stateFromError(problem(412))).toBe('stale')
+    expect(stateFromError(problem(500))).toBe('error')
+    expect(stateFromError(new Error('offline'))).toBe('error')
   })
 })

@@ -42,7 +42,7 @@ import {
   getIdentityLoginUrl,
   getListTemporaryAssignmentsUrl,
   getRevokeTemporaryAssignmentUrl,
-} from './api/generated/w1-2'
+} from './api/generated/cluster'
 
 const token = 'fixture-token'
 const cluster = {
@@ -353,7 +353,7 @@ describe('W1.2 Organization API adapter', () => {
     await expect(transitionUserAccount(token, accountId, 'revoke-sessions')).resolves.toEqual(account)
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[2][1]?.body).toBe('{}')
+    expect(fetchMock.mock.calls[2][1]?.body).toBeUndefined()
   })
 
   it('submits, reads, and transitions a redacted import using a fresh ETag', async () => {
