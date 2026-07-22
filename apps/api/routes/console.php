@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\OrganizationHierarchyDemoSeeder;
 use App\Support\W12E2EFixtureSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -121,3 +122,22 @@ Artisan::command('e2e:w1-2:seed', function (): int {
         return Command::FAILURE;
     }
 })->purpose('Create one disposable W1.2 browser E2E fixture set for the testing runtime');
+
+Artisan::command('organization:demo-seed {--force : Re-run even if the demo hierarchy already exists}', function (): int {
+    if (! in_array(app()->environment(), ['local', 'testing'], true)) {
+        $this->error('organization:demo-seed is available only in local/testing; refuse to run in '.app()->environment().'.');
+
+        return Command::FAILURE;
+    }
+
+    try {
+        $seeder = app(OrganizationHierarchyDemoSeeder::class);
+        $this->line(json_encode($seeder->seed((bool) $this->option('force')), JSON_THROW_ON_ERROR));
+
+        return Command::SUCCESS;
+    } catch (Throwable $e) {
+        $this->error('organization:demo-seed failed: '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
+
+        return Command::FAILURE;
+    }
+})->purpose('Seed the four-layer healthcare cluster hierarchy into the local database');

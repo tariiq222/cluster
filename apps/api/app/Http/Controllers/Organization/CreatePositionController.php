@@ -52,14 +52,19 @@ final class CreatePositionController
         $validator = Validator::make($input, [
             'organization_unit_id' => ['required', 'string', 'regex:/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/'],
             'code' => ['required', 'string', 'regex:/\A[A-Z0-9_-]{2,64}\z/'],
-            'title' => ['required', 'string', 'min:1', 'max:255'],
+            'title' => ['sometimes', 'string', 'min:1', 'max:255'],
+            'job_title_id' => ['sometimes', 'nullable', 'string', 'regex:/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/'],
             'manager_position_id' => ['sometimes', 'nullable', 'string', 'regex:/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/'],
         ]);
-        if ($validator->fails() || array_diff(array_keys($input), ['organization_unit_id', 'code', 'title', 'manager_position_id']) !== []) {
+        if ($validator->fails() || array_diff(array_keys($input), ['organization_unit_id', 'code', 'title', 'job_title_id', 'manager_position_id']) !== []) {
             return OrganizationApi::problem(400, 'invalid-position', 'Bad Request', 'The position payload is invalid.', $correlationId);
         }
         $semantics = $validator->validated();
         $semantics['manager_position_id'] = $semantics['manager_position_id'] ?? null;
+        $semantics['job_title_id'] = $semantics['job_title_id'] ?? null;
+        if (! isset($semantics['job_title_id']) && ! isset($semantics['title'])) {
+            return OrganizationApi::problem(400, 'invalid-position', 'Bad Request', 'Either job_title_id or title is required.', $correlationId);
+        }
         $idempotency = [
             'principal_id' => $principal['user_id'],
             'operation' => self::OPERATION,

@@ -19,7 +19,7 @@ final class PositionHandler
     public function __construct(private readonly OrganizationOutbox $outbox) {}
 
     /**
-     * @param  array{organization_unit_id: string, code: string, title: string, manager_position_id?: string|null}  $input
+     * @param  array{organization_unit_id: string, code: string, title?: string, job_title_id?: string|null, manager_position_id?: string|null}  $input
      * @param  array{principal_id: string, operation: string, key_hash: string, request_hash: string}  $idempotency
      * @param  Closure(array<string, mixed>, string): array<string, mixed>  $eventFactory
      * @return array{created: bool, request_hash_matches: bool, position: array<string, mixed>}
@@ -36,6 +36,11 @@ final class PositionHandler
             if (DB::table('positions')->where('organization_unit_id', $input['organization_unit_id'])->where('code', $input['code'])->exists()) {
                 throw new DomainException('position_already_exists');
             }
+
+            $jobTitleIdInput = $input['job_title_id'] ?? null;
+            $jobTitleId = is_string($jobTitleIdInput) && $jobTitleIdInput !== '' ? $jobTitleIdInput : null;
+            $titleInput = $input['title'] ?? null;
+            $resolvedTitle = $this->resolveTitle($jobTitleId, is_string($titleInput) ? $titleInput : null);
 
             $claimed = DB::table('organization_idempotency_keys')->insertOrIgnore([
                 'principal_id' => $idempotency['principal_id'],
@@ -60,15 +65,17 @@ final class PositionHandler
                 $positionId,
                 $input['organization_unit_id'],
                 $input['code'],
-                $input['title'],
+                $resolvedTitle,
                 $input['manager_position_id'] ?? null,
             );
             $data = $position->toArray();
+            $data['job_title_id'] = $jobTitleId;
             DB::table('positions')->insert([
                 'id' => $data['id'],
                 'organization_unit_id' => $data['organization_unit_id'],
                 'code' => $data['code'],
                 'title_ar' => $data['title_ar'],
+                'job_title_id' => $jobTitleId,
                 'manager_position_id' => $data['manager_position_id'],
                 'is_active' => $data['is_active'],
                 'lock_version' => $data['lock_version'],
@@ -122,7 +129,7 @@ final class PositionHandler
     }
 
     /**
-     * @param  array{organization_unit_id?: string, title?: string, manager_position_id?: string|null}  $changes
+     * @param  array{organization_unit_id?: string, title?: string, job_title_id?: string|null, manager_position_id?: string|null}  $changes
      * @param  Closure(array<string, mixed>, string): array<string, mixed>  $eventFactory
      * @return array<string, mixed>
      */
@@ -138,14 +145,33 @@ final class PositionHandler
             }
 
             $unitId = $changes['organization_unit_id'] ?? $row->organization_unit_id;
-            $title = $changes['title'] ?? $row->title_ar;
             $managerId = array_key_exists('manager_position_id', $changes) ? $changes['manager_position_id'] : $row->manager_position_id;
-            if (! is_string($unitId) || ! is_string($title) || ($managerId !== null && ! is_string($managerId))) {
+            if (! is_string($unitId) || ($managerId !== null && ! is_string($managerId))) {
                 throw new InvalidArgumentException('Position change is invalid.');
             }
             $unit = $this->assertUnit($unitId);
             $this->assertManager($managerId, $positionId);
-            if ($unitId === $row->organization_unit_id && $title === $row->title_ar && $managerId === $row->manager_position_id) {
+
+            $currentJobTitleId = $row->job_title_id ?? null;
+            if (array_key_exists('job_title_id', $changes)) {
+                $raw = $changes['job_title_id'];
+                $nextJobTitleId = is_string($raw) && $raw !== '' ? $raw : null;
+            } else {
+                $nextJobTitleId = $currentJobTitleId;
+            }
+            $changeTitle = $changes['title'] ?? null;
+            $resolvedTitle = $this->resolveTitle(
+                $nextJobTitleId,
+                is_string($changeTitle) ? $changeTitle : null,
+            );
+            if ($nextJobTitleId === null && $currentJobTitleId === null) {
+                $resolvedTitle = $resolvedTitle !== '' ? $resolvedTitle : (string) $row->title_ar;
+            }
+
+            if ($unitId === $row->organization_unit_id
+                && $resolvedTitle === $row->title_ar
+                && $managerId === $row->manager_position_id
+                && $nextJobTitleId === $currentJobTitleId) {
                 throw new InvalidArgumentException('Position patch does not change the resource.');
             }
             if (DB::table('positions')
@@ -162,7 +188,8 @@ final class PositionHandler
                 ->where('lock_version', $expectedVersion)
                 ->update([
                     'organization_unit_id' => $unitId,
-                    'title_ar' => $title,
+                    'title_ar' => $resolvedTitle,
+                    'job_title_id' => $nextJobTitleId,
                     'manager_position_id' => $managerId,
                     'lock_version' => $version,
                     'updated_at' => now(),
@@ -175,7 +202,8 @@ final class PositionHandler
                 'id' => $row->id,
                 'organization_unit_id' => $unitId,
                 'code' => $row->code,
-                'title_ar' => $title,
+                'title_ar' => $resolvedTitle,
+                'job_title_id' => $nextJobTitleId,
                 'manager_position_id' => $managerId,
                 'is_active' => (bool) $row->is_active,
                 'lock_version' => $version,
@@ -231,10 +259,37 @@ final class PositionHandler
             'organization_unit_id' => $row->organization_unit_id,
             'code' => $row->code,
             'title_ar' => $row->title_ar,
+            'job_title_id' => $row->job_title_id ?? null,
             'manager_position_id' => $row->manager_position_id,
             'is_active' => (bool) $row->is_active,
             'lock_version' => (int) $row->lock_version,
         ];
+    }
+
+    /**
+     * Resolves the position title for storage. When job_title_id is provided the
+     * lookup table is the source of truth and any free-text `title` must agree.
+     * When job_title_id is null the legacy free-text title is accepted to keep
+     * the migration path open for rows created before the reference existed.
+     */
+    private function resolveTitle(?string $jobTitleId, ?string $freeText): string
+    {
+        if ($jobTitleId === null) {
+            if (! is_string($freeText) || trim($freeText) === '') {
+                throw new InvalidArgumentException('Position title is invalid.');
+            }
+
+            return $freeText;
+        }
+        $row = DB::table('job_titles')->where('id', $jobTitleId)->where('status', 'active')->first();
+        if (! $row instanceof stdClass) {
+            throw new InvalidArgumentException('Job title reference is invalid.');
+        }
+        if ($freeText !== null && trim($freeText) !== '' && $freeText !== $row->title_ar) {
+            throw new InvalidArgumentException('Position title does not match the job title reference.');
+        }
+
+        return (string) $row->title_ar;
     }
 
     /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency */

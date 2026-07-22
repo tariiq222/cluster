@@ -117,13 +117,27 @@ final class OrganizationUnitHandler
      */
     public function list(array $principal, ?string $cursor, int $limit, ?string $parentId): array
     {
-        $afterId = $cursor === null ? null : $this->decodeCursor($cursor, $principal, $limit, $parentId);
-        $query = $this->unitQuery()->orderBy('organization_units.id');
+        $after = $cursor === null ? null : $this->decodeCursor($cursor, $principal, $limit, $parentId);
+        $query = $this->unitQuery()
+            ->orderBy('organization_units.parent_type')
+            ->orderBy('organization_units.parent_id')
+            ->orderBy('organization_units.sort_order')
+            ->orderBy('organization_units.code')
+            ->orderBy('organization_units.id');
         if ($parentId !== null) {
             $query->where('organization_units.parent_id', $parentId);
         }
-        if ($afterId !== null) {
-            $query->where('organization_units.id', '>', $afterId);
+        if ($after !== null) {
+            $query->whereRaw(
+                '(organization_units.parent_type, organization_units.parent_id, organization_units.sort_order, organization_units.code, organization_units.id) > (?, ?, ?, ?, ?)',
+                [
+                    $after['after_parent_type'],
+                    $after['after_parent_id'],
+                    $after['after_sort_order'],
+                    $after['after_code'],
+                    $after['after_id'],
+                ],
+            );
         }
         $items = $query->limit($limit + 1)->get()->map(fn (stdClass $row): array => $this->serialize($row))->all();
         $hasNextPage = count($items) > $limit;
@@ -131,12 +145,19 @@ final class OrganizationUnitHandler
             array_pop($items);
         }
 
-        return [
-            'items' => $items,
-            'next_cursor' => $hasNextPage
-                ? $this->encodeCursor($items[array_key_last($items)]['id'], $principal, $limit, $parentId)
-                : null,
-        ];
+        $nextCursor = null;
+        if ($hasNextPage) {
+            $last = $items[array_key_last($items)];
+            $nextCursor = $this->encodeCursor([
+                'after_parent_type' => (string) $last['parent_type'],
+                'after_parent_id' => (string) $last['parent_id'],
+                'after_sort_order' => (int) $last['sort_order'],
+                'after_code' => (string) $last['code'],
+                'after_id' => (string) $last['id'],
+            ], $principal, $limit, $parentId);
+        }
+
+        return ['items' => $items, 'next_cursor' => $nextCursor];
     }
 
     /**
@@ -301,6 +322,7 @@ final class OrganizationUnitHandler
             'parent_type' => $row->parent_type,
             'type_code' => $row->type_code,
             'code' => $row->code,
+            'sort_order' => (int) $row->sort_order,
             'name_ar' => $row->name_ar,
             'name_en' => $row->name_en,
             'status' => $row->status,
@@ -368,21 +390,43 @@ final class OrganizationUnitHandler
         ];
     }
 
-    /** @param array{user_id: string, facility_id: string} $principal */
-    private function encodeCursor(string $unitId, array $principal, int $limit, ?string $parentId): string
+    /**
+     * @param  array{
+     *     after_parent_type: string,
+     *     after_parent_id: string,
+     *     after_sort_order: int,
+     *     after_code: string,
+     *     after_id: string,
+     * }  $after
+     * @param  array{user_id: string, facility_id: string}  $principal
+     */
+    private function encodeCursor(array $after, array $principal, int $limit, ?string $parentId): string
     {
         return Crypt::encryptString(json_encode([
             'version' => 1,
             'resource' => 'organization_unit',
-            'after_id' => $unitId,
+            'after_parent_type' => $after['after_parent_type'],
+            'after_parent_id' => $after['after_parent_id'],
+            'after_sort_order' => $after['after_sort_order'],
+            'after_code' => $after['after_code'],
+            'after_id' => $after['after_id'],
             'limit' => $limit,
             'parent_id' => $parentId,
             'principal_id' => $principal['user_id'],
         ], JSON_THROW_ON_ERROR));
     }
 
-    /** @param array{user_id: string, facility_id: string} $principal */
-    private function decodeCursor(string $cursor, array $principal, int $limit, ?string $parentId): string
+    /**
+     * @param  array{user_id: string, facility_id: string}  $principal
+     * @return array{
+     *     after_parent_type: string,
+     *     after_parent_id: string,
+     *     after_sort_order: int,
+     *     after_code: string,
+     *     after_id: string,
+     * }
+     */
+    private function decodeCursor(string $cursor, array $principal, int $limit, ?string $parentId): array
     {
         try {
             $payload = json_decode(Crypt::decryptString($cursor), true, 8, JSON_THROW_ON_ERROR);
@@ -396,10 +440,94 @@ final class OrganizationUnitHandler
             || ($payload['parent_id'] ?? null) !== $parentId
             || ! is_string($payload['principal_id'] ?? null)
             || ! hash_equals($principal['user_id'], $payload['principal_id'])
-            || ! is_string($payload['after_id'] ?? null)) {
+            || ! is_string($payload['after_id'] ?? null)
+            || ! is_string($payload['after_parent_type'] ?? null)
+            || ! is_string($payload['after_parent_id'] ?? null)
+            || ! is_int($payload['after_sort_order'] ?? null)
+            || ! is_string($payload['after_code'] ?? null)) {
             throw new InvalidArgumentException('The organization unit cursor is invalid.');
         }
 
-        return $payload['after_id'];
+        return [
+            'after_parent_type' => $payload['after_parent_type'],
+            'after_parent_id' => $payload['after_parent_id'],
+            'after_sort_order' => $payload['after_sort_order'],
+            'after_code' => $payload['after_code'],
+            'after_id' => $payload['after_id'],
+        ];
+    }
+
+    /**
+     * Canonical sibling rebalance: assign each unit a fresh sort_order inside
+     * its parent group, ordered by (type priority, code). Idempotent — two
+     * consecutive runs produce the same ordering for the same input.
+     *
+     * @param  Closure(array<string, mixed>): array<string, mixed>  $eventFactory
+     * @return array{updated: int, by_parent: list<string>}
+     */
+    public function reorderAll(Closure $eventFactory): array
+    {
+        $typePriority = [
+            'sector' => 1,
+            'department' => 2,
+            'section' => 3,
+            'unit' => 4,
+            'committee' => 5,
+        ];
+
+        return DB::transaction(function () use ($eventFactory, $typePriority): array {
+            $rows = DB::table('organization_units as ou')
+                ->join('unit_types as ut', 'ut.id', '=', 'ou.unit_type_id')
+                ->where('ou.status', '!=', 'archived')
+                ->select('ou.id', 'ou.cluster_id', 'ou.parent_type', 'ou.parent_id', 'ut.code as type_code', 'ou.code')
+                ->orderBy('ou.parent_type')
+                ->orderBy('ou.parent_id')
+                ->orderBy('ou.code')
+                ->orderBy('ou.id')
+                ->get();
+
+            $nextByParent = [];
+            $updates = [];
+            foreach ($rows as $row) {
+                $parentKey = $row->parent_type.'/'.$row->parent_id;
+                $priority = $typePriority[$row->type_code] ?? 99;
+                if (! isset($nextByParent[$parentKey])) {
+                    $nextByParent[$parentKey] = [];
+                }
+                $nextByParent[$parentKey][] = ['id' => $row->id, 'priority' => $priority, 'code' => $row->code];
+            }
+
+            $now = now();
+            $updated = 0;
+            $affectedParentKeys = [];
+            foreach ($nextByParent as $parentKey => $siblings) {
+                usort($siblings, static function (array $a, array $b): int {
+                    return $a['priority'] <=> $b['priority']
+                        ?: strcmp($a['code'], $b['code'])
+                        ?: strcmp($a['id'], $b['id']);
+                });
+                $order = 0;
+                foreach ($siblings as $sibling) {
+                    $order++;
+                    DB::table('organization_units')
+                        ->where('id', $sibling['id'])
+                        ->update([
+                            'sort_order' => $order,
+                            'updated_at' => $now,
+                        ]);
+                    $updated++;
+                }
+                $affectedParentKeys[] = $parentKey;
+            }
+
+            $payload = [
+                'updated' => $updated,
+                'by_parent' => $affectedParentKeys,
+                'policy' => 'type-priority-then-code',
+            ];
+            $this->outbox->insert($eventFactory($payload), 'organization.units.reordered');
+
+            return $payload;
+        });
     }
 }
