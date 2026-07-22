@@ -1,4 +1,5 @@
 import { type MouseEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
+import { numberFormattingLocale } from './copy'
 import {
   Bell,
   Building2,
@@ -8,6 +9,7 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
+  Search,
   ShieldCheck,
   X,
 } from 'lucide-react'
@@ -22,6 +24,7 @@ export type SidebarNavigationItem = {
   path: string
   icon: ReactNode
   active: boolean
+  count?: string
   onSelect: () => void
 }
 
@@ -45,6 +48,7 @@ export type AppShellCopy = {
   ownerName: string
   openNavigation: string
   closeNavigation: string
+  closeNotifications: string
   navigationTitle: string
   platformUser: string
   internalSystem: string
@@ -63,7 +67,10 @@ type AppShellProps = {
   onLocaleChange: () => void
   onNotificationsToggle: () => void
   onLogout: () => void
+  notificationPanel: ReactNode
   children: ReactNode
+  globalSearchLabel?: string
+  onGlobalSearch?: (query: string) => void
 }
 
 type SidebarContentProps = {
@@ -143,6 +150,7 @@ function SidebarContent({
                     >
                       <span className="navigation-icon" aria-hidden="true">{item.icon}</span>
                       <span>{item.label}</span>
+                      {item.count && <span className="navigation-item-count">{item.count}</span>}
                     </a>
                   </li>
                 ))}
@@ -166,10 +174,14 @@ export function AppShell({
   onLocaleChange,
   onLogout,
   onNotificationsToggle,
+  notificationPanel,
   unreadNotifications,
+  globalSearchLabel,
+  onGlobalSearch,
 }: AppShellProps) {
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return window.localStorage.getItem('cluster.sidebar-collapsed') === 'true'
@@ -184,8 +196,9 @@ export function AppShell({
   })
   const navigationButtonRef = useRef<HTMLButtonElement>(null)
   const navigationPanelRef = useRef<HTMLElement>(null)
+  const notificationsPanelRef = useRef<HTMLElement>(null)
   const notificationLabel = unreadNotifications > 0
-    ? `${copy.notifications}: ${new Intl.NumberFormat(locale === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US').format(unreadNotifications)}`
+    ? `${copy.notifications}: ${new Intl.NumberFormat(numberFormattingLocale(locale)).format(unreadNotifications)}`
     : copy.notifications
 
   useEffect(() => {
@@ -219,7 +232,7 @@ export function AppShell({
 
     const panel = navigationPanelRef.current
     const focusable = panel?.querySelectorAll<HTMLElement>('button, a[href], [tabindex]:not([tabindex="-1"])')
-    const desktopQuery = window.matchMedia('(min-width: 761px)')
+    const desktopQuery = window.matchMedia('(min-width: 768px)')
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     focusable?.[0]?.focus()
@@ -261,8 +274,44 @@ export function AppShell({
     }
   }, [navigationOpen])
 
+  useEffect(() => {
+    if (!notificationsOpen) return
+
+    const panel = notificationsPanelRef.current
+    const focusable = panel?.querySelectorAll<HTMLElement>('button, a[href], input, textarea, select, [tabindex]:not([tabindex="-1"])')
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    focusable?.[0]?.focus()
+
+    function onKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onNotificationsToggle()
+        window.requestAnimationFrame(() => notificationButtonRef.current?.focus())
+        return
+      }
+      if (event.key !== 'Tab' || !focusable?.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [notificationButtonRef, notificationsOpen, onNotificationsToggle])
+
   return (
-    <div
+    <>
+      <div
       className="app-shell"
       data-locale={locale}
       data-sidebar-collapsed={sidebarCollapsed}
@@ -311,6 +360,28 @@ export function AppShell({
               <strong>{facilityName}</strong>
             </span>
           </div>
+
+          {globalSearchLabel && onGlobalSearch && (
+            <form
+              className="global-search"
+              role="search"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const query = globalSearchQuery.trim()
+                if (query) onGlobalSearch(query)
+              }}
+            >
+              <Search aria-hidden="true" />
+              <input
+                type="search"
+                value={globalSearchQuery}
+                onChange={(event) => setGlobalSearchQuery(event.target.value)}
+                placeholder={globalSearchLabel}
+                aria-label={globalSearchLabel}
+              />
+              <kbd aria-hidden="true">⌘K</kbd>
+            </form>
+          )}
 
           <div className="header-actions">
             <button type="button" className="shell-action-button shell-language-button" aria-label={copy.switchLanguage} onClick={onLocaleChange}>
@@ -362,6 +433,7 @@ export function AppShell({
           <span>{copy.officeName}</span>
           <span>{copy.ownerName}</span>
         </footer>
+
       </div>
 
       {navigationOpen && (
@@ -390,5 +462,29 @@ export function AppShell({
         </div>
       )}
     </div>
+
+      {notificationsOpen && (
+        <div className="notifications-dialog-layer" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) onNotificationsToggle()
+        }}>
+          <aside
+            ref={notificationsPanelRef}
+            id="notification-panel"
+            className="notifications-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={copy.notifications}
+          >
+            <div className="notifications-dialog-head">
+              <strong>{copy.notifications}</strong>
+              <button type="button" className="shell-icon-button" aria-label={copy.closeNotifications} onClick={onNotificationsToggle}>
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            {notificationPanel}
+          </aside>
+        </div>
+      )}
+    </>
   )
 }

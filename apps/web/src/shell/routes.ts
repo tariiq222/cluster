@@ -1,5 +1,7 @@
 export type AppRoute =
   | { name: 'list' }
+  | { name: 'documents' }
+  | { name: 'document-detail'; documentId: string }
   | { name: 'create' }
   | { name: 'detail'; recordId: string }
   | { name: 'organization' }
@@ -18,13 +20,69 @@ export type AppRoute =
   | { name: 'workflow-admin' }
   | { name: 'search' }
   | { name: 'reports' }
+  | { name: 'coverage' }
+  | { name: 'api-docs' }
   | { name: 'notifications' }
   | { name: 'not-found' }
 
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
+/**
+ * Workspaces group the routes that share one tabbed screen, so the sidebar keeps the
+ * group highlighted while the user moves between its tabs.
+ *
+ * The map is a total `Record` over every route name on purpose: adding a route to
+ * `AppRoute` without classifying it here is a compile error rather than a silently
+ * broken active-state in the navigation.
+ */
+export type RouteWorkspace = 'organization' | 'access' | 'workflow'
+
+const ROUTE_WORKSPACE: Record<AppRoute['name'], RouteWorkspace | null> = {
+  'organization': 'organization',
+  'organization-structure': 'organization',
+  'people-assignments': 'organization',
+  'temporary-assignments': 'organization',
+  'organization-import': 'organization',
+  'identity-accounts': 'access',
+  'authorization': 'access',
+  'access-context': 'access',
+  'access-explanation': 'access',
+  'workflow-day2': 'workflow',
+  'work-definitions': 'workflow',
+  'workflow-admin': 'workflow',
+  'list': null,
+  'documents': null,
+  'document-detail': null,
+  'create': null,
+  'detail': null,
+  'tasks': null,
+  'search': null,
+  'reports': null,
+  'coverage': null,
+  'api-docs': null,
+  'notifications': null,
+  'not-found': null,
+}
+
+export function workspaceOfRoute(route: AppRoute): RouteWorkspace | null {
+  return ROUTE_WORKSPACE[route.name]
+}
+
+/** Whether a navigation entry pointing at `target` should render as the active one. */
+export function isRouteActive(current: AppRoute, target: AppRoute): boolean {
+  const currentWorkspace = workspaceOfRoute(current)
+  const targetWorkspace = workspaceOfRoute(target)
+  if (currentWorkspace && targetWorkspace) return currentWorkspace === targetWorkspace
+  if (current.name !== target.name) return false
+  if (current.name === 'authorization' && target.name === 'authorization') {
+    return current.resource === target.resource
+  }
+  return true
+}
+
 export const primaryRoutes = [
   { route: { name: 'list' } as const, path: '/' },
+  { route: { name: 'documents' } as const, path: '/documents' },
   { route: { name: 'create' } as const, path: '/work-records/new' },
   { route: { name: 'organization' } as const, path: '/admin/organization' },
   { route: { name: 'organization-structure' } as const, path: '/admin/organization/structure' },
@@ -47,13 +105,50 @@ export const primaryRoutes = [
   { route: { name: 'workflow-admin' } as const, path: '/admin/workflow' },
   { route: { name: 'search' } as const, path: '/search' },
   { route: { name: 'reports' } as const, path: '/reports' },
+  { route: { name: 'coverage' } as const, path: '/coverage' },
   { route: { name: 'notifications' } as const, path: '/notifications' },
-]
+  { route: { name: 'api-docs' } as const, path: '/api-docs' },
+] as const
+
+export function pathFromRoute(route: AppRoute): string {
+  switch (route.name) {
+    case 'list': return '/'
+    case 'documents': return '/documents'
+    case 'document-detail': return `/documents/${route.documentId}`
+    case 'create': return '/work-records/new'
+    case 'detail': return `/work-records/${route.recordId}`
+    case 'organization': return '/admin/organization'
+    case 'organization-structure': return '/admin/organization/structure'
+    case 'people-assignments': return '/admin/organization/people'
+    case 'temporary-assignments': return '/admin/organization/temporary-assignments'
+    case 'identity-accounts': return '/admin/identity/accounts'
+    case 'organization-import': return route.jobId ? `/admin/imports/organization/${route.jobId}` : '/admin/imports/organization'
+    case 'authorization':
+      return route.resource === 'supervisory'
+        ? '/admin/relationships/supervisory'
+        : `/admin/authorization/${route.resource}`
+    case 'access-context': return '/me/access'
+    case 'access-explanation': return route.decisionId ? `/admin/authorization/explain/${route.decisionId}` : '/admin/authorization/explain'
+    case 'workflow-day2': return '/admin/workflow/day2'
+    case 'tasks': return '/tasks'
+    case 'work-definitions': return '/admin/work-definitions'
+    case 'workflow-admin': return '/admin/workflow'
+    case 'search': return '/search'
+    case 'reports': return '/reports'
+    case 'coverage': return '/coverage'
+    case 'api-docs': return '/api-docs'
+    case 'notifications': return '/notifications'
+    case 'not-found': return '/404'
+  }
+}
 
 export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/' || pathname === '/work-records') {
     return { name: 'list' }
   }
+  if (pathname === '/documents') return { name: 'documents' }
+  const documentMatch = pathname.match(/^\/documents\/([^/]+)$/)
+  if (documentMatch && UUID_V7_PATTERN.test(documentMatch[1])) return { name: 'document-detail', documentId: documentMatch[1] }
   if (pathname === '/work-records/new') {
     return { name: 'create' }
   }
@@ -85,6 +180,8 @@ export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/admin/workflow') return { name: 'workflow-admin' }
   if (pathname === '/search') return { name: 'search' }
   if (pathname === '/reports') return { name: 'reports' }
+  if (pathname === '/coverage') return { name: 'coverage' }
+  if (pathname === '/api-docs') return { name: 'api-docs' }
   if (pathname === '/notifications') return { name: 'notifications' }
   const explanationMatch = pathname.match(/^\/admin\/authorization\/explain(?:\/([^/]+))?$/)
   if (explanationMatch) return { name: 'access-explanation', decisionId: explanationMatch[1] }

@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import { routeFromPath } from './routes'
+import { isRouteActive, pathFromRoute, routeFromPath, workspaceOfRoute } from './routes'
 
 describe('W1.2 shell route registry', () => {
+  it('round-trips document list and detail routes', () => {
+    const documentId = '018f6f7d-0c00-7000-8000-000000000801'
+    expect(routeFromPath('/documents')).toEqual({ name: 'documents' })
+    expect(routeFromPath(`/documents/${documentId}`)).toEqual({ name: 'document-detail', documentId })
+    expect(pathFromRoute({ name: 'document-detail', documentId })).toBe(`/documents/${documentId}`)
+    expect(routeFromPath('/documents/not-a-uuid')).toEqual({ name: 'not-found' })
+  })
+
   it('resolves direct work-record routes', () => {
     expect(routeFromPath('/')).toEqual({ name: 'list' })
     expect(routeFromPath('/work-records')).toEqual({ name: 'list' })
@@ -17,7 +25,9 @@ describe('W1.2 shell route registry', () => {
     expect(routeFromPath('/admin/workflow')).toEqual({ name: 'workflow-admin' })
     expect(routeFromPath('/search')).toEqual({ name: 'search' })
     expect(routeFromPath('/reports')).toEqual({ name: 'reports' })
+    expect(routeFromPath('/coverage')).toEqual({ name: 'coverage' })
     expect(routeFromPath('/notifications')).toEqual({ name: 'notifications' })
+    expect(routeFromPath('/api-docs')).toEqual({ name: 'api-docs' })
     expect(routeFromPath('/admin/imports/organization')).toEqual({ name: 'organization-import' })
     expect(routeFromPath('/admin/imports/organization/018f6f7d-0c00-7000-8000-000000000107')).toEqual({
       name: 'organization-import', jobId: '018f6f7d-0c00-7000-8000-000000000107',
@@ -33,6 +43,15 @@ describe('W1.2 shell route registry', () => {
     expect(routeFromPath('/work-records/not-a-uuid')).toEqual({ name: 'not-found' })
   })
 
+  it('serializes routes back to paths', () => {
+    expect(pathFromRoute({ name: 'list' })).toBe('/')
+    expect(pathFromRoute({ name: 'detail', recordId: '018f6f7d-0c00-7000-8000-000000000001' })).toBe('/work-records/018f6f7d-0c00-7000-8000-000000000001')
+    expect(pathFromRoute({ name: 'organization-import', jobId: '018f6f7d-0c00-7000-8000-000000000107' })).toBe('/admin/imports/organization/018f6f7d-0c00-7000-8000-000000000107')
+    expect(pathFromRoute({ name: 'authorization', resource: 'supervisory' })).toBe('/admin/relationships/supervisory')
+    expect(pathFromRoute({ name: 'coverage' })).toBe('/coverage')
+    expect(pathFromRoute({ name: 'access-explanation', decisionId: '018f6f7d-0c00-7000-8000-000000000107' })).toBe('/admin/authorization/explain/018f6f7d-0c00-7000-8000-000000000107')
+  })
+
   it('resolves W1.3 authorization routes and explanation deep links', () => {
     expect(routeFromPath('/admin/authorization/roles')).toEqual({ name: 'authorization', resource: 'roles' })
     expect(routeFromPath('/admin/authorization/role-assignments')).toEqual({ name: 'authorization', resource: 'role-assignments' })
@@ -41,5 +60,26 @@ describe('W1.2 shell route registry', () => {
     expect(routeFromPath('/admin/authorization/field-access-templates')).toEqual({ name: 'authorization', resource: 'field-access-templates' })
     expect(routeFromPath('/me/access')).toEqual({ name: 'access-context' })
     expect(routeFromPath('/admin/authorization/explain/018f6f7d-0c00-7000-8000-000000000107')).toEqual({ name: 'access-explanation', decisionId: '018f6f7d-0c00-7000-8000-000000000107' })
+  })
+
+  it('groups workspace tabs so the sidebar entry stays active across them', () => {
+    expect(workspaceOfRoute({ name: 'people-assignments' })).toBe('organization')
+    expect(workspaceOfRoute({ name: 'access-context' })).toBe('access')
+    expect(workspaceOfRoute({ name: 'reports' })).toBeNull()
+
+    expect(isRouteActive({ name: 'temporary-assignments' }, { name: 'organization' })).toBe(true)
+    expect(isRouteActive({ name: 'work-definitions' }, { name: 'workflow-day2' })).toBe(true)
+    expect(isRouteActive({ name: 'people-assignments' }, { name: 'workflow-day2' })).toBe(false)
+  })
+
+  it('keeps unrelated routes and sibling authorization resources distinct', () => {
+    expect(isRouteActive({ name: 'reports' }, { name: 'reports' })).toBe(true)
+    expect(isRouteActive({ name: 'reports' }, { name: 'tasks' })).toBe(false)
+    expect(
+      isRouteActive(
+        { name: 'authorization', resource: 'roles' },
+        { name: 'authorization', resource: 'roles' },
+      ),
+    ).toBe(true)
   })
 })
