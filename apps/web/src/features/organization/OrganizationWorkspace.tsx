@@ -45,21 +45,21 @@ export function OrganizationWorkspace({
   navigate,
 }: OrganizationWorkspaceProps) {
   const labels = locale === 'ar'
-    ? {
-        tabs: 'أقسام المنظمة',
-        overview: 'نظرة عامة',
-        structure: 'شجرة الهيكل',
-        people: 'الأشخاص',
-        assignments: 'التكليفات',
-        imports: 'الاستيراد',
+      ? {
+        tabs: 'أقسام إدارة المنشآت والموظفين',
+        overview: 'الملخص',
+        structure: 'الهيكل التنظيمي',
+        people: 'الموظفون',
+        assignments: 'التكليفات المؤقتة',
+        imports: 'إضافة من ملف',
       }
     : {
         tabs: 'Organization sections',
-        overview: 'Overview',
-        structure: 'Structure tree',
-        people: 'People',
-        assignments: 'Assignments',
-        imports: 'Imports',
+        overview: 'Summary',
+        structure: 'Organization structure',
+        people: 'Employees',
+        assignments: 'Temporary assignments',
+        imports: 'Add from file',
       }
 
   const tabs = [

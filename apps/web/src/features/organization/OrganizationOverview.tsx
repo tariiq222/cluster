@@ -1,108 +1,58 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { formattingLocale } from '../../app/copy'
-import { useLocale, useToken } from '../../app/session-context'
-
+import { useCallback, useEffect, useState } from 'react'
 import { Building2, Hospital } from 'lucide-react'
 
-import {
-  ApiError,
-  createCluster,
-  createFacility,
-  getCluster,
-  listFacilities,
-  type Cluster,
-  type Facility,
-} from '../../api'
-import {
-  Button,
-  EmptyState,
-  Field as UiField,
-  InlineError,
-  Page,
-  PageHeader,
-  Panel,
-  PanelGrid,
-  Select as UiSelect,
-  SkeletonList,
-} from '../../ui'
+import { formattingLocale } from '../../app/copy'
+import { useLocale, useToken } from '../../app/session-context'
+import { ApiError, getCluster, listFacilities, type Cluster, type Facility } from '../../api'
+import { Button, EmptyState, InlineError, Page, PageHeader, Panel, PanelGrid, SkeletonList, StatusBadge } from '../../ui'
+import { ClusterDrawer } from './ClusterDrawer'
+import { FacilityDrawer } from './FacilityDrawer'
+import './organization-overview.css'
 
 type Locale = 'ar' | 'en'
+type DrawerState =
+  | { readonly kind: 'closed' }
+  | { readonly kind: 'create-cluster' }
+  | { readonly kind: 'edit-cluster' }
+  | { readonly kind: 'create-facility' }
+  | { readonly kind: 'edit-facility'; readonly facility: Facility }
 
 const copy = {
   ar: {
-    title: 'التجمع والمنشآت',
-    intro: 'إدارة جذر التجمع والمنشآت التابعة له من مصدر واحد محكوم.',
-    loading: 'جارٍ تحميل بيانات التنظيم…',
-    retry: 'إعادة المحاولة',
-    forbidden: 'لا تملك صلاحية إدارة بيانات التنظيم.',
-    error: 'تعذر تحميل بيانات التنظيم. أعد المحاولة.',
-    cluster: 'جذر التجمع',
-    noCluster: 'لم يُنشأ جذر التجمع بعد.',
-    clusterCode: 'رمز التجمع',
-    clusterName: 'اسم التجمع بالعربية',
-    clusterNameEn: 'اسم التجمع بالإنجليزية',
-    createCluster: 'إنشاء جذر التجمع',
-    creating: 'جارٍ الحفظ…',
-    facilities: 'المنشآت',
-    noFacilities: 'لا توجد منشآت بعد. أضف أول منشأة تحت التجمع.',
-    facilityCode: 'رمز المنشأة',
-    facilityName: 'اسم المنشأة بالعربية',
-    facilityNameEn: 'اسم المنشأة بالإنجليزية',
-    facilityType: 'نوع المنشأة',
-    addFacility: 'إضافة منشأة',
-    code: 'الرمز',
-    name: 'الاسم',
-    type: 'النوع',
-    status: 'الحالة',
-    active: 'نشطة',
-    validation: 'أكمل الحقول المطلوبة بالصيغة الصحيحة.',
-    saveError: 'لم يُحفظ التغيير. راجع البيانات ثم أعد المحاولة.',
-    hospital: 'مستشفى',
-    center: 'مركز صحي',
-    lab: 'مختبر',
-    sharedServices: 'خدمات مشتركة',
+    title: 'منشآت التجمع', intro: 'بيانات التجمع والمنشآت التابعة له في عرض واضح ومركز.',
+    loading: 'جارٍ تحميل بيانات التجمع…', retry: 'إعادة المحاولة', forbidden: 'لا تملك صلاحية إدارة بيانات التجمع.',
+    error: 'تعذر تحميل بيانات التجمع. أعد المحاولة.', cluster: 'بيانات التجمع', facilities: 'المنشآت',
+    noCluster: 'لم تُضف بيانات التجمع بعد.', noFacilities: 'لا توجد منشآت بعد.',
+    addCluster: 'إضافة تجمع', addFacility: 'إضافة منشأة', editCluster: 'تعديل بيانات التجمع',
+    editFacility: 'تعديل المنشأة', identifier: 'الرقم التعريفي', type: 'النوع', status: 'الحالة',
+    actions: 'الإجراءات', active: 'نشطة', inactive: 'غير نشطة', archived: 'مؤرشفة',
+    hospital: 'مستشفى', center: 'مركز صحي', lab: 'مختبر', sharedServices: 'خدمات مشتركة',
+    clusterSaved: 'تم حفظ بيانات التجمع.', facilitySaved: 'تم حفظ بيانات المنشأة.',
   },
   en: {
-    title: 'Cluster and facilities',
-    intro: 'Manage the cluster root and its facilities from one governed source.',
-    loading: 'Loading organization data…',
-    retry: 'Try again',
-    forbidden: 'You do not have permission to manage organization data.',
-    error: 'Organization data could not be loaded. Try again.',
-    cluster: 'Cluster root',
-    noCluster: 'The cluster root has not been created yet.',
-    clusterCode: 'Cluster code',
-    clusterName: 'Cluster name in Arabic',
-    clusterNameEn: 'Cluster name in English',
-    createCluster: 'Create cluster root',
-    creating: 'Saving…',
-    facilities: 'Facilities',
-    noFacilities: 'No facilities yet. Add the first facility under the cluster.',
-    facilityCode: 'Facility code',
-    facilityName: 'Facility name in Arabic',
-    facilityNameEn: 'Facility name in English',
-    facilityType: 'Facility type',
-    addFacility: 'Add facility',
-    code: 'Code',
-    name: 'Name',
-    type: 'Type',
-    status: 'Status',
-    active: 'Active',
-    validation: 'Complete the required fields using the expected format.',
-    saveError: 'The change was not saved. Review the data and try again.',
-    hospital: 'Hospital',
-    center: 'Health center',
-    lab: 'Laboratory',
-    sharedServices: 'Shared services',
+    title: 'Cluster facilities', intro: 'A focused view of cluster information and its facilities.',
+    loading: 'Loading cluster data…', retry: 'Try again', forbidden: 'You do not have permission to manage cluster data.',
+    error: 'Cluster data could not be loaded. Try again.', cluster: 'Cluster information', facilities: 'Facilities',
+    noCluster: 'Cluster information has not been added yet.', noFacilities: 'No facilities yet.',
+    addCluster: 'Add cluster', addFacility: 'Add facility', editCluster: 'Edit cluster information',
+    editFacility: 'Edit facility', identifier: 'Identifier', type: 'Type', status: 'Status',
+    actions: 'Actions', active: 'Active', inactive: 'Inactive', archived: 'Archived',
+    hospital: 'Hospital', center: 'Health center', lab: 'Laboratory', sharedServices: 'Shared services',
+    clusterSaved: 'Cluster information saved.', facilitySaved: 'Facility information saved.',
   },
-} as const
+}
 
-const facilityTypes = [
-  ['hospital', 'hospital'],
-  ['center', 'center'],
-  ['lab', 'lab'],
-  ['shared_services', 'sharedServices'],
-] as const
+function displayName(locale: Locale, resource: { readonly name_ar: string; readonly name_en: string | null }): string {
+  return locale === 'en' && resource.name_en ? resource.name_en : resource.name_ar
+}
+
+function facilityTypeLabel(locale: Locale, typeCode: string): string {
+  const text = copy[locale]
+  if (typeCode === 'center') return text.center
+  if (typeCode === 'lab') return text.lab
+  if (typeCode === 'shared_services') return text.sharedServices
+  return text.hospital
+}
 
 export function OrganizationOverview() {
   const locale = useLocale()
@@ -112,233 +62,90 @@ export function OrganizationOverview() {
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState<'ready' | 'forbidden' | 'error'>('ready')
+  const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' })
+  const [notice, setNotice] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setState('ready')
     try {
       try {
         setCluster(await getCluster(token))
       } catch (error) {
-        if (error instanceof ApiError && error.status === 404) {
-          setCluster(null)
-        } else {
-          throw error
-        }
+        if (error instanceof ApiError && error.status === 404) setCluster(null)
+        else throw error
       }
       setFacilities((await listFacilities(token)).items)
     } catch (error) {
       setCluster(null)
       setFacilities([])
-      if (error instanceof ApiError && error.status === 403) {
-        setState('forbidden')
-      } else {
-        setState('error')
-      }
+      setState(error instanceof ApiError && error.status === 403 ? 'forbidden' : 'error')
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    void load()
-    // The Organization page reloads only when the authenticated session changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
+
+  useEffect(() => { void load() }, [load])
+
+  const primaryAction = cluster === null
+    ? <Button onClick={() => setDrawer({ kind: 'create-cluster' })}>{text.addCluster}</Button>
+    : <Button onClick={() => setDrawer({ kind: 'create-facility' })}>{text.addFacility}</Button>
+  const editingFacility = drawer.kind === 'edit-facility' ? drawer.facility : null
+  const clusterDrawerOpen = drawer.kind === 'create-cluster' || drawer.kind === 'edit-cluster'
+  const facilityDrawerOpen = drawer.kind === 'create-facility' || drawer.kind === 'edit-facility'
 
   return (
     <Page>
-      <PageHeader id="organization-heading" title={text.title} description={text.intro} />
-
-      {loading && <SkeletonList label={text.loading} />}
-      {!loading && state === 'forbidden' && (
-        <div className="state-panel" role="status"><p>{text.forbidden}</p></div>
-      )}
-      {!loading && state === 'error' && (
-        <InlineError message={text.error} retryLabel={text.retry} onRetry={() => void load()} />
-      )}
-      {!loading && state === 'ready' && (
+      <PageHeader id="organization-heading" title={text.title} description={text.intro} actions={primaryAction} />
+      {notice ? <p role="status">{notice}</p> : null}
+      {loading ? <SkeletonList label={text.loading} /> : null}
+      {!loading && state === 'forbidden' ? <Panel id="organization-access" title={text.cluster}><p role="status">{text.forbidden}</p></Panel> : null}
+      {!loading && state === 'error' ? <InlineError message={text.error} retryLabel={text.retry} onRetry={() => void load()} /> : null}
+      {!loading && state === 'ready' ? (
         <PanelGrid>
-          <Panel id="cluster-heading" title={text.cluster} level={2}>
-            {cluster ? <ClusterSummary cluster={cluster} locale={locale} /> : (
-              <>
-                <EmptyState icon={<Building2 />} title={text.noCluster} />
-                <ClusterForm locale={locale} token={token} onCreated={setCluster} />
-              </>
-            )}
+          <Panel id="cluster-heading" title={text.cluster} level={2} actions={cluster ? <Button variant="secondary" onClick={() => setDrawer({ kind: 'edit-cluster' })}>{text.editCluster}</Button> : undefined}>
+            {cluster ? <ClusterSummary cluster={cluster} locale={locale} text={text} /> : <EmptyState icon={<Building2 />} title={text.noCluster} />}
           </Panel>
-
-          <Panel
-            id="facilities-heading"
-            title={text.facilities}
-            level={2}
-            actions={<span className="count-badge">{new Intl.NumberFormat(formattingLocale(locale)).format(facilities.length)}</span>}
-          >
-            {facilities.length === 0
-              ? <EmptyState icon={<Hospital />} title={text.noFacilities} />
-              : <FacilityTable facilities={facilities} locale={locale} />}
-            {cluster && (
-              <FacilityForm
-                locale={locale}
-                token={token}
-                clusterId={cluster.id}
-                onCreated={(facility) => setFacilities((current) => [...current, facility])}
-              />
-            )}
+          <Panel id="facilities-heading" title={text.facilities} level={2} actions={<span className="count-badge">{new Intl.NumberFormat(formattingLocale(locale)).format(facilities.length)}</span>}>
+            {facilities.length === 0 ? <EmptyState icon={<Hospital />} title={text.noFacilities} /> : <FacilityTable facilities={facilities} locale={locale} text={text} onEdit={(facility) => setDrawer({ kind: 'edit-facility', facility })} />}
           </Panel>
         </PanelGrid>
-      )}
+      ) : null}
+      <ClusterDrawer
+        open={clusterDrawerOpen}
+        cluster={drawer.kind === 'edit-cluster' ? cluster : null}
+        locale={locale}
+        token={token}
+        onClose={() => setDrawer({ kind: 'closed' })}
+        onSaved={(saved) => { setCluster(saved); setDrawer({ kind: 'closed' }); setNotice(text.clusterSaved) }}
+      />
+      {cluster ? <FacilityDrawer
+        open={facilityDrawerOpen}
+        cluster={cluster}
+        facility={editingFacility}
+        locale={locale}
+        token={token}
+        onClose={() => setDrawer({ kind: 'closed' })}
+        onSaved={(saved) => {
+          setFacilities((current) => current.some((facility) => facility.id === saved.id)
+            ? current.map((facility) => facility.id === saved.id ? saved : facility)
+            : [...current, saved])
+          setDrawer({ kind: 'closed' })
+          setNotice(text.facilitySaved)
+        }}
+      /> : null}
     </Page>
   )
 }
 
-function ClusterSummary({ cluster, locale }: { cluster: Cluster; locale: Locale }) {
-  const text = copy[locale]
-  return (
-    <dl className="definition-grid">
-      <div><dt>{text.code}</dt><dd dir="ltr">{cluster.code}</dd></div>
-      <div><dt>{text.name}</dt><dd>{locale === 'en' && cluster.name_en ? cluster.name_en : cluster.name_ar}</dd></div>
-      <div><dt>{text.status}</dt><dd><span className="status-badge">{text.active}</span></dd></div>
-    </dl>
-  )
+function ClusterSummary({ cluster, locale, text }: { readonly cluster: Cluster; readonly locale: Locale; readonly text: typeof copy[Locale] }) {
+  return <div className="organization-overview-summary"><strong>{displayName(locale, cluster)}</strong><span className="organization-overview-meta" dir="ltr">{text.identifier}: {cluster.code}</span><StatusBadge>{text.active}</StatusBadge></div>
 }
 
-function FacilityTable({ facilities, locale }: { facilities: Facility[]; locale: Locale }) {
-  const text = copy[locale]
-  return (
-    <div className="table-scroll" tabIndex={0} role="region" aria-label={text.facilities}>
-      <table>
-        <thead><tr><th scope="col">{text.code}</th><th scope="col">{text.name}</th><th scope="col">{text.type}</th><th scope="col">{text.status}</th></tr></thead>
-        <tbody>
-          {facilities.map((facility) => (
-            <tr key={facility.id}>
-              <td dir="ltr">{facility.code}</td>
-              <td>{locale === 'en' && facility.name_en ? facility.name_en : facility.name_ar}</td>
-              <td>{text[facilityTypes.find(([code]) => code === facility.type_code)?.[1] ?? 'hospital']}</td>
-              <td><span className="status-badge">{facility.status === 'active' ? text.active : facility.status}</span></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function ClusterForm({ locale, token, onCreated }: {
-  locale: Locale
-  token: string
-  onCreated: (cluster: Cluster) => void
-}) {
-  const text = copy[locale]
-  const [code, setCode] = useState('')
-  const [name, setName] = useState('')
-  const [nameEn, setNameEn] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<'validation' | 'save' | null>(null)
-  const errorRef = useRef<HTMLParagraphElement>(null)
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!/^[A-Z0-9_-]{2,64}$/.test(code) || !name.trim()) {
-      setError('validation')
-      window.requestAnimationFrame(() => errorRef.current?.focus())
-      return
-    }
-    setSubmitting(true)
-    setError(null)
-    try {
-      onCreated(await createCluster(token, { code, name: name.trim(), name_en: nameEn.trim() || null }))
-    } catch {
-        setError('save')
-        window.requestAnimationFrame(() => errorRef.current?.focus())
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>
-    {error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{error === 'validation' ? text.validation : text.saveError}</p>}
-    <div className="field-row">
-      <Field id="cluster-code" label={text.clusterCode} required value={code} onChange={(value) => setCode(value.toUpperCase())} invalid={Boolean(error && !/^[A-Z0-9_-]{2,64}$/.test(code))} />
-      <Field id="cluster-name" label={text.clusterName} required value={name} onChange={setName} invalid={Boolean(error && !name.trim())} />
-      <Field id="cluster-name-en" label={text.clusterNameEn} value={nameEn} onChange={setNameEn} />
-    </div>
-    <Button type="submit" disabled={submitting}>{submitting ? text.creating : text.createCluster}</Button>
-  </form>
-}
-
-function FacilityForm({ locale, token, clusterId, onCreated }: {
-  locale: Locale
-  token: string
-  clusterId: string
-  onCreated: (facility: Facility) => void
-}) {
-  const text = copy[locale]
-  const [code, setCode] = useState('')
-  const [name, setName] = useState('')
-  const [nameEn, setNameEn] = useState('')
-  const [typeCode, setTypeCode] = useState('hospital')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<'validation' | 'save' | null>(null)
-  const errorRef = useRef<HTMLParagraphElement>(null)
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!/^[A-Z0-9_-]{2,64}$/.test(code) || !name.trim()) {
-      setError('validation')
-      window.requestAnimationFrame(() => errorRef.current?.focus())
-      return
-    }
-    setSubmitting(true)
-    setError(null)
-    try {
-      const facility = await createFacility(token, {
-        cluster_id: clusterId,
-        type_code: typeCode,
-        code,
-        name: name.trim(),
-        name_en: nameEn.trim() || null,
-      })
-      onCreated(facility)
-      setCode('')
-      setName('')
-      setNameEn('')
-    } catch {
-        setError('save')
-        window.requestAnimationFrame(() => errorRef.current?.focus())
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>
-    {error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{error === 'validation' ? text.validation : text.saveError}</p>}
-    <div className="field-row">
-      <Field id="facility-code" label={text.facilityCode} required value={code} onChange={(value) => setCode(value.toUpperCase())} invalid={Boolean(error && !/^[A-Z0-9_-]{2,64}$/.test(code))} />
-      <Field id="facility-name" label={text.facilityName} required value={name} onChange={setName} invalid={Boolean(error && !name.trim())} />
-      <Field id="facility-name-en" label={text.facilityNameEn} value={nameEn} onChange={setNameEn} />
-      <UiField id="facility-type" label={text.facilityType}>
-        <UiSelect
-          id="facility-type"
-          value={typeCode}
-          onChange={setTypeCode}
-          options={facilityTypes.map(([value, label]) => ({ value, label: text[label] }))}
-        />
-      </UiField>
-    </div>
-    <Button type="submit" disabled={submitting}>{submitting ? text.creating : text.addFacility}</Button>
-  </form>
-}
-
-function Field({ id, label, value, onChange, required = false, invalid = false }: {
-  id: string
-  label: string
-  value: string
-  onChange: (value: string) => void
-  required?: boolean
-  invalid?: boolean
-}) {
-  return <UiField id={id} label={label} required={required}>
-    <input id={id} value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} />
-  </UiField>
+function FacilityTable({ facilities, locale, text, onEdit }: { readonly facilities: readonly Facility[]; readonly locale: Locale; readonly text: typeof copy[Locale]; readonly onEdit: (facility: Facility) => void }) {
+  return <div className="table-scroll organization-overview-table" tabIndex={0} role="region" aria-label={text.facilities}>
+    <table><thead><tr><th scope="col">{text.facilities}</th><th scope="col">{text.type}</th><th scope="col">{text.status}</th><th scope="col">{text.actions}</th></tr></thead><tbody>
+      {facilities.map((facility) => <tr key={facility.id}><td><strong>{displayName(locale, facility)}</strong><br /><span className="organization-overview-meta" dir="ltr">{text.identifier}: {facility.code}</span></td><td>{facilityTypeLabel(locale, facility.type_code)}</td><td><StatusBadge>{facility.status === 'active' ? text.active : facility.status === 'inactive' ? text.inactive : text.archived}</StatusBadge></td><td><Button variant="secondary" onClick={() => onEdit(facility)}>{text.editFacility}</Button></td></tr>)}
+    </tbody></table>
+  </div>
 }

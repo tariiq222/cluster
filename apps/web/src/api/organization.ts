@@ -5,9 +5,11 @@ import type {
   AssignmentCreate,
   Cluster as GeneratedCluster,
   ClusterCreate,
+  ClusterPatch,
   Facility as GeneratedFacility,
   FacilityCollection as GeneratedFacilityCollection,
   FacilityCreate,
+  FacilityPatch,
   ImportJob as GeneratedImportJob,
   ImportJobCreate,
   ImportJobRow as GeneratedImportJobRow,
@@ -36,9 +38,11 @@ import { ApiError, requestInit, unwrap, unwrapWithEtag } from './http'
 
 export type Cluster = GeneratedCluster
 export type CreateClusterInput = ClusterCreate
+export type UpdateClusterInput = ClusterPatch
 export type Facility = GeneratedFacility
 export type FacilityCollection = GeneratedFacilityCollection
 export type CreateFacilityInput = FacilityCreate
+export type UpdateFacilityInput = FacilityPatch
 export type OrganizationUnit = GeneratedOrganizationUnit
 export type OrganizationUnitCollection = GeneratedOrganizationUnitCollection
 export type CreateOrganizationUnitInput = OrganizationNodeCreate
@@ -80,6 +84,19 @@ export async function createCluster(token: string, input: CreateClusterInput): P
   )
 }
 
+export async function updateCluster(
+  token: string,
+  lockVersion: number,
+  input: UpdateClusterInput,
+): Promise<Cluster> {
+  return unwrap<Cluster>(
+    await generated.updateCluster(
+      input,
+      requestInit(token, { command: true, lockVersion }),
+    ),
+  )
+}
+
 export async function listFacilities(token: string): Promise<FacilityCollection> {
   return unwrap<FacilityCollection>(
     await generated.listFacilities({ limit: PAGE_LIMIT }, requestInit(token)),
@@ -92,6 +109,21 @@ export async function createFacility(
 ): Promise<Facility> {
   return unwrap<Facility>(
     await generated.createFacility(input, requestInit(token, { command: true, idempotency: 'facility' })),
+  )
+}
+
+export async function updateFacility(
+  token: string,
+  facilityId: string,
+  lockVersion: number,
+  input: UpdateFacilityInput,
+): Promise<Facility> {
+  return unwrap<Facility>(
+    await generated.updateFacility(
+      facilityId,
+      input,
+      requestInit(token, { command: true, lockVersion }),
+    ),
   )
 }
 

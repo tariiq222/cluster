@@ -9,15 +9,16 @@ const copy = {
   ar: {
     title: 'إضافة منصب',
     close: 'إغلاق',
-    description: 'املأ البيانات لتعريف منصب جديد وربطه بالوحدة المسؤولة.',
-    code: 'الرمز',
+    description: 'أضف منصباً واختر الوحدة التي يعمل ضمنها.',
+    code: 'الرقم التعريفي',
+    codeHelp: 'يُستخدم للتعرّف على المنصب في السجلات.',
     titleAr: 'المسمى الوظيفي',
     titleArHint: 'اختر مسمى من قائمة المسميات المعتمدة.',
     titleArPlaceholder: '— اختر مسمىً —',
-    unit: 'الوحدة التنظيمية',
-    manager: 'المنصب المدير',
-    noManager: 'بلا منصب مدير',
-    noUnit: 'لا توجد وحدة متاحة. أنشئ وحدة أولاً.',
+    unit: 'الوحدة',
+    manager: 'المنصب المشرف',
+    noManager: 'لا يتبع لمنصب',
+    noUnit: 'لا توجد وحدات متاحة. أضف إدارة أو قسمًا أولاً.',
     cancel: 'إلغاء',
     save: 'حفظ المنصب',
     saving: 'جارٍ الحفظ…',
@@ -33,15 +34,16 @@ const copy = {
     title: 'Add position',
     close: 'Close',
     description:
-      'Fill in the form to define a new position and assign it to the owning unit.',
-    code: 'Code',
+      'Add a position and choose the unit where it works.',
+    code: 'Identifier',
+    codeHelp: 'Used to identify this position in records.',
     titleAr: 'Job title',
     titleArHint: 'Pick a title from the governed reference list.',
     titleArPlaceholder: '— Pick a job title —',
-    unit: 'Organization unit',
-    manager: 'Manager position',
-    noManager: 'No manager position',
-    noUnit: 'No units available. Create one first.',
+    unit: 'Unit',
+    manager: 'Reports to',
+    noManager: 'Does not report to a position',
+    noUnit: 'No units are available. Add a department or section first.',
     cancel: 'Cancel',
     save: 'Save position',
     saving: 'Saving…',
@@ -180,6 +182,7 @@ export function AddPositionDrawer({
           id="position-code"
           label={text.code}
           required
+          help={text.codeHelp}
           error={codeInvalid ? text.codePatternHint : undefined}
         >
           <input

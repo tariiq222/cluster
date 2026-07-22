@@ -36,24 +36,24 @@ type Locale = 'ar' | 'en'
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const copy = {
   ar: {
-    title: 'مراجعة الاستيراد', intro: 'تابع ملف people_assignments من مرجع quarantine من دون عرض الصفوف الخام.',
-    uploadTitle: 'رفع ملف الاستيراد', uploadHelp: 'اختر ملف CSV لرفعه مباشرة إلى منطقة الحجر.', file: 'ملف CSV', upload: 'رفع الملف', uploadReady: 'جاهز لرفع الملف.', hashing: 'جارٍ تجهيز الملف…', requestingUpload: 'جارٍ طلب تصريح الرفع…', uploading: 'جارٍ رفع الملف…', completingUpload: 'جارٍ تأكيد الرفع…', uploadComplete: 'اكتمل رفع الملف. راجع مرجع الحجر ثم أنشئ مهمة الاستيراد.', fileRequired: 'اختر ملف CSV للمتابعة.', fileInvalid: 'اختر ملفاً بامتداد CSV.', fileTooLarge: 'حجم الملف غير مدعوم.', uploadError: 'تعذر رفع الملف. حاول مرة أخرى.', uploadHashError: 'تعذر تجهيز الملف للرفع. حاول مرة أخرى.', uploadName: 'مصدر استيراد تنظيمي',
-    quarantineId: 'معرف quarantine', submit: 'إنشاء ImportJob', jobId: 'معرف ImportJob', open: 'فتح الاستيراد', saving: 'جارٍ التنفيذ…',
+    title: 'إضافة بيانات من ملف', intro: 'ارفع ملف الموظفين والتكليفات، ثم راجع الأخطاء قبل اعتماد البيانات.',
+    uploadTitle: '١. اختيار الملف', uploadHelp: 'اختر ملف CSV يحتوي على بيانات الموظفين والتكليفات.', file: 'ملف البيانات', upload: 'رفع الملف', uploadReady: 'الملف جاهز للرفع.', hashing: 'جارٍ تجهيز الملف…', requestingUpload: 'جارٍ تجهيز عملية الرفع…', uploading: 'جارٍ رفع الملف…', completingUpload: 'جارٍ تأكيد الرفع…', uploadComplete: 'اكتمل رفع الملف. يمكنك الآن بدء مراجعته.', fileRequired: 'اختر ملف CSV للمتابعة.', fileInvalid: 'اختر ملفاً بامتداد CSV.', fileTooLarge: 'حجم الملف غير مدعوم.', uploadError: 'تعذر رفع الملف. حاول مرة أخرى.', uploadHashError: 'تعذر تجهيز الملف للرفع. حاول مرة أخرى.', uploadName: 'ملف بيانات الموظفين والتكليفات',
+    quarantineId: 'مرجع الملف', submit: 'بدء مراجعة الملف', jobId: 'مرجع عملية الاستيراد', open: 'فتح عملية سابقة', saving: 'جارٍ التنفيذ…',
     loading: 'جارٍ تحميل الاستيراد…', forbidden: 'لا تملك صلاحية قراءة هذا الاستيراد.', notFound: 'الاستيراد غير موجود أو غير متاح.', error: 'تعذر تحميل الاستيراد.', retry: 'إعادة المحاولة',
-    summary: 'ملخص الحالة', status: 'الحالة', template: 'القالب', total: 'إجمالي الصفوف', valid: 'صالحة', errors: 'بأخطاء', approver: 'المعتمد', notApproved: 'لم يعتمد بعد',
-    rows: 'نتائج الصفوف المنقحة', noRows: 'لا توجد نتائج صفوف بعد.', row: 'الصف', proposed: 'الإجراء المقترح', decision: 'القرار', validationErrors: 'أخطاء التحقق', noErrors: 'بلا أخطاء',
-    action: 'انتقال الحالة', reason: 'سبب الرفض أو الإلغاء', execute: 'تنفيذ', refresh: 'تحديث الحالة', validation: 'أدخل معرف UUIDv7 صالحاً.', transitionError: 'تعذر تنفيذ الانتقال. راجع الحالة والصلاحية.', stale: 'تغيرت نسخة الاستيراد. حدّث الحالة ثم أعد المحاولة.',
-    received: 'مستلم', validated: 'تم التحقق', approved: 'معتمد', rejected: 'مرفوض', applied: 'مطبق', cancelled: 'ملغي', failed: 'فشل',
+    summary: '٢. ملخص المراجعة', status: 'الحالة', template: 'نوع البيانات', total: 'إجمالي السجلات', valid: 'جاهزة', errors: 'تحتاج تصحيحاً', approver: 'الاعتماد', notApproved: 'لم يعتمد بعد',
+    rows: '٣. نتائج فحص البيانات', noRows: 'لم تظهر نتائج الفحص بعد.', row: 'رقم السجل', proposed: 'ما سيحدث', decision: 'القرار', validationErrors: 'الملاحظات', noErrors: 'جاهز',
+    action: 'الخطوة التالية', reason: 'سبب الرفض أو الإلغاء', execute: 'متابعة', refresh: 'تحديث النتائج', validation: 'أدخل مرجعاً صحيحاً.', transitionError: 'تعذر إكمال الخطوة. راجع الحالة والصلاحية.', stale: 'تغيرت بيانات العملية. حدّث النتائج ثم أعد المحاولة.',
+    received: 'تم استلام الملف', validated: 'تم فحص البيانات', approved: 'تم الاعتماد', rejected: 'مرفوض', applied: 'تمت الإضافة', cancelled: 'ملغي', failed: 'تعذر التنفيذ',
     validate: 'تحقق', approve: 'اعتماد', reject: 'رفض', apply: 'تطبيق', cancel: 'إلغاء', accepted: 'مقبول', rejectedDecision: 'مرفوض', create: 'إنشاء', skip: 'تخطي',
   },
   en: {
-    title: 'Import review', intro: 'Follow a people_assignments file from its quarantine reference without exposing raw rows.',
-    uploadTitle: 'Upload import file', uploadHelp: 'Choose a CSV file to upload directly to quarantine.', file: 'CSV file', upload: 'Upload file', uploadReady: 'Ready to upload the file.', hashing: 'Preparing file…', requestingUpload: 'Requesting upload permission…', uploading: 'Uploading file…', completingUpload: 'Confirming upload…', uploadComplete: 'File uploaded. Review the quarantine reference, then create the import job.', fileRequired: 'Choose a CSV file to continue.', fileInvalid: 'Choose a file with a CSV extension.', fileTooLarge: 'The file size is not supported.', uploadError: 'The file could not be uploaded. Try again.', uploadHashError: 'The file could not be prepared for upload. Try again.', uploadName: 'Organization import source',
-    quarantineId: 'Quarantine ID', submit: 'Create ImportJob', jobId: 'ImportJob ID', open: 'Open import', saving: 'Working…',
+    title: 'Add data from file', intro: 'Upload employee and assignment data, then review issues before applying it.',
+    uploadTitle: '1. Choose file', uploadHelp: 'Choose a CSV file containing employee and assignment data.', file: 'Data file', upload: 'Upload file', uploadReady: 'The file is ready to upload.', hashing: 'Preparing file…', requestingUpload: 'Preparing upload…', uploading: 'Uploading file…', completingUpload: 'Confirming upload…', uploadComplete: 'File uploaded. You can now start its review.', fileRequired: 'Choose a CSV file to continue.', fileInvalid: 'Choose a file with a CSV extension.', fileTooLarge: 'The file size is not supported.', uploadError: 'The file could not be uploaded. Try again.', uploadHashError: 'The file could not be prepared for upload. Try again.', uploadName: 'Employee and assignment data file',
+    quarantineId: 'File reference', submit: 'Start file review', jobId: 'Import reference', open: 'Open previous import', saving: 'Working…',
     loading: 'Loading import…', forbidden: 'You do not have permission to read this import.', notFound: 'The import does not exist or is unavailable.', error: 'The import could not be loaded.', retry: 'Try again',
-    summary: 'Status summary', status: 'Status', template: 'Template', total: 'Total rows', valid: 'Valid', errors: 'Errors', approver: 'Approver', notApproved: 'Not approved yet',
-    rows: 'Redacted row results', noRows: 'No row results yet.', row: 'Row', proposed: 'Proposed action', decision: 'Decision', validationErrors: 'Validation errors', noErrors: 'No errors',
-    action: 'State transition', reason: 'Rejection or cancellation reason', execute: 'Execute', refresh: 'Refresh status', validation: 'Enter a valid UUIDv7 identifier.', transitionError: 'The transition could not be completed. Review state and permission.', stale: 'The import version changed. Refresh and try again.',
+    summary: '2. Review summary', status: 'Status', template: 'Data type', total: 'Total records', valid: 'Ready', errors: 'Needs correction', approver: 'Approval', notApproved: 'Not approved yet',
+    rows: '3. Data check results', noRows: 'No check results yet.', row: 'Record', proposed: 'What will happen', decision: 'Decision', validationErrors: 'Notes', noErrors: 'Ready',
+    action: 'Next step', reason: 'Rejection or cancellation reason', execute: 'Continue', refresh: 'Refresh results', validation: 'Enter a valid reference.', transitionError: 'The step could not be completed. Review status and permission.', stale: 'The import changed. Refresh the results and try again.',
     received: 'Received', validated: 'Validated', approved: 'Approved', rejected: 'Rejected', applied: 'Applied', cancelled: 'Cancelled', failed: 'Failed',
     validate: 'Validate', approve: 'Approve', reject: 'Reject', apply: 'Apply', cancel: 'Cancel', accepted: 'Accepted', rejectedDecision: 'Rejected', create: 'Create', skip: 'Skip',
   },
@@ -103,7 +103,7 @@ export function ImportReview({ jobId, onJobOpen }: {
 
 function JobSummary({ job, locale }: { job: ImportJob; locale: Locale }) {
   const text = copy[locale]
-  return <Panel id="import-summary-heading" title={text.summary} level={2}><dl className="definition-grid"><div><dt>{text.status}</dt><dd><span className="status-badge">{text[job.status]}</span></dd></div><div><dt>{text.template}</dt><dd dir="ltr">{job.template_code}</dd></div><div><dt>{text.total}</dt><dd>{number(job.total_rows, locale)}</dd></div><div><dt>{text.valid}</dt><dd>{number(job.valid_rows, locale)}</dd></div><div><dt>{text.errors}</dt><dd>{number(job.error_rows, locale)}</dd></div><div><dt>{text.approver}</dt><dd dir="ltr">{job.approved_by_user_id ?? text.notApproved}</dd></div></dl></Panel>
+  return <Panel id="import-summary-heading" title={text.summary} level={2}><dl className="definition-grid"><div><dt>{text.status}</dt><dd><span className="status-badge">{text[job.status]}</span></dd></div><div><dt>{text.template}</dt><dd dir="ltr">{job.template_code}</dd></div><div><dt>{text.total}</dt><dd>{number(job.total_rows, locale)}</dd></div><div><dt>{text.valid}</dt><dd>{number(job.valid_rows, locale)}</dd></div><div><dt>{text.errors}</dt><dd>{number(job.error_rows, locale)}</dd></div><div><dt>{text.approver}</dt><dd>{job.approved_by_user_id ? text.approved : text.notApproved}</dd></div></dl></Panel>
 }
 
 function RowsTable({ rows, locale }: { rows: ImportJobRow[]; locale: Locale }) {

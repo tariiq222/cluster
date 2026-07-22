@@ -7,10 +7,12 @@ import { CalendarClock } from 'lucide-react'
 import {
   ApiError,
   createTemporaryAssignment,
+  listPeople,
   listOrganizationUnits,
   listTemporaryAssignments,
   revokeTemporaryAssignment,
   type OrganizationUnit,
+  type Person,
   type TemporaryAssignment,
 } from '../../api'
 import {
@@ -32,12 +34,12 @@ type MutationError = 'validation' | 'conflict' | 'refresh' | 'save' | null
 
 const copy = {
   ar: {
-    title: 'التكليفات المؤقتة', intro: 'إدارة صلاحيات مؤقتة محددة المدة لوحدة تنظيمية واحدة في كل مرة.',
+    title: 'التكليفات المؤقتة', intro: 'امنح موظفاً صلاحيات مؤقتة ومحددة المدة داخل وحدة تنظيمية.',
     loading: 'جارٍ تحميل التكليفات المؤقتة…', forbidden: 'لا تملك صلاحية إدارة التكليفات المؤقتة.',
     notFound: 'الوحدة التنظيمية أو التكليف المطلوب لم يعد متاحاً.', error: 'تعذر تحميل التكليفات المؤقتة.', retry: 'إعادة المحاولة',
     unit: 'الوحدة التنظيمية', noUnits: 'أنشئ وحدة تنظيمية قبل إدارة التكليفات المؤقتة.', assignments: 'التكليفات الحالية',
-    noAssignments: 'لا توجد تكليفات مؤقتة لهذه الوحدة.', personId: 'معرف الشخص', capabilities: 'رموز الصلاحيات',
-    capabilitiesHelp: 'أدخل رمزاً واحداً في كل سطر أو افصل بينها بفاصلة.', reason: 'سبب التكليف', startAt: 'تاريخ ووقت البداية', endAt: 'تاريخ ووقت النهاية',
+    noAssignments: 'لا توجد تكليفات مؤقتة لهذه الوحدة.', personId: 'الموظف', unavailablePerson: 'بيانات الموظف غير متاحة', capabilities: 'الصلاحيات المطلوبة',
+    capabilitiesHelp: 'أدخل رموز الصلاحيات المعتمدة، رمزاً في كل سطر أو افصل بينها بفاصلة.', reason: 'سبب التكليف', startAt: 'تاريخ ووقت البداية', endAt: 'تاريخ ووقت النهاية',
     create: 'إضافة تكليف مؤقت', saving: 'جارٍ الحفظ…', status: 'الحالة', scheduled: 'مجدول', active: 'نشط', expired: 'منتهٍ', revoked: 'ملغى',
     start: 'البداية', end: 'النهاية', revoke: 'إلغاء التكليف', revokeReason: 'سبب الإلغاء', revoking: 'جارٍ الإلغاء…',
     validation: 'أكمل الحقول المطلوبة: سبب واضح، رموز صلاحيات فريدة، وفترة UTC لا تتجاوز 90 يوماً وتبدأ من الآن أو بعده.',
@@ -51,7 +53,7 @@ const copy = {
     loading: 'Loading temporary assignments…', forbidden: 'You do not have permission to manage temporary assignments.',
     notFound: 'The organization unit or requested assignment is no longer available.', error: 'Temporary assignments could not be loaded.', retry: 'Try again',
     unit: 'Organization unit', noUnits: 'Create an organization unit before managing temporary assignments.', assignments: 'Current assignments',
-    noAssignments: 'There are no temporary assignments for this unit.', personId: 'Person ID', capabilities: 'Capability codes',
+    noAssignments: 'There are no temporary assignments for this unit.', personId: 'Employee', unavailablePerson: 'Employee record unavailable', capabilities: 'Required permissions',
     capabilitiesHelp: 'Enter one code per line or separate codes with commas.', reason: 'Assignment reason', startAt: 'Start date and time', endAt: 'End date and time',
     create: 'Add temporary assignment', saving: 'Saving…', status: 'Status', scheduled: 'Scheduled', active: 'Active', expired: 'Expired', revoked: 'Revoked',
     start: 'Start', end: 'End', revoke: 'Revoke assignment', revokeReason: 'Revocation reason', revoking: 'Revoking…',
@@ -68,10 +70,12 @@ export function TemporaryAssignments() {
   const token = useToken()
   const text = copy[locale]
   const [units, setUnits] = useState<OrganizationUnit[]>([])
+  const [people, setPeople] = useState<Person[]>([])
   const [organizationUnitId, setOrganizationUnitId] = useState('')
   const [assignments, setAssignments] = useState<TemporaryAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState<PageState>('ready')
+  const [creating, setCreating] = useState(false)
 
   function handleFailure(error: unknown) {
     if (error instanceof ApiError && error.status === 403) {
@@ -108,15 +112,17 @@ export function TemporaryAssignments() {
     let cancelled = false
     setLoading(true)
     setState('ready')
-    void listOrganizationUnits(token)
-      .then((collection) => {
+    void Promise.all([listOrganizationUnits(token), listPeople(token)])
+      .then(([collection, peoplePage]) => {
         if (cancelled) return
         setUnits(collection.items)
+        setPeople(peoplePage.items)
         setOrganizationUnitId(collection.items[0]?.id ?? '')
       })
       .catch((error: unknown) => {
         if (!cancelled) {
           setUnits([])
+          setPeople([])
           setOrganizationUnitId('')
           handleFailure(error)
         }
@@ -163,12 +169,12 @@ export function TemporaryAssignments() {
           <PageSection
             id="temporary-assignments-list-heading"
             title={text.assignments}
-            actions={<span className="count-badge">{formatNumber(assignments.length, locale)}</span>}
+            actions={<div className="panel-actions"><span className="count-badge">{formatNumber(assignments.length, locale)}</span><Button type="button" onClick={() => setCreating(true)}>{text.create}</Button></div>}
           >
             {assignments.length === 0
               ? <EmptyState icon={<CalendarClock />} title={text.noAssignments} />
-              : <AssignmentsTable assignments={assignments} locale={locale} token={token} onFailure={handleFailure} onRefresh={() => void loadAssignments()} onRevoked={(assignment) => setAssignments((current) => current.map((item) => item.id === assignment.id ? assignment : item))} />}
-            <TemporaryAssignmentForm locale={locale} token={token} organizationUnitId={organizationUnitId} onFailure={handleFailure} onCreated={(assignment) => setAssignments((current) => [assignment, ...current.filter((item) => item.id !== assignment.id)])} />
+              : <AssignmentsTable assignments={assignments} people={people} locale={locale} token={token} onFailure={handleFailure} onRefresh={() => void loadAssignments()} onRevoked={(assignment) => setAssignments((current) => current.map((item) => item.id === assignment.id ? assignment : item))} />}
+            {creating ? <TemporaryAssignmentForm locale={locale} token={token} organizationUnitId={organizationUnitId} people={people} onCancel={() => setCreating(false)} onFailure={handleFailure} onCreated={(assignment) => { setAssignments((current) => [assignment, ...current.filter((item) => item.id !== assignment.id)]); setCreating(false) }} /> : null}
           </PageSection>
         )}
       </Panel>
@@ -176,18 +182,19 @@ export function TemporaryAssignments() {
   </Page>
 }
 
-function AssignmentsTable({ assignments, locale, token, onFailure, onRefresh, onRevoked }: {
-  assignments: TemporaryAssignment[]; locale: Locale; token: string;  onFailure: (error: unknown) => void; onRefresh: () => void; onRevoked: (assignment: TemporaryAssignment) => void
+function AssignmentsTable({ assignments, people, locale, token, onFailure, onRefresh, onRevoked }: {
+  assignments: TemporaryAssignment[]; people: Person[]; locale: Locale; token: string;  onFailure: (error: unknown) => void; onRefresh: () => void; onRevoked: (assignment: TemporaryAssignment) => void
 }) {
   const text = copy[locale]
-  return <div className="table-scroll" tabIndex={0} role="region" aria-label={text.assignments}><table><thead><tr><th scope="col">{text.personId}</th><th scope="col">{text.capabilities}</th><th scope="col">{text.start}</th><th scope="col">{text.end}</th><th scope="col">{text.status}</th><th scope="col">{text.revoke}</th></tr></thead><tbody>{assignments.map((assignment) => <tr key={assignment.id}><td dir="ltr">{assignment.person_id}</td><td dir="ltr">{assignment.capability_codes.join(', ')}</td><td><time dateTime={assignment.start_at}>{formatDate(assignment.start_at, locale)}</time></td><td><time dateTime={assignment.end_at}>{formatDate(assignment.end_at, locale)}</time></td><td><span className="status-badge">{text[assignment.status]}</span></td><td>{assignment.status === 'scheduled' || assignment.status === 'active' ? <RevokeForm assignment={assignment} locale={locale} token={token} onFailure={onFailure} onRefresh={onRefresh} onRevoked={onRevoked} /> : '—'}</td></tr>)}</tbody></table></div>
+  const peopleById = new Map(people.map((person) => [person.id, locale === 'en' && person.display_name_en ? person.display_name_en : person.display_name_ar]))
+  return <div className="table-scroll" tabIndex={0} role="region" aria-label={text.assignments}><table><thead><tr><th scope="col">{text.personId}</th><th scope="col">{text.capabilities}</th><th scope="col">{text.start}</th><th scope="col">{text.end}</th><th scope="col">{text.status}</th><th scope="col">{text.revoke}</th></tr></thead><tbody>{assignments.map((assignment) => <tr key={assignment.id}><td>{peopleById.get(assignment.person_id) ?? text.unavailablePerson}</td><td><details><summary>{formatNumber(assignment.capability_codes.length, locale)} {text.capabilities}</summary><span dir="ltr">{assignment.capability_codes.join(', ')}</span></details></td><td><time dateTime={assignment.start_at}>{formatDate(assignment.start_at, locale)}</time></td><td><time dateTime={assignment.end_at}>{formatDate(assignment.end_at, locale)}</time></td><td><span className="status-badge">{text[assignment.status]}</span></td><td>{assignment.status === 'scheduled' || assignment.status === 'active' ? <RevokeForm assignment={assignment} locale={locale} token={token} onFailure={onFailure} onRefresh={onRefresh} onRevoked={onRevoked} /> : '—'}</td></tr>)}</tbody></table></div>
 }
 
-function TemporaryAssignmentForm({ locale, token, organizationUnitId, onFailure, onCreated }: {
-  locale: Locale; token: string; organizationUnitId: string;  onFailure: (error: unknown) => void; onCreated: (assignment: TemporaryAssignment) => void
+function TemporaryAssignmentForm({ locale, token, organizationUnitId, people, onCancel, onFailure, onCreated }: {
+  locale: Locale; token: string; organizationUnitId: string; people: Person[]; onCancel: () => void; onFailure: (error: unknown) => void; onCreated: (assignment: TemporaryAssignment) => void
 }) {
   const text = copy[locale]
-  const [personId, setPersonId] = useState('')
+  const [personId, setPersonId] = useState(people.find((person) => person.status === 'active')?.id ?? '')
   const [capabilityCodes, setCapabilityCodes] = useState('')
   const [reason, setReason] = useState('')
   const [startAt, setStartAt] = useState('')
@@ -226,13 +233,13 @@ function TemporaryAssignmentForm({ locale, token, organizationUnitId, onFailure,
   return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>
     {error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text[error === 'validation' ? 'validation' : error === 'conflict' ? 'conflict' : 'saveError']}</p>}
     <div className="field-row">
-      <Field id="temporary-person-id" label={text.personId} value={personId} onChange={setPersonId} required invalid={Boolean(error && !personId.trim())} direction="ltr" />
+      <UiField id="temporary-person-id" label={text.personId} required><Select id="temporary-person-id" value={personId} onChange={setPersonId} options={people.filter((person) => person.status === 'active').map((person) => ({ value: person.id, label: locale === 'en' && person.display_name_en ? person.display_name_en : person.display_name_ar }))} /></UiField>
       <div className="field"><label htmlFor="temporary-capability-codes">{text.capabilities}<span aria-hidden="true"> *</span></label><textarea id="temporary-capability-codes" value={capabilityCodes} required aria-required="true" aria-invalid={Boolean(error)} aria-describedby="temporary-capability-codes-help" onChange={(event) => setCapabilityCodes(event.target.value)} dir="ltr" /><p id="temporary-capability-codes-help" className="field-help">{text.capabilitiesHelp}</p></div>
       <Field id="temporary-reason" label={text.reason} value={reason} onChange={setReason} required invalid={Boolean(error && !reason.trim())} />
       <Field id="temporary-start" label={text.startAt} type="datetime-local" value={startAt} onChange={setStartAt} required invalid={Boolean(error)} direction="ltr" />
       <Field id="temporary-end" label={text.endAt} type="datetime-local" value={endAt} onChange={setEndAt} required invalid={Boolean(error)} direction="ltr" />
     </div>
-    <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.create}</Button>
+    <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.create}</Button><Button type="button" variant="quiet" onClick={onCancel} disabled={submitting}>{locale === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
   </form>
 }
 
@@ -240,6 +247,7 @@ function RevokeForm({ assignment, locale, token, onFailure, onRefresh, onRevoked
   assignment: TemporaryAssignment; locale: Locale; token: string;  onFailure: (error: unknown) => void; onRefresh: () => void; onRevoked: (assignment: TemporaryAssignment) => void
 }) {
   const text = copy[locale]
+  const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<MutationError>(null)
@@ -266,11 +274,13 @@ function RevokeForm({ assignment, locale, token, onFailure, onRefresh, onRevoked
     } finally { setSubmitting(false) }
   }
 
+  if (!open) return <Button variant="quiet" type="button" onClick={() => setOpen(true)}>{text.revoke}</Button>
+
   return <form onSubmit={(event) => void submit(event)} noValidate>
     {error && <div className="field-error" role="alert" tabIndex={-1} ref={errorRef}><p>{text[error === 'validation' ? 'revokeValidation' : error === 'conflict' ? 'conflict' : error === 'refresh' ? 'refresh' : 'saveError']}</p>{error === 'refresh' && <Button variant="secondary" onClick={onRefresh}>{text.retry}</Button>}</div>}
     <label htmlFor={fieldId}>{text.revokeReason}</label>
     <input id={fieldId} value={reason} required aria-required="true" aria-invalid={Boolean(error)} onChange={(event) => setReason(event.target.value)} />
-    <Button variant="secondary" type="submit" disabled={submitting}>{submitting ? text.revoking : text.revoke}</Button>
+    <Button variant="secondary" type="submit" disabled={submitting}>{submitting ? text.revoking : text.revoke}</Button><Button variant="quiet" type="button" onClick={() => setOpen(false)} disabled={submitting}>{locale === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
   </form>
 }
 

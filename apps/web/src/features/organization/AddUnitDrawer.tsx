@@ -13,14 +13,15 @@ type Locale = 'ar' | 'en'
 
 const copy = {
   ar: {
-    title: 'إضافة وحدة تنظيمية',
+    title: 'إضافة إدارة أو قسم',
     close: 'إغلاق',
-    description: 'املأ البيانات لإنشاء وحدة جديدة وربطها بمكانها في الهيكل.',
-    code: 'الرمز',
+    description: 'أضف وحدة جديدة واختر موقعها في الهيكل.',
+    code: 'الرقم التعريفي',
+    codeHelp: 'يُستخدم للتعرّف على الوحدة في السجلات.',
     name: 'الاسم بالعربية',
-    type: 'النوع',
-    parent: 'الوحدة الأم',
-    root: 'جذر التجمع',
+    type: 'نوع الوحدة',
+    parent: 'الموقع الأعلى',
+    root: 'على مستوى التجمع',
     cancel: 'إلغاء',
     save: 'حفظ الوحدة',
     saving: 'جارٍ الحفظ…',
@@ -32,14 +33,15 @@ const copy = {
     noMatchingResults: 'لا توجد نتائج مطابقة',
   },
   en: {
-    title: 'Add organization unit',
+    title: 'Add department or section',
     close: 'Close',
-    description: 'Fill in the form to create a new unit and place it in the tree.',
-    code: 'Code',
+    description: 'Add a new unit and choose where it sits in the structure.',
+    code: 'Identifier',
+    codeHelp: 'Used to identify this unit in records.',
     name: 'Name in Arabic',
-    type: 'Type',
-    parent: 'Parent',
-    root: 'Cluster root',
+    type: 'Unit type',
+    parent: 'Higher level',
+    root: 'At cluster level',
     cancel: 'Cancel',
     save: 'Save unit',
     saving: 'Saving…',
@@ -151,7 +153,13 @@ export function AddUnitDrawer({
       <p className="ui-drawer-intro">{text.description}</p>
       <form className="org-drawer-form" onSubmit={(event) => void submit(event)} noValidate>
         {errorMessage ? <div className="error-summary" role="alert">{errorMessage}</div> : null}
-        <Field id="unit-code" label={text.code} required error={codeInvalid ? text.codePatternHint : undefined}>
+        <Field
+          id="unit-code"
+          label={text.code}
+          required
+          help={text.codeHelp}
+          error={codeInvalid ? text.codePatternHint : undefined}
+        >
           <input
             id="unit-code"
             dir="ltr"

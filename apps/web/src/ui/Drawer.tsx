@@ -1,6 +1,20 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react'
 import { X } from 'lucide-react'
 import { cx } from './cx'
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
 
 /**
  * Unified sliding panel that overlays a single surface (organizational
@@ -31,13 +45,34 @@ export function Drawer({
   const panelRef = useRef<HTMLElement>(null)
   const lastFocusedRef = useRef<HTMLElement | null>(null)
 
+  function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== 'Tab' || panelRef.current === null) return
+
+    const focusableElements = Array.from(
+      panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+    )
+    const first = focusableElements[0]
+    const last = focusableElements.at(-1)
+    if (first === undefined || last === undefined) return
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+      return
+    }
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
   useEffect(() => {
     if (!open) return
 
     const previous = document.activeElement
     lastFocusedRef.current = previous instanceof HTMLElement ? previous : null
 
-    const handleKey = (event: KeyboardEvent) => {
+    const handleKey = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape' && dismissable) {
         event.preventDefault()
         onClose()
@@ -70,6 +105,7 @@ export function Drawer({
         aria-modal="true"
         aria-label={typeof title === 'string' ? title : undefined}
         className={cx('ui-drawer', className)}
+        onKeyDown={trapFocus}
       >
         <header className="ui-drawer-header">
           <h2 className="ui-drawer-title" tabIndex={-1} data-drawer-heading>{title}</h2>

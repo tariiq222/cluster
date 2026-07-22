@@ -4,8 +4,6 @@ import { ArrowDownNarrowWide, Plus } from 'lucide-react'
 
 import {
   ApiError,
-  createOrganizationUnit,
-  createPosition,
   getCluster,
   listFacilities,
   listOrganizationUnits,
@@ -29,7 +27,6 @@ import {
   Page,
   PageHeader,
   SkeletonList,
-  cx,
 } from '../../ui'
 import { AddPositionDrawer } from './AddPositionDrawer'
 import { AddUnitDrawer } from './AddUnitDrawer'
@@ -37,38 +34,34 @@ import { OrganizationBoard } from './OrganizationBoard'
 
 const copy = {
   ar: {
-    title: 'الوحدات والمناصب',
-    intro:
-      'بناء شجرة التنظيم وربط المناصب بوحداتها المعتمدة. اسحب البطاقات لإعادة ترتيبها واسحب الخلفية للتحريك.',
+    title: 'الهيكل التنظيمي',
+    intro: 'استعرض الوحدات والمناصب، واختر أي عنصر لعرض تفاصيله.',
     loading: 'جارٍ تحميل الهيكل التنظيمي…',
     forbidden: 'لا تملك صلاحية إدارة الهيكل التنظيمي.',
     error: 'تعذر تحميل الهيكل التنظيمي.',
     retry: 'إعادة المحاولة',
-    addUnit: 'إضافة وحدة',
-    addPosition: 'إضافة منصب',
-    reorder: 'إعادة الترتيب',
+    addUnit: 'إضافة إدارة أو قسم',
+    reorder: 'ترتيب الوحدات',
     reorderConfirm:
-      'هل تريد إعادة ترتيب كل الوحدات ضمن كل المجموعات؟ يُعيد هذا ترتيب الإخوة حسب النوع (قطاع → إدارة → قسم → وحدة → لجنة) ثم أبجدياً.',
-    reorderBusy: 'جارٍ إعادة الترتيب…',
-    reorderFailed: 'تعذّرت إعادة الترتيب. أعد المحاولة.',
-    reorderSuccess: (count: number) => `تمت إعادة ترتيب ${count} وحدة.`,
+      'سيُرتَّب كل مستوى من الوحدات بحسب النوع ثم الاسم. هل تريد المتابعة؟',
+    reorderBusy: 'جارٍ ترتيب الوحدات…',
+    reorderFailed: 'تعذّر ترتيب الوحدات. أعد المحاولة.',
+    reorderSuccess: (count: number) => `تم ترتيب ${count} وحدة.`,
   },
   en: {
-    title: 'Units and positions',
-    intro:
-      'Build the organization tree and attach positions to governed units. Drag cards to rearrange them and drag the background to pan.',
+    title: 'Organization structure',
+    intro: 'View units and positions, then select an item to see its details.',
     loading: 'Loading organization structure…',
     forbidden: 'You do not have permission to manage organization structure.',
     error: 'Organization structure could not be loaded.',
     retry: 'Try again',
-    addUnit: 'Add unit',
-    addPosition: 'Add position',
-    reorder: 'Reorder',
+    addUnit: 'Add department or section',
+    reorder: 'Arrange units',
     reorderConfirm:
-      'Reorder every unit within its parent group? This reassigns sibling order by type (sector → department → section → unit → committee), then alphabetically by code.',
-    reorderBusy: 'Reordering…',
-    reorderFailed: 'The reorder could not be completed. Try again.',
-    reorderSuccess: (count: number) => `${count} units reordered.`,
+      'This will arrange units at each level by type, then name. Continue?',
+    reorderBusy: 'Arranging units…',
+    reorderFailed: 'The units could not be arranged. Try again.',
+    reorderSuccess: (count: number) => `${count} units arranged.`,
   },
 } as const
 
@@ -232,24 +225,11 @@ export function OrganizationStructure() {
               variant="primary"
               type="button"
               onClick={() => openAddUnitForParent(selectedUnitId ?? undefined)}
-              className={cx('org-panel-action')}
+              className="org-panel-action"
               aria-label={text.addUnit}
             >
               <Plus aria-hidden="true" />
               <span>{text.addUnit}</span>
-            </Button>
-            <Button
-              variant="primary"
-              type="button"
-              onClick={() =>
-                openAddPositionForUnit(selectedUnitId ?? units[0]?.id ?? '')
-              }
-              className="org-panel-action"
-              aria-label={text.addPosition}
-              disabled={units.length === 0}
-            >
-              <Plus aria-hidden="true" />
-              <span>{text.addPosition}</span>
             </Button>
             <Button
               variant="secondary"
@@ -338,9 +318,3 @@ export function OrganizationStructure() {
     </Page>
   )
 }
-
-// Suppress unused: these references guarantee tree-shaking cannot strip the
-// imported commands when they are only referenced inside nested event
-// handlers during local development.
-void createOrganizationUnit
-void createPosition
