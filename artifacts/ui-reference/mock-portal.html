@@ -1,0 +1,2232 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#293b85">
+  <title>بوابة العمل المؤسسي</title>
+  <style>
+    :root {
+      --indigo: #293b85;
+      --indigo-dark: #253679;
+      --sky: #3daae1;
+      --sky-dark: #218fc7;
+      --teal: #00728f;
+      --navy: #000e22;
+      --ink: #172636;
+      --muted: #68798a;
+      --canvas: #f5f7f9;
+      --surface: #ffffff;
+      --line: #e3e8ed;
+      --line-strong: #cdd7e0;
+      --soft-blue: #eef7fc;
+      --soft-indigo: #f0f2fa;
+      --success: #147a59;
+      --success-bg: #e9f7f1;
+      --warning: #a56400;
+      --warning-bg: #fff5dc;
+      --danger: #bd3852;
+      --danger-bg: #fff0f3;
+      --purple: #6850a5;
+      --purple-bg: #f4f0ff;
+      --sidebar-width: 264px;
+      --radius-sm: 10px;
+      --radius: 16px;
+      --radius-lg: 22px;
+      --shadow: 0 16px 40px rgba(0, 14, 34, .09);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 7px; color: var(--navy); font-size: clamp(25px, 2.2vw, 33px); line-height: 1.25; letter-spacing: -.45px; }
+    h2 { margin-bottom: 4px; color: var(--navy); font-size: 19px; line-height: 1.35; }
+    h3 { margin-bottom: 4px; color: var(--navy); font-size: 14px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .muted { color: var(--muted); }
+
+    .app-shell { min-height: 100vh; display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 20px 15px 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #fff;
+      background:
+        radial-gradient(circle at 13% 9%, rgba(61,170,225,.28), transparent 27%),
+        radial-gradient(circle at 110% 78%, rgba(41,59,133,.78), transparent 39%),
+        linear-gradient(160deg, #000e22 0%, #053047 51%, #253679 100%);
+      z-index: 50;
+    }
+    .sidebar::before,
+    .sidebar::after {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 44% 56% 52% 48%;
+    }
+    .sidebar::before { width: 240px; height: 240px; right: -150px; top: 23%; transform: rotate(22deg); }
+    .sidebar::after { width: 170px; height: 170px; left: -105px; bottom: 4%; transform: rotate(-26deg); }
+    .sidebar > * { position: relative; z-index: 1; }
+    .brand { min-height: 58px; padding: 0 7px 18px; border-bottom: 1px solid rgba(255,255,255,.11); display: flex; align-items: center; gap: 11px; }
+    .brand-mark {
+      width: 43px;
+      height: 43px;
+      flex: 0 0 auto;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: linear-gradient(145deg, var(--sky), var(--indigo));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), 0 10px 25px rgba(0,0,0,.15);
+    }
+    .brand-mark svg { width: 25px; height: 25px; }
+    .brand-title { font-size: 15px; font-weight: 850; line-height: 1.2; }
+    .brand-subtitle { margin-top: 4px; color: #9db2c6; font-size: 10px; }
+    .nav-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.16) transparent; padding: 6px 0 12px; }
+    .nav-label { padding: 15px 12px 6px; color: #7894a9; font-size: 10px; font-weight: 800; }
+    .nav-list { display: grid; gap: 3px; }
+    .nav-item {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: #bfceda;
+      background: transparent;
+      text-align: right;
+      transition: .18s ease;
+    }
+    .nav-item svg { width: 19px; height: 19px; flex: 0 0 auto; }
+    .nav-item:hover { color: #fff; background: rgba(255,255,255,.065); }
+    .nav-item.active {
+      color: #fff;
+      background: linear-gradient(135deg, rgba(61,170,225,.98), rgba(41,59,133,.96));
+      box-shadow: 0 10px 22px rgba(0,14,34,.24);
+    }
+    .nav-count { margin-inline-start: auto; min-width: 23px; height: 21px; padding: 0 6px; border-radius: 12px; display: grid; place-items: center; color: inherit; background: rgba(255,255,255,.12); font-size: 10px; }
+    .nav-item.active .nav-count { color: var(--indigo); background: #fff; font-weight: 850; }
+    .sidebar-footer { border-top: 1px solid rgba(255,255,255,.12); padding: 12px 3px 0; }
+    .sidebar-footer-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    .sidebar-utility {
+      min-height: 41px;
+      padding: 6px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: #dceaf4;
+      background: rgba(255,255,255,.055);
+      font-size: 10px;
+      transition: .18s ease;
+    }
+    .sidebar-utility:hover { color: #fff; border-color: rgba(61,170,225,.72); background: rgba(61,170,225,.15); }
+    .sidebar-utility svg { width: 16px; height: 16px; color: var(--sky); }
+    .sidebar-copyright { margin-top: 9px; color: rgba(220,234,244,.58); text-align: center; font-size: 9px; line-height: 1.55; }
+
+    .main { min-width: 0; }
+    .topbar {
+      height: 72px;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(250,251,252,.94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+    .mobile-toggle { display: none; }
+    .scope-switch {
+      min-height: 42px;
+      max-width: 260px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--ink);
+      background: #fff;
+      text-align: right;
+    }
+    .scope-switch > svg:first-child { color: var(--teal); flex: 0 0 auto; }
+    .scope-copy { min-width: 0; }
+    .scope-copy span { display: block; color: var(--muted); font-size: 9px; }
+    .scope-copy strong { max-width: 176px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--navy); font-size: 11px; }
+    .scope-switch > svg:last-child { width: 14px; margin-inline-start: auto; color: var(--muted); }
+    .global-search { flex: 1; max-width: 520px; position: relative; }
+    .global-search > svg { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); width: 18px; color: #8293a2; pointer-events: none; }
+    .global-search input {
+      width: 100%;
+      height: 42px;
+      padding: 0 40px 0 52px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: 0;
+      color: var(--ink);
+      background: #f7f9fa;
+    }
+    .global-search input:focus { border-color: var(--sky); background: #fff; box-shadow: 0 0 0 3px rgba(61,170,225,.12); }
+    .shortcut { position: absolute; left: 9px; top: 9px; min-width: 34px; height: 24px; padding: 0 6px; border: 1px solid var(--line); border-radius: 7px; display: grid; place-items: center; color: var(--muted); background: #fff; font-size: 9px; }
+    .search-results {
+      width: min(560px, calc(100vw - 32px));
+      padding: 8px;
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      display: none;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+    .global-search.open .search-results { display: block; }
+    .search-hint { padding: 8px 10px; color: var(--muted); font-size: 10px; }
+    .search-result { width: 100%; padding: 10px; border: 0; border-radius: 10px; display: grid; grid-template-columns: 35px minmax(0,1fr) auto; gap: 10px; align-items: center; color: var(--ink); background: transparent; text-align: right; }
+    .search-result:hover { background: var(--soft-blue); }
+    .search-result-icon { width: 35px; height: 35px; border-radius: 10px; display: grid; place-items: center; color: var(--indigo); background: var(--soft-indigo); }
+    .search-result-icon svg { width: 17px; }
+    .search-result small { display: block; color: var(--muted); }
+    .search-kind { color: var(--teal); font-size: 10px; }
+    .top-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 7px; }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      color: var(--ink);
+      background: #fff;
+    }
+    .icon-btn:hover { color: var(--indigo); border-color: var(--sky); }
+    .notification-dot { width: 8px; height: 8px; position: absolute; top: 7px; left: 7px; border: 2px solid #fff; border-radius: 50%; background: var(--danger); }
+    .popover-wrap { position: relative; }
+    .popover {
+      width: 330px;
+      padding: 8px;
+      position: absolute;
+      top: calc(100% + 11px);
+      left: 0;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      display: none;
+      background: #fff;
+      box-shadow: var(--shadow);
+      z-index: 60;
+    }
+    .popover-wrap.open .popover { display: block; animation: rise .18s ease; }
+    .popover-head { padding: 8px 9px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .notification-item { padding: 11px 9px; display: grid; grid-template-columns: 9px minmax(0,1fr); gap: 9px; border-bottom: 1px solid var(--line); }
+    .notification-item:last-child { border-bottom: 0; }
+    .notification-item.unread .unread-dot { margin-top: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--sky); }
+    .notification-item p { margin: 0; font-size: 11px; }
+    .notification-item time { color: var(--muted); font-size: 9px; }
+    .header-user { position: relative; margin-inline-start: 2px; }
+    .user-trigger { min-height: 44px; padding: 4px 7px 4px 10px; border: 1px solid var(--line); border-radius: 13px; display: flex; align-items: center; gap: 9px; color: var(--ink); background: #fff; text-align: right; }
+    .avatar { width: 37px; height: 37px; border-radius: 11px; display: grid; place-items: center; flex: 0 0 auto; color: #fff; background: linear-gradient(145deg, var(--sky), var(--indigo)); font-weight: 850; font-size: 11px; }
+    .user-trigger .avatar { width: 34px; height: 34px; }
+    .header-user-copy { min-width: 92px; }
+    .header-user-copy strong { display: block; color: var(--navy); font-size: 11px; line-height: 1.2; }
+    .header-user-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .user-trigger > svg { width: 14px; color: var(--muted); transition: .18s ease; }
+    .header-user.open .user-trigger > svg { transform: rotate(180deg); }
+    .user-dropdown { width: 235px; padding: 8px; position: absolute; top: calc(100% + 10px); left: 0; border: 1px solid var(--line); border-radius: 15px; display: none; background: #fff; box-shadow: var(--shadow); }
+    .header-user.open .user-dropdown { display: block; animation: rise .18s ease; }
+    .user-dropdown-head { padding: 9px 10px 12px; margin-bottom: 5px; border-bottom: 1px solid var(--line); }
+    .user-dropdown-head strong { display: block; color: var(--navy); }
+    .user-dropdown-head span { color: var(--muted); font-size: 10px; }
+    .dropdown-item { width: 100%; min-height: 38px; padding: 7px 9px; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 9px; color: var(--ink); background: transparent; text-align: right; font-size: 11px; }
+    .dropdown-item:hover { color: var(--indigo); background: var(--soft-indigo); }
+    .dropdown-item svg { width: 16px; }
+    .dropdown-item.danger { color: var(--danger); }
+
+    .content { width: 100%; max-width: 1540px; padding: 27px 28px 60px; margin: 0 auto; }
+    .view { display: none; }
+    .view.active { display: block; animation: fade .22s ease; }
+    @keyframes fade { from { opacity: .35; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+    .page-head { margin-bottom: 21px; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+    .eyebrow { margin-bottom: 5px; color: var(--indigo); font-size: 11px; font-weight: 850; }
+    .page-head p { margin: 0; color: var(--muted); }
+    .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      min-height: 41px;
+      padding: 8px 15px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 750;
+      transition: .17s ease;
+    }
+    .btn svg { width: 17px; height: 17px; }
+    .btn-primary { color: #fff; background: linear-gradient(135deg, var(--indigo), var(--teal)); box-shadow: 0 9px 20px rgba(41,59,133,.16); }
+    .btn-primary:hover { transform: translateY(-1px); background: linear-gradient(135deg, var(--indigo-dark), #005f78); }
+    .btn-secondary { color: var(--ink); border-color: var(--line-strong); background: #fff; }
+    .btn-secondary:hover { color: var(--indigo); border-color: var(--sky); }
+    .btn-soft { color: var(--indigo); background: var(--soft-indigo); }
+    .btn-danger { color: var(--danger); background: var(--danger-bg); }
+    .btn-ghost { min-height: 34px; padding: 5px 8px; color: var(--indigo); background: transparent; }
+    .btn-sm { min-height: 33px; padding: 5px 10px; border-radius: 9px; font-size: 11px; }
+
+    .card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: 0 5px 18px rgba(0,14,34,.035); }
+    .card-head { min-height: 65px; padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .card-head p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .card-body { padding: 18px; }
+    .focus-banner {
+      min-height: 145px;
+      padding: 24px 27px;
+      margin-bottom: 16px;
+      border-radius: var(--radius-lg);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      color: #fff;
+      background:
+        radial-gradient(circle at 7% 18%, rgba(61,170,225,.55), transparent 24%),
+        linear-gradient(112deg, var(--navy) 0%, #06384e 56%, var(--indigo) 100%);
+      box-shadow: 0 18px 42px rgba(0,14,34,.15);
+    }
+    .focus-banner::after { content: ""; width: 250px; height: 250px; position: absolute; left: -60px; top: -125px; border: 42px solid rgba(255,255,255,.06); border-radius: 48% 52% 56% 44%; transform: rotate(18deg); }
+    .focus-content { max-width: 760px; position: relative; z-index: 1; }
+    .focus-kicker { margin-bottom: 8px; color: #9fdcf3; font-size: 11px; font-weight: 800; }
+    .focus-banner h2 { margin-bottom: 8px; color: #fff; font-size: clamp(21px, 2vw, 28px); }
+    .focus-banner p { margin-bottom: 17px; color: #c9dce8; }
+    .focus-banner .btn { color: var(--navy); background: #fff; }
+    .focus-visual { margin-inline-start: auto; padding-inline-start: 28px; position: relative; z-index: 1; display: flex; align-items: center; gap: 11px; }
+    .focus-number { width: 86px; height: 86px; border: 1px solid rgba(255,255,255,.18); border-radius: 25px; display: grid; place-items: center; background: rgba(255,255,255,.08); backdrop-filter: blur(5px); font-size: 39px; font-weight: 900; }
+    .focus-visual span { max-width: 90px; color: #c9dce8; font-size: 11px; }
+    .stat-grid { margin-bottom: 16px; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+    .stat-card { padding: 16px; display: grid; grid-template-columns: 43px minmax(0,1fr); gap: 12px; align-items: center; }
+    .stat-icon { width: 43px; height: 43px; border-radius: 13px; display: grid; place-items: center; color: var(--indigo); background: var(--soft-indigo); }
+    .stat-icon.success { color: var(--success); background: var(--success-bg); }
+    .stat-icon.warning { color: var(--warning); background: var(--warning-bg); }
+    .stat-icon.danger { color: var(--danger); background: var(--danger-bg); }
+    .stat-value { color: var(--navy); font-size: 24px; line-height: 1; font-weight: 900; }
+    .stat-label { margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .dashboard-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(300px,.8fr); gap: 16px; align-items: start; }
+    .stack { display: grid; gap: 16px; }
+    .work-item { padding: 14px 18px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 42px minmax(0,1fr) auto; gap: 12px; align-items: center; }
+    .work-item:last-child { border-bottom: 0; }
+    .work-icon { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; color: var(--indigo); background: var(--soft-indigo); }
+    .work-icon.warning { color: var(--warning); background: var(--warning-bg); }
+    .work-icon.danger { color: var(--danger); background: var(--danger-bg); }
+    .work-item p { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+    .work-meta { min-width: 100px; text-align: left; }
+    .work-meta time { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; }
+    .quick-grid { padding: 13px; display: grid; grid-template-columns: repeat(2,1fr); gap: 9px; }
+    .quick-action { min-height: 88px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: #f9fbfc; text-align: right; transition: .16s ease; }
+    .quick-action:hover { border-color: var(--sky); background: var(--soft-blue); transform: translateY(-1px); }
+    .quick-action svg { margin-bottom: 7px; color: var(--indigo); }
+    .quick-action strong { display: block; font-size: 11px; }
+    .mini-timeline { padding: 8px 18px 14px; }
+    .timeline-item { padding: 10px 0; display: grid; grid-template-columns: 22px 1fr; gap: 8px; border-bottom: 1px solid var(--line); }
+    .timeline-item:last-child { border-bottom: 0; }
+    .timeline-dot { width: 9px; height: 9px; margin: 6px auto 0; border: 2px solid #fff; border-radius: 50%; background: var(--sky); box-shadow: 0 0 0 2px #cbeaf7; }
+    .timeline-item p { margin: 0; font-size: 11px; }
+    .timeline-item time { color: var(--muted); font-size: 9px; }
+
+    .tabs { padding: 0 14px; display: flex; align-items: center; gap: 3px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+    .tab { min-height: 47px; padding: 10px 12px 8px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; white-space: nowrap; }
+    .tab:hover { color: var(--ink); }
+    .tab.active { color: var(--indigo); border-color: var(--indigo); font-weight: 850; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fade .18s ease; }
+    .toolbar { padding: 13px 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+    .control { height: 39px; min-width: 145px; padding: 0 11px; border: 1px solid var(--line-strong); border-radius: 10px; outline: 0; color: var(--ink); background: #fff; }
+    textarea.control { min-height: 88px; height: auto; padding-block: 10px; resize: vertical; }
+    .control:focus { border-color: var(--sky); box-shadow: 0 0 0 3px rgba(61,170,225,.11); }
+    .search-control { min-width: min(310px,100%); flex: 1; position: relative; }
+    .search-control svg { width: 16px; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+    .search-control .control { width: 100%; padding-right: 35px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 11px 15px; color: var(--muted); background: #f8fafb; text-align: right; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    td { padding: 13px 15px; border-top: 1px solid var(--line); vertical-align: middle; }
+    tbody tr { transition: .13s ease; }
+    tbody tr:hover { background: #fbfdfe; }
+    .click-row { cursor: pointer; }
+    .cell-title { display: flex; align-items: center; gap: 10px; min-width: 190px; }
+    .cell-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: 0 0 auto; color: var(--indigo); background: var(--soft-indigo); }
+    .cell-icon svg { width: 17px; }
+    .cell-title strong { display: block; color: var(--navy); font-size: 12px; }
+    .cell-title small { display: block; color: var(--muted); font-size: 9px; }
+    .badge { min-height: 24px; padding: 3px 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 750; white-space: nowrap; }
+    .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .badge-success { color: var(--success); background: var(--success-bg); }
+    .badge-warning { color: var(--warning); background: var(--warning-bg); }
+    .badge-danger { color: var(--danger); background: var(--danger-bg); }
+    .badge-info { color: var(--indigo); background: var(--soft-indigo); }
+    .badge-purple { color: var(--purple); background: var(--purple-bg); }
+    .badge-neutral { color: #596b79; background: #eef2f5; }
+    .priority { width: 31px; height: 25px; border-radius: 8px; display: grid; place-items: center; font-size: 9px; font-weight: 850; }
+    .priority.high { color: var(--danger); background: var(--danger-bg); }
+    .priority.medium { color: var(--warning); background: var(--warning-bg); }
+    .priority.normal { color: var(--teal); background: var(--soft-blue); }
+    .progress { height: 7px; min-width: 115px; border-radius: 8px; overflow: hidden; background: #e8edf1; }
+    .progress > span { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, var(--indigo), var(--sky)); }
+    .segmented-stats { margin-bottom: 14px; display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .segment { padding: 14px 16px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+    .segment strong { display: block; color: var(--navy); font-size: 20px; }
+    .segment span { color: var(--muted); font-size: 10px; }
+
+    .record-type-grid { margin-bottom: 15px; display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .record-type { padding: 15px; border: 1px solid var(--line); border-radius: 13px; display: flex; align-items: center; gap: 10px; background: #fff; }
+    .record-type svg { color: var(--indigo); }
+    .record-type strong { display: block; font-size: 11px; }
+    .record-type span { color: var(--muted); font-size: 9px; }
+    .upload-zone { padding: 21px; border: 1px dashed #a9c8d8; border-radius: 14px; display: flex; align-items: center; gap: 14px; background: linear-gradient(120deg,#fbfeff,var(--soft-blue)); }
+    .upload-icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg,var(--sky),var(--indigo)); }
+    .upload-zone p { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+    .upload-zone .btn { margin-inline-start: auto; }
+
+    .process-summary { padding: 18px; display: grid; grid-template-columns: minmax(0,1fr) 260px; gap: 18px; align-items: center; border-bottom: 1px solid var(--line); background: linear-gradient(105deg,#fff,var(--soft-blue)); }
+    .process-lane { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 5px 0; }
+    .process-step { min-width: 138px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: #fff; text-align: center; }
+    .process-step.done { color: var(--success); border-color: #bce3d4; background: var(--success-bg); }
+    .process-step.current { color: var(--indigo); border-color: #a9c6ea; background: var(--soft-indigo); box-shadow: 0 0 0 3px rgba(41,59,133,.06); }
+    .process-step strong { display: block; font-size: 10px; }
+    .process-step span { color: var(--muted); font-size: 9px; }
+    .process-line { width: 34px; height: 2px; flex: 0 0 auto; background: var(--line-strong); }
+    .definition-grid { padding: 16px; display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+    .definition-card { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+    .definition-top { margin-bottom: 13px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .definition-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--indigo); background: var(--soft-indigo); }
+    .definition-card p { color: var(--muted); font-size: 10px; }
+    .definition-meta { padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 9px; }
+
+    .org-layout { display: grid; grid-template-columns: 285px minmax(0,1fr); gap: 15px; align-items: start; }
+    .org-tree { position: sticky; top: 91px; }
+    .tree-search { padding: 12px; border-bottom: 1px solid var(--line); }
+    .tree-list { padding: 9px; }
+    .tree-row { width: 100%; min-height: 38px; padding: 7px 9px; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 8px; color: var(--ink); background: transparent; text-align: right; }
+    .tree-row:hover { background: #f4f8fa; }
+    .tree-row.active { color: var(--indigo); background: var(--soft-indigo); font-weight: 800; }
+    .tree-row svg { width: 16px; }
+    .tree-row span:last-child { margin-inline-start: auto; color: var(--muted); font-size: 9px; }
+    .tree-children { margin-right: 18px; padding-right: 8px; border-right: 1px dashed var(--line-strong); }
+    .unit-hero { padding: 19px; display: flex; align-items: center; gap: 13px; }
+    .unit-icon { width: 51px; height: 51px; border-radius: 15px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg,var(--navy),var(--indigo)); }
+    .unit-hero p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .unit-actions { margin-inline-start: auto; }
+    .info-grid { padding: 16px; display: grid; grid-template-columns: repeat(2,1fr); gap: 11px; }
+    .info-box { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #f9fbfc; }
+    .info-label { margin-bottom: 6px; color: var(--muted); font-size: 9px; }
+    .person-chip { display: flex; align-items: center; gap: 8px; }
+    .person-chip .avatar { width: 32px; height: 32px; border-radius: 9px; }
+    .person-chip small { display: block; color: var(--muted); }
+    .title-group { margin-bottom: 10px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
+    .title-group-head { width: 100%; padding: 14px 16px; border: 0; display: grid; grid-template-columns: minmax(190px,1.2fr) repeat(3,90px) 20px; gap: 11px; align-items: center; color: var(--ink); background: #fff; text-align: right; }
+    .title-group-head:hover { background: #fbfdfe; }
+    .title-name { display: flex; align-items: center; gap: 10px; }
+    .title-name .cell-icon { width: 38px; height: 38px; }
+    .metric-mini strong { display: block; color: var(--navy); font-size: 15px; }
+    .metric-mini span { color: var(--muted); font-size: 9px; }
+    .group-chevron { transition: .18s ease; }
+    .title-group.open .group-chevron { transform: rotate(180deg); }
+    .seats { display: none; border-top: 1px solid var(--line); background: #fbfcfd; }
+    .title-group.open .seats { display: block; }
+    .seat-row { padding: 10px 16px 10px 28px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 120px minmax(170px,1fr) minmax(150px,1fr) auto; gap: 12px; align-items: center; }
+    .seat-row:last-child { border-bottom: 0; }
+    .seat-code { direction: ltr; text-align: right; color: var(--indigo); font-size: 10px; font-weight: 800; }
+
+    .role-grid { padding: 16px; display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+    .role-card { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+    .role-head { margin-bottom: 13px; display: flex; align-items: center; gap: 10px; }
+    .role-icon { width: 39px; height: 39px; border-radius: 12px; display: grid; place-items: center; color: var(--indigo); background: var(--soft-indigo); }
+    .role-head .badge { margin-inline-start: auto; }
+    .capability-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .capability { padding: 4px 8px; border-radius: 8px; color: #536777; background: #f0f3f5; font-size: 9px; }
+    .scope-map { padding: 18px; display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .scope-level { min-height: 110px; padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+    .scope-level svg { margin-bottom: 8px; color: var(--indigo); }
+    .scope-level strong { display: block; }
+    .scope-level span { color: var(--muted); font-size: 9px; }
+    .decision-layout { padding: 18px; display: grid; grid-template-columns: minmax(280px,.8fr) minmax(320px,1.2fr); gap: 15px; }
+    .form-stack { display: grid; gap: 12px; }
+    .form-field label { margin-bottom: 5px; display: block; color: var(--ink); font-size: 10px; font-weight: 750; }
+    .form-field .control { width: 100%; }
+    .decision-result { padding: 18px; border: 1px solid #bfe2d5; border-radius: 14px; background: var(--success-bg); }
+    .decision-result.pending { border-color: var(--line); background: #f8fafb; }
+    .decision-symbol { width: 45px; height: 45px; margin-bottom: 12px; border-radius: 14px; display: grid; place-items: center; color: #fff; background: var(--success); }
+    .decision-result.pending .decision-symbol { color: var(--muted); background: #e9eef2; }
+    .decision-reasons { margin: 12px 0 0; padding: 12px; border-radius: 11px; background: rgba(255,255,255,.7); font-size: 10px; }
+
+    .dashboard-cards { margin-bottom: 15px; display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+    .dashboard-card { min-height: 150px; padding: 17px; border: 1px solid var(--line); border-radius: 15px; position: relative; overflow: hidden; background: #fff; }
+    .dashboard-card::after { content: ""; width: 100px; height: 100px; position: absolute; left: -35px; top: -42px; border: 18px solid rgba(61,170,225,.08); border-radius: 50%; }
+    .dashboard-card svg { margin-bottom: 18px; color: var(--indigo); }
+    .dashboard-card p { color: var(--muted); font-size: 10px; }
+    .dashboard-card .btn { position: relative; z-index: 1; }
+
+    .coverage-hero { padding: 22px; margin-bottom: 15px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 18px; align-items: center; background: linear-gradient(115deg,#fff 55%,var(--soft-blue)); border-top: 3px solid var(--sky); }
+    .coverage-hero p { margin: 6px 0 0; color: var(--muted); }
+    .coverage-score { width: 112px; height: 112px; border: 9px solid #d9ecf6; border-top-color: var(--indigo); border-right-color: var(--sky); border-radius: 50%; display: grid; place-items: center; background: #fff; }
+    .coverage-score strong { display: block; color: var(--navy); font-size: 25px; line-height: 1; text-align: center; }
+    .coverage-score span { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; }
+    .coverage-grid { margin-bottom: 15px; display: grid; grid-template-columns: 1.2fr .8fr; gap: 15px; align-items: start; }
+    .api-module { padding: 11px 15px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(150px,1fr) 64px minmax(150px,1fr) 95px; gap: 10px; align-items: center; }
+    .api-module:last-child { border-bottom: 0; }
+    .api-module strong { color: var(--navy); font-size: 11px; }
+    .api-count { color: var(--indigo); font-weight: 900; }
+    .gap-list { padding: 8px 16px 15px; }
+    .gap-item { padding: 12px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 31px minmax(0,1fr); gap: 10px; }
+    .gap-item:last-child { border-bottom: 0; }
+    .gap-rank { width: 31px; height: 31px; border-radius: 9px; display: grid; place-items: center; color: var(--danger); background: var(--danger-bg); font-size: 9px; font-weight: 900; }
+    .gap-rank.p1 { color: var(--warning); background: var(--warning-bg); }
+    .gap-item p { margin: 2px 0 0; color: var(--muted); font-size: 10px; }
+    .contract-alert { padding: 15px; border: 1px solid #f1d694; border-radius: 13px; display: flex; align-items: flex-start; gap: 11px; color: #714b06; background: var(--warning-bg); }
+    .contract-alert svg { flex: 0 0 auto; }
+    .contract-alert p { margin: 3px 0 0; color: #7d6435; font-size: 10px; }
+
+    .overlay { position: fixed; inset: 0; display: none; background: rgba(0,14,34,.42); backdrop-filter: blur(2px); z-index: 70; }
+    .overlay.open { display: block; }
+    .modal {
+      width: min(720px, calc(100vw - 26px));
+      max-height: calc(100vh - 30px);
+      position: fixed;
+      inset: 50% auto auto 50%;
+      z-index: 80;
+      border-radius: 19px;
+      display: none;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 28px 80px rgba(0,14,34,.24);
+      transform: translate(-50%,-50%);
+    }
+    .modal.open { display: flex; flex-direction: column; animation: modalIn .19s ease; }
+    @keyframes modalIn { from { opacity: 0; transform: translate(-50%,-48%) scale(.985); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+    .modal-head { padding: 18px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .modal-head p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .modal-body { padding: 20px; overflow-y: auto; }
+    .modal-footer { padding: 13px 20px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; background: #fbfcfd; }
+    .form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 13px; }
+    .form-field.full { grid-column: 1 / -1; }
+    .flow-preview { padding: 14px; margin-top: 15px; border: 1px solid var(--line); border-radius: 13px; background: #f8fafb; }
+    .flow-preview-head { margin-bottom: 11px; display: flex; align-items: center; justify-content: space-between; }
+    .flow-preview-steps { display: flex; align-items: center; gap: 6px; overflow-x: auto; }
+    .flow-chip { min-width: 105px; padding: 8px; border-radius: 9px; color: var(--indigo); background: var(--soft-indigo); text-align: center; font-size: 9px; }
+    .seat-preview { padding: 14px; margin-top: 14px; border-radius: 13px; color: #d8edf7; background: linear-gradient(135deg,var(--navy),#07384c); }
+    .seat-preview-head { margin-bottom: 10px; display: flex; justify-content: space-between; color: #fff; }
+    .code-pills { display: flex; gap: 6px; flex-wrap: wrap; direction: ltr; justify-content: flex-end; }
+    .code-pill { padding: 5px 8px; border: 1px solid rgba(255,255,255,.15); border-radius: 8px; color: #fff; background: rgba(255,255,255,.08); font-size: 9px; }
+    .action-modal { width: min(760px, calc(100vw - 26px)); }
+    .action-context { padding: 12px 14px; margin-bottom: 15px; border: 1px solid #c9e5f2; border-radius: 13px; display: flex; align-items: flex-start; gap: 10px; color: var(--teal); background: var(--soft-blue); }
+    .action-context svg { flex: 0 0 auto; }
+    .action-context strong { display: block; color: var(--navy); }
+    .action-context p { margin: 2px 0 0; color: var(--muted); font-size: 10px; }
+    .endpoint-row { margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; direction: ltr; justify-content: flex-end; }
+    .endpoint-pill { padding: 4px 8px; border: 1px solid #bfd7e4; border-radius: 8px; color: var(--teal); background: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; }
+    .option-list { display: grid; gap: 9px; }
+    .option-card { min-height: 54px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px; display: flex; align-items: center; gap: 10px; background: #fff; }
+    .option-card:hover { border-color: var(--sky); background: #fbfeff; }
+    .option-card input { width: 17px; height: 17px; accent-color: var(--indigo); }
+    .option-card strong { display: block; font-size: 11px; }
+    .option-card span { color: var(--muted); font-size: 9px; }
+    .action-summary { padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafb; }
+    .action-summary-row { padding: 8px 0; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .action-summary-row:last-child { border-bottom: 0; }
+    .action-summary-row span { color: var(--muted); font-size: 10px; }
+    .action-table { width: 100%; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .action-table-row { padding: 11px 12px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; }
+    .action-table-row:last-child { border-bottom: 0; }
+    .action-table-row small { display: block; color: var(--muted); }
+    body.compact-tables td { padding-top: 8px; padding-bottom: 8px; }
+    body.compact-tables .work-item { padding-top: 9px; padding-bottom: 9px; }
+    .drawer {
+      width: min(470px, 100vw);
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 80;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      box-shadow: 20px 0 60px rgba(0,14,34,.18);
+      transform: translateX(-105%);
+      transition: .22s ease;
+    }
+    .drawer.open { transform: none; }
+    .drawer-head { padding: 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+    .drawer-head .icon-btn { margin-inline-start: auto; }
+    .drawer-head p { margin: 2px 0 0; color: var(--muted); font-size: 10px; }
+    .drawer-body { padding: 18px; overflow-y: auto; flex: 1; }
+    .drawer-footer { padding: 13px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+    .detail-box { padding: 14px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 13px; }
+    .detail-row { padding: 9px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; }
+    .detail-row:last-child { border-bottom: 0; }
+    .detail-row span { color: var(--muted); font-size: 10px; }
+    .comment { padding: 11px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 32px 1fr; gap: 8px; }
+    .comment .avatar { width: 32px; height: 32px; border-radius: 9px; font-size: 9px; }
+    .comment p { margin: 0; font-size: 10px; }
+    .comment time { color: var(--muted); font-size: 8px; }
+    .toast { max-width: min(420px, calc(100vw - 28px)); min-height: 48px; padding: 11px 15px; position: fixed; right: 50%; bottom: 22px; z-index: 100; border-radius: 13px; display: flex; align-items: center; gap: 9px; color: #fff; background: var(--navy); box-shadow: var(--shadow); opacity: 0; visibility: hidden; transform: translate(50%,15px); transition: .2s ease; }
+    .toast.show { opacity: 1; visibility: visible; transform: translate(50%,0); }
+    .toast svg { color: var(--sky); }
+
+    @media (max-width: 1180px) {
+      :root { --sidebar-width: 224px; }
+      .scope-switch { max-width: 210px; }
+      .header-user-copy { display: none; }
+      .stat-grid, .record-type-grid { grid-template-columns: repeat(2,1fr); }
+      .definition-grid, .role-grid, .dashboard-cards { grid-template-columns: repeat(2,1fr); }
+      .scope-map { grid-template-columns: repeat(2,1fr); }
+      .coverage-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 900px) {
+      .app-shell { display: block; }
+      .sidebar { width: 270px; position: fixed; right: 0; top: 0; transform: translateX(105%); transition: .22s ease; }
+      .sidebar.open { transform: none; }
+      .mobile-toggle { display: grid; }
+      .topbar { padding: 0 15px; }
+      .scope-switch { display: none; }
+      .content { padding: 22px 16px 52px; }
+      .dashboard-grid, .org-layout, .decision-layout { grid-template-columns: 1fr; }
+      .org-tree { position: static; }
+      .focus-visual { display: none; }
+      .process-summary { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 650px) {
+      .global-search { position: static; }
+      .global-search input { padding-left: 12px; }
+      .shortcut { display: none; }
+      .search-results { top: 63px; right: 8px; }
+      .topbar { gap: 7px; }
+      .header-user .user-trigger > svg { display: none; }
+      .user-trigger { padding: 4px; border: 0; background: transparent; }
+      .top-actions { gap: 4px; }
+      .page-head { display: block; }
+      .page-head .actions { margin-top: 13px; }
+      .focus-banner { padding: 21px; }
+      .stat-grid, .segmented-stats, .record-type-grid, .definition-grid, .role-grid, .dashboard-cards, .scope-map { grid-template-columns: 1fr 1fr; }
+      .quick-grid, .info-grid, .form-grid { grid-template-columns: 1fr; }
+      .form-field.full { grid-column: auto; }
+      .title-group-head { grid-template-columns: minmax(170px,1fr) 65px 18px; }
+      .title-group-head .metric-mini:nth-of-type(3),
+      .title-group-head .metric-mini:nth-of-type(4) { display: none; }
+      .seat-row { grid-template-columns: 105px minmax(140px,1fr); }
+      .seat-row > :nth-child(3), .seat-row > :nth-child(4) { display: none; }
+      .api-module { grid-template-columns: 1fr 45px 80px; }
+      .api-module > :nth-child(3) { display: none; }
+      .coverage-hero { grid-template-columns: 1fr; }
+      .coverage-score { display: none; }
+    }
+    @media (max-width: 430px) {
+      .global-search input::placeholder { color: transparent; }
+      .stat-grid, .segmented-stats, .record-type-grid, .definition-grid, .role-grid, .dashboard-cards, .scope-map { grid-template-columns: 1fr; }
+      .focus-banner h2 { font-size: 21px; }
+      .popover { width: calc(100vw - 24px); left: -50px; }
+    }
+  </style>
+</head>
+<body>
+  <svg class="sr-only" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-task" viewBox="0 0 24 24"><path d="M9 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/><path d="m9 14 2 2 7-7M13 3h8v8"/></symbol>
+    <symbol id="i-record" viewBox="0 0 24 24"><path d="M4 4h6l2 3h8a1 1 0 0 1 1 1v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z"/><path d="M8 12h8M8 16h5"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></symbol>
+    <symbol id="i-flow" viewBox="0 0 24 24"><circle cx="5" cy="5" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="19" r="2"/><path d="M7 5h4a3 3 0 0 1 3 3v1a3 3 0 0 0 3 3M7 19h4a3 3 0 0 0 3-3v-1a3 3 0 0 1 3-3"/></symbol>
+    <symbol id="i-org" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h6M9 13h6M9 17h2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-5"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19V2M2 19h21"/></symbol>
+    <symbol id="i-api" viewBox="0 0 24 24"><path d="M8 9 4 12l4 3M16 9l4 3-4 3M14 5l-4 14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 10 3 3 3-3"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M8 12l4 4 4-4"/><path d="M4 19h16"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3 2 21h20zM12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M3 21h18M6 21V4h12v17M9 8h2M13 8h2M9 12h2M13 12h2M10 21v-5h4v5"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M19 8v6M16 11h6"/></symbol>
+    <symbol id="i-seat" viewBox="0 0 24 24"><path d="M6 21v-5M18 21v-5M5 12h14a2 2 0 0 1 2 2v2H3v-2a2 2 0 0 1 2-2zM7 12V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M9 6V4h6v2M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM2 12h20M10 12v2h4v-2"/></symbol>
+    <symbol id="i-comment" viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14 9l2 2"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.3 2.3 0 1 1 3.4 2c-.8.5-1.2 1-1.2 2M12 17h.01"/></symbol>
+    <symbol id="i-contact" viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A7 7 0 0 0 15 6l-.3-2.6h-4L10.4 6A7 7 0 0 0 9 7.1l-2.4-1-2 3.4L6.6 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.5 1l.3 2.6h4l.3-2.6a7 7 0 0 0 1.5-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><svg><use href="#i-flow"></use></svg></div>
+        <div><div class="brand-title">بوابة العمل المؤسسي</div><div class="brand-subtitle">التجمع الصحي · منصة موحّدة</div></div>
+      </div>
+      <div class="nav-scroll">
+        <div class="nav-label">مساحة عملي</div>
+        <nav class="nav-list" aria-label="مساحة عملي">
+          <button class="nav-item active" data-view="overview"><svg><use href="#i-home"></use></svg><span>الرئيسية</span></button>
+          <button class="nav-item" data-view="tasks"><svg><use href="#i-task"></use></svg><span>مهامي</span><span class="nav-count">12</span></button>
+          <button class="nav-item" data-view="records"><svg><use href="#i-record"></use></svg><span>سجلات العمل</span></button>
+          <button class="nav-item" data-view="documents"><svg><use href="#i-doc"></use></svg><span>المستندات</span><span class="nav-count">7</span></button>
+        </nav>
+        <div class="nav-label">الإدارة والتشغيل</div>
+        <nav class="nav-list" aria-label="الإدارة والتشغيل">
+          <button class="nav-item" data-view="processes"><svg><use href="#i-flow"></use></svg><span>الإجراءات وسير العمل</span></button>
+          <button class="nav-item" data-view="organization"><svg><use href="#i-org"></use></svg><span>الهيكل التنظيمي</span></button>
+          <button class="nav-item" data-view="access"><svg><use href="#i-shield"></use></svg><span>الحسابات والصلاحيات</span></button>
+          <button class="nav-item" data-view="reports"><svg><use href="#i-chart"></use></svg><span>التقارير واللوحات</span></button>
+        </nav>
+        <div class="nav-label">مراجعة المنتج</div>
+        <nav class="nav-list" aria-label="مراجعة المنتج">
+          <button class="nav-item" data-view="coverage"><svg><use href="#i-api"></use></svg><span>تغطية العمليات</span><span class="nav-count">112</span></button>
+        </nav>
+      </div>
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-links">
+          <button class="sidebar-utility" data-toast="تم فتح مركز المعرفة"><svg><use href="#i-help"></use></svg><span>مركز المعرفة</span></button>
+          <button class="sidebar-utility" data-toast="تم فتح قنوات التواصل"><svg><use href="#i-contact"></use></svg><span>تواصل معنا</span></button>
+        </div>
+        <div class="sidebar-copyright">© 2026 إيقونت تك سيستم<br>جميع الحقوق محفوظة</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn mobile-toggle" id="mobileToggle" aria-label="فتح القائمة"><svg><use href="#i-menu"></use></svg></button>
+        <button class="scope-switch" data-toast="يمكن تبديل النطاق من قائمة الحساب">
+          <svg><use href="#i-building"></use></svg>
+          <span class="scope-copy"><span>نطاق العمل الحالي</span><strong>مجمع إرادة والصحة النفسية</strong></span>
+          <svg><use href="#i-chevron"></use></svg>
+        </button>
+        <div class="global-search" id="globalSearch">
+          <svg><use href="#i-search"></use></svg>
+          <input id="globalSearchInput" type="search" placeholder="ابحث عن معاملة، مهمة، شخص أو مستند…" autocomplete="off">
+          <span class="shortcut">⌘ K</span>
+          <div class="search-results" id="searchResults">
+            <div class="search-hint">نتائج موحّدة من السجلات والمهام والأشخاص والمستندات</div>
+            <button class="search-result" data-go="records"><span class="search-result-icon"><svg><use href="#i-record"></use></svg></span><span><strong>طلب اعتماد احتياج مختبر</strong><small>WR-2026-00842 · قيد المراجعة</small></span><span class="search-kind">سجل عمل</span></button>
+            <button class="search-result" data-open-drawer><span class="search-result-icon"><svg><use href="#i-task"></use></svg></span><span><strong>مراجعة محضر لجنة التوظيف</strong><small>TSK-1098 · يستحق اليوم</small></span><span class="search-kind">مهمة</span></button>
+            <button class="search-result" data-go="organization"><span class="search-result-icon"><svg><use href="#i-user"></use></svg></span><span><strong>د. أحمد العتيبي</strong><small>EMP-1023 · وحدة المختبر</small></span><span class="search-kind">شخص</span></button>
+          </div>
+        </div>
+        <div class="top-actions">
+          <div class="popover-wrap" id="notificationWrap">
+            <button class="icon-btn" id="notificationTrigger" aria-label="الإشعارات"><svg><use href="#i-bell"></use></svg><span class="notification-dot" id="notificationDot"></span></button>
+            <div class="popover">
+              <div class="popover-head"><strong>الإشعارات</strong><button class="btn btn-ghost btn-sm" id="markNotifications">تعليم الظاهر كمقروء</button></div>
+              <div class="notification-item unread"><span class="unread-dot"></span><div><p><strong>أُسندت إليك مهمة جديدة</strong> في طلب التعاقد WR-842.</p><time>منذ 8 دقائق</time></div></div>
+              <div class="notification-item unread"><span class="unread-dot"></span><div><p>اكتمل فحص المستند «محضر اللجنة.pdf» وأصبح جاهزًا.</p><time>منذ 25 دقيقة</time></div></div>
+              <div class="notification-item"><span class="unread-dot"></span><div><p>تم اعتماد نسخة سير عمل طلب الاحتياج.</p><time>أمس، 3:40 م</time></div></div>
+            </div>
+          </div>
+          <div class="header-user" id="headerUser">
+            <button class="user-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false">
+              <span class="avatar">ط م</span>
+              <span class="header-user-copy"><strong>طارق محمد</strong><span>مدير النظام</span></span>
+              <svg><use href="#i-chevron"></use></svg>
+            </button>
+            <div class="user-dropdown">
+              <div class="user-dropdown-head"><strong>طارق محمد</strong><span>tariq@example.sa</span></div>
+              <button class="dropdown-item" data-toast="تم فتح الملف الشخصي"><svg><use href="#i-user"></use></svg>الملف الشخصي</button>
+              <button class="dropdown-item" data-toast="تم فتح اختيار نطاق العمل"><svg><use href="#i-building"></use></svg>تبديل نطاق العمل</button>
+              <button class="dropdown-item" data-toast="تم فتح تغيير كلمة المرور"><svg><use href="#i-key"></use></svg>تغيير كلمة المرور</button>
+              <button class="dropdown-item" data-go="coverage"><svg><use href="#i-api"></use></svg>تغطية النظام</button>
+              <button class="dropdown-item danger" data-toast="تم تجهيز طلب تسجيل الخروج"><svg><use href="#i-logout"></use></svg>تسجيل الخروج</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="view active" id="view-overview">
+          <div class="page-head">
+            <div><div class="eyebrow">مساحة عملي · الثلاثاء 21 يوليو</div><h1>صباح الخير، طارق</h1><p>هذه الأولويات التي تحتاج قرارك، والباقي ينتظر في مكانه الصحيح.</p></div>
+            <div class="actions"><button class="btn btn-secondary" data-go="reports"><svg><use href="#i-chart"></use></svg>عرض لوحة الأداء</button></div>
+          </div>
+          <div class="focus-banner">
+            <div class="focus-content"><div class="focus-kicker">الأولوية الآن</div><h2>لديك 3 قرارات تستحق اليوم</h2><p>مهمتان على وشك تجاوز المدة، ومستند واحد ينتظر اعتمادك لإكمال الإجراء.</p><button class="btn" data-go="tasks">ابدأ بالأعلى أولوية <svg><use href="#i-task"></use></svg></button></div>
+            <div class="focus-visual"><div class="focus-number">3</div><span>قرارات تفصل بين المعاملات وخطوتها التالية</span></div>
+          </div>
+          <div class="stat-grid">
+            <div class="card stat-card"><div class="stat-icon warning"><svg><use href="#i-task"></use></svg></div><div><div class="stat-value">12</div><div class="stat-label">مهام مفتوحة · 3 تستحق اليوم</div></div></div>
+            <div class="card stat-card"><div class="stat-icon"><svg><use href="#i-record"></use></svg></div><div><div class="stat-value">86</div><div class="stat-label">سجل عمل نشط ضمن نطاقك</div></div></div>
+            <div class="card stat-card"><div class="stat-icon danger"><svg><use href="#i-doc"></use></svg></div><div><div class="stat-value">7</div><div class="stat-label">مستندات تنتظر الإجراء</div></div></div>
+            <div class="card stat-card"><div class="stat-icon success"><svg><use href="#i-clock"></use></svg></div><div><div class="stat-value">96%</div><div class="stat-label">إنجاز ضمن الوقت هذا الشهر</div></div></div>
+          </div>
+          <div class="dashboard-grid">
+            <div class="stack">
+              <div class="card">
+                <div class="card-head"><div><h2>ما يحتاجك الآن</h2><p>مرتبة حسب الاستحقاق وتأثير التأخير.</p></div><button class="btn btn-ghost btn-sm" data-go="tasks">كل المهام</button></div>
+                <div class="work-item click-row" data-open-drawer><div class="work-icon danger"><svg><use href="#i-warning"></use></svg></div><div><h3>اعتماد طلب التعاقد مع مختبر مرجعي</h3><p>طلب تعاقد · الخطوة الأخيرة قبل الإرسال للمشتريات</p></div><div class="work-meta"><span class="badge badge-danger">متأخر ساعتين</span><time>WR-2026-00842</time></div></div>
+                <div class="work-item click-row" data-open-drawer><div class="work-icon warning"><svg><use href="#i-task"></use></svg></div><div><h3>مراجعة محضر لجنة التوظيف</h3><p>تكليف مباشر · أضافته نورة المالكي</p></div><div class="work-meta"><span class="badge badge-warning">اليوم 1:30 م</span><time>TSK-1098</time></div></div>
+                <div class="work-item click-row" data-open-drawer><div class="work-icon"><svg><use href="#i-doc"></use></svg></div><div><h3>اعتماد الإصدار النهائي لدليل المختبر</h3><p>مستند · الإصدار 4 اجتاز الفحص الأمني</p></div><div class="work-meta"><span class="badge badge-info">اليوم 4:00 م</span><time>DOC-344</time></div></div>
+              </div>
+              <div class="card">
+                <div class="card-head"><div><h2>إجراءات قيد التنفيذ</h2><p>صورة سريعة عن موقع المعاملات داخل سير العمل.</p></div><button class="btn btn-ghost btn-sm" data-go="processes">متابعة الإجراءات</button></div>
+                <div class="process-summary">
+                  <div><h3>طلب احتياج قوى عاملة · WR-2026-00816</h3><p class="muted">بدأه مدير المختبر، وحاليًا لدى الموارد البشرية.</p><div class="process-lane"><div class="process-step done"><strong>رفع الطلب</strong><span>مكتمل</span></div><div class="process-line"></div><div class="process-step done"><strong>اعتماد المدير</strong><span>مكتمل</span></div><div class="process-line"></div><div class="process-step current"><strong>مراجعة الموارد</strong><span>قيد التنفيذ</span></div><div class="process-line"></div><div class="process-step"><strong>القرار النهائي</strong><span>بانتظار</span></div></div></div>
+                  <div><div class="muted" style="font-size:10px;margin-bottom:6px">التقدم</div><div style="display:flex;align-items:center;gap:10px"><div class="progress" style="flex:1"><span style="width:64%"></span></div><strong>64%</strong></div><p class="muted" style="margin:9px 0 0;font-size:10px">المدة المتوقعة المتبقية: يومان</p></div>
+                </div>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="card">
+                <div class="card-head"><div><h2>إجراء سريع</h2><p>ابدأ من الهدف، والنظام يرتب الخطوات.</p></div></div>
+                <div class="quick-grid">
+                  <button class="quick-action" data-modal="recordModal"><svg><use href="#i-plus"></use></svg><strong>إنشاء سجل عمل</strong></button>
+                  <button class="quick-action" data-toast="تم فتح إنشاء مهمة"><svg><use href="#i-task"></use></svg><strong>إسناد مهمة</strong></button>
+                  <button class="quick-action" data-go="documents"><svg><use href="#i-upload"></use></svg><strong>رفع مستند</strong></button>
+                  <button class="quick-action" data-go="organization" data-org-tab="jobs"><svg><use href="#i-users"></use></svg><strong>إضافة موظف</strong></button>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head"><div><h2>آخر التحديثات</h2><p>أحداث مهمة فقط، وليست سجل تدقيق.</p></div></div>
+                <div class="mini-timeline">
+                  <div class="timeline-item"><span class="timeline-dot"></span><div><p><strong>اكتمل استيراد 42 موظفًا</strong> دون أخطاء.</p><time>منذ 18 دقيقة</time></div></div>
+                  <div class="timeline-item"><span class="timeline-dot"></span><div><p>نُشرت النسخة 3 من إجراء طلب الاحتياج.</p><time>منذ ساعتين</time></div></div>
+                  <div class="timeline-item"><span class="timeline-dot"></span><div><p>أُغلقت 9 مهام ضمن المدة المستهدفة.</p><time>أمس</time></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-tasks">
+          <div class="page-head"><div><div class="eyebrow">مساحة عملي</div><h1>المهام</h1><p>مكان واحد للمهام المباشرة والمهام الناتجة من خطوات سير العمل.</p></div><div class="actions"><button class="btn btn-secondary" data-toast="تم فتح إعدادات العرض"><svg><use href="#i-settings"></use></svg>تخصيص العرض</button><button class="btn btn-primary" data-toast="تم فتح إنشاء مهمة"><svg><use href="#i-plus"></use></svg>مهمة جديدة</button></div></div>
+          <div class="segmented-stats"><div class="segment"><strong>12</strong><span>مفتوحة لدي</span></div><div class="segment"><strong>3</strong><span>تستحق اليوم</span></div><div class="segment"><strong>2</strong><span>متأخرة</span></div><div class="segment"><strong>28</strong><span>أُنجزت هذا الشهر</span></div></div>
+          <div class="card">
+            <div class="tabs" data-tabs="tasks"><button class="tab active" data-panel="tasks-mine">مهامي</button><button class="tab" data-panel="tasks-created">أنشأتها</button><button class="tab" data-panel="tasks-complete">المكتملة</button></div>
+            <div class="tab-panel active" id="tasks-mine">
+              <div class="toolbar"><div class="search-control"><svg><use href="#i-search"></use></svg><input class="control filter-input" data-filter-table="taskTable" placeholder="ابحث بالعنوان أو الرقم…"></div><select class="control"><option>كل الحالات</option><option>جديدة</option><option>قيد التنفيذ</option></select><select class="control"><option>كل الأولويات</option><option>عالية</option><option>متوسطة</option></select><button class="btn btn-secondary btn-sm"><svg><use href="#i-filter"></use></svg>المزيد</button></div>
+              <div class="table-wrap"><table id="taskTable"><thead><tr><th>المهمة</th><th>المصدر</th><th>الأولوية</th><th>الحالة</th><th>الاستحقاق</th><th></th></tr></thead><tbody>
+                <tr class="click-row" data-open-drawer><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-task"></use></svg></span><span><strong>اعتماد طلب التعاقد مع مختبر مرجعي</strong><small>TSK-1104</small></span></div></td><td>خطوة سير عمل</td><td><span class="priority high">عالية</span></td><td><span class="badge badge-warning">بانتظار القرار</span></td><td style="color:var(--danger)">متأخرة ساعتين</td><td><button class="icon-btn btn-sm" aria-label="خيارات"><svg><use href="#i-more"></use></svg></button></td></tr>
+                <tr class="click-row" data-open-drawer><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-comment"></use></svg></span><span><strong>مراجعة محضر لجنة التوظيف</strong><small>TSK-1098</small></span></div></td><td>مهمة مباشرة</td><td><span class="priority medium">متوسطة</span></td><td><span class="badge badge-info">قيد التنفيذ</span></td><td>اليوم، 1:30 م</td><td><button class="icon-btn btn-sm"><svg><use href="#i-more"></use></svg></button></td></tr>
+                <tr class="click-row" data-open-drawer><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-doc"></use></svg></span><span><strong>اعتماد الإصدار النهائي لدليل المختبر</strong><small>TSK-1089</small></span></div></td><td>خطوة سير عمل</td><td><span class="priority normal">عادية</span></td><td><span class="badge badge-neutral">جديدة</span></td><td>اليوم، 4:00 م</td><td><button class="icon-btn btn-sm"><svg><use href="#i-more"></use></svg></button></td></tr>
+                <tr class="click-row" data-open-drawer><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-task"></use></svg></span><span><strong>التحقق من إغلاق تكليف مؤقت</strong><small>TSK-1077</small></span></div></td><td>مهمة مباشرة</td><td><span class="priority normal">عادية</span></td><td><span class="badge badge-info">قيد التنفيذ</span></td><td>غدًا، 10:00 ص</td><td><button class="icon-btn btn-sm"><svg><use href="#i-more"></use></svg></button></td></tr>
+              </tbody></table></div>
+            </div>
+            <div class="tab-panel" id="tasks-created"><div class="card-body muted">المهام التي أنشأتها تظهر هنا مع المشاركين والتعليقات وحالتها الحالية.</div></div>
+            <div class="tab-panel" id="tasks-complete"><div class="card-body muted">سجل المهام المكتملة ضمن نطاق العمل الحالي.</div></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-records">
+          <div class="page-head"><div><div class="eyebrow">التشغيل</div><h1>سجلات العمل</h1><p>المعاملة هي سجل مبني على تعريف عمل، وتتحرك عبر الإجراء مع مستنداتها.</p></div><div class="actions"><button class="btn btn-secondary" data-toast="تم فتح تعريفات العمل"><svg><use href="#i-briefcase"></use></svg>تعريفات العمل</button><button class="btn btn-primary" data-modal="recordModal"><svg><use href="#i-plus"></use></svg>إنشاء سجل</button></div></div>
+          <div class="record-type-grid">
+            <div class="record-type"><svg><use href="#i-record"></use></svg><div><strong>طلبات الاحتياج</strong><span>23 سجلًا نشطًا</span></div></div>
+            <div class="record-type"><svg><use href="#i-briefcase"></use></svg><div><strong>طلبات التعاقد</strong><span>14 سجلًا نشطًا</span></div></div>
+            <div class="record-type"><svg><use href="#i-doc"></use></svg><div><strong>اعتماد الوثائق</strong><span>31 سجلًا نشطًا</span></div></div>
+            <div class="record-type"><svg><use href="#i-users"></use></svg><div><strong>قرارات اللجان</strong><span>18 سجلًا نشطًا</span></div></div>
+          </div>
+          <div class="card">
+            <div class="toolbar"><div class="search-control"><svg><use href="#i-search"></use></svg><input class="control filter-input" data-filter-table="recordsTable" placeholder="رقم السجل أو عنوانه…"></div><select class="control"><option>كل تعريفات العمل</option><option>طلب احتياج</option><option>طلب تعاقد</option></select><select class="control"><option>كل الحالات</option><option>مسودة</option><option>قيد الإجراء</option><option>مكتمل</option></select></div>
+            <div class="table-wrap"><table id="recordsTable"><thead><tr><th>سجل العمل</th><th>التعريف</th><th>الإجراء الحالي</th><th>المالك</th><th>آخر تحديث</th><th>الحالة</th></tr></thead><tbody>
+              <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-record"></use></svg></span><span><strong>التعاقد مع مختبر مرجعي</strong><small>WR-2026-00842</small></span></div></td><td>طلب تعاقد</td><td>الاعتماد النهائي</td><td>نورة المالكي</td><td>منذ 8 دقائق</td><td><span class="badge badge-warning">قيد الإجراء</span></td></tr>
+              <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-record"></use></svg></span><span><strong>احتياج 4 فنيي مختبر</strong><small>WR-2026-00816</small></span></div></td><td>طلب احتياج</td><td>مراجعة الموارد البشرية</td><td>د. أحمد العتيبي</td><td>منذ ساعتين</td><td><span class="badge badge-info">قيد الإجراء</span></td></tr>
+              <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-record"></use></svg></span><span><strong>تحديث دليل ضبط الجودة</strong><small>WR-2026-00794</small></span></div></td><td>اعتماد وثيقة</td><td>إعداد البيانات</td><td>سارة الغامدي</td><td>أمس</td><td><span class="badge badge-neutral">مسودة</span></td></tr>
+              <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-check"></use></svg></span><span><strong>محضر لجنة السلامة لشهر يونيو</strong><small>WR-2026-00673</small></span></div></td><td>قرار لجنة</td><td>مكتمل</td><td>محمد الشهري</td><td>18 يوليو</td><td><span class="badge badge-success">مكتمل</span></td></tr>
+            </tbody></table></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-documents">
+          <div class="page-head"><div><div class="eyebrow">مركز المحتوى</div><h1>المستندات</h1><p>الرفع، الفحص، الإصدارات، التنزيل والمنح من واجهة واحدة.</p></div><div class="actions"><button class="btn btn-primary" data-toast="تم اختيار ملف للرفع"><svg><use href="#i-upload"></use></svg>رفع مستند</button></div></div>
+          <div class="stat-grid">
+            <div class="card stat-card"><div class="stat-icon"><svg><use href="#i-doc"></use></svg></div><div><div class="stat-value">284</div><div class="stat-label">مستندًا ضمن النطاق</div></div></div>
+            <div class="card stat-card"><div class="stat-icon warning"><svg><use href="#i-clock"></use></svg></div><div><div class="stat-value">4</div><div class="stat-label">قيد الرفع أو الفحص</div></div></div>
+            <div class="card stat-card"><div class="stat-icon danger"><svg><use href="#i-warning"></use></svg></div><div><div class="stat-value">3</div><div class="stat-label">تحتاج معالجة</div></div></div>
+            <div class="card stat-card"><div class="stat-icon success"><svg><use href="#i-check"></use></svg></div><div><div class="stat-value">277</div><div class="stat-label">جاهزة وآمنة</div></div></div>
+          </div>
+          <div class="card" style="margin-bottom:15px"><div class="card-body"><div class="upload-zone"><div class="upload-icon"><svg><use href="#i-upload"></use></svg></div><div><h3>اسحب الملفات هنا أو اخترها من جهازك</h3><p>سيبدأ الرفع أولًا، ثم يظهر تقدمه وحالة الفحص قبل إتاحته للربط.</p></div><button class="btn btn-secondary" data-toast="تم فتح مستعرض الملفات">اختيار الملفات</button></div></div></div>
+          <div class="card">
+            <div class="tabs" data-tabs="docs"><button class="tab active" data-panel="docs-all">كل المستندات</button><button class="tab" data-panel="docs-uploading">عمليات الرفع</button><button class="tab" data-panel="docs-shared">المنح والمشاركة</button></div>
+            <div class="tab-panel active" id="docs-all">
+              <div class="toolbar"><div class="search-control"><svg><use href="#i-search"></use></svg><input class="control filter-input" data-filter-table="docsTable" placeholder="اسم المستند أو رقمه…"></div><select class="control"><option>كل الأنواع</option><option>PDF</option><option>Excel</option><option>Word</option></select><select class="control"><option>كل الحالات</option><option>جاهز</option><option>قيد الفحص</option></select></div>
+              <div class="table-wrap"><table id="docsTable"><thead><tr><th>المستند</th><th>الإصدار</th><th>مرتبط بـ</th><th>المالك</th><th>الحالة</th><th></th></tr></thead><tbody>
+                <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-doc"></use></svg></span><span><strong>محضر لجنة التوظيف.pdf</strong><small>DOC-344 · 4.2 MB</small></span></div></td><td>v3</td><td>WR-2026-00842</td><td>نورة المالكي</td><td><span class="badge badge-success">جاهز</span></td><td><button class="btn btn-secondary btn-sm" data-toast="بدأ تنزيل المستند"><svg><use href="#i-download"></use></svg>تنزيل</button></td></tr>
+                <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-doc"></use></svg></span><span><strong>دليل ضبط الجودة.pdf</strong><small>DOC-328 · 8.7 MB</small></span></div></td><td>v4</td><td>WR-2026-00794</td><td>سارة الغامدي</td><td><span class="badge badge-warning">بانتظار الاعتماد</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح الإصدارات">الإصدارات</button></td></tr>
+                <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-doc"></use></svg></span><span><strong>قائمة المرشحين.xlsx</strong><small>DOC-351 · 1.8 MB</small></span></div></td><td>v1</td><td>قرار لجنة</td><td>محمد الشهري</td><td><span class="badge badge-info">قيد الفحص</span></td><td><button class="btn btn-secondary btn-sm" data-toast="يتم تحديث حالة الرفع">الحالة</button></td></tr>
+              </tbody></table></div>
+            </div>
+            <div class="tab-panel" id="docs-uploading"><div class="card-body"><div class="contract-alert"><svg><use href="#i-upload"></use></svg><div><strong>عمليتا رفع نشطتان</strong><p>يعرض النظام حالة كل Upload ID حتى الاكتمال، ثم يربط الإصدار بالمستند.</p></div></div></div></div>
+            <div class="tab-panel" id="docs-shared"><div class="card-body muted">المنح المباشرة والمؤقتة تظهر هنا. الإلغاء يحتاج عملية صريحة غير ظاهرة في قائمة الـAPI الحالية.</div></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-processes">
+          <div class="page-head"><div><div class="eyebrow">تصميم وتشغيل الأعمال</div><h1>الإجراءات وسير العمل</h1><p>افصل بين «ما البيانات المطلوبة» و«كيف تنتقل للمراجعة والقرار».</p></div><div class="actions"><button class="btn btn-secondary" data-toast="تم فتح إنشاء تعريف عمل"><svg><use href="#i-briefcase"></use></svg>تعريف عمل</button><button class="btn btn-primary" data-toast="تم فتح مصمم سير العمل"><svg><use href="#i-plus"></use></svg>سير عمل جديد</button></div></div>
+          <div class="card">
+            <div class="tabs" data-tabs="processes"><button class="tab active" data-panel="process-instances">التنفيذ الجاري</button><button class="tab" data-panel="workflow-definitions">تعريفات سير العمل</button><button class="tab" data-panel="work-definitions">تعريفات العمل</button></div>
+            <div class="tab-panel active" id="process-instances">
+              <div class="process-summary"><div><h3>طلب احتياج قوى عاملة · WF-2041</h3><p class="muted">نسخة تشغيل مرتبطة بالسجل WR-2026-00816.</p><div class="process-lane"><div class="process-step done"><strong>بدء</strong><span>21 يوليو</span></div><div class="process-line"></div><div class="process-step done"><strong>مدير الوحدة</strong><span>اعتمد</span></div><div class="process-line"></div><div class="process-step current"><strong>الموارد البشرية</strong><span>قيد التنفيذ</span></div><div class="process-line"></div><div class="process-step"><strong>المدير التنفيذي</strong><span>بانتظار</span></div></div></div><div><button class="btn btn-danger btn-sm" data-toast="سيطلب النظام سبب الإلغاء قبل التنفيذ">إلغاء النسخة</button></div></div>
+              <div class="table-wrap"><table><thead><tr><th>نسخة سير العمل</th><th>التعريف / النسخة</th><th>السجل</th><th>الخطوة الحالية</th><th>بدأت</th><th>الحالة</th></tr></thead><tbody>
+                <tr><td><strong>WF-2041</strong></td><td>طلب احتياج · v3</td><td>WR-2026-00816</td><td>مراجعة الموارد البشرية</td><td>21 يوليو</td><td><span class="badge badge-info">نشطة</span></td></tr>
+                <tr><td><strong>WF-2038</strong></td><td>اعتماد وثيقة · v5</td><td>WR-2026-00794</td><td>اعتماد مالك الوثيقة</td><td>20 يوليو</td><td><span class="badge badge-warning">متوقفة بقرار</span></td></tr>
+                <tr><td><strong>WF-2019</strong></td><td>قرار لجنة · v2</td><td>WR-2026-00673</td><td>مكتمل</td><td>14 يوليو</td><td><span class="badge badge-success">مكتملة</span></td></tr>
+              </tbody></table></div>
+            </div>
+            <div class="tab-panel" id="workflow-definitions">
+              <div class="definition-grid">
+                <div class="definition-card"><div class="definition-top"><div class="definition-icon"><svg><use href="#i-flow"></use></svg></div><span class="badge badge-success">منشور</span></div><h3>اعتماد طلب الاحتياج</h3><p>أربع خطوات، قراران، ومهمة تلقائية عند التأخير.</p><div class="definition-meta"><span>النسخة v3</span><button class="btn btn-ghost btn-sm" data-toast="تم فتح إصدارات سير العمل">الإصدارات</button></div></div>
+                <div class="definition-card"><div class="definition-top"><div class="definition-icon"><svg><use href="#i-flow"></use></svg></div><span class="badge badge-success">منشور</span></div><h3>اعتماد الوثائق</h3><p>مراجعة المحتوى ثم المالك ثم النشر النهائي.</p><div class="definition-meta"><span>النسخة v5</span><button class="btn btn-ghost btn-sm" data-toast="تم فتح إصدارات سير العمل">الإصدارات</button></div></div>
+                <div class="definition-card"><div class="definition-top"><div class="definition-icon"><svg><use href="#i-flow"></use></svg></div><span class="badge badge-neutral">مسودة</span></div><h3>التكليف المؤقت</h3><p>تجربة مسار موافقات جديد قبل التفعيل.</p><div class="definition-meta"><span>النسخة v1</span><button class="btn btn-ghost btn-sm" data-toast="تم فتح تحرير النسخة">تحرير</button></div></div>
+              </div>
+            </div>
+            <div class="tab-panel" id="work-definitions">
+              <div class="definition-grid">
+                <div class="definition-card"><div class="definition-top"><div class="definition-icon"><svg><use href="#i-briefcase"></use></svg></div><span class="badge badge-success">نشط</span></div><h3>طلب احتياج قوى عاملة</h3><p>الحقول والقواعد والمستندات المطلوبة قبل بدء الإجراء.</p><div class="definition-meta"><span>v4 · 86 سجلًا</span><button class="btn btn-ghost btn-sm" data-toast="تم فتح تفاصيل تعريف العمل">التفاصيل</button></div></div>
+                <div class="definition-card"><div class="definition-top"><div class="definition-icon"><svg><use href="#i-briefcase"></use></svg></div><span class="badge badge-success">نشط</span></div><h3>طلب تعاقد</h3><p>بيانات المورد والقيمة والمبررات والملفات الإلزامية.</p><div class="definition-meta"><span>v2 · 41 سجلًا</span><button class="btn btn-ghost btn-sm" data-toast="تم فتح إصدارات تعريف العمل">الإصدارات</button></div></div>
+                <div class="definition-card"><div class="definition-top"><div class="definition-icon"><svg><use href="#i-briefcase"></use></svg></div><span class="badge badge-neutral">مسودة</span></div><h3>طلب صلاحية استثنائية</h3><p>نموذج مؤقت لاختبار البيانات قبل نشر النسخة.</p><div class="definition-meta"><span>v1</span><button class="btn btn-ghost btn-sm" data-toast="تم فتح تحرير التعريف">تحرير</button></div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-organization">
+          <div class="page-head"><div><div class="eyebrow">إدارة المنظمة</div><h1>الهيكل التنظيمي والقوى العاملة</h1><p>التسلسل الصحيح: تجمع ← منشأة ← وحدة ← مسمى وظيفي ← مقعد ← تكليف شخص.</p></div><div class="actions"><button class="btn btn-secondary" data-toast="تم فتح الاستيراد الجماعي"><svg><use href="#i-upload"></use></svg>استيراد</button><button class="btn btn-primary" data-modal="positionModal"><svg><use href="#i-plus"></use></svg>مسمى ومقاعد</button></div></div>
+          <div class="card">
+            <div class="tabs" data-tabs="organization"><button class="tab active" data-panel="org-structure">شجرة الهيكل</button><button class="tab" data-panel="org-jobs">المسميات والمقاعد</button><button class="tab" data-panel="org-people">الأشخاص</button><button class="tab" data-panel="org-assignments">التكليفات والإشراف</button><button class="tab" data-panel="org-import">الاستيراد</button></div>
+            <div class="tab-panel active" id="org-structure">
+              <div class="org-layout" style="padding:15px">
+                <div class="card org-tree">
+                  <div class="tree-search"><div class="search-control"><svg><use href="#i-search"></use></svg><input class="control" placeholder="ابحث في الهيكل…"></div></div>
+                  <div class="tree-list">
+                    <button class="tree-row"><svg><use href="#i-org"></use></svg>التجمع الصحي الأول<span>1</span></button>
+                    <div class="tree-children">
+                      <button class="tree-row"><svg><use href="#i-building"></use></svg>مجمع إرادة والصحة النفسية<span>8</span></button>
+                      <div class="tree-children"><button class="tree-row"><svg><use href="#i-org"></use></svg>الخدمات الطبية<span>6</span></button><div class="tree-children"><button class="tree-row active"><svg><use href="#i-org"></use></svg>وحدة المختبر<span>18</span></button><button class="tree-row"><svg><use href="#i-org"></use></svg>وحدة الصيدلية<span>27</span></button></div></div>
+                      <button class="tree-row"><svg><use href="#i-building"></use></svg>مستشفى الصحة النفسية<span>11</span></button>
+                    </div>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="unit-hero"><div class="unit-icon"><svg><use href="#i-org"></use></svg></div><div><h2>وحدة المختبر</h2><p>الخدمات الطبية · مجمع إرادة والصحة النفسية</p></div><div class="unit-actions"><button class="btn btn-secondary btn-sm" data-toast="تم فتح تعديل الوحدة">تعديل الوحدة</button></div></div>
+                  <div class="segmented-stats" style="padding:0 16px;margin-bottom:0"><div class="segment"><strong>5</strong><span>مسميات وظيفية</span></div><div class="segment"><strong>18</strong><span>مقعدًا معتمدًا</span></div><div class="segment"><strong>16</strong><span>مقعدًا مشغولًا</span></div><div class="segment"><strong>2</strong><span>شاغران</span></div></div>
+                  <div class="info-grid">
+                    <div class="info-box"><div class="info-label">مدير الوحدة</div><div class="person-chip"><span class="avatar">أ ع</span><div><strong>د. أحمد العتيبي</strong><small>مقعد LAB-DR-PATH-01</small></div></div></div>
+                    <div class="info-box"><div class="info-label">العلاقة الإشرافية</div><strong>مدير الخدمات الطبية ← رئيس وحدة المختبر</strong></div>
+                    <div class="info-box"><div class="info-label">حالة الوحدة</div><span class="badge badge-success">نشطة</span></div>
+                    <div class="info-box"><div class="info-label">آخر تغيير بالهيكل</div><strong>إعادة ترتيب · 18 يوليو 2026</strong></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tab-panel" id="org-jobs">
+              <div class="toolbar"><div class="search-control"><svg><use href="#i-search"></use></svg><input class="control" placeholder="ابحث عن مسمى أو رمز مقعد…"></div><select class="control"><option>وحدة المختبر</option><option>كل الوحدات</option></select><button class="btn btn-primary btn-sm" data-modal="positionModal"><svg><use href="#i-plus"></use></svg>إضافة</button></div>
+              <div style="padding:15px">
+                <div class="title-group open">
+                  <button class="title-group-head" data-title-toggle><span class="title-name"><span class="cell-icon"><svg><use href="#i-seat"></use></svg></span><span><strong>فني مختبر</strong><small>JOB-LAB-TECH</small></span></span><span class="metric-mini"><strong>10</strong><span>مقاعد</span></span><span class="metric-mini"><strong>9</strong><span>مشغولة</span></span><span class="metric-mini"><strong>1</strong><span>شاغرة</span></span><svg class="group-chevron"><use href="#i-chevron"></use></svg></button>
+                  <div class="seats"><div class="seat-row"><span class="seat-code">LAB-TECH-01</span><span>عبدالله الدوسري</span><span>تكليف أساسي منذ 2024</span><span class="badge badge-success">مشغول</span></div><div class="seat-row"><span class="seat-code">LAB-TECH-02</span><span>سارة القحطاني</span><span>تكليف أساسي منذ 2023</span><span class="badge badge-success">مشغول</span></div><div class="seat-row"><span class="seat-code">LAB-TECH-10</span><span class="muted">لا يوجد شخص</span><span>جاهز للإسناد</span><span class="badge badge-warning">شاغر</span></div></div>
+                </div>
+                <div class="title-group"><button class="title-group-head" data-title-toggle><span class="title-name"><span class="cell-icon"><svg><use href="#i-seat"></use></svg></span><span><strong>أخصائي مختبر</strong><small>JOB-LAB-SPEC</small></span></span><span class="metric-mini"><strong>5</strong><span>مقاعد</span></span><span class="metric-mini"><strong>4</strong><span>مشغولة</span></span><span class="metric-mini"><strong>1</strong><span>شاغرة</span></span><svg class="group-chevron"><use href="#i-chevron"></use></svg></button><div class="seats"><div class="seat-row"><span class="seat-code">LAB-SPEC-05</span><span class="muted">لا يوجد شخص</span><span>جاهز للإسناد</span><span class="badge badge-warning">شاغر</span></div></div></div>
+                <div class="title-group"><button class="title-group-head" data-title-toggle><span class="title-name"><span class="cell-icon"><svg><use href="#i-seat"></use></svg></span><span><strong>طبيب باثولوجي</strong><small>JOB-LAB-PATH</small></span></span><span class="metric-mini"><strong>1</strong><span>مقعد</span></span><span class="metric-mini"><strong>1</strong><span>مشغول</span></span><span class="metric-mini"><strong>0</strong><span>شاغر</span></span><svg class="group-chevron"><use href="#i-chevron"></use></svg></button><div class="seats"><div class="seat-row"><span class="seat-code">LAB-DR-PATH-01</span><span>د. أحمد العتيبي</span><span>مدير الوحدة</span><span class="badge badge-success">مشغول</span></div></div></div>
+              </div>
+            </div>
+            <div class="tab-panel" id="org-people">
+              <div class="toolbar"><div class="search-control"><svg><use href="#i-search"></use></svg><input class="control filter-input" data-filter-table="peopleTable" placeholder="الاسم أو الرقم الوظيفي…"></div><select class="control"><option>كل الوحدات</option><option>المختبر</option></select><button class="btn btn-primary btn-sm" data-toast="تم فتح إضافة شخص"><svg><use href="#i-plus"></use></svg>إضافة شخص</button></div>
+              <div class="table-wrap"><table id="peopleTable"><thead><tr><th>الشخص</th><th>المسمى</th><th>المقعد</th><th>نوع التكليف</th><th>الحساب</th><th></th></tr></thead><tbody>
+                <tr><td><div class="cell-title"><span class="avatar">أ ع</span><span><strong>د. أحمد العتيبي</strong><small>EMP-1023</small></span></div></td><td>طبيب باثولوجي</td><td>LAB-DR-PATH-01</td><td>أساسي</td><td><span class="badge badge-success">مفعّل</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح ملف الشخص">فتح</button></td></tr>
+                <tr><td><div class="cell-title"><span class="avatar">س ق</span><span><strong>سارة القحطاني</strong><small>EMP-1081</small></span></div></td><td>فني مختبر</td><td>LAB-TECH-02</td><td>أساسي</td><td><span class="badge badge-success">مفعّل</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح ملف الشخص">فتح</button></td></tr>
+                <tr><td><div class="cell-title"><span class="avatar">م ش</span><span><strong>محمد الشهري</strong><small>EMP-1130</small></span></div></td><td>أخصائي مختبر</td><td>LAB-SPEC-04</td><td>مؤقت حتى 30 يوليو</td><td><span class="badge badge-success">مفعّل</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح ملف الشخص">فتح</button></td></tr>
+              </tbody></table></div>
+            </div>
+            <div class="tab-panel" id="org-assignments">
+              <div class="toolbar"><select class="control"><option>التكليفات الأساسية</option><option>التكليفات المؤقتة</option><option>العلاقات الإشرافية</option></select><button class="btn btn-primary btn-sm" data-toast="تم فتح إنشاء تكليف"><svg><use href="#i-plus"></use></svg>تكليف جديد</button></div>
+              <div class="table-wrap"><table><thead><tr><th>الشخص</th><th>من / إلى</th><th>الفترة</th><th>النوع</th><th>الحالة</th><th></th></tr></thead><tbody>
+                <tr><td><strong>محمد الشهري</strong><br><small class="muted">EMP-1130</small></td><td>الصيدلية ← المختبر</td><td>15 يوليو – 30 يوليو</td><td>تكليف مؤقت</td><td><span class="badge badge-success">نشط</span></td><td><button class="btn btn-danger btn-sm" data-toast="سيطلب النظام سبب سحب التكليف">سحب</button></td></tr>
+                <tr><td><strong>سارة القحطاني</strong><br><small class="muted">EMP-1081</small></td><td>LAB-TECH-02</td><td>منذ 1 يناير 2023</td><td>تكليف أساسي</td><td><span class="badge badge-success">نشط</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح إنهاء التكليف">إنهاء</button></td></tr>
+              </tbody></table></div>
+            </div>
+            <div class="tab-panel" id="org-import">
+              <div class="card-body"><div class="upload-zone"><div class="upload-icon"><svg><use href="#i-upload"></use></svg></div><div><h3>استيراد الأشخاص والمقاعد والتكليفات</h3><p>ارفع القالب، راجع الصفوف، ثم نفّذ الإجراء بعد معالجة الأخطاء.</p></div><button class="btn btn-secondary" data-toast="تم فتح قالب الاستيراد">اختيار ملف</button></div></div>
+              <div class="table-wrap"><table><thead><tr><th>مهمة الاستيراد</th><th>النوع</th><th>الصفوف</th><th>الصحيح / الخطأ</th><th>الحالة</th><th></th></tr></thead><tbody><tr><td><strong>IMP-2026-071</strong><br><small class="muted">people-july.xlsx</small></td><td>أشخاص وتكليفات</td><td>42</td><td>42 / 0</td><td><span class="badge badge-success">اكتمل</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح صفوف الاستيراد">الصفوف</button></td></tr><tr><td><strong>IMP-2026-070</strong><br><small class="muted">positions.xlsx</small></td><td>مقاعد</td><td>30</td><td>27 / 3</td><td><span class="badge badge-warning">تحتاج تصحيحًا</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح أخطاء الاستيراد">مراجعة</button></td></tr></tbody></table></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-access">
+          <div class="page-head"><div><div class="eyebrow">الهوية والتفويض</div><h1>الحسابات والصلاحيات</h1><p>الحساب يعرّف المستخدم، والدور يمنح القدرات، والنطاق يحدد أين تُستخدم.</p></div><div class="actions"><button class="btn btn-secondary" data-toast="تهيئة التفويض مكتملة"><svg><use href="#i-check"></use></svg>التهيئة 100%</button><button class="btn btn-primary" data-toast="تم فتح إنشاء حساب"><svg><use href="#i-plus"></use></svg>حساب جديد</button></div></div>
+          <div class="card">
+            <div class="tabs" data-tabs="access"><button class="tab active" data-panel="access-accounts">الحسابات</button><button class="tab" data-panel="access-roles">الأدوار والقدرات</button><button class="tab" data-panel="access-scopes">نطاقات الوصول</button><button class="tab" data-panel="access-decision">اختبار قرار الوصول</button></div>
+            <div class="tab-panel active" id="access-accounts">
+              <div class="toolbar"><div class="search-control"><svg><use href="#i-search"></use></svg><input class="control filter-input" data-filter-table="accountsTable" placeholder="الاسم أو البريد أو رقم الحساب…"></div><select class="control"><option>كل الحالات</option><option>مفعّل</option><option>بانتظار التفعيل</option><option>موقوف</option></select></div>
+              <div class="table-wrap"><table id="accountsTable"><thead><tr><th>الحساب</th><th>الشخص المرتبط</th><th>النطاق الحالي</th><th>الأدوار</th><th>الحالة</th><th></th></tr></thead><tbody>
+                <tr><td><div class="cell-title"><span class="avatar">أ ع</span><span><strong>a.alotaibi@example.sa</strong><small>ACC-1023</small></span></div></td><td>د. أحمد العتيبي</td><td>وحدة المختبر</td><td>طبيب مختبر</td><td><span class="badge badge-success">مفعّل</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح الحساب">إدارة</button></td></tr>
+                <tr><td><div class="cell-title"><span class="avatar">ن م</span><span><strong>n.almalki@example.sa</strong><small>ACC-1007</small></span></div></td><td>نورة المالكي</td><td>المنشأة</td><td>مدير موارد بشرية</td><td><span class="badge badge-success">مفعّل</span></td><td><button class="btn btn-secondary btn-sm" data-toast="تم فتح الحساب">إدارة</button></td></tr>
+                <tr><td><div class="cell-title"><span class="avatar">ع د</span><span><strong>a.aldosari@example.sa</strong><small>ACC-1188</small></span></div></td><td>عبدالله الدوسري</td><td>لم يحدد</td><td>فني مختبر</td><td><span class="badge badge-warning">بانتظار التفعيل</span></td><td><button class="btn btn-primary btn-sm" data-toast="تم إصدار رابط تفعيل جديد">إرسال التفعيل</button></td></tr>
+              </tbody></table></div>
+            </div>
+            <div class="tab-panel" id="access-roles">
+              <div class="role-grid">
+                <div class="role-card"><div class="role-head"><div class="role-icon"><svg><use href="#i-shield"></use></svg></div><div><h3>طبيب مختبر</h3><span class="muted" style="font-size:9px">LAB_PHYSICIAN</span></div><span class="badge badge-success">18 مستخدمًا</span></div><div class="capability-list"><span class="capability">مراجعة النتائج</span><span class="capability">اعتماد</span><span class="capability">توقيع التقارير</span></div></div>
+                <div class="role-card"><div class="role-head"><div class="role-icon"><svg><use href="#i-shield"></use></svg></div><div><h3>فني مختبر</h3><span class="muted" style="font-size:9px">LAB_TECHNICIAN</span></div><span class="badge badge-success">34 مستخدمًا</span></div><div class="capability-list"><span class="capability">إدخال عينات</span><span class="capability">تشغيل فحص</span><span class="capability">نتيجة أولية</span></div></div>
+                <div class="role-card"><div class="role-head"><div class="role-icon"><svg><use href="#i-shield"></use></svg></div><div><h3>مدير الموارد البشرية</h3><span class="muted" style="font-size:9px">HR_MANAGER</span></div><span class="badge badge-info">6 مستخدمين</span></div><div class="capability-list"><span class="capability">إدارة أشخاص</span><span class="capability">تكليفات</span><span class="capability">تقارير</span></div></div>
+              </div>
+            </div>
+            <div class="tab-panel" id="access-scopes">
+              <div class="scope-map"><div class="scope-level"><svg><use href="#i-org"></use></svg><strong>التجمع</strong><span>أوسع نطاق ويغطي جميع المنشآت التابعة.</span></div><div class="scope-level"><svg><use href="#i-building"></use></svg><strong>المنشأة</strong><span>عمليات داخل منشأة صحية محددة.</span></div><div class="scope-level"><svg><use href="#i-org"></use></svg><strong>الوحدة</strong><span>النطاق التشغيلي المعتاد للفرق.</span></div><div class="scope-level"><svg><use href="#i-record"></use></svg><strong>مجموعة سجلات</strong><span>استثناء محدود لمعاملات بعينها.</span></div></div>
+            </div>
+            <div class="tab-panel" id="access-decision">
+              <div class="decision-layout">
+                <div class="form-stack"><div class="form-field"><label>المستخدم</label><select class="control"><option>د. أحمد العتيبي</option><option>عبدالله الدوسري</option></select></div><div class="form-field"><label>العملية المطلوبة</label><select class="control"><option>اعتماد نتيجة مختبر</option><option>تعديل شخص</option><option>تنزيل مستند</option></select></div><div class="form-field"><label>المورد</label><select class="control"><option>سجل LAB-RESULT-8842 · وحدة المختبر</option><option>سجل من وحدة الأشعة</option></select></div><button class="btn btn-primary" id="runDecision"><svg><use href="#i-play"></use></svg>اختبار القرار</button></div>
+                <div class="decision-result pending" id="decisionResult"><div class="decision-symbol"><svg><use href="#i-lock"></use></svg></div><h3 id="decisionTitle">اختر البيانات ثم اختبر القرار</h3><p class="muted" id="decisionText">ستظهر النتيجة وشرحها هنا دون تنفيذ العملية الفعلية.</p><div class="decision-reasons" id="decisionReasons">يفحص النظام الدور والقدرة، ثم يطابق نطاق الدور مع نطاق المورد.</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-reports">
+          <div class="page-head"><div><div class="eyebrow">الرؤية والقياس</div><h1>التقارير واللوحات</h1><p>لوحات جاهزة للمتابعة، وتقارير قابلة للتصدير دون تشتيت مساحة العمل اليومية.</p></div><div class="actions"><button class="btn btn-secondary" data-toast="تم فتح سجل التصدير"><svg><use href="#i-download"></use></svg>ملفات التصدير</button></div></div>
+          <div class="dashboard-cards">
+            <div class="dashboard-card"><svg><use href="#i-chart"></use></svg><h3>أداء سير العمل</h3><p>المدة، نقاط التعطل، ونسبة الالتزام بالوقت المستهدف.</p><button class="btn btn-soft btn-sm" data-toast="تم فتح لوحة أداء سير العمل">فتح اللوحة</button></div>
+            <div class="dashboard-card"><svg><use href="#i-users"></use></svg><h3>القوى العاملة</h3><p>المقاعد، الإشغال، الشواغر والتكليفات المؤقتة.</p><button class="btn btn-soft btn-sm" data-toast="تم فتح لوحة القوى العاملة">فتح اللوحة</button></div>
+            <div class="dashboard-card"><svg><use href="#i-shield"></use></svg><h3>الوصول والصلاحيات</h3><p>توزيع الأدوار والنطاقات والاستثناءات الحالية.</p><button class="btn btn-soft btn-sm" data-toast="تم فتح لوحة الوصول">فتح اللوحة</button></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h2>التقارير المتاحة</h2><p>اختيار التقرير ثم إنشاء ملف تصدير ومتابعة جاهزيته.</p></div></div>
+            <div class="table-wrap"><table><thead><tr><th>التقرير</th><th>النطاق</th><th>آخر تحديث</th><th>الصيغ</th><th></th></tr></thead><tbody>
+              <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-chart"></use></svg></span><span><strong>تقرير المهام المتأخرة</strong><small>RPT-018</small></span></div></td><td>المنشأة</td><td>مباشر</td><td>Excel · PDF</td><td><button class="btn btn-primary btn-sm" data-toast="بدأ تجهيز ملف التقرير">تصدير</button></td></tr>
+              <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-users"></use></svg></span><span><strong>تقرير إشغال المقاعد</strong><small>RPT-012</small></span></div></td><td>التجمع</td><td>منذ ساعة</td><td>Excel</td><td><button class="btn btn-primary btn-sm" data-toast="بدأ تجهيز ملف التقرير">تصدير</button></td></tr>
+              <tr><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-doc"></use></svg></span><span><strong>حالة المستندات والإصدارات</strong><small>RPT-009</small></span></div></td><td>المنشأة</td><td>منذ 15 دقيقة</td><td>CSV · PDF</td><td><button class="btn btn-primary btn-sm" data-toast="بدأ تجهيز ملف التقرير">تصدير</button></td></tr>
+            </tbody></table></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-coverage">
+          <div class="page-head"><div><div class="eyebrow">مراجعة المنتج · ليست شاشة تشغيلية</div><h1>تغطية عمليات النظام</h1><p>خريطة تحقق تربط كل نطاق API بمكانه الصحيح في تجربة المستخدم.</p></div><div class="actions"><span class="badge badge-success">الجرد مقبول · v1.0.0</span></div></div>
+          <div class="card coverage-hero"><div><h2>تم تصميم الواجهة حول 112 عملية حية</h2><p>ليست كل عملية زرًا؛ تسجيل الدخول وCSRF والتهيئة والفحص الداخلي خدمات مساندة، بينما العمليات البشرية تظهر في رحلات واضحة.</p></div><div class="coverage-score"><div><strong>112</strong><span>عملية موثقة</span></div></div></div>
+          <div class="stat-grid">
+            <div class="card stat-card"><div class="stat-icon"><svg><use href="#i-api"></use></svg></div><div><div class="stat-value">13</div><div class="stat-label">نطاقًا تقنيًا في الجرد</div></div></div>
+            <div class="card stat-card"><div class="stat-icon success"><svg><use href="#i-check"></use></svg></div><div><div class="stat-value">9</div><div class="stat-label">وجهات استخدام رئيسية</div></div></div>
+            <div class="card stat-card"><div class="stat-icon warning"><svg><use href="#i-lock"></use></svg></div><div><div class="stat-value">2</div><div class="stat-label">عمليتان داخليتان بلا زر</div></div></div>
+            <div class="card stat-card"><div class="stat-icon danger"><svg><use href="#i-warning"></use></svg></div><div><div class="stat-value">4</div><div class="stat-label">إضافات مؤكدة الأولوية</div></div></div>
+          </div>
+          <div class="coverage-grid">
+            <div class="card">
+              <div class="card-head"><div><h2>مطابقة النطاقات بالواجهة</h2><p>الأعداد مأخوذة من جرد الـendpoints المرفق.</p></div></div>
+              <div class="api-module"><strong>Organization</strong><span class="api-count">36</span><span>المنظمة والقوى العاملة</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Identity</strong><span class="api-count">15</span><span>الدخول، الحساب، النطاق</span><span class="badge badge-info">واجهة + نظام</span></div>
+              <div class="api-module"><strong>Workflow</strong><span class="api-count">11</span><span>الإجراءات وسير العمل</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Documents</strong><span class="api-count">10</span><span>مركز المستندات</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Authorization</strong><span class="api-count">9</span><span>الأدوار وقرار الوصول</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Tasks</strong><span class="api-count">8</span><span>المهام والتعليقات</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Reporting</strong><span class="api-count">6</span><span>التقارير واللوحات</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Work Definitions</strong><span class="api-count">5</span><span>تعريفات العمل</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Work Records</strong><span class="api-count">5</span><span>سجلات العمل</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Work Definition Versions</strong><span class="api-count">2</span><span>إصدارات تعريف العمل</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Notifications</strong><span class="api-count">2</span><span>الهيدر</span><span class="badge badge-success">واجهة</span></div>
+              <div class="api-module"><strong>Internal</strong><span class="api-count">2</span><span>فحص وترقية المستند</span><span class="badge badge-neutral">داخلي</span></div>
+              <div class="api-module"><strong>Search</strong><span class="api-count">1</span><span>البحث الموحّد في الهيدر</span><span class="badge badge-success">واجهة</span></div>
+            </div>
+            <div class="stack">
+              <div class="card">
+                <div class="card-head"><div><h2>عمليات أو عقود تحتاج إضافة</h2><p>المؤكد من قائمة المسارات، لا من التخمين.</p></div></div>
+                <div class="gap-list">
+                  <div class="gap-item"><span class="gap-rank">P0</span><div><strong>سجل تدقيق مستقل وقابل للبحث</strong><p>لا يوجد endpoint للأحداث أو من غيّر ماذا ومتى. لذلك أزلت شاشة التدقيق السابقة.</p></div></div>
+                  <div class="gap-item"><span class="gap-rank">P0</span><div><strong>إنشاء المقاعد دفعة واحدة</strong><p>حالة 30 فنيًا تتطلب حاليًا 30 طلب إنشاء منفصلًا، ما يعرّض العملية للنجاح الجزئي.</p></div></div>
+                  <div class="gap-item"><span class="gap-rank">P0</span><div><strong>تفاصيل وتعديل المسمى الوظيفي</strong><p>المسميات لها List وCreate فقط؛ لا يوجد Get by ID أو Patch أو تعطيل صريح.</p></div></div>
+                  <div class="gap-item"><span class="gap-rank">P0</span><div><strong>إنهاء العلاقة الإشرافية</strong><p>يوجد List وCreate فقط ولا يظهر مسار End أو Revoke للعلاقة.</p></div></div>
+                  <div class="gap-item"><span class="gap-rank p1">P1</span><div><strong>إدارة منح المستند كاملة</strong><p>إنشاء المنحة ظاهر، لكن عرضها وإلغاؤها كعمليات صريحة غير موجودين.</p></div></div>
+                  <div class="gap-item"><span class="gap-rank p1">P1</span><div><strong>إشعارات جماعية</strong><p>يوجد تعليم إشعار واحد كمقروء فقط؛ يفضّل unread-count وmark-all-read.</p></div></div>
+                </div>
+              </div>
+              <div class="contract-alert"><svg><use href="#i-warning"></use></svg><div><strong>العائق الأكبر قبل الربط الفعلي</strong><p>عدد من المسارات يستخدم أسماء عامة مثل accountAction وrecordAction وdocumentAction مع مخططات طلب/استجابة placeholder. يجب توثيق القيم المسموحة والحقول والحالات الانتقالية حتى لا تخمّن الواجهة الأزرار.</p></div></div>
+            </div>
+          </div>
+          <div class="card"><div class="card-head"><div><h2>ملاحظات عقد يجب حسمها</h2><p>لا تمنع النموذج البصري، لكنها تمنع تنفيذ ربط Frontend موثوق.</p></div></div><div class="card-body"><div class="info-grid" style="padding:0"><div class="info-box"><div class="info-label">ازدواج تسجيل الدخول</div><strong>/auth/login يبدو Fixture تطوير، والواجهة تستخدم /identity/login فقط.</strong></div><div class="info-box"><div class="info-label">تعارض داخلي</div><strong>وصف Internal يقول بلا جلسة، بينما مصفوفة RBAC تسجّل جلسة وCSRF؛ يجب توحيده.</strong></div><div class="info-box"><div class="info-label">مخططات الاستجابة</div><strong>الـplaceholder لا يكفي لتوليد شاشات ونماذج دقيقة.</strong></div><div class="info-box"><div class="info-label">الإجراءات العامة</div><strong>يلزم enum أو روابط actions المسموحة داخل كل استجابة.</strong></div></div></div></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+
+  <section class="modal" id="recordModal" role="dialog" aria-modal="true" aria-labelledby="recordModalTitle">
+    <div class="modal-head"><div><h2 id="recordModalTitle">إنشاء سجل عمل</h2><p>اختر تعريف العمل، وأدخل البيانات، ثم ابدأ سير الإجراء المناسب.</p></div><button class="icon-btn" data-close aria-label="إغلاق"><svg><use href="#i-x"></use></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-field"><label>تعريف العمل</label><select class="control"><option>طلب احتياج قوى عاملة · v4</option><option>طلب تعاقد · v2</option><option>اعتماد وثيقة · v3</option></select></div>
+        <div class="form-field"><label>الوحدة المالكة</label><select class="control"><option>وحدة المختبر</option><option>وحدة الصيدلية</option></select></div>
+        <div class="form-field full"><label>عنوان السجل</label><input class="control" value="طلب احتياج فنيي مختبر"></div>
+        <div class="form-field"><label>الأولوية</label><select class="control"><option>عادية</option><option>عالية</option></select></div>
+        <div class="form-field"><label>المسؤول الأول</label><select class="control"><option>طارق محمد</option><option>نورة المالكي</option></select></div>
+        <div class="form-field full"><label>المبررات</label><textarea class="control">تغطية التوسع في ساعات تشغيل المختبر.</textarea></div>
+      </div>
+      <div class="flow-preview"><div class="flow-preview-head"><strong>ما الذي سيحدث بعد الحفظ؟</strong><span class="badge badge-info">سير العمل v3</span></div><div class="flow-preview-steps"><span class="flow-chip">حفظ السجل</span><span>←</span><span class="flow-chip">ربط المستندات</span><span>←</span><span class="flow-chip">بدء الإجراء</span><span>←</span><span class="flow-chip">إنشاء المهام</span></div></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-close>إلغاء</button><button class="btn btn-secondary" id="saveDraft">حفظ مسودة</button><button class="btn btn-primary" id="createRecord">إنشاء وبدء الإجراء</button></div>
+  </section>
+
+  <section class="modal" id="positionModal" role="dialog" aria-modal="true" aria-labelledby="positionModalTitle">
+    <div class="modal-head"><div><h2 id="positionModalTitle">إنشاء مسمى ومقاعد وظيفية</h2><p>المسمى كيان مستقل، وكل مقعد Position فردي يمكن إسناده لشخص واحد.</p></div><button class="icon-btn" data-close aria-label="إغلاق"><svg><use href="#i-x"></use></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-field"><label>الوحدة التنظيمية</label><select class="control"><option>وحدة المختبر</option><option>وحدة الصيدلية</option></select></div>
+        <div class="form-field"><label>المسمى الوظيفي</label><input class="control" id="positionTitle" value="فني مختبر"></div>
+        <div class="form-field"><label>بادئة رمز المقاعد</label><input class="control" id="positionPrefix" value="LAB-TECH" dir="ltr"></div>
+        <div class="form-field"><label>عدد المقاعد</label><input class="control" id="seatCount" type="number" min="1" max="99" value="10"></div>
+        <div class="form-field full"><label>المدير عبر المقعد</label><select class="control"><option>LAB-DR-PATH-01 · د. أحمد العتيبي</option><option>بدون مدير مباشر</option></select></div>
+      </div>
+      <div class="seat-preview"><div class="seat-preview-head"><strong id="seatPreviewTitle">فني مختبر · 10 مقاعد</strong><span>معاينة الرموز</span></div><div class="code-pills" id="seatCodes"><span class="code-pill">LAB-TECH-01</span><span class="code-pill">LAB-TECH-02</span><span class="code-pill">LAB-TECH-03</span><span class="code-pill">…</span><span class="code-pill">LAB-TECH-10</span></div></div>
+      <div class="contract-alert" style="margin-top:13px"><svg><use href="#i-warning"></use></svg><div><strong>ملاحظة تنفيذية</strong><p>الواجهة تعرضها كعملية واحدة، لكن الـAPI الحالي يحتاج إنشاء المسمى ثم طلبًا منفصلًا لكل مقعد. يفضّل endpoint دفعي ذري.</p></div></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-close>إلغاء</button><button class="btn btn-primary" id="createPositions">إنشاء المسمى والمقاعد</button></div>
+  </section>
+
+  <section class="modal action-modal" id="actionModal" role="dialog" aria-modal="true" aria-labelledby="actionModalTitle">
+    <div class="modal-head">
+      <div><h2 id="actionModalTitle">تنفيذ العملية</h2><p id="actionModalSubtitle">أكمل البيانات المطلوبة ثم نفّذ الإجراء.</p></div>
+      <button class="icon-btn" data-close aria-label="إغلاق"><svg><use href="#i-x"></use></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="action-context">
+        <svg><use href="#i-api"></use></svg>
+        <div style="min-width:0;flex:1"><strong id="actionContextTitle">عملية مرتبطة بالنظام</strong><p id="actionContextText">يعرض النموذج رحلة المستخدم كاملة ويحدّث بيانات النسخة التجريبية.</p><div class="endpoint-row" id="actionEndpoints"></div></div>
+      </div>
+      <div id="actionBody"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close>إلغاء</button>
+      <button class="btn btn-secondary" id="actionSecondary" style="display:none">إجراء ثانوي</button>
+      <button class="btn btn-primary" id="actionConfirm">تنفيذ</button>
+    </div>
+  </section>
+
+  <aside class="drawer" id="taskDrawer" aria-label="تفاصيل المهمة">
+    <div class="drawer-head"><div class="work-icon warning"><svg><use href="#i-task"></use></svg></div><div><h2>اعتماد طلب التعاقد</h2><p>TSK-1104 · من خطوة سير عمل</p></div><button class="icon-btn" data-close aria-label="إغلاق"><svg><use href="#i-x"></use></svg></button></div>
+    <div class="drawer-body">
+      <div class="detail-box"><div class="detail-row"><span>الحالة</span><span class="badge badge-warning">بانتظار القرار</span></div><div class="detail-row"><span>الأولوية</span><strong style="color:var(--danger)">عالية</strong></div><div class="detail-row"><span>الاستحقاق</span><strong style="color:var(--danger)">متأخرة ساعتين</strong></div><div class="detail-row"><span>سجل العمل</span><button class="btn btn-ghost btn-sm" data-go="records">WR-2026-00842</button></div><div class="detail-row"><span>المشاركون</span><strong>طارق محمد، نورة المالكي</strong></div></div>
+      <div class="detail-box"><h3>المطلوب</h3><p class="muted" style="font-size:11px">راجع العرض النهائي ومحضر اللجنة، ثم اختر اعتماد الطلب أو إعادته مع سبب واضح.</p></div>
+      <h3>التعليقات</h3>
+      <div class="comment"><span class="avatar">ن م</span><div><p><strong>نورة المالكي</strong> أرفقت النسخة النهائية بعد تعديل القيمة.</p><time>منذ 35 دقيقة</time></div></div>
+      <div class="comment"><span class="avatar">ط م</span><div><p><strong>طارق محمد</strong> طلب توضيح مدة التعاقد.</p><time>أمس، 2:10 م</time></div></div>
+      <div class="form-field" style="margin-top:14px"><label>إضافة تعليق</label><textarea class="control" placeholder="اكتب تعليقًا واضحًا للمشاركين…"></textarea></div>
+    </div>
+    <div class="drawer-footer"><button class="btn btn-danger" data-toast="تم تجهيز إعادة المهمة مع طلب السبب">إعادة</button><button class="btn btn-secondary" data-toast="تمت إضافة التعليق">تعليق</button><button class="btn btn-primary" data-toast="تم اعتماد المهمة وانتقلت للخطوة التالية">اعتماد</button></div>
+  </aside>
+
+  <div class="toast" id="toast"><svg><use href="#i-check"></use></svg><span id="toastText">تم تنفيذ العملية</span></div>
+
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toastText');
+    const headerUser = document.getElementById('headerUser');
+    const userMenuTrigger = document.getElementById('userMenuTrigger');
+    const notificationWrap = document.getElementById('notificationWrap');
+    const globalSearch = document.getElementById('globalSearch');
+    const globalSearchInput = document.getElementById('globalSearchInput');
+    const actionModal = document.getElementById('actionModal');
+    const actionModalTitle = document.getElementById('actionModalTitle');
+    const actionModalSubtitle = document.getElementById('actionModalSubtitle');
+    const actionContextTitle = document.getElementById('actionContextTitle');
+    const actionContextText = document.getElementById('actionContextText');
+    const actionEndpoints = document.getElementById('actionEndpoints');
+    const actionBody = document.getElementById('actionBody');
+    const actionConfirm = document.getElementById('actionConfirm');
+    const actionSecondary = document.getElementById('actionSecondary');
+    let currentAction = null;
+    let toastTimer;
+
+    function showToast(message) {
+      toastText.textContent = message || 'تم تنفيذ العملية';
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 2800);
+    }
+
+    function closeFloating() {
+      headerUser.classList.remove('open');
+      userMenuTrigger.setAttribute('aria-expanded', 'false');
+      notificationWrap.classList.remove('open');
+      globalSearch.classList.remove('open');
+    }
+
+    function syncOverlay() {
+      const hasOpen = document.querySelector('.modal.open, .drawer.open') || sidebar.classList.contains('open');
+      overlay.classList.toggle('open', Boolean(hasOpen));
+    }
+
+    function closePanels() {
+      document.querySelectorAll('.modal.open, .drawer.open').forEach(function (element) { element.classList.remove('open'); });
+      sidebar.classList.remove('open');
+      closeFloating();
+      syncOverlay();
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function inputField(label, id, value, type, full) {
+      return '<div class="form-field' + (full ? ' full' : '') + '"><label>' + label + '</label><input class="control" id="' + id + '" type="' + (type || 'text') + '" value="' + escapeHtml(value || '') + '"></div>';
+    }
+
+    function selectField(label, id, options, full) {
+      return '<div class="form-field' + (full ? ' full' : '') + '"><label>' + label + '</label><select class="control" id="' + id + '">' +
+        options.map(function (option) { return '<option>' + escapeHtml(option) + '</option>'; }).join('') +
+        '</select></div>';
+    }
+
+    function textareaField(label, id, value) {
+      return '<div class="form-field full"><label>' + label + '</label><textarea class="control" id="' + id + '">' + escapeHtml(value || '') + '</textarea></div>';
+    }
+
+    function formGrid(fields) {
+      return '<div class="form-grid">' + fields.join('') + '</div>';
+    }
+
+    function summaryRows(rows) {
+      return '<div class="action-summary">' + rows.map(function (row) {
+        return '<div class="action-summary-row"><span>' + row[0] + '</span><strong>' + row[1] + '</strong></div>';
+      }).join('') + '</div>';
+    }
+
+    function actionConfig(title, subtitle, endpoints, body, confirm, success, kind) {
+      return {
+        title: title,
+        subtitle: subtitle,
+        endpoints: endpoints || [],
+        body: body || '',
+        confirm: confirm || 'تنفيذ',
+        success: success || 'تم تنفيذ العملية بنجاح',
+        kind: kind || 'generic'
+      };
+    }
+
+    function smartConfig(button) {
+      const message = button.dataset.toast || '';
+
+      if (message.includes('مركز المعرفة')) {
+        return actionConfig(
+          'مركز المعرفة',
+          'ابحث عن شرح للعمليات أو افتح دليل الاستخدام.',
+          ['واجهة مساندة · لا يوجد endpoint حالي'],
+          '<div class="search-control" style="margin-bottom:12px"><svg><use href="#i-search"></use></svg><input class="control" placeholder="ابحث في الأدلة…"></div>' +
+          '<div class="action-table"><div class="action-table-row"><div><strong>كيف أنشئ سجل عمل؟</strong><small>من التعريف إلى بدء سير الإجراء</small></div><button class="btn btn-soft btn-sm" type="button">قراءة</button></div><div class="action-table-row"><div><strong>المسمى والمقعد والتكليف</strong><small>الفرق بين الكيانات الثلاثة</small></div><button class="btn btn-soft btn-sm" type="button">قراءة</button></div><div class="action-table-row"><div><strong>فهم قرار الوصول</strong><small>الدور والقدرة ونطاق المورد</small></div><button class="btn btn-soft btn-sm" type="button">قراءة</button></div></div>',
+          'إغلاق',
+          'تم إغلاق مركز المعرفة',
+          'view'
+        );
+      }
+
+      if (message.includes('قنوات التواصل')) {
+        return actionConfig(
+          'تواصل معنا',
+          'أرسل طلب دعم وسيظهر رقمه مباشرة.',
+          ['واجهة مساندة · يحتاج Support API'],
+          formGrid([
+            selectField('نوع الطلب', 'supportType', ['مشكلة تقنية', 'اقتراح تحسين', 'طلب صلاحية', 'استفسار'], false),
+            selectField('الأولوية', 'supportPriority', ['عادية', 'عالية', 'حرجة'], false),
+            textareaField('وصف الطلب', 'supportMessage', '')
+          ]),
+          'إرسال الطلب',
+          'تم إرسال طلب الدعم برقم SUP-2026-184',
+          'support'
+        );
+      }
+
+      if (message.includes('نطاق العمل') || message.includes('اختيار نطاق')) {
+        return actionConfig(
+          'تبديل نطاق العمل',
+          'سيعاد تحميل البيانات وفق النطاق المختار وصلاحياتك فيه.',
+          ['GET /api/v1/me/scopes', 'PUT /api/v1/me/scope'],
+          formGrid([
+            selectField('النطاق المتاح', 'scopeValue', ['مجمع إرادة والصحة النفسية', 'مستشفى الصحة النفسية', 'وحدة المختبر', 'التجمع الصحي الأول'], true)
+          ]) + '<div class="contract-alert" style="margin-top:13px"><svg><use href="#i-warning"></use></svg><div><strong>تأثير الاختيار</strong><p>القوائم والتقارير ونتائج البحث ستعرض موارد النطاق الجديد فقط.</p></div></div>',
+          'تبديل النطاق',
+          'تم تبديل نطاق العمل وتحديث البيانات',
+          'scope'
+        );
+      }
+
+      if (message.includes('الملف الشخصي')) {
+        return actionConfig(
+          'الملف الشخصي',
+          'بيانات الهوية والجلسة الحالية.',
+          ['GET /api/v1/identity/me', 'GET /api/v1/me'],
+          summaryRows([
+            ['الاسم', 'طارق محمد'],
+            ['البريد', 'tariq@example.sa'],
+            ['الدور الحالي', 'مدير النظام'],
+            ['النطاق', 'مجمع إرادة والصحة النفسية'],
+            ['آخر دخول', 'اليوم، 10:28 م']
+          ]),
+          'إغلاق',
+          'تم إغلاق الملف الشخصي',
+          'view'
+        );
+      }
+
+      if (message.includes('تغيير كلمة المرور')) {
+        return actionConfig(
+          'تغيير كلمة المرور',
+          'يتم تحديث كلمة المرور للحساب الحالي.',
+          ['POST /api/v1/identity/password'],
+          formGrid([
+            inputField('كلمة المرور الحالية', 'currentPassword', '', 'password', true),
+            inputField('كلمة المرور الجديدة', 'newPassword', '', 'password', false),
+            inputField('تأكيد كلمة المرور', 'confirmPassword', '', 'password', false)
+          ]),
+          'تحديث كلمة المرور',
+          'تم تحديث كلمة المرور بنجاح',
+          'password'
+        );
+      }
+
+      if (message.includes('تسجيل الخروج')) {
+        return actionConfig(
+          'تسجيل الخروج',
+          'ستنتهي الجلسة الحالية وستعود إلى شاشة الدخول.',
+          ['POST /api/v1/identity/logout'],
+          '<div class="contract-alert"><svg><use href="#i-logout"></use></svg><div><strong>هل تريد إنهاء الجلسة؟</strong><p>لن تفقد المسودات المحفوظة، لكن التعديلات غير المحفوظة ستُهمل.</p></div></div>',
+          'تسجيل الخروج',
+          'تم تنفيذ طلب تسجيل الخروج في النسخة التجريبية',
+          'logout'
+        );
+      }
+
+      if (message.includes('إعدادات العرض')) {
+        return actionConfig(
+          'تخصيص عرض المهام',
+          'اختر كثافة الجدول والبيانات التي تريد إبرازها.',
+          ['إعداد محلي في الواجهة · لا يوجد Preferences API'],
+          '<div class="option-list"><label class="option-card"><input id="compactMode" type="checkbox"><span><strong>عرض مضغوط</strong><span>تقليل المسافات لعرض عدد أكبر من المهام.</span></span></label><label class="option-card"><input id="showTaskSource" type="checkbox" checked><span><strong>إظهار مصدر المهمة</strong><span>تمييز المهمة المباشرة عن مهمة سير العمل.</span></span></label><label class="option-card"><input id="highlightLate" type="checkbox" checked><span><strong>إبراز المتأخر</strong><span>استخدام لون تحذيري واضح للمهام المتجاوزة.</span></span></label></div>',
+          'حفظ العرض',
+          'تم حفظ تفضيلات عرض المهام',
+          'view-settings'
+        );
+      }
+
+      if (message.includes('إنشاء مهمة')) {
+        return actionConfig(
+          'إنشاء مهمة جديدة',
+          'أنشئ مهمة مباشرة وحدد المشاركين وموعد الاستحقاق.',
+          ['POST /api/v1/tasks', 'POST /api/v1/tasks/{taskId}/participants'],
+          formGrid([
+            inputField('عنوان المهمة', 'smartTaskTitle', 'متابعة تحديث بيانات القوى العاملة', 'text', true),
+            selectField('المسؤول', 'smartTaskOwner', ['نورة المالكي', 'د. أحمد العتيبي', 'محمد الشهري'], false),
+            inputField('تاريخ الاستحقاق', 'smartTaskDue', '2026-07-23', 'date', false),
+            selectField('الأولوية', 'smartTaskPriority', ['عادية', 'متوسطة', 'عالية'], false),
+            selectField('المشارك', 'smartTaskParticipant', ['طارق محمد', 'سارة الغامدي', 'بدون مشارك'], false),
+            textareaField('التفاصيل', 'smartTaskDetails', 'تحقق من اكتمال البيانات وأرسل ملخصًا قصيرًا.')
+          ]),
+          'إنشاء المهمة',
+          'تم إنشاء المهمة وإضافتها إلى قائمة مهامي',
+          'task-create'
+        );
+      }
+
+      if (message.includes('اختيار ملف للرفع') || message.includes('مستعرض الملفات')) {
+        return actionConfig(
+          'رفع مستند جديد',
+          'تبدأ جلسة رفع، ثم تكتمل وتُنشأ بطاقة المستند.',
+          ['POST /api/v1/documents/uploads', 'GET /api/v1/documents/uploads/{uploadId}', 'POST /api/v1/documents/uploads/{uploadId}/complete', 'POST /api/v1/documents'],
+          formGrid([
+            inputField('اسم الملف', 'uploadFileName', 'document-final.pdf', 'text', true),
+            selectField('تصنيف المستند', 'uploadCategory', ['محضر', 'دليل وسياسة', 'مرفق معاملة', 'تقرير'], false),
+            selectField('الربط', 'uploadLink', ['WR-2026-00842', 'WR-2026-00816', 'بدون ربط الآن'], false),
+            textareaField('وصف مختصر', 'uploadDescription', '')
+          ]) + '<div class="action-summary" style="margin-top:13px"><div class="action-summary-row"><span>حالة البداية</span><strong>جاهز لبدء الرفع</strong></div><div class="action-summary-row"><span>بعد الاكتمال</span><strong>فحص أمني ثم إتاحة الإصدارات</strong></div></div>',
+          'بدء الرفع',
+          'بدأ رفع المستند وتظهر حالته في عمليات الرفع',
+          'document-upload'
+        );
+      }
+
+      if (message.includes('تنزيل المستند')) {
+        return actionConfig(
+          'تنزيل المستند',
+          'راجع الإصدار ثم ابدأ التنزيل.',
+          ['GET /api/v1/documents/{documentId}/download'],
+          summaryRows([
+            ['المستند', 'محضر لجنة التوظيف.pdf'],
+            ['الإصدار', 'v3'],
+            ['الحجم', '4.2 MB'],
+            ['حالة الفحص', 'آمن وجاهز']
+          ]),
+          'تنزيل الملف',
+          'تم تجهيز تنزيل المستند',
+          'download-document'
+        );
+      }
+
+      if (message === 'تم فتح الإصدارات') {
+        return actionConfig(
+          'إصدارات المستند',
+          'راجع الإصدارات السابقة ونزّل الإصدار المطلوب.',
+          ['GET /api/v1/documents/{documentId}/versions'],
+          '<div class="action-table"><div class="action-table-row"><div><strong>الإصدار v4</strong><small>21 يوليو 2026 · سارة الغامدي</small></div><span class="badge badge-warning">بانتظار الاعتماد</span></div><div class="action-table-row"><div><strong>الإصدار v3</strong><small>12 يوليو 2026 · سارة الغامدي</small></div><span class="badge badge-success">منشور</span></div><div class="action-table-row"><div><strong>الإصدار v2</strong><small>3 يوليو 2026 · محمد الشهري</small></div><button class="btn btn-secondary btn-sm" type="button">تنزيل</button></div></div>',
+          'إغلاق',
+          'تم إغلاق سجل الإصدارات',
+          'view'
+        );
+      }
+
+      if (message.includes('حالة الرفع')) {
+        return actionConfig(
+          'حالة رفع المستند',
+          'تحديث مباشر لحالة الجلسة والفحص.',
+          ['GET /api/v1/documents/uploads/{uploadId}'],
+          summaryRows([
+            ['رقم الرفع', 'UPL-2026-388'],
+            ['الملف', 'قائمة المرشحين.xlsx'],
+            ['الرفع', '100% مكتمل'],
+            ['الفحص', 'قيد التنفيذ'],
+            ['النتيجة المتوقعة', 'خلال دقيقة']
+          ]),
+          'تحديث الحالة',
+          'تم تحديث حالة الرفع',
+          'refresh'
+        );
+      }
+
+      if (message.includes('إنشاء تعريف عمل')) {
+        return actionConfig(
+          'تعريف عمل جديد',
+          'حدد نوع السجل وحقوله الأساسية قبل إنشاء نسخة قابلة للنشر.',
+          ['POST /api/v1/work-definitions', 'POST /api/v1/work-definitions/{definitionId}/versions'],
+          formGrid([
+            inputField('اسم التعريف', 'workDefinitionName', 'طلب اعتماد استثناء', 'text', true),
+            inputField('الرمز', 'workDefinitionCode', 'EXCEPTION_REQUEST', 'text', false),
+            selectField('نوع المالك', 'workDefinitionOwner', ['الوحدة التنظيمية', 'المنشأة', 'المستخدم المنشئ'], false),
+            textareaField('الوصف', 'workDefinitionDescription', 'نموذج موحد لتسجيل ومراجعة طلبات الاستثناء.')
+          ]),
+          'إنشاء التعريف والنسخة',
+          'تم إنشاء تعريف العمل بنسخته الأولى',
+          'work-definition-create'
+        );
+      }
+
+      if (message.includes('مصمم سير العمل')) {
+        return actionConfig(
+          'سير عمل جديد',
+          'أنشئ التعريف والنسخة الأولى، ثم أضف خطواتها وقراراتها.',
+          ['POST /api/v1/workflow/definitions', 'POST /api/v1/workflow/definitions/{definitionId}/versions'],
+          formGrid([
+            inputField('اسم سير العمل', 'workflowName', 'اعتماد طلب الاستثناء', 'text', true),
+            inputField('الرمز', 'workflowCode', 'EXCEPTION_APPROVAL', 'text', false),
+            selectField('البدء', 'workflowTrigger', ['يدوي من سجل العمل', 'تلقائي عند إنشاء السجل'], false),
+            textareaField('وصف المسار', 'workflowDescription', 'مراجعة المالك ثم اعتماد مدير المنشأة.')
+          ]) + '<div class="flow-preview"><div class="flow-preview-head"><strong>المسار الأولي</strong><span class="badge badge-neutral">مسودة</span></div><div class="flow-preview-steps"><span class="flow-chip">بدء</span><span>←</span><span class="flow-chip">مراجعة المالك</span><span>←</span><span class="flow-chip">قرار المدير</span></div></div>',
+          'إنشاء المسودة',
+          'تم إنشاء سير العمل ونسخته الأولى',
+          'workflow-create'
+        );
+      }
+
+      if (message.includes('سبب الإلغاء')) {
+        return actionConfig(
+          'إلغاء نسخة سير العمل',
+          'الإلغاء يوقف الخطوات المفتوحة ويحتفظ بسجل النسخة.',
+          ['POST /api/v1/workflow/instances/{instanceId}/cancel'],
+          summaryRows([['النسخة', 'WF-2041'], ['السجل المرتبط', 'WR-2026-00816'], ['الخطوة الحالية', 'مراجعة الموارد البشرية']]) +
+          '<div style="margin-top:13px">' + textareaField('سبب الإلغاء', 'cancelWorkflowReason', '') + '</div>',
+          'تأكيد الإلغاء',
+          'تم إلغاء نسخة سير العمل وإغلاق خطواتها المفتوحة',
+          'workflow-cancel'
+        );
+      }
+
+      if (message.includes('إصدارات سير العمل')) {
+        return actionConfig(
+          'إصدارات سير العمل',
+          'استعرض النسخ وحالات النشر والتفعيل.',
+          ['GET /api/v1/workflow/definitions/{definitionId}/versions', 'POST /api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}'],
+          '<div class="action-table"><div class="action-table-row"><div><strong>v3 · النسخة الحالية</strong><small>منشورة منذ 18 يوليو</small></div><span class="badge badge-success">نشطة</span></div><div class="action-table-row"><div><strong>v2</strong><small>توقفت في 18 يوليو</small></div><span class="badge badge-neutral">مؤرشفة</span></div><div class="action-table-row"><div><strong>v1</strong><small>أول نسخة تجريبية</small></div><span class="badge badge-neutral">مؤرشفة</span></div></div>',
+          'إغلاق',
+          'تم إغلاق سجل إصدارات سير العمل',
+          'view'
+        );
+      }
+
+      if (message.includes('تحرير النسخة') || message.includes('تحرير التعريف')) {
+        const workflow = message.includes('النسخة');
+        return actionConfig(
+          workflow ? 'تحرير نسخة سير العمل' : 'تحرير تعريف العمل',
+          'التعديل ينشئ تغييرات على المسودة ولا يغيّر النسخة المنشورة.',
+          workflow ? ['POST /api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}'] : ['POST /api/v1/work-definition-versions/{versionId}/{versionAction}'],
+          formGrid([
+            inputField('الاسم', 'definitionEditName', workflow ? 'التكليف المؤقت' : 'طلب صلاحية استثنائية', 'text', true),
+            textareaField('وصف التغيير', 'definitionChangeNote', 'تحديث الشروط والحقول المطلوبة قبل إرسال النسخة للمراجعة.')
+          ]),
+          'حفظ المسودة',
+          'تم حفظ تغييرات النسخة',
+          'definition-edit'
+        );
+      }
+
+      if (message.includes('تفاصيل تعريف العمل') || message.includes('إصدارات تعريف العمل')) {
+        return actionConfig(
+          message.includes('إصدارات') ? 'إصدارات تعريف العمل' : 'تفاصيل تعريف العمل',
+          'التعريف يحدد بيانات السجل وقواعده، ولا يحدد خطوات الاعتماد.',
+          ['GET /api/v1/work-definitions/{definitionId}', 'GET /api/v1/work-definitions/{definitionId}/versions', 'GET /api/v1/work-definition-versions/{versionId}'],
+          summaryRows([
+            ['التعريف', 'طلب احتياج قوى عاملة'],
+            ['النسخة الحالية', 'v4'],
+            ['عدد الحقول', '14 حقلًا'],
+            ['السجلات النشطة', '86'],
+            ['الحالة', 'نشط']
+          ]),
+          'إغلاق',
+          'تم إغلاق تفاصيل تعريف العمل',
+          'view'
+        );
+      }
+
+      if (message.includes('الاستيراد الجماعي')) {
+        return actionConfig(
+          'استيراد بيانات المنظمة',
+          'ارفع الملف، راجع الصفوف، ثم نفّذ المهمة بعد معالجة الأخطاء.',
+          ['POST /api/v1/organization/import-jobs', 'GET /api/v1/organization/import-jobs/{jobId}', 'GET /api/v1/organization/import-jobs/{jobId}/rows', 'POST /api/v1/organization/import-jobs/{jobId}/{jobAction}'],
+          formGrid([
+            inputField('اسم الملف', 'importFileName', 'organization-data.xlsx', 'text', true),
+            selectField('نوع البيانات', 'importType', ['أشخاص وتكليفات', 'مسميات ومقاعد', 'هيكل تنظيمي'], false),
+            selectField('معالجة التكرار', 'importDuplicates', ['تجاهل الصف', 'تحديث الموجود', 'إيقاف المهمة'], false)
+          ]),
+          'إنشاء مهمة الاستيراد',
+          'تم إنشاء مهمة الاستيراد وبدأ فحص الصفوف',
+          'import-create'
+        );
+      }
+
+      if (message.includes('تعديل الوحدة')) {
+        return actionConfig(
+          'تعديل الوحدة التنظيمية',
+          'حدّث بيانات الوحدة دون تغيير مواقع موظفيها.',
+          ['GET /api/v1/organization/units/{unitId}', 'PATCH /api/v1/organization/units/{unitId}'],
+          formGrid([
+            inputField('اسم الوحدة', 'unitEditName', 'وحدة المختبر', 'text', true),
+            inputField('الرمز', 'unitEditCode', 'LAB', 'text', false),
+            selectField('الحالة', 'unitEditStatus', ['نشطة', 'غير نشطة'], false),
+            selectField('الوحدة الأعلى', 'unitEditParent', ['الخدمات الطبية', 'إدارة التشغيل'], true)
+          ]),
+          'حفظ التعديل',
+          'تم تحديث بيانات الوحدة',
+          'unit-edit'
+        );
+      }
+
+      if (message.includes('إضافة شخص')) {
+        return actionConfig(
+          'إضافة شخص',
+          'أنشئ ملف الشخص أولًا، ويمكن بعدها ربطه بحساب ومقعد.',
+          ['POST /api/v1/organization/people'],
+          formGrid([
+            inputField('الاسم الكامل', 'personNewName', 'ريم الحربي', 'text', true),
+            inputField('الرقم الوظيفي', 'personNewNumber', 'EMP-1192', 'text', false),
+            inputField('البريد', 'personNewEmail', 'r.alharbi@example.sa', 'email', false),
+            selectField('نوع الشخص', 'personNewType', ['موظف دائم', 'متعاون', 'متدرب'], false),
+            selectField('الوحدة المرجعية', 'personNewUnit', ['وحدة المختبر', 'وحدة الصيدلية'], false)
+          ]),
+          'إنشاء ملف الشخص',
+          'تم إنشاء ملف الشخص وإضافته إلى القائمة',
+          'person-create'
+        );
+      }
+
+      if (message.includes('ملف الشخص')) {
+        return actionConfig(
+          'ملف الشخص',
+          'البيانات التنظيمية والمرجع والتكليفات الحالية.',
+          ['GET /api/v1/organization/people/{personId}', 'GET /api/v1/organization/people/{personId}/reference'],
+          summaryRows([
+            ['الاسم', 'د. أحمد العتيبي'],
+            ['الرقم الوظيفي', 'EMP-1023'],
+            ['الوحدة', 'وحدة المختبر'],
+            ['المسمى', 'طبيب باثولوجي'],
+            ['المقعد', 'LAB-DR-PATH-01'],
+            ['الحساب', 'مفعّل']
+          ]),
+          'إغلاق',
+          'تم إغلاق ملف الشخص',
+          'view'
+        );
+      }
+
+      if (message.includes('إنشاء تكليف')) {
+        return actionConfig(
+          'إنشاء تكليف',
+          'اربط شخصًا بمقعد شاغر ضمن فترة زمنية واضحة.',
+          ['GET /api/v1/organization/assignments', 'POST /api/v1/organization/assignments'],
+          formGrid([
+            selectField('الشخص', 'assignmentPerson', ['ريم الحربي · EMP-1192', 'عبدالله الدوسري · EMP-1188'], false),
+            selectField('المقعد الشاغر', 'assignmentSeat', ['LAB-TECH-10 · فني مختبر', 'LAB-SPEC-05 · أخصائي مختبر'], false),
+            inputField('تاريخ البداية', 'assignmentStart', '2026-07-22', 'date', false),
+            inputField('تاريخ النهاية', 'assignmentEnd', '', 'date', false)
+          ]),
+          'إنشاء التكليف',
+          'تم إنشاء التكليف وإشغال المقعد',
+          'assignment-create'
+        );
+      }
+
+      if (message.includes('سحب التكليف')) {
+        return actionConfig(
+          'سحب التكليف المؤقت',
+          'ينتهي الوصول التنظيمي المرتبط بالتكليف في وقت السحب.',
+          ['POST /api/v1/organization/temporary-assignments/{temporaryAssignmentId}/revoke'],
+          summaryRows([['الشخص', 'محمد الشهري'], ['من / إلى', 'الصيدلية ← المختبر'], ['الفترة', '15 يوليو – 30 يوليو']]) +
+          '<div style="margin-top:13px">' + textareaField('سبب السحب', 'revokeAssignmentReason', '') + '</div>',
+          'تأكيد السحب',
+          'تم سحب التكليف المؤقت',
+          'assignment-revoke'
+        );
+      }
+
+      if (message.includes('إنهاء التكليف')) {
+        return actionConfig(
+          'إنهاء التكليف الأساسي',
+          'سيصبح المقعد شاغرًا من التاريخ المحدد.',
+          ['POST /api/v1/organization/assignments/{assignmentId}/end'],
+          formGrid([
+            inputField('تاريخ النهاية', 'assignmentEndDate', '2026-07-31', 'date', false),
+            selectField('السبب', 'assignmentEndReason', ['نقل داخلي', 'انتهاء خدمة', 'تصحيح تكليف'], false),
+            textareaField('ملاحظة', 'assignmentEndNote', '')
+          ]),
+          'إنهاء التكليف',
+          'تم إنهاء التكليف وأصبح المقعد شاغرًا',
+          'assignment-end'
+        );
+      }
+
+      if (message.includes('قالب الاستيراد')) {
+        return actionConfig(
+          'اختيار ملف الاستيراد',
+          'اختر قالبًا مطابقًا لنوع البيانات.',
+          ['POST /api/v1/organization/import-jobs'],
+          formGrid([
+            inputField('اسم الملف', 'importTemplateFile', 'people-july.xlsx', 'text', true),
+            selectField('نوع القالب', 'importTemplateType', ['أشخاص وتكليفات', 'مسميات ومقاعد', 'هيكل تنظيمي'], true)
+          ]),
+          'رفع وفحص الملف',
+          'تم رفع الملف وبدأ فحص صفوفه',
+          'import-file'
+        );
+      }
+
+      if (message.includes('صفوف الاستيراد')) {
+        return actionConfig(
+          'صفوف مهمة الاستيراد',
+          'راجع كل صف ونتيجة التحقق قبل التنفيذ.',
+          ['GET /api/v1/organization/import-jobs/{jobId}', 'GET /api/v1/organization/import-jobs/{jobId}/rows'],
+          '<div class="action-table"><div class="action-table-row"><div><strong>الصف 1 · ريم الحربي</strong><small>EMP-1192 · وحدة المختبر</small></div><span class="badge badge-success">صحيح</span></div><div class="action-table-row"><div><strong>الصف 2 · سعد العتيبي</strong><small>EMP-1193 · وحدة الصيدلية</small></div><span class="badge badge-success">صحيح</span></div><div class="action-table-row"><div><strong>الصف 3 · مها الغامدي</strong><small>EMP-1194 · وحدة المختبر</small></div><span class="badge badge-success">صحيح</span></div></div>',
+          'إغلاق',
+          'تم إغلاق صفوف الاستيراد',
+          'view'
+        );
+      }
+
+      if (message.includes('أخطاء الاستيراد')) {
+        return actionConfig(
+          'مراجعة أخطاء الاستيراد',
+          'صحح الصفوف ثم أعد التحقق قبل التنفيذ.',
+          ['GET /api/v1/organization/import-jobs/{jobId}/rows', 'POST /api/v1/organization/import-jobs/{jobId}/{jobAction}'],
+          '<div class="action-table"><div class="action-table-row"><div><strong>الصف 8 · رمز المقعد مكرر</strong><small>LAB-TECH-02 موجود مسبقًا</small></div><span class="badge badge-danger">خطأ</span></div><div class="action-table-row"><div><strong>الصف 17 · وحدة غير معروفة</strong><small>الرمز LAB-X غير موجود</small></div><span class="badge badge-danger">خطأ</span></div><div class="action-table-row"><div><strong>الصف 25 · تاريخ غير صالح</strong><small>يجب أن تكون البداية قبل النهاية</small></div><span class="badge badge-danger">خطأ</span></div></div>',
+          'إعادة التحقق',
+          'تمت إعادة التحقق من صفوف الاستيراد',
+          'import-recheck'
+        );
+      }
+
+      if (message.includes('تهيئة التفويض')) {
+        return actionConfig(
+          'حالة تهيئة التفويض',
+          'التهيئة الأساسية مكتملة وجاهزة لاتخاذ قرارات الوصول.',
+          ['GET /api/v1/authorization/bootstrap', 'POST /api/v1/authorization/bootstrap/complete'],
+          summaryRows([
+            ['الأدوار النظامية', 'مكتملة'],
+            ['القدرات', 'مكتملة'],
+            ['النطاقات الأساسية', 'مكتملة'],
+            ['دور مدير النظام', 'مُسند'],
+            ['الحالة', '100% جاهزة']
+          ]),
+          'إغلاق',
+          'تم إغلاق حالة التهيئة',
+          'view'
+        );
+      }
+
+      if (message.includes('إنشاء حساب')) {
+        return actionConfig(
+          'إنشاء حساب مستخدم',
+          'اربط الحساب بشخص موجود ثم أصدر رابط التفعيل.',
+          ['GET /api/v1/identity/accounts', 'POST /api/v1/identity/accounts', 'POST /api/v1/identity/accounts/{accountId}/activation'],
+          formGrid([
+            selectField('الشخص', 'accountPerson', ['ريم الحربي · EMP-1192', 'عبدالله الدوسري · EMP-1188'], false),
+            inputField('البريد الإلكتروني', 'accountEmail', 'r.alharbi@example.sa', 'email', false),
+            selectField('الدور الأولي', 'accountRole', ['فني مختبر', 'بدون دور الآن'], false),
+            selectField('نطاق الدور', 'accountScope', ['وحدة المختبر', 'المنشأة'], false)
+          ]),
+          'إنشاء وإرسال التفعيل',
+          'تم إنشاء الحساب وإصدار رابط التفعيل',
+          'account-create'
+        );
+      }
+
+      if (message.includes('فتح الحساب')) {
+        return actionConfig(
+          'إدارة الحساب',
+          'راجع بيانات الحساب ونفّذ الإجراء المسموح.',
+          ['GET /api/v1/identity/accounts/{accountId}', 'POST /api/v1/identity/accounts/{accountId}/{accountAction}'],
+          summaryRows([
+            ['الحساب', 'a.alotaibi@example.sa'],
+            ['الشخص', 'د. أحمد العتيبي'],
+            ['الحالة', 'مفعّل'],
+            ['آخر دخول', 'اليوم، 10:28 ص'],
+            ['النطاق الحالي', 'وحدة المختبر']
+          ]) + '<div class="option-list" style="margin-top:13px"><label class="option-card"><input type="radio" name="accountAction" checked><span><strong>إبقاء الحساب مفعّلًا</strong><span>لا تغيير على حالة الدخول.</span></span></label><label class="option-card"><input type="radio" name="accountAction"><span><strong>تعليق الحساب</strong><span>منع الدخول مع الاحتفاظ ببيانات الشخص.</span></span></label></div>',
+          'حفظ الإجراء',
+          'تم تحديث حالة الحساب',
+          'account-manage'
+        );
+      }
+
+      if (message.includes('رابط تفعيل')) {
+        return actionConfig(
+          'إصدار رابط تفعيل جديد',
+          'يلغي الرابط السابق ويصدر رابطًا بمدة صلاحية جديدة.',
+          ['POST /api/v1/identity/accounts/{accountId}/activation'],
+          summaryRows([['الحساب', 'a.aldosari@example.sa'], ['الحالة', 'بانتظار التفعيل'], ['صلاحية الرابط الجديد', '24 ساعة']]),
+          'إصدار وإرسال الرابط',
+          'تم إصدار رابط التفعيل وإرساله للمستخدم',
+          'account-activation'
+        );
+      }
+
+      if (message.includes('سجل التصدير')) {
+        return actionConfig(
+          'ملفات التصدير',
+          'تابع الملفات التي بدأت من التقارير وافتح الجاهز منها.',
+          ['GET /api/v1/exports/{exportId}'],
+          '<div class="action-table"><div class="action-table-row"><div><strong>EXP-2026-091 · المهام المتأخرة</strong><small>PDF · اليوم 10:40 م</small></div><span class="badge badge-success">جاهز</span></div><div class="action-table-row"><div><strong>EXP-2026-090 · إشغال المقاعد</strong><small>Excel · اليوم 9:10 م</small></div><span class="badge badge-success">جاهز</span></div><div class="action-table-row"><div><strong>EXP-2026-089 · حالة المستندات</strong><small>CSV · أمس</small></div><span class="badge badge-neutral">منتهي</span></div></div>',
+          'إغلاق',
+          'تم إغلاق ملفات التصدير',
+          'view'
+        );
+      }
+
+      if (message.includes('فتح لوحة')) {
+        const dashboardName = message.replace('تم فتح لوحة ', '');
+        return actionConfig(
+          'لوحة ' + dashboardName,
+          'تفاصيل لوحة المعلومات ضمن نطاقك الحالي.',
+          ['GET /api/v1/dashboards/{dashboardId}'],
+          '<div class="segmented-stats" style="margin:0"><div class="segment"><strong>96%</strong><span>ضمن الوقت</span></div><div class="segment"><strong>86</strong><span>نشط</span></div><div class="segment"><strong>12</strong><span>تحتاج إجراء</span></div><div class="segment"><strong>3</strong><span>متأخرة</span></div></div><div class="action-summary" style="margin-top:13px"><div class="action-summary-row"><span>النطاق</span><strong>مجمع إرادة والصحة النفسية</strong></div><div class="action-summary-row"><span>آخر تحديث</span><strong>قبل دقيقتين</strong></div></div>',
+          'إغلاق',
+          'تم إغلاق لوحة المعلومات',
+          'view'
+        );
+      }
+
+      if (message.includes('تجهيز ملف التقرير')) {
+        return actionConfig(
+          'تصدير التقرير',
+          'اختر الصيغة وسيظهر الملف في سجل التصدير بعد تجهيزه.',
+          ['POST /api/v1/reports/{reportId}/exports', 'GET /api/v1/exports/{exportId}'],
+          formGrid([
+            selectField('الصيغة', 'reportFormat', ['Excel (.xlsx)', 'PDF', 'CSV'], false),
+            selectField('النطاق', 'reportScope', ['مجمع إرادة والصحة النفسية', 'التجمع الصحي الأول'], false),
+            inputField('الفترة من', 'reportFrom', '2026-07-01', 'date', false),
+            inputField('الفترة إلى', 'reportTo', '2026-07-21', 'date', false)
+          ]),
+          'إنشاء ملف التصدير',
+          'تم إنشاء طلب التصدير وسيظهر الملف عند جاهزيته',
+          'report-export'
+        );
+      }
+
+      if (message.includes('إعادة المهمة')) {
+        return actionConfig(
+          'إعادة المهمة',
+          'أعد المهمة إلى الخطوة السابقة مع سبب واضح لصاحبها.',
+          ['POST /api/v1/tasks/{taskId}/{workflowTaskAction}'],
+          textareaField('سبب الإعادة', 'returnTaskReason', 'يرجى توضيح مدة التعاقد وإرفاق النسخة المعدلة.'),
+          'تأكيد الإعادة',
+          'تمت إعادة المهمة إلى الخطوة السابقة',
+          'task-return'
+        );
+      }
+
+      if (message.includes('إضافة التعليق')) {
+        return actionConfig(
+          'إضافة تعليق للمهمة',
+          'سيظهر التعليق لكل المشاركين في المهمة.',
+          ['POST /api/v1/tasks/{taskId}/comments', 'GET /api/v1/tasks/{taskId}/comments'],
+          textareaField('التعليق', 'taskCommentText', 'تمت المراجعة، ولا توجد ملاحظات إضافية.'),
+          'نشر التعليق',
+          'تم نشر التعليق وإشعار المشاركين',
+          'task-comment'
+        );
+      }
+
+      if (message.includes('اعتماد المهمة')) {
+        return actionConfig(
+          'اعتماد المهمة',
+          'سيُغلق تكليفك وتنتقل نسخة سير العمل إلى الخطوة التالية.',
+          ['POST /api/v1/tasks/{taskId}/{workflowTaskAction}', 'POST /api/v1/workflow/steps/{stepId}/decisions'],
+          summaryRows([
+            ['المهمة', 'TSK-1104'],
+            ['السجل', 'WR-2026-00842'],
+            ['القرار', 'اعتماد'],
+            ['الخطوة التالية', 'الإرسال للمشتريات']
+          ]),
+          'تأكيد الاعتماد',
+          'تم اعتماد المهمة وانتقلت المعاملة للخطوة التالية',
+          'task-approve'
+        );
+      }
+
+      return actionConfig(
+        button.getAttribute('aria-label') || button.textContent.trim() || 'خيارات العملية',
+        'اختر الإجراء المطلوب، ثم أكّد التنفيذ.',
+        ['عملية مرتبطة بسياق الشاشة'],
+        '<div class="option-list"><label class="option-card"><input type="radio" name="genericOption" checked><span><strong>فتح التفاصيل</strong><span>عرض البيانات الكاملة للعملية المحددة.</span></span></label><label class="option-card"><input type="radio" name="genericOption"><span><strong>تعديل</strong><span>فتح الحقول المتاحة للتغيير.</span></span></label><label class="option-card"><input type="radio" name="genericOption"><span><strong>متابعة الحالة</strong><span>عرض آخر حالة وتوقيت تحديث.</span></span></label></div>',
+        'متابعة',
+        'تم تنفيذ الخيار المحدد',
+        'generic'
+      );
+    }
+
+    function openSmartAction(config, sourceButton) {
+      currentAction = { config: config, button: sourceButton };
+      actionModalTitle.textContent = config.title;
+      actionModalSubtitle.textContent = config.subtitle;
+      actionContextTitle.textContent = config.title;
+      actionContextText.textContent = 'هذه الرحلة مرتبطة بعمليات النظام أدناه وتعمل داخل النموذج التجريبي.';
+      actionEndpoints.innerHTML = config.endpoints.map(function (endpoint) {
+        return '<span class="endpoint-pill">' + escapeHtml(endpoint) + '</span>';
+      }).join('');
+      actionBody.innerHTML = config.body;
+      actionConfirm.textContent = config.confirm;
+      actionSecondary.style.display = 'none';
+      actionModal.classList.add('open');
+      closeFloating();
+      syncOverlay();
+    }
+
+    function activatePanel(panelId) {
+      const tab = document.querySelector('[data-panel="' + panelId + '"]');
+      if (tab) tab.click();
+    }
+
+    function handleSmartAction(button) {
+      const message = button.dataset.toast || '';
+      if (message.includes('تعريفات العمل') && !message.includes('إصدارات') && !message.includes('تفاصيل')) {
+        showView('processes');
+        activatePanel('work-definitions');
+        showToast('تم فتح تعريفات العمل');
+        return;
+      }
+      if (message.includes('الاستيراد الجماعي')) {
+        showView('organization');
+        activatePanel('org-import');
+        openSmartAction(smartConfig(button), button);
+        return;
+      }
+      openSmartAction(smartConfig(button), button);
+    }
+
+    function incrementTextNumber(element, amount) {
+      if (!element) return;
+      const number = Number((element.textContent.match(/\d+/) || ['0'])[0]);
+      element.textContent = String(number + amount);
+    }
+
+    function downloadDemo(filename, content, mime) {
+      try {
+        const blob = new Blob([content], { type: mime || 'text/plain;charset=utf-8' });
+        if (!window.URL || !window.URL.createObjectURL) return;
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        // The visual prototype still completes when the preview environment blocks downloads.
+      }
+    }
+
+    function executeCurrentAction() {
+      if (!currentAction) return;
+      const config = currentAction.config;
+      const sourceButton = currentAction.button;
+      let success = config.success;
+
+      if (config.kind === 'view-settings') {
+        const compact = document.getElementById('compactMode');
+        document.body.classList.toggle('compact-tables', Boolean(compact && compact.checked));
+        try { localStorage.setItem('dashboard-density', compact && compact.checked ? 'compact' : 'comfortable'); } catch (error) {}
+      }
+
+      if (config.kind === 'scope') {
+        const scope = document.getElementById('scopeValue');
+        if (scope) document.querySelector('.scope-copy strong').textContent = scope.value;
+      }
+
+      if (config.kind === 'password') {
+        const next = document.getElementById('newPassword');
+        const confirm = document.getElementById('confirmPassword');
+        if (!next || next.value.length < 8 || next.value !== confirm.value) {
+          showToast('أدخل كلمة مرور من 8 أحرف وتأكد من تطابقها');
+          return;
+        }
+      }
+
+      if (config.kind === 'task-create') {
+        const title = document.getElementById('smartTaskTitle');
+        const owner = document.getElementById('smartTaskOwner');
+        const table = document.querySelector('#taskTable tbody');
+        if (table && title) {
+          table.insertAdjacentHTML('afterbegin', '<tr class="click-row" data-open-drawer><td><div class="cell-title"><span class="cell-icon"><svg><use href="#i-task"></use></svg></span><span><strong>' + escapeHtml(title.value) + '</strong><small>TSK-NEW</small></span></div></td><td>مهمة مباشرة</td><td><span class="priority normal">عادية</span></td><td><span class="badge badge-neutral">جديدة</span></td><td>23 يوليو</td><td><button class="icon-btn btn-sm" data-smart-fallback aria-label="خيارات المهمة"><svg><use href="#i-more"></use></svg></button></td></tr>');
+          table.querySelector('tr').addEventListener('click', function () {
+            document.getElementById('taskDrawer').classList.add('open');
+            syncOverlay();
+          });
+          incrementTextNumber(document.querySelector('[data-view="tasks"] .nav-count'), 1);
+          const firstSegment = document.querySelector('#view-tasks .segment strong');
+          incrementTextNumber(firstSegment, 1);
+          success = 'تم إنشاء مهمة "' + title.value + '" وإسنادها إلى ' + (owner ? owner.value : 'المستخدم');
+        }
+      }
+
+      if (config.kind === 'document-upload') {
+        incrementTextNumber(document.querySelector('[data-view="documents"] .nav-count'), 1);
+        const uploadCount = document.querySelector('#view-documents .stat-card:nth-child(2) .stat-value');
+        incrementTextNumber(uploadCount, 1);
+      }
+
+      if (config.kind === 'unit-edit') {
+        const name = document.getElementById('unitEditName');
+        if (name && name.value.trim()) document.querySelector('.unit-hero h2').textContent = name.value.trim();
+      }
+
+      if (config.kind === 'person-create') {
+        const name = document.getElementById('personNewName');
+        const number = document.getElementById('personNewNumber');
+        const table = document.querySelector('#peopleTable tbody');
+        if (table && name) {
+          table.insertAdjacentHTML('beforeend', '<tr><td><div class="cell-title"><span class="avatar">ر ح</span><span><strong>' + escapeHtml(name.value) + '</strong><small>' + escapeHtml(number ? number.value : 'EMP-NEW') + '</small></span></div></td><td>غير محدد</td><td>غير مسند</td><td>بدون تكليف</td><td><span class="badge badge-warning">بلا حساب</span></td><td><button class="btn btn-secondary btn-sm" data-smart-fallback>فتح</button></td></tr>');
+        }
+      }
+
+      if (config.kind === 'account-activation') {
+        const row = sourceButton.closest('tr');
+        if (row) {
+          const badge = row.querySelector('.badge');
+          if (badge) {
+            badge.className = 'badge badge-success';
+            badge.textContent = 'تم إرسال التفعيل';
+          }
+          sourceButton.textContent = 'إدارة';
+          sourceButton.dataset.toast = 'تم فتح الحساب';
+        }
+      }
+
+      if (config.kind === 'task-comment') {
+        const text = document.getElementById('taskCommentText');
+        const drawerBody = document.querySelector('#taskDrawer .drawer-body');
+        if (text && drawerBody) {
+          const field = drawerBody.querySelector('.form-field');
+          field.insertAdjacentHTML('beforebegin', '<div class="comment"><span class="avatar">ط م</span><div><p><strong>طارق محمد</strong> ' + escapeHtml(text.value) + '</p><time>الآن</time></div></div>');
+        }
+      }
+
+      if (config.kind === 'task-approve' || config.kind === 'task-return') {
+        const firstTaskBadge = document.querySelector('#taskTable tbody tr .badge');
+        if (firstTaskBadge) {
+          firstTaskBadge.className = config.kind === 'task-approve' ? 'badge badge-success' : 'badge badge-danger';
+          firstTaskBadge.textContent = config.kind === 'task-approve' ? 'مكتملة' : 'معادة';
+        }
+        document.getElementById('taskDrawer').classList.remove('open');
+      }
+
+      if (config.kind === 'download-document') {
+        downloadDemo('document-preview.txt', 'نسخة تجريبية لملف المستند DOC-344', 'text/plain;charset=utf-8');
+      }
+
+      if (config.kind === 'report-export') {
+        const format = document.getElementById('reportFormat');
+        downloadDemo('report-preview.csv', 'metric,value\nopen_tasks,12\nactive_records,86\non_time,96%', 'text/csv;charset=utf-8');
+        success = 'تم إنشاء ملف التصدير بصيغة ' + (format ? format.value : 'CSV');
+      }
+
+      actionModal.classList.remove('open');
+      syncOverlay();
+      showToast(success);
+    }
+
+    function showView(name) {
+      const target = document.getElementById('view-' + name);
+      if (!target) return;
+      document.querySelectorAll('.view').forEach(function (view) { view.classList.remove('active'); });
+      document.querySelectorAll('.nav-item[data-view]').forEach(function (item) { item.classList.toggle('active', item.dataset.view === name); });
+      target.classList.add('active');
+      document.title = target.querySelector('h1').textContent + ' · بوابة العمل المؤسسي';
+      sidebar.classList.remove('open');
+      closeFloating();
+      syncOverlay();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.querySelectorAll('[data-view]').forEach(function (button) {
+      button.addEventListener('click', function () { showView(button.dataset.view); });
+    });
+
+    document.querySelectorAll('[data-go]').forEach(function (button) {
+      button.addEventListener('click', function (event) {
+        event.stopPropagation();
+        showView(button.dataset.go);
+        if (button.dataset.orgTab) activatePanel('org-' + button.dataset.orgTab);
+        const drawer = button.closest('.drawer');
+        if (drawer) drawer.classList.remove('open');
+        syncOverlay();
+      });
+    });
+
+    document.querySelectorAll('[data-tabs]').forEach(function (tabs) {
+      tabs.querySelectorAll('.tab[data-panel]').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          const card = tabs.closest('.card');
+          tabs.querySelectorAll('.tab').forEach(function (item) { item.classList.remove('active'); });
+          if (card) card.querySelectorAll(':scope > .tab-panel').forEach(function (panel) { panel.classList.remove('active'); });
+          tab.classList.add('active');
+          const panel = document.getElementById(tab.dataset.panel);
+          if (panel) panel.classList.add('active');
+        });
+      });
+    });
+
+    document.querySelectorAll('[data-modal]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const modal = document.getElementById(button.dataset.modal);
+        if (modal) modal.classList.add('open');
+        closeFloating();
+        syncOverlay();
+      });
+    });
+
+    document.querySelectorAll('[data-open-drawer]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        document.getElementById('taskDrawer').classList.add('open');
+        closeFloating();
+        syncOverlay();
+      });
+    });
+
+    document.querySelectorAll('[data-close]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const panel = button.closest('.modal, .drawer');
+        if (panel) panel.classList.remove('open');
+        syncOverlay();
+      });
+    });
+
+    document.querySelectorAll('[data-toast]').forEach(function (button) {
+      button.addEventListener('click', function (event) {
+        event.stopPropagation();
+        handleSmartAction(button);
+      });
+    });
+
+    document.querySelectorAll('[data-title-toggle]').forEach(function (button) {
+      button.addEventListener('click', function () { button.closest('.title-group').classList.toggle('open'); });
+    });
+
+    document.querySelectorAll('.filter-input').forEach(function (input) {
+      input.addEventListener('input', function () {
+        const table = document.getElementById(input.dataset.filterTable);
+        const query = input.value.trim().toLowerCase();
+        if (!table) return;
+        table.querySelectorAll('tbody tr').forEach(function (row) {
+          row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+        });
+      });
+    });
+
+    userMenuTrigger.addEventListener('click', function (event) {
+      event.stopPropagation();
+      notificationWrap.classList.remove('open');
+      const open = headerUser.classList.toggle('open');
+      userMenuTrigger.setAttribute('aria-expanded', String(open));
+    });
+
+    document.getElementById('notificationTrigger').addEventListener('click', function (event) {
+      event.stopPropagation();
+      headerUser.classList.remove('open');
+      globalSearch.classList.remove('open');
+      notificationWrap.classList.toggle('open');
+    });
+
+    document.getElementById('markNotifications').addEventListener('click', function (event) {
+      event.stopPropagation();
+      document.querySelectorAll('.notification-item.unread').forEach(function (item) { item.classList.remove('unread'); });
+      document.getElementById('notificationDot').style.display = 'none';
+      showToast('تم تعليم الإشعارات الظاهرة كمقروءة');
+    });
+
+    globalSearchInput.addEventListener('focus', function () { globalSearch.classList.add('open'); notificationWrap.classList.remove('open'); });
+    globalSearchInput.addEventListener('input', function () {
+      globalSearch.classList.add('open');
+      const query = globalSearchInput.value.trim().toLowerCase();
+      document.querySelectorAll('.search-result').forEach(function (item) {
+        item.style.display = !query || item.textContent.toLowerCase().includes(query) ? 'grid' : 'none';
+      });
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        globalSearchInput.focus();
+      }
+      if (event.key === 'Escape') closePanels();
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!headerUser.contains(event.target)) headerUser.classList.remove('open');
+      if (!notificationWrap.contains(event.target)) notificationWrap.classList.remove('open');
+      if (!globalSearch.contains(event.target)) globalSearch.classList.remove('open');
+    });
+
+    document.getElementById('mobileToggle').addEventListener('click', function () {
+      sidebar.classList.toggle('open');
+      syncOverlay();
+    });
+    overlay.addEventListener('click', closePanels);
+
+    document.getElementById('runDecision').addEventListener('click', function () {
+      const result = document.getElementById('decisionResult');
+      result.classList.remove('pending');
+      result.querySelector('.decision-symbol').innerHTML = '<svg><use href="#i-check"></use></svg>';
+      document.getElementById('decisionTitle').textContent = 'مسموح ضمن وحدة المختبر';
+      document.getElementById('decisionText').textContent = 'يمتلك المستخدم دور طبيب مختبر والقدرة المطلوبة، ونطاق الدور يغطي المورد المحدد.';
+      document.getElementById('decisionReasons').textContent = 'RBAC: القدرة موجودة · Scope: unit/laboratory يغطي السجل · لا يوجد منع أعلى أولوية.';
+      showToast('تم إنشاء قرار الوصول وإظهار تفسيره');
+    });
+
+    function updateSeatPreview() {
+      const title = document.getElementById('positionTitle').value.trim() || 'مسمى جديد';
+      const prefix = (document.getElementById('positionPrefix').value.trim() || 'SEAT').toUpperCase();
+      const count = Math.max(1, Math.min(99, Number(document.getElementById('seatCount').value) || 1));
+      document.getElementById('seatPreviewTitle').textContent = title + ' · ' + count + (count === 1 ? ' مقعد' : ' مقاعد');
+      const codes = [];
+      const visible = Math.min(count, 4);
+      for (let i = 1; i <= visible; i += 1) codes.push(prefix + '-' + String(i).padStart(2, '0'));
+      if (count > 5) codes.push('…');
+      if (count > 4) codes.push(prefix + '-' + String(count).padStart(2, '0'));
+      document.getElementById('seatCodes').innerHTML = codes.map(function (code) { return '<span class="code-pill">' + code + '</span>'; }).join('');
+    }
+    ['positionTitle', 'positionPrefix', 'seatCount'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', updateSeatPreview);
+    });
+
+    document.getElementById('createPositions').addEventListener('click', function () {
+      document.getElementById('positionModal').classList.remove('open');
+      syncOverlay();
+      showToast('تم تجهيز إنشاء المسمى والمقاعد ومراجعة نجاح كل مقعد');
+    });
+    document.getElementById('createRecord').addEventListener('click', function () {
+      document.getElementById('recordModal').classList.remove('open');
+      syncOverlay();
+      showToast('تم إنشاء سجل العمل وبدء سير الإجراء');
+    });
+    document.getElementById('saveDraft').addEventListener('click', function () {
+      document.getElementById('recordModal').classList.remove('open');
+      syncOverlay();
+      showToast('تم حفظ سجل العمل كمسودة');
+    });
+
+    actionConfirm.addEventListener('click', executeCurrentAction);
+    actionSecondary.addEventListener('click', function () { showToast('تم تنفيذ الإجراء الثانوي'); });
+
+    actionBody.addEventListener('click', function (event) {
+      const button = event.target.closest('button');
+      if (!button) return;
+      event.stopPropagation();
+      showToast(button.textContent.trim() === 'تنزيل' ? 'بدأ تنزيل الإصدار المحدد' : 'تم فتح محتوى العنصر');
+    });
+
+    document.querySelectorAll('.tree-row').forEach(function (row) {
+      row.addEventListener('click', function () {
+        document.querySelectorAll('.tree-row').forEach(function (item) { item.classList.remove('active'); });
+        row.classList.add('active');
+        const count = row.querySelector('span:last-child');
+        const name = row.textContent.replace(count ? count.textContent : '', '').trim();
+        const title = document.querySelector('.unit-hero h2');
+        const meta = document.querySelector('.unit-hero p');
+        if (title) title.textContent = name;
+        if (meta) meta.textContent = 'تم تحميل تفاصيل هذا المستوى من شجرة الهيكل التنظيمي';
+        showToast('تم فتح ' + name);
+      });
+    });
+
+    const handledButtonIds = new Set([
+      'userMenuTrigger', 'notificationTrigger', 'markNotifications', 'mobileToggle',
+      'runDecision', 'createPositions', 'createRecord', 'saveDraft',
+      'actionConfirm', 'actionSecondary'
+    ]);
+    const handledButtonSelector = '[data-view], [data-go], [data-modal], [data-open-drawer], [data-close], [data-toast], [data-panel], [data-title-toggle], .tree-row';
+    document.querySelectorAll('button').forEach(function (button) {
+      if (button.matches(handledButtonSelector) || handledButtonIds.has(button.id)) return;
+      button.dataset.smartFallback = 'true';
+      button.dataset.smartBound = 'true';
+      button.addEventListener('click', function (event) {
+        event.stopPropagation();
+        openSmartAction(smartConfig(button), button);
+      });
+    });
+
+    document.addEventListener('click', function (event) {
+      const dynamicButton = event.target.closest('[data-smart-fallback]');
+      if (!dynamicButton || dynamicButton.dataset.smartBound === 'true') return;
+      dynamicButton.dataset.smartBound = 'true';
+      event.stopPropagation();
+      openSmartAction(smartConfig(dynamicButton), dynamicButton);
+    });
+  </script>
+</body>
+</html>
