@@ -25,11 +25,12 @@ await page.goto(WEB_ORIGIN, { waitUntil: 'domcontentloaded' })
 await page.getByLabel('اسم المستخدم').fill(USERNAME)
 await page.getByLabel('كلمة المرور', { exact: true }).fill(PASSWORD)
 await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
-await page.getByRole('heading', { name: 'طلباتي' }).waitFor({ timeout: 15_000 })
+await page.getByRole('heading', { name: /صباح الخير|مساء الخير/ }).waitFor({ timeout: 15_000 })
 
 console.log('Navigating to org structure…')
-await page.getByRole('button', { name: 'التنظيم' }).click()
-await page.getByRole('link', { name: 'الهيكل والمناصب' }).click()
+await page.getByRole('button', { name: 'الإدارة والتشغيل' }).click()
+await page.getByRole('link', { name: 'الهيكل التنظيمي' }).click()
+await page.getByRole('link', { name: 'شجرة الهيكل' }).click()
 await page.waitForTimeout(2_500)
 
 const orgFetches = apiCalls.filter((call) => call.url.includes('/organization/'))
@@ -59,11 +60,12 @@ for (const { text, label } of expectations) {
   if (!present) missing.push(label)
 }
 
-// Click the Follow-up unit card and verify the manager position shows in the drawer.
-await page.locator('.org-board-card', { hasText: 'وحدة المتابعة' }).first().click({ force: true }).catch(() => {})
+// Click the Follow-up unit card and verify the positions shown in its drawer.
+await page.getByRole('button', { name: 'وحدة المتابعة، رمز UNIT-FOLLOWUP', exact: true }).click()
 await page.waitForTimeout(800)
-const managerVisible = (await page.getByText('مدير وحدة المتابعة', { exact: true }).count()) > 0
-const analystVisible = (await page.getByText('محلل بيانات المتابعة', { exact: true }).count()) > 0
+const drawer = page.getByRole('dialog', { name: 'وحدة المتابعة', exact: true })
+const managerVisible = (await drawer.getByText('مدير وحدة المتابعة', { exact: true }).count()) > 0
+const analystVisible = (await drawer.getByText('محلل بيانات المتابعة', { exact: true }).count()) > 0
 console.log(`  ${managerVisible ? 'OK' : 'MISSING'} : L4 manager position (مدير وحدة المتابعة)`)
 console.log(`  ${analystVisible ? 'OK' : 'MISSING'} : L4 employee position (محلل بيانات المتابعة)`)
 if (!managerVisible) missing.push('follow-up manager position')
