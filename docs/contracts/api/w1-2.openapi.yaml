@@ -59,6 +59,7 @@ paths:
   /organization/units/{unitId}: {$ref: "./openapi.yaml#/paths/~1organization~1units~1{unitId}"}
   /organization/positions: {$ref: "./openapi.yaml#/paths/~1organization~1positions"}
   /organization/positions/{positionId}: {$ref: "./openapi.yaml#/paths/~1organization~1positions~1{positionId}"}
+  /organization/job-titles: {$ref: "./openapi.yaml#/paths/~1organization~1job-titles"}
   /organization/people: {$ref: "./openapi.yaml#/paths/~1organization~1people"}
   /organization/people/{personId}: {$ref: "./openapi.yaml#/paths/~1organization~1people~1{personId}"}
   /organization/people/{personId}/reference: {$ref: "./openapi.yaml#/paths/~1organization~1people~1{personId}~1reference"}

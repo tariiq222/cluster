@@ -45,6 +45,7 @@ paths:
         }
   /auth/logout:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       summary: Revoke the current session
       operationId: logout
@@ -413,6 +414,7 @@ paths:
         }
   /work-definition-versions/{versionId}/test:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         summary: Test a Draft version and transition it to Tested,
@@ -436,6 +438,7 @@ paths:
       }
   /work-definition-versions/{versionId}/approve:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         summary: Approve a Tested version,
@@ -458,6 +461,7 @@ paths:
       }
   /work-definition-versions/{versionId}/sign:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       summary: Sign an Approved version whose schema hash matches
       operationId: signWorkDefinitionVersion
@@ -488,6 +492,7 @@ paths:
         }
   /work-definition-versions/{versionId}/publish:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         summary: Publish a Signed version as immutable,
@@ -608,6 +613,7 @@ paths:
         }
   /work-records/{recordId}/cancel:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       summary: Cancel a work record without physical deletion
       operationId: cancelWorkRecord
@@ -638,6 +644,7 @@ paths:
         }
   /work-records/{recordId}/archive:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       summary: Archive a terminal work record subject to retention and holds
       operationId: archiveWorkRecord
@@ -668,6 +675,7 @@ paths:
         }
   /work-records/{recordId}/submit:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       summary: Submit a work record
       operationId: submitWorkRecord
@@ -797,6 +805,7 @@ paths:
         }
   /workflow/versions/{versionId}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         summary: Get a workflow version graph,
@@ -1507,12 +1516,14 @@ paths:
           },
         responses:
           {
-            "201": { $ref: "#/components/responses/Entity" },
+            "201": { $ref: "#/components/responses/DocumentUploadInitiated" },
             "400": { $ref: "#/components/responses/BadRequest" },
             "401": { $ref: "#/components/responses/Unauthorized" },
             "403": { $ref: "#/components/responses/Forbidden" },
             "404": { $ref: "#/components/responses/NotFound" },
             "409": { $ref: "#/components/responses/Conflict" },
+            "500": { $ref: "#/components/responses/InternalServerError" },
+            "503": { $ref: "#/components/responses/Problem" },
           },
       }
   /documents/{documentId}/links:
@@ -1605,6 +1616,7 @@ paths:
         }
   /documents/{documentId}/{grantType}-grant:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       summary: Issue a one-time preview or download grant after authorization and audit
       operationId: createDocumentAccessGrant
@@ -1665,6 +1677,7 @@ paths:
         }
   /workspace:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       summary: Get the current workspace
       operationId: getWorkspace
@@ -1776,6 +1789,7 @@ paths:
         }
   /audit:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       summary: List audit events
       operationId: listAuditEvents
@@ -2210,6 +2224,41 @@ paths:
             "500": { $ref: "#/components/responses/InternalServerError" },
           },
       }
+  /organization/job-titles:
+    parameters:
+      - { $ref: "#/components/parameters/CorrelationId" }
+    get:
+      tags: [Organization Admin]
+      x-implementation-status: implemented
+      summary: List job titles
+      operationId: listJobTitles
+      parameters:
+        - { name: cursor, in: query, required: false, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200': { $ref: "#/components/responses/JobTitleCollection" }
+        '401': { $ref: "#/components/responses/Unauthorized" }
+        '403': { $ref: "#/components/responses/Forbidden" }
+        '400': { $ref: "#/components/responses/BadRequest" }
+    post:
+      tags: [Organization Admin]
+      x-implementation-status: implemented
+      summary: Create a job title reference
+      operationId: createJobTitle
+      parameters:
+        - { $ref: "#/components/parameters/CorrelationId" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobTitleCreate" }
+      responses:
+        '201': { $ref: "#/components/responses/JobTitleEntity" }
+        '400': { $ref: "#/components/responses/BadRequest" }
+        '401': { $ref: "#/components/responses/Unauthorized" }
+        '403': { $ref: "#/components/responses/Forbidden" }
+        '409': { $ref: "#/components/responses/Conflict" }
   /organization/positions/{positionId}:
     parameters:
       - { $ref: "#/components/parameters/CorrelationId" }
@@ -2718,6 +2767,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
       tags: [Authorization Bootstrap]
+      x-implementation-status: planned  # [planned: not yet wired — method]
       summary: Complete bootstrap once with an audited idempotent command
       operationId: completeAuthorizationBootstrap
       parameters:
@@ -3040,6 +3090,7 @@ paths:
       }
   /platform-settings/versions:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [PlatformSettings],
@@ -3086,6 +3137,7 @@ paths:
       }
   /platform-settings/versions/{versionId}/settings/{settingKey}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     put:
       {
         tags: [PlatformSettings],
@@ -3124,6 +3176,7 @@ paths:
       }
   /platform-settings/versions/{versionId}/{settingsAction}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [PlatformSettings],
@@ -3154,6 +3207,7 @@ paths:
       }
   /platform-settings/current:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [PlatformSettings],
@@ -3169,6 +3223,7 @@ paths:
       }
   /business-calendars:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [PlatformSettings],
@@ -3215,6 +3270,7 @@ paths:
       }
   /business-calendars/{calendarId}/days/{date}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     put:
       {
         tags: [PlatformSettings],
@@ -3261,6 +3317,7 @@ paths:
       }
   /business-calendars/{calendarId}/publish:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [PlatformSettings],
@@ -3289,6 +3346,7 @@ paths:
       }
   /strategy/{strategyResource}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Strategy],
@@ -3373,6 +3431,7 @@ paths:
       }
   /strategy/{strategyResource}/{resourceId}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Strategy],
@@ -3462,6 +3521,7 @@ paths:
       }
   /strategy/{strategyResource}/{resourceId}/{strategyAction}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [Strategy],
@@ -3537,6 +3597,7 @@ paths:
       }
   /strategy/measurements/pending:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Strategy],
@@ -3556,6 +3617,7 @@ paths:
       }
   /strategy/indicators/{indicatorId}/scorecard:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Strategy],
@@ -3593,6 +3655,7 @@ paths:
       }
   /portfolio/{portfolioResource}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [PortfolioProjects],
@@ -3663,6 +3726,7 @@ paths:
       }
   /portfolio/{portfolioResource}/{resourceId}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [PortfolioProjects],
@@ -3745,6 +3809,7 @@ paths:
       }
   /portfolio/projects/{projectId}/{projectAction}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [PortfolioProjects],
@@ -3793,6 +3858,7 @@ paths:
       }
   /portfolio/projects/{projectId}/milestones:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [PortfolioProjects],
@@ -3853,6 +3919,7 @@ paths:
       }
   /portfolio/projects/{projectId}/{snapshotType}-snapshots:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [PortfolioProjects],
@@ -3898,6 +3965,7 @@ paths:
       }
   /portfolio/projects/{projectId}/indicator-links:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [PortfolioProjects],
@@ -3961,6 +4029,7 @@ paths:
       }
   /risk/{riskResource}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Risk],
@@ -4046,6 +4115,7 @@ paths:
       }
   /risk/risks/{riskId}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Risk],
@@ -4107,6 +4177,7 @@ paths:
       }
   /risk/risks/{riskId}/{riskLifecycleAction}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [Risk],
@@ -4151,6 +4222,7 @@ paths:
       }
   /risk/risks/{riskId}/indicator-readings:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Risk],
@@ -4216,6 +4288,7 @@ paths:
       }
   /risk/heatmap:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Risk],
@@ -4240,6 +4313,7 @@ paths:
       }
   /risk/reviews/due:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [Risk],
@@ -4259,6 +4333,7 @@ paths:
       }
   /records-governance/retention-policy-versions:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [RecordsGovernance],
@@ -4305,6 +4380,7 @@ paths:
       }
   /records-governance/retention-policy-versions/{versionId}/publish:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [RecordsGovernance],
@@ -4328,6 +4404,7 @@ paths:
       }
   /records-governance/governed-records:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [RecordsGovernance],
@@ -4376,6 +4453,7 @@ paths:
       }
   /records-governance/governed-records/{governedRecordId}:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [RecordsGovernance],
@@ -4400,6 +4478,7 @@ paths:
       }
   /records-governance/holds:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [RecordsGovernance],
@@ -4444,6 +4523,7 @@ paths:
       }
   /records-governance/holds/{holdId}/release:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [RecordsGovernance],
@@ -4482,6 +4562,7 @@ paths:
       }
   /records-governance/disposition-reviews:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     get:
       {
         tags: [RecordsGovernance],
@@ -4530,6 +4611,7 @@ paths:
       }
   /records-governance/disposition-reviews/{reviewId}/confirm:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    x-implementation-status: planned  # [planned: not yet wired]
     post:
       {
         tags: [RecordsGovernance],
@@ -4569,6 +4651,256 @@ paths:
             "412": { $ref: "#/components/responses/PreconditionFailed" },
           },
       }
+  /authorization/bootstrap/complete:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Authorization Bootstrap ]
+      x-implementation-status: implemented
+      summary: Complete the temporary deny-by-default bootstrap once with an audited idempotent command
+      operationId: bootstrapComplete
+      parameters:
+        [
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ReasonAction" } } } }
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /dashboards:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    get:
+      tags: [ Reporting ]
+      x-implementation-status: implemented
+      summary: List published dashboards available to the principal
+      operationId: listDashboards
+      parameters:
+        [
+          { $ref: "#/components/parameters/Cursor" },
+          { $ref: "#/components/parameters/Limit" },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /dashboards/{dashboardId}:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    get:
+      tags: [ Reporting ]
+      x-implementation-status: implemented
+      summary: Get an adaptive authorization-filtered dashboard
+      operationId: getDashboard
+      parameters:
+        [
+          { name: dashboardId, in: path, required: true, schema: { $ref: "#/components/schemas/UUIDv7" } },
+          { name: scope_id, in: query, schema: { type: string, maxLength: 128 } },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /notifications/{notificationId}/read:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Notifications ]
+      x-implementation-status: implemented
+      summary: Mark an authorized inbox notification as read
+      operationId: markNotificationRead
+      parameters:
+        [
+          { name: notificationId, in: path, required: true, schema: { $ref: "#/components/schemas/UUIDv7" } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /organization/units/reorder:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Organization Admin ]
+      x-implementation-status: implemented
+      summary: Reorder the cached organization unit hierarchy
+      operationId: reorderOrganizationUnits
+      parameters:
+        [
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ ordered_unit_ids ], properties: { ordered_unit_ids: { type: array, items: { $ref: "#/components/schemas/UUIDv7" } } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /reports/{reportId}:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    get:
+      tags: [ Reporting ]
+      x-implementation-status: implemented
+      summary: Get an authorization-filtered report
+      operationId: getReport
+      parameters:
+        [
+          { $ref: "#/components/parameters/ReportId" },
+          { name: scope_id, in: query, schema: { type: string, maxLength: 128 } },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /tasks/from-step/{stepId}:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Workflow ]
+      x-implementation-status: implemented
+      summary: Create the user task for an active workflow step
+      operationId: createTaskFromStep
+      parameters:
+        [
+          { name: stepId, in: path, required: true, schema: { $ref: "#/components/schemas/UUIDv7" } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: false, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { title: { type: string, minLength: 1, maxLength: 255 } } } } } }
+      responses:
+        "201": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /work-records/{recordId}/documents:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Work Records ]
+      x-implementation-status: implemented
+      summary: Link an available document to a work record
+      operationId: linkWorkRecordDocument
+      parameters:
+        [
+          { $ref: "#/components/parameters/RecordId" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ document_id, relation_type ], properties: { document_id: { $ref: "#/components/schemas/UUIDv7" }, relation_type: { type: string, enum: [ attachment, evidence, supporting ] } } } } } }
+      responses:
+        "201": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /work-records/{recordId}/return:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Work Records ]
+      x-implementation-status: implemented
+      summary: Return a submitted work record to the requester
+      operationId: transitionWorkRecordReturn
+      parameters:
+        [
+          { $ref: "#/components/parameters/RecordId" },
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: false, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { reason: { type: string, maxLength: 1024 } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/WorkRecord" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /work-records/{recordId}/complete:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Work Records ]
+      x-implementation-status: implemented
+      summary: Complete an in-flight work record
+      operationId: transitionWorkRecordComplete
+      parameters:
+        [
+          { $ref: "#/components/parameters/RecordId" },
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: false, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { reason: { type: string, maxLength: 1024 } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/WorkRecord" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /work-records/{recordId}/complete-submission:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Work Records ]
+      x-implementation-status: implemented
+      summary: Finalize a work-record submission
+      operationId: transitionWorkRecordCompleteSubmission
+      parameters:
+        [
+          { $ref: "#/components/parameters/RecordId" },
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: false, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { reason: { type: string, maxLength: 1024 } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/WorkRecord" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /up:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    get:
+      tags: [ Bootstrap ]
+      x-implementation-status: implemented
+      summary: Bootstrap health probe for the live API
+      operationId: getBootstrapHealth
+      security: []
+      responses:
+        "200":
+          {
+            description: Bootstrap health probe ok,
+            headers: { X-Correlation-ID: { $ref: "#/components/headers/Correlation" } },
+            content: { application/json: { schema: { type: object, additionalProperties: false, required: [ status ], properties: { status: { const: ok } } } } },
+          }
+        "503": { $ref: "#/components/responses/InternalServerError" }
+
+
+
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -4801,6 +5133,22 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/PositionCollection" }
+    JobTitleEntity:
+      description: Job title reference representation
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/JobTitleResponse" }
+    JobTitleCollection:
+      description: Cursor-paginated job title references
+      headers:
+        Link: { schema: { type: string } }
+        X-Correlation-ID: { $ref: "#/components/headers/Correlation" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/JobTitleCollection" }
     PersonEntity:
       description: Authorized Person profile representation
       headers:
@@ -5247,12 +5595,47 @@ components:
         organization_unit_id: { $ref: "#/components/schemas/UUIDv7" }
         code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" }
         title_ar: { type: string, minLength: 1, maxLength: 255 }
+        job_title_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
         manager_position_id:
           oneOf:
             - { $ref: "#/components/schemas/UUIDv7" }
             - { type: "null" }
         is_active: { type: boolean }
         lock_version: { type: integer, minimum: 1 }
+    JobTitle:
+      type: object
+      additionalProperties: false
+      required: [id, code, title_ar, status]
+      properties:
+        id: { $ref: "#/components/schemas/UUIDv7" }
+        code: { type: string, pattern: "^[A-Z0-9_-]{2,96}$" }
+        title_ar: { type: string, minLength: 1, maxLength: 255 }
+        status: { type: string, enum: [active, inactive] }
+    JobTitleCreate:
+      type: object
+      additionalProperties: false
+      required: [code, title_ar]
+      properties:
+        code: { type: string, pattern: "^[A-Z0-9_-]{2,96}$" }
+        title_ar: { type: string, minLength: 1, maxLength: 255 }
+    JobTitleResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/JobTitle" }
+    JobTitleCollection:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/JobTitle" }
+        next_cursor: { type: [string, "null"] }
     PositionResponse:
       type: object
       additionalProperties: false
@@ -5953,12 +6336,13 @@ components:
       {
         type: object,
         additionalProperties: false,
-        required: [file_name, content_type, byte_size],
+        required: [file_name, content_type, byte_size, sha256],
         properties:
           {
             file_name: { type: string, minLength: 1, maxLength: 255 },
             content_type: { type: string, pattern: "^[^/]+/[^/]+$" },
             byte_size: { type: integer, minimum: 1, maximum: 1073741824 },
+            sha256: { type: string, pattern: "^[a-f0-9]{64}$" },
           },
       }
     DocumentLinkCreate:
@@ -5970,7 +6354,7 @@ components:
           {
             source: { $ref: "#/components/schemas/SourceReference" },
             relation_type: { type: string, minLength: 1, maxLength: 64 },
-            constraint_policy_key: { type: string, maxLength: 128 },
+            constraint_policy_key: { type: [string, "null"], minLength: 1, maxLength: 128 },
           },
       }
     DocumentGrantRequest:
@@ -6149,12 +6533,20 @@ components:
       {
         type: object,
         additionalProperties: false,
-        required: [organization_unit_id, code, title],
+        required: [organization_unit_id, code],
         properties:
           {
             organization_unit_id: { $ref: "#/components/schemas/UUIDv7" },
             code: { type: string, pattern: "^[A-Z0-9_-]{2,64}$" },
             title: { type: string, minLength: 1, maxLength: 255 },
+            job_title_id:
+              {
+                oneOf:
+                  [
+                    { $ref: "#/components/schemas/UUIDv7" },
+                    { type: "null" },
+                  ],
+              },
             manager_position_id:
               {
                 oneOf:
@@ -6172,6 +6564,10 @@ components:
       properties:
         organization_unit_id: { $ref: "#/components/schemas/UUIDv7" }
         title: { type: string, minLength: 1, maxLength: 255 }
+        job_title_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
         manager_position_id:
           oneOf:
             - { $ref: "#/components/schemas/UUIDv7" }
@@ -6868,6 +7264,8 @@ components:
         owner_user_id: { $ref: "#/components/schemas/UUIDv7" }
         assignee_user_id: { $ref: "#/components/schemas/UUIDv7" }
         source: { $ref: "#/components/schemas/SourceReference" }
+        relation_type: { type: string, minLength: 1, maxLength: 64 }
+        constraint_policy_key: { type: [string, "null"], maxLength: 128 }
         due_at: { $ref: "#/components/schemas/UtcDateTime" }
         effective_from: { $ref: "#/components/schemas/UtcDateTime" }
         effective_to: { $ref: "#/components/schemas/UtcDateTime" }
@@ -6877,3 +7275,7 @@ components:
         lock_version: { type: integer, minimum: 1 }
         created_at: { $ref: "#/components/schemas/UtcDateTime" }
         updated_at: { $ref: "#/components/schemas/UtcDateTime" }
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 64 }

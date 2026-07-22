@@ -11,6 +11,9 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /work-records/{recordId}/return: {$ref: "./openapi.yaml#/paths/~1work-records~1{recordId}~1return"}
+  /work-records/{recordId}/complete: {$ref: "./openapi.yaml#/paths/~1work-records~1{recordId}~1complete"}
+  /work-records/{recordId}/complete-submission: {$ref: "./openapi.yaml#/paths/~1work-records~1{recordId}~1complete-submission"}
   /authorization/{adminResource}:
     $ref: "./openapi.yaml#/paths/~1authorization~1{adminResource}"
   /authorization/{adminResource}/{resourceId}:
