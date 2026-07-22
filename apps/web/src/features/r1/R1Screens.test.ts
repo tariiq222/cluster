@@ -1,33 +1,28 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { ApiError } from '../../api'
 import { __test } from './R1Screens'
 
-describe('R1Screens stateFrom helper', () => {
-  it('maps 401 to error and triggers session expiry', () => {
-    const expired = vi.fn()
-    const state = __test.stateFrom(new ApiError(401, { type: 'about:blank', title: 'Unauthorized', status: 401 }), expired)
-    expect(state).toBe('error')
-    expect(expired).toHaveBeenCalledOnce()
-  })
+const problem = (status: number, title: string) =>
+  new ApiError(status, { type: 'about:blank', title, status })
 
-  it('maps 403 to forbidden without expiring the session', () => {
-    const expired = vi.fn()
-    const state = __test.stateFrom(new ApiError(403, { type: 'about:blank', title: 'Forbidden', status: 403 }), expired)
-    expect(state).toBe('forbidden')
-    expect(expired).not.toHaveBeenCalled()
+describe('R1Screens stateFrom helper', () => {
+  it('maps 403 to forbidden', () => {
+    expect(__test.stateFrom(problem(403, 'Forbidden'))).toBe('forbidden')
   })
 
   it('maps 409 and 412 to stale so the UI can refresh and retry', () => {
-    const expired = vi.fn()
-    expect(__test.stateFrom(new ApiError(409, { type: 'about:blank', title: 'Conflict', status: 409 }), expired)).toBe('stale')
-    expect(__test.stateFrom(new ApiError(412, { type: 'about:blank', title: 'Precondition failed', status: 412 }), expired)).toBe('stale')
-    expect(expired).not.toHaveBeenCalled()
+    expect(__test.stateFrom(problem(409, 'Conflict'))).toBe('stale')
+    expect(__test.stateFrom(problem(412, 'Precondition failed'))).toBe('stale')
   })
 
-  it('maps 500 and unknown errors to error', () => {
-    const expired = vi.fn()
-    expect(__test.stateFrom(new ApiError(500, { type: 'about:blank', title: 'Server error', status: 500 }), expired)).toBe('error')
-    expect(__test.stateFrom(new Error('network'), expired)).toBe('error')
+  it('folds not-found into error because these screens have no distinct copy', () => {
+    expect(__test.stateFrom(problem(404, 'Not found'))).toBe('error')
+  })
+
+  it('maps 500, 401, and unknown errors to error', () => {
+    expect(__test.stateFrom(problem(500, 'Server error'))).toBe('error')
+    expect(__test.stateFrom(problem(401, 'Unauthorized'))).toBe('error')
+    expect(__test.stateFrom(new Error('network'))).toBe('error')
   })
 })
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthorizedWorkRecord } from '../../api/r1'
 import { formatRecordValue } from './RecordField'
-import { isActionAllowed, projectRecordFields, projectRecordSummary, projectionStateMessage, resolveFieldAccess } from './RecordProjection'
+import { isActionAllowed, isWorkRecordActionExecutable, projectRecordFields, projectRecordSummary, projectionStateMessage, resolveFieldAccess, workRecordActionRequiresReason } from './RecordProjection'
 
 const record = {
   id: 'record-1', record_number: 'WR-1', work_type_version_id: 'version-1', owner: {}, status: 'draft', classification: 'internal',
@@ -82,5 +82,16 @@ describe('Record projection pure helpers', () => {
     expect(formatRecordValue({ sensitive: 'raw' })).toContain('sensitive')
     expect(projectionStateMessage('stale', 'ar')).toContain('قديمة')
     expect(projectionStateMessage('conflict', 'en')).toContain('conflicts')
+  })
+
+  it('only renders lifecycle actions with a generated client path', () => {
+    expect(isWorkRecordActionExecutable('submit')).toBe(true)
+    expect(isWorkRecordActionExecutable('complete-submission')).toBe(true)
+    expect(isWorkRecordActionExecutable('cancel')).toBe(true)
+    expect(isWorkRecordActionExecutable('archive')).toBe(true)
+    expect(isWorkRecordActionExecutable('read')).toBe(false)
+    expect(workRecordActionRequiresReason('cancel')).toBe(true)
+    expect(workRecordActionRequiresReason('archive')).toBe(true)
+    expect(workRecordActionRequiresReason('submit')).toBe(false)
   })
 })

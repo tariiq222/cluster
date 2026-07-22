@@ -1,49 +1,35 @@
-import { BellRing, CalendarDays, FolderSearch } from 'lucide-react'
+import { BellRing, CalendarDays, CheckCircle2, Clock3, FileText, FolderSearch, Plus, Sparkles, TriangleAlert } from 'lucide-react'
+import { useState } from 'react'
 import { recordStatusText, text, type Locale } from '../../app/copy'
 import { formatDate } from '../../app/NotificationList'
 import type { Notification, WorkRecord } from '../../api'
+import { Button, EmptyState, InlineError, Page, Panel, SkeletonList, StatusBadge } from '../../ui'
+import './RequestDashboard.css'
 
-export function RequestDashboard({
-  locale,
-  records,
-  notifications,
-  loading,
-  error,
-  notificationsLoading,
-  notificationsError,
-  facilityName,
-  onRetry,
-  onCreate,
-  onSelect,
-  onOpenNotifications,
-}: {
-  locale: Locale
-  records: WorkRecord[]
-  notifications: Notification[]
-  loading: boolean
-  error: boolean
-  notificationsLoading: boolean
-  notificationsError: boolean
-  facilityName: string
-  onRetry: () => void
-  onCreate: () => void
-  onSelect: (recordId: string) => void
-  onOpenNotifications: () => void
+export function RequestDashboard({ locale, records, notifications, loading, error, notificationsLoading, notificationsError, facilityName, onRetry, onCreate, onSelect, onOpenNotifications, hasMore = false, loadingMore = false, loadMoreError = false, onLoadMore, notificationsHasMore = false, notificationsLoadingMore = false, notificationsLoadMoreError = false, onLoadMoreNotifications }: {
+  locale: Locale; records: WorkRecord[]; notifications: Notification[]; loading: boolean; error: boolean; notificationsLoading: boolean; notificationsError: boolean; facilityName: string; onRetry: () => void; onCreate: () => void; onSelect: (recordId: string) => void; onOpenNotifications: () => void
+  hasMore?: boolean; loadingMore?: boolean; loadMoreError?: boolean; onLoadMore?: () => void
+  notificationsHasMore?: boolean; notificationsLoadingMore?: boolean; notificationsLoadMoreError?: boolean; onLoadMoreNotifications?: () => void
 }) {
   const copy = text[locale]
-  const formatter = new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-GB')
+  const ar = locale === 'ar'
+  const formatter = new Intl.NumberFormat(ar ? 'ar-SA' : 'en-GB')
   const activeStatuses = new Set(['submitted', 'in_review', 'returned'])
   const completedStatuses = new Set(['approved', 'completed'])
   const activeCount = records.filter((record) => activeStatuses.has(record.status)).length
   const completedCount = records.filter((record) => completedStatuses.has(record.status)).length
   const otherCount = Math.max(0, records.length - activeCount - completedCount)
   const unreadCount = notifications.filter((notification) => !notification.is_read).length
-  const metricValue = (value: number) => loading || error ? '—' : formatter.format(value)
-  const metrics = [
-    { label: copy.loadedRequests, value: metricValue(records.length), source: copy.currentPageSource, tone: 'primary' },
-    { label: copy.activeRequests, value: metricValue(activeCount), source: copy.currentPageSource, tone: 'accent' },
-    { label: copy.completedRequests, value: metricValue(completedCount), source: copy.currentPageSource, tone: 'success' },
-    { label: copy.unreadNotifications, value: notificationsLoading || notificationsError ? '—' : formatter.format(unreadCount), source: copy.loadedNotificationSource, tone: 'muted' },
+  const [recordsExpanded, setRecordsExpanded] = useState(false)
+  const metricValue = (value: number, unavailable = loading || error) => unavailable ? '—' : formatter.format(value)
+  const greeting = ar ? 'صباح الخير' : 'Good morning'
+  const priorityTitle = ar ? `لديك ${formatter.format(Math.min(3, activeCount))} قرارات تستحق اليوم` : `${Math.min(3, activeCount)} decisions deserve your attention today`
+  const priorityBody = ar ? 'ابدأ من الأعلى أولوية، وسيتولى النظام ترتيب الخطوات التالية.' : 'Start with the highest priority and the system will arrange the next steps.'
+  const stats = [
+    { icon: <TriangleAlert />, tone: 'warning', value: metricValue(activeCount), label: ar ? 'طلبات قيد الإجراء' : copy.activeRequests },
+    { icon: <FileText />, tone: 'primary', value: metricValue(records.length), label: ar ? 'سجلات العمل ضمن نطاقك' : copy.loadedRequests },
+    { icon: <BellRing />, tone: 'danger', value: metricValue(unreadCount, notificationsLoading || notificationsError), label: ar ? 'تنبيهات تنتظر الإجراء' : copy.unreadNotifications },
+    { icon: <CheckCircle2 />, tone: 'success', value: metricValue(completedCount), label: ar ? 'طلبات مكتملة' : copy.completedRequests },
   ] as const
   const statusGroups = [
     { label: copy.activeStatus, count: activeCount, tone: 'accent' },
@@ -51,143 +37,52 @@ export function RequestDashboard({
     { label: copy.otherStatus, count: otherCount, tone: 'muted' },
   ] as const
 
-  return (
-    <div className="dashboard-page">
-      <section className="dashboard-welcome" aria-labelledby="dashboard-heading">
-        <div>
-          <h1 id="dashboard-heading">{copy.dashboardWelcome}</h1>
-          <p><span className="dashboard-scope-badge">{facilityName}</span>{copy.dashboardSummary}</p>
-        </div>
-        <span className="dashboard-range"><CalendarDays aria-hidden="true" />{copy.dashboardRange}</span>
-      </section>
+  return <Page className="request-dashboard">
+    <header className="request-dashboard-header">
+      <div><p className="request-dashboard-eyebrow">{facilityName} · {ar ? 'مساحة عملي' : 'My workspace'}</p><h1>{greeting}</h1><p>{ar ? 'هذه الأولويات التي تحتاج قرارك، والباقي ينتظر في مكانه الصحيح.' : copy.dashboardSummary}</p></div>
+      <span className="dashboard-range"><CalendarDays aria-hidden="true" />{copy.dashboardRange}</span>
+    </header>
 
-      <section aria-labelledby="overview-heading">
-        <div className="dashboard-section-heading">
-          <h2 id="overview-heading">{copy.overview}</h2>
-        </div>
-        <div className="dashboard-kpi-grid" aria-label={copy.overview}>
-          {metrics.map((metric) => (
-            <article className="dashboard-kpi" key={metric.label}>
-              <span className="dashboard-kpi-label"><span className="dashboard-kpi-dot" data-tone={metric.tone} />{metric.label}</span>
-              <strong>{metric.value}</strong>
-              <small>{metric.source}</small>
-            </article>
-          ))}
-        </div>
-      </section>
+    <section className="request-focus-banner" aria-labelledby="request-focus-title">
+      <div className="request-focus-content"><p>{ar ? 'الأولوية الآن' : 'Priority now'}</p><h2 id="request-focus-title">{priorityTitle}</h2><span>{priorityBody}</span><Button onClick={onCreate}><Plus aria-hidden="true" />{ar ? 'إنشاء سجل عمل' : copy.submit}</Button></div>
+      <div className="request-focus-visual" aria-hidden="true"><strong>{formatter.format(Math.min(3, activeCount))}</strong><span>{ar ? 'قرارات تفصل بين المعاملات وخطوتها التالية' : 'decisions between work and its next step'}</span></div>
+    </section>
 
-      <section aria-labelledby="analytics-heading">
-        <div className="dashboard-section-heading">
-          <h2 id="analytics-heading">{copy.analytics}</h2>
-        </div>
-        <div className="dashboard-panel-grid">
-          <article className="dashboard-panel" aria-labelledby="timeline-heading">
-            <div className="dashboard-panel-heading"><h3 id="timeline-heading">{copy.timelineTitle}</h3></div>
-            <div className="dashboard-empty-state">
-              <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
-              <strong>{copy.timelineUnavailableTitle}</strong>
-              <p>{copy.timelineUnavailableBody}</p>
-            </div>
-          </article>
+    <section className="request-stat-grid" aria-label={copy.overview}>{stats.map((stat) => <article className="request-stat-card" key={stat.label}><span className={`request-stat-icon ${stat.tone}`}>{stat.icon}</span><div><strong>{stat.value}</strong><span>{stat.label}</span></div></article>)}</section>
 
-          <article className="dashboard-panel" aria-labelledby="status-heading">
-            <div className="dashboard-panel-heading"><h3 id="status-heading">{copy.statusBreakdown}</h3></div>
-            {loading && <div className="skeleton-list" aria-label={copy.loadingRequests}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-            {!loading && error && <div className="dashboard-inline-error" role="alert"><p>{copy.listError}</p><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></div>}
-            {!loading && !error && records.length === 0 && (
-              <div className="dashboard-empty-state">
-                <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
-                <strong>{copy.noStatusTitle}</strong>
-                <p>{copy.noStatusBody}</p>
-              </div>
-            )}
-            {!loading && !error && records.length > 0 && (
-              <div className="dashboard-status-list">
-                {statusGroups.map((group) => {
-                  const percentage = Math.round((group.count / records.length) * 100)
-                  return (
-                    <div className="dashboard-status-row" key={group.label}>
-                      <div><span>{group.label}</span><strong>{formatter.format(group.count)}</strong></div>
-                      <div className="dashboard-progress" role="progressbar" aria-label={group.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}>
-                        <span data-tone={group.tone} style={{ inlineSize: `${percentage}%` }} />
-                      </div>
-                      <small>{formatter.format(percentage)}%</small>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </article>
-        </div>
-      </section>
-
-      <section aria-labelledby="activity-heading">
-        <div className="dashboard-section-heading">
-          <h2 id="activity-heading">{copy.recentActivity}</h2>
-        </div>
-        <div className="dashboard-panel-grid">
-          <article className="dashboard-panel" aria-labelledby="requests-heading">
-            <div className="dashboard-panel-heading">
-              <h3 id="requests-heading">{copy.myRequests}</h3>
-              <a href="/work-records/new" className="dashboard-panel-link" onClick={(event) => { event.preventDefault(); onCreate() }}>{copy.newRequest}</a>
-            </div>
-            {loading && <div className="skeleton-list" aria-label={copy.loadingRequests}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-            {!loading && error && <div className="dashboard-inline-error" role="alert"><p>{copy.listError}</p><button type="button" className="secondary-button" onClick={onRetry}>{copy.retry}</button></div>}
-            {!loading && !error && records.length === 0 && (
-              <div className="dashboard-empty-state">
-                <span className="dashboard-empty-icon" aria-hidden="true"><FolderSearch /></span>
-                <strong>{copy.emptyTitle}</strong>
-                <p>{copy.emptyBody}</p>
-                <button type="button" className="primary-button dashboard-empty-action" onClick={onCreate}>{copy.submit}</button>
-              </div>
-            )}
-            {!loading && !error && records.length > 0 && (
-              <ul className="request-list dashboard-request-list">
-                {records.slice(0, 4).map((record) => (
-                  <li key={record.id}>
-                    <a href={`/work-records/${record.id}`} onClick={(event) => { event.preventDefault(); onSelect(record.id) }}>
-                      <span className="request-copy">
-                        <strong>{record.payload.title ?? copy.noDescription}</strong>
-                        <span>{record.payload.description ?? copy.noDescription}</span>
-                      </span>
-                      <span className="request-meta">
-                        <span className="status-badge">{recordStatusText[locale][record.status]}</span>
-                        <time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time>
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
-
-          <article className="dashboard-panel" aria-labelledby="notifications-dashboard-heading">
-            <div className="dashboard-panel-heading">
-              <h3 id="notifications-dashboard-heading">{copy.notifications}</h3>
-              <button type="button" className="dashboard-panel-link" onClick={onOpenNotifications}>{copy.openNotifications}</button>
-            </div>
-            {notificationsLoading && <div className="skeleton-list" aria-label={copy.refreshingNotifications}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-            {!notificationsLoading && notificationsError && <p role="alert" className="field-error">{copy.notificationError}</p>}
-            {!notificationsLoading && !notificationsError && notifications.length === 0 && (
-              <div className="dashboard-empty-state">
-                <span className="dashboard-empty-icon" aria-hidden="true"><BellRing /></span>
-                <strong>{copy.noNotifications}</strong>
-                <p>{copy.noNotificationBody}</p>
-              </div>
-            )}
-            {!notificationsLoading && !notificationsError && notifications.length > 0 && (
-              <ul className="dashboard-notification-list">
-                {notifications.slice(0, 4).map((notification) => (
-                  <li key={notification.id}>
-                    <span className="dashboard-notification-copy"><strong>{notification.title}</strong><small>{notification.is_read ? copy.read : copy.unread}</small></span>
-                    <time dateTime={notification.created_at}>{formatDate(notification.created_at, locale)}</time>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
-        </div>
-      </section>
+    <div className="request-dashboard-grid">
+      <div className="request-dashboard-stack">
+        <Panel id="requests-heading" title={ar ? 'ما يحتاجك الآن' : copy.myRequests} actions={<Button variant="quiet" className="ui-panel-link" onClick={onCreate}>{copy.newRequest}</Button>}>
+          <p className="request-panel-intro">{ar ? 'مرتبة حسب الاستحقاق وتأثير التأخير.' : copy.currentPageSource}</p>
+          {loading && <SkeletonList label={copy.loadingRequests} />}
+          {!loading && error && <InlineError message={copy.listError} retryLabel={copy.retry} onRetry={onRetry} />}
+          {!loading && !error && records.length === 0 && <EmptyState icon={<FolderSearch />} title={copy.emptyTitle} body={copy.emptyBody} action={<Button onClick={onCreate}>{copy.submit}</Button>} />}
+          {!loading && !error && records.length > 0 && <>
+            <ul className="request-list dashboard-request-list">{(recordsExpanded ? records : records.slice(0, 4)).map((record) => <li key={record.id}><a href={`/work-records/${record.id}`} onClick={(event) => { event.preventDefault(); onSelect(record.id) }}><span className="request-work-icon"><FileText aria-hidden="true" /></span><span className="request-copy"><strong>{record.payload.title ?? copy.noDescription}</strong><span>{record.payload.description ?? copy.noDescription}</span></span><span className="request-meta"><StatusBadge>{recordStatusText[locale][record.status]}</StatusBadge><time dateTime={record.created_at}>{formatDate(record.created_at, locale)}</time></span></a></li>)}</ul>
+            {((!recordsExpanded && records.length > 4) || hasMore) && <Button variant="quiet" disabled={loadingMore} onClick={() => { setRecordsExpanded(true); onLoadMore?.() }}>
+              {loadingMore ? (ar ? 'جارٍ تحميل المزيد…' : 'Loading more…') : (ar ? 'تحميل المزيد من الطلبات' : 'Load more requests')}
+            </Button>}
+            {loadMoreError && <InlineError message={ar ? 'تعذر تحميل المزيد من الطلبات.' : 'Could not load more requests.'} />}
+          </>}
+        </Panel>
+        <Panel id="status-heading" title={ar ? 'إجراءات قيد التنفيذ' : copy.statusBreakdown}>
+          <p className="request-panel-intro">{ar ? 'صورة سريعة عن موقع المعاملات داخل سير العمل.' : copy.dashboardSummary}</p>
+          {!loading && !error && records.length > 0 ? <div className="dashboard-status-list">{statusGroups.map((group) => { const percentage = Math.round(group.count / records.length * 100); return <div className="dashboard-status-row" key={group.label}><div><span>{group.label}</span><strong>{formatter.format(group.count)}</strong></div><div className="dashboard-progress" role="progressbar" aria-label={group.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}><span data-tone={group.tone} style={{ inlineSize: `${percentage}%` }} /></div><small>{formatter.format(percentage)}%</small></div> })}</div> : loading ? <SkeletonList label={copy.loadingRequests} /> : error ? <InlineError message={copy.listError} retryLabel={copy.retry} onRetry={onRetry} /> : <EmptyState icon={<FolderSearch />} title={copy.noStatusTitle} body={copy.noStatusBody} />}
+        </Panel>
+      </div>
+      <div className="request-dashboard-stack">
+        <Panel id="quick-actions-heading" title={ar ? 'إجراء سريع' : 'Quick action'}><p className="request-panel-intro">{ar ? 'ابدأ من الهدف، والنظام يرتب الخطوات.' : 'Start from the outcome and keep work moving.'}</p><div className="request-quick-grid"><Button variant="quiet" onClick={onCreate}><Plus aria-hidden="true" /><strong>{copy.newRequest}</strong></Button><Button variant="quiet" onClick={onOpenNotifications}><BellRing aria-hidden="true" /><strong>{copy.openNotifications}</strong></Button><Button variant="quiet" onClick={onRetry}><Clock3 aria-hidden="true" /><strong>{ar ? 'تحديث البيانات' : 'Refresh data'}</strong></Button><Button variant="quiet" onClick={onOpenNotifications}><Sparkles aria-hidden="true" /><strong>{ar ? 'آخر التحديثات' : 'Recent updates'}</strong></Button></div></Panel>
+        <Panel id="notifications-dashboard-heading" title={copy.notifications} actions={<Button variant="quiet" className="ui-panel-link" onClick={onOpenNotifications}>{copy.openNotifications}</Button>}>
+          {notificationsLoading && <SkeletonList label={copy.refreshingNotifications} />}
+          {!notificationsLoading && notificationsError && <p role="alert" className="field-error">{copy.notificationError}</p>}
+          {!notificationsLoading && !notificationsError && notifications.length === 0 && <EmptyState icon={<BellRing />} title={copy.noNotifications} body={copy.noNotificationBody} />}
+          {!notificationsLoading && !notificationsError && notifications.length > 0 && <>
+            <ul className="dashboard-notification-list">{notifications.slice(0, 4).map((notification) => <li key={notification.id}><span className="dashboard-notification-copy"><strong>{notification.title}</strong><small>{notification.is_read ? copy.read : copy.unread}</small></span><time dateTime={notification.created_at}>{formatDate(notification.created_at, locale)}</time></li>)}</ul>
+            {notificationsHasMore && onLoadMoreNotifications && <Button variant="quiet" disabled={notificationsLoadingMore} onClick={onLoadMoreNotifications}>{notificationsLoadingMore ? (ar ? 'جارٍ تحميل المزيد…' : 'Loading more…') : (ar ? 'تحميل المزيد من التنبيهات' : 'Load more notifications')}</Button>}
+            {notificationsLoadMoreError && <InlineError message={ar ? 'تعذر تحميل المزيد من التنبيهات.' : 'Could not load more notifications.'} />}
+          </>}
+        </Panel>
+      </div>
     </div>
-  )
+  </Page>
 }

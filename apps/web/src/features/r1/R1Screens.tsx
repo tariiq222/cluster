@@ -1,5 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { ApiError } from '../../api'
+import { formattingLocale } from '../../app/copy'
+import { useLocale, useToken } from '../../app/session-context'
+import { Inbox } from 'lucide-react'
+import { stateFromError } from '../../api'
 import {
   createWorkDefinition,
   createWorkDefinitionVersion,
@@ -7,11 +10,12 @@ import {
   getDashboard,
   getReport,
   getReportExport,
+  listDashboards,
+  listReports,
   listTasks,
   listWorkDefinitions,
   listWorkflowDefinitions,
   listWorkflowInstances,
-  markNotificationRead,
   publishWorkDefinitionVersion,
   publishWorkflowVersion,
   requestReportExport,
@@ -20,11 +24,10 @@ import {
   type R1Collection,
   type R1Entity,
 } from '../../api/r1'
+import { Button, EmptyState, Field, InlineError, PageHeader, Panel, PanelGrid, Select, SkeletonList } from '../../ui'
 
 type Locale = 'ar' | 'en'
 type State = 'loading' | 'ready' | 'empty' | 'forbidden' | 'error' | 'stale'
-type Props = { locale: Locale; token: string; onSessionExpired: () => void }
-
 const common = {
   ar: {
     loading: 'جارٍ التحميل…',
@@ -50,6 +53,53 @@ const common = {
     linkedRecord: 'السجل المرتبط',
     openRecord: 'فتح السجل',
     completedAt: 'وقت الإكمال',
+    exportFailed: 'فشل تصدير التقرير. يمكنك إعادة المحاولة.',
+    exportRetry: 'إعادة تصدير',
+    actions: 'الإجراءات',
+    actionAppliedSuccessfully: 'تم تنفيذ العملية بنجاح.',
+    myTasks: 'مهامي',
+    filterTasks: 'تصفية المهام',
+    open: 'فتح',
+    complete: 'إكمال',
+    return: 'إعادة',
+    noDescription: 'لا يوجد وصف',
+    status2: 'الحالة',
+    workflowStep: 'خطوة المسار',
+    applying: 'جارٍ التنفيذ…',
+    workDefinitionAdministration: 'إدارة تعريفات العمل',
+    existingRecordsRemainPinnedToThe: 'يبقى كل سجل مثبتاً على الإصدار الذي بدأ به عند نشر إصدار أحدث.',
+    createADefinitionTheSystemPublishes: 'أنشئ تعريفاً ثم ينشر النظام الإصدار الأول تلقائياً.',
+    lowercaseLatinLettersDigitsAndDashes: 'أحرف لاتينية صغيرة وأرقام وشرطات فقط.',
+    publishing: 'جارٍ النشر…',
+    workflowAdministration: 'إدارة المسارات',
+    publishedDefinitions: 'التعريفات المنشورة',
+    runningInstancesAndSteps: 'المسارات الجارية وخطواتها',
+    search: 'البحث',
+    theServerReturnsAuthorizedResultsOnly: 'يعيد الخادم النتائج المصرح بها فقط؛ لا تُكشف عناوين الموارد المحجوبة.',
+    searchText: 'نص البحث',
+    eGReportRequestDefinition: 'مثال: تقرير، طلب، تعريف',
+    type: 'النوع',
+    all: 'الكل',
+    searching: 'جارٍ البحث…',
+    search2: 'بحث',
+    clear: 'مسح',
+    enterTextPlusOptionalFiltersThen: 'اختر نصاً ثم فلاتر اختيارية ثم ابحث.',
+    reports: 'التقارير',
+    reportOrDashboard: 'التقرير أو اللوحة',
+    reportKpis: 'مؤشرات التقرير',
+    countInScope: 'العدد ضمن النطاق',
+    itemsRendered: 'العناصر المعروضة',
+    exportReport: 'تصدير التقرير',
+    requestingExport: 'جارٍ إنشاء التصدير…',
+    requestExport: 'طلب تصدير',
+    exportStatus: 'حالة التصدير',
+    processing: 'جارٍ المعالجة',
+    download: 'تنزيل',
+    definitionPublished: (code: string) => `تم نشر التعريف ${code} بالإصدار الأول.`,
+    workflowPublished: (code: string) => `تم نشر المسار ${code} بالإصدار الأول.`,
+    totalDefinitions: (count: number) => `إجمالي التعريفات: ${count}`,
+    countLabel: (count: number) => `العدد: ${count}`,
+    authorizedResults: (query: string, count: number) => `النتائج المصرح بها لـ "${query}": ${count}`,
   },
   en: {
     loading: 'Loading…',
@@ -75,14 +125,63 @@ const common = {
     linkedRecord: 'Linked record',
     openRecord: 'Open record',
     completedAt: 'Completed at',
+    exportFailed: 'Report export failed. You can try again.',
+    exportRetry: 'Retry export',
+    actions: 'Actions',
+    actionAppliedSuccessfully: 'Action applied successfully.',
+    myTasks: 'My tasks',
+    filterTasks: 'Filter tasks',
+    open: 'Open',
+    complete: 'Complete',
+    return: 'Return',
+    noDescription: 'No description',
+    status2: 'Status',
+    workflowStep: 'Workflow step',
+    applying: 'Applying…',
+    workDefinitionAdministration: 'Work definition administration',
+    existingRecordsRemainPinnedToThe: 'Existing records remain pinned to the version on which they started.',
+    createADefinitionTheSystemPublishes: 'Create a definition; the system publishes its first version automatically.',
+    lowercaseLatinLettersDigitsAndDashes: 'Lowercase Latin letters, digits, and dashes only.',
+    publishing: 'Publishing…',
+    workflowAdministration: 'Workflow administration',
+    publishedDefinitions: 'Published definitions',
+    runningInstancesAndSteps: 'Running instances and steps',
+    search: 'Search',
+    theServerReturnsAuthorizedResultsOnly: 'The server returns authorized results only; denied resource titles are never exposed.',
+    searchText: 'Search text',
+    eGReportRequestDefinition: 'e.g. report, request, definition',
+    type: 'Type',
+    all: 'All',
+    searching: 'Searching…',
+    search2: 'Search',
+    clear: 'Clear',
+    enterTextPlusOptionalFiltersThen: 'Enter text plus optional filters, then search.',
+    reports: 'Reports',
+    reportOrDashboard: 'Report or dashboard',
+    reportKpis: 'Report KPIs',
+    countInScope: 'Count in scope',
+    itemsRendered: 'Items rendered',
+    exportReport: 'Export report',
+    requestingExport: 'Requesting export…',
+    requestExport: 'Request export',
+    exportStatus: 'Export status',
+    processing: 'Processing',
+    download: 'Download',
+    definitionPublished: (code: string) => `Definition ${code} published at version 1.`,
+    workflowPublished: (code: string) => `Workflow ${code} published at version 1.`,
+    totalDefinitions: (count: number) => `Total definitions: ${count}`,
+    countLabel: (count: number) => `Count: ${count}`,
+    authorizedResults: (query: string, count: number) => `Authorized results for "${query}": ${count}`,
   },
 } as const
 
-function stateFrom(error: unknown, expired: () => void): State {
-  if (error instanceof ApiError && error.status === 401) { expired(); return 'error' }
-  if (error instanceof ApiError && error.status === 403) return 'forbidden'
-  if (error instanceof ApiError && (error.status === 409 || error.status === 412)) return 'stale'
-  return 'error'
+function stateFrom(error: unknown): State {
+  const state = stateFromError(error)
+  // This screen family has no distinct not-found or conflict copy; both read as stale
+  // because the remedy is the same: reload before retrying.
+  if (state === 'conflict') return 'stale'
+  if (state === 'not-found') return 'error'
+  return state
 }
 
 export const __test = { stateFrom, common }
@@ -90,16 +189,20 @@ export const __test = { stateFrom, common }
 function ScreenState({ locale, state, retry }: { locale: Locale; state: State; retry: () => void }) {
   const t = common[locale]
   if (state === 'ready') return null
-  if (state === 'loading') return <div className="skeleton-list" aria-label={t.loading}>{[0, 1, 2].map((row) => <div className="skeleton-row" aria-hidden="true" key={row} />)}</div>
-  return <div className="state-panel" role={state === 'empty' ? undefined : 'alert'}><p>{state === 'empty' ? t.empty : state === 'forbidden' ? t.forbidden : state === 'stale' ? t.stale : t.error}</p>{state !== 'forbidden' && state !== 'empty' && <button type="button" className="secondary-button" onClick={retry}>{t.retry}</button>}</div>
+  if (state === 'loading') return <SkeletonList label={t.loading} />
+  if (state === 'empty') return <EmptyState icon={<Inbox />} title={t.empty} />
+  if (state === 'forbidden') return <InlineError message={t.forbidden} />
+  return <InlineError message={state === 'stale' ? t.stale : t.error} retryLabel={t.retry} onRetry={retry} />
 }
 
 function EntityTable({ locale, items, actions }: { locale: Locale; items: R1Entity[]; actions?: (item: R1Entity) => React.ReactNode }) {
   const t = common[locale]
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>{t.name}</th><th>{t.code}</th><th>{t.status}</th>{actions && <th>{locale === 'ar' ? 'الإجراءات' : 'Actions'}</th>}</tr></thead><tbody>{items.map((item, index) => <tr key={String(item.id ?? index)}><td>{String(item.name ?? item.title ?? item.id ?? '—')}</td><td>{String(item.code ?? item.version_number ?? '—')}</td><td>{String(item.status ?? item.definition_state ?? '—')}</td>{actions && <td>{actions(item)}</td>}</tr>)}</tbody></table></div>
+  return <div className="table-scroll"><table className="data-table"><thead><tr><th>{t.name}</th><th>{t.code}</th><th>{t.status}</th>{actions && <th>{common[locale].actions}</th>}</tr></thead><tbody>{items.map((item, index) => <tr key={String(item.id ?? index)}><td>{String(item.name ?? item.title ?? item.id ?? '—')}</td><td>{String(item.code ?? item.version_number ?? '—')}</td><td>{String(item.status ?? item.definition_state ?? '—')}</td>{actions && <td>{actions(item)}</td>}</tr>)}</tbody></table></div>
 }
 
-export function TasksScreen({ locale, token, onSessionExpired }: Props) {
+export function TasksScreen() {
+  const locale = useLocale()
+  const token = useToken()
   const [items, setItems] = useState<R1Entity[]>([])
   const [state, setState] = useState<State>('loading')
   const [selected, setSelected] = useState<R1Entity | null>(null)
@@ -117,9 +220,9 @@ export function TasksScreen({ locale, token, onSessionExpired }: Props) {
       setLastRefreshedAt(new Date())
       setState(result.items?.length ? 'ready' : 'empty')
     } catch (error) {
-      setState(stateFrom(error, onSessionExpired))
+      setState(stateFrom(error))
     }
-  }, [token, onSessionExpired])
+  }, [token])
 
   useEffect(() => { void load() }, [load])
 
@@ -135,11 +238,11 @@ export function TasksScreen({ locale, token, onSessionExpired }: Props) {
     setSubmitting(true)
     try {
       await transitionTask(token, String(pendingAction.item.id), pendingAction.action, Number(pendingAction.item.lock_version ?? 1))
-      setFeedback({ kind: 'success', message: locale === 'ar' ? 'تم تنفيذ العملية بنجاح.' : 'Action applied successfully.' })
+      setFeedback({ kind: 'success', message: common[locale].actionAppliedSuccessfully })
       setPendingAction(null)
       await load()
     } catch (error) {
-      setFeedback({ kind: 'error', message: stateFrom(error, onSessionExpired) === 'stale' ? common[locale].stale : common[locale].error })
+      setFeedback({ kind: 'error', message: stateFrom(error) === 'stale' ? common[locale].stale : common[locale].error })
     } finally {
       setSubmitting(false)
     }
@@ -147,24 +250,21 @@ export function TasksScreen({ locale, token, onSessionExpired }: Props) {
 
   const t = common[locale]
   return (
-    <section className="organization-page" aria-labelledby="tasks-heading">
-      <div className="page-heading">
-        <h1 id="tasks-heading">{locale === 'ar' ? 'مهامي' : 'My tasks'}</h1>
-        {lastRefreshedAt && <p className="status-message">{t.updated}: {lastRefreshedAt.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US')}</p>}
-      </div>
-      <div className="filter-bar" role="group" aria-label={locale === 'ar' ? 'تصفية المهام' : 'Filter tasks'}>
+    <section className="ui-page" aria-labelledby="tasks-heading">
+      <PageHeader id="tasks-heading" title={common[locale].myTasks} />
+      {lastRefreshedAt && <p className="status-message">{t.updated}: {lastRefreshedAt.toLocaleTimeString(formattingLocale(locale))}</p>}
+      <div className="filter-bar" role="group" aria-label={common[locale].filterTasks}>
         {(['open', 'done', 'all'] as const).map((value) => (
-          <button
+          <Button
             key={value}
-            type="button"
-            className={filter === value ? 'primary-button' : 'secondary-button'}
+            variant={filter === value ? 'primary' : 'secondary'}
             aria-pressed={filter === value}
             onClick={() => setFilter(value)}
           >
             {value === 'open' ? t.filterOpen : value === 'done' ? t.filterDone : t.filterAll}
-          </button>
+          </Button>
         ))}
-        <button type="button" className="quiet-button" onClick={() => void load()} aria-label={t.refresh}>{t.refresh}</button>
+        <Button variant="quiet" onClick={() => void load()} aria-label={t.refresh}>{t.refresh}</Button>
       </div>
       {feedback && (
         <div className={`status-message ${feedback.kind === 'error' ? 'error' : 'success'}`} role={feedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">
@@ -178,11 +278,11 @@ export function TasksScreen({ locale, token, onSessionExpired }: Props) {
           const isDone = status === 'completed' || status === 'done'
           return (
             <div className="table-actions">
-              <button type="button" className="quiet-button" onClick={() => setSelected(item)}>{locale === 'ar' ? 'فتح' : 'Open'}</button>
+              <Button variant="quiet" onClick={() => setSelected(item)}>{common[locale].open}</Button>
               {!isDone && (
                 <>
-                  <button type="button" className="primary-button" onClick={() => setPendingAction({ item, action: 'complete' })} disabled={submitting}>{locale === 'ar' ? 'إكمال' : 'Complete'}</button>
-                  <button type="button" className="secondary-button" onClick={() => setPendingAction({ item, action: 'return-completion' })} disabled={submitting}>{locale === 'ar' ? 'إعادة' : 'Return'}</button>
+                  <Button onClick={() => setPendingAction({ item, action: 'complete' })} disabled={submitting}>{common[locale].complete}</Button>
+                  <Button variant="secondary" onClick={() => setPendingAction({ item, action: 'return-completion' })} disabled={submitting}>{common[locale].return}</Button>
                 </>
               )}
             </div>
@@ -192,10 +292,10 @@ export function TasksScreen({ locale, token, onSessionExpired }: Props) {
       {selected && (
         <div className="surface-card" aria-live="polite">
           <h2>{String(selected.title ?? selected.id)}</h2>
-          <p>{String(selected.description ?? (locale === 'ar' ? 'لا يوجد وصف' : 'No description'))}</p>
+          <p>{String(selected.description ?? (common[locale].noDescription))}</p>
           <dl className="record-summary">
-            <div><dt>{locale === 'ar' ? 'الحالة' : 'Status'}</dt><dd>{String(selected.status ?? '—')}</dd></div>
-            <div><dt>{locale === 'ar' ? 'خطوة المسار' : 'Workflow step'}</dt><dd>{String(selected.workflow_step_id ?? '—')}</dd></div>
+            <div><dt>{common[locale].status2}</dt><dd>{String(selected.status ?? '—')}</dd></div>
+            <div><dt>{common[locale].workflowStep}</dt><dd>{String(selected.workflow_step_id ?? '—')}</dd></div>
             {selected.due_at != null && <div><dt>{t.dueAt}</dt><dd>{String(selected.due_at)}</dd></div>}
             {selected.completed_at != null && <div><dt>{t.completedAt}</dt><dd>{String(selected.completed_at)}</dd></div>}
             {selected.work_record_id != null && (
@@ -209,7 +309,7 @@ export function TasksScreen({ locale, token, onSessionExpired }: Props) {
               </div>
             )}
           </dl>
-          <button type="button" className="secondary-button" onClick={() => setSelected(null)}>{t.cancel}</button>
+          <Button variant="secondary" onClick={() => setSelected(null)}>{t.cancel}</Button>
         </div>
       )}
       {pendingAction && (
@@ -217,10 +317,12 @@ export function TasksScreen({ locale, token, onSessionExpired }: Props) {
           <h2 id="task-confirm-heading">{pendingAction.action === 'complete' ? t.confirmComplete : t.confirmReturn}</h2>
           <p id="task-confirm-body">{String(pendingAction.item.title ?? pendingAction.item.id)}</p>
           <div className="table-actions">
-            <button type="button" className="primary-button" onClick={() => void confirmAction()} disabled={submitting}>
-              {submitting ? (locale === 'ar' ? 'جارٍ التنفيذ…' : 'Applying…') : t.confirmComplete.split('?')[0]}
-            </button>
-            <button type="button" className="secondary-button" onClick={() => setPendingAction(null)} disabled={submitting}>{t.cancel}</button>
+            <Button onClick={() => void confirmAction()} disabled={submitting}>
+              {submitting
+                ? (common[locale].applying)
+                : (pendingAction.action === 'complete' ? t.confirmComplete : t.confirmReturn).split('?')[0]}
+            </Button>
+            <Button variant="secondary" onClick={() => setPendingAction(null)} disabled={submitting}>{t.cancel}</Button>
           </div>
         </div>
       )}
@@ -228,7 +330,9 @@ export function TasksScreen({ locale, token, onSessionExpired }: Props) {
   )
 }
 
-export function WorkDefinitionsScreen({ locale, token, onSessionExpired }: Props) {
+export function WorkDefinitionsScreen() {
+  const locale = useLocale()
+  const token = useToken()
   const [items, setItems] = useState<R1Entity[]>([])
   const [state, setState] = useState<State>('loading')
   const [submitting, setSubmitting] = useState(false)
@@ -240,9 +344,9 @@ export function WorkDefinitionsScreen({ locale, token, onSessionExpired }: Props
       setItems(value.items ?? [])
       setState(value.items?.length ? 'ready' : 'empty')
     } catch (error) {
-      setState(stateFrom(error, onSessionExpired))
+      setState(stateFrom(error))
     }
-  }, [token, onSessionExpired])
+  }, [token])
   useEffect(() => { void load() }, [load])
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -262,28 +366,29 @@ export function WorkDefinitionsScreen({ locale, token, onSessionExpired }: Props
       })
       await publishWorkDefinitionVersion(token, String(version.id), Number(version.lock_version ?? 1))
       event.currentTarget.reset()
-      setFeedback({ kind: 'success', message: locale === 'ar' ? `تم نشر التعريف ${String(definition.code)} بالإصدار الأول.` : `Definition ${String(definition.code)} published at version 1.` })
+      setFeedback({ kind: 'success', message: common[locale].definitionPublished(String(definition.code)) })
       await load()
     } catch (error) {
-      setFeedback({ kind: 'error', message: stateFrom(error, onSessionExpired) === 'stale' ? common[locale].stale : common[locale].error })
+      setFeedback({ kind: 'error', message: stateFrom(error) === 'stale' ? common[locale].stale : common[locale].error })
     } finally {
       setSubmitting(false)
     }
   }
   return (
-    <section className="organization-page" aria-labelledby="definitions-heading">
-      <div className="page-heading">
-        <h1 id="definitions-heading">{locale === 'ar' ? 'إدارة تعريفات العمل' : 'Work definition administration'}</h1>
-        <p className="status-message">{locale === 'ar' ? 'يبقى كل سجل مثبتاً على الإصدار الذي بدأ به عند نشر إصدار أحدث.' : 'Existing records remain pinned to the version on which they started.'}</p>
-      </div>
+    <section className="ui-page" aria-labelledby="definitions-heading">
+      <PageHeader id="definitions-heading" title={common[locale].workDefinitionAdministration} />
+      <p className="status-message">{common[locale].existingRecordsRemainPinnedToThe}</p>
       <form className="inline-form" onSubmit={(event) => void create(event)} aria-describedby="definitions-form-help">
-        <p id="definitions-form-help" className="visually-hidden">{locale === 'ar' ? 'أنشئ تعريفاً ثم ينشر النظام الإصدار الأول تلقائياً.' : 'Create a definition; the system publishes its first version automatically.'}</p>
-        <label>{common[locale].code}<input name="code" required pattern="[a-z][a-z0-9-]+" aria-describedby="definitions-code-help" /></label>
-        <span id="definitions-code-help" className="field-help">{locale === 'ar' ? 'أحرف لاتينية صغيرة وأرقام وشرطات فقط.' : 'Lowercase Latin letters, digits, and dashes only.'}</span>
-        <label>{common[locale].name}<input name="name" required /></label>
-        <button type="submit" className="primary-button" disabled={submitting}>
-          {submitting ? (locale === 'ar' ? 'جارٍ النشر…' : 'Publishing…') : common[locale].create}
-        </button>
+        <p id="definitions-form-help" className="visually-hidden">{common[locale].createADefinitionTheSystemPublishes}</p>
+        <Field id="work-definition-code" label={common[locale].code} required help={common[locale].lowercaseLatinLettersDigitsAndDashes}>
+          <input id="work-definition-code" name="code" required pattern="[a-z][a-z0-9-]+" />
+        </Field>
+        <Field id="work-definition-name" label={common[locale].name} required>
+          <input id="work-definition-name" name="name" required />
+        </Field>
+        <Button type="submit" disabled={submitting}>
+          {submitting ? (common[locale].publishing) : common[locale].create}
+        </Button>
       </form>
       {feedback && (
         <div className={`status-message ${feedback.kind === 'error' ? 'error' : 'success'}`} role={feedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">
@@ -294,7 +399,7 @@ export function WorkDefinitionsScreen({ locale, token, onSessionExpired }: Props
       {state === 'ready' && items.length > 0 && (
         <>
           <p className="status-message" aria-live="polite">
-            {locale === 'ar' ? `إجمالي التعريفات: ${items.length}` : `Total definitions: ${items.length}`}
+            {common[locale].totalDefinitions(items.length)}
           </p>
           <EntityTable locale={locale} items={items} />
         </>
@@ -303,7 +408,9 @@ export function WorkDefinitionsScreen({ locale, token, onSessionExpired }: Props
   )
 }
 
-export function WorkflowAdminScreen({ locale, token, onSessionExpired }: Props) {
+export function WorkflowAdminScreen() {
+  const locale = useLocale()
+  const token = useToken()
   const [definitions, setDefinitions] = useState<R1Entity[]>([])
   const [instances, setInstances] = useState<R1Entity[]>([])
   const [state, setState] = useState<State>('loading')
@@ -317,9 +424,9 @@ export function WorkflowAdminScreen({ locale, token, onSessionExpired }: Props) 
       setInstances(i.items ?? [])
       setState(d.items?.length || i.items?.length ? 'ready' : 'empty')
     } catch (error) {
-      setState(stateFrom(error, onSessionExpired))
+      setState(stateFrom(error))
     }
-  }, [token, onSessionExpired])
+  }, [token])
   useEffect(() => { void load() }, [load])
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -335,25 +442,27 @@ export function WorkflowAdminScreen({ locale, token, onSessionExpired }: Props) 
       })
       await publishWorkflowVersion(token, String(created.version.id), Number(created.version.lock_version ?? 1))
       event.currentTarget.reset()
-      setFeedback({ kind: 'success', message: locale === 'ar' ? `تم نشر المسار ${String(form.get('code'))} بالإصدار الأول.` : `Workflow ${String(form.get('code'))} published at version 1.` })
+      setFeedback({ kind: 'success', message: common[locale].workflowPublished(String(form.get('code'))) })
       await load()
     } catch (error) {
-      setFeedback({ kind: 'error', message: stateFrom(error, onSessionExpired) === 'stale' ? common[locale].stale : common[locale].error })
+      setFeedback({ kind: 'error', message: stateFrom(error) === 'stale' ? common[locale].stale : common[locale].error })
     } finally {
       setSubmitting(false)
     }
   }
   return (
-    <section className="organization-page" aria-labelledby="workflow-heading">
-      <div className="page-heading">
-        <h1 id="workflow-heading">{locale === 'ar' ? 'إدارة المسارات' : 'Workflow administration'}</h1>
-      </div>
+    <section className="ui-page" aria-labelledby="workflow-heading">
+      <PageHeader id="workflow-heading" title={common[locale].workflowAdministration} />
       <form className="inline-form" onSubmit={(event) => void create(event)}>
-        <label>{common[locale].code}<input name="code" required pattern="[a-z][a-z0-9_]+" /></label>
-        <label>{common[locale].name}<input name="name" required /></label>
-        <button type="submit" className="primary-button" disabled={submitting}>
-          {submitting ? (locale === 'ar' ? 'جارٍ النشر…' : 'Publishing…') : common[locale].create}
-        </button>
+        <Field id="workflow-code" label={common[locale].code} required>
+          <input id="workflow-code" name="code" required pattern="[a-z][a-z0-9_]+" />
+        </Field>
+        <Field id="workflow-name" label={common[locale].name} required>
+          <input id="workflow-name" name="name" required />
+        </Field>
+        <Button type="submit" disabled={submitting}>
+          {submitting ? (common[locale].publishing) : common[locale].create}
+        </Button>
       </form>
       {feedback && (
         <div className={`status-message ${feedback.kind === 'error' ? 'error' : 'success'}`} role={feedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">
@@ -362,29 +471,58 @@ export function WorkflowAdminScreen({ locale, token, onSessionExpired }: Props) 
       )}
       <ScreenState locale={locale} state={state} retry={() => void load()} />
       {state === 'ready' && (
-        <div className="form-grid">
-          <div className="surface-card">
-            <h2>{locale === 'ar' ? 'التعريفات المنشورة' : 'Published definitions'}</h2>
-            <p className="status-message" aria-live="polite">{locale === 'ar' ? `العدد: ${definitions.length}` : `Count: ${definitions.length}`}</p>
+        <PanelGrid>
+          <Panel id="workflow-definitions-heading" title={common[locale].publishedDefinitions} level={2}>
+            <p className="status-message" aria-live="polite">{common[locale].countLabel(definitions.length)}</p>
             <EntityTable locale={locale} items={definitions} />
-          </div>
-          <div className="surface-card">
-            <h2>{locale === 'ar' ? 'المسارات الجارية وخطواتها' : 'Running instances and steps'}</h2>
-            <p className="status-message" aria-live="polite">{locale === 'ar' ? `العدد: ${instances.length}` : `Count: ${instances.length}`}</p>
+          </Panel>
+          <Panel id="workflow-instances-heading" title={common[locale].runningInstancesAndSteps} level={2}>
+            <p className="status-message" aria-live="polite">{common[locale].countLabel(instances.length)}</p>
             <EntityTable locale={locale} items={instances} />
-          </div>
-        </div>
+          </Panel>
+        </PanelGrid>
       )}
     </section>
   )
 }
 
-export function SearchScreen({ locale, token, onSessionExpired }: Props) {
+export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
+  const locale = useLocale()
+  const token = useToken()
   const [items, setItems] = useState<R1Entity[]>([])
   const [state, setState] = useState<State>('empty')
   const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [lastQuery, setLastQuery] = useState('')
+  const [lastSearch, setLastSearch] = useState<{ query: string; type: string; status: string } | null>(null)
+
+  const runSearch = useCallback(async (q: string, type = '', status = '') => {
+    const normalizedQuery = q.trim()
+    if (!normalizedQuery) return
+    setLastSearch({ query: normalizedQuery, type, status })
+    setSubmitting(true)
+    setState('loading')
+    try {
+      const result = await searchRecords(token, normalizedQuery)
+      let values = result.items ?? []
+      if (type) values = values.filter((item) => item.resource_type === type || item.record_type === type)
+      if (status) values = values.filter((item) => item.status === status)
+      setItems(values)
+      setState(values.length ? 'ready' : 'empty')
+    } catch (error) {
+      setState(stateFrom(error))
+    } finally {
+      setSubmitting(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    const normalizedQuery = initialQuery.trim()
+    if (!normalizedQuery) return
+    setQuery(normalizedQuery)
+    void runSearch(normalizedQuery)
+  }, [initialQuery, runSearch])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -392,81 +530,71 @@ export function SearchScreen({ locale, token, onSessionExpired }: Props) {
     const form = new FormData(event.currentTarget)
     const q = String(form.get('q') ?? '').trim()
     if (!q) return
-    setSubmitting(true)
-    setState('loading')
-    try {
-      const result = await searchRecords(token, q)
-      let values = result.items ?? []
-      const type = String(form.get('type') ?? '')
-      const status = String(form.get('status') ?? '')
-      if (type) values = values.filter((item) => item.resource_type === type || item.record_type === type)
-      if (status) values = values.filter((item) => item.status === status)
-      setItems(values)
-      setLastQuery(q)
-      setState(values.length ? 'ready' : 'empty')
-    } catch (error) {
-      setState(stateFrom(error, onSessionExpired))
-    } finally {
-      setSubmitting(false)
-    }
+    await runSearch(q, String(form.get('type') ?? ''), String(form.get('status') ?? ''))
   }
 
   function reset() {
     setQuery('')
     setItems([])
-    setLastQuery('')
+    setLastSearch(null)
     setState('empty')
   }
 
   return (
-    <section className="organization-page" aria-labelledby="search-heading">
-      <div className="page-heading">
-        <h1 id="search-heading">{locale === 'ar' ? 'البحث' : 'Search'}</h1>
-        <p className="status-message">{locale === 'ar' ? 'يعيد الخادم النتائج المصرح بها فقط؛ لا تُكشف عناوين الموارد المحجوبة.' : 'The server returns authorized results only; denied resource titles are never exposed.'}</p>
-      </div>
+    <section className="ui-page" aria-labelledby="search-heading">
+      <PageHeader id="search-heading" title={common[locale].search} />
+      <p className="status-message">{common[locale].theServerReturnsAuthorizedResultsOnly}</p>
       <form className="inline-form" onSubmit={(event) => void submit(event)} aria-describedby="search-help">
-        <label>{locale === 'ar' ? 'نص البحث' : 'Search text'}<input name="q" required value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={locale === 'ar' ? 'مثال: تقرير، طلب، تعريف' : 'e.g. report, request, definition'} /></label>
-        <label>{locale === 'ar' ? 'النوع' : 'Type'}<select name="type" defaultValue="">
-          <option value="">{locale === 'ar' ? 'الكل' : 'All'}</option>
-          <option value="work_record">Work record</option>
-          <option value="task">Task</option>
-          <option value="document">Document</option>
-        </select></label>
-        <label>{common[locale].status}<select name="status" defaultValue="">
-          <option value="">{locale === 'ar' ? 'الكل' : 'All'}</option>
-          <option value="draft">Draft</option>
-          <option value="submitted">Submitted</option>
-          <option value="in_review">In review</option>
-          <option value="approved">Approved</option>
-          <option value="completed">Completed</option>
-        </select></label>
-        <button type="submit" className="primary-button" disabled={submitting || !query.trim()}>
-          {submitting ? (locale === 'ar' ? 'جارٍ البحث…' : 'Searching…') : (locale === 'ar' ? 'بحث' : 'Search')}
-        </button>
-        {(lastQuery || items.length > 0) && (
-          <button type="button" className="secondary-button" onClick={reset} disabled={submitting}>
-            {locale === 'ar' ? 'مسح' : 'Clear'}
-          </button>
+        <Field id="search-query" label={common[locale].searchText} required>
+          <input id="search-query" name="q" required value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={common[locale].eGReportRequestDefinition} />
+        </Field>
+        <Field id="search-type" label={common[locale].type}>
+          <Select id="search-type" name="type" value={typeFilter} onChange={setTypeFilter} options={[
+            { value: '', label: common[locale].all },
+            { value: 'work_record', label: 'Work record' },
+            { value: 'task', label: 'Task' },
+            { value: 'document', label: 'Document' },
+          ]} />
+        </Field>
+        <Field id="search-status" label={common[locale].status}>
+          <Select id="search-status" name="status" value={statusFilter} onChange={setStatusFilter} options={[
+            { value: '', label: common[locale].all },
+            { value: 'draft', label: 'Draft' },
+            { value: 'submitted', label: 'Submitted' },
+            { value: 'in_review', label: 'In review' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'completed', label: 'Completed' },
+          ]} />
+        </Field>
+        <Button type="submit" disabled={submitting || !query.trim()}>
+          {submitting ? (common[locale].searching) : (common[locale].search2)}
+        </Button>
+        {(lastSearch || items.length > 0) && (
+          <Button variant="secondary" onClick={reset} disabled={submitting}>
+            {common[locale].clear}
+          </Button>
         )}
       </form>
-      <p id="search-help" className="visually-hidden">{locale === 'ar' ? 'اختر نصاً ثم فلاتر اختيارية ثم ابحث.' : 'Enter text plus optional filters, then search.'}</p>
-      {state === 'ready' && lastQuery && (
+      <p id="search-help" className="visually-hidden">{common[locale].enterTextPlusOptionalFiltersThen}</p>
+      {state === 'ready' && lastSearch && (
         <p className="status-message" aria-live="polite">
-          {locale === 'ar' ? `النتائج المصرح بها لـ "${lastQuery}": ${items.length}` : `Authorized results for "${lastQuery}": ${items.length}`}
+          {common[locale].authorizedResults(lastSearch.query, items.length)}
         </p>
       )}
-      <ScreenState locale={locale} state={state} retry={() => undefined} />
+      <ScreenState locale={locale} state={state} retry={() => { if (lastSearch) void runSearch(lastSearch.query, lastSearch.type, lastSearch.status) }} />
       {state === 'ready' && <EntityTable locale={locale} items={items} />}
     </section>
   )
 }
 
-const REPORT_ID = '019f7000-0000-7000-8000-000000000901'
-const DASHBOARD_ID = '019f7000-0000-7000-8000-000000000902'
-
-export function ReportsScreen({ locale, token, onSessionExpired }: Props) {
+export function ReportsScreen() {
+  const locale = useLocale()
+  const token = useToken()
   const [report, setReport] = useState<R1Collection | null>(null)
   const [state, setState] = useState<State>('loading')
+  const [options, setOptions] = useState<Array<{ value: string; label: string; kind: 'report' | 'dashboard' }>>([])
+  const [selection, setSelection] = useState('')
+  const [selectedKind, setSelectedKind] = useState<'report' | 'dashboard' | null>(null)
   const [exportItem, setExportItem] = useState<R1Entity | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -474,186 +602,175 @@ export function ReportsScreen({ locale, token, onSessionExpired }: Props) {
   const load = useCallback(async () => {
     setState('loading')
     try {
-      const result = await getReport(token, REPORT_ID)
+      const [reports, dashboards] = await Promise.all([listReports(token), listDashboards(token)])
+      const reportOptions = (reports.items ?? []).filter((item) => item.id).map((item) => ({ value: `report:${String(item.id)}`, label: String(item.name ?? item.title ?? item.id), kind: 'report' as const }))
+      const dashboardOptions = (dashboards.items ?? []).filter((item) => item.id).map((item) => ({ value: `dashboard:${String(item.id)}`, label: String(item.name ?? item.title ?? item.id), kind: 'dashboard' as const }))
+      const allOptions = [...reportOptions, ...dashboardOptions]
+      setOptions(allOptions)
+      if (!allOptions.length) {
+        setReport(null)
+        setSelectedKind(null)
+        setSelection('')
+        setExportItem(null)
+        setExportError(null)
+        setExporting(false)
+        setState('empty')
+        return
+      }
+      setSelection((current) => allOptions.some((option) => option.value === current) ? current : allOptions[0].value)
+    } catch (error) {
+      setReport(null)
+      setSelectedKind(null)
+      setExportItem(null)
+      setExportError(null)
+      setExporting(false)
+      setState(stateFrom(error))
+    }
+  }, [token])
+  useEffect(() => { void load() }, [load])
+
+  const loadSelection = useCallback(async (value: string) => {
+    const [kind, id] = value.split(':', 2)
+    if (!id || (kind !== 'report' && kind !== 'dashboard')) return
+    setState('loading')
+    setExportItem(null)
+    setExportError(null)
+    try {
+      const result = kind === 'report' ? await getReport(token, id) : await getDashboard(token, id)
       setReport(result)
+      setSelectedKind(kind)
       setState('ready')
     } catch (error) {
-      setState(stateFrom(error, onSessionExpired))
+      setState(stateFrom(error))
     }
-  }, [token, onSessionExpired])
-  useEffect(() => { void load() }, [load])
+  }, [token])
+
+  useEffect(() => {
+    if (selection) void loadSelection(selection)
+  }, [loadSelection, selection])
+
+  function selectResource(value: string) {
+    setSelection(value)
+  }
 
   async function createExport() {
     if (exporting) return
+    const selectedId = selection.startsWith('report:') ? selection.slice('report:'.length) : ''
+    if (!selectedId || selectedKind !== 'report') return
     setExporting(true)
     setExportError(null)
     try {
-      const created = await requestReportExport(token, REPORT_ID)
+      const created = await requestReportExport(token, selectedId)
       setExportItem(created)
-      if (created.id) {
-        const refreshed = await getReportExport(token, String(created.id))
-        setExportItem(refreshed)
+      if (!created.id) {
+        setExportError(common[locale].exportFailed)
+        setExporting(false)
+        return
+      }
+      const status = String(created.status ?? 'queued').toLowerCase()
+      if (['ready', 'completed', 'available', 'failed', 'error', 'cancelled'].includes(status)) {
+        setExporting(false)
+        if (['failed', 'error', 'cancelled'].includes(status)) setExportError(common[locale].exportFailed)
       }
     } catch (error) {
-      setExportError(stateFrom(error, onSessionExpired) === 'forbidden' ? common[locale].forbidden : common[locale].error)
-    } finally {
+      setExportError(stateFrom(error) === 'forbidden' ? common[locale].forbidden : common[locale].error)
       setExporting(false)
     }
   }
 
+  useEffect(() => {
+    const exportId = exportItem?.id ? String(exportItem.id) : null
+    if (!exportId) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
+    const maxAttempts = 6
+    const backoffMs = [500, 1000, 2000, 4000, 8000, 12000]
+    const poll = async () => {
+      if (cancelled) return
+      try {
+        const refreshed = await getReportExport(token, exportId)
+        if (cancelled) return
+        setExportItem(refreshed)
+        const status = String(refreshed.status ?? 'queued').toLowerCase()
+        if (['ready', 'completed', 'available'].includes(status)) {
+          setExporting(false)
+          return
+        }
+        if (['failed', 'error', 'cancelled'].includes(status)) {
+          setExportError(common[locale].exportFailed)
+          setExporting(false)
+          return
+        }
+        if (attempts >= maxAttempts) {
+          setExportError(common[locale].exportFailed)
+          setExporting(false)
+          return
+        }
+        timer = setTimeout(() => void poll(), backoffMs[attempts])
+        attempts += 1
+      } catch (error) {
+        if (cancelled) return
+        setExportError(stateFrom(error) === 'forbidden' ? common[locale].forbidden : common[locale].exportFailed)
+        setExporting(false)
+      }
+    }
+    timer = setTimeout(() => void poll(), backoffMs[attempts])
+    attempts += 1
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [exportItem?.id, locale, token])
+
   const exportStatus = exportItem ? String(exportItem.status ?? 'queued').toLowerCase() : null
   const exportReady = exportStatus === 'ready' || exportStatus === 'completed' || exportStatus === 'available'
-  const exportInProgress = exportStatus !== null && !exportReady && exportStatus !== 'failed'
+  const exportInProgress = exportStatus !== null && !exportReady && !['failed', 'error', 'cancelled'].includes(exportStatus)
 
   return (
-    <section className="organization-page" aria-labelledby="reports-heading">
-      <div className="page-heading">
-        <h1 id="reports-heading">{locale === 'ar' ? 'التقارير' : 'Reports'}</h1>
-      </div>
-      <ScreenState locale={locale} state={state} retry={() => void load()} />
+    <section className="ui-page" aria-labelledby="reports-heading">
+      <PageHeader id="reports-heading" title={common[locale].reports} />
+      <ScreenState locale={locale} state={state} retry={() => { void load(); if (selection) void loadSelection(selection) }} />
+      {options.length > 0 && (
+        <Field id="report-resource" label={common[locale].reportOrDashboard}>
+          <Select id="report-resource" value={selection} onChange={selectResource} options={options.map(({ value, label }) => ({ value, label }))} />
+        </Field>
+      )}
       {state === 'ready' && report && (
         <>
-          <div className="dashboard-kpi-grid" role="group" aria-label={locale === 'ar' ? 'مؤشرات التقرير' : 'Report KPIs'}>
+          <div className="dashboard-kpi-grid" role="group" aria-label={common[locale].reportKpis}>
             <article className="dashboard-kpi">
-              <span>{locale === 'ar' ? 'العدد ضمن النطاق' : 'Count in scope'}</span>
+              <span>{common[locale].countInScope}</span>
               <strong>{report.total ?? report.items.length}</strong>
             </article>
             <article className="dashboard-kpi">
-              <span>{locale === 'ar' ? 'العناصر المعروضة' : 'Items rendered'}</span>
+              <span>{common[locale].itemsRendered}</span>
               <strong>{report.items?.length ?? 0}</strong>
             </article>
           </div>
           <EntityTable locale={locale} items={report.items ?? []} />
-          <div className="surface-card" aria-labelledby="export-card-heading">
-            <h2 id="export-card-heading">{locale === 'ar' ? 'تصدير التقرير' : 'Export report'}</h2>
-            <button type="button" className="primary-button" onClick={() => void createExport()} disabled={exporting}>
-              {exporting ? (locale === 'ar' ? 'جارٍ إنشاء التصدير…' : 'Requesting export…') : (locale === 'ar' ? 'طلب تصدير' : 'Request export')}
-            </button>
+          {selectedKind === 'report' && <Panel id="export-card-heading" title={common[locale].exportReport} level={2}>
+            <Button onClick={() => void createExport()} disabled={exporting}>
+              {exporting ? (common[locale].requestingExport) : (common[locale].requestExport)}
+            </Button>
             {exportError && <div className="status-message error" role="alert">{exportError}</div>}
             {exportItem && (
               <div className="status-message" role="status" aria-live="polite">
-                {locale === 'ar' ? 'حالة التصدير' : 'Export status'}: <strong>{String(exportItem.status ?? 'queued')}</strong>
+                {common[locale].exportStatus}: <strong>{String(exportItem.status ?? 'queued')}</strong>
                 {exportInProgress && (
-                  <progress max={100} value={50} aria-label={locale === 'ar' ? 'جارٍ المعالجة' : 'Processing'} />
+                  <progress aria-label={common[locale].processing} />
                 )}
                 {exportReady && Boolean(exportItem.download_url) && (
-                  <> — <a href={String(exportItem.download_url)}>{locale === 'ar' ? 'تنزيل' : 'Download'}</a></>
+                  <> — <a href={String(exportItem.download_url)}>{common[locale].download}</a></>
                 )}
               </div>
             )}
-          </div>
+            {exportError && <Button variant="secondary" onClick={() => void createExport()} disabled={exporting}>{common[locale].exportRetry}</Button>}
+          </Panel>}
         </>
       )}
     </section>
   )
 }
 
-export function AdaptiveDashboard({ locale, token, scopeId, onSessionExpired }: Props & { scopeId: string }) {
-  const [data, setData] = useState<R1Collection | null>(null)
-  const [state, setState] = useState<State>('loading')
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null)
 
-  const load = useCallback(async () => {
-    setState('loading')
-    try {
-      const result = await getDashboard(token, DASHBOARD_ID, scopeId)
-      setData(result)
-      setLastRefreshedAt(new Date())
-      setState('ready')
-    } catch (error) {
-      setState(stateFrom(error, onSessionExpired))
-    }
-  }, [token, scopeId, onSessionExpired])
-  useEffect(() => { void load() }, [load])
-
-  const totalCount = data?.total ?? data?.items.length ?? 0
-
-  return (
-    <section aria-labelledby="adaptive-dashboard-heading">
-      <h2 id="adaptive-dashboard-heading">{locale === 'ar' ? 'اللوحة التكيفية حسب الدور والنطاق' : 'Role and scope adaptive dashboard'}</h2>
-      <p>{locale === 'ar' ? 'الأرقام التالية أعادها الخادم للنطاق الحالي.' : 'The server returned these figures for the current scope.'}</p>
-      {lastRefreshedAt && (
-        <p className="status-message">{locale === 'ar' ? 'آخر تحديث' : 'Last refreshed'}: {lastRefreshedAt.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US')}</p>
-      )}
-      <ScreenState locale={locale} state={state} retry={() => void load()} />
-      {state === 'ready' && data && (
-        <>
-          <div className="dashboard-kpi-grid" role="group" aria-label={locale === 'ar' ? 'مؤشرات النطاق' : 'Scope KPIs'}>
-            <article className="dashboard-kpi">
-              <span>{locale === 'ar' ? 'إجمالي ضمن النطاق' : 'Total in scope'}</span>
-              <strong>{totalCount}</strong>
-            </article>
-            <article className="dashboard-kpi">
-              <span>{locale === 'ar' ? 'النطاق الفعلي' : 'Effective scope'}</span>
-              <strong dir="ltr">{scopeId || (locale === 'ar' ? '—' : '—')}</strong>
-            </article>
-          </div>
-          <nav className="dashboard-links" aria-label={locale === 'ar' ? 'روابط سريعة' : 'Quick links'}>
-            <a href="/tasks" onClick={(event) => { event.preventDefault(); window.history.pushState({}, '', '/tasks'); window.dispatchEvent(new PopStateEvent('popstate')) }}>
-              {locale === 'ar' ? 'فتح المهام' : 'Open tasks'}
-            </a>
-            <a href="/search" onClick={(event) => { event.preventDefault(); window.history.pushState({}, '', '/search'); window.dispatchEvent(new PopStateEvent('popstate')) }}>
-              {locale === 'ar' ? 'البحث في السجلات' : 'Search records'}
-            </a>
-            <a href="/reports" onClick={(event) => { event.preventDefault(); window.history.pushState({}, '', '/reports'); window.dispatchEvent(new PopStateEvent('popstate')) }}>
-              {locale === 'ar' ? 'عرض التقارير' : 'View reports'}
-            </a>
-          </nav>
-          <EntityTable locale={locale} items={data.items ?? []} />
-        </>
-      )}
-    </section>
-  )
-}
-
-export function NotificationsScreen({ locale, token, notifications, onRead, onOpen, onSessionExpired }: Props & { notifications: Array<{ id: string; title: string; is_read: boolean; source: { record_id: string } }>; onRead: () => void; onOpen: (id: string) => void }) {
-  const [state, setState] = useState<State>(notifications.length ? 'ready' : 'empty')
-  const [busy, setBusy] = useState<string | null>(null)
-  useEffect(() => setState(notifications.length ? 'ready' : 'empty'), [notifications])
-
-  const unreadCount = notifications.filter((item) => !item.is_read).length
-  const readCount = notifications.length - unreadCount
-
-  async function open(item: { id: string; source: { record_id: string } }) {
-    if (busy) return
-    setBusy(item.id)
-    try {
-      await markNotificationRead(token, item.id)
-      onRead()
-      onOpen(item.source.record_id)
-    } catch (error) {
-      setState(stateFrom(error, onSessionExpired))
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  return (
-    <section className="organization-page" aria-labelledby="notifications-page-heading">
-      <div className="page-heading">
-        <h1 id="notifications-page-heading">{locale === 'ar' ? 'الإشعارات' : 'Notifications'}</h1>
-        {notifications.length > 0 && (
-          <p className="status-message" aria-live="polite">
-            {locale === 'ar' ? `غير المقروء: ${unreadCount} | المقروء: ${readCount}` : `Unread: ${unreadCount} | Read: ${readCount}`}
-          </p>
-        )}
-      </div>
-      <ScreenState locale={locale} state={state} retry={onRead} />
-      {state === 'ready' && (
-        <div className="card-list">
-          {notifications.map((item) => (
-            <article className={`surface-card ${item.is_read ? '' : 'unread'}`} key={item.id} aria-label={item.title}>
-              <h2>{item.title}</h2>
-              <span className="status-chip" data-state={item.is_read ? 'read' : 'unread'}>
-                {item.is_read ? (locale === 'ar' ? 'مقروء' : 'Read') : (locale === 'ar' ? 'غير مقروء' : 'Unread')}
-              </span>
-              <button className="primary-button" type="button" onClick={() => void open(item)} disabled={busy === item.id || busy !== null} aria-busy={busy === item.id}>
-                {busy === item.id ? (locale === 'ar' ? 'جارٍ الفتح…' : 'Opening…') : (locale === 'ar' ? 'فتح المورد' : 'Open resource')}
-              </button>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
-  )
-}

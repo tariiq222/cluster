@@ -1,6 +1,22 @@
 import type { ChangeEvent, ReactNode } from 'react'
 import type { FieldAccessState } from '../../api/r1'
 
+const screenCopy = {
+  ar: {
+    label: '—',
+    valueCannotBeDisplayed: 'قيمة غير قابلة للعرض',
+    readOnly: 'للقراءة فقط',
+    valueMasked: 'القيمة محجوبة',
+  },
+  en: {
+    label: '—',
+    valueCannotBeDisplayed: 'Value cannot be displayed',
+    readOnly: 'Read only',
+    valueMasked: 'Value masked',
+  },
+} as const
+
+
 export type RecordFieldProps = {
   name: string
   label?: string
@@ -11,12 +27,12 @@ export type RecordFieldProps = {
 }
 
 export function formatRecordValue(value: unknown, locale: 'ar' | 'en' = 'ar'): string {
-  if (value === null || value === undefined || value === '') return locale === 'ar' ? '—' : '—'
+  if (value === null || value === undefined || value === '') return screenCopy[locale].label
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
   try {
     return JSON.stringify(value)
   } catch {
-    return locale === 'ar' ? 'قيمة غير قابلة للعرض' : 'Value cannot be displayed'
+    return screenCopy[locale].valueCannotBeDisplayed
   }
 }
 
@@ -32,7 +48,7 @@ export function RecordField({ name, label = name, value, access, locale = 'ar', 
   }
 
   return (
-    <div className="record-field" data-field={name} data-access={access}>
+    <div className="field record-field" data-field={name} data-access={access}>
       <label htmlFor={isEditable ? inputId : undefined}>{label}</label>
       {isEditable ? (
         <input id={inputId} name={name} value={formatRecordValue(value, locale)} onChange={handleChange} />
@@ -41,8 +57,8 @@ export function RecordField({ name, label = name, value, access, locale = 'ar', 
           {isMasked ? '***' : formatRecordValue(value, locale)}
         </output>
       )}
-      {access === 'readonly' && <span className="record-field-hint">{locale === 'ar' ? 'للقراءة فقط' : 'Read only'}</span>}
-      {isMasked && <span className="record-field-hint">{locale === 'ar' ? 'القيمة محجوبة' : 'Value masked'}</span>}
+      {access === 'readonly' && <span className="record-field-hint">{screenCopy[locale].readOnly}</span>}
+      {isMasked && <span className="record-field-hint">{screenCopy[locale].valueMasked}</span>}
     </div>
   )
 }
