@@ -52,6 +52,7 @@ EXPECTED_METHODS = {
     "/organization/units/{unitId}": {"get", "patch"},
     "/organization/positions": {"get", "post"},
     "/organization/positions/{positionId}": {"get", "patch"},
+    "/organization/job-titles": {"get", "post"},
     "/organization/people": {"get", "post"},
     "/organization/people/{personId}": {"get", "patch"},
     "/organization/people/{personId}/reference": {"get"},
@@ -83,6 +84,8 @@ ORGANIZATION_RUNTIME_STATUS = {
     ("/organization/positions", "post"): "implemented",
     ("/organization/positions/{positionId}", "get"): "implemented",
     ("/organization/positions/{positionId}", "patch"): "implemented",
+    ("/organization/job-titles", "get"): "implemented",
+    ("/organization/job-titles", "post"): "implemented",
     ("/organization/people", "get"): "implemented",
     ("/organization/people", "post"): "implemented",
     ("/organization/people/{personId}", "get"): "implemented",
@@ -149,6 +152,8 @@ ORGANIZATION_SUCCESS_RESPONSES = {
     ("/organization/positions", "post", "201"): "#/components/responses/PositionEntity",
     ("/organization/positions/{positionId}", "get", "200"): "#/components/responses/PositionEntity",
     ("/organization/positions/{positionId}", "patch", "200"): "#/components/responses/PositionEntity",
+    ("/organization/job-titles", "get", "200"): "#/components/responses/JobTitleCollection",
+    ("/organization/job-titles", "post", "201"): "#/components/responses/JobTitleEntity",
     ("/organization/people", "get", "200"): "#/components/responses/PersonCollection",
     ("/organization/people", "post", "201"): "#/components/responses/PersonEntity",
     ("/organization/people/{personId}", "get", "200"): "#/components/responses/PersonEntity",
@@ -494,6 +499,10 @@ for filename, source_schema_name in import_row_specs.items():
             variants = {item.get("type", item.get("$ref")) for item in row_property.get("oneOf", [])}
             if variants != {"null", "#/$defs/uuidv7"}:
                 fail(f"{filename} manager_position_id must allow UUIDv7 or null")
+        elif field == "job_title_id":
+            variants = {item.get("type", item.get("$ref")) for item in row_property.get("oneOf", [])}
+            if variants != {"null", "#/$defs/uuidv7"}:
+                fail(f"{filename} job_title_id must allow UUIDv7 or null")
         elif row_property != create_property:
             fail(f"{filename} {field} constraints must match {source_schema_name}")
 
