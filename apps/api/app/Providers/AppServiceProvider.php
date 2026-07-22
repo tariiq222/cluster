@@ -275,6 +275,7 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/WorkRecords/Infrastructure/Persistence/Migrations/W13AddWorkRecordFieldPolicyKey.php'),
             base_path('Modules/WorkRecords/Infrastructure/Outbox/Migrations/CreateOutboxTable.php'),
             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/CreateWorkflowTables.php'),
+            base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W14AddWorkflowStepAssignee.php'),
             base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
             base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/W13CreateTaskEngagementTables.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationInboxTable.php'),

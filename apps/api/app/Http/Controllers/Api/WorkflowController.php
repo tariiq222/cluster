@@ -190,6 +190,9 @@ final class WorkflowController
         if (($deny = $this->denyUnlessAllowed($p, 'workflow.decide', (string) $step->id, (string) $step->state, $c)) !== null) {
             return $deny;
         }
+        if (($deny = $this->denyUnlessAssignee($step, $p, $c)) !== null) {
+            return $deny;
+        }
         $expected = $this->versionFromMatch($request);
         if ($expected === null || $expected !== (int) $step->lock_version) {
             return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
@@ -273,13 +276,11 @@ final class WorkflowController
         }
 
         $now = now();
+        $updates = ['lock_version' => $expected + 1, 'updated_at' => $now];
         if ($stepAction === 'reassign') {
-            if (! is_string($step->task_id)) {
-                return $this->problem(409, 'workflow-step-reassign-unavailable', 'The step has no task to reassign.', $c);
-            }
-            DB::table('tasks')->where('id', $step->task_id)->update(['assignee_user_id' => $targetUserId, 'updated_at' => $now]);
+            $updates['assignee_user_id'] = $targetUserId;
         }
-        DB::table('workflow_step_instances')->where('id', $step->id)->where('lock_version', $expected)->update(['lock_version' => $expected + 1, 'updated_at' => $now]);
+        DB::table('workflow_step_instances')->where('id', $step->id)->where('lock_version', $expected)->update($updates);
         $this->outbox->append(Str::uuid7()->toString(), (string) $step->workflow_instance_id, 'workflow.step.'.$stepAction.'.v1', [
             'workflow_step_id' => (string) $step->id,
             'target_user_id' => is_string($targetUserId) ? $targetUserId : null,
@@ -350,6 +351,20 @@ final class WorkflowController
         $this->remember($p['user_id'], 'cancelWorkflow', $key, [...$v, 'instance_id' => $instanceId], $instanceId);
 
         return $this->response(['instance' => (array) DB::table('workflow_instances')->where('id', $instanceId)->first()], 200, $c, $expected + 1);
+    }
+
+    /**
+     * Holding `workflow.decide` says the principal may approve; it does not say
+     * this step is theirs. Steps recorded before the assignee column existed
+     * carry no owner and stay governed by the capability alone.
+     */
+    private function denyUnlessAssignee(object $step, array $principal, string $correlationId): ?JsonResponse
+    {
+        $assignee = $step->assignee_user_id ?? null;
+
+        return ! is_string($assignee) || $assignee === $principal['user_id']
+            ? null
+            : $this->problem(403, 'access-denied', 'The step is assigned to another approver.', $correlationId);
     }
 
     private function denyUnlessAllowed(array $principal, string $capability, ?string $recordId, ?string $state, string $correlationId): ?JsonResponse

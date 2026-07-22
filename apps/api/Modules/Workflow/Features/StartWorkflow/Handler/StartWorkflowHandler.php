@@ -55,6 +55,7 @@ final class StartWorkflowHandler
                     'node_type' => 'task',
                     'state' => 'waiting',
                     'activation_sequence' => 1,
+                    'assignee_user_id' => $this->assignee($taskNode, $actorUserId),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
@@ -69,5 +70,19 @@ final class StartWorkflowHandler
 
             return (array) DB::table('workflow_instances')->where('id', $instanceId)->first();
         });
+    }
+
+    /**
+     * Who owns the step. The graph may name the approver outright; until the
+     * assignment rules resolve `supervisor_of_initiator` and friends against the
+     * organisation tree, the starter keeps ownership so no step is left orphaned.
+     *
+     * @param  array<string, mixed>  $node
+     */
+    private function assignee(array $node, string $actorUserId): string
+    {
+        $named = $node['assignee_user_id'] ?? ($node['configuration']['assignee_user_id'] ?? null);
+
+        return is_string($named) && $named !== '' ? $named : $actorUserId;
     }
 }
