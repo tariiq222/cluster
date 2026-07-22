@@ -1,4 +1,8 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { formattingLocale } from '../../app/copy'
+import { useLocale, useToken } from '../../app/session-context'
+
+import { FileSpreadsheet } from 'lucide-react'
 
 import {
   ApiError,
@@ -6,12 +10,26 @@ import {
   getImportJob,
   initiateDocumentUpload,
   listImportJobRows,
+  putUploadTicket,
   submitImportJob,
   transitionImportJob,
   type ImportJob,
   type ImportJobAction,
   type ImportJobRow,
+  stateFromError,
 } from '../../api'
+import {
+  Button,
+  EmptyState,
+  Field as UiField,
+  InlineError,
+  Page,
+  PageHeader,
+  Panel,
+  PanelGrid,
+  Select as UiSelect,
+  SkeletonList,
+} from '../../ui'
 
 type Locale = 'ar' | 'en'
 
@@ -41,9 +59,10 @@ const copy = {
   },
 } as const
 
-export function ImportReview({ locale, token, jobId, onJobOpen, onSessionExpired }: {
-  locale: Locale; token: string; jobId?: string; onJobOpen: (jobId: string) => void; onSessionExpired: () => void
-}) {
+export function ImportReview({ jobId, onJobOpen }: {
+  jobId?: string; onJobOpen: (jobId: string) => void;}) {
+  const locale = useLocale()
+  const token = useToken()
   const text = copy[locale]
   const [job, setJob] = useState<ImportJob | null>(null)
   const [rows, setRows] = useState<ImportJobRow[]>([])
@@ -59,10 +78,8 @@ export function ImportReview({ locale, token, jobId, onJobOpen, onSessionExpired
       setJob(jobValue); setRows(rowPage.items)
     } catch (error) {
       setJob(null); setRows([])
-      if (error instanceof ApiError && error.status === 401) onSessionExpired()
-      else if (error instanceof ApiError && error.status === 403) setState('forbidden')
-      else if (error instanceof ApiError && error.status === 404) setState('not-found')
-      else setState('error')
+      const resolution = stateFromError(error)
+      setState(resolution === 'forbidden' || resolution === 'not-found' ? resolution : 'error')
     } finally { setLoading(false) }
   }
   useEffect(() => {
@@ -71,21 +88,22 @@ export function ImportReview({ locale, token, jobId, onJobOpen, onSessionExpired
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, token])
 
-  return <section className="organization-page" aria-labelledby="import-heading">
-    <div className="page-heading page-heading-copy"><div><h1 id="import-heading">{text.title}</h1><p>{text.intro}</p></div></div>
-    <ImportUpload locale={locale} csrfToken={token} onUploaded={setQuarantineId} onSessionExpired={onSessionExpired} />
-    <div className="import-entry-grid"><SubmitForm locale={locale} token={token} quarantineId={quarantineId} onQuarantineIdChange={setQuarantineId} onSubmitted={(created) => onJobOpen(created.id)} onSessionExpired={onSessionExpired} /><OpenForm key={jobId ?? 'new'} locale={locale} initialValue={jobId ?? ''} onOpen={onJobOpen} /></div>
+  return <Page>
+    <PageHeader id="import-heading" title={text.title} description={text.intro} />
+    <ImportUpload locale={locale} csrfToken={token} onUploaded={setQuarantineId} />
+    <div className="import-entry-grid"><SubmitForm locale={locale} token={token} quarantineId={quarantineId} onQuarantineIdChange={setQuarantineId} onSubmitted={(created) => onJobOpen(created.id)} /><OpenForm key={jobId ?? 'new'} locale={locale} initialValue={jobId ?? ''} onOpen={onJobOpen} /></div>
     <div aria-live="polite" aria-atomic="true">
-      {loading && <div className="skeleton-list" aria-label={text.loading}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>}
-      {!loading && state !== 'ready' && <div className="state-panel" role={state === 'error' ? 'alert' : 'status'}><p>{state === 'forbidden' ? text.forbidden : state === 'not-found' ? text.notFound : text.error}</p>{state === 'error' && <button type="button" className="secondary-button" onClick={() => void load()}>{text.retry}</button>}</div>}
-      {!loading && state === 'ready' && job && <div className="organization-layout"><JobSummary job={job} locale={locale} /><section className="organization-section" aria-labelledby="import-rows-heading"><div className="section-heading"><h2 id="import-rows-heading">{text.rows}</h2><button type="button" className="secondary-button" onClick={() => void load()}>{text.refresh}</button></div>{rows.length === 0 ? <p>{text.noRows}</p> : <RowsTable rows={rows} locale={locale} />}</section><TransitionForm key={job.status} locale={locale} token={token} job={job} onChanged={(changed) => { setJob(changed); void load() }} onSessionExpired={onSessionExpired} /></div>}
+      {loading && <SkeletonList label={text.loading} />}
+      {!loading && (state === 'forbidden' || state === 'not-found') && <div className="state-panel" role="status"><p>{state === 'forbidden' ? text.forbidden : text.notFound}</p></div>}
+      {!loading && state === 'error' && <InlineError message={text.error} retryLabel={text.retry} onRetry={() => void load()} />}
+      {!loading && state === 'ready' && job && <PanelGrid><JobSummary job={job} locale={locale} /><Panel id="import-rows-heading" title={text.rows} level={2} actions={<Button variant="secondary" onClick={() => void load()}>{text.refresh}</Button>}>{rows.length === 0 ? <EmptyState icon={<FileSpreadsheet />} title={text.noRows} /> : <RowsTable rows={rows} locale={locale} />}</Panel><TransitionForm key={job.status} locale={locale} token={token} job={job} onChanged={(changed) => { setJob(changed); void load() }} /></PanelGrid>}
     </div>
-  </section>
+  </Page>
 }
 
 function JobSummary({ job, locale }: { job: ImportJob; locale: Locale }) {
   const text = copy[locale]
-  return <section className="organization-section" aria-labelledby="import-summary-heading"><h2 id="import-summary-heading">{text.summary}</h2><dl className="definition-grid"><div><dt>{text.status}</dt><dd><span className="status-badge">{text[job.status]}</span></dd></div><div><dt>{text.template}</dt><dd dir="ltr">{job.template_code}</dd></div><div><dt>{text.total}</dt><dd>{number(job.total_rows, locale)}</dd></div><div><dt>{text.valid}</dt><dd>{number(job.valid_rows, locale)}</dd></div><div><dt>{text.errors}</dt><dd>{number(job.error_rows, locale)}</dd></div><div><dt>{text.approver}</dt><dd dir="ltr">{job.approved_by_user_id ?? text.notApproved}</dd></div></dl></section>
+  return <Panel id="import-summary-heading" title={text.summary} level={2}><dl className="definition-grid"><div><dt>{text.status}</dt><dd><span className="status-badge">{text[job.status]}</span></dd></div><div><dt>{text.template}</dt><dd dir="ltr">{job.template_code}</dd></div><div><dt>{text.total}</dt><dd>{number(job.total_rows, locale)}</dd></div><div><dt>{text.valid}</dt><dd>{number(job.valid_rows, locale)}</dd></div><div><dt>{text.errors}</dt><dd>{number(job.error_rows, locale)}</dd></div><div><dt>{text.approver}</dt><dd dir="ltr">{job.approved_by_user_id ?? text.notApproved}</dd></div></dl></Panel>
 }
 
 function RowsTable({ rows, locale }: { rows: ImportJobRow[]; locale: Locale }) {
@@ -93,7 +111,7 @@ function RowsTable({ rows, locale }: { rows: ImportJobRow[]; locale: Locale }) {
   return <div className="table-scroll" tabIndex={0} role="region" aria-label={text.rows}><table><thead><tr><th scope="col">{text.row}</th><th scope="col">{text.proposed}</th><th scope="col">{text.decision}</th><th scope="col">{text.validationErrors}</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{number(row.row_number, locale)}</td><td>{row.proposed_action ? text[row.proposed_action] : '—'}</td><td>{row.decision === 'accepted' ? text.accepted : row.decision === 'rejected' ? text.rejectedDecision : '—'}</td><td>{row.validation_errors.length === 0 ? text.noErrors : <ul className="inline-errors">{row.validation_errors.map((error) => <li key={`${error.code}-${error.field ?? ''}`}>{error.code}{error.field ? ` · ${error.field}` : ''}</li>)}</ul>}</td></tr>)}</tbody></table></div>
 }
 
-function ImportUpload({ locale, csrfToken, onUploaded, onSessionExpired }: { locale: Locale; csrfToken: string; onUploaded: (quarantineId: string) => void; onSessionExpired: () => void }) {
+function ImportUpload({ locale, csrfToken, onUploaded }: { locale: Locale; csrfToken: string; onUploaded: (quarantineId: string) => void; }) {
   const text = copy[locale]
   const [file, setFile] = useState<File | null>(null)
   const [phase, setPhase] = useState<'ready' | 'hashing' | 'requesting' | 'uploading' | 'completing' | 'complete'>('ready')
@@ -119,22 +137,20 @@ function ImportUpload({ locale, csrfToken, onUploaded, onSessionExpired }: { loc
         content_type: 'text/csv', byte_size: file.size, sha256,
       })
       setPhase('uploading')
-      const response = await fetch(ticket.upload_url, { method: ticket.method, headers: ticket.required_headers, body: file })
-      if (!response.ok) return fail('upload')
+      await putUploadTicket(ticket.upload_url, file, ticket.required_headers, ticket.method)
       setPhase('completing')
       const completion = await completeDocumentUpload(csrfToken, ticket.upload_id, { byte_size: file.size, sha256 })
       if (!completion.accepted) return fail('upload')
       onUploaded(ticket.quarantine_object_id)
       setPhase('complete')
-    } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 401) onSessionExpired()
-      else fail('upload')
+    } catch {
+      fail('upload')
     }
   }
 
   function fail(nextError: NonNullable<typeof error>) { setPhase('ready'); setError(nextError); window.requestAnimationFrame(() => errorRef.current?.focus()) }
 
-  return <section className="organization-section" aria-labelledby="import-upload-heading"><h2 id="import-upload-heading">{text.uploadTitle}</h2><p>{text.uploadHelp}</p><form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p id="import-upload-error" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{errorMessage}</p>}<div className="field"><label htmlFor="import-upload-file">{text.file}<span aria-hidden="true"> *</span></label><input id="import-upload-file" type="file" accept=".csv,text/csv" required aria-required="true" aria-invalid={Boolean(error)} aria-describedby={error ? 'import-upload-error' : undefined} disabled={busy} onChange={(event) => { setFile(event.target.files?.[0] ?? null); setError(null); setPhase('ready') }} /></div><p className="status-message" role="status" aria-live="polite" aria-atomic="true">{status}</p><button type="submit" className="primary-button" disabled={busy}>{busy ? status : text.upload}</button></form></section>
+  return <Panel id="import-upload-heading" title={text.uploadTitle} level={2}><p>{text.uploadHelp}</p><form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p id="import-upload-error" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{errorMessage}</p>}<UiField id="import-upload-file" label={text.file} required><input id="import-upload-file" type="file" accept=".csv,text/csv" required aria-required="true" aria-invalid={Boolean(error)} aria-describedby={error ? 'import-upload-error' : undefined} disabled={busy} onChange={(event) => { setFile(event.target.files?.[0] ?? null); setError(null); setPhase('ready') }} /></UiField><p className="status-message" role="status" aria-live="polite" aria-atomic="true">{status}</p><Button type="submit" disabled={busy}>{busy ? status : text.upload}</Button></form></Panel>
 }
 
 async function hashFile(file: File) {
@@ -142,7 +158,7 @@ async function hashFile(file: File) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function SubmitForm({ locale, token, quarantineId, onQuarantineIdChange, onSubmitted, onSessionExpired }: { locale: Locale; token: string; quarantineId: string; onQuarantineIdChange: (quarantineId: string) => void; onSubmitted: (job: ImportJob) => void; onSessionExpired: () => void }) {
+function SubmitForm({ locale, token, quarantineId, onQuarantineIdChange, onSubmitted }: { locale: Locale; token: string; quarantineId: string; onQuarantineIdChange: (quarantineId: string) => void; onSubmitted: (job: ImportJob) => void; }) {
   const text = copy[locale]
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(false)
@@ -152,10 +168,10 @@ function SubmitForm({ locale, token, quarantineId, onQuarantineIdChange, onSubmi
     if (!UUID_V7.test(quarantineId)) { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()); return }
     setSubmitting(true); setError(false)
     try { onSubmitted(await submitImportJob(token, { quarantine_object_id: quarantineId, template_code: 'people_assignments', import_type: 'csv' })) }
-    catch (failure) { if (failure instanceof ApiError && failure.status === 401) onSessionExpired(); else { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()) } }
+    catch { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()) }
     finally { setSubmitting(false) }
   }
-  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<Field id="quarantine-id" label={text.quarantineId} value={quarantineId} onChange={onQuarantineIdChange} required invalid={error} /><button type="submit" className="primary-button" disabled={submitting}>{submitting ? text.saving : text.submit}</button></form>
+  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<Field id="quarantine-id" label={text.quarantineId} value={quarantineId} onChange={onQuarantineIdChange} required invalid={error} /><Button type="submit" disabled={submitting}>{submitting ? text.saving : text.submit}</Button></form>
 }
 
 function OpenForm({ locale, initialValue, onOpen }: { locale: Locale; initialValue: string; onOpen: (jobId: string) => void }) {
@@ -164,10 +180,10 @@ function OpenForm({ locale, initialValue, onOpen }: { locale: Locale; initialVal
   const [error, setError] = useState(false)
   const errorRef = useRef<HTMLParagraphElement>(null)
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!UUID_V7.test(value)) { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()); return } setError(false); onOpen(value) }
-  return <form className="resource-form" onSubmit={submit} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<Field id="import-job-id" label={text.jobId} value={value} onChange={setValue} required invalid={error} /><button type="submit" className="secondary-button">{text.open}</button></form>
+  return <form className="resource-form" onSubmit={submit} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<Field id="import-job-id" label={text.jobId} value={value} onChange={setValue} required invalid={error} /><Button type="submit" variant="secondary">{text.open}</Button></form>
 }
 
-function TransitionForm({ locale, token, job, onChanged, onSessionExpired }: { locale: Locale; token: string; job: ImportJob; onChanged: (job: ImportJob) => void; onSessionExpired: () => void }) {
+function TransitionForm({ locale, token, job, onChanged }: { locale: Locale; token: string; job: ImportJob; onChanged: (job: ImportJob) => void; }) {
   const text = copy[locale]
   const available = availableActions(job.status)
   const [action, setAction] = useState<ImportJobAction>(available[0] ?? 'validate')
@@ -181,12 +197,12 @@ function TransitionForm({ locale, token, job, onChanged, onSessionExpired }: { l
     if (['reject', 'cancel'].includes(action) && !reason.trim()) { setError('validation'); window.requestAnimationFrame(() => errorRef.current?.focus()); return }
     setSubmitting(true); setError(null)
     try { onChanged(await transitionImportJob(token, job.id, action, reason.trim() || undefined)) }
-    catch (failure) { if (failure instanceof ApiError && failure.status === 401) onSessionExpired(); else { setError(failure instanceof ApiError && failure.status === 412 ? 'stale' : 'transition'); window.requestAnimationFrame(() => errorRef.current?.focus()) } }
+    catch (failure) { setError(failure instanceof ApiError && failure.status === 412 ? 'stale' : 'transition'); window.requestAnimationFrame(() => errorRef.current?.focus()) }
     finally { setSubmitting(false) }
   }
-  return <section className="organization-section" aria-labelledby="transition-heading"><h2 id="transition-heading">{text.action}</h2><form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{error === 'validation' ? text.validation : error === 'stale' ? text.stale : text.transitionError}</p>}<div className="field-row"><div className="field"><label htmlFor="import-action">{text.action}</label><select id="import-action" value={action} onChange={(event) => setAction(event.target.value as ImportJobAction)}>{available.map((item) => <option key={item} value={item}>{text[item]}</option>)}</select></div><Field id="import-reason" label={text.reason} value={reason} onChange={setReason} /></div><button type="submit" className="primary-button" disabled={submitting}>{submitting ? text.saving : text.execute}</button></form></section>
+  return <Panel id="transition-heading" title={text.action} level={2}><form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{error === 'validation' ? text.validation : error === 'stale' ? text.stale : text.transitionError}</p>}<div className="field-row"><UiField id="import-action" label={text.action}><UiSelect id="import-action" value={action} onChange={(next) => setAction(next as ImportJobAction)} options={available.map((item) => ({ value: item, label: text[item] }))} /></UiField><Field id="import-reason" label={text.reason} value={reason} onChange={setReason} /></div><Button type="submit" disabled={submitting}>{submitting ? text.saving : text.execute}</Button></form></Panel>
 }
 
 function availableActions(status: ImportJob['status']): ImportJobAction[] { if (status === 'received') return ['validate']; if (status === 'validated') return ['approve', 'reject']; if (status === 'approved') return ['apply', 'cancel']; return [] }
-function Field({ id, label, value, onChange, required = false, invalid = false }: { id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean; invalid?: boolean }) { return <div className="field"><label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label><input id={id} dir="ltr" value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} /></div> }
-function number(value: number, locale: Locale) { return new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-GB').format(value) }
+function Field({ id, label, value, onChange, required = false, invalid = false }: { id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean; invalid?: boolean }) { return <UiField id={id} label={label} required={required}><input id={id} dir="ltr" value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} /></UiField> }
+function number(value: number, locale: Locale) { return new Intl.NumberFormat(formattingLocale(locale)).format(value) }

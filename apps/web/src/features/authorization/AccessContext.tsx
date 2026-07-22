@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLocale, useToken } from '../../app/session-context'
+import { FolderSearch } from 'lucide-react'
 import { ApiError } from '../../api'
+import { EmptyState, Field, InlineError, Page, PageHeader, Panel, Select, SkeletonList } from '../../ui'
 import {
   getMyAccessContext,
   listAuthorization,
@@ -14,7 +17,7 @@ import {
 
 export type Locale = 'ar' | 'en'
 export type AccessContextState = 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
-export type ErrorResolution = AccessContextState | 'session-expired'
+export type ErrorResolution = 'forbidden' | 'error'
 export type DelegationState = 'loading' | 'ready' | 'empty' | 'forbidden' | 'unavailable'
 
 export type PrincipalView = {
@@ -99,6 +102,9 @@ export const accessContextLabels = {
     scopeTypes: { cluster: 'التجمع', facility: 'المنشأة', unit: 'الوحدة' },
     clearanceLevels: { public: 'عام', internal: 'داخلي', confidential: 'سري', top_secret: 'سري للغاية' },
     fieldStates: { hidden: 'مخفي', masked: 'مقنّع', readonly: 'للقراءة فقط', editable: 'قابل للتحرير' },
+    ltr: 'rtl',
+    searchScopes: 'ابحث في النطاقات…',
+    noMatchingResults: 'لا توجد نتائج مطابقة',
   },
   en: {
     title: 'Personal access context',
@@ -139,17 +145,18 @@ export const accessContextLabels = {
     scopeTypes: { cluster: 'Cluster', facility: 'Facility', unit: 'Unit' },
     clearanceLevels: { public: 'Public', internal: 'Internal', confidential: 'Confidential', top_secret: 'Top secret' },
     fieldStates: { hidden: 'Hidden', masked: 'Masked', readonly: 'Read only', editable: 'Editable' },
+    ltr: 'ltr',
+    searchScopes: 'Search scopes…',
+    noMatchingResults: 'No matching results',
   },
 } as const
 
 export function directionForLocale(locale: Locale): 'rtl' | 'ltr' {
-  return locale === 'ar' ? 'rtl' : 'ltr'
+  return accessContextLabels[locale].ltr
 }
 
 export function stateFromError(error: unknown): ErrorResolution {
-  if (error instanceof ApiError && error.status === 401) return 'session-expired'
-  if (error instanceof ApiError && error.status === 403) return 'forbidden'
-  return 'error'
+  return error instanceof ApiError && error.status === 403 ? 'forbidden' : 'error'
 }
 
 export function normalizePrincipal(input: unknown): PrincipalView {
@@ -273,16 +280,10 @@ async function updateScopeSelection(token: string, scopes: ScopeSelectionView, s
 function ContextStatePanel({ state, locale, onRetry }: { state: AccessContextState; locale: Locale; onRetry: () => void }) {
   const text = accessContextLabels[locale]
   if (state === 'ready') return null
-  if (state === 'loading') {
-    return <div className="skeleton-list" aria-label={text.loading}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>
-  }
-  const message = state === 'empty' ? text.empty : state === 'forbidden' ? text.forbidden : text.error
-  return (
-    <div className="state-panel" role={state === 'empty' ? 'status' : 'alert'}>
-      <p>{message}</p>
-      {state === 'error' && <button type="button" className="secondary-button" onClick={onRetry}>{text.retry}</button>}
-    </div>
-  )
+  if (state === 'loading') return <SkeletonList label={text.loading} />
+  if (state === 'empty') return <EmptyState icon={<FolderSearch />} title={text.empty} />
+  const message = state === 'forbidden' ? text.forbidden : text.error
+  return <InlineError message={message} retryLabel={state === 'error' ? text.retry : undefined} onRetry={state === 'error' ? onRetry : undefined} />
 }
 
 function ScopeSection({ scopes, locale, selecting, error, onSelect }: {
@@ -295,45 +296,42 @@ function ScopeSection({ scopes, locale, selecting, error, onSelect }: {
   const text = accessContextLabels[locale]
   const current = scopes.effective ? scopeSelectValue(scopes.effective) : ''
   return (
-    <section aria-labelledby="access-context-scope-heading">
-      <h2 id="access-context-scope-heading">{text.effectiveScope}</h2>
+    <Panel id="access-context-scope-heading" title={text.effectiveScope} level={2}>
       {scopes.effective
         ? <p>{scopes.effective.label} — {scopeTypeLabel(scopes.effective.scopeType, locale)} (<span dir="ltr">{scopes.effective.scopeId}</span>)</p>
         : <p>{text.noEffectiveScope}</p>}
       {scopes.options.length > 0 && (
         <div className="inline-form">
-          <label htmlFor="access-context-scope-selector">{text.scopeSelector}
-            <select
+          <Field id="access-context-scope-selector" label={text.scopeSelector}>
+            <Select
               id="access-context-scope-selector"
-              aria-label={text.scopeSelector}
+              ariaLabel={text.scopeSelector}
               value={current}
               disabled={selecting}
-              onChange={(event) => {
-                const parsed = parseScopeSelectValue(event.target.value)
+              onChange={(next) => {
+                const parsed = parseScopeSelectValue(next)
                 if (parsed) onSelect(parsed.scopeType, parsed.scopeId)
               }}
-            >
-              {!scopes.effective && <option value="" disabled>—</option>}
-              {scopes.options.map((option) => (
-                <option key={scopeSelectValue(option)} value={scopeSelectValue(option)}>
-                  {option.label} — {scopeTypeLabel(option.scopeType, locale)}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={scopes.options.map((option) => ({
+                value: scopeSelectValue(option),
+                label: `${option.label} — ${scopeTypeLabel(option.scopeType, locale)}`,
+              }))}
+              searchPlaceholder={accessContextLabels[locale].searchScopes}
+              emptyLabel={accessContextLabels[locale].noMatchingResults}
+            />
+          </Field>
           {selecting && <span role="status">{text.scopeUpdating}</span>}
         </div>
       )}
       {error && <p role="alert">{error}</p>}
-    </section>
+    </Panel>
   )
 }
 
 function DelegationSection({ state, rows, locale }: { state: DelegationState; rows: DelegationRow[]; locale: Locale }) {
   const text = accessContextLabels[locale]
   return (
-    <section aria-labelledby="access-context-delegations-heading">
-      <h2 id="access-context-delegations-heading">{text.delegations}</h2>
+    <Panel id="access-context-delegations-heading" title={text.delegations} level={2}>
       {state === 'loading' && <p role="status">{text.loading}</p>}
       {state === 'forbidden' && <p role="status">{text.delegationsForbidden}</p>}
       {state === 'unavailable' && <p role="status">{text.delegationsUnavailable}</p>}
@@ -347,15 +345,14 @@ function DelegationSection({ state, rows, locale }: { state: DelegationState; ro
           </table>
         </div>
       )}
-    </section>
+    </Panel>
   )
 }
 
 function ProjectionSection({ summary, locale }: { summary: ProjectionSummary; locale: Locale }) {
   const text = accessContextLabels[locale]
   return (
-    <section aria-labelledby="access-context-projection-heading">
-      <h2 id="access-context-projection-heading">{text.projection}</h2>
+    <Panel id="access-context-projection-heading" title={text.projection} level={2}>
       <dl className="record-summary">
         <div><dt>{text.decisionId}</dt><dd dir="ltr">{summary.decisionId ?? '—'}</dd></div>
       </dl>
@@ -382,16 +379,15 @@ function ProjectionSection({ summary, locale }: { summary: ProjectionSummary; lo
           </div>
         )
         : <p>{text.noFieldAccess}</p>}
-    </section>
+    </Panel>
   )
 }
 
-export function AccessContext({ locale = 'ar', token, onSessionExpired, projection }: {
-  locale?: Locale
-  token: string
-  onSessionExpired: () => void
+export function AccessContext({ projection }: {
   projection?: AccessProjection | null
 }) {
+  const locale = useLocale()
+  const token = useToken()
   const text = accessContextLabels[locale]
   const [state, setState] = useState<AccessContextState>('loading')
   const [principal, setPrincipal] = useState<PrincipalView | null>(null)
@@ -409,15 +405,9 @@ export function AccessContext({ locale = 'ar', token, onSessionExpired, projecti
       setScopes(scopeView)
       setState(isContextEmpty(principalView, scopeView) ? 'empty' : 'ready')
     } catch (error) {
-      const resolution = stateFromError(error)
-      if (resolution === 'session-expired') {
-        onSessionExpired()
-        setState('error')
-        return
-      }
-      setState(resolution)
+      setState(stateFromError(error))
     }
-  }, [token, onSessionExpired])
+  }, [token])
 
   useEffect(() => { void load() }, [load])
 
@@ -433,14 +423,10 @@ export function AccessContext({ locale = 'ar', token, onSessionExpired, projecti
       .catch((error: unknown) => {
         if (!active) return
         const resolution = stateFromError(error)
-        if (resolution === 'session-expired') {
-          onSessionExpired()
-          return
-        }
         setDelegationState(resolution === 'forbidden' ? 'forbidden' : 'unavailable')
       })
     return () => { active = false }
-  }, [token, onSessionExpired])
+  }, [token])
 
   const changeScope = useCallback(async (scopeType: string, scopeId: string) => {
     setSelectingScope(true)
@@ -449,24 +435,19 @@ export function AccessContext({ locale = 'ar', token, onSessionExpired, projecti
       if (!scopes) throw new ApiError(412, { type: 'precondition-failed', title: 'Scope version unavailable', status: 412 })
       setScopes(await updateScopeSelection(token, scopes, scopeType, scopeId))
     } catch (error) {
-      const resolution = stateFromError(error)
-      if (resolution === 'session-expired') {
-        onSessionExpired()
-        return
-      }
+        const resolution = stateFromError(error)
       setScopeError(resolution === 'forbidden' ? text.forbidden : text.error)
     } finally {
       setSelectingScope(false)
     }
-  }, [scopes, token, onSessionExpired, text.forbidden, text.error])
+  }, [scopes, token, text.forbidden, text.error])
 
   const summary = projectionSummary(projection)
 
   return (
-    <section className="organization-page authorization-page access-context-page" aria-labelledby="access-context-heading" dir={directionForLocale(locale)}>
-      <div className="page-heading page-heading-copy">
-        <div><h1 id="access-context-heading">{text.title}</h1><p>{text.intro}</p></div>
-      </div>
+    <div dir={directionForLocale(locale)} aria-labelledby="access-context-heading">
+      <Page className="authorization-page access-context-page">
+      <PageHeader id="access-context-heading" title={text.title} description={text.intro} />
       <ContextStatePanel state={state} locale={locale} onRetry={() => void load()} />
       {state === 'ready' && principal && scopes && (
         <>
@@ -478,16 +459,16 @@ export function AccessContext({ locale = 'ar', token, onSessionExpired, projecti
             <div><dt>{text.correlationId}</dt><dd dir="ltr">{principal.correlationId || '—'}</dd></div>
           </dl>
           <ScopeSection scopes={scopes} locale={locale} selecting={selectingScope} error={scopeError} onSelect={(scopeType, scopeId) => void changeScope(scopeType, scopeId)} />
-          <section aria-labelledby="access-context-roles-heading">
-            <h2 id="access-context-roles-heading">{text.roles}</h2>
+          <Panel id="access-context-roles-heading" title={text.roles} level={2}>
             {principal.roles.length
               ? <ul>{principal.roles.map((role) => <li key={role} dir="ltr">{role}</li>)}</ul>
               : <p>{text.noRoles}</p>}
-          </section>
+          </Panel>
           <DelegationSection state={delegationState} rows={delegations} locale={locale} />
           {summary && <ProjectionSection summary={summary} locale={locale} />}
         </>
       )}
-    </section>
+      </Page>
+    </div>
   )
 }

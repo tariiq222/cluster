@@ -32,8 +32,10 @@ describe('AccessContext pure view-model helpers', () => {
     expect(fieldAccessRows({ weird: 'unknown-state' as never })).toEqual([])
   })
 
-  it('maps 401 to session expiry and 403 to forbidden without deriving access locally', () => {
-    expect(stateFromError(new ApiError(401, { type: 'about:blank', title: 'Unauthorized', status: 401 }))).toBe('session-expired')
+  it('maps 403 to forbidden without deriving access locally, and leaves 401 to the shell', () => {
+    // A 401 ends the session through the API layer's central handler, so this screen
+    // only needs to distinguish "denied" from "something else went wrong".
+    expect(stateFromError(new ApiError(401, { type: 'about:blank', title: 'Unauthorized', status: 401 }))).toBe('error')
     expect(stateFromError(new ApiError(403, { type: 'about:blank', title: 'Forbidden', status: 403 }))).toBe('forbidden')
     expect(stateFromError(new ApiError(500, { type: 'about:blank', title: 'Server error', status: 500 }))).toBe('error')
     expect(stateFromError(new Error('network'))).toBe('error')

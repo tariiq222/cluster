@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ApiError } from '../../api'
+import { directionForLocale } from '../../app/copy'
+import { useLocale, useToken } from '../../app/session-context'
+import { FolderSearch } from 'lucide-react'
+import { ApiError, stateFromError } from '../../api'
+import { Button, EmptyState, Field, InlineError, Page, PageHeader, Panel, Select, SkeletonList } from '../../ui'
 import {
   createDelegation,
   createRoleAssignment,
@@ -7,12 +11,26 @@ import {
   listAuthorization,
   listSupervisoryRelationships,
   simulateAccessDecision,
+  transitionAuthorizationAdminResource,
   updateAuthorizationAdminResource,
   type AccessDecision,
   type AuthorizationAdminPatch,
   type AuthorizationItem,
   type AuthorizationResource,
+  type AuthorizationTransitionAction,
 } from '../../api/r1'
+
+const screenCopy = {
+  ar: {
+    action: 'إجراء',
+    readOnlyServerDataPolicy: 'عرض معلوماتي فقط؛ مصدر القرار هو الخادم.',
+  },
+  en: {
+    action: 'Action',
+    readOnlyServerDataPolicy: 'Read-only server data; policy decisions remain server-owned.',
+  },
+} as const
+
 
 export type Locale = 'ar' | 'en'
 export type AdminResource = AuthorizationResource | 'supervisory'
@@ -25,7 +43,7 @@ const labels = {
     title: 'إدارة التفويض والوصول', intro: 'بيانات مصفاة من خادم التفويض. لا تُتخذ قرارات الصلاحية في المتصفح.', loading: 'جارٍ التحميل…',
     empty: 'لا توجد سجلات متاحة', forbidden: 'لا تملك صلاحية عرض هذه البيانات.', notFound: 'السجل غير موجود أو لم يعد متاحاً.',
     conflict: 'حدث تعارض. حدّث البيانات ثم أعد المحاولة.', stale: 'البيانات قديمة. أعد المحاولة.', error: 'تعذر تحميل البيانات.', retry: 'إعادة المحاولة',
-    create: 'إنشاء', update: 'حفظ التعديل', code: 'الرمز', name: 'الاسم', status: 'الحالة', scope: 'النطاق', scopeId: 'معرّف النطاق',
+    create: 'إنشاء', update: 'حفظ التعديل', code: 'الرمز', name: 'الاسم', status: 'الحالة', scope: 'النطاق', scopeId: 'معرّف النطاق', reason: 'سبب التغيير (مطلوب)', transitionUnavailable: 'لا يمكن تطبيق انتقال الحالة المحدد من خلال مسار معتمد.',
     subject: 'معرّف المستخدم المستهدف', role: 'معرّف الدور', start: 'بداية السريان', end: 'نهاية السريان', policy: 'وثيقة السياسة (JSON)',
     choose: 'اختر سجلاً', roleMatrix: 'مصفوفة الدور والصلاحية', wizard: 'معالج الإسناد والتفويض', denies: 'المنع الصريح والسياسات',
     simulator: 'محاكي قرار الوصول', audit: 'عرض التدقيق والشرح', decisionId: 'معرّف القرار', loadExplanation: 'عرض الشرح',
@@ -37,7 +55,7 @@ const labels = {
     title: 'Authorization administration', intro: 'Data is filtered by the authorization service. The browser never makes access decisions.', loading: 'Loading…',
     empty: 'No records available', forbidden: 'You do not have permission to view this data.', notFound: 'The record was not found or is no longer available.',
     conflict: 'A conflict occurred. Refresh and try again.', stale: 'The data is stale. Try again.', error: 'We could not load the data.', retry: 'Try again',
-    create: 'Create', update: 'Save change', code: 'Code', name: 'Name', status: 'Status', scope: 'Scope', scopeId: 'Scope ID',
+    create: 'Create', update: 'Save change', code: 'Code', name: 'Name', status: 'Status', scope: 'Scope', scopeId: 'Scope ID', reason: 'Reason for change (required)', transitionUnavailable: 'The selected status has no approved transition path.',
     subject: 'Subject user ID', role: 'Role ID', start: 'Start time', end: 'End time', policy: 'Policy document (JSON)',
     choose: 'Select a record', roleMatrix: 'Role-capability matrix', wizard: 'Assignment and delegation wizard', denies: 'Explicit denies and policies',
     simulator: 'Access decision simulator', audit: 'Audit and explanation view', decisionId: 'Decision ID', loadExplanation: 'Show explanation',
@@ -77,73 +95,227 @@ export function mapAuthorizationRows(items: AuthorizationItem[]): Array<{ id: st
   return items.map((item, index) => ({ id: typeof item.id === 'string' ? item.id : `item-${index}`, name: typeof item.name === 'string' ? item.name : '—', code: typeof item.code === 'string' ? item.code : '—', status: typeof item.status === 'string' ? item.status : '—', lockVersion: item.lock_version }))
 }
 
-function stateFrom(error: unknown, onSessionExpired: () => void): AdminState {
-  if (error instanceof ApiError && error.status === 401) { onSessionExpired(); return 'error' }
-  if (error instanceof ApiError && error.status === 403) return 'forbidden'
-  if (error instanceof ApiError && error.status === 404) return 'not-found'
-  if (error instanceof ApiError && error.status === 409) return 'conflict'
-  if (error instanceof ApiError && error.status === 412) return 'stale'
-  return 'error'
+const GOVERNED_RESOURCES = new Set<AuthorizationResource>(['role-assignments', 'delegations'])
+const STATUS_TRANSITIONS: Partial<Record<NonNullable<AuthorizationItem['status']>, AuthorizationTransitionAction>> = {
+  active: 'activate', revoked: 'revoke', expired: 'expire', published: 'publish',
 }
+
+export function authorizationTransitionForStatus(resource: AuthorizationResource, currentStatus: string, nextStatus: string): AuthorizationTransitionAction | null {
+  if (!GOVERNED_RESOURCES.has(resource) || currentStatus === nextStatus) return null
+  return STATUS_TRANSITIONS[nextStatus] ?? null
+}
+
 
 function StatusPanel({ state, text, retry }: { state: AdminState; text: Labels; retry: () => void }) {
-  if (state === 'loading') return <div className="skeleton-list" aria-label={text.loading}>{[0, 1, 2].map((item) => <div className="skeleton-row" aria-hidden="true" key={item} />)}</div>
+  if (state === 'loading') return <SkeletonList label={text.loading} />
   if (state === 'ready') return null
-  const message = state === 'empty' ? text.empty : state === 'forbidden' ? text.forbidden : state === 'not-found' ? text.notFound : state === 'conflict' ? text.conflict : state === 'stale' ? text.stale : text.error
-  return <div className="state-panel" role={state === 'empty' ? 'status' : 'alert'}><p>{message}</p>{state !== 'empty' && state !== 'forbidden' && state !== 'not-found' && <button type="button" className="secondary-button" onClick={retry}>{text.retry}</button>}</div>
+  if (state === 'empty') return <EmptyState icon={<FolderSearch />} title={text.empty} />
+  const message = state === 'forbidden' ? text.forbidden : state === 'not-found' ? text.notFound : state === 'conflict' ? text.conflict : state === 'stale' ? text.stale : text.error
+  const canRetry = state !== 'forbidden' && state !== 'not-found'
+  return <InlineError message={message} retryLabel={canRetry ? text.retry : undefined} onRetry={canRetry ? retry : undefined} />
 }
 
-function ItemTable({ items, locale, onSelect }: { items: AuthorizationItem[]; locale: Locale; onSelect: (item: AuthorizationItem) => void }) {
+function ItemTable({ items, locale, onSelect }: { items: AuthorizationItem[]; locale: Locale; onSelect?: (item: AuthorizationItem) => void }) {
   const text = labels[locale]
-  return <div className="table-scroll"><table className="data-table"><caption className="visually-hidden">{text.title}</caption><thead><tr><th>{text.name}</th><th>{text.code}</th><th>{text.status}</th><th>{locale === 'ar' ? 'إجراء' : 'Action'}</th></tr></thead><tbody>{mapAuthorizationRows(items).map((row, index) => <tr key={row.id}><td>{row.name}</td><td>{row.code}</td><td>{row.status}</td><td><button type="button" className="secondary-button" onClick={() => onSelect(items[index])}>{text.update}</button></td></tr>)}</tbody></table></div>
+  return <div className="table-scroll"><table className="data-table"><caption className="visually-hidden">{text.title}</caption><thead><tr><th>{text.name}</th><th>{text.code}</th><th>{text.status}</th>{onSelect && <th>{screenCopy[locale].action}</th>}</tr></thead><tbody>{mapAuthorizationRows(items).map((row, index) => <tr key={row.id}><td>{row.name}</td><td>{row.code}</td><td>{row.status}</td>{onSelect && <td><Button variant="secondary" onClick={() => onSelect(items[index])}>{text.update}</Button></td>}</tr>)}</tbody></table></div>
 }
 
-function AdminForm({ resource, locale, token, onSessionExpired, onSaved }: { resource: AuthorizationResource; locale: Locale; token: string; onSessionExpired: () => void; onSaved: () => Promise<void> }) {
+const ADMIN_SCOPE_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'cluster', label: 'cluster' },
+  { value: 'facility', label: 'facility' },
+  { value: 'unit', label: 'unit' },
+  { value: 'record_set', label: 'record_set' },
+]
+
+const ADMIN_STATUS_OPTIONS = [
+  { value: 'draft', label: 'draft' },
+  { value: 'active', label: 'active' },
+  { value: 'inactive', label: 'inactive' },
+  { value: 'revoked', label: 'revoked' },
+  { value: 'expired', label: 'expired' },
+  { value: 'published', label: 'published' },
+]
+
+function AdminForm({ resource, locale, token, onSaved }: { resource: AuthorizationResource; locale: Locale; token: string; onSaved: () => Promise<void> }) {
   const text = labels[locale]
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [scope, setScope] = useState('')
+  const requiresRole = resource === 'role-assignments'
+  const requiresSubject = requiresRole || resource === 'delegations'
+
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(null)
-    const form = new FormData(event.currentTarget); const code = String(form.get('code') ?? '').trim(); const name = String(form.get('name') ?? '').trim(); const policy = String(form.get('policy') ?? '')
-    if (validateAdminForm({ code, name, policyDocument: policy })) { setError(text.invalid); return }
-    const input: Record<string, unknown> = { resource_type: resourceCreateType(resource), code, name: name || undefined, scope_type: String(form.get('scope') || '') || undefined, scope_id: String(form.get('scopeId') || '') || undefined, subject_user_id: String(form.get('subject') || '') || undefined, role_id: String(form.get('role') || '') || undefined, start_at: String(form.get('start') || '') || undefined, end_at: String(form.get('end') || '') || undefined, policy_document: parsePolicyDocument(policy) }
+    event.preventDefault()
+    setError(null)
+    const form = new FormData(event.currentTarget)
+    const code = String(form.get('code') ?? '').trim()
+    const name = String(form.get('name') ?? '').trim()
+    const policy = String(form.get('policy') ?? '')
+    if (validateAdminForm({ code, name, policyDocument: policy })) {
+      setError(text.invalid)
+      return
+    }
+
+    const input: Record<string, unknown> = {
+      resource_type: resourceCreateType(resource),
+      code,
+      name: name || undefined,
+      scope_type: String(form.get('scope') || '') || undefined,
+      scope_id: String(form.get('scopeId') || '') || undefined,
+      subject_user_id: String(form.get('subject') || '') || undefined,
+      role_id: String(form.get('role') || '') || undefined,
+      start_at: String(form.get('start') || '') || undefined,
+      end_at: String(form.get('end') || '') || undefined,
+      policy_document: parsePolicyDocument(policy),
+    }
+
     setSaving(true)
-    try { if (resource === 'role-assignments') await createRoleAssignment(input, token); else if (resource === 'delegations') await createDelegation(input, token); else throw new Error('creation-not-supported'); event.currentTarget.reset(); await onSaved() } catch (caught) { if (caught instanceof ApiError && caught.status === 401) onSessionExpired(); setError(caught instanceof ApiError && (caught.status === 409 || caught.status === 412) ? (caught.status === 412 ? text.stale : text.conflict) : text.error) } finally { setSaving(false) }
+    try {
+      if (resource === 'role-assignments') await createRoleAssignment(input, token)
+      else if (resource === 'delegations') await createDelegation(input, token)
+      else throw new Error('creation-not-supported')
+      event.currentTarget.reset()
+      setScope('')
+      await onSaved()
+    } catch (caught) {
+      setError(caught instanceof ApiError && (caught.status === 409 || caught.status === 412)
+        ? (caught.status === 412 ? text.stale : text.conflict)
+        : text.error)
+    } finally {
+      setSaving(false)
+    }
   }
-  return <form className="inline-form" onSubmit={submit} noValidate aria-label={text.wizard}><label htmlFor="authorization-code">{text.code}<input id="authorization-code" name="code" required aria-required="true" /></label><label htmlFor="authorization-name">{text.name}<input id="authorization-name" name="name" /></label><label htmlFor="authorization-scope">{text.scope}<select id="authorization-scope" name="scope" defaultValue=""><option value="">—</option><option value="cluster">cluster</option><option value="facility">facility</option><option value="unit">unit</option><option value="record_set">record_set</option></select></label><label htmlFor="authorization-scope-id">{text.scopeId}<input id="authorization-scope-id" name="scopeId" /></label>{(resource === 'role-assignments' || resource === 'delegations') && <><label htmlFor="authorization-subject">{text.subject}<input id="authorization-subject" name="subject" required /></label><label htmlFor="authorization-role">{text.role}<input id="authorization-role" name="role" required={resource === 'role-assignments'} /></label></>}<label htmlFor="authorization-start">{text.start}<input id="authorization-start" name="start" type="datetime-local" /></label><label htmlFor="authorization-end">{text.end}<input id="authorization-end" name="end" type="datetime-local" /></label><label htmlFor="authorization-policy">{text.policy}<textarea id="authorization-policy" name="policy" rows={3} dir="ltr" /></label>{error && <p role="alert">{error}</p>}<button className="primary-button" type="submit" disabled={saving}>{saving ? text.loading : text.create}</button></form>
+
+  return (
+    <form className="inline-form" onSubmit={submit} noValidate aria-label={text.wizard}>
+      <Field id="authorization-code" label={text.code} required>
+        <input id="authorization-code" name="code" required aria-required="true" />
+      </Field>
+      <Field id="authorization-name" label={text.name}>
+        <input id="authorization-name" name="name" />
+      </Field>
+      <Field id="authorization-scope" label={text.scope}>
+        <Select id="authorization-scope" name="scope" value={scope} onChange={setScope} options={ADMIN_SCOPE_OPTIONS} />
+      </Field>
+      <Field id="authorization-scope-id" label={text.scopeId}>
+        <input id="authorization-scope-id" name="scopeId" />
+      </Field>
+      {requiresSubject && (
+        <Field id="authorization-subject" label={text.subject} required>
+          <input id="authorization-subject" name="subject" required />
+        </Field>
+      )}
+      {requiresRole && (
+        <Field id="authorization-role" label={text.role} required>
+          <input id="authorization-role" name="role" required />
+        </Field>
+      )}
+      <Field id="authorization-start" label={text.start}>
+        <input id="authorization-start" name="start" type="datetime-local" />
+      </Field>
+      <Field id="authorization-end" label={text.end}>
+        <input id="authorization-end" name="end" type="datetime-local" />
+      </Field>
+      <Field id="authorization-policy" label={text.policy}>
+        <textarea id="authorization-policy" name="policy" rows={3} dir="ltr" />
+      </Field>
+      {error && <p role="alert">{error}</p>}
+      <Button type="submit" disabled={saving}>{saving ? text.loading : text.create}</Button>
+    </form>
+  )
 }
 
-function EditPanel({ resource, item, locale, token, onSessionExpired, onSaved }: { resource: AuthorizationResource; item: AuthorizationItem; locale: Locale; token: string; onSessionExpired: () => void; onSaved: () => Promise<void> }) {
-  const text = labels[locale]; const [name, setName] = useState(item.name ?? ''); const [status, setStatus] = useState(item.status ?? 'active'); const [error, setError] = useState<string | null>(null); const [saving, setSaving] = useState(false)
-  async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setError(null); try { const patch: AuthorizationAdminPatch = { name, status: status as AuthorizationAdminPatch['status'] }; await updateAuthorizationAdminResource(resource, String(item.id), patch, token, item.lock_version); await onSaved() } catch (caught) { if (caught instanceof ApiError && caught.status === 401) onSessionExpired(); setError(caught instanceof ApiError && caught.status === 412 ? text.stale : caught instanceof ApiError && caught.status === 409 ? text.conflict : text.error) } finally { setSaving(false) } }
-  return <form className="inline-form" onSubmit={submit} aria-label={text.update}><label htmlFor="edit-name">{text.name}<input id="edit-name" value={name} onChange={(event) => setName(event.target.value)} /></label><label htmlFor="edit-status">{text.status}<select id="edit-status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="draft">draft</option><option value="active">active</option><option value="inactive">inactive</option><option value="revoked">revoked</option><option value="published">published</option></select></label>{error && <p role="alert">{error}</p>}<button className="primary-button" type="submit" disabled={saving}>{saving ? text.loading : text.update}</button></form>
+function EditPanel({ resource, item, locale, token, onSaved }: { resource: AuthorizationResource; item: AuthorizationItem; locale: Locale; token: string; onSaved: () => Promise<void> }) {
+  const text = labels[locale]
+  const [name, setName] = useState(item.name ?? '')
+  const [status, setStatus] = useState(item.status ?? 'active')
+  const [reason, setReason] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      const governed = GOVERNED_RESOURCES.has(resource)
+      const statusChanged = status !== (item.status ?? '')
+      const transition = authorizationTransitionForStatus(resource, item.status ?? '', status)
+      if (governed && statusChanged && !transition) {
+        setError(text.transitionUnavailable)
+        return
+      }
+      if (transition && !reason.trim()) {
+        setError(text.invalid)
+        return
+      }
+
+      let lockVersion = item.lock_version
+      const nameChanged = name !== (item.name ?? '')
+      if (nameChanged || (!governed && statusChanged)) {
+        const patch: AuthorizationAdminPatch = { name }
+        if (!governed && statusChanged) patch.status = status as AuthorizationAdminPatch['status']
+        const updated = await updateAuthorizationAdminResource(resource, String(item.id), patch, token, lockVersion)
+        lockVersion = updated.lock_version ?? lockVersion
+      }
+      if (transition) {
+        await transitionAuthorizationAdminResource(resource as Extract<AuthorizationResource, 'role-assignments' | 'delegations' | 'classification-policies' | 'field-access-templates'>, String(item.id), transition, reason, token, lockVersion)
+      }
+      await onSaved()
+    } catch (caught) {
+      setError(caught instanceof ApiError && caught.status === 412 ? text.stale : caught instanceof ApiError && caught.status === 409 ? text.conflict : text.error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="inline-form" onSubmit={submit} aria-label={text.update}>
+      <Field id="edit-name" label={text.name}>
+        <input id="edit-name" value={name} onChange={(event) => setName(event.target.value)} />
+      </Field>
+      <Field id="edit-status" label={text.status}>
+        <Select id="edit-status" value={status} onChange={setStatus} options={ADMIN_STATUS_OPTIONS} />
+      </Field>
+      {GOVERNED_RESOURCES.has(resource) && status !== (item.status ?? '') && <Field id="edit-reason" label={text.reason} required><textarea id="edit-reason" value={reason} onChange={(event) => setReason(event.target.value)} required rows={3} /></Field>}
+      {error && <p role="alert">{error}</p>}
+      <Button type="submit" disabled={saving}>{saving ? text.loading : text.update}</Button>
+    </form>
+  )
 }
 
 export function RoleCapabilityMatrix({ items, locale }: { items: AuthorizationItem[]; locale: Locale }) {
   const text = labels[locale]
-  return <section aria-labelledby="role-capability-heading"><h2 id="role-capability-heading">{text.roleMatrix}</h2><p>{locale === 'ar' ? 'عرض معلوماتي فقط؛ مصدر القرار هو الخادم.' : 'Read-only server data; policy decisions remain server-owned.'}</p><ItemTable items={items} locale={locale} onSelect={() => undefined} /></section>
+  return <Panel id="role-capability-heading" title={text.roleMatrix} level={2}><p>{screenCopy[locale].readOnlyServerDataPolicy}</p><ItemTable items={items} locale={locale} /></Panel>
 }
 
 export function AuthorizationState({ state, locale, onRetry }: { state: AdminState; locale: Locale; onRetry: () => void }) {
   return <StatusPanel state={state} text={labels[locale]} retry={onRetry} />
 }
 
-export function AuthorizationAdmin({ locale, token, resource, onSessionExpired }: { locale: Locale; token: string; resource: AdminResource; onSessionExpired: () => void }) {
+export function AuthorizationAdmin({ resource }: { resource: AdminResource }) {
+  const locale = useLocale()
+  const token = useToken()
   const text = labels[locale]; const [items, setItems] = useState<AuthorizationItem[]>([]); const [state, setState] = useState<AdminState>('loading'); const [selected, setSelected] = useState<AuthorizationItem | null>(null)
-  const load = useCallback(async () => { setState('loading'); setSelected(null); try { const result = resource === 'supervisory' ? await listSupervisoryRelationships(token) : await listAuthorization(resource, token); setItems(result); setState(result.length ? 'ready' : 'empty') } catch (error) { setState(stateFrom(error, onSessionExpired)) } }, [onSessionExpired, resource, token])
+  const load = useCallback(async () => { setState('loading'); setSelected(null); try { const result = resource === 'supervisory' ? await listSupervisoryRelationships(token) : await listAuthorization(resource, token); setItems(result); setState(result.length ? 'ready' : 'empty') } catch (error) { setState(stateFromError(error)) } }, [resource, token])
   useEffect(() => { void load() }, [load])
   const title = text[resource]; const matrix = useMemo(() => resource === 'roles' || resource === 'capabilities', [resource])
-  return <section className="organization-page authorization-page" aria-labelledby="authorization-heading" dir={locale === 'ar' ? 'rtl' : 'ltr'}><div className="page-heading page-heading-copy"><div><h1 id="authorization-heading">{title}</h1><p>{text.intro}</p></div></div>{(resource === 'role-assignments' || resource === 'delegations') && <><h2>{text.wizard}</h2><AdminForm resource={resource} locale={locale} token={token} onSessionExpired={onSessionExpired} onSaved={load} /></>}{state === 'loading' || state === 'empty' || state === 'forbidden' || state === 'not-found' || state === 'conflict' || state === 'stale' || state === 'error' ? <StatusPanel state={state} text={text} retry={() => void load()} /> : <><ItemTable items={items} locale={locale} onSelect={setSelected} />{selected && resource !== 'supervisory' && <EditPanel resource={resource} item={selected} locale={locale} token={token} onSessionExpired={onSessionExpired} onSaved={load} />}{matrix && <RoleCapabilityMatrix items={items} locale={locale} />}</>}</section>
+  return <div dir={directionForLocale(locale)} aria-labelledby="authorization-heading"><Page className="authorization-page"><PageHeader id="authorization-heading" title={title} description={text.intro} />{(resource === 'role-assignments' || resource === 'delegations') && <Panel id="authorization-wizard-heading" title={text.wizard} level={2}><AdminForm resource={resource} locale={locale} token={token} onSaved={load} /></Panel>}{state === 'loading' || state === 'empty' || state === 'forbidden' || state === 'not-found' || state === 'conflict' || state === 'stale' || state === 'error' ? <StatusPanel state={state} text={text} retry={() => void load()} /> : <><ItemTable items={items} locale={locale} onSelect={setSelected} />{selected && resource !== 'supervisory' && <Panel id="authorization-edit-heading" title={text.update} level={2}><EditPanel resource={resource} item={selected} locale={locale} token={token} onSaved={load} /></Panel>}{matrix && <RoleCapabilityMatrix items={items} locale={locale} />}</>}</Page></div>
 }
 
-export function AccessExplanation({ locale, token, decisionId, onSessionExpired }: { locale: Locale; token: string; decisionId?: string; onSessionExpired: () => void }) {
+export function AccessExplanation({ decisionId }: { decisionId?: string }) {
+  const locale = useLocale()
+  const token = useToken()
   const text = labels[locale]; const [id, setId] = useState(decisionId ?? ''); const [item, setItem] = useState<AccessDecision | null>(null); const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  async function load(event?: FormEvent) { event?.preventDefault(); if (!id.trim()) return setState('error'); setState('loading'); try { setItem(await explainAccessDecision(id.trim(), token)); setState('ready') } catch (error) { if (error instanceof ApiError && error.status === 401) onSessionExpired(); setState('error') } }
-  return <section className="organization-page authorization-page" aria-labelledby="explanation-heading" dir={locale === 'ar' ? 'rtl' : 'ltr'}><h1 id="explanation-heading">{text.audit}</h1><p>{text.intro}</p><form className="inline-form" onSubmit={load}><label htmlFor="decision-id">{text.decisionId}</label><input id="decision-id" value={id} onChange={(event) => setId(event.target.value)} dir="ltr" /><button type="submit" className="primary-button" disabled={state === 'loading'}>{state === 'loading' ? text.loading : text.loadExplanation}</button></form>{state === 'error' && <div className="state-panel" role="alert"><p>{id.trim() ? text.error : text.invalid}</p></div>}{state === 'ready' && item && <pre className="access-explanation" aria-live="polite" dir="ltr">{JSON.stringify(item, null, 2)}</pre>}</section>
+  async function load(event?: FormEvent) { event?.preventDefault(); if (!id.trim()) return setState('error'); setState('loading'); try { setItem(await explainAccessDecision(id.trim(), token)); setState('ready') } catch { setState('error') } }
+  return <div dir={directionForLocale(locale)} aria-labelledby="explanation-heading"><Page className="authorization-page"><PageHeader id="explanation-heading" title={text.audit} description={text.intro} /><form className="inline-form" onSubmit={load}><Field id="decision-id" label={text.decisionId}><input id="decision-id" value={id} onChange={(event) => setId(event.target.value)} dir="ltr" /></Field><Button type="submit" disabled={state === 'loading'}>{state === 'loading' ? text.loading : text.loadExplanation}</Button></form>{state === 'error' && <InlineError message={id.trim() ? text.error : text.invalid} />}{state === 'ready' && item && <pre className="access-explanation" aria-live="polite" dir="ltr">{JSON.stringify(item, null, 2)}</pre>}</Page></div>
 }
 
-export function AccessDecisionSimulator({ locale, token, onSessionExpired }: { locale: Locale; token: string; onSessionExpired: () => void }) {
+export function AccessDecisionSimulator() {
+  const locale = useLocale()
+  const token = useToken()
   const text = labels[locale]; const [request, setRequest] = useState(''); const [result, setResult] = useState<AccessDecision | null>(null); const [error, setError] = useState<string | null>(null); const [loading, setLoading] = useState(false)
-  async function submit(event: FormEvent) { event.preventDefault(); setError(null); try { const parsed = JSON.parse(request) as Parameters<typeof simulateAccessDecision>[0]; setLoading(true); setResult(await simulateAccessDecision(parsed, token)) } catch (caught) { if (caught instanceof ApiError && caught.status === 401) onSessionExpired(); setError(caught instanceof SyntaxError ? text.invalidJson : text.error) } finally { setLoading(false) } }
-  return <section className="organization-page authorization-page" aria-labelledby="simulator-heading" dir={locale === 'ar' ? 'rtl' : 'ltr'}><h1 id="simulator-heading">{text.simulator}</h1><p>{text.intro}</p><form onSubmit={submit}><label htmlFor="simulation-request">{text.requestJson}</label><textarea id="simulation-request" value={request} onChange={(event) => setRequest(event.target.value)} rows={10} dir="ltr" required aria-required="true" />{error && <p role="alert">{error}</p>}<button type="submit" className="primary-button" disabled={loading}>{loading ? text.loading : text.simulate}</button></form>{result && <pre className="access-explanation" aria-live="polite" dir="ltr">{JSON.stringify(result, null, 2)}</pre>}</section>
+  async function submit(event: FormEvent) { event.preventDefault(); setError(null); try { const parsed = JSON.parse(request) as Parameters<typeof simulateAccessDecision>[0]; setLoading(true); setResult(await simulateAccessDecision(parsed, token)) } catch (caught) { setError(caught instanceof SyntaxError ? text.invalidJson : text.error) } finally { setLoading(false) } }
+  return <div dir={directionForLocale(locale)} aria-labelledby="simulator-heading"><Page className="authorization-page"><PageHeader id="simulator-heading" title={text.simulator} description={text.intro} /><form className="resource-form" onSubmit={submit}><Field id="simulation-request" label={text.requestJson} required><textarea id="simulation-request" value={request} onChange={(event) => setRequest(event.target.value)} rows={10} dir="ltr" required aria-required="true" /></Field>{error && <p className="error-summary" role="alert">{error}</p>}<Button type="submit" disabled={loading}>{loading ? text.loading : text.simulate}</Button></form>{result && <pre className="access-explanation" aria-live="polite" dir="ltr">{JSON.stringify(result, null, 2)}</pre>}</Page></div>
 }

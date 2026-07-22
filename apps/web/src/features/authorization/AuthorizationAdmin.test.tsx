@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapAuthorizationRows, parsePolicyDocument, resourceCreateType, validateAdminForm } from './AuthorizationAdmin'
+import { authorizationTransitionForStatus, mapAuthorizationRows, parsePolicyDocument, resourceCreateType, validateAdminForm } from './AuthorizationAdmin'
 
 describe('AuthorizationAdmin pure helpers', () => {
   it('maps server rows without inventing authorization policy', () => {
@@ -18,5 +18,12 @@ describe('AuthorizationAdmin pure helpers', () => {
     expect(validateAdminForm({ code: 'role', policyDocument: '{bad' })).toBe('policy')
     expect(validateAdminForm({ code: 'role', name: 'Role', policyDocument: '{"effect":"deny"}' })).toBeNull()
     expect(parsePolicyDocument('{"effect":"deny"}')).toEqual({ effect: 'deny' })
+  })
+
+  it('maps governed assignment and delegation status changes to reasoned transitions', () => {
+    expect(authorizationTransitionForStatus('role-assignments', 'active', 'revoked')).toBe('revoke')
+    expect(authorizationTransitionForStatus('delegations', 'active', 'expired')).toBe('expire')
+    expect(authorizationTransitionForStatus('roles', 'active', 'revoked')).toBeNull()
+    expect(authorizationTransitionForStatus('delegations', 'active', 'inactive')).toBeNull()
   })
 })
