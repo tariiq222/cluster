@@ -1,10 +1,15 @@
 import { useRef, useState } from 'react'
-import { ApiError, type Session } from '../../api'
+import { useLocale } from '../../app/session-context'
+import { type Session } from '../../api'
 import {
   createRequest,
   createWorkDefinition,
   createWorkDefinitionVersion,
   createWorkflowDefinition,
+  listWorkDefinitions,
+  listWorkflowDefinitions,
+  listWorkflowVersions,
+  listWorkDefinitionVersions,
   publishWorkDefinitionVersion,
   publishWorkflowVersion,
   startWorkflow,
@@ -14,15 +19,10 @@ import {
   returnRequest,
   completeRequest,
   transitionTask,
-  linkDocument,
-  searchRecords,
-  getReport,
-  getDashboard,
-  getNotifications,
   type Day2Entity,
 } from '../../api/r1'
+import { Button, Field, Page, PageHeader, Panel, PanelGrid } from '../../ui'
 
-type Locale = 'ar' | 'en'
 const copy = {
   ar: {
     title: 'مسار الطلبات وسير العمل',
@@ -41,13 +41,10 @@ const copy = {
     done: 'اكتمل الإجراء',
     error: 'تعذر تنفيذ الإجراء. تحقق من الصلاحية أو حدّث الصفحة.',
     required: 'أكمل الحقول المطلوبة.',
-    day3: 'إكمال المستند والبحث والتقرير واللوحة',
-    evidence: 'أدلة اليوم الثالث',
-    document: 'المستند مرفق',
-    notification: 'الإشعار مستلم',
-    search: 'نتيجة البحث',
-    report: 'نتيجة التقرير',
-    dashboard: 'نتيجة اللوحة',
+    working: 'جارٍ تنفيذ الخطوة…',
+    setupHint: 'الخطوة ١: أنشئ التعريف أو أعد استخدام تعريف منشور.',
+    requestHint: 'الخطوة ٢: أنشئ الطلب وأرسله بعد إكمال الإعداد.',
+    taskHint: 'الخطوة ٣: نفّذ المهمة الناتجة.',
   },
   en: {
     title: 'Request workflow',
@@ -66,25 +63,19 @@ const copy = {
     done: 'Action completed',
     error: 'The action could not be completed. Check access or refresh.',
     required: 'Complete the required fields.',
-    day3: 'Complete document, search, report and dashboard',
-    evidence: 'Day 3 evidence',
-    document: 'Document attached',
-    notification: 'Notification received',
-    search: 'Search result',
-    report: 'Report result',
-    dashboard: 'Dashboard result',
+    working: 'Working…',
+    setupHint: 'Step 1: create or reuse a published definition.',
+    requestHint: 'Step 2: create and submit a request after setup.',
+    taskHint: 'Step 3: act on the generated task.',
   },
 } as const
 
 export function Day2Workflow({
-  locale,
   session,
-  onSessionExpired,
 }: {
-  locale: Locale
   session: Session
-  onSessionExpired: () => void
 }) {
+  const locale = useLocale()
   const t = copy[locale]
   const [code, setCode] = useState('request-day2')
   const [name, setName] = useState('Request workflow')
@@ -98,20 +89,16 @@ export function Day2Workflow({
   )
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
-  const [day3Evidence, setDay3Evidence] = useState<string[]>([])
   const errorRef = useRef<HTMLParagraphElement>(null)
   async function run(action: () => Promise<unknown>, success: string) {
     setBusy(true)
-    setStatus('')
+    setStatus(t.working)
     try {
       await action()
       setStatus(success)
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) onSessionExpired()
-      else {
-        setStatus(t.error)
-        window.requestAnimationFrame(() => errorRef.current?.focus())
-      }
+    } catch {
+      setStatus(t.error)
+      window.requestAnimationFrame(() => errorRef.current?.focus())
     } finally {
       setBusy(false)
     }
@@ -122,15 +109,15 @@ export function Day2Workflow({
       return
     }
     await run(async () => {
-      const work = await createWorkDefinition(session.access_token, {
-        code,
-        name,
-        default_classification: 'internal',
+      const workDefinitions = await listWorkDefinitions(session.access_token)
+      const existingWork = workDefinitions.items.find((item) => item.code === code)
+      const work = existingWork ?? await createWorkDefinition(session.access_token, {
+        code, name, default_classification: 'internal',
       })
-      const workVersion = await createWorkDefinitionVersion(
-        session.access_token,
-        String(work.id),
-        {
+      const workVersions = await listWorkDefinitionVersions(session.access_token, String(work.id))
+      const publishedWork = workVersions.items.find((item) => item.status === 'published')
+      const workVersion = publishedWork ?? workVersions.items[0] ?? await createWorkDefinitionVersion(
+        session.access_token, String(work.id), {
           schema_document: {
             type: 'object',
             properties: {
@@ -139,23 +126,20 @@ export function Day2Workflow({
             },
           },
           field_policy_key: 'default',
-        },
-      )
-      await publishWorkDefinitionVersion(
-        session.access_token,
-        String(workVersion.id),
-        Number(workVersion.lock_version ?? 1),
-      )
-      const flow = await createWorkflowDefinition(session.access_token, {
-        code: `${code}_flow`,
-        name,
-        source_record_type: source,
-      })
-      const published = await publishWorkflowVersion(
-        session.access_token,
-        String(flow.version.id),
-        Number(flow.version.lock_version ?? 1),
-      )
+        })
+      if (workVersion.status !== 'published') await publishWorkDefinitionVersion(session.access_token, String(workVersion.id), Number(workVersion.lock_version ?? 1))
+      const flowCode = `${code}_flow`
+      const flows = await listWorkflowDefinitions(session.access_token)
+      const existingFlow = flows.items.find((item) => item.code === flowCode)
+      const flow = existingFlow
+        ? { definition: existingFlow, version: null }
+        : await createWorkflowDefinition(session.access_token, { code: flowCode, name, source_record_type: source })
+      const versions = await listWorkflowVersions(session.access_token, String(flow.definition.id))
+      const candidate = versions.items.find((item) => item.status === 'published') ?? versions.items[0] ?? flow.version
+      if (!candidate?.id) throw new Error('published-workflow-version-required')
+      const published = candidate.status === 'published'
+        ? candidate
+        : await publishWorkflowVersion(session.access_token, String(candidate.id), Number(candidate.lock_version ?? 1))
       setWorkflowVersion(published)
     }, t.done)
   }
@@ -198,78 +182,52 @@ export function Day2Workflow({
         )
     }, t.done)
   }
-  async function finishDay3() {
-    if (!record?.id || !title.trim()) {
-      setStatus(t.required)
-      return
-    }
-    await run(async () => {
-      await linkDocument(session.access_token, String(record.id), '019f7000-0000-7000-8000-000000000903')
-      const [search, report, dashboard, notifications] = await Promise.all([
-        searchRecords(session.access_token, title),
-        getReport(session.access_token, '019f7000-0000-7000-8000-000000000901'),
-        getDashboard(session.access_token, '019f7000-0000-7000-8000-000000000902'),
-        getNotifications(session.access_token),
-      ])
-      if (search.total < 1 || report.total < 1 || dashboard.total < 1 || notifications.items.length < 1) throw new Error('day3-evidence-missing')
-      setDay3Evidence([t.document, t.notification, t.search, t.report, t.dashboard])
-    }, t.done)
-  }
   return (
-    <main className="content-page" aria-labelledby="day2-heading">
-      <h1 id="day2-heading">{t.title}</h1>
-      <p ref={errorRef} tabIndex={-1} role="status" aria-live="polite">
-        {status}
-      </p>
-      <div className="form-grid">
-        <section className="surface-card">
-          <h2>{t.admin}</h2>
-          <label>
-            {t.code}
-            <input value={code} onChange={(e) => setCode(e.target.value)} />
-          </label>
-          <label>
-            {t.name}
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label>
-            {t.source}
-            <input value={source} onChange={(e) => setSource(e.target.value)} />
-          </label>
-          <button
-            className="primary-button"
-            disabled={busy}
-            onClick={() => void setup()}
-          >
+    <Page className="content-page" aria-labelledby="day2-heading">
+      <PageHeader id="day2-heading" title={t.title} />
+      {status ? (
+        <p ref={errorRef} className="status-message" tabIndex={-1} role="status" aria-live="polite">
+          {status}
+        </p>
+      ) : null}
+      <PanelGrid>
+        <Panel id="day2-admin-heading" title={t.admin} level={2}>
+          <p>{t.setupHint}</p>
+          <Field id="day2-work-code" label={t.code} required>
+            <input id="day2-work-code" value={code} onChange={(e) => setCode(e.target.value)} />
+          </Field>
+          <Field id="day2-work-name" label={t.name} required>
+            <input id="day2-work-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field id="day2-source-record" label={t.source} required>
+            <input id="day2-source-record" value={source} onChange={(e) => setSource(e.target.value)} />
+          </Field>
+          <Button disabled={busy} onClick={() => void setup()}>
             {t.save}
-          </button>
-        </section>
-        <section className="surface-card">
-          <h2>{t.request}</h2>
-          <label>
-            {t.requestTitle}
-            <input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </label>
-          <label>
-            {t.description}
+          </Button>
+        </Panel>
+        <Panel id="day2-request-heading" title={t.request} level={2}>
+          <p>{t.requestHint}</p>
+          <Field id="day2-request-title" label={t.requestTitle} required>
+            <input id="day2-request-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </Field>
+          <Field id="day2-request-description" label={t.description} required>
             <textarea
+              id="day2-request-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-          </label>
-          <button
-            className="primary-button"
-            disabled={busy}
-            onClick={() => void submit()}
-          >
+          </Field>
+          <Button disabled={busy || !workflowVersion} onClick={() => void submit()}>
             {t.submit}
-          </button>
+          </Button>
           {task && (
             <div role="region" aria-label={t.task}>
+              <p>{t.taskHint}</p>
               <h2>{t.task}</h2>
               <p>{String(task.title ?? task.id ?? '')}</p>
-              <button
-                className="secondary-button"
+              <Button
+                variant="secondary"
                 disabled={busy}
                 onClick={() =>
                   void run(async () => {
@@ -292,9 +250,9 @@ export function Day2Workflow({
                 }
               >
                 {t.returned}
-              </button>
-              <button
-                className="secondary-button"
+              </Button>
+              <Button
+                variant="secondary"
                 disabled={busy}
                 onClick={() =>
                   void run(async () => {
@@ -317,17 +275,11 @@ export function Day2Workflow({
                 }
               >
                 {t.complete}
-              </button>
+              </Button>
             </div>
           )}
-          {record && (
-            <button className="primary-button" disabled={busy} onClick={() => void finishDay3()}>{t.day3}</button>
-          )}
-          {day3Evidence.length > 0 && (
-            <section role="region" aria-label={t.evidence}><h2>{t.evidence}</h2><ul>{day3Evidence.map((item) => <li key={item}>{item}</li>)}</ul></section>
-          )}
-        </section>
-      </div>
-    </main>
+        </Panel>
+      </PanelGrid>
+    </Page>
   )
 }
