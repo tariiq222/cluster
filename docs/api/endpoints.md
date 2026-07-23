@@ -5,12 +5,12 @@ type: engineering
 status: accepted
 version: 1.0.0
 date: 2026-07-23
-owner: مكتب هندسة البرمجيات
+owner: Software Engineering Office
 reviewers:
-  - مكتب هندسة المنصة
-  - مسؤول أمن المعلومات
+  - Platform Engineering Office
+  - Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير routes
+review_cycle: with every routes change
 sources:
   - docs/contracts/api/openapi.yaml
   - docs/api/rbac-matrix.md
