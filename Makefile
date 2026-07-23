@@ -1,4 +1,4 @@
-.PHONY: verify-intake api\:inventory test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
+.PHONY: verify-intake api\:inventory test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-mysql-integration verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
@@ -55,6 +55,16 @@ test-e2e-w1-1:
 	./infra/dev/run-w1-1-e2e.sh
 
 verify-boundaries:
+	cd apps/api && php artisan test tests/Architecture/ModuleBoundariesTest.php
+
+# MySQL integration suite (WalkingSkeleton + concurrency). Run against a real
+# MySQL instance with the cluster_w12_test database. Skips with a clear
+# message if no MySQL is reachable, so it stays a manual gate.
+verify-mysql-integration:
+	cd apps/api && php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);' && \
+		cd apps/api && vendor/bin/phpunit -c phpunit.mysql.xml || \
+		echo 'pdo_mysql extension not loaded; verify-mysql-integration skipped.'
+
 	cd apps/api && php artisan test tests/Architecture/ModuleBoundariesTest.php
 
 # البوابة المحلية الكاملة: عقود، جودة، اختبارات، حدود، ورحلة E2E.

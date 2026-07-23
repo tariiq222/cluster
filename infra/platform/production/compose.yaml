@@ -148,6 +148,25 @@ services:
       retries: 6
       start_period: 20s
 
+  # Scheduler runs Laravel's `php artisan schedule:run` every minute. The
+  # api/worker services are not responsible for cron jobs; this dedicated
+  # service consumes the scheduler-loop.sh binary already installed in
+  # apps/api/Dockerfile. Starts only if a scheduled task is registered
+  # in routes/console.php or in the application bootstrap.
+  scheduler:
+    <<: *api-common
+    command: ["/usr/local/bin/scheduler-loop"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(is_file('/tmp/scheduler.ready') && time() - filemtime('/tmp/scheduler.ready') < 90 ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
   migrate:
     <<: *api-common
     command: ["php", "artisan", "migrate", "--force", "--no-interaction"]
