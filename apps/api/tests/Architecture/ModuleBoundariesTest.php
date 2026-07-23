@@ -32,6 +32,25 @@ class ModuleBoundariesTest extends TestCase
         'Workspace' => 11,
     ];
 
+    /**
+     * Modules declared as canonical boundaries in docs/architecture/module-catalog.md
+     * but NOT yet implemented as apps/api/Modules/<Name> directories. Each entry is
+     * tracked as a planned module (R2/R3) so the architecture test cannot silently
+     * pass when an unimplemented module gains a directory in error (the test would
+     * treat it as the planned module and assert ownership correctly).
+     *
+     * @var list<string>
+     */
+    private const PLANNED_MODULES = [
+        'Audit',
+        'RecordsGovernance',
+        'Collaboration',
+        'Workspace',
+        'Strategy',
+        'PortfolioProjects',
+        'Risk',
+    ];
+
     /** @var array<string, string> */
     private const TABLE_OWNERS = [
         'platform_settings' => 'PlatformSettings',
@@ -102,6 +121,23 @@ class ModuleBoundariesTest extends TestCase
     public function test_current_module_tree_obeys_the_repository_boundary_rules(): void
     {
         $this->assertSame([], $this->violationsIn(base_path()));
+    }
+    public function test_planned_modules_have_no_implementation_directory_yet(): void
+    {
+        $modulesPath = base_path('apps/api/Modules');
+        $drifted = [];
+        foreach (self::PLANNED_MODULES as $planned) {
+            if (is_dir($modulesPath.DIRECTORY_SEPARATOR.$planned)) {
+                $drifted[] = $planned;
+            }
+        }
+        $this->assertSame(
+            [],
+            $drifted,
+            'These modules are listed as planned for R2/R3 and must not yet have an apps/api/Modules directory: '
+            .implode(', ', $drifted)
+            .'. If you are implementing one, move it out of PLANNED_MODULES, add its rank, and register its tables in TABLE_OWNERS.'
+        );
     }
 
     public function test_detects_a_cross_module_domain_import(): void
@@ -404,4 +440,67 @@ PHP);
 
         rmdir($path);
     }
+    public function test_every_event_type_in_outbox_has_a_matching_json_schema(): void
+    {
+        $repoRoot = dirname(__DIR__, 3);
+        $contractsDir = $repoRoot.'/docs/contracts/schemas';
+        if (! is_dir($contractsDir)) {
+            $this->markTestSkipped('docs/contracts/schemas is not present in this checkout.');
+        }
+
+        $eventTypes = [];
+        $regex = "/event_type['\"]?\s*[:=]\s*['\"]([a-zA-Z0-9_.\-]+)['\"]/";
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator(
+                $repoRoot.'/apps/api/Modules',
+                FilesystemIterator::SKIP_DOTS,
+            ),
+        );
+        foreach ($iterator as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+            $source = file_get_contents($file->getPathname());
+            if ($source === false) {
+                continue;
+            }
+            if (preg_match_all($regex, $source, $matches) > 0) {
+                foreach ($matches[1] as $eventType) {
+                    $eventTypes[$eventType] = $file->getPathname();
+                }
+            }
+        }
+
+        $this->assertNotEmpty(
+            $eventTypes,
+            'No event_type strings found under apps/api/Modules. Either no outbox events exist yet (skip the test) or the search regex is out of date.'
+        );
+
+        $missing = [];
+        foreach ($eventTypes as $eventType => $sourceFile) {
+            $slug = str_replace('.', '-', $eventType);
+            $candidates = [
+                $contractsDir.'/'.$slug.'.schema.json',
+                $contractsDir.'/'.$eventType.'.schema.json',
+            ];
+            $found = false;
+            foreach ($candidates as $candidate) {
+                if (is_file($candidate)) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (! $found) {
+                $missing[] = sprintf('%s (referenced in %s)', $eventType, $sourceFile);
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $missing,
+            'Outbox event types are missing JSON schemas under docs/contracts/schemas. '
+            .'Add a schema file for each missing type (filename: <type-with-dots-as-dashes>.schema.json) or drop the event_type from code.'
+        );
+    }
+
 }
