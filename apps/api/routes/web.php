@@ -93,6 +93,14 @@ use Modules\Reporting\Http\GetReportController;
 use Modules\Reporting\Http\ListDashboardsController;
 use Modules\Reporting\Http\ListReportsController;
 use Modules\Search\Http\SearchController;
+use Modules\PlatformSettings\Features\Operations\Http\GetPlatformOverviewController;
+use Modules\PlatformSettings\Features\Operations\Http\PlatformOperationsController;
+use Modules\PlatformSettings\Features\Settings\Http\CreateSettingsVersionController;
+use Modules\PlatformSettings\Features\Settings\Http\GetCurrentPlatformSettingsController;
+use Modules\PlatformSettings\Features\Settings\Http\ListSettingsVersionsController;
+use Modules\PlatformSettings\Features\Settings\Http\PublishSettingsVersionController;
+use Modules\PlatformSettings\Features\Settings\Http\UpdateSettingsValueController;
+use Modules\PlatformSettings\Features\Settings\Http\ValidateSettingsVersionController;
 use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController;
 use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController;
 use Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController;
@@ -191,6 +199,11 @@ Route::prefix('api/v1')->group(function (): void {
         Route::post('identity/accounts/{accountId}/{accountAction}', TransitionUserAccountController::class)->middleware(IdentityCsrfMiddleware::class);
     });
     Route::middleware([IdentitySessionMiddleware::class, RequireIdentitySessionPrincipal::class])->group(function (): void {
+        Route::get('platform-settings/current', GetCurrentPlatformSettingsController::class);
+        Route::get('platform-settings/versions', ListSettingsVersionsController::class);
+        Route::get('platform-operations/overview', GetPlatformOverviewController::class);
+        Route::get('platform-operations/health', [PlatformOperationsController::class, 'health']);
+        Route::get('platform-operations/backups', [PlatformOperationsController::class, 'backups']);
         Route::get('work-records', ListAuthorizedWorkRecordsController::class);
         Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class);
         Route::get('authorization/access-decisions/{decisionId}/explanation', ExplainAccessDecisionController::class);
@@ -203,6 +216,10 @@ Route::prefix('api/v1')->group(function (): void {
         RequireIdentitySessionPrincipal::class,
         IdentityCsrfMiddleware::class,
     ])->group(function (): void {
+        Route::post('platform-settings/versions', CreateSettingsVersionController::class);
+        Route::put('platform-settings/versions/{versionId}/settings/{settingKey}', UpdateSettingsValueController::class);
+        Route::post('platform-settings/versions/{versionId}/validate', ValidateSettingsVersionController::class);
+        Route::post('platform-settings/versions/{versionId}/publish', PublishSettingsVersionController::class);
         Route::post('work-records', SubmitWorkRecordController::class)->middleware([
             ProjectWorkRecordReadModels::class,
             ConsumeSubmittedNotification::class,

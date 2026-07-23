@@ -15,6 +15,7 @@ use App\Http\Controllers\Organization\ListTemporaryAssignmentsController;
 use App\Http\Controllers\Organization\RevokeTemporaryAssignmentController;
 use App\Integrations\WorkRecordAuthorizationFacts;
 use App\Integrations\WorkRecordWorkflowSourceAuthorizationFacts;
+use App\Integrations\PlatformSettings\PlatformSettingsApi;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\CountOperationsOfficeMembers;
@@ -93,6 +94,21 @@ use Modules\Organization\Infrastructure\Persistence\DatabaseGetActiveSupervisory
 use Modules\Organization\Infrastructure\Persistence\DatabaseResolveOrganizationScopeAncestry;
 use Modules\Organization\Infrastructure\Persistence\DatabaseResolvePersonOrganizationScope;
 use Modules\Organization\Infrastructure\Persistence\ValidatePersonReferenceFromPersistence;
+use Modules\PlatformSettings\Contracts\BackupOperationsGateway;
+use Modules\PlatformSettings\Contracts\GetEffectivePlatformSettings;
+use Modules\PlatformSettings\Contracts\PlatformHealthGateway;
+use Modules\PlatformSettings\Contracts\ResolveBusinessCalendar;
+use Modules\PlatformSettings\Contracts\TechnicalLogArchive;
+use Modules\PlatformSettings\Contracts\TechnicalLogArchiveStore;
+use Modules\PlatformSettings\Contracts\TechnicalLogSource;
+use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseBusinessCalendars;
+use Modules\PlatformSettings\Infrastructure\Persistence\DatabasePlatformSettings;
+use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseTechnicalLogArchiveStore;
+use App\Integrations\PlatformOperations\CommandBackupOperationsGateway;
+use App\Integrations\PlatformOperations\CompositeTechnicalLogSource;
+use App\Integrations\PlatformOperations\LaravelPlatformHealthGateway;
+use App\Integrations\PlatformOperations\MockTechnicalLogSource;
+use App\Integrations\PlatformOperations\ObjectStorageTechnicalLogArchive;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedRequestFixture;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedWorkDefinition;
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedRequestFixtureFromPersistence;
@@ -135,6 +151,18 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(GetActiveSupervisoryRelationships::class, DatabaseGetActiveSupervisoryRelationships::class);
         $this->app->bind(ResolvePersonOrganizationScope::class, DatabaseResolvePersonOrganizationScope::class);
         $this->app->bind(ResolveOrganizationScopeAncestry::class, DatabaseResolveOrganizationScopeAncestry::class);
+        $this->app->bind(GetEffectivePlatformSettings::class, DatabasePlatformSettings::class);
+        $this->app->bind(ResolveBusinessCalendar::class, fn (): ResolveBusinessCalendar => new DatabaseBusinessCalendars(
+            fn (string $scopeType, string $scopeId): ?array => $this->app->make(ResolveOrganizationScopeAncestry::class)->ancestry($scopeType, $scopeId),
+        ));
+        $this->app->bind(TechnicalLogArchiveStore::class, DatabaseTechnicalLogArchiveStore::class);
+        $this->app->bind(TechnicalLogSource::class, fn (): TechnicalLogSource => new CompositeTechnicalLogSource([new MockTechnicalLogSource], (string) config('app.key')));
+        $this->app->bind(TechnicalLogArchive::class, fn (): TechnicalLogArchive => new ObjectStorageTechnicalLogArchive(
+            \Storage::disk((string) config('platform_operations.logs.archive_disk', 'local')),
+            $this->app->make(TechnicalLogArchiveStore::class),
+        ));
+        $this->app->bind(BackupOperationsGateway::class, fn (): BackupOperationsGateway => new CommandBackupOperationsGateway(config('platform_operations')));
+        $this->app->bind(PlatformHealthGateway::class, LaravelPlatformHealthGateway::class);
         $this->app->bind(ResolvePrincipalContext::class, SessionPrincipalContextResolver::class);
         $this->app->bind(ResolveAccountEntitlement::class, DatabaseResolveAccountEntitlement::class);
         $this->app->bind(ResolveUserForPerson::class, DatabaseResolveUserForPerson::class);
@@ -162,6 +190,12 @@ class AppServiceProvider extends ServiceProvider
 
             return $this->app->make(DevelopmentFixturePrincipalResolver::class);
         });
+        $this->app->when(PlatformSettingsApi::class)
+            ->needs(ResolveDevelopmentFixturePrincipal::class)
+            ->give(fn ($app) => $app->make(SessionPrincipalResolver::class));
+        $this->app->when(PlatformSettingsApi::class)
+            ->needs(DecideAccess::class)
+            ->give(fn ($app) => $app->make(RbacAbacDecideAccess::class));
         $this->app->singleton(SessionPrincipalResolver::class);
         $this->app->singleton(WorkerPrincipalResolver::class, fn (): WorkerPrincipalResolver => new ConfiguredWorkerPrincipalResolver(
             (string) config('documents.worker.token'),
@@ -298,6 +332,7 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W13AddNotificationSourceFacts.php'),
             base_path('Modules/Search/Infrastructure/Persistence/Migrations/CreateSearchProjectionTables.php'),
             base_path('Modules/Reporting/Infrastructure/Persistence/Migrations/CreateReportingProjectionTables.php'),
+            base_path('Modules/PlatformSettings/Infrastructure/Persistence/Migrations/CreatePlatformSettingsTables.php'),
         ]);
         $this->commands([ExpireTemporaryAssignmentsCommand::class]);
 

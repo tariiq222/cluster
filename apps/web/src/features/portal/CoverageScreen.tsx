@@ -1,5 +1,3 @@
-import { TabletSmartphone } from 'lucide-react'
-
 import { Page, Panel, PanelGrid, MetricTile, StatusBadge, DataFreshness } from '../../ui'
 import {
   COVERAGE_MODULES,
@@ -81,7 +79,7 @@ export function CoverageScreen({ locale }: { locale: Locale }) {
           state="fresh"
         />
 
-        <Panel title={t.heroTitle}>
+        <Panel id="coverage-hero" title={t.heroTitle}>
           <p>{t.heroBody}</p>
           <MetricTile
             label={t.documentedOperations}
@@ -106,7 +104,7 @@ export function CoverageScreen({ locale }: { locale: Locale }) {
         </PanelGrid>
 
         <PanelGrid>
-          <Panel title={t.moduleTitle}>
+          <Panel id="coverage-modules" title={t.moduleTitle}>
             <p>{t.reviewNote}</p>
             <table>
               <thead>
@@ -130,7 +128,7 @@ export function CoverageScreen({ locale }: { locale: Locale }) {
             </table>
           </Panel>
 
-          <Panel title={t.gapTitle}>
+          <Panel id="coverage-gaps" title={t.gapTitle}>
             <p>{t.priorityGapsThatKeepTheCoverage}</p>
             {GAP_ITEMS.map((gap) => (
               <article key={`${gap.rank}-${pick(gap.title, locale)}`} className="coverage-gap">

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 
 import { text, type Locale } from '../app/copy'
-import { pathFromRoute, type AppRoute } from './routes'
+import { pathFromRoute, PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES, type AppRoute } from './routes'
 
 /**
  * The navigation registry defines every sidebar entry once. Each entry owns its
@@ -143,6 +143,7 @@ export const NAVIGATION_ENTRIES: readonly NavigationEntry[] = [
   { key: 'access-explanation', route: { name: 'access-explanation' }, group: 'internal', labelKey: 'accessExplanation', icon: ICONS.accessExplanation, policy: anyOf(['authorization.decision.read']) },
   { key: 'coverage', route: { name: 'coverage' }, group: 'internal', labelKey: 'coverage', icon: ICONS.coverage, policy: anyOf(['authorization.audit.read']) },
   { key: 'api-docs', route: { name: 'api-docs' }, group: 'internal', labelKey: 'apiReference', icon: ICONS.apiDocs, policy: anyOf(['authorization.audit.read']) },
+  { key: 'platform-settings', route: { name: 'platform-settings', section: 'overview' }, group: 'accounts-access', labelKey: 'platformSettings', icon: ICONS.apiDocs, policy: anyOf(PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES) },
 ]
 
 /**

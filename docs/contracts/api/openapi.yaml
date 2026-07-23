@@ -3417,6 +3417,21 @@ paths:
             "404": { $ref: "#/components/responses/NotFound" },
           },
       }
+  /platform-operations/overview:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      { tags: [PlatformSettings], summary: Get the platform operations overview, operationId: getPlatformOperationsOverview,
+        responses: { "200": { $ref: "#/components/responses/Entity" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" } } }
+  /platform-operations/health:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      { tags: [PlatformSettings], summary: Get platform health, operationId: getPlatformHealth,
+        responses: { "200": { $ref: "#/components/responses/Entity" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" } } }
+  /platform-operations/backups:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      { tags: [PlatformSettings], summary: Get platform backups, operationId: getPlatformBackups,
+        responses: { "200": { $ref: "#/components/responses/Entity" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" } } }
   /business-calendars:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
     x-implementation-status: planned  # [planned: not yet wired]

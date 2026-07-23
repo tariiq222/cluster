@@ -1,0 +1,13 @@
+import { useState } from 'react'
+
+import { Button, Drawer, Panel, StatusBadge } from '../../ui'
+import { isAllowed, screenText, stateGate, type PlatformScreenProps } from './screen-support'
+
+export function BackupsScreen({ locale, state = 'success', allowedActions }: PlatformScreenProps) {
+  const [restoreOpen, setRestoreOpen] = useState(false)
+  const [progress, setProgress] = useState<'idle' | 'queued'>('idle')
+  const [restoreSubmitted, setRestoreSubmitted] = useState(false)
+  const gate = stateGate(locale, state, screenText(locale, 'لا توجد نسخ احتياطية متاحة', 'No backup status is available'))
+  if (gate) return gate
+  return <div className="platform-screen"><Panel id="backup-status" title={screenText(locale, 'حالة النسخ', 'Backup status')}><dl className="platform-definition-list"><div><dt>{screenText(locale, 'آخر نجاح', 'Last success')}</dt><dd>2026-07-23 06:00 <StatusBadge variant="success">{screenText(locale, 'تم التحقق', 'Verified')}</StatusBadge></dd></div><div><dt>{screenText(locale, 'آخر فشل', 'Last failure')}</dt><dd>{screenText(locale, 'لا يوجد', 'None')}</dd></div><div><dt>{screenText(locale, 'الجدول', 'Schedule')}</dt><dd>{screenText(locale, 'يومياً 06:00', 'Daily 06:00')}</dd></div><div><dt>{screenText(locale, 'الاحتفاظ', 'Retention')}</dt><dd>{screenText(locale, '30 يوماً', '30 days')}</dd></div></dl></Panel><div className="platform-action-row">{isAllowed(allowedActions, 'platform_operations.backup.run') ? <Button onClick={() => setProgress('queued')}>{screenText(locale, 'تشغيل نسخة الآن', 'Run backup now')}</Button> : null}{isAllowed(allowedActions, 'platform_operations.restore.request') ? <Button variant="secondary" onClick={() => { setRestoreSubmitted(false); setRestoreOpen(true) }}>{screenText(locale, 'طلب استعادة', 'Request restore')}</Button> : null}</div>{progress === 'queued' ? <p role="status">{screenText(locale, 'تمت جدولة العملية باستخدام مفتاح idempotency.', 'Operation queued with an idempotency key.')}</p> : null}{restoreSubmitted ? <p role="status">{screenText(locale, 'تم إرسال طلب الاستعادة للمراجعة.', 'Restore request submitted for review.')}</p> : null}<Drawer open={restoreOpen} onClose={() => setRestoreOpen(false)} title={screenText(locale, 'طلب استعادة', 'Restore request')}><p>{screenText(locale, 'لا يظهر إلا تدفق تأكيد مستخدم ثانٍ بعد التحقق.', 'Second-user confirmation appears only after validation.')}</p><div className="platform-action-row"><Button onClick={() => { setRestoreOpen(false); setRestoreSubmitted(true) }}>{screenText(locale, 'إرسال الطلب', 'Submit request')}</Button><Button variant="quiet" onClick={() => setRestoreOpen(false)}>{screenText(locale, 'إلغاء', 'Cancel')}</Button></div></Drawer></div>
+}

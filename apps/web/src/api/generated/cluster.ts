@@ -12594,6 +12594,142 @@ export const getCurrentPlatformSettings = async (
   )
 }
 
+export type getPlatformOperationsOverviewResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type getPlatformOperationsOverviewResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getPlatformOperationsOverviewResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getPlatformOperationsOverviewResponseSuccess =
+  getPlatformOperationsOverviewResponse200 & {
+    headers: Headers
+  }
+export type getPlatformOperationsOverviewResponseError = (
+  | getPlatformOperationsOverviewResponse401
+  | getPlatformOperationsOverviewResponse403
+) & {
+  headers: Headers
+}
+
+export type getPlatformOperationsOverviewResponse =
+  | getPlatformOperationsOverviewResponseSuccess
+  | getPlatformOperationsOverviewResponseError
+
+export const getGetPlatformOperationsOverviewUrl = () => {
+  return `/api/v1/platform-operations/overview`
+}
+
+/**
+ * @summary Get the platform operations overview
+ */
+export const getPlatformOperationsOverview = async (
+  options?: RequestInit,
+): Promise<getPlatformOperationsOverviewResponse> => {
+  return customFetch<getPlatformOperationsOverviewResponse>(
+    getGetPlatformOperationsOverviewUrl(),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
+export type getPlatformHealthResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type getPlatformHealthResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getPlatformHealthResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getPlatformHealthResponseSuccess = getPlatformHealthResponse200 & {
+  headers: Headers
+}
+export type getPlatformHealthResponseError = (
+  getPlatformHealthResponse401 | getPlatformHealthResponse403
+) & {
+  headers: Headers
+}
+
+export type getPlatformHealthResponse =
+  getPlatformHealthResponseSuccess | getPlatformHealthResponseError
+
+export const getGetPlatformHealthUrl = () => {
+  return `/api/v1/platform-operations/health`
+}
+
+/**
+ * @summary Get platform health
+ */
+export const getPlatformHealth = async (
+  options?: RequestInit,
+): Promise<getPlatformHealthResponse> => {
+  return customFetch<getPlatformHealthResponse>(getGetPlatformHealthUrl(), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export type getPlatformBackupsResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type getPlatformBackupsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getPlatformBackupsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type getPlatformBackupsResponseSuccess =
+  getPlatformBackupsResponse200 & {
+    headers: Headers
+  }
+export type getPlatformBackupsResponseError = (
+  getPlatformBackupsResponse401 | getPlatformBackupsResponse403
+) & {
+  headers: Headers
+}
+
+export type getPlatformBackupsResponse =
+  getPlatformBackupsResponseSuccess | getPlatformBackupsResponseError
+
+export const getGetPlatformBackupsUrl = () => {
+  return `/api/v1/platform-operations/backups`
+}
+
+/**
+ * @summary Get platform backups
+ */
+export const getPlatformBackups = async (
+  options?: RequestInit,
+): Promise<getPlatformBackupsResponse> => {
+  return customFetch<getPlatformBackupsResponse>(getGetPlatformBackupsUrl(), {
+    ...options,
+    method: 'GET',
+  })
+}
+
 export type listBusinessCalendarsResponse200 = {
   data: CollectionResponse
   status: 200

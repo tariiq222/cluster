@@ -35,7 +35,19 @@ export type AppRoute =
   | { name: 'coverage' }
   | { name: 'api-docs' }
   | { name: 'notifications' }
+  | { name: 'platform-settings'; section: PlatformSettingsSection }
   | { name: 'not-found' }
+
+export const PLATFORM_SETTINGS_SECTIONS = ['overview', 'security', 'calendars', 'backups', 'logs', 'health', 'maintenance'] as const
+export type PlatformSettingsSection = (typeof PLATFORM_SETTINGS_SECTIONS)[number]
+export const PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES = [
+  'platform_settings.read',
+  'platform_settings.calendar.read',
+  'platform_operations.backup.read',
+  'platform_operations.logs.read',
+  'platform_operations.health.read',
+  'platform_operations.maintenance.manage',
+] as const
 
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
@@ -52,7 +64,7 @@ const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}
  * `AppRoute` without classifying it here is a compile error rather than a silently
  * broken active-state in the navigation.
  */
-export type RouteWorkspace = 'organization' | 'roles-capabilities'
+export type RouteWorkspace = 'organization' | 'roles-capabilities' | 'platform-settings'
 
 const ROUTE_WORKSPACE: Record<AppRoute['name'], RouteWorkspace | null> = {
   'organization': 'organization',
@@ -89,6 +101,7 @@ const ROUTE_WORKSPACE: Record<AppRoute['name'], RouteWorkspace | null> = {
   'coverage': null,
   'api-docs': null,
   'notifications': null,
+  'platform-settings': 'platform-settings',
   'personal-security': null,
   'not-found': null,
 }
@@ -152,6 +165,7 @@ export const primaryRoutes = [
   { route: { name: 'new-procedure-request' } as const, path: '/procedures/new' },
   { route: { name: 'search' } as const, path: '/search' },
   { route: { name: 'notifications' } as const, path: '/notifications' },
+  { route: { name: 'platform-settings', section: 'overview' } as const, path: '/admin/platform' },
 ] as const
 
 export function pathFromRoute(route: AppRoute): string {
@@ -195,6 +209,7 @@ export function pathFromRoute(route: AppRoute): string {
     case 'coverage': return '/coverage'
     case 'api-docs': return '/api-docs'
     case 'notifications': return '/notifications'
+    case 'platform-settings': return route.section === 'overview' ? '/admin/platform' : `/admin/platform/${route.section}`
     case 'not-found': return '/404'
   }
 }
@@ -257,6 +272,9 @@ export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/coverage') return { name: 'coverage' }
   if (pathname === '/api-docs') return { name: 'api-docs' }
   if (pathname === '/notifications') return { name: 'notifications' }
+  if (pathname === '/admin/platform') return { name: 'platform-settings', section: 'overview' }
+  const platformSettingsMatch = pathname.match(/^\/admin\/platform\/(security|calendars|backups|logs|health|maintenance)$/)
+  if (platformSettingsMatch) return { name: 'platform-settings', section: platformSettingsMatch[1] as Exclude<PlatformSettingsSection, 'overview'> }
   const explanationMatch = pathname.match(/^\/admin\/authorization\/explain(?:\/([^/]+))?$/)
   if (explanationMatch) return { name: 'access-explanation', decisionId: explanationMatch[1] }
   const importMatch = pathname.match(/^\/admin\/imports\/organization\/([^/]+)$/)
@@ -372,6 +390,20 @@ export function capabilitiesForRoute(route: AppRoute): readonly string[] | null 
     case 'coverage':
     case 'api-docs':
       return ['authorization.audit.read']
+    case 'platform-settings':
+      return route.section === 'overview'
+        ? PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES
+        : route.section === 'security'
+          ? ['platform_settings.read']
+          : route.section === 'calendars'
+            ? ['platform_settings.calendar.read']
+            : route.section === 'backups'
+              ? ['platform_operations.backup.read']
+              : route.section === 'logs'
+                ? ['platform_operations.logs.read']
+                : route.section === 'health'
+                  ? ['platform_operations.health.read']
+                  : ['platform_operations.maintenance.manage']
   }
 }
 

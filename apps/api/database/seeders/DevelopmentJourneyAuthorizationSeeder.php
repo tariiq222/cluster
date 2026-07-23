@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\CapabilityCatalog;
+use Modules\Authorization\Features\OperationsOffice\BootstrapOperationsOffice;
 use Modules\Authorization\Domain\UuidV7;
 use Modules\Identity\Infrastructure\Security\PasswordHasher;
 
@@ -64,6 +65,10 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
 
         $this->seedIdentityAccounts();
         $this->call(AuthorizationCatalogSeeder::class);
+        $platformClusterId = DB::table('clusters')->where('singleton_key', 1)->value('id');
+        if (is_string($platformClusterId)) {
+            app(BootstrapOperationsOffice::class)->bootstrap(self::ACCOUNT_B_ID, $platformClusterId);
+        }
 
         $now = now();
         $roleId = DB::table('roles')->where('code', self::ROLE_CODE)->value('id');

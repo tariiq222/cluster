@@ -26,6 +26,7 @@ import {
   routeFromPath,
   isRouteVisible,
   type AppRoute,
+  type PlatformSettingsSection,
 } from '../shell/routes'
 import { RequestDetail } from '../features/requests/RequestDetail'
 import { RequestForm } from '../features/requests/RequestForm'
@@ -70,6 +71,33 @@ import {
 } from '../api'
 import { getAuthorizedWorkRecord, markNotificationRead } from '../api/r1'
 import { Page, PageHeader, Panel, SkeletonList } from '../ui'
+import { PlatformSettingsLayout } from '../features/platform-settings/PlatformSettingsLayout'
+import { PlatformOverviewScreen } from '../features/platform-settings/PlatformOverviewScreen'
+import { SecuritySettingsScreen } from '../features/platform-settings/SecuritySettingsScreen'
+import { BusinessCalendarsScreen } from '../features/platform-settings/BusinessCalendarsScreen'
+import { BackupsScreen } from '../features/platform-settings/BackupsScreen'
+import { TechnicalLogsScreen } from '../features/platform-settings/TechnicalLogsScreen'
+import { PlatformHealthScreen } from '../features/platform-settings/PlatformHealthScreen'
+import { MaintenanceScreen } from '../features/platform-settings/MaintenanceScreen'
+import { platformSettingsMockFor } from '../features/platform-settings/PlatformSettingsMockData'
+
+function PlatformSettingsRoute({ locale, section, capabilities, navigate }: { locale: Locale; section: PlatformSettingsSection; capabilities: readonly string[] | null; navigate: (path: string) => void }) {
+  const [logCursor, setLogCursor] = useState<string | null>(null)
+  useEffect(() => {
+    if (section !== 'logs') setLogCursor(null)
+  }, [section])
+  const screen = platformSettingsMockFor(section, capabilities, section === 'logs' ? logCursor : null)
+  const props = { locale, state: screen.state, allowedActions: screen.allowedActions, resource: screen.resource }
+  return <PlatformSettingsLayout locale={locale} section={section} capabilities={capabilities} navigate={navigate}>
+    {section === 'overview' ? <PlatformOverviewScreen {...props} />
+      : section === 'security' ? <SecuritySettingsScreen {...props} />
+        : section === 'calendars' ? <BusinessCalendarsScreen {...props} />
+          : section === 'backups' ? <BackupsScreen {...props} />
+            : section === 'logs' ? <TechnicalLogsScreen {...props} logs={'items' in screen.resource ? screen.resource : undefined} onCursorChange={setLogCursor} />
+              : section === 'health' ? <PlatformHealthScreen {...props} />
+                : <MaintenanceScreen {...props} />}
+  </PlatformSettingsLayout>
+}
 
 const SwaggerUiScreen = lazy(async () => {
   const module = await import('../features/docs/SwaggerUiScreen')
@@ -517,6 +545,8 @@ function ShellInner({
             revision={principal.revision}
           />
         )
+      case 'platform-settings':
+        return <PlatformSettingsRoute locale={locale} section={route.section} capabilities={principal.capabilities} navigate={navigate} />
       case 'not-found':
         return <RouteNotFound locale={locale} />
     }

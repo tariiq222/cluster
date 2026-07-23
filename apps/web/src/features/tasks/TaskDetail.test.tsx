@@ -1,31 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import type { Session } from '../../api'
-import { ApiError } from '../../api'
-import { transitionTask } from '../../api/r1'
 import { getTask, getTaskComments } from '../workflow/workflow-api'
 import { TaskDetail } from './TaskDetail'
 
 vi.mock('../workflow/workflow-api', () => ({ getTask: vi.fn(), getTaskComments: vi.fn() }))
-vi.mock('../../api/r1', async () => {
-  const actual = await vi.importActual<typeof import('../../api/r1')>('../../api/r1')
-  return { ...actual, transitionTask: vi.fn() }
-})
-
 const session = { access_token: 'token', user_id: 'user' } as unknown as Session
 const taskMock = vi.mocked(getTask)
 const commentsMock = vi.mocked(getTaskComments)
-const transitionMock = vi.mocked(transitionTask)
 
 afterEach(() => { cleanup(); vi.clearAllMocks() })
-
-function pending<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
-  return { promise, resolve, reject }
-}
 
 describe('TaskDetail', () => {
   it('shows loading', () => {
