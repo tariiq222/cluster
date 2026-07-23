@@ -182,7 +182,7 @@ final class TasksHttpControllerTest extends TestCase
     public function test_from_step_creates_task_linked_to_workflow_step(): void
     {
         $version = $this->app->make('Modules\\Workflow\\Features\\PublishWorkflowVersion\\Handler\\PublishWorkflowVersionHandler')->publish('task-flow', 'record', $this->userId, [
-            'nodes' => [['key' => 'task', 'type' => 'task']],
+            'nodes' => [['key' => 'review', 'type' => 'work_item']],
         ]);
         $instance = $this->app->make('Modules\\Workflow\\Features\\StartWorkflow\\Handler\\StartWorkflowHandler')->start($version['id'], 'work_records', 'record', (string) Str::uuid7(), $this->userId);
         $step = DB::table('workflow_step_instances')->where('workflow_instance_id', $instance['id'])->first();

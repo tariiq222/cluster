@@ -52,7 +52,7 @@ final class WorkflowStepAssigneeTest extends TestCase
     /** @return array<string, mixed> */
     private function graph(?string $assigneeUserId = null): array
     {
-        $task = ['key' => 'approval', 'type' => 'task'];
+        $task = ['key' => 'approval', 'type' => 'work_item'];
         if ($assigneeUserId !== null) {
             $task['assignee_user_id'] = $assigneeUserId;
         }

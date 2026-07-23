@@ -51,7 +51,7 @@ references:
 |---|---|
 | تعريف المسار (Workflow Definition) | عائلة مسار لها إصدارات قابلة للاختبار والنشر. |
 | إصدار المسار (Workflow Version) | رسم ثابت من nodes وtransitions وpolicies، يثبت على instance. |
-| العقدة (Node) | خطوة في الرسم مثل Start أو Review أو Approval أو End أو Task أو Wait. |
+| العقدة (Node) | خطوة في الرسم مثل Start أو Review أو Approval أو End أو Work Item أو Wait. عقدة `work_item` هي خطوة عمل يُنفّذها شخص، وتُشتق كسجل «مهمة» في موديول Tasks؛ لا تخلط بينها وبين المهمة نفسها. |
 | الانتقال (Transition) | حافة من عقدة إلى أخرى مع شرط DSL مقيد وإجراء مسموح. |
 | Instance | تنفيذ فعلي لمسار لسجل مصدر واحد. |
 | Step Instance | تنفيذ عقدة واحدة مع حالة وتواريخ وقرار ومكلفين. |
@@ -152,7 +152,7 @@ references:
 - `id` BIGINT PK.
 - `workflow_version_id` BIGINT NOT NULL FK -> `workflow_versions.id` ON DELETE CASCADE.
 - `node_key` VARCHAR(96) NOT NULL.
-- `node_type` VARCHAR(32) NOT NULL (`start`، `review`، `approval`، `return`، `task`، `wait`، `escalation`، `parallel_split`، `parallel_join`، `end`).
+- `node_type` VARCHAR(32) NOT NULL (`start`، `review`، `approval`، `return`، `work_item`، `wait`، `escalation`، `parallel_split`، `parallel_join`، `end`). سابقاً كان `task`؛ أُعيدت تسميته إلى `work_item` لتمييزه عن سجل «المهمة» في موديول Tasks.
 - `assignment_rule` JSON NULL.
 - `decision_policy` JSON NULL.
 - `configuration` JSON NOT NULL.

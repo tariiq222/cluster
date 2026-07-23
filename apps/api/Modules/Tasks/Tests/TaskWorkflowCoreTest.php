@@ -18,7 +18,7 @@ final class TaskWorkflowCoreTest extends TestCase
     public function test_task_step_is_assigned_and_completion_is_idempotent(): void
     {
         $version = $this->app->make('Modules\\Workflow\\Features\\PublishWorkflowVersion\\Handler\\PublishWorkflowVersionHandler')->publish('task-flow', 'record', self::USER, [
-            'nodes' => [['key' => 'task', 'type' => 'task']],
+            'nodes' => [['key' => 'review', 'type' => 'work_item']],
         ]);
         $instance = $this->app->make('Modules\\Workflow\\Features\\StartWorkflow\\Handler\\StartWorkflowHandler')->start($version['id'], 'work_records', 'record', '0197f0e0-0000-7000-8000-000000000099', self::USER);
         $step = DB::table('workflow_step_instances')->where('workflow_instance_id', $instance['id'])->first();

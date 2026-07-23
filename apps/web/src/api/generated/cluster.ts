@@ -563,7 +563,7 @@ export const WorkflowNodeType = {
   start: 'start',
   approval: 'approval',
   decision: 'decision',
-  task: 'task',
+  work_item: 'work_item',
   end: 'end',
 } as const
 

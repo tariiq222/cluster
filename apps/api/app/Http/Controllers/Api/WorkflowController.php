@@ -46,7 +46,7 @@ final class WorkflowController
         if (! is_string($v['code'] ?? null) || ! is_string($v['name'] ?? null) || ! is_string($v['source_record_type'] ?? null)) {
             return $this->problem(422, 'invalid-workflow-definition', 'The request body is invalid.', $c);
         }
-        $graph = ['nodes' => [['key' => 'start', 'type' => 'start'], ['key' => 'task', 'type' => 'task', 'configuration' => ['title' => $v['name']]], ['key' => 'end', 'type' => 'end']], 'transitions' => [['from' => 'start', 'to' => 'task'], ['from' => 'task', 'to' => 'end']], 'decision_policy' => ['default' => 'owner']];
+        $graph = ['nodes' => [['key' => 'start', 'type' => 'start'], ['key' => 'review', 'type' => 'work_item', 'configuration' => ['title' => $v['name']]], ['key' => 'end', 'type' => 'end']], 'transitions' => [['from' => 'start', 'to' => 'review'], ['from' => 'review', 'to' => 'end']], 'decision_policy' => ['default' => 'owner']];
         $requestHash = hash('sha256', json_encode($v, JSON_THROW_ON_ERROR));
         $keyHash = hash('sha256', $key);
         $existing = DB::table('workflow_idempotency_keys')->where(['principal_id' => $p['user_id'], 'operation' => 'createWorkflowDefinition', 'key_hash' => $keyHash])->first();

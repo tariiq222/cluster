@@ -29,7 +29,7 @@ import {
 } from '../../ui'
 import { type WorkflowCopy, workflowCopy } from './workflow-copy'
 
-type StepType = 'approval' | 'decision' | 'task'
+type StepType = 'approval' | 'decision' | 'work_item'
 type AssignmentRuleType = 'supervisor_of_initiator' | 'supervisor_of_step' | 'role' | 'none'
 
 type ProcedureStep = {
@@ -51,7 +51,7 @@ type ProcedureDraft = {
   steps: ProcedureStep[]
 }
 
-const STEP_TYPES: readonly StepType[] = ['approval', 'decision', 'task']
+const STEP_TYPES: readonly StepType[] = ['approval', 'decision', 'work_item']
 const RULE_TYPES: readonly AssignmentRuleType[] = [
   'supervisor_of_initiator',
   'supervisor_of_step',
@@ -258,7 +258,7 @@ export function ProcedureAuthoring({
             ? copy.procRuleSupervisorOfInitiator.replace('لمقدّم الطلب', '').trim() || 'approval'
             : type === 'decision'
               ? 'decision'
-              : 'task',
+              : 'work_item',
       })),
     [copy],
   )

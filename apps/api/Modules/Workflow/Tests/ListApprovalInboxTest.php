@@ -135,7 +135,7 @@ final class ListApprovalInboxTest extends TestCase
             'id' => $stepId,
             'workflow_instance_id' => $instanceId,
             'node_key' => 'review-1',
-            'node_type' => 'task',
+            'node_type' => 'work_item',
             'state' => $state,
             'activation_sequence' => 1,
             'activated_at' => $now,

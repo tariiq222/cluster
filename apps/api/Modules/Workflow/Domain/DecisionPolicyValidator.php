@@ -205,6 +205,6 @@ final class DecisionPolicyValidator
     /** @param array<string, mixed> $node */
     private function isStep(array $node): bool
     {
-        return in_array($node['type'] ?? null, ['approval', 'decision', 'task'], true);
+        return in_array($node['type'] ?? null, ['approval', 'decision', 'work_item'], true);
     }
 }

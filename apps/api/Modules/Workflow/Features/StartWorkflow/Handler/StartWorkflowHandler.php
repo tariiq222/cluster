@@ -51,7 +51,7 @@ final class StartWorkflowHandler
             ]);
             $graph = json_decode((string) $version->graph_document, true, 512, JSON_THROW_ON_ERROR);
             $taskNodes = collect($graph['nodes'] ?? $graph)
-                ->filter(fn (mixed $node): bool => is_array($node) && in_array(($node['type'] ?? null), ['task', 'approval', 'decision'], true));
+                ->filter(fn (mixed $node): bool => is_array($node) && in_array(($node['type'] ?? null), ['work_item', 'approval', 'decision'], true));
             if ($taskNodes->count() > 1 && $this->advancer !== null) {
                 // Multi-step graphs walk the linear transition chain via the engine
                 // so the first step, its assignee, and any rule resolution stay in
@@ -63,7 +63,7 @@ final class StartWorkflowHandler
                     DB::table('workflow_step_instances')->insert([
                         'id' => Str::uuid7()->toString(),
                         'workflow_instance_id' => $instanceId,
-                        'node_key' => (string) ($taskNode['key'] ?? 'task'),
+                        'node_key' => (string) ($taskNode['key'] ?? 'work_item'),
                         'node_type' => (string) $taskNode['type'],
                         'state' => 'waiting',
                         'activation_sequence' => 1,

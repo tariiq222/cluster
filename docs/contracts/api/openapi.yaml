@@ -6667,7 +6667,7 @@ components:
           {
             key: { type: string, pattern: "^[a-z][a-z0-9_]{1,95}$" },
             type:
-              { type: string, enum: [start, approval, decision, task, end] },
+              { type: string, enum: [start, approval, decision, work_item, end] },
             assignment_rule: { type: object },
             configuration: { type: object },
           },

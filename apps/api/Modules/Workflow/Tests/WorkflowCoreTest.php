@@ -47,8 +47,8 @@ final class WorkflowCoreTest extends TestCase
     {
         return ['nodes' => [
             ['key' => 'start', 'type' => 'start'],
-            ['key' => 'task', 'type' => 'task', 'configuration' => ['title' => $title]],
+            ['key' => 'review', 'type' => 'work_item', 'configuration' => ['title' => $title]],
             ['key' => 'end', 'type' => 'end'],
-        ], 'transitions' => [['from' => 'start', 'to' => 'task'], ['from' => 'task', 'to' => 'end']]];
+        ], 'transitions' => [['from' => 'start', 'to' => 'review'], ['from' => 'review', 'to' => 'end']]];
     }
 }

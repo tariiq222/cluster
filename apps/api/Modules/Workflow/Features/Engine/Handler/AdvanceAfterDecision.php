@@ -55,7 +55,7 @@ final class AdvanceAfterDecision
             'id' => $id,
             'workflow_instance_id' => $instanceId,
             'node_key' => $nextKey,
-            'node_type' => (string) ($node['type'] ?? 'task'),
+            'node_type' => (string) ($node['type'] ?? 'work_item'),
             'state' => 'waiting',
             'activation_sequence' => max(1, $sequence),
             'assignee_user_id' => is_string($assignee) ? $assignee : null,
