@@ -1,16 +1,16 @@
 ---
 doc_id: SEC-AM-001
-title: نموذج الصلاحيات والعزل
+title: Authorization and Isolation Model
 type: data-security
 status: draft
 version: 0.3.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Officer
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/architecture/module-catalog.md
@@ -22,157 +22,144 @@ references:
 - docs/data-security/classification-and-handling.md
 - docs/data-security/retention-and-legal-hold.md
 ---
-# نموذج الصلاحيات والعزل
 
-## 1. الهدف
+# Authorization and Isolation Model
 
-تحدد هذه الوثيقة القرار المركزي للوصول في المنصة: مدخلاته، ومراحله الثابتة بترتيب محدد، وسلوك الفشل، والعقد البرمجي بين `Authorization` وموديولات الأعمال.
+## 1. Purpose
 
-كل قراءة أو كتابة أو اعتماد أو تصدير يمر عبر قرار واحد قابل للتفسير والتدقيق. لا تعتمد المنصة على الواجهة لإخفاء العناصر، ولا تعتمد على استعلامات مخصصة في كل شاشة.
+This document defines the platform's central access decision: its inputs, its
+fixed stages in a defined order, its failure behaviour, and the programming
+contract between `Authorization` and the business modules.
 
-## 2. المبادئ الملزمة
+Every read, write, approval, or export passes through a single decision that
+is interpretable and auditable. The platform does not rely on the UI to hide
+elements, and it does not rely on ad-hoc queries in every screen.
 
-- **القرار في الخلفية فقط.** Laravel يحسم القرار، والواجهة تستهلك النتيجة. لا تُتخذ قرارات صلاحيات في React أو في استعلام فرعي.
-- **قابلية التفسير.** كل قرار `allow` أو `deny` يحوي أسباباً مرقمة تُعرض للمستخدم وتُسجل في التدقيق.
-- **فشل مغلق.** أي عدم يقين أو خطأ أو نقص في المدخلات ينتج عنه `deny`. لا يوجد افتراضي للسماح.
-- **ترتيب ثابت.** المراحل العشر للقرار تُنفذ دائماً بنفس الترتيب، ولا تتجاوز مرحلة دون تسجيل سبب.
-- **عزل افتراضي بين المنشآت.** مستشفيان لا يريان سجلات بعضهما إلا بعلاقة أو مشاركة أو دور صريح.
-- **عدم توريث تلقائي.** ظهور المهمة لا يمنح رؤية حقول المصدر. تطبق القاعدة نفسها على التقارير والبحث والتصدير.
+## 2. Binding Principles
 
-## 3. المدخلات الإلزامية لقرار الوصول
+- **Backend-only decisioning.** Laravel resolves the decision; the UI consumes
+  the result. No permission decision is taken in React or in any ad-hoc query.
+- **Interpretability.** Every `allow` or `deny` decision carries numbered
+  reasons shown to the user and recorded in the audit log.
+- **Fail closed.** Any uncertainty, error, or missing input produces `deny`.
+  There is no default-allow.
+- **Fixed order.** The decision stages are always executed in the same order
+  and no stage is skipped without recording a reason.
+- **Default isolation between facilities.** Two facilities do not see each
+  other's records unless an explicit relationship, share, or role applies.
+- **No automatic inheritance.** Surfacing a task does not grant visibility into
+  the source record's fields. The same rule applies to reports, search, and
+  export.
 
-يُجمَّع `AccessContext` في اللحظة الأولى من استلام الطلب ويحتوي على:
+## 3. Mandatory Inputs to an Access Decision
 
-1. حساب المستخدم الفعلي وحالته الحالية.
-2. الشخص المرتبط وصلاحياته الشخصية.
-3. حقائق التكليفات والعضويات والعلاقات السارية من Organization، والتفويضات السارية من Authorization، بنوافذها الزمنية.
-4. الأدوار والقدرات الممنوحة.
-5. العلاقات الإشرافية وقدراتها.
-6. الجهة والوحدة والسياق التنظيمي للطلب.
-7. الفعل المطلوب (`view`, `edit`, `approve`, `export`, `delete`, `assign`, ...).
-8. نوع المورد ومعرفه عند توفره.
-9. حقائق السجل المجمَّدة إن وُجد السجل.
-10. الجلسة وعنوان IP الداخلي ومعرف الارتباط.
+`AccessContext` is assembled at the first moment the request is received and
+contains:
 
-غياب أي عنصر من العناصر الإلزامية يعني أن المرحلة المسؤولة تُسجل سبباً وتُرجع `deny`.
+1. The actual user account and its current state.
+2. The linked person and their personal attributes.
+3. Active assignments, memberships, and relationships from Organization, and
+   active delegations from Authorization, with their time windows.
+4. Granted roles and capabilities.
+5. Supervisory relationships and their capabilities.
+6. The body's org unit and the organizational context of the request.
+7. The requested action (`view`, `edit`, `approve`, `export`, `delete`,
+   `assign`, ...).
+8. The resource type and identifier when available.
+9. The frozen record facts if the record exists.
+10. The session, the internal IP address, and the correlation id.
 
-## 4. ترتيب مراحل قرار الوصول
+The absence of any mandatory input means the responsible stage records a
+reason and returns `deny`.
 
-يُنفَّذ القرار بالمراحل العشر التالية، وكل مرحلة تُسجِّل نتيجتها في `AccessDecisionReason`:
+> **Contractual note.** `AccessContext` items 1, 5, and 9 above are described
+> here as the contract that business modules and controllers are expected to
+> supply to `Authorization`. The current runtime engine
+> (`RbacAbacDecideAccess`) only consumes the actor user id, the requested
+> capability, and `RecordFacts`; it does not yet read account-state, share,
+> or record-state snapshots as runtime stages. The full ten-stage pipeline
+> remains the target contract for future releases.
 
-### 4.1 المرحلة 1: فحص حالة الحساب النشط
+## 4. Evaluation Order
 
-- يجب أن يكون `UserAccount.status = active`.
-- لا يُسمح بحساب `pending` أو `locked` أو `disabled` أو `archived`.
-- إذا انتهت صلاحية كلمة المرور بحسب السياسة ولم يجددها المستخدم، تُمنع الإجراءات الحساسة.
-- فشل الفحص ينتج عنه `deny` فوري عند `account_state` ولا تُكمل المراحل.
+The runtime evaluation order implemented by `RbacAbacDecideAccess` (first
+failure wins; each step records its result on `AccessDecisionReason`) is:
 
-### 4.2 المرحلة 2: فحص القدرة الأساسية
+1. **`record_facts_unavailable`** — the `RecordFacts` payload is `null` or
+   missing required fields.
+2. **`actor_user_id_missing`** — the actor's `user_id` is not present.
+3. **`capability_not_supported`** — the capability is not declared in
+   `CapabilityCatalog`.
+4. **`explicit_deny`** — an active `ExplicitDeny` covers actor + capability +
+   facts.
+5. **`classification_insufficient`** — `facts.classification` is not a known
+   `ClassificationLevel` (unknown or empty).
+6. **`role_capability_denied`** — a covering role grant with `effect = deny`
+   applies.
+7. **Grant resolution via `role_assignments`** (status active, within
+   `start_at` / `end_at`) joined to `role_capabilities` with
+   `effect = allow`. A matching grant proceeds to scope and clearance checks
+   (`organization_unit_scope_mismatch` / `classification_insufficient`); no
+   match falls through.
+8. **Delegation grants** with the same scope + clearance logic.
+9. **Supervisory relationships** (active window, capability listed in
+   `relationship_capabilities`, target unit matches `facts.organizationUnitId`)
+   — surfaced via `supervisory_relationship_scope_mismatch` /
+   `actor_organization_unit_scope_unavailable` / `supervisory_relationship_capability_not_listed`.
+10. **Expiry signals** — expired grants, delegations, or supervisory
+    relationships emit `role_assignment_expired`, `delegation_expired`, or
+    `supervisory_relationship_expired`.
+11. **Fallback** — nothing matched → `active_role_assignment_not_found`.
 
-- يحدد الفعل المطلوب قدرة أساسية مثل `work_records.view` أو `portfolio_projects.edit`.
-- يُمنح المستخدم القدرة من خلال:
-  - أدوار RBAC الفعالة في نافذتها الزمنية.
-  - سياسة Authorization المطبقة على حقائق علاقة إشرافية فعالة من Organization.
-  - قدرات التفويض الساري.
-  - سياسة Authorization المطبقة على حقائق عضوية لجنة نشطة عند الحاجة.
-- غياب القدرة ينتج عنه `deny` عند `capability` ولا تُكمل المراحل.
+Stages 1–3 reject on missing or unsupported inputs before any policy lookup.
+Stages 4–6 reject on hard negative signals. Stages 7–9 are the positive
+grant search. Stages 10–11 catch expired-but-existing relationships and the
+catch-all no-match.
 
-### 4.3 المرحلة 3: فحص النطاق التنظيمي
+The numbered "ten-stage" pipeline that previously appeared in this document
+(account state, capability, organizational scope, supervisory relationship,
+share, explicit deny, classification, record state, field policy, action)
+is the **target contract** for future releases. The current runtime engine
+implements only the steps above; the remaining checks (account-state, share,
+record-state, field-policy, sensitive-audit side effects, scope resolution)
+are **planned** and must not be read as implemented runtime behaviour.
 
-- تُقيَّد القدرة بالجهة أو الوحدة المسموحة للمستخدم عبر:
-  - نطاق الدور.
-  - نطاق التكليف الأساسي.
-  - التكليف المؤقت الساري.
-  - العضوية في لجنة تملك نطاقاً.
-- خارج النطاق الممنوح يُسجل `deny` عند `organizational_scope` ولا تُكمل المراحل.
+## 5. Fail-Closed Behaviour
 
-### 4.4 المرحلة 4: تطبيق العلاقة الإشرافية
+Fail-closed behaviour applies in the following cases:
 
-- إذا لم تكفِ القدرة المباشرة للنطاق، يقرأ Authorization حقائق العلاقات الإشرافية الفعالة من Organization ويطبق سياسته:
-  - `direct` تكافئ التكليف الإداري.
-  - `functional` تكافئ الإشراف الوظيفي.
-  - `coordination` تمنح قدرات محددة فقط.
-  - `read_only` تمنح رؤية مؤشرات.
-- لا تحمل حقائق العلاقة قراراً أو سماحاً؛ Authorization وحده يحولها إلى أثر قدرة محدد دون توسعة ضمنية.
-- عدم وجود علاقة فعالة ينتج عنه `deny` عند `relationship` للقدرات التي تعتمد على العلاقة.
-
-### 4.5 المرحلة 5: تطبيق المشاركة الصريحة
-
-- إذا كان السجل مشتركاً مع المستخدم عبر `Share` صريح:
-  - يجب أن تكون المشاركة في نافذتها الزمنية.
-  - يجب أن تتضمن الفعل المطلوب.
-  - يجب أن يكون المستخدم نشطاً ومنتمي للجهة المانحة للمشاركة أو يحمل دور `share_recipient` معتمد.
-- المشاركة لا تلغي العزل التنظيمي، لكنها تضيف استثناءً مسجلاً.
-- فشل التحقق ينتقل للمنع الصريح في المرحلة التالية.
-
-### 4.6 المرحلة 6: فحص المنع الصريح
-
-- تُطبَّق قواعد `ExplicitDeny` على المستخدم أو نطاقه.
-- المنع الصريح يُلغي أي سماح سابق.
-- تطابق المنع مع الفعل المطلوب ينتج عنه `deny` فوري عند `explicit_deny` ولا تُكمل المراحل.
-- يحق للمستخدم طلب تفسير لقواعد المنع الصريحة النشطة عليه من السوبر أدمن.
-
-### 4.7 المرحلة 7: فحص التصريح والتصنيف
-
-- التصريح (`ClearanceLevel`) للمستخدم يجب أن يكون ≥ تصنيف السجل (`RecordClassification`) في ترتيب المستويات.
-- رموز التصنيف الوحيدة هي `public`, `internal`, `confidential`, `top_secret` بهذا الترتيب.
-- التصنيف الأعلى على حقل بعينه يرفع المتطلب على ذلك الحقل.
-- عدم كفاية التصريح ينتج عنه `deny` عند `classification` أو إخفاء الحقل عند `field`.
-- السوبر أدمن يخضع للقاعدة نفسها في المحتوى الحساس، ويسجل اطلاعه.
-
-### 4.8 المرحلة 8: فحص حالة السجل والمسار
-
-- يطبق Authorization سياسته على `state` و`workflow_step` و`legal_hold` وحالة إصدار التعريف الواردة ضمن `AuthorizationRecordFacts`.
-- الموديول المالك يصف الحالة والنسخ كحقائق فقط، ولا يرسل guard أو نتيجة `allow` أو `deny`.
-- غياب حقيقة مطلوبة أو عدم تطابقها مع سياسة Authorization ينتج عنه `deny` عند `record_state`.
-
-### 4.9 المرحلة 9: فحص صلاحيات الحقول
-
-- يقرأ Authorization `field_policy_key` و`facts_version` من حقائق السجل، ثم يحمّل `field_access_template` الذي يملكه ويحدد حالة كل حقل:
-  - `hide`: لا يظهر في الإخراج.
-  - `read`: يظهر ولا يعدل.
-  - `edit`: يظهر ويعدل.
-- تُطبَّق قوالب `field_access_template` المرتبطة بالمنصب والدور.
-- تُطبَّق قيود الحقول الإضافية الواردة كحقائق على السجل؛ لا يعيد الموديول المالك خريطة حقول نهائية.
-- قرار الحقل يُسجَّل في `FieldDecision` للتفسير والتدقيق.
-
-### 4.10 المرحلة 10: الفعل والتسجيل
-
-- إذا اجتازت المراحل التسع السابقة، يُرجع القرار `allow` مع قائمة `allowed_fields`.
-- تُنفَّذ العملية الفعلية على الموارد المسموحة فقط.
-- إذا كان الفعل على محتوى مصنف `confidential` (سري) أو `top_secret` (سري للغاية)، يُسجل `SensitiveAccessEvent` في Audit.
-- تُسجل في التدقيق قراءات الفهارس والتصدير والطباعة والمشاركة.
-
-## 5. سلوك الفشل المغلق
-
-يُطبَّق الفشل المغلق في الحالات التالية:
-
-| الحالة | النتيجة |
+| Condition | Result |
 |---|---|
-| عدم توفر خدمة Identity | `deny` عند `account_state` |
-| عدم توفر خدمة Organization | `deny` عند `organizational_scope` |
-| عدم توفر خدمة Authorization | `deny` عند `capability` |
-| تعذر قراءة السجل أو حقائقه | `deny` عند `record_state` |
-| تعذر جلب `AuthorizationRecordFacts` من المالك | `deny` عند `record_state` |
-| انتهاء نافذة التكليف أو التفويض أو العضوية | `deny` عند المرحلة المسؤولة |
-| تصنيف غير معروف أو قيمة فارغة | `deny` عند `classification` |
-| تعارض بين قرار المرحلة 6 والمرحلة 7 | يُقدَّم المنع الصريح دائماً |
+| Identity service unavailable | `deny` (engine cannot proceed past stage 1) |
+| Authorization service unavailable | `deny` (engine cannot proceed past stage 3) |
+| Record or its facts cannot be read | `deny` with `record_facts_unavailable` |
+| `AuthorizationRecordFacts` cannot be fetched from the owner | `deny` with `record_facts_unavailable` |
+| Assignment, delegation, or membership window expired | `deny` with the matching expiry code (stage 10) |
+| Unknown or empty classification | `deny` with `classification_insufficient` (stage 5) |
+| Conflict between stage 4 (`explicit_deny`) and stage 7 (grant) | `explicit_deny` always wins |
 
-لا يُسجَّل السبب في الواجهة إلا كرمز ثابت مثل `DENY_BY_CLASSIFICATION`. النص الكامل يُسجل في التدقيق فقط.
+Reason codes are exposed in the UI only as stable tokens such as
+`DENY_BY_CLASSIFICATION`. The full human-readable reason text is recorded in
+the audit log only.
 
-### 5.1 Bootstrap المؤقت في W1.2
+### 5.1 Temporary Bootstrap in W1.2
 
-- يبدأ Authorization في وضع `bootstrap_pending` ويعيد `deny` لكل قدرة أعمال.
-- الاستثناء الوحيد هو قدرات تهيئة الحساب الإداري والهيكل والعقود، لحساب bootstrap محدد
-  وضمن نافذة زمنية منتهية وMFA وسبب مسجل.
-- لا يوسع محدد النطاق `/me/scope` أي قدرة؛ يختار فقط نطاقاً من القائمة التي أعادها
-  Authorization بعد التحقق.
-- ينتهي bootstrap بأمر idempotent وموافقة مسجلة، وبعده لا يعاد فتحه إلا بإجراء break-glass.
-- هذا العقد مؤقت لـW1.2 ولا يدعي اكتمال RBAC + ABAC؛ يبقى deny-by-default حتى W1.3.
+- `Authorization` starts in `bootstrap_pending` mode and returns `deny` for
+  every business capability.
+- The only exception is the capabilities needed to bootstrap the admin
+  account, the organizational structure, and the role contracts, and only
+  for a designated bootstrap account, within a bounded time window, with MFA
+  and a recorded reason.
+- The scope selector `/me/scope` does not grant any capability; it only
+  selects from a list that `Authorization` returned after evaluation.
+- Bootstrap ends with an idempotent command and a recorded approval; after
+  that it can only be reopened via a break-glass action.
+- This contract is temporary for W1.2 and does not claim RBAC + ABAC
+  completeness; deny-by-default remains in force until W1.3.
 
-## 6. عقد GetAuthorizationRecordFacts
+## 6. `GetAuthorizationRecordFacts` Contract
 
-### 6.1 الواجهة
+### 6.1 Interface
 
 ```text
 interface GetAuthorizationRecordFacts {
@@ -196,28 +183,50 @@ record AuthorizationRecordFacts {
 }
 ```
 
-### 6.2 القواعد
+### 6.2 Rules
 
-- ينفذ الموديول المالك العقد لعرض حقائق السجل فقط، دون أخذ `AccessContext` أو هوية الفاعل كمدخل.
-- لا يعيد العقد `allow` أو `deny` أو `FieldDecision` أو guard قابلاً للتنفيذ.
-- مفاتيح السياسات ونسخ الحقائق معرفات وصفية لسياسات يملكها Authorization؛ لا تنقل منطق سياسة أو نتيجة تقييم من الموديول المالك.
-- يتحقق Authorization من `facts_version` و`lock_version` ويطبق سياسات الحالة والتصنيف والحقول التي يملكها.
-- أي استثناء أو حقيقة إلزامية ناقصة أو نسخة قديمة يترجمها Authorization إلى `deny` ويسجلها في التدقيق.
+- The owning module implements the contract to expose record facts only; it
+  does not take `AccessContext` or the actor's identity as input.
+- The contract does not return `allow` or `deny`, `FieldDecision`, or any
+  executable guard.
+- Policy keys and fact-version identifiers are descriptive handles for
+  policies owned by `Authorization`; the owning module does not transfer
+  policy logic or evaluation results.
+- `Authorization` verifies `facts_version` and `lock_version` and applies
+  the state, classification, and field policies it owns.
+- Any exception, missing mandatory fact, or stale version is translated by
+  `Authorization` into a `deny` and recorded in the audit log.
 
-### 6.3 حقائق قيود وصول المستند
+> **Runtime note.** The current engine (`RbacAbacDecideAccess`) consumes
+> `RecordFacts` but does not yet evaluate `state`, `workflow_step`,
+> `legal_hold`, `field_policy_key`, or `document_constraints` as runtime
+> stages. These fields are part of the forward-looking contract and are
+> marked **planned**.
 
-يعيد Documents ضمن `DocumentConstraintFacts` مفاتيح وحقائق القيود فقط: `own_policy_key`، وتصنيف المستند، وحالته، وقائمة الروابط النشطة التي تحوي مرجع المصدر وتصنيفه و`constraint_policy_key` ونسخة الحقائق. لا يحتوي العقد `effect` أو قرار رابط أو حقولاً مسموحة. يجمع Authorization هذه الحقائق ويطبق قاعدة أشد القيود ويصدر وحده قرار الوصول والحقول.
+### 6.3 Document Constraint Facts
 
-## 7. قرارات القراءة والبحث والتقارير والتصدير
+Within `DocumentConstraintFacts`, Documents returns only the constraint keys
+and facts: `own_policy_key`, the document's classification and state, and
+the list of active links each carrying the source reference, its
+classification, the `constraint_policy_key`, and the facts version. The
+contract contains no `effect`, link decision, or allowed-field list.
+`Authorization` aggregates these facts, applies the strictest-constraint
+rule, and is the sole emitter of the access and field decision.
 
-تستخدم القراءة والبحث والتقارير والتصدير نفس المراحل العشر. الفروقات:
+## 7. Read, Search, Report, and Export Decisions
 
-- القراءة الجماعية تُقيَّم لكل عنصر في النتيجة.
-- البحث يطبق `AccessDecision` على المرشحات قبل إرجاع النتائج، ولا يُعيد عنوان سجل محظور.
-- التقارير تستخدم Read Models ولا تكتب في جداول الأعمال، لكنها تخضع لقرار الحقول عند العرض والتصدير.
-- التصدير يحتفظ بنفس `AccessContext` ويُسجل في التدقيق مع تجزئة الحقول المصدَّرة.
+Read, search, report, and export flows use the same runtime evaluation
+order above. Differences:
 
-## 8. مخطط ERD لقرار الوصول
+- Bulk reads evaluate every element in the result set.
+- Search applies the decision to filters before returning results and does
+  not return the identity of a denied record.
+- Reports use Read Models and do not write to business tables, but they are
+  still subject to the field decision on display and export.
+- Export reuses the same `AccessContext` and is recorded in the audit log
+  with a hash of the exported fields.
+
+## 8. Access-Decision ERD
 
 ```mermaid
 erDiagram
@@ -256,57 +265,80 @@ erDiagram
     EXPLICIT_DENY }o--o| ORG_UNIT : "scoped to unit"
 ```
 
-## 9. جدول المراحل ورموز التفسير
+> **Contractual note.** Entities marked "planned" in the canonical reference
+> (`ClearanceLevel`, `ExplicitDeny` rows, `Share`, `RecordFacts`,
+> `FieldDecision`, `SensitiveAccessEvent`, and the supervisory /
+> committee / temporary-assignment linkages) are part of the target model.
+> The current runtime engine persists only `access_decisions` and
+> (conditionally) `sensitive_access_events`; the other entities are
+> **planned** and must not be read as implemented runtime tables.
 
-| المرحلة | الرمز | الوصف المختصر |
+## 9. Runtime Reason Codes
+
+The reason codes emitted by the runtime evaluation order are:
+
+| # | Code | Meaning |
 |---|---|---|
-| 1 | account_state | فحص حالة الحساب |
-| 2 | capability | فحص القدرة |
-| 3 | organizational_scope | فحص النطاق |
-| 4 | relationship | تطبيق العلاقة الإشرافية |
-| 5 | share | تطبيق المشاركة الصريحة |
-| 6 | explicit_deny | فحص المنع الصريح |
-| 7 | classification | فحص التصريح والتصنيف |
-| 8 | record_state | فحص حالة السجل والمسار |
-| 9 | field | فحص صلاحيات الحقول |
-| 10 | action | الفعل النهائي والتسجيل |
+| 1 | `record_facts_unavailable` | `RecordFacts` payload missing |
+| 2 | `actor_user_id_missing` | Actor `user_id` not present |
+| 3 | `capability_not_supported` | Capability not in catalog |
+| 4 | `explicit_deny` | Active explicit deny matched |
+| 5 | `classification_insufficient` | Unknown or low classification |
+| 6 | `role_capability_denied` | Covering role deny matched |
+| 7 | `organization_unit_scope_mismatch` | Grant scope does not cover facts |
+| 8 | `actor_organization_unit_scope_unavailable` | Actor unit id unavailable |
+| 9 | `supervisory_relationship_scope_mismatch` | Supervisory target unit mismatch |
+| 10 | `supervisory_relationship_capability_not_listed` | Capability not in relationship list |
+| 11 | `role_assignment_expired` | Grant outside its time window |
+| 12 | `delegation_expired` | Delegation outside its time window |
+| 13 | `supervisory_relationship_expired` | Relationship outside its time window |
+| 14 | `active_role_assignment_not_found` | No active grant, delegation, or relationship |
+| 15 | `authorization_bootstrap_pending` | Bootstrap gate still pending |
 
-## 10. مصفوفة سيناريوهات قرار الوصول
+## 10. Access-Decision Scenario Matrix (planned vs runtime)
 
-| السيناريو | القرار | المرحلة الحاسمة |
+| Scenario | Decision | Decisive Step |
 |---|---|---|
-| موظف في مستشفى يطلب سجل مستشفى آخر | `deny` | 3 (organizational_scope) |
-| مسؤول تجمع بعلاقة `read_only` يطلب تفاصيل سجل منشأة | `deny` | 4 (relationship) |
-| مدير منشأة يدخل سجل سري دون تصريح كافٍ | `deny` | 7 (classification) |
-| مستخدم بحساب `disabled` يحاول أي فعل | `deny` | 1 (account_state) |
-| مالك سجل محجوز قانونياً يحاول الحذف | `deny` | 8 (record_state) |
-| مشارَك له حقل `top_secret` (سري للغاية) دون مشاركة فعلية | `deny` | 7 (classification) |
-| مستخدم بدور `edit` على سجل في حالة `archived` | `deny` | 8 (record_state) |
-| مستخدم يرى المهمة المصدر دون صلاحية رؤية السجل | `allow` للمهمة فقط، `deny` للحقول الحساسة | 9 (field) |
-| تقرير مجمع لمنشأة مع السماح بالمؤشرات فقط | `allow` لحقول المؤشرات، `hide` للباقي | 9 (field) |
-| تصدير سجل `confidential` (سري) لمستخدم حاصل على تصريح `confidential` | `allow` مع تسجيل `SensitiveAccessEvent` | 10 (action) |
+| A user at facility A requests a record at facility B | `deny` | Stage 7 — no grant covers the facts (`organization_unit_scope_mismatch`); **planned** scope-stage check |
+| A cluster officer with a `read_only` relationship requests facility details | `deny` | Stage 9 — supervisory relationship grants only the listed capabilities |
+| A facility manager opens a `confidential` record without sufficient clearance | `deny` | Stage 5/7 — `classification_insufficient` |
+| A user with a `disabled` account attempts any action | `deny` | **Planned** — runtime engine does not currently evaluate account state |
+| The owner of a record under legal hold attempts to delete it | `deny` | **Planned** — runtime engine does not currently evaluate `legal_hold` |
+| A recipient sees a `top_secret` field via share but has no actual share | `deny` | **Planned** — runtime engine does not currently evaluate share records |
+| A user with an `edit` role on a record in `archived` state | `deny` | **Planned** — runtime engine does not currently evaluate record state |
+| A user sees the source task without permission to read the source record | `allow` for the task only, `deny` for the sensitive fields | **Planned** — runtime engine does not currently emit field-level decisions |
+| An aggregated facility report with indicator-only clearance | `allow` for indicator fields, `hide` for the rest | **Planned** — runtime engine does not currently emit `FieldDecision` |
+| Export of a `confidential` record by a user with `confidential` clearance | `allow` with `SensitiveAccessEvent` recorded | Runtime — `DatabasePersistAccessDecision` writes the event on allow |
 
-## 11. قواعد التنفيذ
+## 11. Implementation Rules
 
-- لا تُحقن صلاحية في استعلام يدوي؛ كل استعلام يمر عبر `Scope` مركزي.
-- لا يُسمح بتمرير القرار عبر الواجهة؛ الواجهة تستهلك `allowed_fields` و`denied_fields`.
-- لا تُحفظ نسخة من القرار في كاش طويل الأمد؛ يُعاد التقييم في كل طلب.
-- يحق للسوبر أدمن الاطلاع على محتوى حساس فقط مع تسجيل الزيارة.
-- يحق للمستخدم الاعتراض على قرار `deny` بطلب تفسير يُسجل في التدقيق.
-- التحديثات على سياسة القرار تحمل `policy_version`، ويُعاد تقييم المخزن مؤقتاً.
+- No permission is inlined into ad-hoc queries; every query passes through a
+  centralized `Scope`.
+- Decisions are never passed through the UI; the UI consumes `allowed_fields`
+  and `denied_fields`.
+- No long-lived cache of decisions is kept; every request is re-evaluated.
+- A super-admin may view sensitive content only with the visit recorded.
+- A user may contest a `deny` decision by requesting an explanation that is
+  itself recorded in the audit log.
+- Decision-policy updates carry a `policy_version` and invalidate any cached
+  state.
 
-## 12. ملاحظات تنفيذية
+## 12. Implementation Notes
 
-- كل Slice كتابة يطلب قرار الوصول قبل أي قراءة أو كتابة.
-- كل Slice قراءة يطلب قرار الوصول قبل تحويل البيانات إلى Resource.
-- اختبارات Authorization تشغل جميع المراحل العشر في حالات موجبة وسالبة لكل فعل وكل تصنيف.
-- اختبارات `fail_closed` تتحقق من رفض القرار عند تعطل أي خدمة من خدمات المدخلات.
-- العقد بين Authorization وموديول الأعمال لا يكشف بنية الجداول بل حقائق السجل فقط.
+- Every write Slice requests an access decision before any read or write.
+- Every read Slice requests an access decision before transforming data into
+  a Resource.
+- Authorization tests exercise the full runtime evaluation order in positive
+  and negative cases for each action and classification.
+- `fail_closed` tests verify that the engine rejects the decision when any
+  input service is unavailable.
+- The contract between Authorization and a business module exposes record
+  facts only; it does not leak table structure.
 
-## سجل التغيير
+## Changelog
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 0.3.0 | 2026-07-18 | مسؤول أمن المعلومات | تثبيت bootstrap مغلق افتراضياً ومحدد النطاق في W1.2 |
-| 0.1.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء المسودة التنفيذية |
-| 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | حصر القرار في Authorization وتحويل عقد الموديول والمستندات إلى حقائق فقط وتوحيد ضبط الوثيقة |
+| 0.3.0 | 2026-07-18 | Information Security Officer | Pin bootstrap as closed-by-default and document the scope selector in W1.2 |
+| 0.1.0 | 2026-07-15 | Information Security Officer | Initial implementation draft |
+| 0.2.0 | 2026-07-15 | Information Security Officer | Restrict the decision to Authorization, convert module and document contracts to facts-only, and align the document controls |

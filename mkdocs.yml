@@ -1,12 +1,12 @@
-site_name: منصة التجمع الصحي الثالث
-site_description: وثائق داخلية لمنصة التجمع الصحي الثالث
+site_name: 'Third Health Cluster Platform'
+site_description: 'Internal documentation for the Third Health Cluster Platform'
 site_dir: site
 docs_dir: docs
 use_directory_urls: false
 strict: true
 theme:
   name: material
-  language: ar
+  language: 'en'
   features:
     - navigation.sections
     - navigation.top
@@ -17,129 +17,131 @@ markdown_extensions:
   - toc:
       permalink: true
 nav:
-  - الرئيسية: README.md
-  - الحوكمة:
-      - فهرس الحوكمة: governance/README.md
-      - ضوابط الوثائق: governance/document-control.md
-      - الافتراضات والقيود: governance/assumptions-constraints.md
-      - RACI: governance/raci.md
-      - المسرد: governance/glossary.md
-      - مصفوفة التتبع: governance/traceability-matrix.md
-      - مراجعة الاتساق: governance/consistency-review.md
-  - المنتج:
-      - فهرس المنتج: product/README.md
-      - الرؤية والنطاق: product/vision-and-scope.md
-      - الشخصيات والرحلات: product/personas-and-journeys.md
-      - الإصدارات وخارطة الطريق: product/releases-and-roadmap.md
-      - مقاييس النجاح: product/success-metrics.md
-  - المعمارية:
-      - فهرس المعمار: architecture/README.md
-      - النظرة المعمارية: architecture/overview.md
-      - خريطة السياقات: architecture/context-map.md
-      - كتالوج الموديولات: architecture/module-catalog.md
-      - قواعد الاعتماد: architecture/dependency-rules.md
-      - C4 والتدفقات: architecture/c4-and-flows.md
-      - المتطلبات غير الوظيفية: architecture/non-functional-requirements.md
-  - المجال:
-      - فهرس المجال: domain/README.md
-      - إعدادات المنصة: domain/platform-settings.md
-      - الهوية: domain/identity.md
-      - الصلاحيات: domain/authorization.md
-      - المنظمة والأفراد: domain/organization-and-people.md
-      - مرجع شجرة المنظمة: domain/organization-tree-quickref.md
-      - تعريفات العمل: domain/work-definitions.md
-      - سجلات العمل: domain/work-records.md
-      - سير العمل: domain/workflow.md
-      - حوكمة السجلات: domain/records-governance.md
-      - المستندات: domain/documents.md
-      - التعاون والمهام ومساحة العمل: domain/collaboration-tasks-workspace.md
-      - الإشعارات والبحث والتقارير: domain/notifications-search-reporting.md
-      - التدقيق: domain/audit.md
-      - الاستراتيجية: domain/strategy.md
-      - المحافظ والمشاريع: domain/portfolio-projects.md
-      - المخاطر: domain/risk.md
-  - البيانات والأمن:
-      - فهرس البيانات والأمن: data-security/README.md
-      - نموذج البيانات المنطقي: data-security/logical-data-model.md
-      - نموذج الصلاحيات: data-security/authorization-model.md
-      - محرك الصلاحيات — مرجع تشغيلي: data-security/authorization-engine-quickref.md
-      - الهوية والجلسات: data-security/identity-session-security.md
-      - تصنيف البيانات ومعالجتها: data-security/classification-and-handling.md
-      - أمن الملفات: data-security/file-security.md
-      - الاحتفاظ والحجز القانوني: data-security/retention-and-legal-hold.md
-      - التدقيق والخصوصية: data-security/audit-and-privacy.md
-      - نموذج التهديدات: data-security/threat-model.md
-  - التشغيل:
-      - فهرس التشغيل: operations/README.md
-      - الطوبولوجيا الفيزيائية: operations/physical-topology.md
-      - منصة Docker Compose على VPS: operations/kubernetes-platform.md
-      - التوافر والتعافي والنسخ: operations/ha-dr-backup.md
-      - الرصد وSLO: operations/observability-and-slos.md
-      - سلسلة توريد الصور والتحديثات: operations/air-gap-supply-chain.md
-      - الاستجابة للحوادث: operations/incident-response.md
-      - كتيبات التشغيل: operations/runbooks.md
-  - الهندسة:
-      - فهرس الهندسة: engineering/README.md
-      - تدفق التسليم المبسط: engineering/delivery-workflow.md
-      - الشرائح الرأسية: engineering/vertical-slices.md
-      - حدود الكود والموديولات: engineering/coding-and-module-boundaries.md
-      - استراتيجية الاختبار: engineering/testing-strategy.md
-      - النظام التصميمي: design-system.md
-      - CI/CD والإصدار: engineering/ci-cd-and-release.md
-      - ترحيلات قاعدة البيانات: engineering/database-migrations.md
-      - لغة تعريف العمل: engineering/definition-dsl.md
-  - الخطط:
-      - فهرس خطط التنفيذ: plans/README.md
-      - خارطة التنفيذ السريعة: plans/implementation-roadmap.md
-      - خطة R1 السريعة: plans/release-1-platform.md
-      - سجل اكتمال واجهة W1.2: plans/release-1/w1-2-frontend-slices.md
-      - بطاقة تنفيذ واجهة W1.3 – اليوم الأول: plans/release-1/w1-3-frontend-slices.md
-      - خطة R2 السريعة: plans/release-2-strategy-portfolio.md
-      - خطة R3 السريعة: plans/release-3-risk.md
-      - الجاهزية الآلية للتشغيل: plans/readiness-checklist.md
-      - حالة التسليم النشطة: plans/active-delivery-status.md
-      - خطة موديول الطلبات والاعتمادات: plans/approvals-and-requests.md
-      - العمليات المؤجلة من W1.1: plans/w1-1-remaining-delivery-tasks.md
-      - خطة إغلاق تغطية الواجهة: plans/frontend-coverage-completion.md
-      - تصميم استلام العمل وإزالة GSD: superpowers/specs/2026-07-17-gsd-takeover-design.md
-      - تصميم إعادة توزيع الداشبورد والتنقل: superpowers/specs/2026-07-22-dashboard-navigation-redesign-design.md
-      - خطة تنفيذ إعادة توزيع الداشبورد والتنقل: superpowers/plans/2026-07-22-dashboard-navigation-redesign.md
-      - سجل استلام العمل وإزالة GSD: superpowers/plans/2026-07-17-gsd-takeover.md
-  - العقود:
-      - فهرس العقود: contracts/README.md
-      - عقود الموديولات: contracts/module-contracts.md
-      - بيانات الاعتماد والجلسة: contracts/capabilities/identity-credentials-and-sessions.md
-      - الرفع المباشر الموقع: contracts/capabilities/document-signed-direct-upload.md
-      - صفوف استيراد Organization v1: contracts/capabilities/organization-import-rows-v1.md
-      - التكليف المؤقت: contracts/capabilities/temporary-assignment.md
-      - واجهة الإشعارات: contracts/api/notifications.md
-      - فهرس نقاط API: api/endpoints.md
-      - مصفوفة RBAC: api/rbac-matrix.md
-  - قرارات المعمارية:
-      - فهرس القرارات: adr/README.md
-      - ADR-001 Modular Monolith: adr/001-modular-monolith.md
-      - ADR-002 Module-First Vertical Slices: adr/002-module-first-vertical-slices.md
-      - ADR-003 حدود الموديولات: adr/003-module-boundaries.md
-      - ADR-004 الصلاحيات والعزل: adr/004-authorization-and-isolation.md
-      - ADR-005 البيانات الديناميكية: adr/005-work-records-dynamic-data.md
-      - ADR-006 إصدارات المسارات: adr/006-workflow-versioning.md
-      - ADR-007 Transactional Outbox: adr/007-transactional-outbox.md
-      - ADR-008 قدرات المحتوى والاستعلام: adr/008-shared-content-query-capabilities.md
-      - ADR-009 واجهة React موحدة: adr/009-unified-react-shell.md
-      - ADR-010 Kubernetes معزول: adr/010-air-gapped-kubernetes.md
-      - ADR-011 CQRS والمعاملات: adr/011-lightweight-cqrs-and-transactions.md
-      - ADR-012 الهوية المحلية والجلسات: adr/012-local-identity-and-session-security.md
-      - ADR-013 المستندات وأمن الملفات: adr/013-documents-and-file-security.md
-      - ADR-014 البحث المحكوم: adr/014-authorized-search.md
-      - ADR-015 التقارير المحكومة: adr/015-authorized-reporting.md
-      - ADR-016 التدقيق وحوكمة السجلات: adr/016-audit-and-records-governance.md
-      - ADR-017 مساحة العمل والإشعارات: adr/017-derived-workspace-and-notifications.md
-      - ADR-018 سلسلة التوريد المعزولة: adr/018-air-gapped-supply-chain.md
-      - ADR-019 مرونة Kubernetes والتعافي: adr/019-kubernetes-resilience-and-recovery.md
-      - ADR-020 التنظيم والسلطة الزمنية: adr/020-organization-and-time-bounded-authority.md
-      - ADR-021 ملكية الاستراتيجية والمؤشرات: adr/021-strategy-indicator-ownership.md
-      - ADR-022 حدود المحافظ والمخاطر: adr/022-portfolio-projects-and-risk-boundaries.md
-      - ADR-023 تشغيل VPS مباشر عبر Docker Compose: adr/023-single-host-dokploy-deployment.md
-      - ADR-024 ملكية Organization وIdentity وحدود الاستيراد: adr/024-organization-identity-import-boundaries.md
-      - ADR-025 تطبيع المسمى الوظيفي عبر مرجع job_titles: adr/025-job-titles-reference-normalization.md
-      - قالب ADR: adr/template.md
+  - 'Home': README.md
+  - 'Governance':
+      - 'Governance Index': governance/README.md
+      - 'Document Control': governance/document-control.md
+      - 'Assumptions and Constraints': governance/assumptions-constraints.md
+      - 'RACI': governance/raci.md
+      - 'Glossary': governance/glossary.md
+      - 'Traceability Matrix': governance/traceability-matrix.md
+      - 'Consistency Review': governance/consistency-review.md
+  - 'Product':
+      - 'Product Index': product/README.md
+      - 'Vision and Scope': product/vision-and-scope.md
+      - 'Personas and Journeys': product/personas-and-journeys.md
+      - 'Releases and Roadmap': product/releases-and-roadmap.md
+      - 'Success Metrics': product/success-metrics.md
+  - 'Architecture':
+      - 'Architecture Index': architecture/README.md
+      - 'Architecture Overview': architecture/overview.md
+      - 'Context Map': architecture/context-map.md
+      - 'Module Catalog': architecture/module-catalog.md
+      - 'Dependency Rules': architecture/dependency-rules.md
+      - 'C4 and Flows': architecture/c4-and-flows.md
+      - 'Non-Functional Requirements': architecture/non-functional-requirements.md
+      - 'Single-Host Docker Compose Platform': architecture/docker-compose-platform.md
+  - 'Domain':
+      - 'Domain Index': domain/README.md
+      - 'Platform Settings': domain/platform-settings.md
+      - 'Identity': domain/identity.md
+      - 'Authorization': domain/authorization.md
+      - 'Organization and People': domain/organization-and-people.md
+      - 'Organization Tree Quick Reference': domain/organization-tree-quickref.md
+      - 'Work Definitions': domain/work-definitions.md
+      - 'Work Records': domain/work-records.md
+      - 'Workflow': domain/workflow.md
+      - 'Records Governance': domain/records-governance.md
+      - 'Documents': domain/documents.md
+      - 'Collaboration, Tasks, and Workspace': domain/collaboration-tasks-workspace.md
+      - 'Notifications, Search, and Reporting': domain/notifications-search-reporting.md
+      - 'Audit': domain/audit.md
+      - 'Strategy': domain/strategy.md
+      - 'Portfolios and Projects': domain/portfolio-projects.md
+      - 'Risk': domain/risk.md
+  - 'Data and Security':
+      - 'Data and Security Index': data-security/README.md
+      - 'Logical Data Model': data-security/logical-data-model.md
+      - 'Authorization Model': data-security/authorization-model.md
+      - 'Authorization Engine — Operational Reference': data-security/authorization-engine-quickref.md
+      - 'Identity and Sessions': data-security/identity-session-security.md
+      - 'Data Classification and Handling': data-security/classification-and-handling.md
+      - 'File Security': data-security/file-security.md
+      - 'Retention and Legal Hold': data-security/retention-and-legal-hold.md
+      - 'Audit and Privacy': data-security/audit-and-privacy.md
+      - 'Threat Model': data-security/threat-model.md
+  - 'Operations':
+      - 'Operations Index': operations/README.md
+      - 'Physical Topology': operations/physical-topology.md
+      - 'High Availability, Disaster Recovery, and Backup': operations/ha-dr-backup.md
+      - 'Observability and SLOs': operations/observability-and-slos.md
+      - 'Image Supply Chain and Updates': operations/air-gap-supply-chain.md
+      - 'Incident Response': operations/incident-response.md
+      - 'Runbooks': operations/runbooks.md
+  - 'Engineering':
+      - 'Engineering Index': engineering/README.md
+      - 'Streamlined Delivery Workflow': engineering/delivery-workflow.md
+      - 'Vertical Slices': engineering/vertical-slices.md
+      - 'Code and Module Boundaries': engineering/coding-and-module-boundaries.md
+      - 'Testing Strategy': engineering/testing-strategy.md
+      - 'Design System': design-system.md
+      - 'CI/CD and Release': engineering/ci-cd-and-release.md
+      - 'Database Migrations': engineering/database-migrations.md
+      - 'Work Definition Language': engineering/definition-dsl.md
+  - 'Plans':
+      - 'Implementation Plans Index': plans/README.md
+      - 'Rapid Implementation Roadmap': plans/implementation-roadmap.md
+      - 'Rapid R1 Plan': plans/release-1-platform.md
+      - 'W1.2 Frontend Completion Record': plans/release-1/w1-2-frontend-slices.md
+      - 'W1.3 Frontend Implementation Card — Day One': plans/release-1/w1-3-frontend-slices.md
+      - 'Rapid R2 Plan': plans/release-2-strategy-portfolio.md
+      - 'Rapid R3 Plan': plans/release-3-risk.md
+      - 'Automated Operational Readiness': plans/readiness-checklist.md
+      - 'Active Delivery Status': plans/active-delivery-status.md
+      - 'Approvals and Requests Module Plan': plans/approvals-and-requests.md
+      - 'Deferred Operations from W1.1': plans/w1-1-remaining-delivery-tasks.md
+      - 'Frontend Coverage Completion Plan': plans/frontend-coverage-completion.md
+      - 'Work Takeover and GSD Removal Design': superpowers/specs/2026-07-17-gsd-takeover-design.md
+      - 'Dashboard and Navigation Redistribution Design': superpowers/specs/2026-07-22-dashboard-navigation-redesign-design.md
+      - 'Dashboard and Navigation Redistribution Implementation Plan': superpowers/plans/2026-07-22-dashboard-navigation-redesign.md
+      - 'Platform Settings and Operational Control Center V1 Design': superpowers/specs/2026-07-23-platform-settings-v1-design.md
+      - 'Platform Settings and Operational Control Center V1 Implementation Plan': superpowers/plans/2026-07-23-platform-settings-v1.md
+      - 'Work Takeover and GSD Removal Record': superpowers/plans/2026-07-17-gsd-takeover.md
+  - 'Contracts':
+      - 'Contracts Index': contracts/README.md
+      - 'Module Contracts': contracts/module-contracts.md
+      - 'Identity Credentials and Sessions': contracts/capabilities/identity-credentials-and-sessions.md
+      - 'Signed Direct Document Upload': contracts/capabilities/document-signed-direct-upload.md
+      - 'Organization Import Rows v1': contracts/capabilities/organization-import-rows-v1.md
+      - 'Temporary Assignment': contracts/capabilities/temporary-assignment.md
+      - 'Notifications API': contracts/api/notifications.md
+      - 'API Endpoints Index': api/endpoints.md
+      - 'RBAC Matrix': api/rbac-matrix.md
+  - 'Architecture Decisions':
+      - 'Architecture Decision Index': adr/README.md
+      - 'ADR-001 Modular Monolith': adr/001-modular-monolith.md
+      - 'ADR-002 Module-First Vertical Slices': adr/002-module-first-vertical-slices.md
+      - 'ADR-003 Module Boundaries': adr/003-module-boundaries.md
+      - 'ADR-004 Authorization and Isolation': adr/004-authorization-and-isolation.md
+      - 'ADR-005 Dynamic Work Record Data': adr/005-work-records-dynamic-data.md
+      - 'ADR-006 Workflow Versioning': adr/006-workflow-versioning.md
+      - 'ADR-007 Transactional Outbox': adr/007-transactional-outbox.md
+      - 'ADR-008 Shared Content and Query Capabilities': adr/008-shared-content-query-capabilities.md
+      - 'ADR-009 Unified React Shell': adr/009-unified-react-shell.md
+      - 'ADR-010 Air-Gapped Kubernetes': adr/010-air-gapped-kubernetes.md
+      - 'ADR-011 CQRS and Transactions': adr/011-lightweight-cqrs-and-transactions.md
+      - 'ADR-012 Local Identity and Session Security': adr/012-local-identity-and-session-security.md
+      - 'ADR-013 Documents and File Security': adr/013-documents-and-file-security.md
+      - 'ADR-014 Authorized Search': adr/014-authorized-search.md
+      - 'ADR-015 Authorized Reporting': adr/015-authorized-reporting.md
+      - 'ADR-016 Audit and Records Governance': adr/016-audit-and-records-governance.md
+      - 'ADR-017 Derived Workspace and Notifications': adr/017-derived-workspace-and-notifications.md
+      - 'ADR-018 Air-Gapped Supply Chain': adr/018-air-gapped-supply-chain.md
+      - 'ADR-019 Kubernetes Resilience and Recovery': adr/019-kubernetes-resilience-and-recovery.md
+      - 'ADR-020 Organization and Time-Bounded Authority': adr/020-organization-and-time-bounded-authority.md
+      - 'ADR-021 Strategy and Indicator Ownership': adr/021-strategy-indicator-ownership.md
+      - 'ADR-022 Portfolio, Projects, and Risk Boundaries': adr/022-portfolio-projects-and-risk-boundaries.md
+      - 'ADR-023 Single-Host Docker Compose Deployment': adr/023-single-host-dokploy-deployment.md
+      - 'ADR-024 Organization and Identity Ownership and Import Boundaries': adr/024-organization-identity-import-boundaries.md
+      - 'ADR-025 Job Title Normalization Through the job_titles Reference': adr/025-job-titles-reference-normalization.md
+      - 'ADR Template': adr/template.md

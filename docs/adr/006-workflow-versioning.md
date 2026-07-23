@@ -1,20 +1,20 @@
 ---
 doc_id: ADR-006
-title: إصدارات المسارات وتنفيذها
+title: Workflow Versioning and Execution
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
+- Platform Architecture Council
 scope: Workflow
 supersedes: []
 superseded_by: []
@@ -24,28 +24,28 @@ related_adrs:
 - ADR-020
 review_by: 2027-01-15
 ---
-# ADR-006: إصدارات المسارات وتنفيذها
+# ADR-006:   
 ## Context
-تعديل مسار منشور قد يفسد معاملات الموافقة الجارية.
+       .
 ## Drivers
-قابلية التدقيق والاستقرار مع التفرع والتوازي والنصاب.
+      .
 ## Decision
-المسودة قابلة للتعديل وكل نشر ينشئ إصداراً ثابتاً؛ تثبت المعاملة `workflow_version_id` ويحل المعتمد وقت تفعيل الخطوة.
+          `workflow_version_id`     .
 ## Scope
-يشمل التحقق قبل النشر والتصعيد وحل الشاغر؛ يمنع الكود الحر في القواعد.
+           .
 ## Alternatives
-رُفض تعديل المسار المنشور مباشرة ومحرك قواعد ينفذ كوداً حراً.
+         .
 ## Consequences
-يحتاج أدوات توافق وترحيل صريح، ويصون المعاملات الجارية.
+       .
 ## Security
-الانتقال والاعتماد يخضعان لـAuthorization، وتدقق القرارات.
+   Authorization  .
 ## Operations
-يراقب التصعيد والخطوات العالقة وحالات فشل التنفيذ.
+      .
 ## Rollback
-يوقف الإصدار الجديد للمعاملات الجديدة؛ الجارية تبقى على إصدارها أو ترحل بعد فحص صريح.
+             .
 ## Enforcement
-فحوص DAG للمسار وبداية/نهاية ومعتمد ونصاب، واختبارات تثبيت الإصدار.
+ DAG  /     .
 ## Review
-عند إضافة نوع خطوة أو نمط قرار.
+      .
 ## References
-`docs/domain/workflow.md`، `docs/architecture/module-catalog.md`.
+`docs/domain/workflow.md` `docs/architecture/module-catalog.md`.

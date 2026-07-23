@@ -1,36 +1,36 @@
 ---
 doc_id: SEC-DM-002
-title: البيانات والأمن
+title: Data and Security
 type: data-security
 status: draft
 version: 1.0.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Chief Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Manager
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/governance/document-control.md
 - docs/governance/consistency-review.md
 ---
-# البيانات والأمن
+# Data and Security
 
-| الوثيقة | الغرض |
+| Document | Purpose |
 |---|---|
-| [نموذج البيانات المنطقي](logical-data-model.md) | الملكية والكيانات والعلاقات |
-| [نموذج الصلاحيات](authorization-model.md) | قرارات الوصول والعزل |
-| [الهوية والجلسات](identity-session-security.md) | تأمين الحساب والجلسة |
-| [التصنيف والتعامل](classification-and-handling.md) | التصنيف وضوابط التعامل |
-| [أمن الملفات](file-security.md) | الرفع والفحص والتنزيل |
-| [التدقيق والخصوصية](audit-and-privacy.md) | التدقيق والبيانات الشخصية |
-| [الاحتفاظ والحجز](retention-and-legal-hold.md) | الاحتفاظ والإتلاف والحجز |
-| [نموذج التهديدات](threat-model.md) | المخاطر والضوابط الأمنية |
+| [Logical Data Model](logical-data-model.md) | Ownership, entities, and relationships |
+| [Authorization Model](authorization-model.md) | Access decisions and isolation |
+| [Identity and Sessions](identity-session-security.md) | Account and session security |
+| [Classification and Handling](classification-and-handling.md) | Classification and handling controls |
+| [File Security](file-security.md) | Upload, scanning, and download |
+| [Audit and Privacy](audit-and-privacy.md) | Audit and personal data |
+| [Retention and Legal Hold](retention-and-legal-hold.md) | Retention, disposal, and hold |
+| [Threat Model](threat-model.md) | Risks and security controls |
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول أمن المعلومات | إضافة ضبط الوثيقة وفهرس وثائق البيانات والأمن |
+| 1.0.0 | 2026-07-15 | Chief Information Security Officer | Add document control and index of data and security documents |

@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-013
-title: المستندات وأمن الملفات
+title: Documents and File Security
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: Documents وObject Storage
+- Platform Architecture Council
+scope: Documents and object storage
 supersedes:
 - ADR-008
 superseded_by: []
@@ -27,28 +27,28 @@ related_adrs:
 - ADR-019
 review_by: 2026-10-15
 ---
-# ADR-013: المستندات وأمن الملفات
+# ADR-013:   
 ## Context
-كل الموديولات تحتاج ملفات مصنفة، والملف المرفوع غير موثوق.
+        .
 ## Drivers
-أمن المحتوى، إصدارات الملفات، وسياسة وصول موحدة.
+      .
 ## Decision
-`Documents` يملك metadata والإصدارات والروابط؛ التخزين S3-compatible محلي، والحجر والفحص fail-closed قبل الإتاحة، والتحميل يعيد التفويض.
+`Documents`  metadata    S3-compatible    fail-closed     .
 ## Scope
-يتضمن checksum وAV وMIME وZip Bomb وعدم القابلية للتعديل وأشد قيود الرابط.
+ checksum AV MIME Zip Bomb      .
 ## Alternatives
-رُفضت تخزين الملفات في موديولات الأعمال أو الإتاحة قبل الفحص أو روابط عامة دائمة.
+             .
 ## Consequences
-توجد معالجة غير متزامنة وحجر ومراقبة، لكن لا يتسرب ملف من رابط مصدر.
+            .
 ## Security
-تشفير، حسابات خدمة منفصلة، روابط موقعة قصيرة، وتدقيق تحميل المحتوى الحساس.
+          .
 ## Operations
-يراقب عامل الفحص وDLQ وتحديث توقيعات AV من مرآة داخلية.
+   DLQ   AV   .
 ## Rollback
-يبقى الإصدار السابق immutable؛ الملف الفاشل لا ينقل إلى الإتاحة.
+   immutable      .
 ## Enforcement
-اختبارات الحجر وMIME وAV والروابط ومدة الرابط والتصنيف.
+  MIME AV    .
 ## Review
-ربع سنوي وعند تغيير محرك الفحص أو سياسة MIME.
+quarterly       MIME.
 ## References
-`docs/data-security/file-security.md`، `docs/architecture/module-catalog.md`.
+`docs/data-security/file-security.md` `docs/architecture/module-catalog.md`.

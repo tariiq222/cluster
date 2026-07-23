@@ -10,7 +10,7 @@ sequenceDiagram
     participant Audit as Audit
     participant DeadLetter as Dead-Letter Review
 
-    Note over Handler,Outbox: Handler الذي بدأ حالة الاستخدام هو مالك المعاملة
+    Note over Handler,Outbox: The Handler that initiated the use case is the transaction owner
     Handler->>DB: BEGIN
     Handler->>DB: Write business state
     Handler->>Outbox: INSERT event<br/>(event_id, type, schema_version, payload, occurred_at)
@@ -32,4 +32,4 @@ sequenceDiagram
         Consumer->>Queue: ACK and skip
     end
 
-    Note over Consumer,DeadLetter: في حالة الفشل تعاد المحاولة بسياسة backoff واضحة<br/>وبعد تجاوز الحد الأقصى ينتقل الحدث إلى Dead-Letter لمراجعة السوبر أدمن<br/>ولا تفقد المعاملة الأصلية ولا تتكرر نتيجتها
+    Note over Consumer,DeadLetter: On failure, retry with a clear backoff policy.<br/>After the retry threshold the event moves to Dead-Letter for super admin review.<br/>The original transaction is not lost and its result is not repeated.

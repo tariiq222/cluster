@@ -1,27 +1,27 @@
 ---
 doc_id: ADR-NNN
-title: عنوان القرار
+title: Decision title
 type: adr
 status: proposed
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: نطاق القرار
+- Platform Architecture Council
+scope: Decision scope
 supersedes: []
 superseded_by: []
 related_adrs: []
 review_by: YYYY-MM-DD
 ---
-# ADR-NNN: عنوان القرار
+# ADR-NNN: Decision title
 
 ## Context
 

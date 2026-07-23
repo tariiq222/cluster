@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-STG-001
-title: الاستراتيجية والمؤشرات
+title: Strategy and Indicators
 type: domain
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مالك موديول Strategy
+owner: Strategy module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/006-workflow-versioning.md
 - docs/adr/007-transactional-outbox.md
@@ -18,237 +18,248 @@ references:
 - docs/architecture/module-catalog.md
 - docs/plans/release-2-strategy-portfolio.md
 ---
-# الاستراتيجية والمؤشرات
 
-## 1. الغرض والملكية
+> **Planned for R2/R3.** This module is documented but not yet implemented in the codebase.
 
-يمتلك موديول Strategy الخطط الاستراتيجية وإصداراتها ومحاورها وأهدافها ومبادراتها، ويمتلك حصرياً تعريفات المؤشرات وإصداراتها وفتراتها ومستهدفاتها وقياساتها واعتمادها. لا يجوز لـPortfolioProjects أوRisk أوReporting إنشاء تعريف مؤشر أو نسخة مكررة منه؛ تستخدم هذه الموديولات معرف المؤشر وعقود Strategy وأحداثه.
+# Strategy and Indicators
 
-المبادرة عنصر استراتيجي داخل هذا الموديول، وليست مستوى في تسلسل `المحفظة ← البرنامج ← المشروع`. يجوز ربطها بمشروع أو برنامج عبر عقد، ولا تنتقل ملكيتها إلى موديول المشاريع.
+## 1. Purpose and Ownership
 
-## 2. المصطلحات والنماذج
+The `Strategy` module owns strategic plans and their versions, axes, objectives
+and initiatives, and is the sole owner of indicator definitions and their
+versions, periods, targets, measurements and approvals. `PortfolioProjects`,
+`Risk`, and `Reporting` MUST NOT create an indicator definition or duplicate an
+existing one; those modules consume indicator identifiers, Strategy contracts,
+and Strategy events.
 
-| المصطلح | التعريف |
+An Initiative is a strategic element inside this module, not a level in the
+`Portfolio → Program → Project` hierarchy. An Initiative MAY be linked to a
+Project or Program via contract; ownership does NOT transfer to the Projects
+module.
+
+## 2. Terms and Models
+
+| Term | Definition |
 |---|---|
-| StrategicPlan | خطة محددة النطاق والفترة، تنشر بإصدار ثابت. |
-| Axis | محور داخل إصدار خطة. |
-| Objective | هدف استراتيجي تابع لمحور. |
-| Initiative | مبادرة استراتيجية لتحقيق هدف، ويمكن ربطها بالتنفيذ. |
-| Indicator | هوية المؤشر المستقرة وملكيته التنظيمية. |
-| IndicatorVersion | تعريف ثابت: الوحدة، الاتجاه، الدورية، المعادلة، البسط والمقام وقواعد الأدلة. |
-| IndicatorPeriod | نافذة قياس مشتقة من دورية إصدار المؤشر. |
-| TargetDistribution | مستهدف التجمع ومستهدفات الجهات لإصدار مؤشر وفترة. |
-| Measurement | قراءة جهة واحدة لفترة محددة، مع البيانات والأدلة ودورة الاعتماد. |
-| IndicatorOwner | صاحب المسؤولية التجارية عن التعريف والتوزيع والمراجعة، وليس السوبر أدمن تلقائياً. |
-| Coordinator | مدخل القياسات في نطاق تنظيمي محدد. |
+| `StrategicPlan` | A plan scoped to a unit and a period, published in a fixed version. |
+| `Axis` | An axis inside a plan version. |
+| `Objective` | A strategic objective under an axis. |
+| `Initiative` | A strategic initiative that realizes an objective and MAY link to execution. |
+| `Indicator` | The stable identity of an indicator and its organizational owner. |
+| `IndicatorVersion` | A fixed definition: unit, direction, frequency, formula, numerator/denominator and evidence rules. |
+| `IndicatorPeriod` | A measurement window derived from the indicator version frequency. |
+| `TargetDistribution` | Cluster target and per-unit targets for an indicator version and period. |
+| `Measurement` | A single unit reading for a specific period, including data, evidence and the approval cycle. |
+| `IndicatorOwner` | The business owner of definition, distribution, and review — not implicitly the Super Admin. |
+| `Coordinator` | The person who enters measurements within a defined organizational scope. |
 
 ### 2.1 Aggregates
 
-- `StrategicPlanAggregate`: الخطة وإصداراتها المنشورة.
-- `PlanVersionAggregate`: المحاور والأهداف والمبادرات ضمن نسخة ثابتة.
-- `IndicatorAggregate`: هوية المؤشر والمالك والمنسقون والحالة.
-- `IndicatorVersionAggregate`: تعريف الحساب والدورية وسياسة الأدلة.
-- `TargetDistributionAggregate`: مستهدف التجمع وبنود التوزيع والتحقق والاعتماد.
-- `IndicatorPeriodAggregate`: فتح الفترة وإغلاقها وحالة الاكتمال.
-- `MeasurementAggregate`: مدخلات الجهة والقيمة المحسوبة والأدلة وقرار الاعتماد.
+- `StrategicPlanAggregate`: the plan and its published versions.
+- `PlanVersionAggregate`: axes, objectives, and initiatives inside a fixed version.
+- `IndicatorAggregate`: indicator identity, owner, coordinators, and status.
+- `IndicatorVersionAggregate`: the calculation definition, frequency, and evidence policy.
+- `TargetDistributionAggregate`: cluster target, distribution items, verification, and approval.
+- `IndicatorPeriodAggregate`: period open/close and completeness status.
+- `MeasurementAggregate`: unit inputs, calculated value, evidence, and approval decision.
 
 ### 2.2 Value Objects
 
-- `MeasurementPeriod`، `IndicatorUnit`، `Baseline`، `TargetValue`.
+- `MeasurementPeriod`, `IndicatorUnit`, `Baseline`, `TargetValue`.
 - `DesiredDirection`: `higher|lower|within_range`.
 - `Frequency`: `monthly|quarterly|semiannual|annual`.
-- `AggregationFormula`: `weighted_average|ratio_of_sums|sum|average|latest` مع parameters محكومة بلا كود حر.
-- `MeasurementInput`: `numerator` و`denominator` و`manual_value` حسب نوع المعادلة.
-- `AchievementResult`: القيمة، نسبة تحقيق المستهدف، الحالة اللونية وسبب الحساب.
+- `AggregationFormula`: `weighted_average|ratio_of_sums|sum|average|latest` with governed parameters — no free-form code.
+- `MeasurementInput`: `numerator`, `denominator`, `manual_value` per formula type.
+- `AchievementResult`: value, target achievement ratio, color status, and calculation rationale.
 
-## 3. الجداول والقيود والفهارس
+## 3. Tables, Constraints, and Indexes
 
 ### 3.1 `strategic_plans`
 
-- `id` BIGINT PK، `code` VARCHAR(64) UNIQUE NOT NULL.
+- `id` BIGINT PK, `code` VARCHAR(64) UNIQUE NOT NULL.
 - `owner_organization_unit_id` BIGINT NOT NULL.
-- `name_ar` VARCHAR(255) NOT NULL، `name_en` VARCHAR(255) NULL.
-- `start_date`، `end_date` DATE NOT NULL.
+- `name_ar` VARCHAR(255) NOT NULL, `name_en` VARCHAR(255) NULL.
+- `start_date`, `end_date` DATE NOT NULL.
 - `status` VARCHAR(24) NOT NULL: `draft|in_review|published|retired`.
-- `current_version_id` BIGINT NULL، `lock_version` INT NOT NULL DEFAULT 1.
-- `created_by_user_id` BIGINT NOT NULL، timestamps.
-- قيد: `start_date < end_date`.
+- `current_version_id` BIGINT NULL, `lock_version` INT NOT NULL DEFAULT 1.
+- `created_by_user_id` BIGINT NOT NULL, timestamps.
+- Constraint: `start_date < end_date`.
 
 ### 3.2 `strategic_plan_versions`
 
-- `id` BIGINT PK، `strategic_plan_id` BIGINT NOT NULL FK.
-- `version_number` INT NOT NULL، `status` VARCHAR(16) NOT NULL: `draft|published|retired`.
-- `effective_from` DATE NOT NULL، `effective_until` DATE NULL.
-- `published_by_user_id` BIGINT NULL، `published_at` DATETIME NULL.
+- `id` BIGINT PK, `strategic_plan_id` BIGINT NOT NULL FK.
+- `version_number` INT NOT NULL, `status` VARCHAR(16) NOT NULL: `draft|published|retired`.
+- `effective_from` DATE NOT NULL, `effective_until` DATE NULL.
+- `published_by_user_id` BIGINT NULL, `published_at` DATETIME NULL.
 - `workflow_version_id` BIGINT NULL.
-- قيد فريد: `(strategic_plan_id, version_number)`.
-- الإصدار المنشور immutable.
+- Unique constraint: `(strategic_plan_id, version_number)`.
+- The published version is immutable.
 
 ### 3.3 `strategic_axes`
 
-- `id` BIGINT PK، `plan_version_id` BIGINT NOT NULL FK.
-- `code` VARCHAR(64) NOT NULL، `name_ar` VARCHAR(255) NOT NULL، `description` TEXT NULL.
-- `weight` DECIMAL(7,4) NULL، `sort_order` INT NOT NULL.
-- قيد فريد: `(plan_version_id, code)`.
+- `id` BIGINT PK, `plan_version_id` BIGINT NOT NULL FK.
+- `code` VARCHAR(64) NOT NULL, `name_ar` VARCHAR(255) NOT NULL, `description` TEXT NULL.
+- `weight` DECIMAL(7,4) NULL, `sort_order` INT NOT NULL.
+- Unique constraint: `(plan_version_id, code)`.
 
 ### 3.4 `strategic_objectives`
 
-- `id` BIGINT PK، `axis_id` BIGINT NOT NULL FK.
-- `code` VARCHAR(64) NOT NULL، `name_ar` VARCHAR(255) NOT NULL، `description` TEXT NULL.
-- `weight` DECIMAL(7,4) NULL، `owner_organization_unit_id` BIGINT NOT NULL.
+- `id` BIGINT PK, `axis_id` BIGINT NOT NULL FK.
+- `code` VARCHAR(64) NOT NULL, `name_ar` VARCHAR(255) NOT NULL, `description` TEXT NULL.
+- `weight` DECIMAL(7,4) NULL, `owner_organization_unit_id` BIGINT NOT NULL.
 - `sort_order` INT NOT NULL.
-- قيد فريد: `(axis_id, code)`.
+- Unique constraint: `(axis_id, code)`.
 
 ### 3.5 `strategic_initiatives`
 
-- `id` BIGINT PK، `objective_id` BIGINT NOT NULL FK.
-- `code` VARCHAR(64) NOT NULL، `name_ar` VARCHAR(255) NOT NULL، `description` TEXT NULL.
-- `owner_organization_unit_id` BIGINT NOT NULL، `owner_user_id` BIGINT NOT NULL.
+- `id` BIGINT PK, `objective_id` BIGINT NOT NULL FK.
+- `code` VARCHAR(64) NOT NULL, `name_ar` VARCHAR(255) NOT NULL, `description` TEXT NULL.
+- `owner_organization_unit_id` BIGINT NOT NULL, `owner_user_id` BIGINT NOT NULL.
 - `status` VARCHAR(24) NOT NULL: `planned|active|on_hold|completed|cancelled`.
-- `start_date`، `end_date` DATE NULL، `lock_version` INT NOT NULL DEFAULT 1.
-- قيد فريد: `(objective_id, code)`.
+- `start_date`, `end_date` DATE NULL, `lock_version` INT NOT NULL DEFAULT 1.
+- Unique constraint: `(objective_id, code)`.
 
 ### 3.6 `indicators`
 
-- `id` BIGINT PK، `public_id` CHAR(26) UNIQUE NOT NULL، `code` VARCHAR(64) UNIQUE NOT NULL.
-- `owner_organization_unit_id` BIGINT NOT NULL، `owner_user_id` BIGINT NOT NULL.
-- `name_ar` VARCHAR(255) NOT NULL، `name_en` VARCHAR(255) NULL.
+- `id` BIGINT PK, `public_id` CHAR(26) UNIQUE NOT NULL, `code` VARCHAR(64) UNIQUE NOT NULL.
+- `owner_organization_unit_id` BIGINT NOT NULL, `owner_user_id` BIGINT NOT NULL.
+- `name_ar` VARCHAR(255) NOT NULL, `name_en` VARCHAR(255) NULL.
 - `classification` VARCHAR(24) NOT NULL: `public|internal|confidential|top_secret`.
 - `status` VARCHAR(24) NOT NULL: `draft|active|suspended|retired`.
-- `current_version_id` BIGINT NULL، `lock_version` INT NOT NULL DEFAULT 1.
-- timestamps، وفهارس `(owner_organization_unit_id, status)`، `(owner_user_id, status)`.
+- `current_version_id` BIGINT NULL, `lock_version` INT NOT NULL DEFAULT 1.
+- Timestamps; indexes `(owner_organization_unit_id, status)`, `(owner_user_id, status)`.
 
 ### 3.7 `indicator_versions`
 
-- `id` BIGINT PK، `indicator_id` BIGINT NOT NULL FK، `version_number` INT NOT NULL.
-- `description` TEXT NOT NULL، `unit_code` VARCHAR(64) NOT NULL.
+- `id` BIGINT PK, `indicator_id` BIGINT NOT NULL FK, `version_number` INT NOT NULL.
+- `description` TEXT NOT NULL, `unit_code` VARCHAR(64) NOT NULL.
 - `desired_direction` VARCHAR(24) NOT NULL.
-- `range_min`، `range_max` DECIMAL(20,6) NULL.
-- `frequency` VARCHAR(24) NOT NULL، `aggregation_formula` VARCHAR(32) NOT NULL.
+- `range_min`, `range_max` DECIMAL(20,6) NULL.
+- `frequency` VARCHAR(24) NOT NULL, `aggregation_formula` VARCHAR(32) NOT NULL.
 - `formula_parameters` JSON NOT NULL.
-- `requires_numerator`، `requires_denominator` BOOLEAN NOT NULL.
-- `baseline_value` DECIMAL(20,6) NULL، `cluster_target_value` DECIMAL(20,6) NULL.
+- `requires_numerator`, `requires_denominator` BOOLEAN NOT NULL.
+- `baseline_value` DECIMAL(20,6) NULL, `cluster_target_value` DECIMAL(20,6) NULL.
 - `evidence_required` BOOLEAN NOT NULL DEFAULT TRUE.
 - `measurement_workflow_version_id` BIGINT NOT NULL.
 - `distribution_workflow_version_id` BIGINT NOT NULL.
-- `effective_from` DATE NOT NULL، `effective_until` DATE NULL.
+- `effective_from` DATE NOT NULL, `effective_until` DATE NULL.
 - `status` VARCHAR(16) NOT NULL: `draft|published|retired`.
-- `published_at` DATETIME NULL، `published_by_user_id` BIGINT NULL.
-- قيد فريد: `(indicator_id, version_number)`؛ الإصدار المنشور immutable.
+- `published_at` DATETIME NULL, `published_by_user_id` BIGINT NULL.
+- Unique constraint: `(indicator_id, version_number)`; the published version is immutable.
 
 ### 3.8 `indicator_coordinators`
 
-- `id` BIGINT PK، `indicator_id` BIGINT NOT NULL FK.
-- `user_id` BIGINT NOT NULL، `organization_unit_id` BIGINT NOT NULL.
-- `valid_from` DATE NOT NULL، `valid_until` DATE NULL.
-- قيد يمنع التداخل المكرر للمستخدم والمؤشر والنطاق.
-- فهرس: `(user_id, valid_from, valid_until)`.
+- `id` BIGINT PK, `indicator_id` BIGINT NOT NULL FK.
+- `user_id` BIGINT NOT NULL, `organization_unit_id` BIGINT NOT NULL.
+- `valid_from` DATE NOT NULL, `valid_until` DATE NULL.
+- Constraint prevents duplicate overlap per user/indicator/scope.
+- Index: `(user_id, valid_from, valid_until)`.
 
 ### 3.9 `indicator_periods`
 
-- `id` BIGINT PK، `indicator_version_id` BIGINT NOT NULL FK.
-- `period_key` VARCHAR(32) NOT NULL، `starts_at`، `ends_at` DATE NOT NULL.
-- `submission_opens_at`، `submission_closes_at` DATETIME NOT NULL.
+- `id` BIGINT PK, `indicator_version_id` BIGINT NOT NULL FK.
+- `period_key` VARCHAR(32) NOT NULL, `starts_at`, `ends_at` DATE NOT NULL.
+- `submission_opens_at`, `submission_closes_at` DATETIME NOT NULL.
 - `status` VARCHAR(24) NOT NULL: `scheduled|open|under_review|locked|reopened`.
-- `locked_at` DATETIME NULL، `lock_reason` VARCHAR(1000) NULL.
-- قيد فريد: `(indicator_version_id, period_key)`.
+- `locked_at` DATETIME NULL, `lock_reason` VARCHAR(1000) NULL.
+- Unique constraint: `(indicator_version_id, period_key)`.
 
 ### 3.10 `indicator_target_distributions`
 
-- `id` BIGINT PK، `indicator_version_id` BIGINT NOT NULL، `period_id` BIGINT NOT NULL.
+- `id` BIGINT PK, `indicator_version_id` BIGINT NOT NULL, `period_id` BIGINT NOT NULL.
 - `cluster_target_value` DECIMAL(20,6) NOT NULL.
 - `expected_aggregate_value` DECIMAL(20,6) NULL.
 - `status` VARCHAR(24) NOT NULL: `draft|submitted|in_approval|approved|returned|rejected`.
-- `workflow_instance_id` BIGINT NULL، `approved_at` DATETIME NULL.
-- `created_by_user_id` BIGINT NOT NULL، `lock_version` INT NOT NULL DEFAULT 1.
-- قيد فريد: `(indicator_version_id, period_id)`.
+- `workflow_instance_id` BIGINT NULL, `approved_at` DATETIME NULL.
+- `created_by_user_id` BIGINT NOT NULL, `lock_version` INT NOT NULL DEFAULT 1.
+- Unique constraint: `(indicator_version_id, period_id)`.
 
 ### 3.11 `indicator_targets`
 
-- `id` BIGINT PK، `distribution_id` BIGINT NOT NULL FK.
+- `id` BIGINT PK, `distribution_id` BIGINT NOT NULL FK.
 - `organization_unit_id` BIGINT NOT NULL.
 - `target_value` DECIMAL(20,6) NOT NULL.
-- `weight_basis` DECIMAL(20,6) NULL؛ حجم العينة المتوقع أو وزن محكوم.
+- `weight_basis` DECIMAL(20,6) NULL — expected sample size or governed weight.
 - `rationale` VARCHAR(1000) NULL.
-- قيد فريد: `(distribution_id, organization_unit_id)`.
+- Unique constraint: `(distribution_id, organization_unit_id)`.
 
 ### 3.12 `indicator_measurements`
 
-- `id` BIGINT PK، `indicator_version_id` BIGINT NOT NULL، `period_id` BIGINT NOT NULL.
-- `organization_unit_id` BIGINT NOT NULL، `submitted_by_user_id` BIGINT NOT NULL.
-- `numerator`، `denominator`، `manual_value` DECIMAL(20,6) NULL.
+- `id` BIGINT PK, `indicator_version_id` BIGINT NOT NULL, `period_id` BIGINT NOT NULL.
+- `organization_unit_id` BIGINT NOT NULL, `submitted_by_user_id` BIGINT NOT NULL.
+- `numerator`, `denominator`, `manual_value` DECIMAL(20,6) NULL.
 - `calculated_value` DECIMAL(20,6) NOT NULL.
 - `sample_size` DECIMAL(20,6) NULL.
 - `status` VARCHAR(24) NOT NULL: `draft|submitted|in_review|returned|approved|rejected|locked`.
 - `workflow_instance_id` BIGINT NULL.
-- `submission_note` TEXT NULL، `return_reason` TEXT NULL.
-- `approved_by_user_id` BIGINT NULL، `approved_at` DATETIME NULL.
-- `lock_version` INT NOT NULL DEFAULT 1، timestamps.
-- قيد فريد: `(indicator_version_id, period_id, organization_unit_id)`.
+- `submission_note` TEXT NULL, `return_reason` TEXT NULL.
+- `approved_by_user_id` BIGINT NULL, `approved_at` DATETIME NULL.
+- `lock_version` INT NOT NULL DEFAULT 1, timestamps.
+- Unique constraint: `(indicator_version_id, period_id, organization_unit_id)`.
 
 ### 3.13 `indicator_measurement_evidence`
 
-- `measurement_id` BIGINT NOT NULL، `document_id` BIGINT NOT NULL.
-- `added_by_user_id` BIGINT NOT NULL، `created_at` DATETIME NOT NULL.
-- قيد فريد: `(measurement_id, document_id)`.
-- المستند يظل مملوكاً لـDocuments وتطبق عليه قيوده وروابطه.
+- `measurement_id` BIGINT NOT NULL, `document_id` BIGINT NOT NULL.
+- `added_by_user_id` BIGINT NOT NULL, `created_at` DATETIME NOT NULL.
+- Unique constraint: `(measurement_id, document_id)`.
+- The document remains owned by `Documents` and its constraints and links apply.
 
-## 4. قواعد الحساب
+## 4. Calculation Rules
 
-- يحسب الخادم `calculated_value`؛ لا يعتمد على قيمة React.
-- `ratio_of_sums = sum(numerator) / sum(denominator)` مع منع denominator صفر.
-- `weighted_average = sum(value × weight_basis) / sum(weight_basis)`، وهو القالب الافتراضي لتوزيع المنشآت عند وجود حجم عينة.
-- `average = sum(value) / count(valid values)`، و`sum` و`latest` وفق تعريف الإصدار.
-- `within_range` ناجح إذا `range_min <= value <= range_max`.
-- عند `higher` يحقق التوزيع مستهدف التجمع إذا `expected >= cluster_target`، وعند `lower` إذا `expected <= cluster_target`، وعند `within_range` إذا داخل النطاق.
-- التقريب وعدد المنازل وسياسة القيم المفقودة تحفظ في `formula_parameters` وتطبق بصورة واحدة في القياس والتقرير.
-- لا يعتمد توزيع المستهدف إذا لم يحقق الناتج المتوقع مستهدف التجمع.
+- The server computes `calculated_value`; React MUST NOT be trusted to supply it.
+- `ratio_of_sums = sum(numerator) / sum(denominator)` with zero-denominator blocked.
+- `weighted_average = sum(value × weight_basis) / sum(weight_basis)`. This is the default template for distributing across facilities when a sample size exists.
+- `average = sum(value) / count(valid values)`; `sum` and `latest` follow the version definition.
+- `within_range` succeeds if `range_min <= value <= range_max`.
+- For `higher`, a distribution achieves the cluster target when `expected >= cluster_target`; for `lower`, when `expected <= cluster_target`; for `within_range`, when inside the range.
+- Rounding precision and missing-value policy are stored in `formula_parameters` and applied identically at measurement and reporting time.
+- A target distribution MUST NOT be approved if its expected aggregate does not meet the cluster target.
 
-## 5. العقود
+## 5. Contracts
 
 ### 5.1 Commands
 
-- `CreateStrategicPlan`، `CreatePlanVersion`، `AddStrategicAxis`، `AddStrategicObjective`، `AddStrategicInitiative`.
-- `SubmitPlanVersionForApproval`، `PublishStrategicPlanVersion`، `RetireStrategicPlanVersion`.
-- `CreateIndicator`، `CreateIndicatorVersion`، `AssignIndicatorOwner`، `AssignIndicatorCoordinator`.
-- `ValidateIndicatorVersion`، `PublishIndicatorVersion`، `RetireIndicatorVersion`.
-- `OpenIndicatorPeriod`، `ReopenIndicatorPeriod`، `LockIndicatorPeriod`.
-- `CreateTargetDistribution`، `SetOrganizationTarget`، `SubmitTargetDistribution`، `ApplyTargetDistributionDecision`.
-- `SaveMeasurementDraft`، `SubmitIndicatorMeasurement`، `ApplyMeasurementDecision`.
+- `CreateStrategicPlan`, `CreatePlanVersion`, `AddStrategicAxis`, `AddStrategicObjective`, `AddStrategicInitiative`.
+- `SubmitPlanVersionForApproval`, `PublishStrategicPlanVersion`, `RetireStrategicPlanVersion`.
+- `CreateIndicator`, `CreateIndicatorVersion`, `AssignIndicatorOwner`, `AssignIndicatorCoordinator`.
+- `ValidateIndicatorVersion`, `PublishIndicatorVersion`, `RetireIndicatorVersion`.
+- `OpenIndicatorPeriod`, `ReopenIndicatorPeriod`, `LockIndicatorPeriod`.
+- `CreateTargetDistribution`, `SetOrganizationTarget`, `SubmitTargetDistribution`, `ApplyTargetDistributionDecision`.
+- `SaveMeasurementDraft`, `SubmitIndicatorMeasurement`, `ApplyMeasurementDecision`.
 
 ### 5.2 Queries
 
-- `GetStrategicPlan`، `GetPublishedPlanVersion`، `ListObjectivesByScope`.
+- `GetStrategicPlan`, `GetPublishedPlanVersion`, `ListObjectivesByScope`.
 - `GetIndicatorDefinition(indicatorId, version?)`.
 - `ListIndicatorsByAuthorizedScope(actor, filters)`.
-- `GetIndicatorPeriod`، `GetOrganizationTarget`.
+- `GetIndicatorPeriod`, `GetOrganizationTarget`.
 - `CalculateExpectedDistribution(distributionId)`.
 - `CalculateIndicatorAggregate(indicatorVersionId, periodId, actor)`.
 - `GetIndicatorScorecard(indicatorId, scope, periods, actor)`.
 - `ListPendingIndicatorMeasurements(actor)`.
 
-### 5.3 العقود المقدمة للموديولات
+### 5.3 Contracts Exposed to Other Modules
 
 - `ValidateIndicatorReference(indicatorId, requiredPeriod)`.
 - `GetIndicatorReferenceSummary(actor, indicatorId)`.
 - `GetIndicatorAchievement(indicatorId, periodId, scope)`.
 - `ResolveIndicatorOwner(indicatorId, atTime)`.
 - `ValidateInitiativeReference(initiativeId)`.
-- `GetObservedIndicatorChange(indicatorId, scope, fromPeriod, toPeriod)` لدعم إسناد أثر المشاريع.
+- `GetObservedIndicatorChange(indicatorId, scope, fromPeriod, toPeriod)` to support project-impact attribution.
 
-لا يقدم الموديول كتابة مباشرة إلى قياس أو هدف من موديول آخر.
+The module MUST NOT expose a direct write to another module's measurement or target.
 
-## 6. التكامل مع Workflow والاعتماد
+## 6. Workflow Integration and Approvals
 
-- كل توزيع مستهدف وقياس يحتاج إصدار Workflow منشوراً مثبتاً عند بدء الاعتماد.
-- Strategy يبدأ المسار، وWorkflow يحل المعتمد وقت تفعيل الخطوة من Organization وAuthorization.
-- قرار Workflow وحده لا يعدل جدول Strategy؛ يستهلك Handler قراراً موثقاً ويطبق الانتقال Idempotently.
-- السوبر أدمن يستطيع إدارة التعريفات والصلاحيات والمسارات، لكنه لا يعتمد توزيعاً أو قياساً بدلاً من المعتمد المحلول.
-- لا يوجد fallback إلى السوبر أدمن عند شغور المنصب؛ يستخدم المسار البديل المنشور أو يفشل التفعيل إلى قائمة معالجة.
-- التفويض الصالح والمسموح بالسياسة فقط يمكنه اتخاذ القرار، ويسجل الفاعل وصاحب الصلاحية.
-- لا يجوز لمقدم القياس اعتماد قياسه إذا كانت السياسة تفرض فصل الواجبات.
+- Every target distribution and measurement requires a published Workflow version pinned at workflow start.
+- Strategy initiates the path; Workflow resolves the approver at step activation from Organization and Authorization.
+- A Workflow decision alone MUST NOT mutate a Strategy table; the handler consumes a documented decision and applies the transition idempotently.
+- The Super Admin can manage definitions, capabilities, and workflow paths, but MUST NOT approve a distribution or measurement in place of the resolved approver.
+- There is NO Super Admin fallback when the approver seat is vacant; the published alternate path is used, or activation fails to a processing queue.
+- Only a valid delegation permitted by policy can take a decision, and both the actor and the grantor are recorded.
+- The submitter of a measurement MUST NOT approve their own measurement when the policy enforces duty separation.
 
-## 7. الأحداث
+## 7. Events
 
 - `StrategicPlanCreated`
 - `StrategicPlanVersionSubmitted`
@@ -270,16 +281,16 @@ references:
 - `IndicatorPeriodLocked`
 - `IndicatorAggregateRecalculated`
 
-الأحداث تحمل المعرفات والقيم اللازمة فقط، ولا تحمل أسماء أدلة أو حقولاً محجوبة. تستخدم Outbox وschema versioning وIdempotency.
+Events carry identifiers and required values only — never evidence names or restricted fields. They use the Outbox, schema versioning, and idempotency.
 
-## 8. الحالات
+## 8. State Machines
 
 ### 8.1 PlanVersion
 
 ```text
 Draft -> InReview -> Published -> Retired
-InReview -> Draft: إعادة للتعديل
-InReview -> Rejected: رفض نهائي للإصدار المقترح
+InReview -> Draft: return for edits
+InReview -> Rejected: final rejection of the proposed version
 ```
 
 ### 8.2 IndicatorVersion
@@ -288,7 +299,7 @@ InReview -> Rejected: رفض نهائي للإصدار المقترح
 Draft -> Published -> Retired
 ```
 
-لا تعديل لمنشور؛ ينشأ إصدار جديد، وتبقى الفترات والقياسات على إصدارها.
+No edits to a published version; a new version is created and periods and measurements stay on their version.
 
 ### 8.3 TargetDistribution
 
@@ -304,109 +315,109 @@ InApproval -> Rejected
 Draft -> Submitted -> InReview -> Approved -> Locked
 InReview -> Returned -> Draft
 InReview -> Rejected
-Approved -> Draft: فقط عبر ReopenPeriod وإجراء تصحيح مسجل ينشئ مراجعة جديدة
+Approved -> Draft: only via ReopenPeriod with a logged correction that creates a new review cycle
 ```
 
 ### 8.5 IndicatorPeriod
 
 ```text
 Scheduled -> Open -> UnderReview -> Locked
-Locked -> Reopened -> Open: بصلاحية مستقلة وسبب وتدقيق
+Locked -> Reopened -> Open: with independent capability, rationale, and audit trail
 ```
 
-## 9. الـInvariants
+## 9. Invariants
 
-- Strategy هو المالك الوحيد للمؤشرات وتعريفاتها وفتراتها ومستهدفاتها وقياساتها.
-- لا ينتمي Axis إلا إلى PlanVersion واحد، ولا Objective إلا إلى Axis واحد، ولا Initiative إلا إلى Objective واحد.
-- لا تدخل Initiative في تسلسل المحفظة والبرنامج والمشروع.
-- الإصدار المنشور ثابت، وكل قياس وتوزيع يثبت `indicator_version_id`.
-- لا تتداخل فترات الإصدار نفسه، وتطابق الدورية المنشورة.
-- منسق الجهة يدخل قياس نطاقه فقط أثناء نافذة مفتوحة.
-- الأدلة إلزامية إذا `evidence_required=true`، ويجب أن تكون إصداراتها متاحة ومصرحاً بها.
-- القيمة المحسوبة مشتقة من تعريف الإصدار؛ لا تعدل يدوياً.
-- توزيع المستهدف لا يعتمد ما لم يحقق مستهدف التجمع وفق الاتجاه والمعادلة.
-- الفترة لا تقفل وفيها قياسات مطلوبة غير محسومة إلا باستثناء حوكمي موثق يحدد القيم المفقودة.
-- القياس المعتمد لا يعدل؛ التصحيح يعيد فتح الفترة وينشئ دورة مراجعة مسجلة.
-- السوبر أدمن لا يحل محل المعتمد ولا مالك المؤشر في قرار أعمال.
-- التجميع لا يكشف قياسات منشأة إذا كانت قدرة المستخدم `view_aggregate` فقط.
+- Strategy is the sole owner of indicators, definitions, periods, targets, and measurements.
+- An Axis belongs to exactly one PlanVersion; an Objective belongs to exactly one Axis; an Initiative belongs to exactly one Objective.
+- An Initiative MUST NOT enter the Portfolio/Program/Project hierarchy.
+- A published version is fixed; every measurement and distribution pins `indicator_version_id`.
+- Periods for the same version MUST NOT overlap, and they MUST match the published frequency.
+- A unit Coordinator enters measurements for their scope only while the window is open.
+- Evidence is mandatory when `evidence_required=true`, and its versions MUST be available and authorized.
+- The calculated value derives from the version definition; it MUST NOT be edited manually.
+- A target distribution MUST NOT be approved unless the expected aggregate meets the cluster target under the version's direction and formula.
+- A period MUST NOT be locked while required measurements remain undecided except via a documented governance exception that specifies the missing values.
+- An approved measurement MUST NOT be edited; corrections reopen the period and create a logged review cycle.
+- The Super Admin MUST NOT stand in for an approver or an indicator owner on a business decision.
+- Aggregation MUST NOT expose individual-facility measurements to a user whose capability is `view_aggregate` only.
 
-## 10. الأمن والصلاحيات
+## 10. Security and Capabilities
 
-- القدرات الأساسية: `strategy.manage_plan`، `strategy.view`، `indicator.manage_definition`، `indicator.distribute_target`، `indicator.submit_measurement`، `indicator.approve_measurement`، `indicator.export`.
-- يقيد ABAC القرار بالجهة والعلاقة الإشرافية ودور المالك/المنسق والفترة والتصنيف.
-- رؤية المؤشر المجمع لا تمنح القراءة التفصيلية ولا الأدلة.
-- صلاحية القياس لا تمنح تنزيل أدلته؛ Documents يعيد قرار أشد القيود.
-- تغيير المالك والتعريف والمعادلة والمستهدف والاعتماد وإعادة الفتح والتصدير تسجل في Audit.
-- إدارة المنصة أو إعداد Workflow لا تمنح قدرة الاطلاع على قياسات سرية أو اعتمادها.
-- Search وReporting وExport تستخدم Authorization وField access نفسها؛ لا يظهر اسم مؤشر محظور أو عدد قياساته.
-- `lock_version` إلزامي للتعديلات المتزامنة.
+- Core capabilities: `strategy.manage_plan`, `strategy.view`, `indicator.manage_definition`, `indicator.distribute_target`, `indicator.submit_measurement`, `indicator.approve_measurement`, `indicator.export`.
+- ABAC restricts the decision by unit, supervisory relation, owner/coordinator role, period, and classification.
+- Aggregate indicator visibility MUST NOT grant detail-level read or evidence access.
+- Measurement capability MUST NOT grant download of evidence; Documents applies the most-restrictive decision.
+- Owner, definition, formula, target, approval, reopen, and export changes are recorded in Audit.
+- Platform administration or Workflow setup MUST NOT grant the capability to view or approve confidential measurements.
+- Search, Reporting, and Export use the same Authorization and Field-access controls; a restricted indicator's name and measurement count MUST NOT be exposed.
+- `lock_version` is mandatory for concurrent edits.
 
-## 11. الفشل والتعافي
+## 11. Failure and Recovery
 
-- تعريف صيغة غير صالح أو denominator مطلوب بلا سياسة صفر: يمنع النشر برسالة تفصيلية.
-- مستهدفات ناقصة أو أوزانها صفر: يمنع الإرسال للاعتماد.
-- الناتج المتوقع لا يحقق مستهدف التجمع: يبقى التوزيع Draft/Returned مع تفسير الحساب.
-- قياس denominator صفر: يرفض الإرسال أو يطبق سياسة missing المنشورة؛ لا ينتج Infinity.
-- دليل quarantined أو غير مصرح: يمنع الإرسال.
-- شغور المعتمد وعدم وجود fallback: لا يبدأ القرار ولا يستبدله الأدمن؛ تسجل حالة `approver_unresolved` للمراجعة.
-- فشل Workflow بعد حفظ المسودة لا يفقدها؛ بدء المسار Idempotent.
-- حدث Workflow مكرر لا يكرر الاعتماد.
-- فشل تحديث لوحة أو فهرس لا يرجع القياس المعتمد؛ يعاد بناء الإسقاط.
-- تعارض إصدار: `409` مع القيم الحالية.
-- تغيير تكليف المنسق أثناء فترة مفتوحة يطبق عند القرار التالي ولا يغير من نفذ إدخالاً سابقاً.
+- An invalid formula definition, or a denominator required without a zero-handling policy: blocks publication with a detailed error.
+- Missing targets or zero weights: blocks submission for approval.
+- Expected aggregate fails the cluster target: the distribution stays Draft/Returned with a calculation rationale.
+- Zero-denominator measurement: submission is rejected, or the published missing-value policy applies — no `Infinity` produced.
+- Quarantined or unauthorized evidence: blocks submission.
+- Approver vacancy without a fallback: the decision does NOT start and is NOT replaced by the admin; the state `approver_unresolved` is recorded for review.
+- Workflow failure after draft save does NOT lose the draft; workflow start is idempotent.
+- Duplicate Workflow events do NOT duplicate an approval.
+- Board or index update failure MUST NOT roll back an approved measurement; the projection is rebuilt.
+- Version conflict: `409` with current values.
+- A coordinator reassignment during an open period applies at the next decision and does NOT change who made a prior entry.
 
-## 12. الاختبارات ومعايير القبول
+## 12. Tests and Acceptance Criteria
 
-### 12.1 المجال والحساب
+### 12.1 Domain and Calculation
 
-- نشر خطة بمحاور وأهداف ومبادرات، ومنع تعديل الإصدار المنشور.
-- منع إدخال Initiative في hierarchy المشاريع.
-- حساب `ratio_of_sums` و`weighted_average` وحالات higher/lower/within_range بدقة وتقريب منشور.
-- منع اعتماد توزيع لا يحقق مستهدف التجمع.
-- إنشاء فترات شهرية وربع سنوية دون تداخل.
-- منع تعديل قياس معتمد دون Reopen.
+- Publish a plan with axes, objectives, and initiatives; published versions MUST NOT be editable.
+- Prevent adding an Initiative into the projects hierarchy.
+- Compute `ratio_of_sums` and `weighted_average` and `higher`/`lower`/`within_range` cases at the published precision and rounding.
+- Prevent approving a distribution that does not meet the cluster target.
+- Generate monthly and quarterly periods without overlap.
+- Prevent editing an approved measurement without Reopen.
 
-### 12.2 Workflow وفصل الواجبات
+### 12.2 Workflow and Duty Separation
 
-- منسق مستشفى يرسل قياساً، ومالك المؤشر المحلول يعتمده.
-- المعتمد يعيد القياس بسبب واضح فيعود Draft.
-- سوبر أدمن غير محلول يحاول الاعتماد فيفشل.
-- مفوض صالح يعتمد ويظهر الاسمان، ومفوض منتهي يفشل.
-- شغور المنصب يستخدم fallback المنشور فقط.
+- A hospital Coordinator submits a measurement; the resolved indicator owner approves it.
+- The approver returns the measurement with a stated reason and it returns to Draft.
+- An unresolved Super Admin attempting approval is rejected.
+- A valid delegate approves and both names are recorded; an expired delegate is rejected.
+- Approver vacancy uses the published fallback only.
 
-### 12.3 الأمن والعزل
+### 12.3 Security and Isolation
 
-- مسؤول يملك `view_aggregate` يرى التجميع ولا يرى قياسات المنشآت أو الأدلة.
-- مستشفيان معزولان؛ منسق أحدهما لا يرى أو يعدل الآخر.
-- Field access يخفي numerator/denominator مع السماح بالقيمة النهائية عند السياسة.
-- Search/report/export لا تكشف مؤشر أو حقل أو دليلاً محظوراً.
+- An officer with `view_aggregate` sees the aggregate and NOT individual facility measurements or evidence.
+- Two hospitals are isolated; a Coordinator of one MUST NOT see or edit the other.
+- Field access hides numerator/denominator while allowing the final value when the policy permits.
+- Search/report/export MUST NOT expose a restricted indicator, field, or evidence.
 
-### 12.4 العقود والأحداث
+### 12.4 Contracts and Events
 
-- PortfolioProjects وRisk يتحققان من مرجع مؤشر عبر Contract دون قراءة الجداول.
-- Schema tests للأحداث وOutbox مرة واحدة مع المعاملة.
-- إعادة حدث `WorkflowCompleted` و`IndicatorMeasurementSubmitted` Idempotent.
-- إعادة بناء scorecard من القياسات المعتمدة يعطي النتيجة نفسها.
+- `PortfolioProjects` and `Risk` verify an indicator reference via Contract without reading the tables.
+- Schema tests for events and Outbox run once with the same transaction.
+- Replaying `WorkflowCompleted` and `IndicatorMeasurementSubmitted` is idempotent.
+- Rebuilding a scorecard from approved measurements yields the same result.
 
-### 12.5 القبول
+### 12.5 Acceptance
 
-- إنشاء خطة ومحاور وأهداف ومبادرات ومؤشر بإصدار منشور.
-- توزيع مستهدفات مختلفة على منشآت واعتمادها بعد تحقيق مستهدف التجمع.
-- فتح فترة، إدخال بسط ومقام وأدلة، إعادتها، إعادة إرسالها، اعتمادها وقفلها.
-- عرض بطاقة تجمع وبطاقة منشأة حسب الصلاحية.
+- Create a plan with axes, objectives, initiatives, and a published indicator version.
+- Distribute distinct targets across facilities and approve them after the cluster target is met.
+- Open a period, enter numerator/denominator and evidence, return it, resubmit it, approve it, and lock it.
+- Display an aggregate card and a facility card per capability.
 
-## 13. الاعتماديات وحدود التكامل
+## 13. Dependencies and Integration Boundaries
 
-- يعتمد على Organization للجهات والملاك والمنسقين وحل المعتمد، وIdentity لملخصات المستخدمين.
-- يعتمد على Authorization للقدرات والنطاق والتفويض والتصنيف، وعلى Workflow للموافقات بإصدارات ثابتة.
-- يعتمد على Documents للأدلة بمعرفات وروابط فقط، وعلى Audit للأفعال الحساسة.
-- يعتمد على Notifications/Reporting كقدرات مشتقة؛ فشلها لا يغير حقائق Strategy.
-- يعتمد عليه PortfolioProjects للتحقق من المؤشرات والمبادرات وقراءة التغير المرصود، ويعتمد عليه Risk لربط مؤشرات المخاطر.
-- لا يقرأ PortfolioProjects أوRisk جداول المؤشرات ولا يكتبان فيها.
-- لا يعتمد Strategy على تفاصيل PortfolioProjects أوRisk؛ التكامل العكسي عبر أحداث وروابط أو Read Models محكومة.
+- Depends on `Organization` for units, owners, coordinators, and approver resolution; on `Identity` for user summaries.
+- Depends on `Authorization` for capabilities, scope, delegation, and classification; on `Workflow` for approvals with fixed versions.
+- Depends on `Documents` for evidence via identifiers and links only; on `Audit` for sensitive actions.
+- Depends on `Notifications` and `Reporting` as derived capabilities; their failure MUST NOT alter Strategy facts.
+- Provides dependency to `PortfolioProjects` for indicator/initiative validation and observed-change reads, and to `Risk` for risk-indicator linkage.
+- `PortfolioProjects` and `Risk` MUST NOT read indicator tables or write to them.
+- Strategy MUST NOT depend on `PortfolioProjects` or `Risk` internals; reverse integration is through events, links, or governed read models.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول Strategy | توحيد الواجهة الأمامية وتثبيت ملكية المؤشرات |
+| 1.0.0 | 2026-07-15 | Strategy module owner | Unify the front-end interface and pin indicator ownership |

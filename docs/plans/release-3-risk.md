@@ -1,14 +1,14 @@
 ---
 doc_id: PLN-R3-001
-title: خطة R3 السريعة – المخاطر والضوابط والمعالجة
+title: R3 Fast Plan — Risks, Controls, and Treatment
 type: plans
 status: accepted
 version: 2.0.0
 date: 2026-07-19
-owner: التنفيذ التقني
+owner: Technical Implementation
 reviewers: []
 classification: internal
-review_cycle: أثناء اليوم الخامس من التنفيذ
+review_cycle: during Day 5 of execution
 sources:
 - docs/plans/implementation-roadmap.md
 - docs/plans/release-2-strategy-portfolio.md
@@ -18,107 +18,124 @@ references:
 - docs/domain/strategy.md
 - docs/domain/portfolio-projects.md
 ---
-# خطة R3 السريعة
+# R3 Fast Plan
 
-## الهدف
+## Goal
 
-بناء شريحة خطر متكاملة في اليوم الخامس: سجل وتقييم وضابط وخطة معالجة وKRI وروابط
-R2. لا تسبقها ورش أو لجنة أو مواصفة معتمدة. القيم الافتراضية تنشأ كبيانات قابلة
-للتهيئة ويبدأ التنفيذ مباشرة.
+Build an integrated risk slice on Day 5: register, assessment, control,
+treatment plan, KRI, and R2 links. No workshops, committees, or approved
+specifications precede it. The defaults exist as configurable data and
+implementation starts immediately.
 
-## الإعدادات الافتراضية
+## Default Settings
 
-تستخدم النسخة الأولى هذه القيم، ويمكن تعديلها لاحقاً من الإعدادات دون تغيير schema:
+The first release uses these values; they can be adjusted later from settings
+without schema changes:
 
-- مصفوفة احتمال × أثر من 1 إلى 5.
-- الدرجة = الاحتمال × الأثر.
-- المستويات: Low ‏1–4، Medium ‏5–9، High ‏10–16، Critical ‏17–25.
-- عتبة إنذار افتراضية 10 وعتبة حرجة 17.
-- الفئات: operational وtechnical وfinancial وcompliance وstrategic وother.
-- حالات الخطر: Draft وActive وTreated وAccepted وTransferred وAvoided وClosed.
+- A likelihood × impact matrix from 1 to 5.
+- Score = likelihood × impact.
+- Levels: Low 1–4, Medium 5–9, High 10–16, Critical 17–25.
+- Default alert threshold 10 and critical threshold 17.
+- Categories: operational, technical, financial, compliance, strategic, and
+  other.
+- Risk states: Draft, Active, Treated, Accepted, Transferred, Avoided, and
+  Closed.
 
-هذه defaults تقنية وليست سياسة نهائية للمؤسسة؛ وجودها يمنع توقف البناء على قرار
-بشري، وتبقى قابلة للتهيئة عندما تتوفر القيم الفعلية.
+These are technical defaults and not the final institutional policy; their
+presence prevents construction from stalling on a human decision, and they
+remain configurable when the actual values are available.
 
-## حزم التنفيذ المتوازية
+## Parallel Execution Packages
 
 ### R3-A Risk Register + Assessment
 
-- RiskRegister وRisk مرتبطان بـ`organization_unit_id` ومعرف المسؤول عن المتابعة.
-- مصدر الخطر مراجع IDs اختيارية لهدف أو مؤشر أو مشروع دون نسخ بياناتها.
-- RiskAssessment يحفظ inherent وresidual وsnapshot زمني وسبب إعادة التقييم.
-- soft delete فقط، والبحث يمر عبر `DecideAccess`.
+- RiskRegister and Risk linked to `organization_unit_id` and the follow-up
+  owner identifier.
+- Risk source references optional IDs for an objective, indicator, or project
+  without copying their data.
+- RiskAssessment stores inherent and residual scores, a time snapshot, and the
+  reason for re-assessment.
+- Soft delete only, and search passes through `DecideAccess`.
 
-القبول:
+Acceptance:
 
-- CRUD كامل وعزل منشأتين.
-- حساب الدرجة والمستوى صحيح عند حدود 4 و5 و9 و10 و16 و17.
-- إعادة التقييم تترك snapshot ولا تعدل التاريخ.
+- Full CRUD and two-facility isolation.
+- The score and level are correct at the 4, 5, 9, 10, 16, and 17 boundaries.
+- Re-assessment leaves a snapshot and does not alter history.
 
 ### R3-B Controls + Treatment
 
-- Control reusable بأنواع preventive وdetective وcorrective.
-- ControlEffectiveness بقيمة weak أو moderate أو strong وتاريخ صلاحية.
-- RiskControlLink بمعرفات داخل موديول Risk.
-- TreatmentPlan بأنواع accept وmitigate وtransfer وavoid.
-- mitigate يربط Tasks من R1 بالـIDs؛ اكتمال المهام يتيح إغلاق الخطة ثم إعادة التقييم.
-- أفعال accept/transfer/avoid تخضع capability، لا توقيعاً أو لجنة.
+- Reusable Control with preventive, detective, and corrective types.
+- ControlEffectiveness with weak, moderate, or strong value and an expiry date.
+- RiskControlLink with internal Risk-module identifiers.
+- TreatmentPlan with accept, mitigate, transfer, and avoid types.
+- `mitigate` links R1 Tasks by IDs; task completion enables closing the plan
+  and then re-assessment.
+- `accept`/`transfer`/`avoid` actions are gated by capability, not by signature
+  or committee.
 
-القبول:
+Acceptance:
 
-- ضعف الضابط أو انتهاء صلاحيته يرفع residual وفق القاعدة المنشورة.
-- لا تغلق خطة mitigate قبل اكتمال المهام المرتبطة.
-- capability غير كافية تمنع accept للخطر High أو Critical.
+- A weak control or an expired one raises the residual per the published rule.
+- A mitigate plan cannot close before its linked tasks are completed.
+- An insufficient capability prevents accepting a High or Critical risk.
 
 ### R3-C KRI + R2 Links + Dashboard
 
-- RiskIndicatorLink يستهلك `indicator_id` وmeasurement reference من Strategy؛ لا
-  يعرّف مؤشراً أو ينسخ قراءة في Risk.
-- تقييم العتبة يولد Outbox event وإشعار R1 مع deduplication.
-- روابط objective/project تستخدم عقود IDs وread models فقط.
-- Dashboard يعرض أكبر المخاطر حسب النطاق والمستوى واتجاه KRI.
+- RiskIndicatorLink consumes `indicator_id` and a measurement reference from
+  Strategy; it does not define an indicator or copy a reading into Risk.
+- Threshold evaluation produces an Outbox event and an R1 notification with
+  deduplication.
+- Objective/project links use ID contracts and read models only.
+- The dashboard shows the top risks by scope, level, and KRI direction.
 
-القبول:
+Acceptance:
 
-- قياس R2 يتجاوز العتبة فيولد تنبيهاً واحداً ويغير حالة لوحة R3.
-- لا join بين Risk وStrategy أو PortfolioProjects.
-- مستخدم منشأة لا يرى مخاطر أو عناوين منشأة أخرى.
-- الانتقال من هدف أو مشروع إلى المخاطر المرتبطة يعمل عبر APIs منشورة.
+- An R2 measurement crossing the threshold generates one alert and changes the
+  R3 board state.
+- No join between Risk and Strategy or PortfolioProjects.
+- A facility user cannot see risks or titles of another facility.
+- Moving from an objective or project to its linked risks works through the
+  published APIs.
 
-## ترتيب اليوم الخامس
+## Day 5 Order
 
-| الفترة | التنفيذ | الناتج |
+| Period | Execution | Output |
 |---|---|---|
-| البداية | migrations والعقود واختبارات R3-A وR3-B وR3-C | ثلاث حزم مستقلة |
-| الوسط | Domain وAPI وReact لكل حزمة | خطر وضابط ومعالجة وKRI تعمل منفصلة |
-| النهاية | seed ورحلة النظام الكاملة | مؤشر R2 → KRI → خطر → مهمة معالجة → residual جديد |
+| Start | R3-A, R3-B, and R3-C migrations, contracts, and tests | Three independent packages |
+| Middle | Domain, API, and React for each package | Risk, control, treatment, and KRI work independently |
+| End | Seed and the full system journey | R2 indicator → KRI → risk → treatment task → new residual |
 
-## التحقق المستهدف
+## Targeted Verification
 
-- اختبارات Risk للـCRUD والمصفوفة والتاريخ والضوابط والمعالجة.
-- اختبارات event/inbox لإعادة التسليم ومنع التكرار.
-- اختبار حدود R2/R3 ومنع FK وjoin والاستيراد العابر.
-- بناء Web واختبارات RTL/LTR والعزل.
-- E2E لرحلة R3، ثم رحلات R1 وR2 وR3 معاً.
+- Risk tests for CRUD, matrix, history, controls, and treatment.
+- Event/inbox tests for redelivery and dedup.
+- Boundary tests for R2/R3, FK and join prevention, and cross-import.
+- Web build and RTL/LTR and isolation tests.
+- E2E for the R3 journey, then R1, R2, and R3 journeys together.
 
-## خارج R3 السريع
+## Outside R3 Fast
 
-- اجتماعات وورش تحديد المصفوفة أو الشهية أو التصعيد.
-- لجان قبول ومراجعات دورية وتوقيعات إطلاق.
-- إدخال 100 خطر أو تدريب مستخدمين أو Tabletop يدوي.
-- تصعيد تنظيمي متعدد المستويات؛ النسخة الأولى تستخدم capability + notification.
-- مكتبة ضخمة للضوابط أو dashboards مخصصة لكل جهة.
+- Meetings and workshops for matrix, appetite, or escalation calibration.
+- Acceptance committees, periodic reviews, and launch signatures.
+- 100-risk onboarding, user training, or manual tabletop exercises.
+- Multi-level organizational escalation; the first release uses capability
+  plus notification.
+- Large control libraries or per-unit custom dashboards.
 
-## تعريف اكتمال R3 والنظام
+## Definition of R3 and System Completion
 
-- الرحلة المتكاملة من مؤشر R2 إلى KRI وخطر ومعالجة وإعادة تقييم تعمل محلياً.
-- حدود R1/R2/R3 والعزل وOutbox مثبتة آلياً.
-- رحلات R1 وR2 وR3 والبناء والتحليل والوثائق خضراء على revision واحد.
-- يسجل revision النهائي في حالة التسليم، ثم تنتقل الخطة إلى التشغيل الآلي فقط.
+- The integrated journey from R2 indicator to KRI, risk, treatment, and
+  re-assessment runs locally.
+- R1/R2/R3 boundaries, isolation, and Outbox are proven automatically.
+- R1, R2, and R3 journeys, build, analysis, and docs are green on a single
+  revision.
+- The final revision is recorded in the active delivery status, and the plan
+  transitions to automated operations only.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | التغيير |
+| Version | Date | Change |
 |---|---|---|
-| 2.0.0 | 2026-07-19 | إلغاء W3.0 واللجان وUAT وبدء R3 مباشرة بقيم افتراضية وشريحة يوم واحد |
-| 1.0.0 | 2026-07-15 | الخطة الأصلية متعددة الموجات |
+| 2.0.0 | 2026-07-19 | Drop W3.0, committees, and UAT and start R3 directly with defaults and a one-day slice |
+| 1.0.0 | 2026-07-15 | Original multi-wave plan |

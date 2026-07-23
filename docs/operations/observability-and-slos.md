@@ -1,16 +1,16 @@
 ---
 doc_id: OPS-MN-001
-title: الرصد ومؤشرات وأهداف مستوى الخدمة
+title: Observability and Service Level Objectives
 type: operations
-status: proposed
+status: accepted
 version: 1.1.0
 date: 2026-07-16
-owner: مسؤول العمليات
+owner: Operations Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources:
 - docs/architecture/overview.md
 - docs/adr/023-single-host-dokploy-deployment.md
@@ -18,54 +18,74 @@ references:
 - docs/operations/incident-response.md
 - docs/operations/runbooks.md
 ---
-# الرصد ومؤشرات وأهداف مستوى الخدمة
+# Observability and Service Level Objectives
 
-## مبادئ الرصد
+> **NOT IMPLEMENTED.** OpenSearch, Loki, and Prometheus are documented as
+> observability backends below, but none of them is present in
+> `infra/platform/production/compose.yaml`. There is no `/metrics` endpoint
+> under `apps/api/routes/`. The signals, dashboards, and alert acceptance
+> criteria in this document are **aspirational** until a metrics stack is
+> wired up.
 
-تجمع المنصة metrics وlogs وtraces داخلية. تستخدم correlation ID من البوابة إلى API والعامل، وتحجب الأسرار وPII وpayloads الحساسة. تحدد مدد الاحتفاظ في سياسة منفصلة، ولا تسجل هذه الوثيقة قيماً تشغيلية فعلية.
+## Observability principles
+
+The platform collects internal metrics, logs, and traces. It uses a
+correlation ID from the gateway through the API and into the worker, and it
+redacts secrets, PII, and sensitive payloads. Retention periods are set in a
+separate policy; this document does not record live operational values.
 
 ## SLOs
 
-| الخدمة | SLI | SLO | نافذة القياس |
+| Service | SLI | SLO | Measurement window |
 |---|---|---:|---|
-| API | نسبة الطلبات الناجحة غير المستثناة | `99.9%` | شهر تقويمي |
-| API | زمن الاستجابة `p95` للطلبات المراقبة | `<= 500ms` | نافذة متحركة مناسبة للتنبيه والتقرير |
-| البحث | زمن الاستجابة `p95` | `<= 2s` | نافذة متحركة مناسبة للتنبيه والتقرير |
-| الفهرسة | فرق وقت حدث المصدر وظهوره بالفهرس | `<= 60s` | نافذة متحركة مناسبة للتنبيه والتقرير |
-| النسخ | أحدث نقطة قابلة للاستعادة | `<= 15 دقيقة` | مستمر وتمرين ربع سنوي |
+| API | Share of successful requests after exclusions | `99.9%` | Calendar month |
+| API | `p95` latency of monitored requests | `<= 500ms` | Rolling window sized for alerting and reporting |
+| Search | `p95` latency | `<= 2s` | Rolling window sized for alerting and reporting |
+| Indexing | Lag between source event and index visibility | `<= 60s` | Rolling window sized for alerting and reporting |
+| Backups | Most recent restorable point | `<= 15 minutes` | Continuous and quarterly exercise |
 
-الأخطاء المستثناة من availability هي طلبات العميل المرفوضة بالتحقق أو الصلاحية، والصيانة المخططة المعلنة. الاستثناءات الدقيقة توثق في تعريف SLI versioned قبل استخدامها.
+Errors excluded from availability are client requests rejected by validation
+or authorization, and announced planned maintenance. Exclusions are recorded
+in a versioned SLI definition before being applied.
 
-## اللوحات والإشارات
+## Dashboards and signals
 
-| المجال | الإشارات الدنيا |
+| Domain | Minimum signals |
 |---|---|
-| API | معدل الطلبات، error rate، latency، saturation، readiness |
-| workers | عمق الطابور، عمر أقدم رسالة، الفشل وإعادة المحاولة وDLQ |
-| MySQL | health، latency، اتصالات، backup health، مساحة التخزين |
-| Redis | health، الذاكرة، الاتصالات، Streams وpending entries |
-| OpenSearch للبحث | cluster health، query latency، queue، تأخر فهرسة البحث، مساحة القرص |
-| Loki للسجلات | صحة ingestion، تأخر السجلات، query latency، أخطاء التخزين، وفترة الاحتفاظ |
-| التخزين | السعة، الأخطاء، latency، نجاح النسخ وObject Lock |
-| الخادم وDocker | CPU والذاكرة والقرص، صحة Docker، container restarts وhealthchecks |
-| الأمن | المنافذ المرفوضة، محاولات SSH، انتهاء شهادة Caddy، وتدقيق النشر |
+| API | Request rate, error rate, latency, saturation, readiness |
+| Workers | Queue depth, age of oldest message, failures, retries, DLQ |
+| MySQL | Health, latency, connections, backup health, storage |
+| Redis | Health, memory, connections, Streams, pending entries |
+| OpenSearch (search) | Cluster health, query latency, queue, indexing lag, disk |
+| Loki (logs) | Ingestion health, log lag, query latency, storage errors, retention |
+| Storage | Capacity, errors, latency, backup success, Object Lock |
+| Server and Docker | CPU, memory, disk, Docker health, container restarts, healthchecks |
+| Security | Rejected ports, SSH attempts, Caddy certificate expiry, deploy audit |
 
-## التنبيهات والتصعيد
+## Alerts and escalation
 
-- `P1`: انقطاع API واسع، خطر فقد بيانات، فشل استعادة، أو حادث أمني نشط. يستدعى قائد الحادث فوراً.
-- `P2`: خرق مستمر لـSLO، تراكم queue، فشل عضو HA مع بقاء الخدمة، أو سعة حرجة بلا أثر فوري شامل.
-- `P3`: إنذار استباقي أو عيب غير حرج؛ يسجل ويعالج ضمن الأولوية.
-- كل alert يربط بمالك دور وrunbook ومعيار إغلاق؛ يمنع التنبيه غير القابل للتنفيذ.
+- `P1`: Wide API outage, data-loss risk, restore failure, or an active
+  security incident. The incident commander is paged immediately.
+- `P2`: Sustained SLO breach, queue backlog, sustained degradation with
+  service still up, or critical capacity without immediate widespread
+  impact.
+- `P3`: Predictive or non-critical alert; recorded and handled in priority
+  order.
+- Every alert maps to a role owner, a runbook, and a closing criterion;
+  non-actionable alerts are forbidden.
 
-## قبول الرصد
+## Observability acceptance
 
-- توجد لوحة وإشارات لكل SLI أعلاه قبل إطلاق الإنتاج.
-- يجرب تنبيه واحد على الأقل لكل P1/P2 في `Staging` دون بيانات إنتاج.
-- يمكن ربط حادث بوقت البدء، نطاق الأثر، الإصدار المنشور، والـcorrelation IDs ذات الصلة.
+- A dashboard and the corresponding signals exist for every SLI above before
+  production launch.
+- At least one alert per P1/P2 is exercised in `Staging` without production
+  data.
+- An incident can be linked to its start time, scope, the deployed release,
+  and the relevant correlation IDs.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول العمليات | إنشاء SLOs ونموذج الرصد |
-| 1.1.0 | 2026-07-16 | مالك المنصة | مواءمة الرصد مع خادم Dokploy واحد وقبول خطر مجال العطل الواحد |
+| 1.0.0 | 2026-07-15 | Operations Lead | Initial SLOs and observability model |
+| 1.1.0 | 2026-07-16 | Platform Owner | Aligned observability with the single Compose host and accepted the single-failure-domain risk |

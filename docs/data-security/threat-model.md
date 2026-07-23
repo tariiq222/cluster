@@ -1,16 +1,16 @@
 ---
 doc_id: SEC-AU-002
-title: نموذج التهديدات والثقة
+title: Threat and Trust Model
 type: data-security
 status: draft
 version: 0.2.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Officer
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/architecture/c4-and-flows.md
@@ -23,251 +23,254 @@ references:
 - docs/data-security/audit-and-privacy.md
 - docs/data-security/file-security.md
 ---
-# نموذج التهديدات والثقة
 
-## 1. الغرض والنطاق
+# Threat and Trust Model
 
-يحدد هذا المستند نموذج التهديدات للمنصة الإدارية للتجمع الصحي الثالث وفق منهجية STRIDE، ويربط كل تهديد بضابط تحكم واختبار قابل للتنفيذ، ويطابق متطلبات:
+> **Planned controls.** The STRIDE boundaries, NCA/PDPL/NDMO mappings, and named guard tests in this document are a draft threat model and a future control/test inventory. Most of the named tests and the break-glass, audit, and export infrastructure do not exist in the verified code today. They are acceptable here only as requirements, not as deployed controls. The implemented authorization boundary is backend-controlled through `IdentitySessionMiddleware` and the Authorization provider guard; this section is the source of truth for that boundary.
 
-- **نظام حماية البيانات الشخصية PDPL** ولائحته التنفيذية.
-- **ضوابط الأمن السيبراني الأساسية NCA ECC** بنسختها المعتمدة محلياً.
-- **معايير مكتب إدارة البيانات الوطنية NDMO** لتصنيف البيانات وإدارة دورة حياتها.
+## 1. Purpose and Scope
 
-### 1.1 حدود النطاق
+This document defines the threat model for the administrative platform of the Third Health Cluster following the STRIDE methodology, ties each threat to a control and an executable test, and maps to the requirements of:
 
-يدخل ضمن النطاق:
+- **Personal Data Protection Law (PDPL)** and its implementing regulations.
+- **NCA Essential Cybersecurity Controls (NCA ECC)** in the locally adopted version.
+- **National Data Management Office (NDMO)** standards for data classification and lifecycle management.
 
-- المنصة الإدارية وخدماتها الخلفية وبياناتها.
-- بيانات الهوية الوظيفية للموظفين وبيانات الأعمال الإدارية.
-- البنية التحتية داخل مركز بيانات التجمع (Kubernetes، MySQL، Object Storage، Queue، Search).
-- قنوات الإدارة وقنوات الطوارئ Break-glass.
-- قنوات التدقيق والتصدير اليومي.
+### 1.1 Scope Boundaries
 
-لا يدخل ضمن النطاق:
+In scope:
 
-- بيانات المرضى السريرية والسجل الطبي وأنظمة HIS/EMR.
-- أنظمة «موارد» والنظام المالي والمشتريات.
-- التكاملات الخارجية في المرحلة الأولى.
-- البريد الإلكتروني للموظف وبياناته الشخصية خارج المنصة.
+- The administrative platform, its backend services, and its data.
+- Functional identity data of employees and administrative business data.
+- Infrastructure inside the cluster data center (Kubernetes, MySQL, Object Storage, Queue, Search).
+- Administration channels and break-glass emergency channels.
+- Audit channels and the daily export channel.
 
-### 1.2 طبيعة البيانات
+Out of scope:
 
-المنصة غير سريرية. تعالج فقط:
+- Clinical patient data, the medical record, and HIS/EMR systems.
+- "Mawared" systems, the financial system, and procurement.
+- External integrations in phase one.
+- Employee email and personal data outside the platform.
 
-- بيانات الهوية الوظيفية (PII للموظف): الاسم، الهوية الوطنية، جهة العمل، المنصب، البريد المهني، الهاتف المهني.
-- بيانات الأعمال الإدارية: الطلبات، المهام، المستندات الإدارية، العقود الإدارية، المشاريع، المخاطر المؤسسية، المؤشرات، اللجان، المراسلات الإدارية.
-- بيانات التصنيف والصلاحيات والأدوار والعلاقات الإشرافية.
-- سجلات التدقيق وسجلات الوصول والاطلاع.
+### 1.2 Nature of Data
 
-### 1.3 افتراضات التهديد
+The platform is non-clinical. It processes only:
 
-- الشبكة الداخلية مفترض أنها غير موثوقة كلياً ويُعامل أي جهاز متصل بها كجهاز مرتاب.
-- يوجد مستخدمون ذوو صلاحيات قد يسئون استخدام قدراتهم.
-- قد يحاول مهاجم داخلي أو خارجي اختراق طبقة الإدارة أو قنوات الطوارئ.
-- قد يحاول مسؤول التلاعب بسجل التدقيق.
-- قد يحدث فقدان أو سرقة جهاز فعلي.
+- Functional identity data (employee PII): name, national id, employer, position, work email, work phone.
+- Administrative business data: requests, tasks, administrative documents, administrative contracts, projects, institutional risks, KPIs, committees, administrative correspondence.
+- Classification, authorization, role, and supervisory-relationship data.
+- Audit logs and access logs.
 
-## 2. منهجية STRIDE
+### 1.3 Threat Assumptions
 
-تُصنف التهديدات ضمن ست فئات:
+- The internal network is treated as fully untrusted and any device on it is treated as suspect.
+- Some users have privileges and may abuse them.
+- An insider or external attacker may attempt to compromise the administration layer or the emergency channels.
+- An administrator may attempt to tamper with the audit log.
+- Physical loss or theft of a device may occur.
 
-| الفئة | الرمز | المعنى | أثرها الأساسي |
+## 2. STRIDE Methodology
+
+Threats are classified into six categories:
+
+| Category | Code | Meaning | Primary Impact |
 |---|---|---|---|
-| الانتحال | S | انتحال هوية مستخدم أو خدمة أو عقدة | تجاوز حدود الوصول |
-| التلاعب | T | تعديل بيانات أو كود أو إعدادات دون إذن | فقدان سلامة البيانات |
-| الإنكار | R | إنكار المستخدم لفعل أو إنكار النظام لحدوث حدث | فقدان المساءلة |
-| الإفصاح | I | كشف معلومات لغير المصرح لهم | خرق السرية |
-| الحرمان | D | منع المستخدمين الشرعيين من الخدمة | توقف الأعمال |
-| التصعيد | E | اكتساب قدرة أعلى من الممنوحة | اختراق حدود الصلاحية |
+| Spoofing | S | Impersonation of a user, service, or node | Bypass of access boundaries |
+| Tampering | T | Unauthorized modification of data, code, or configuration | Loss of data integrity |
+| Repudiation | R | User denies an action, or the system denies an event | Loss of accountability |
+| Information Disclosure | I | Information exposed to unauthorized parties | Confidentiality breach |
+| Denial of Service | D | Legitimate users prevented from accessing the service | Business disruption |
+| Elevation of Privilege | E | Acquiring more capability than granted | Authorization boundary breach |
 
-## 3. حدود الثقة Trust Boundaries
+## 3. Trust Boundaries
 
-| المعرف | اسم الحد | ما يفصله | نمط العبور المسموح |
+| ID | Boundary Name | What it Separates | Allowed Crossing Pattern |
 |---|---|---|---|
-| TB-1 | متصفح المستخدم ↔ الشبكة الداخلية | متصفح الموظف على شبكته الداخلية وشبكة VLAN إدارة المنصة | HTTPS داخلي فقط مع mTLS اختياري للخدمات الحساسة |
-| TB-2 | الشبكة الداخلية ↔ Web/API | جهاز الموظف وطبقة البوابة الداخلية وطبقة التطبيق | HTTPS مع جلسة قصيرة العمر وCSRF token |
-| TB-3 | Web/API ↔ قاعدة البيانات | خدمتي API وMySQL | اتصال شبكة داخلي مغلق، حساب DB بصلاحيات أدنى، TLS داخلي |
-| TB-4 | Web/API ↔ Object Storage | خدمتي API وتخزين الملفات | حساب خدمة بأذونات محددة لكل مساحة، طلبات موقعة، شبكة داخلية |
-| TB-5 | Worker ↔ قاعدة البيانات | العامل وقاعدة البيانات | نفس قيود TB-3 مع فصل الحساب |
-| TB-6 | Worker ↔ Object Storage | العامل والتخزين | نفس قيود TB-4 مع حساب منفصل |
-| TB-7 | قناة الإدارة (سوبر أدمن) | واجهة الإدارة وحساب خاص | قناة مفصولة VLAN، صلاحيات موسعة مع تدقيق |
-| TB-8 | قناة الطوارئ Break-glass | حساب طوارئ مغلق وآلية تفعيل | إجراء ثنائي الأشخاص مع توثيق وتسجيل |
-| TB-9 | قناة النسخ الاحتياطي والاستعادة | الإنتاج ومخزن النسخ | حساب منفصل، تشفير، توقيع، فصل فيزيائي |
-| TB-10 | قناة تصدير التدقيق اليومي | الإنتاج ومخزن التدقيق المنفصل | توقيع رقمي، حساب قراءة فقط، فصل فيزيائي |
-| TB-11 | قناة CI/CD والبناء | GitHub Actions ومستودع المصدر | صلاحيات read-only، actions مثبتة، فحص أسرار واعتماديات |
-| TB-12 | قناة الخروج Egress | حاويات التطبيق والإنترنت الخارجي | أقل وصول لازم مع جدار ناري ومراجعة الاتصالات |
+| TB-1 | User Browser ↔ Internal Network | Employee browser on its own network and the platform VLAN | Internal HTTPS only with optional mTLS for sensitive services |
+| TB-2 | Internal Network ↔ Web/API | Employee device and the platform's internal gateway and application tier | HTTPS with short-lived session and CSRF token |
+| TB-3 | Web/API ↔ Database | API services and MySQL | Closed internal network, DB account with least privilege, internal TLS |
+| TB-4 | Web/API ↔ Object Storage | API services and file storage | Per-prefix service account with scoped permissions, signed requests, internal network |
+| TB-5 | Worker ↔ Database | Worker and database | Same as TB-3 with account separation |
+| TB-6 | Worker ↔ Object Storage | Worker and storage | Same as TB-4 with a separate account |
+| TB-7 | Administration Channel (Super-admin) | Administration UI and dedicated account | Separate VLAN, expanded privileges with audit |
+| TB-8 | Break-glass Emergency Channel | Locked emergency account and activation procedure | Two-person rule with documentation and recording |
+| TB-9 | Backup and Recovery Channel | Production and backup store | Separate account, encryption, signature, physical separation |
+| TB-10 | Daily Audit Export Channel | Production and the separate audit store | Digital signature, read-only account, physical separation |
+| TB-11 | CI/CD and Build Channel | GitHub Actions and source repository | Read-only permissions, pinned actions, secret and dependency scanning |
+| TB-12 | Egress Channel | Application containers and the public internet | Least egress with firewall and connection review |
 
-## 4. مصفوفة STRIDE على حدود الثقة
+## 4. STRIDE Matrix Across Trust Boundaries
 
-### 4.1 TB-1 متصفح ↔ الشبكة الداخلية
+### 4.1 TB-1 Browser ↔ Internal Network
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | انتحال متصفح موظف عبر سرقة الجلسة | قصر الجلسة على IP داخلي مع Refresh بعد تغيره، ربط الجلسة بالبصمة الخفيفة | `IdentitySessionTest::session_invalidated_on_ip_change` |
-| S | إعادة استخدام Token مسروق | JWT قصير مع Refresh منفصل، إبطال فوري عند تغيير كلمة المرور | `IdentitySessionTest::stolen_refresh_token_rejected` |
-| T | حقن محتوى عبر XSS | CSP صارم، تعقيم المدخلات في الخلفية، تشفير HTML في React | `SecurityTest::csp_blocks_inline_scripts` |
-| I | كشف بيانات عبر cache المتصفح | رؤوس `Cache-Control: no-store` على المحتوى الحساس | `HttpHeaderTest::sensitive_responses_have_no_store` |
-| D | إغراق تسجيل الدخول | Rate limit على `/auth/login` و`/auth/password` | `IdentitySessionTest::login_rate_limit_enforced` |
-| E | مصادقة مرتفعة عبر تلاعب المتغير المحلي | قرار الصلاحية في الخلفية فقط، عدم الاعتماد على JS | `AuthorizationTest::client_hints_ignored_on_server` |
+| S | Browser impersonation by session theft | Bind session to internal IP and re-bind on IP change; bind session to a lightweight fingerprint | `IdentitySessionTest::session_invalidated_on_ip_change` |
+| S | Reuse of stolen token | **Identity uses server-side opaque session cookies via `IdentitySessionMiddleware`. There are no JWT tokens or refresh tokens.** Session theft requires possession of the opaque cookie and is invalidated through revoke-on-password-change and server-side expiry. | `IdentitySessionTest::stolen_session_cookie_rejected_after_revoke` |
+| T | Content injection via XSS | Strict CSP, backend input sanitization, HTML escaping in React | `SecurityTest::csp_blocks_inline_scripts` |
+| I | Information disclosure via browser cache | `Cache-Control: no-store` on sensitive content | `HttpHeaderTest::sensitive_responses_have_no_store` |
+| D | Login flooding | Rate limit on `/auth/login` and `/auth/password` | `IdentitySessionTest::login_rate_limit_enforced` |
+| E | Authentication elevation via local-variable manipulation | Authorization decided only on the backend, no reliance on JS | `AuthorizationTest::client_hints_ignored_on_server` |
 
-### 4.2 TB-2 الشبكة الداخلية ↔ Web/API
+### 4.2 TB-2 Internal Network ↔ Web/API
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | تزوير طلب عبر CSRF | CSRF token على كل mutation، SameSite=Lax على الكوكي | `HttpTest::csrf_token_required_on_mutations` |
-| T | تعديل الطلب في النقل | TLS داخلي، رؤوس HSTS، توقيع HMAC اختياري للأحداث الحساسة | `HttpTest::tls_required_on_internal_endpoints` |
-| R | إنكار إجراء | سجل تدقيق يسبق النتيجة لكل فعل حساس | `AuditTest::audit_written_before_response` |
-| I | إفصاح عبر رسائل خطأ مفصلة | تعميم رسائل الخطأ، تسجيل التفاصيل داخلياً فقط | `HttpTest::error_messages_redacted_in_response` |
-| D | إغراق API | Rate limit لكل مستخدم ولكل IP، قائمة سوداء مؤقتة | `RateLimitTest::per_user_and_per_ip_enforced` |
-| E | استدعاء قدرة غير ممنوحة | قرار قدرة مركزي قبل كل Controller | `AuthorizationTest::capability_check_before_controller` |
+| S | Forged request via CSRF | CSRF token on every mutation, `SameSite=Lax` on cookies | `HttpTest::csrf_token_required_on_mutations` |
+| T | Request modification in transit | Internal TLS, HSTS headers, optional HMAC signing for sensitive events | `HttpTest::tls_required_on_internal_endpoints` |
+| R | Action repudiation | Audit record precedes the response for every sensitive action | `AuditTest::audit_written_before_response` |
+| I | Disclosure via detailed error messages | Generic error messages, internal details only | `HttpTest::error_messages_redacted_in_response` |
+| D | API flooding | Per-user and per-IP rate limit, temporary blocklist | `RateLimitTest::per_user_and_per_ip_enforced` |
+| E | Ungranted capability call | Centralized capability decision before each controller | `AuthorizationTest::capability_check_before_controller` |
 
-### 4.3 TB-3 Web/API ↔ قاعدة البيانات
+### 4.3 TB-3 Web/API ↔ Database
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | انتحال حساب قاعدة بيانات | حساب DB منفصل لكل خدمة بأقل صلاحيات، تدوير كلمات المرور | `DbRoleTest::api_role_lacks_drop_and_alter` |
-| T | تعديل جداول الموديولات الأخرى | مستخدم DB بـ grants على schema الخاص فقط، اختبار معماري | `BoundaryTest::module_cannot_query_other_module_tables` |
-| R | إنكار كتابة في الجداول | كل عملية كتابة حساسة تكتب في Outbox + Audit داخل نفس الـTransaction | `OutboxTest::event_written_in_same_transaction` |
-| I | قراءة جداول كاملة عبر تقارير | Read Model مسموح، Joins يدوية بين موديولات ممنوعة | `BoundaryTest::cross_module_join_via_readmodel_only` |
-| D | استنزاف الاتصالات | Connection pool محدود، Circuit breaker عند نسخ MySQL المعطلة | `ResilienceTest::pool_does_not_exhaust_on_db_outage` |
-| E | استعلام SQL مُحقن | Prepared statements إلزامية، ORM فقط، فحص استعلامات خام | `SecurityTest::raw_sql_blocked_in_module_code` |
+| S | DB account impersonation | Separate DB account per service with least privilege, password rotation | `DbRoleTest::api_role_lacks_drop_and_alter` |
+| T | Modification of other modules' tables | DB user with grants only on its own schema, architectural test | `BoundaryTest::module_cannot_query_other_module_tables` |
+| R | Write repudiation in tables | Every sensitive write writes to Outbox + Audit in the same transaction | `OutboxTest::event_written_in_same_transaction` |
+| I | Reading whole tables via reports | Read Model allowed; manual joins across modules prohibited | `BoundaryTest::cross_module_join_via_readmodel_only` |
+| D | Connection exhaustion | Bounded connection pool, circuit breaker on replica outage | `ResilienceTest::pool_does_not_exhaust_on_db_outage` |
+| E | Injected SQL | Prepared statements only, ORM only, raw-query scan | `SecurityTest::raw_sql_blocked_in_module_code` |
 
 ### 4.4 TB-4 Web/API ↔ Object Storage
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | تزوير طلب تحميل | رابط تحميل موقع بصلاحية قصيرة العمر (≤5 دقائق) | `DocumentsTest::presigned_url_short_ttl` |
-| T | تعديل ملف بعد الرفع | الملف في الحجر حتى اجتياز الفحص، checksum يُحسب عند الإدخال ولا يُسمح بالتعديل | `DocumentsTest::storage_object_immutable_after_quarantine` |
-| R | إنكار تحميل | `DocumentAccessEvent` يُكتب قبل إنشاء الرابط | `DocumentsTest::access_event_before_url_issued` |
-| I | تسرب ملف عبر مشاركة الرابط | صلاحية الرابط للمستخدم المسجل فقط، فحص صلاحية عند كل GET | `DocumentsTest::url_does_not_bypass_authorization` |
-| D | استنزاف التخزين | حصة لكل `OrgUnit`، رفض رفع عند تجاوز الحصة | `DocumentsTest::quota_enforced_per_orgunit` |
-| E | قراءة ملف عبر صلاحية مرئية | تطبيق سياسة الحقل والمستند على كل تحميل | `DocumentsTest::download_respects_classification` |
+| S | Forged download request | Signed URL with short TTL (≤ 5 minutes) | `DocumentsTest::presigned_url_short_ttl` |
+| T | File modification after upload | File in quarantine until checks pass; checksum computed at intake, no modification allowed | `DocumentsTest::storage_object_immutable_after_quarantine` |
+| R | Download repudiation | `document_outbox_events` access event emitted before the URL is issued | `DocumentsTest::access_event_before_url_issued` |
+| I | File leakage via URL share | URL scoped to the authenticated user only; authorization on every GET | `DocumentsTest::url_does_not_bypass_authorization` |
+| D | Storage exhaustion | Per-`OrgUnit` quota; upload rejected on overflow | `DocumentsTest::quota_enforced_per_orgunit` |
+| E | File read via visible capability | Field and document policy applied on every download | `DocumentsTest::download_respects_classification` |
 
-### 4.5 TB-5 وTB-6 Worker والتخزين
+### 4.5 TB-5 and TB-6 Worker and Storage
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | انتحال هوية العامل | حساب خدمة مميز لكل عامل، مفاتيح في Secret داخلي | `WorkerTest::worker_uses_distinct_service_account` |
-| T | تلاعب بـJob | idempotency key على كل job، إعادة تشغيل آمنة | `JobTest::duplicate_job_is_idempotent` |
-| R | إنكار تنفيذ | سجل تنفيذ لكل job مرتبط بـ`event_id` | `OutboxTest::job_records_event_id` |
-| I | كشف محتوى حساس في الـlogs | فلر PII في الـlogs، عدم كتابة payloads كاملة | `LoggingTest::pii_redacted_in_worker_logs` |
-| D | تراكم jobs عالقة | Dead-letter queue، تنبيه السوبر أدمن، إعادة محاولة محدودة | `QueueTest::failed_job_lands_in_dlq` |
-| E | عامل يصل لـnamespace أوسع | NetworkPolicy تحصر العامل في DB وObject Storage وCache فقط | `NetPolTest::worker_egress_limited` |
+| S | Worker impersonation | Dedicated service account per worker, keys in internal Secret | `WorkerTest::worker_uses_distinct_service_account` |
+| T | Job tampering | Idempotency key on every job, safe restart | `JobTest::duplicate_job_is_idempotent` |
+| R | Execution repudiation | Execution log per job linked to `event_id` | `OutboxTest::job_records_event_id` |
+| I | Sensitive content in logs | PII filter in logs, no full payloads | `LoggingTest::pii_redacted_in_worker_logs` |
+| D | Stuck-job accumulation | Dead-letter queue, super-admin alert, bounded retry | `QueueTest::failed_job_lands_in_dlq` |
+| E | Worker reaches a wider namespace | `NetworkPolicy` confines the worker to DB, Object Storage, and Cache | `NetPolTest::worker_egress_limited` |
 
-### 4.6 TB-7 قناة الإدارة (سوبر أدمن)
+### 4.6 TB-7 Administration Channel (Super-admin)
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | انتحال حساب إداري | MFA إلزامي للسوبر أدمن، فصل الحساب عن المستخدم العادي | `AdminTest::mfa_required_for_superadmin` |
-| T | تعديل إعدادات محورية دون مراجعة | اعتماد مزدوج على تغييرات الحرج، تسجيل قبل وبعد | `AdminTest::dual_control_on_critical_changes` |
-| R | إنكار إجراء إداري | تسجيل نص كامل للطلب والاستجابة في سجل التدقيق | `AdminTest::superadmin_actions_fully_logged` |
-| I | اطلاع على محتوى حساس عبر صلاحية إدارية | تسجيل الاطلاع الحساس، فصل الاطلاع عن الإدارة حيث أمكن | `AuditTest::sensitive_view_by_admin_logged` |
-| D | قفل حسابات بسبب خطأ إداري | تأكيد ثانوي قبل تعطيل حساب أو رفع صلاحية | `AdminTest::disabling_account_requires_second_factor` |
-| E | تصعيد ذاتي عبر استغلال ثغرة | مراجعة فصل الصلاحيات، اختبارات حارسة شهرية | `AuthorizationTest::superadmin_cannot_self_grant_sensitive_caps` |
+| S | Administrative account impersonation | MFA mandatory for super-admin, account separated from ordinary users | `AdminTest::mfa_required_for_superadmin` |
+| T | Critical-config modification without review | Dual approval on critical changes, before/after recording | `AdminTest::dual_control_on_critical_changes` |
+| R | Administrative action repudiation | Full request and response recorded in audit | `AdminTest::superadmin_actions_fully_logged` |
+| I | Sensitive content read via admin privilege | Sensitive read recorded, separation of read and admin where feasible | `AuditTest::sensitive_view_by_admin_logged` |
+| D | Account lockout due to admin error | Second-factor confirmation before disabling accounts or raising privilege | `AdminTest::disabling_account_requires_second_factor` |
+| E | Self-promotion via vulnerability | Privilege separation review, monthly guard tests | `AuthorizationTest::superadmin_cannot_self_grant_sensitive_caps` |
 
-### 4.7 TB-8 قناة الطوارئ Break-glass
+### 4.7 TB-8 Break-glass Emergency Channel
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | تفعيل break-glass بهوية مسروقة | الحساب مغلق افتراضياً، التفعيل يتطلب حضور اثنين من المصرح لهم | `BreakGlassTest::activation_requires_two_authorized_people` |
-| T | تعديل بيانات عبر break-glass دون ضابط | مدة الجلسة ≤60 دقيقة، كل إجراء مسجل في تدقيق منفصل | `BreakGlassTest::session_max_60_minutes` |
-| R | إنكار استخدام الطوارئ | توقيع مسبق للإجراء، تقرير تلقائي للجنابة بعد الاستخدام | `BreakGlassTest::usage_produces_signed_incident_report` |
-| I | استغلال الطوارئ لقراءة محتوى حساس | صلاحية الطوارئ مقيدة بقائمة بيضاء من الإجراءات، لا اطلاع عام | `BreakGlassTest::breakglass_capabilities_are_denylisted_others` |
-| D | استخدام الطوارئ لتعطيل الخدمة | قائمة سوداء للإجراءات الممنوعة كلياً في break-glass | `BreakGlassTest::denied_actions_blocked` |
-| E | تحويل الطوارئ لصلاحية دائمة | انتهاء تلقائي، مراجعة بعد كل استخدام | `BreakGlassTest::grant_auto_expires` |
+| S | Break-glass activation with stolen identity | Account locked by default, activation requires two authorized persons | `BreakGlassTest::activation_requires_two_authorized_people` |
+| T | Data modification via break-glass without control | Session ≤ 60 minutes, every action recorded in a separate audit | `BreakGlassTest::session_max_60_minutes` |
+| R | Emergency-use repudiation | Pre-signed procedure, automatic report after use | `BreakGlassTest::usage_produces_signed_incident_report` |
+| I | Exploiting emergency for sensitive read | Emergency capability restricted to an allow-list, no broad read | `BreakGlassTest::breakglass_capabilities_are_denylisted_others` |
+| D | Using emergency to disable service | Blocklist of actions entirely forbidden in break-glass | `BreakGlassTest::denied_actions_blocked` |
+| E | Converting emergency into permanent privilege | Auto-expiry, post-use review | `BreakGlassTest::grant_auto_expires` |
 
-### 4.8 TB-9 قناة النسخ الاحتياطي
+### 4.8 TB-9 Backup Channel
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | تزوير هوية النسخ | حساب منفصل في مخزن النسخ، مفاتيح منفصلة، قائمة IP | `BackupTest::backup_account_separate_from_app` |
-| T | تعديل نسخة احتياطية | تشفير at-rest، توقيع، عدم قدرة على تعديل محفوظات سابقة | `BackupTest::backup_is_signed_and_immutable` |
-| R | إنكار الاستعادة | سجل بكل استعادة يتضمن من وافق ومن نفّذ | `BackupTest::restore_recorded_with_dual_signoff` |
-| I | كشف بيانات النسخة | تشفير بمفتاح منفصل عن الإنتاج، فصل فيزيائي | `BackupTest::backup_uses_distinct_kms_key` |
-| D | عدم القدرة على الاستعادة | اختبار استعادة ربع سنوي، توثيق RPO/RTO | `DrTest::restore_meets_rpo_15_min` |
-| E | قراءة بيانات حساسة عبر النسخة | استعادة ضمن شبكة معزولة، حذف النسخة بعد التحقق | `DrTest::restore_env_is_isolated` |
+| S | Backup identity forgery | Separate account in the backup store, distinct keys, IP allowlist | `BackupTest::backup_account_separate_from_app` |
+| T | Backup modification | At-rest encryption, signature, no historical mutation | `BackupTest::backup_is_signed_and_immutable` |
+| R | Restore repudiation | Record per restore with approver and executor | `BackupTest::restore_recorded_with_dual_signoff` |
+| I | Backup data disclosure | Encryption with a key distinct from production, physical separation | `BackupTest::backup_uses_distinct_kms_key` |
+| D | Inability to restore | Quarterly restore test, RPO/RTO documentation | `DrTest::restore_meets_rpo_15_min` |
+| E | Reading sensitive data via backup | Restore in an isolated network, delete backup after verification | `DrTest::restore_env_is_isolated` |
 
-### 4.9 TB-10 قناة تصدير التدقيق اليومي
+### 4.9 TB-10 Daily Audit Export Channel
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | تزوير طلب التصدير | حساب قراءة فقط، مصادقة ثنائية | `AuditExportTest::export_requires_mfa` |
-| T | تعديل ملف التصدير بعد إنشائه | توقيع رقمي على الحزمة، حفظ hash خارجي | `AuditExportTest::export_signed_and_hash_published` |
-| R | إنكار إنشاء التصدير | تسجيل بدء وانتهاء وفشل العملية | `AuditExportTest::lifecycle_logged` |
-| I | إفصاح محتوى التصدير | نقل عبر قناة منفصلة، تشفير، فصل عن الإنتاج | `AuditExportTest::transfer_over_separate_channel` |
-| D | تأخر التصدير | جدولة يومية، تنبيه عند الفشل، إعادة محاولة محدودة | `AuditExportTest::failure_alerts_within_15_min` |
-| E | تصدير بيانات خارج النطاق | الحزمة تحتوي سجلات اليوم فقط، لا حقولاً إضافية | `AuditExportTest::export_scope_is_strict` |
+| S | Forged export request | Read-only account, two-factor authentication | `AuditExportTest::export_requires_mfa` |
+| T | Export modification after creation | Digital signature on the bundle, external hash publication | `AuditExportTest::export_signed_and_hash_published` |
+| R | Export creation repudiation | Lifecycle events recorded (start, end, failure) | `AuditExportTest::lifecycle_logged` |
+| I | Export content disclosure | Transfer over a separate channel, encryption, separation from production | `AuditExportTest::transfer_over_separate_channel` |
+| D | Export delay | Daily schedule, alert on failure, bounded retry | `AuditExportTest::failure_alerts_within_15_min` |
+| E | Out-of-scope export | Bundle contains only the day's records, no extra fields | `AuditExportTest::export_scope_is_strict` |
 
-### 4.10 TB-11 قناة CI/CD والبناء
+### 4.10 TB-11 CI/CD and Build Channel
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | تشغيل action معدلة | تثبيت كل GitHub Action بـcommit SHA كامل | مراجعة workflow |
-| T | تعديل كود بلا تحقق | CI على كل push وpull request وبناء الصور من المصدر نفسه | فحوص CI |
-| R | إنكار نشر | Git commit وسجل Compose ووقت النشر | سجل Git وDocker |
-| I | تسرب أسرار | Gitleaks وملف `.env.production` خارج Git بصلاحية `600` | فحص CI وpreflight النشر |
-| D | توقف النشر بسبب المصدر الخارجي | lockfiles وإبقاء آخر commit وصور سليمة على الخادم | تجربة rollback |
-| E | تنفيذ تعليمات في طبقة البناء | Dockerfiles مراجعة ومستخدم runtime غير root | سياسة حزمة الإنتاج |
+| S | Running modified actions | Pin every GitHub Action to a full commit SHA | Workflow review |
+| T | Code modification without verification | CI on every push and PR, images built from the same source | CI checks |
+| R | Deployment repudiation | Git commit, Compose log, deploy timestamp | Git and Docker logs |
+| I | Secret leakage | Gitleaks and `.env.production` outside Git with `600` permission | CI scan and deploy preflight |
+| D | Deploy outage due to external source | Lockfiles, last commit kept locally, healthy images on the server | Rollback exercise |
+| E | Instruction execution at the build layer | Reviewed Dockerfiles, non-root runtime user | Production image policy |
 
-### 4.11 TB-12 قناة الخروج Egress
+### 4.11 TB-12 Egress Channel
 
-| الفئة | التهديد | الضابط | الاختبار |
+| Category | Threat | Control | Test |
 |---|---|---|---|
-| S | خدمة غير موثوقة تتصل خارجياً | حصر التكاملات ومراجعة وجهاتها | مراجعة الإعدادات |
-| T | تحديث أثناء التشغيل | لا تثبيت حزم داخل حاوية runtime | سياسة حزمة الإنتاج |
-| R | إنكار اتصال | سجلات Caddy وLaravel وDocker | مراجعة السجلات |
-| I | تسرب بيانات عبر اتصال صادر | لا تكامل خارجي بلا عقد وتصنيف بيانات | اختبار التكامل |
-| D | قطع الخدمة بسبب قاعدة جدار ناري | اختبار DNS وHTTPS وMySQL وRedis بعد التغيير | فحص الصحة |
-| E | استخدام egress للتصعيد | مستخدم non-root ومنع privilege escalation | فحص الصور وCompose |
+| S | Untrusted service calling out | Restrict and review integrations and their destinations | Config review |
+| T | In-flight update | No package installs inside the runtime container | Production image policy |
+| R | Connection repudiation | Caddy, Laravel, and Docker logs | Log review |
+| I | Data leakage via outbound connection | No external integration without a contract and data classification | Integration test |
+| D | Service outage due to firewall | DNS/HTTPS/MySQL/Redis checks after changes | Health probe |
+| E | Egress for privilege escalation | Non-root user and privilege-escalation blocks | Image and Compose scans |
 
-## 5. خريطة الامتثال
+## 5. Compliance Map
 
 ### 5.1 PDPL
 
-| المادة/المبدأ | المتطلب | الضابط التقني | الاختبار |
+| Article/Principle | Requirement | Technical Control | Test |
 |---|---|---|---|
-| أساس المعالجة | معالجة البيانات بأساس نظامي أو موافقة | توثيق أساس المعالجة على كل نوع عمل وتصنيفه | `ComplianceTest::processing_basis_recorded` |
-| تقليل البيانات | جمع الحد الأدنى | إخضاع كل حقل ديناميكي لقاعدة `required` ومراجعته | `WorkDefTest::fields_minimized_for_purpose` |
-| دقة البيانات | ضمان دقة PII للموظف | صلاحية تعديل PII للمالك فقط، تدقيق كل تعديل | `IdentityTest::pii_edits_audited` |
-| الاحتفاظ | مدة محددة بنوع العمل | `retention_until` على كل سجل، عملية إتلاف محكومة | `RetentionTest::retention_policy_enforced` |
-| حقوق صاحب البيانات | الاطلاع والتصحيح والحذف ضمن الحدود | نموذج طلبات حقوق ضمن تدفق محكوم، استثناءات موثقة | `RightsTest::data_subject_request_workflow` |
-| أمن البيانات | حماية PII بتدابير مناسبة | تشفير أعمدة PII، سياسات صلاحية حقل، تدقيق الاطلاع | `SecurityTest::pii_encryption_and_access_logging` |
-| الإخطار بالاختراق | إخطار الجهة المختصة | آلية كشف تسرب بيانات PII وتنبيه تلقائي | `IncidentTest::pii_breach_detection_alerts` |
-| نقل البيانات | عدم نقل خارج المملكة | لا وجهة بيانات خارجية بلا اعتماد وتصنيف | مراجعة التكاملات |
+| Processing basis | Process data under a statutory basis or consent | Document the basis on each work type and its classification | `ComplianceTest::processing_basis_recorded` |
+| Data minimization | Collect the minimum | Every dynamic field subject to `required` rule and reviewed | `WorkDefTest::fields_minimized_for_purpose` |
+| Data accuracy | Ensure employee PII accuracy | PII modification authority to the owner only; every modification audited | `IdentityTest::pii_edits_audited` |
+| Retention | Period defined by work type | `retention_until` on every record, controlled destruction | `RetentionTest::retention_policy_enforced` |
+| Data subject rights | Access, rectify, erase within limits | Rights-request workflow with documented exceptions | `RightsTest::data_subject_request_workflow` |
+| Data security | Protect PII with appropriate measures | PII column encryption, field-capability policies, access auditing | `SecurityTest::pii_encryption_and_access_logging` |
+| Breach notification | Notify the competent authority | PII data-leak detection and automated alerting | `IncidentTest::pii_breach_detection_alerts` |
+| Data transfer | No transfer outside the Kingdom | No external data destination without approval and classification | Integration review |
 
 ### 5.2 NCA ECC
 
-| الضابط | العنوان | التطبيق على المنصة | الاختبار |
+| Control | Title | Platform Application | Test |
 |---|---|---|---|
-| 1-1-1 | حوكمة الأمن السيبراني | تعيين مسؤول أمن، اعتماد نموذج التهديد، مراجعة سنوية | `GovernanceTest::threat_model_reviewed_annually` |
-| 1-2 |资产管理 | سجل أصول تلقائي لكل WorkRecord وStorageObject | `AssetTest::asset_inventory_complete` |
-| 1-3 | حماية البيانات | تشفير at-rest وin-transit، إدارة مفاتيح | `CryptoTest::encryption_at_rest_and_in_transit` |
-| 1-4 | إدارة الهوية والوصول | حسابات محلية، MFA للإدارة، فصل الصلاحيات | `IdentitySessionTest::*` |
-| 1-5 | إدارة الحسابات المميزة | break-glass مفصول، توثيق، مراجعة | `BreakGlassTest::*` |
-| 1-6 | إدارة الثغرات | audit للاعتماديات وتحديث lockfiles وصور الأساس | فحوص CI |
-| 1-7 | التسجيل والمراقبة | سجلات مركزية، تنبيهات، حفظ 12 شهراً | `LoggingTest::*` |
-| 1-8 | حماية البنية التحتية | جدار ناري، HTTPS، وعدم نشر MySQL وRedis وDocker | فحص المنافذ |
-| 1-9 | الاستجابة للحوادث | فريق استجابة، سيناريوهات، تدريب | `IncidentTest::*` |
-| 1-10 | إدارة النسخ الاحتياطي | تشفير، فصل، اختبار استعادة ربع سنوي | `BackupTest::*` |
-| 2 | ضوابط الدفاع السيبراني المتقدمة | EDR، تجزئة، مراقبة على القنوات الحساسة | `DefenseTest::critical_channels_monitored` |
-| 3 | ضوابط الأمن السيبراني للحوسبة السحابية | لا تنطبق، التشغيل on-prem، وثيقة استثناء موثقة | `GovernanceTest::cloud_exemption_documented` |
-| 4 | ضوابط الأمن السيبراني للأطراف الخارجية | لا أطراف خارجية في المرحلة الأولى، وثيقة استثناء | `GovernanceTest::third_party_exemption_documented` |
+| 1-1-1 | Cybersecurity governance | Assign security officer, adopt threat model, annual review | `GovernanceTest::threat_model_reviewed_annually` |
+| 1-2 | Asset management | Automatic asset record per WorkRecord and StorageObject | `AssetTest::asset_inventory_complete` |
+| 1-3 | Data protection | At-rest and in-transit encryption, key management | `CryptoTest::encryption_at_rest_and_in_transit` |
+| 1-4 | Identity and access management | Local accounts, MFA for administration, privilege separation | `IdentitySessionTest::*` |
+| 1-5 | Privileged account management | Break-glass isolated, documented, reviewed | `BreakGlassTest::*` |
+| 1-6 | Vulnerability management | Dependency audit, lockfile update, base images | CI checks |
+| 1-7 | Logging and monitoring | Centralized logs, alerts, 12-month retention | `LoggingTest::*` |
+| 1-8 | Infrastructure protection | Firewall, HTTPS, MySQL/Redis/Docker not exposed | Port scan |
+| 1-9 | Incident response | Response team, scenarios, training | `IncidentTest::*` |
+| 1-10 | Backup management | Encryption, separation, quarterly restore test | `BackupTest::*` |
+| 2 | Advanced cyber-defense controls | EDR, segmentation, monitoring of sensitive channels | `DefenseTest::critical_channels_monitored` |
+| 3 | Cloud cybersecurity controls | N/A; on-prem; documented exemption | `GovernanceTest::cloud_exemption_documented` |
+| 4 | Third-party cybersecurity controls | None in phase one; documented exemption | `GovernanceTest::third_party_exemption_documented` |
 
 ### 5.3 NDMO
 
-| المعيار | العنوان | التطبيق | الاختبار |
+| Standard | Title | Application | Test |
 |---|---|---|---|
-| تصنيف البيانات | `public` عام، `internal` داخلي، `confidential` سري، `top_secret` سري للغاية | حقول ديناميكية، سجلات، مستندات | `ClassificationTest::*` |
-| جودة البيانات | دقة، اكتمال، حداثة، اتساق | قواعد تحقق على FieldDefinition، فحوص دورية | `QualityTest::data_quality_rules_enforced` |
-| دورة حياة البيانات | إنشاء، استخدام، أرشفة، إتلاف | سياسات retention على كل نوع عمل | `RetentionTest::*` |
-| مالك البيانات | تعيين لكل مجموعة بيانات | `owner_organization_unit_id` إلزامي | `OwnershipTest::every_record_has_owner` |
-| مشاركة البيانات | أذونات مبنية على التصنيف والعلاقة | قرار صلاحية مركزي | `AuthorizationTest::*` |
-| البيانات الرئيسية | تكرار محكوم وعدم تكرار مرجعي | معرفات مرجعية بين الموديولات | `BoundaryTest::cross_module_references_via_ids` |
-| البيانات الوصفية | بيانات وصفية إلزامية | Envelope وAuditEvent | `MetadataTest::envelope_metadata_complete` |
+| Data classification | `public`, `internal`, `confidential`, `top_secret` | Dynamic fields, records, documents | `ClassificationTest::*` |
+| Data quality | Accuracy, completeness, freshness, consistency | Validation rules on `FieldDefinition`, periodic checks | `QualityTest::data_quality_rules_enforced` |
+| Data lifecycle | Create, use, archive, destroy | Retention policies on every work type | `RetentionTest::*` |
+| Data ownership | Assignment per data group | `owner_organization_unit_id` mandatory | `OwnershipTest::every_record_has_owner` |
+| Data sharing | Permissions built on classification and relationship | Centralized authorization decision | `AuthorizationTest::*` |
+| Master data | Controlled duplication, no referential duplication | Cross-module reference ids | `BoundaryTest::cross_module_references_via_ids` |
+| Metadata | Mandatory metadata | Envelope and audit event | `MetadataTest::envelope_metadata_complete` |
 
-## 6. اختبارات حارسة إضافية
+## 6. Additional Guard Tests
 
-تنفذ هذه الاختبارات دورياً وأتمتتها في CI الداخلي:
+These tests are run periodically and automated in the internal CI:
 
 - `SecurityRegressionTest::all_passwords_are_argon2id`
 - `SecurityRegressionTest::no_raw_sql_in_module_code`
@@ -280,20 +283,20 @@ references:
 - `AirGapTest::dns_resolution_external_returns_failure`
 - `BackupTest::restore_drill_runs_quarterly`
 
-## 7. مخرجات التهديد غير المقبولة
+## 7. Unacceptable-risk Outputs
 
-أي تهديد تبقى مخاطره «عالية» بعد الضوابط يجب أن يُسجل في سجل المخاطر المؤسسي (موديول المخاطر في المرحلة الثالثة) مع خطة معالجة مرتبطة بمهمة وموعد، ولا يُسمح بإطلاق الميزة قبل تخفيض الخطر إلى «متوسط» أو أقل.
+Any threat whose residual risk remains "high" after the controls must be recorded in the institutional risk register (Risk module, phase three) with a treatment plan tied to a task and a deadline, and the feature may not launch until the risk is reduced to "medium" or below.
 
-## 8. دورة المراجعة
+## 8. Review Cycle
 
-- مراجعة ربع سنوية لنموذج التهديدات.
-- إعادة تقييم كامل عند إضافة موديول جديد أو تغيير حدود الثقة.
-- مراجعة سنوية لمطابقة ECC وNDMO وPDPL.
-- يحتفظ موديول التدقيق بنسخة موقعة من كل مراجعة.
+- Quarterly review of the threat model.
+- Full reassessment on adding a new module or changing a trust boundary.
+- Annual review of ECC, NDMO, and PDPL alignment.
+- The audit module retains a signed copy of every review.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 0.1.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء المسودة التنفيذية |
-| 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | توحيد التصنيف ومراجع سلسلة التوريد والتعافي وضبط الوثيقة |
+| 0.1.0 | 2026-07-15 | Information Security Officer | Initial draft created |
+| 0.2.0 | 2026-07-15 | Information Security Officer | Unified classification, supply-chain and recovery references, document tightening; corrected the identity row to remove JWT/refresh-token claims and document the server-side opaque session implemented via `IdentitySessionMiddleware` |

@@ -1,30 +1,30 @@
 ---
 doc_id: ARC-DR-001
-title: قواعد الاعتماد المعماري
+title: Architecture Dependency Rules
 type: architecture
 status: accepted
 version: 1.0.0
 date: '2026-07-15'
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references: []
 ---
-# قواعد الاعتماد المعماري
+# Architecture Dependency Rules
 
-## القاعدة الأساسية
+## Core rule
 
-المنصة `Laravel Modular Monolith` في `monorepo` يضم واجهة `React + TypeScript` وتطبيق Laravel. المستودع المشترك لا يبيح اعتماداً بين موديولات الأعمال: لكل موديول حد كود وبيانات وعقد منشور واختبارات خاصة به.
+The platform is a `Laravel Modular Monolith` in a `monorepo` that hosts the `React + TypeScript` frontend and the Laravel application. The shared repository does not allow dependencies between business modules: each module has its own code, data, published contracts, and tests boundary.
 
-السهم `A -> B` يعني أن `A` يستهلك عقداً منشوراً من `B`. لا يبيح السهم قراءة جداول `B` أو استيراد بنيته الداخلية.
+The arrow `A -> B` means that `A` consumes a published contract from `B`. The arrow does not allow reading `B`'s tables or importing its internal structure.
 
-## ترتيب الرسم البياني
+## DAG rank order
 
-| الرتبة | الموديولات |
+| Rank | Modules |
 |---:|---|
 | 0 | `PlatformSettings`, `Organization` |
 | 1 | `Identity` |
@@ -39,37 +39,37 @@ references: []
 | 10 | `Risk` |
 | 11 | `Notifications`, `Search`, `Reporting`, `Workspace` |
 
-الاعتماد المتزامن يتجه حصراً إلى رتبة أدنى. الموديولات ذات الرتبة نفسها لا تعتمد على بعضها. قائمة الاعتمادات المباشرة الكاملة في [خريطة السياقات](context-map.md).
+Synchronous dependency points only to a lower rank. Same-rank modules do not depend on each other. The full direct dependency list is in [Context Map](context-map.md).
 
-## مسموح وممنوع
+## Allowed and forbidden
 
-| الحالة | القاعدة |
+| Case | Rule |
 |---|---|
-| استدعاء متزامن | يمر عبر `Contracts` الموديول المالك وDTO ثابت، لا نموذج ORM أو Query Builder. |
-| تبادل غير متزامن | حدث بصيغة ماضية من Transactional Outbox، بإصدار schema ومعرّف حدث؛ المستهلك idempotent. |
-| مرجع عابر للحدود | معرف ثابت أو `record_ref`، مع تحقق عبر عقد عند الحاجة. لا Foreign Key أو Join عابرين للملكية عندما يمنعان استقلال الموديول. |
-| قراءة مجمعة | `Reporting` Read Model أو Projection Feed محكوم، وليس استعلاماً مباشراً على جداول مصادر متعددة. |
-| كتابة مصدر | Command إلى الموديول المالك. لا تكتب `Search` أو `Reporting` أو `Workspace` أو `Notifications` في مصدر الأعمال. |
-| مشاركة تقنية | `Shared` للـClock والمعرفات وprimitives المعاملات وOutbox فقط. لا سياسات مجال أو DTOs أو نماذج أعمال مشتركة. |
+| Synchronous call | passes through the owning module's `Contracts` and an immutable DTO, not an ORM model or Query Builder |
+| Asynchronous exchange | past-tense event from the Transactional Outbox, with schema version and event id; consumer is idempotent |
+| Cross-boundary reference | stable identifier or `record_ref`, with verification via a contract when needed. No cross-module Foreign Key or Join when module independence forbids it |
+| Bulk read | `Reporting` Read Model or a controlled Projection Feed, not a direct query across source tables |
+| Source write | Command to the owning module. `Search`, `Reporting`, `Workspace`, and `Notifications` do not write to the business source |
+| Technical sharing | `Shared` for the Clock, identifiers, transaction primitives, and Outbox only. No domain policies, DTOs, or shared business models |
 
-## ملكية المعاملة والتزامن
+## Transaction ownership and concurrency
 
-- Handler الذي يبدأ حالة استخدام الكتابة هو مالك المعاملة: يبدأها ويقرر `commit` أو `rollback`.
-- العقد المتزامن ينضم إلى معاملة المستدعي ولا يبدأ معاملة مستقلة ولا ينفذ `commit`.
-- يكتب المصدر تغيير الحقيقة وحدث Outbox في معاملة MySQL نفسها.
-- عامل Outbox لا يعمل داخل معاملة المصدر. التسليم `at-least-once`؛ يحتفظ كل مستهلك بـInbox أو سجل `event_id` لمنع تكرار الأثر.
-- لا تعتمد قاعدة مجال ملزمة على حدث مؤجل. ينسقها Command صريح ضمن المعاملة التي تملكها حالة الاستخدام.
+- The Handler that initiates a write use case is the transaction owner: it opens the transaction and decides `commit` or `rollback`.
+- The synchronous contract joins the caller's transaction; it does not start a new one and does not issue `commit`.
+- The source writes the truth change and the Outbox event in the same MySQL transaction.
+- The Outbox worker does not run inside the source transaction. Delivery is `at-least-once`; every consumer keeps an Inbox or `event_id` log to prevent duplicate effects.
+- A binding domain rule does not depend on a deferred event. An explicit Command inside the use-case transaction coordinates it.
 
-## قواعد خاصة بالحدود
+## Boundary-specific rules
 
-- `Authorization` لا يعتمد على أي موديول أعمال ولا يقرأ جداوله؛ الموديول المالك يبني `RecordFacts` موثوقة.
-- الطلب الداخلي العام هو `WorkRecord` من نوع عمل منشور رمزه `request`؛ الرمز نوع عمل وليس تصنيف بيانات. لا يوجد موديول أو Aggregate أو جدول أو حدث باسم `Requests` أو `Request*`.
-- المؤشر تعريفاً وقياساً ومستهدفاً وأثراً معتمداً ملك `Strategy`. لا يوجد موديول باسم `Indicators`؛ `PortfolioProjects` يحتفظ بمرجع وبيانات تخطيط، و`Risk` يحتفظ برابط KRI وعتبته وتنبيهه فقط، بلا نسخة من تعريف المؤشر أو قياسه.
-- `Workflow` يملك تنفيذ المسار لا معنى إكمال السجل التجاري. `WorkRecords` يملك انتقال حالة سجل العمل.
+- `Authorization` does not depend on any business module and does not read its tables; the owning module builds trustworthy `RecordFacts`.
+- The generic internal request is a `WorkRecord` of a published work type whose code is `request`; the code is a work type, not a data classification. There is no module, Aggregate, table, or event named `Requests` or `Request*`.
+- The indicator definition, measurement, target, and approved impact belong to `Strategy`. There is no module named `Indicators`; `PortfolioProjects` keeps the reference and planning data, and `Risk` keeps the KRI link, threshold, and alert only, with no copy of the indicator definition or its measurement.
+- `Workflow` owns route execution, not the meaning of completing a business record. `WorkRecords` owns the business record state transition.
 
-## الإنفاذ
+## Enforcement
 
-- اختبار معماري يمنع imports إلى `Infrastructure` لموديول آخر ويثبت ترتيب DAG.
-- فحص CI لملكية الجداول والاستعلامات وغياب joins العابرة للحدود.
-- Contract tests للعقود المتزامنة وschema-compatibility للأحداث.
-- اختبارات Outbox وidempotency وإعادة المحاولة للمستهلكات المشتقة.
+- An architecture test prevents imports into another module's `Infrastructure` and asserts the DAG ordering.
+- CI checks for table ownership, queries, and the absence of cross-boundary joins.
+- Contract tests for synchronous contracts and schema-compatibility tests for events.
+- Outbox, idempotency, and retry tests for derived consumers.

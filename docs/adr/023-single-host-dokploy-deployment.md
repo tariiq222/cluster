@@ -1,22 +1,22 @@
 ---
 doc_id: ADR-023
-title: تشغيل VPS مباشر عبر Docker Compose
+title: Direct VPS Deployment with Docker Compose
 type: adr
 status: accepted
 version: 2.0.0
 date: 2026-07-17
-owner: طارق
+owner: Engineering Office
 reviewers: []
 classification: internal
-review_cycle: عند الحاجة
+review_cycle: as needed
 sources:
 - docs/architecture/overview.md
 references:
 - docs/operations/runbooks.md
 - docs/operations/ha-dr-backup.md
 deciders:
-- طارق
-scope: الاستضافة والنشر والوصول والتعافي
+- Engineering Office
+scope: hosting, deployment, access, and recovery
 supersedes:
 - ADR-018
 - ADR-019
@@ -27,28 +27,24 @@ related_adrs:
 - ADR-013
 review_by: 2027-01-17
 ---
-# ADR-023: تشغيل VPS مباشر عبر Docker Compose
+# ADR-023: Direct VPS Deployment with Docker Compose
 
 ## Context
 
-يملك المطور VPS واحداً تتوفر عليه MySQL وRedis. لا توجد حاجة إلى Kubernetes أو
-Dokploy أو سلسلة إصدار مؤسسية لتشغيل التطبيق الحالي.
+The developer has a single VPS with MySQL and Redis. The current application needs no Kubernetes, no Dokploy, and no enterprise release chain.
 
 ## Decision
 
-يُنشر التطبيق مباشرة من المستودع عبر Docker Compose. تشغل الحزمة Caddy وReact/Nginx
-وLaravel API والعامل وmigration فقط. تستخدم الحاويات MySQL وRedis الموجودين على
-الـVPS عبر عناوين تحددها متغيرات البيئة.
+Deploy directly from the repository with Docker Compose. The stack runs Caddy, React/Nginx, the Laravel API, the worker, and a migration job only. Containers use the MySQL and Redis already on the VPS through environment-configured addresses.
 
-Caddy هو المدخل العام الوحيد ويصدر HTTPS تلقائياً. لا تنشر MySQL أو Redis أو
-Docker socket للعامة. تحفظ أسرار التشغيل في `.env.production` خارج Git.
+Caddy is the only public ingress and issues HTTPS automatically. MySQL, Redis, and the Docker socket are never public. Runtime secrets remain in `.env.production` outside Git.
 
 ## Rationale
 
-- أمر نشر واحد يمكن للمطور تشغيله وفهمه.
-- لا registry أو runners ذاتية أو توقيع صور أو receipts تشغيلية.
-- قواعد البيانات الموجودة على الخادم لا تتكرر داخل Compose الإنتاجي.
-- يمكن إعادة بناء نسخة سابقة من commit معروف للرجوع.
+- One deployment command the developer can run and understand.
+- No registry, self-hosted runners, image signing, or operational receipts.
+- Host databases are not duplicated inside the production Compose stack.
+- A previous release can be rebuilt from a known commit for rollback.
 
 ## Runtime
 
@@ -58,31 +54,28 @@ Internet -> Caddy :443 -> React/Nginx -> Laravel PHP-FPM
 Laravel/Worker -> MySQL + Redis on the VPS
 ```
 
-لا يشغل Scheduler حتى توجد مهمة مجدولة فعلية. migration حاوية one-shot تسبق API
-والعامل. تبنى الصور من lockfiles عبر Dockerfiles متعددة المراحل.
+No Kubernetes and no Dokploy are used. The scheduler is not run until a real scheduled task exists. The one-shot migration container precedes the API and worker. Images are built from lockfiles through multi-stage Dockerfiles.
 
 ## Security
 
-- يفتح الجدار الناري `80/443` للمستخدمين وSSH لعناوين الإدارة فقط.
-- يجب أن تستمع MySQL وRedis على loopback أو واجهة خاصة تسمح لشبكة Docker فقط.
-- يستخدم التطبيق حساب MySQL محدود الصلاحيات وكلمة مرور Redis.
-- لا `network_mode: host` ولا حاويات privileged.
+- Open firewall ports are `80/443` for users and SSH for management addresses only.
+- MySQL and Redis listen on loopback or a private interface available only to the Docker network.
+- The application uses a least-privilege MySQL account and a Redis password.
+- No `network_mode: host` and no privileged containers.
 
-## Deployment And Rollback
+## Deployment and Rollback
 
-ينفذ `make deploy-vps` التحقق والبناء و`docker compose up -d` وفحص الصحة. للرجوع
-يُختار آخر commit سليم ويعاد الأمر. تغييرات قاعدة البيانات تكون backward-compatible؛
-وعند فقد البيانات تستخدم نسخة MySQL مستقلة.
+`make deploy-vps` performs validation, builds, runs `docker compose up -d`, and checks health. Roll back by selecting the last known-good commit and running the command again. Database changes are backward-compatible; use an independent MySQL backup if data is lost.
 
 ## Consequences
 
-- تعطل الـVPS يوقف الخدمة؛ لا يوجد ادعاء HA.
-- إدارة MySQL وRedis والنسخ الاحتياطي مسؤولية تشغيل الخادم.
-- الانتقال إلى orchestrator يعاد بحثه فقط عند إضافة أكثر من خادم أو فريق تشغيل.
+- VPS failure stops the service; there is no HA claim.
+- Host operations own MySQL, Redis, and backups.
+- Reconsider an orchestrator only after adding more than one server or an operations team.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | التغيير |
+| Version | Date | Change |
 |---|---|---|
-| 2.0.0 | 2026-07-17 | استبدال Dokploy بنشر Docker Compose مباشر واستخدام MySQL وRedis الموجودين على VPS |
-| 1.0.0 | 2026-07-16 | اعتماد Dokploy وDocker Compose على خادم داخلي واحد |
+| 2.0.0 | 2026-07-17 | Dropped Dokploy; adopted direct Docker Compose deployment using the MySQL and Redis already on the VPS |
+| 1.0.0 | 2026-07-16 | Adopted Dokploy and Docker Compose on one internal server |

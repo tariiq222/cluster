@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-WRC-001
-title: سجلات العمل الديناميكية
+title: Dynamic work records
 type: domain
 status: accepted
-version: 1.0.0
+version: 1.1.0
 date: 2026-07-15
-owner: مالك موديول WorkRecords
+owner: WorkRecords module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/005-work-records-dynamic-data.md
 - docs/adr/007-transactional-outbox.md
@@ -20,194 +20,126 @@ references:
 ---
 # Work Records
 
-## 1. الغرض
+## 1. Purpose
 
-يمثل هذا المجال السجلات التشغيلية الديناميكية التي تنشأ من نوع عمل منشور، ويحفظ envelope ثابتاً وpayload مرتبطاً بإصدار تعريف محدد. WorkRecords مستقل عن WorkDefinitions: الأول يملك حقيقة السجل وحالته ومالكه وإصداره ونشاطه، والثاني يملك schema والتعريف. كما أنه مستقل عن Workflow؛ المسار ينفذ خطواته، لكن WorkRecords يملك معنى إنشاء السجل وإرساله وإغلاقه.
+This domain represents the dynamic operational records created from a published work type and persists a fixed envelope together with a payload bound to a specific definition version. WorkRecords is independent from WorkDefinitions: the former owns the record reality, its state, ownership, version, and activity, while the latter owns the schema and the definition. It is also independent from Workflow; the path executes its steps, but WorkRecords owns the meaning of creating the record, submitting it, and closing it.
 
-كل كتابة على سجل يقودها aggregate المالك عبر owner-led transaction. لا توجد Transaction عامة يملكها التطبيق كله، ولا يكتب موديول آخر مباشرة في جداول WorkRecords. عند الحاجة إلى Workflow أو Tasks أو Documents يستدعي WorkRecords عقوداً معلنة، وتبقى حقيقة السجل ومعاملة أمره تحت مالك WorkRecords.
+Every write to a record is driven by the owning aggregate through an owner-led transaction. There is no application-wide transaction, and no other module writes directly into WorkRecords tables. When Workflow, Tasks, or Documents are needed, WorkRecords calls declared contracts and the record reality and the command transaction remain owned by WorkRecords.
 
-## 2. النطاق
+## 2. Scope
 
-- إنشاء سجل ديناميكي من Work Type Version منشور.
-- حفظ owner وorganization unit وclassification وstatus وresponsible user.
-- حفظ payload typed أو JSON مرتبط بالإصدار، مع إسقاطات بحث وتقارير مختارة.
-- تطبيق schema وDSL validation قبل الحفظ أو الانتقال.
-- إدارة المسودة والإرسال والإعادة والرفض والإنجاز والإلغاء وفق lifecycle التعريف.
-- إدارة المشاركين والمشاركة الصريحة وروابط السجلات.
-- توفير `AuthorizationRecordFacts` من مصدر الحقيقة للسجل.
-- إصدار أحداث السجل إلى Outbox للبحث والإشعارات والقراءات المشتقة.
+- Create a dynamic record from a Published Work Type Version.
+- Persist the owner, organization unit, classification, status, and responsible user.
+- Persist a typed or JSON payload bound to the version, with selected search and report projections.
+- Apply schema and DSL validation before save or transition.
+- Manage draft, submit, return, reject, complete, and cancel per the definition's lifecycle.
+- Manage participants, explicit sharing, and record links.
+- Provide `AuthorizationRecordFacts` as the source of truth for the record.
+- Emit record events to the outbox for search, notifications, and derived reads.
 
-ما لا يدخل في هذا المجال:
+What this domain does not do:
 
-- تعريف نوع العمل أو تعديل schema.
-- تعريف أو تنفيذ workflow nodes وقرارات الموافقة.
-- تخزين الملفات نفسها، ويملكها Documents.
-- إدارة كلمة المرور أو الدور أو العلاقة التنظيمية.
-- كتابة جداول Strategy أو PortfolioProjects أو Risk؛ تلك موديولات متخصصة مستقلة.
+- Define or modify the work type or schema.
+- Define or execute workflow nodes or approval decisions.
+- Store files themselves; that is owned by Documents.
+- Manage passwords, roles, or organizational relationships.
+- Write Strategy, PortfolioProjects, or Risk tables; those are independent specialized modules.
 
-## 3. المصطلحات
+## 3. Terminology
 
-| المصطلح | التعريف |
+| Term | Definition |
 |---|---|
-| سجل العمل (Work Record) | وحدة تشغيلية مستقلة تحمل envelope وpayload وإصدار التعريف والحالة. |
-| مالك السجل (Record Owner) | الوحدة التنظيمية Cluster أو Facility أو Unit المسؤولة عن السجل، وقد يكون لها owner user. |
-| إصدار التعريف | `work_type_version_id` المنشور الذي يثبت schema والحقول عند إنشاء السجل. |
-| Envelope | الأعمدة الثابتة اللازمة للهوية والمالك والتصنيف والحالة والإصدار والتدقيق. |
-| Payload | القيم الديناميكية typed المرتبطة بإصدار التعريف، وليست مصدراً للصلاحيات وحدها. |
-| إسقاط typed | قيمة مفهرسة لحقل اختاره التعريف للبحث أو التقارير، مشتقة من payload. |
-| مشاركة (Sharing) | منح رؤية صريحة لوحدة أو مستخدم أو دور بحسب سياسة Authorization. |
-| حالة السجل | Lifecycle state يحدده النوع، ولا يتغير إلا بانتقال معرف ومخول. |
-| Transaction Owner | الـHandler الذي يقود أمر aggregate ويملك commit أو rollback وآثاره في Outbox. |
+| Work Record | An independent operational unit that carries envelope, payload, definition version, and state. |
+| Record Owner | The Cluster, Facility, or Unit responsible for the record; an owner user may also exist. |
+| Definition Version | The published `work_type_version_id` that pins the schema and fields at record creation. |
+| Envelope | The fixed columns for identity, owner, classification, state, version, and audit. |
+| Payload | The dynamic typed values bound to the definition version; not an authority source on its own. |
+| Typed Projection | An indexed value for a field chosen by the definition for search or reports, derived from the payload. |
+| Sharing | An explicit visibility grant to a unit, user, or role per Authorization policy. |
+| Record State | A lifecycle state defined by the type; it only changes through a defined, authorized transition. |
+| Transaction Owner | The handler that drives the aggregate command and owns the commit, rollback, and outbox effects. |
 
-## 4. الـAggregates والـEntities والـValue Objects
+## 4. Aggregates, entities, and value objects
 
 ### 4.1 WorkRecordAggregate
 
-- `WorkRecord` (Entity جذر): record_id، type/version، owner، creator، responsible، classification، lifecycle_state، lock_version.
-- `RecordEnvelope` (Value Object): المعرف والمالك والحالة والتصنيف والإصدار.
-- `RecordOwner` (Value Object): owner_scope_type وowner_scope_id مع Cluster > Facility > Unit.
-- `RecordClassification` (Value Object).
-- `RecordVersion` (Value Object) للقفل التفاؤلي.
+- `WorkRecord` (root entity): record_id, type/version, owner, creator, responsible, classification, lifecycle_state, lock_version.
+- `RecordEnvelope` (value object): the identifier, owner, state, classification, and version.
+- `RecordOwner` (value object): owner_scope_type and owner_scope_id across Cluster > Facility > Unit.
+- `RecordClassification` (value object).
+- `RecordVersion` (value object) for optimistic locking.
 
 ### 4.2 WorkPayloadAggregate
 
-- `WorkPayload` (Entity تابعة): payload وschema version وnormalized hash.
-- `TypedFieldProjection` (Entity تابعة): field_key، typed_value، visibility metadata.
-- `RecordRelation` (Entity تابعة): relation_key، target_type، target_id، authorization reference.
+- `WorkPayload` (child entity): payload, schema version, normalized hash.
+- `TypedFieldProjection` (child entity): field_key, typed_value, visibility metadata.
+- `RecordRelation` (child entity): relation_key, target_type, target_id, authorization reference.
 
 ### 4.3 RecordCollaborationAggregate
 
-- `RecordParticipant` (Entity تابعة): user أو unit ودور المشاركة ومدة المشاركة.
-- `RecordActivity` (Entity تابعة): فعل مفهوم للمستخدم، actor، before/after summary، reason.
-- لا تمنح المشاركة الوصول إلى كل الحقول؛ يعاد طلب القرار باستخدام `AuthorizationRecordFacts` و`ResolveFieldAccess`.
+- `RecordParticipant` (child entity): user or unit, participation role, and participation window.
+- `RecordActivity` (child entity): a user-meaningful action, the actor, a before/after summary, and a reason.
+- Sharing never grants access to every field; the decision is re-requested through `AuthorizationRecordFacts` and `ResolveFieldAccess`.
 
 ### 4.4 AuthorizationRecordFacts
 
-ينشئ WorkRecords DTO الحقائق التالية من السجل نفسه:
+WorkRecords produces the following facts DTO from the record itself:
 
 - owner cluster/facility/unit.
-- creator وowner user وresponsible user.
-- المشاركون والوحدات المشتركة.
-- classification وlifecycle/workflow state.
-- type/version وfield_policy_key.
-- lock/version ووقت الحقائق.
+- creator and owner user and responsible user.
+- participants and shared units.
+- classification and lifecycle/workflow state.
+- type/version and `field_policy_key`.
+- lock/version and the facts timestamp.
 
-لا يحتوي DTO payload غير المطلوب ولا يملك قرار Allow أو Deny.
+The DTO contains no payload it does not need and never makes an Allow or Deny decision.
 
-## 5. الجداول والقيود والفهارس
+## 5. Tables, constraints, and indexes
+
+> **Drift correction:** The previous revision described six tables (`work_records`, `work_record_payloads`, `work_record_field_projections`, `work_record_relations`, `work_record_participants`, `work_record_activities`) plus a `work_record_idempotency_keys` table. The implementation under `apps/api/Modules/WorkRecords/Infrastructure/Persistence/Migrations/` ships exactly **two** tables: `work_records` and `work_record_idempotency_keys`. The payload is stored as a single JSON column on `work_records`; there are no separate payload/projection/relation/participant/activity tables. The previous revision's BIGINT PKs and `created_by_user_id BIGINT` claim are also dropped — the migration uses `uuid('id')->primary()` and `uuid('creator_user_id')`. The owning user column is `creator_user_id` (not `created_by_user_id`). The `work_record_idempotency_keys` table has a `facility_id` column, contradicting the previous revision's claim that it did not.
 
 ### 5.1 `work_records`
 
-- `id` BIGINT PK.
-- `record_number` VARCHAR(64) NOT NULL.
-- `work_type_id` BIGINT NOT NULL، معرف مرجعي يملكه WorkDefinitions.
-- `work_type_version_id` BIGINT NOT NULL، يجب أن يكون Published عند الإنشاء.
-- `owner_scope_type` VARCHAR(16) NOT NULL (`cluster`، `facility`، `unit`).
-- `owner_scope_id` BIGINT NOT NULL.
-- `owner_facility_id` BIGINT NULL.
-- `owner_organization_unit_id` BIGINT NULL.
-- `created_by_user_id` BIGINT NOT NULL.
-- `owner_user_id` BIGINT NULL.
-- `responsible_user_id` BIGINT NULL.
-- `status` VARCHAR(32) NOT NULL DEFAULT `draft`.
-- `classification` VARCHAR(32) NOT NULL DEFAULT `internal`: `public|internal|confidential|top_secret`.
-- `lock_version` BIGINT NOT NULL DEFAULT 1.
-- `submitted_at` DATETIME NULL.
-- `completed_at` DATETIME NULL.
-- `created_at` DATETIME NOT NULL، `updated_at` DATETIME NOT NULL.
-- قيد فريد على `(record_number)`.
-- قيد اتساق: owner_scope_type يطابق المعرف الموافق، وFacility أو Unit ينتمي إلى Cluster نفسه.
-- فهارس: `(work_type_id, status)`، `(work_type_version_id, status)`، `(owner_scope_type, owner_scope_id, status)`، `(owner_facility_id, status)`، `(owner_organization_unit_id, status)`، `(responsible_user_id, status)`، `(classification, status)`، `(created_at)`.
-
-### 5.2 `work_record_payloads`
-
-- `id` BIGINT PK.
-- `work_record_id` BIGINT NOT NULL FK -> `work_records.id` ON DELETE RESTRICT.
-- `work_type_version_id` BIGINT NOT NULL.
+- `id` UUID PK.
+- `record_number` VARCHAR(64) UNIQUE NOT NULL.
+- `work_type_version_id` UUID NOT NULL; must be Published at creation. The previous `work_type_id` column is **absent** — the version is the only reference back into WorkDefinitions.
+- `owner_facility_id` UUID NOT NULL. The polymorphic `owner_scope_type`/`owner_scope_id`/`owner_organization_unit_id` columns from the previous revision are **absent**.
+- `creator_user_id` UUID NOT NULL.
+- `status` VARCHAR(32) NOT NULL DEFAULT `draft`, indexed.
+- `classification` VARCHAR(32) NOT NULL DEFAULT `internal` (`public|internal|confidential|top_secret`), indexed.
+- `field_policy_key` VARCHAR(128) NULL (added by W13).
 - `payload` JSON NOT NULL.
-- `payload_hash` CHAR(64) NOT NULL.
-- `schema_validated_at` DATETIME NOT NULL.
-- `created_at` DATETIME NOT NULL، `updated_at` DATETIME NOT NULL.
-- قيد فريد على `(work_record_id, work_type_version_id)`.
-- فهرس: `(work_type_version_id, payload_hash)`.
-- لا يسمح بربط payload بإصدار مختلف عن envelope.
+- `lock_version` UNSIGNED INT NOT NULL DEFAULT 1.
+- `submitted_at` DATETIME NULL.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Unique on `record_number`.
+- Index on `(owner_facility_id, status)`.
 
-### 5.3 `work_record_field_projections`
+### 5.2 `work_record_idempotency_keys`
 
-- `id` BIGINT PK.
-- `work_record_id` BIGINT NOT NULL FK -> `work_records.id` ON DELETE CASCADE.
-- `work_type_version_id` BIGINT NOT NULL.
-- `field_key` VARCHAR(96) NOT NULL.
-- `field_type` VARCHAR(32) NOT NULL.
-- `string_value` VARCHAR(1024) NULL.
-- `number_value` DECIMAL(24,8) NULL.
-- `date_value` DATE NULL.
-- `datetime_value` DATETIME NULL.
-- `boolean_value` BOOLEAN NULL.
-- `search_visibility` VARCHAR(16) NOT NULL DEFAULT `eligible`.
-- `projection_version` VARCHAR(32) NOT NULL.
-- قيد فريد على `(work_record_id, field_key, projection_version)`.
-- فهارس typed على `(field_key, string_value)`، `(field_key, number_value)`، `(field_key, date_value)`، `(work_type_version_id, field_key)`.
-- القيم لا تعد مصدراً مستقلاً، وتولد من payload مع سياسة field access.
+- `id` BIGINT PK (Laravel auto-increment).
+- `principal_id` UUID NOT NULL.
+- `facility_id` UUID NOT NULL.
+- `operation` VARCHAR(96) NOT NULL.
+- `idempotency_key_hash` CHAR(64) NOT NULL.
+- `request_hash` CHAR(64) NOT NULL.
+- `work_record_id` UUID NOT NULL.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Unique on `(principal_id, facility_id, operation, idempotency_key_hash)` (named `work_record_idempotency_scope_unique`).
+- Index on `work_record_id`.
 
-### 5.4 `work_record_relations`
-
-- `id` BIGINT PK.
-- `work_record_id` BIGINT NOT NULL FK -> `work_records.id` ON DELETE CASCADE.
-- `relation_key` VARCHAR(96) NOT NULL.
-- `target_type` VARCHAR(96) NOT NULL.
-- `target_id` BIGINT NOT NULL.
-- `created_by_user_id` BIGINT NOT NULL.
-- قيد فريد على `(work_record_id, relation_key, target_type, target_id)`.
-- فهارس: `(target_type, target_id)`، `(work_record_id, relation_key)`.
-
-### 5.5 `work_record_participants`
-
-- `id` BIGINT PK.
-- `work_record_id` BIGINT NOT NULL FK -> `work_records.id` ON DELETE CASCADE.
-- `participant_type` VARCHAR(16) NOT NULL (`user`، `unit`).
-- `participant_id` BIGINT NOT NULL.
-- `participant_role` VARCHAR(32) NOT NULL.
-- `start_at` DATETIME NOT NULL.
-- `end_at` DATETIME NULL.
-- `added_by_user_id` BIGINT NOT NULL.
-- قيد يمنع مدة غير صالحة، وفريد تشغيلي يمنع المشاركة النشطة المكررة.
-- فهارس: `(work_record_id, end_at)`، `(participant_type, participant_id, end_at)`، `(participant_role)`.
-
-### 5.6 `work_record_activities`
-
-- `id` BIGINT PK.
-- `work_record_id` BIGINT NOT NULL FK -> `work_records.id` ON DELETE CASCADE.
-- `activity_type` VARCHAR(64) NOT NULL.
-- `actor_user_id` BIGINT NOT NULL.
-- `from_state` VARCHAR(32) NULL.
-- `to_state` VARCHAR(32) NULL.
-- `change_summary` JSON NOT NULL.
-- `reason` VARCHAR(1000) NULL.
-- `created_at` DATETIME NOT NULL.
-- فهارس: `(work_record_id, created_at)`، `(actor_user_id, created_at)`، `(activity_type, created_at)`.
-
-## 6. الأوامر والاستعلامات والأحداث
+## 6. Commands, queries, and events
 
 ### 6.1 Commands
 
 - `CreateWorkRecord`
-- `SaveWorkRecordDraft`
-- `UpdateWorkRecordDraft`
-- `AddWorkRecordRelation`
-- `AddWorkRecordParticipant`
-- `RemoveWorkRecordParticipant`
 - `SubmitWorkRecord`
-- `ReturnWorkRecordForRevision`
-- `RejectWorkRecord`
-- `StartWorkRecordProcessing`
-- `CompleteWorkRecord`
-- `CancelWorkRecord`
-- `TransferRecordOwnership`
-- `UpdateWorkRecordClassification`
-- `GetAuthorizationRecordFacts` ليس كتابة، لكنه عقد مملوك لمالك السجل.
 
-كل أمر كتابة يمر عبر WorkRecords Handler، يفحص Authorization، يحمل aggregate، يطبق domain transition، يحفظ payload/activity/outbox في Transaction واحدة يقودها WorkRecords.
+> **Drift correction:** The previous revision listed commands that target the missing sub-tables (`SaveWorkRecordDraft`, `UpdateWorkRecordDraft`, `AddWorkRecordRelation`, `AddWorkRecordParticipant`, `RemoveWorkRecordParticipant`, `ReturnWorkRecordForRevision`, `RejectWorkRecord`, `StartWorkRecordProcessing`, `CompleteWorkRecord`, `CancelWorkRecord`, `TransferRecordOwnership`, `UpdateWorkRecordClassification`). Only `CreateWorkRecord` and `SubmitWorkRecord` (plus the read-side `GetAuthorizedWorkRecord` and `ListAuthorizedWorkRecords` features) are implemented. The remaining commands are future work tied to the missing payload/relation/participant/activity tables.
+
+`GetAuthorizationRecordFacts` is not a write, but it is a contract owned by the record owner.
+
+Every write command goes through a WorkRecords handler, asks Authorization, loads the aggregate, applies the domain transition, and persists the payload/activity/outbox in a single transaction led by WorkRecords.
 
 ### 6.2 Queries
 
@@ -224,9 +156,9 @@ references:
 - `GetPublishedVersionForRecord`
 - `BuildWorkRecordReadModel`
 
-كل Query يطلب قرار Authorization قبل payload أو field projection، ولا يعيد record title أو snippet إذا كان السجل محظوراً.
+Every query asks Authorization before returning the payload or a field projection and never returns a record title or snippet when the record is blocked.
 
-### 6.3 Domain وApplication Events
+### 6.3 Domain and application events
 
 - `WorkRecordCreated`
 - `WorkRecordDraftSaved`
@@ -243,9 +175,9 @@ references:
 - `WorkRecordPayloadChanged`
 - `WorkRecordAuthorizationFactsChanged`
 
-يكتب WorkRecords event وOutbox row في Transaction واحدة. Search وNotifications وReporting مستهلكات Idempotent ولا تغير السجل المصدر.
+WorkRecords writes the event and the outbox row in one transaction. Search, Notifications, and Reporting are idempotent consumers and never mutate the source record.
 
-## 7. State Machines
+## 7. State machines
 
 ### 7.1 WorkRecord
 
@@ -258,94 +190,95 @@ references:
 - `InApproval` --(reject)--> `Rejected`.
 - `InProcessing` --(complete)--> `Completed`.
 - `InProcessing` --(return)--> `ReturnedForRevision`.
-- `Draft` أو `ReturnedForRevision` --(cancel)--> `Cancelled` حسب policy.
-- `Rejected` و`Completed` و`Cancelled` حالات نهائية، وأي إعادة فتح تحتاج Command وسياسة وإصدار نشاط صريح.
+- `Draft` or `ReturnedForRevision` --(cancel)--> `Cancelled` per policy.
+- `Rejected`, `Completed`, and `Cancelled` are terminal; any reopen requires an explicit command, policy, and activity row.
 
 ### 7.2 RecordPayload
 
 - `Unvalidated` --(schema validation)--> `Valid`.
 - `Valid` --(draft edit)--> `Unvalidated`.
 - `Valid` --(submit)--> `FrozenForState`.
-- `FrozenForState` لا يتغير إلا بانتقال مخول أو إعادة للتعديل.
+- `FrozenForState` never changes except through an authorized transition or a return to edit.
 
 ### 7.3 Ownership
 
-- `Assigned` --(TransferRecordOwnership)--> `Transferred` مع حفظ المالك السابق والجديد في Activity.
-- لا يتغير owner تلقائياً بسبب تغير Organization؛ يحتاج Command محكوماً وإعادة تقييم Authorization.
+- `Assigned` --(TransferRecordOwnership)--> `Transferred` with both the previous and the new owner captured in Activity.
+- Ownership never changes automatically because Organization changed; it needs a governed command and a re-evaluation of Authorization.
 
-## 8. الـInvariants
+## 8. Invariants
 
-- كل سجل يملك `work_type_version_id` منشوراً، ولا يتغير الإصدار بصمت أثناء حياته.
-- كل سجل يتبع Cluster > Facility > Unit؛ لا يملك Unit خارج Cluster، ولا يشير Facility إلى Cluster مختلف.
-- لكل سجل owner scope واحد واضح، ولا يكفي created_by_user_id لتمثيل الملكية.
-- لا يحفظ payload قبل نجاح schema وDSL validation.
-- لا يسمح بانتقال غير معرف في Work Type Version، ولا يقبل حالة غير موجودة في schema.
-- لا يظهر أو يبحث أو يصدر field قبل `ResolveFieldAccess`.
-- لا تمنح المشاركة رؤية payload أو المستندات أو السجل المصدر تلقائياً؛ كل فعل يعاد تفويضه.
-- `lock_version` يزيد مع كل كتابة ويحمي من الاستبدال الصامت.
-- لا يكتب موديول آخر مباشرة في `work_records` أو `work_record_payloads`.
-- كل أمر يغير aggregate يكتب activity واضحة، والأفعال الحساسة تكتب Audit عبر contract.
-- لا يوجد حذف نهائي مباشر من الواجهة؛ الإلغاء أو الأرشفة المستقبلية لا يتلف التاريخ.
-- owner-led transaction هي وحدة الاتساق: نجاح record state وpayload وactivity وOutbox أو Rollback كلها معاً.
-- لا تمتد Transaction إلى Queue أو Search أو Object Storage؛ تستخدم العقود والأحداث بعد Commit.
-- بناء `AuthorizationRecordFacts` يتم من نفس نسخة aggregate التي قررت العملية، ولا يستخدم cache قديماً.
-- لا يطبق typed projection من JSON خام خارج schema أو دون version match.
+- Every record carries a published `work_type_version_id`, and the version never changes silently during the record's life.
+- Every record follows Cluster > Facility > Unit; no Unit exists outside a Cluster, and no Facility points at a different Cluster.
+- Every record has one clear owner scope; `creator_user_id` alone is never enough to represent ownership.
+- A payload is never persisted before schema and DSL validation succeed.
+- A transition not defined in the Work Type Version is rejected; an unknown state is rejected.
+- A field never appears, searches, or exports before `ResolveFieldAccess`.
+- Sharing never grants visibility on the payload, the documents, or the source record automatically; every action is re-authorized.
+- `lock_version` increments on every write and protects against silent overwrite.
+- No other module writes directly into `work_records` or `work_record_idempotency_keys`.
+- Every command that mutates the aggregate writes a clear activity row, and sensitive actions write Audit through a contract.
+- There is no direct hard delete from the UI; cancellation or future archival never destroys history.
+- The owner-led transaction is the unit of consistency: the record state, payload, activity, and outbox either succeed together or roll back together.
+- No transaction extends into the queue, search, or object storage; contracts and post-Commit events are used instead.
+- `AuthorizationRecordFacts` is built from the same aggregate copy that decided the operation and never uses a stale cache.
+- A typed projection never applies from raw JSON outside the schema or without a matching version.
 
-## 9. الصلاحيات
+## 9. Permissions
 
-- `CreateWorkRecord` يحتاج create capability على Work Type والنطاق التنظيمي.
-- تعديل Draft يقتصر على المنشئ أو owner/responsible أو من يمنحه Authorization قدرة update.
-- Submit وComplete وReject وTransfer وClassificationChange قدرات منفصلة.
-- مالك Unit لا يرى تلقائياً سجلات Facility أو Unit شقيق؛ Cluster لا يعني كشف التفاصيل.
-- WorkRecords ينشئ `AuthorizationRecordFacts`، لكن Authorization وحده يقرر Allow أو Deny وfield access.
-- المسؤول في التجمع قد يحصل على aggregate أو مؤشر فقط وفق العلاقة، ولا يتجاوز `view_details` غيابها.
-- السوبر أدمن يخضع للتدقيق عند قراءة أو تصدير سجل مصنف حساس.
-- أي تنفيذ بالنيابة يظهر actor وdelegator في Activity وAudit.
+- `CreateWorkRecord` requires a create capability on the Work Type and the organizational scope.
+- Draft editing is limited to the creator, owner, responsible, or anyone Authorization grants an update capability to.
+- Submit, Complete, Reject, Transfer, and ClassificationChange are separate capabilities.
+- A Unit owner does not automatically see Facility or sibling-Unit records; Cluster never implies detail visibility.
+- WorkRecords produces `AuthorizationRecordFacts`, but Authorization alone decides Allow or Deny and field access.
+- A cluster owner may receive only an aggregate or indicator depending on the relationship and never sees `view_details` they lack.
+- Super admin actions on sensitive classified records remain under audit.
+- Any act-on-behalf-of execution shows the actor and the delegator in Activity and Audit.
 
-## 10. الفشل
+## 10. Failure modes
 
-- نوع العمل أو الإصدار غير Published: يرفض الإنشاء.
-- payload ناقص أو typed value غير صحيحة أو DSL فاشل: يبقى Draft ولا يفقد الإدخال الصالح.
-- `AuthorizationRecordFacts` غير متاحة: Fail Closed للعرض أو التعديل، مع إتاحة خطأ تشغيلي دون كشف السجل.
-- Deny من Authorization: لا يعاد record id أو العنوان أو الحقول المخفية.
-- `lock_version` قديم: تعارض تعديل، تعرض القيم الحالية، ولا يستبدل التغيير بصمت.
-- انتقال غير مسموح: يرفض مع الحالة الحالية والانتقال المطلوب، دون تعديل جزئي.
-- Workflow start يفشل أثناء submit: Rollback لمعنى الإرسال ما لم يوجد contract تعويضي صريح، ولا يظهر السجل Submitted كذباً.
-- فشل Outbox: Rollback للسجل والنشاط والتغيير، ويظهر الخطأ لقائمة المراجعة.
-- فشل Search أو Notification أو Projection بعد Commit: يبقى السجل صحيحاً، ويعاد العمل عبر retry idempotent.
-- محاولة تغيير version لسجل جارٍ: ترفض أو تطلب migration صريحاً وفحص توافق.
-- owner خارج Cluster أو Facility أو Unit المسموح: يرفض النقل ويعيد سبباً قابلاً للتفسير.
+- The work type or version is not Published: creation is rejected.
+- Missing payload, an invalid typed value, or a failing DSL: the record stays Draft without losing the valid input.
+- `AuthorizationRecordFacts` is unavailable: fail-closed for view or edit, with an operational error that does not leak the record.
+- Deny from Authorization: never return record id, title, or hidden fields.
+- Stale `lock_version`: a concurrent edit conflict is surfaced with the current values; the change is never silently applied.
+- Disallowed transition: rejected with the current state and the requested transition, with no partial mutation.
+- Workflow start failure during submit: rollback the submit meaning unless an explicit compensation contract exists; the record never appears Submitted falsely.
+- Outbox failure: rollback the record, activity, and change; the error is surfaced to the review queue.
+- Search, Notification, or Projection failure after Commit: the record stays valid and idempotent retry is used.
+- An attempt to change the version of a live record: rejected or requires explicit migration and a compatibility check.
+- Owner outside the allowed Cluster, Facility, or Unit: the transfer is rejected with a diagnosable reason.
 
-## 11. الاختبارات
+## 11. Tests
 
-- Unit: envelope يثبت owner وversion وclassification والحالة.
-- Unit: lifecycle transitions ورفض الحالات غير المعرفة.
-- Unit: schema وDSL validation للpayload.
-- Feature: إنشاء Draft ثم Submit مع workflow أو بدونه.
-- Feature: owner-led transaction تعمل atomically للسجل وpayload وactivity وOutbox.
-- Concurrency: stale `lock_version` يمنع الاستبدال الصامت.
-- Authorization contract: `AuthorizationRecordFacts` تفرّق بين owner Unit والمشارك ومؤشر التجمع.
-- Field security: الحقل Hidden لا يظهر في Get أو Search أو Report أو Export.
-- Isolation: Facility A لا يرى عنوان أو snippet لسجل Facility B دون علاقة.
-- Versioning: السجل الجاري يبقى على version القديم عند نشر version جديد.
-- Failure: فشل Workflow أو Outbox لا ينتج حالة ناجحة جزئياً.
-- Idempotency: إعادة حدث WorkRecordSubmitted لا تنشئ إشعاراً أو projection مرتين.
-- Boundary: Workflow وTasks وSearch لا تكتب جداول WorkRecords مباشرة.
-- Integration: تغير Organization أو انتهاء assignment يعيد بناء `AuthorizationRecordFacts` ويغير القرار دون تغيير تاريخ السجل.
+- Unit: envelope pins owner, version, classification, and state.
+- Unit: lifecycle transitions and rejection of undefined states.
+- Unit: schema and DSL validation for the payload.
+- Feature: create a Draft and Submit with and without workflow.
+- Feature: the owner-led transaction is atomic for the record, payload, activity, and outbox.
+- Concurrency: a stale `lock_version` blocks silent overwrite.
+- Authorization contract: `AuthorizationRecordFacts` distinguishes Unit owner, participant, and cluster indicator.
+- Field security: a Hidden field never appears in Get, Search, Report, or Export.
+- Isolation: Facility A never sees the title or snippet of a Facility B record without a relationship.
+- Versioning: a live record stays on its old version when a new version is published.
+- Failure: Workflow or outbox failure never produces a partial success.
+- Idempotency: replaying `WorkRecordSubmitted` never creates a duplicate notification or projection.
+- Boundary: Workflow, Tasks, and Search never write WorkRecords tables directly.
+- Integration: an Organization change or assignment end rebuilds `AuthorizationRecordFacts` and changes the decision without rewriting the record's history.
 
-## 12. الاعتماديات
+## 12. Dependencies
 
-- يعتمد على `Shared/Clock` و`Shared/Identifiers`.
-- يعتمد على Organization لمرجع Cluster > Facility > Unit والملكية والعلاقات.
-- يعتمد على Identity لحالة creator وresponsible والمشاركين.
-- يعتمد على Authorization لقرارات السجل والحقول وRecordFacts contract.
-- يعتمد على WorkDefinitions لـpublished schema وversion وDSL contract، دون امتلاك تعريفاته.
-- يقدّم إلى Workflow مرجع السجل وversion وfacts، وإلى Documents وTasks روابط المصدر.
-- يرسل إلى Search وNotifications وReporting أحداث Outbox.
-- لا يوجد موديول مستقل أو جداول مستقلة للطلبات؛ الطلبات الداخلية هي `WorkRecord` من نوع عمل منشور رمزه `request`، والرمز ليس تصنيف بيانات، ولا يسمح لـStrategy أو PortfolioProjects أو Risk بالكتابة المباشرة.
+- Depends on `Shared/Clock` and `Shared/Identifiers`.
+- Depends on Organization for Cluster > Facility > Unit reference, ownership, and relationships.
+- Depends on Identity for creator, responsible, and participant status.
+- Depends on Authorization for record, field, and `RecordFacts` decisions.
+- Depends on WorkDefinitions for the published schema, version, and DSL contract, without owning the definitions.
+- Provides Workflow with the record reference, version, and facts; provides Documents and Tasks with source links.
+- Sends outbox events to Search, Notifications, and Reporting.
+- There is no separate request module or separate request tables; internal requests are a `WorkRecord` of a published work type with code `request`, and the code is not a data classification. Strategy, PortfolioProjects, and Risk never write directly.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول WorkRecords | تثبيت ملكية الطلبات الديناميكية وتوحيد الواجهة الأمامية |
+| 1.0.0 | 2026-07-15 | WorkRecords module owner | Established the dynamic-request ownership and unified the front-end |
+| 1.1.0 | 2026-07-23 | Domain audit pass | Translated to English; reduced the schema to the two actual tables; replaced BIGINT PKs and `created_by_user_id BIGINT` with UUIDs and `creator_user_id`; removed the missing payload/projection/relation/participant/activity sub-tables; recorded the W13 `field_policy_key` addition and the `facility_id` column on the idempotency-keys table |

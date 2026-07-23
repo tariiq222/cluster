@@ -1,17 +1,17 @@
 ---
 doc_id: GOV-RC-001
-title: مصفوفة المساءلة RACI
+title: RACI Accountability Matrix
 type: governance
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول الحوكمة
-- مسؤول المنتج
-- مسؤول هندسة البرمجيات
+- Governance Lead
+- Product Owner
+- Engineering Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: Semi-annual
 sources: []
 references:
 - docs/architecture/overview.md
@@ -23,135 +23,135 @@ references:
 - docs/product/vision-and-scope.md
 - docs/product/releases-and-roadmap.md
 ---
-# مصفوفة المساءلة RACI
+# RACI Accountability Matrix
 
-## 1. الغرض
+## 1. Purpose
 
-تحدد هذه الوثيقة الأدوار المؤسسية والفنية التي تُسند إليها المسؤوليات، وتوزع الأدوار على الأنشطة الرئيسية للمنصة بدلالات `RACI` المعتمدة. تمنع الخلط بين اسم الشخص والدور، وتجعل المراجعة المؤسسية ممكنة عند تبديل الأفراد. لا تذكر الوثيقة أسماء أفراد، بل تتعامل حصرياً مع الأدوار.
+This document defines the institutional and technical roles assigned with responsibilities and distributes the roles across the main activities of the platform using the approved `RACI` semantics. It prevents confusion between a person's name and the role, and enables institutional review when individuals change. The document does not mention individual names, but deals exclusively with roles.
 
-## 2. دلالات RACI
+## 2. RACI Semantics
 
-| الرمز | المعنى | الشرط |
+| Code | Meaning | Condition |
 |---|---|---|
-| `R` Responsible | الدور الذي ينفذ النشاط أو يقدم المخرج | لكل نشاط دور واحد على الأقل ولا يزيد عن دورين |
-| `A` Accountable | الدور الذي يوقع على الناتج ويملك قرار القبول | دور واحد فقط لكل نشاط |
-| `C` Consulted | الدور الذي يقدّم مدخلات قبل التنفيذ أو الاعتماد | يُذكر صراحة ويُوثَّق رأيه |
-| `I` Informed | الدور الذي يُبلَّغ بالناتج دون مشاركة في القرار | يُكتفى بالإشعار الرسمي |
+| `R` Responsible | Role that performs the activity or delivers the output | At least one role and at most two roles per activity |
+| `A` Accountable | Role that signs off on the output and owns the acceptance decision | Exactly one role per activity |
+| `C` Consulted | Role that provides input before execution or approval | Explicitly stated and opinion documented |
+| `I` Informed | Role that is notified of the output without participating in the decision | Formal notification is sufficient |
 
-## 3. الأدوار المؤسسية
+## 3. Institutional Roles
 
-| الدور | النطاق | المرجع التشغيلي |
+| Role | Scope | Operational Reference |
 |---|---|---|
-| راعي المنصة Executive Sponsor | يمول المشروع ويملك القرار الاستراتيجي ويكسر التعارضات بين الأولويات | مكتب هندسة المنصة |
-| مسؤول المنتج Product Owner | يحدد الرؤية والنطاق ومقاييس النجاح وأولوية الإصدارات | وثائق المنتج |
-| مسؤول الحوكمة Governance Lead | يدير ضوابط الوثائق والقرارات ويراجع الالتزام | وثيقة ضوابط الوثائق |
-| مسؤول هندسة البرمجيات Engineering Lead | يضمن صحة المعمار وحدود الموديولات وجودة الكود | وثيقة المعمار والـADR |
-| مسؤول أمن المعلومات Security Lead | يحدد سياسة الأمن والتصنيف والصلاحيات والاختراق | وثائق الأمن |
-| مسؤول العمليات Operations Lead | يدير النشر والمراقبة والاستعادة والنسخ الاحتياطي | وثائق التشغيل |
-| مسؤول البيانات Data Lead | يشرف على النموذج المنطقي وجودة البيانات والإسقاطات | وثيقة نموذج البيانات |
-| مسؤول الجودة QA Lead | يدير استراتيجية الاختبار ومعايير القبول | وثيقة الاختبارات |
-| مكتب هندسة المنصة Platform Engineering Office | ينسق بين الأدوار ويحرر الـADR والوثائق المعمارية | وثيقة ضوابط الوثائق |
-| السوبر أدمن Super Admin | دور داخل المنصة لإدارة الهياكل والصلاحيات والمحتوى الإداري | وثيقة النطاق والمنتج |
+| Platform Sponsor (Executive Sponsor) | Funds the project, owns the strategic decision, and resolves conflicts between priorities | Platform Engineering Office |
+| Product Owner | Defines the vision, scope, success metrics, and release priority | Product documents |
+| Governance Lead | Manages document controls and decisions and reviews compliance | Document Control document |
+| Engineering Lead | Ensures architectural correctness, module boundaries, and code quality | Architecture and ADR document |
+| Security Lead | Defines the security policy, classification, permissions, and penetration | Security documents |
+| Operations Lead | Manages deployment, monitoring, recovery, and backup | Operations documents |
+| Data Lead | Oversees the logical model, data quality, and projections | Data model document |
+| QA Lead | Manages the testing strategy and acceptance criteria | Testing document |
+| Platform Engineering Office | Coordinates between roles and edits the ADR and architecture documents | Document Control document |
+| Super Admin | Role within the platform to manage structures, permissions, and administrative content | Scope and product document |
 
-## 4. الأدوار التشغيلية داخل المنصة
+## 4. Operational Roles Within the Platform
 
-| الدور | النطاق داخل المنصة |
+| Role | Scope Within the Platform |
 |---|---|
-| مسؤول تجمع Cluster Officer | مستخدم بدور يجمع بين صلاحيات إدارية على مستوى التجمع وعلاقات إشرافية |
-| مدير منشأة Facility Manager | مستخدم بدور يدير وحدة تشغيلية على مستوى المنشأة |
-| مدير إدارة Department Manager | مستخدم بدور يدير وحدة إدارية ويوقع على معاملاتها |
-| مدير مشروع Project Manager | مستخدم بدور يدير مشروعاً أو برنامجاً أو محفظة |
-| منسق مؤشر Indicator Coordinator | مستخدم بدور يدخل قراءات المؤشر لمنشأة |
-| مالك مؤشر Indicator Owner | مستخدم بدور يعتمد قراءات المؤشر ويوزع المستهدفات |
-| عضو فريق Team Member | مستخدم بدور يعمل داخل مشروع أو لجنة |
-| مراجع Reviewer | مستخدم بدور يقدم مراجعة على مخرجات معتمة دون سلطة تعديل |
-| موظف Employee | المستخدم الأساسي صاحب الصلاحيات المحدودة على نطاقه |
+| Cluster Officer | User role combining administrative permissions at the cluster level and supervisory relationships |
+| Facility Manager | User role managing an operational unit at the facility level |
+| Department Manager | User role managing an administrative unit and signing off on its transactions |
+| Project Manager | User role managing a project, program, or portfolio |
+| Indicator Coordinator | User role entering indicator readings for a facility |
+| Indicator Owner | User role approving indicator readings and distributing targets |
+| Team Member | User role working within a project or committee |
+| Reviewer | User role providing review on blind outputs without modification authority |
+| Employee | Base user with limited permissions within their scope |
 
-## 5. مصفوفة الأنشطة المؤسسية
+## 5. Institutional Activities Matrix
 
-| النشاط | راعي المنصة | مسؤول المنتج | مسؤول الحوكمة | مسؤول هندسة البرمجيات | مسؤول أمن المعلومات | مسؤول العمليات | مكتب هندسة المنصة |
+| Activity | Platform Sponsor | Product Owner | Governance Lead | Engineering Lead | Security Lead | Operations Lead | Platform Engineering Office |
 |---|---|---|---|---|---|---|---|
-| اعتماد الرؤية والنطاق | A | R | C | C | C | I | C |
-| اعتماد خارطة الإصدارات | A | R | C | C | C | C | C |
-| اعتماد الميزانية والتمويل | R | C | I | I | I | I | I |
-| اعتماد قرار معماري جديد | I | C | C | R | C | C | A |
-| اعتماد وثيقة حوكمة | I | I | R | C | C | I | A |
-| اعتماد سياسة أمن | A | I | C | C | R | C | C |
-| اعتماد خطة استعادة وكوارث | A | I | C | C | C | R | C |
-| اعتماد نموذج بيانات | I | C | C | C | C | I | A |
-| اعتماد معايير قبول الإصدار | A | R | C | C | C | C | C |
-| اعتماد دخول إنتاج | A | R | I | C | C | R | C |
-| ترقية الإصدار بين البيئات | I | I | I | C | C | R | C |
-| إدارة الحوادث الحرجة | A | I | I | C | C | R | C |
-| مراجعة فصل موديول مستقبلي | I | C | C | R | C | C | A |
-| الاستجابة لطلب تغيير تنظيمي | A | C | R | C | C | I | C |
+| Approve vision and scope | A | R | C | C | C | I | C |
+| Approve release roadmap | A | R | C | C | C | C | C |
+| Approve budget and funding | R | C | I | I | I | I | I |
+| Approve new architectural decision | I | C | C | R | C | C | A |
+| Approve governance document | I | I | R | C | C | I | A |
+| Approve security policy | A | I | C | C | R | C | C |
+| Approve recovery and disaster plan | A | I | C | C | C | R | C |
+| Approve data model | I | C | C | C | C | I | A |
+| Approve release acceptance criteria | A | R | C | C | C | C | C |
+| Approve production entry | A | R | I | C | C | R | C |
+| Promote release between environments | I | I | I | C | C | R | C |
+| Manage critical incidents | A | I | I | C | C | R | C |
+| Review future module separation | I | C | C | R | C | C | A |
+| Respond to organizational change request | A | C | R | C | C | I | C |
 
-## 6. مصفوفة أنشطة دورة حياة الإصدار
+## 6. Release Lifecycle Activities Matrix
 
-| النشاط | راعي المنصة | مسؤول المنتج | مسؤول الحوكمة | مسؤول هندسة البرمجيات | مسؤول أمن المعلومات | مسؤول العمليات | مسؤول البيانات | مسؤول الجودة | مكتب هندسة المنصة |
+| Activity | Platform Sponsor | Product Owner | Governance Lead | Engineering Lead | Security Lead | Operations Lead | Data Lead | QA Lead | Platform Engineering Office |
 |---|---|---|---|---|---|---|---|---|---|
-| تحديد أهداف الإصدار | A | R | C | C | C | C | C | C | C |
-| تفكيك الإصدار إلى مواصفات | I | R | I | C | C | I | C | C | C |
-| اعتماد مواصفة موديول | I | A | I | R | C | I | C | C | C |
-| تنفيذ خطة داخل الإصدار | I | I | I | R | I | C | C | C | C |
-| مراجعة معمارية لخطة | I | I | I | A | C | C | C | I | R |
-| مراجعة أمنية لخطة | I | I | I | C | A | C | I | I | C |
-| مراجعة تشغيلية لخطة | I | I | I | C | C | A | I | I | C |
-| مراجعة بيانات لخطة | I | I | I | C | C | I | A | I | C |
-| تنفيذ اختبارات الجودة | I | I | I | C | I | I | I | A | C |
-| اعتماد معايير القبول | A | R | C | C | C | C | C | C | C |
-| تجربة مستخدم ميدانية | I | A | I | C | I | C | I | C | C |
-| اعتماد نشر في الإنتاج | A | R | I | C | C | R | I | C | C |
-| توثيق الدروس المستفادة | I | C | C | R | I | C | C | C | A |
+| Define release objectives | A | R | C | C | C | C | C | C | C |
+| Decompose release into specifications | I | R | I | C | C | I | C | C | C |
+| Approve module specification | I | A | I | R | C | I | C | C | C |
+| Execute plan within release | I | I | I | R | I | C | C | C | C |
+| Architectural review of plan | I | I | I | A | C | C | C | I | R |
+| Security review of plan | I | I | I | C | A | C | I | I | C |
+| Operational review of plan | I | I | I | C | C | A | I | I | C |
+| Data review of plan | I | I | I | C | C | I | A | I | C |
+| Execute quality tests | I | I | I | C | I | I | I | A | C |
+| Approve acceptance criteria | A | R | C | C | C | C | C | C | C |
+| Field user experience | I | A | I | C | I | C | I | C | C |
+| Approve production deployment | A | R | I | C | C | R | I | C | C |
+| Document lessons learned | I | C | C | R | I | C | C | C | A |
 
-## 7. مصفوفة أنشطة المنصة التشغيلية
+## 7. Platform Operational Activities Matrix
 
-| النشاط | السوبر أدمن | مسؤول تجمع | مدير منشأة | مدير إدارة | موظف | مكتب هندسة المنصة | مسؤول أمن المعلومات | مسؤول العمليات |
+| Activity | Super Admin | Cluster Officer | Facility Manager | Department Manager | Employee | Platform Engineering Office | Security Lead | Operations Lead |
 |---|---|---|---|---|---|---|---|---|
-| إنشاء وحدة تنظيمية جديدة | R | I | I | I | I | A | I | I |
-| تعديل علاقة إشرافية | R | C | C | I | I | A | C | I |
-| اعتماد استيراد CSV/XLSX | R | C | C | C | I | A | C | I |
-| إنشاء نوع عمل جديد | R | C | C | C | I | A | C | I |
-| نشر إصدار نوع عمل | R | C | C | C | I | A | C | I |
-| تعديل مسار منشور | R | C | C | C | I | A | C | I |
-| اعتماد توزيع مستهدف مؤشر | I | R | C | C | I | A | I | I |
-| اعتماد قراءة مؤشر | I | R | C | C | I | A | I | I |
-| اعتماد مشروع جديد | C | R | C | C | I | A | I | I |
-| إغلاق مشروع | C | R | C | C | I | A | I | I |
-| قبول خطر أو تجنبه | C | R | C | C | I | A | C | I |
-| اعتماد حجز نظامي على سجل | R | C | C | C | I | A | C | I |
-| إدارة مستخدم وحسابه | R | I | C | C | I | A | C | I |
-| إلغاء تفويض طارئ | R | I | C | C | I | A | C | I |
-| تصعيد حادث أمني | R | C | C | C | I | C | A | C |
+| Create new organizational unit | R | I | I | I | I | A | I | I |
+| Modify supervisory relationship | R | C | C | I | I | A | C | I |
+| Approve CSV/XLSX import | R | C | C | C | I | A | C | I |
+| Create new work type | R | C | C | C | I | A | C | I |
+| Deploy work type release | R | C | C | C | I | A | C | I |
+| Modify published path | R | C | C | C | I | A | C | I |
+| Approve indicator target distribution | I | R | C | C | I | A | I | I |
+| Approve indicator reading | I | R | C | C | I | A | I | I |
+| Approve new project | C | R | C | C | I | A | I | I |
+| Close project | C | R | C | C | I | A | I | I |
+| Accept or avoid risk | C | R | C | C | I | A | C | I |
+| Approve regulatory record lock | R | C | C | C | I | A | C | I |
+| Manage user and account | R | I | C | C | I | A | C | I |
+| Cancel emergency delegation | R | I | C | C | I | A | C | I |
+| Escalate security incident | R | C | C | C | I | C | A | C |
 
-## 8. قواعد التطبيق
+## 8. Application Rules
 
-- كل خلية في المصفوفة تحمل رمزاً واحداً فقط من `R` أو `A` أو `C` أو `I`.
-- لا يجوز إسناد `R` لأكثر من دورين في النشاط الواحد.
-- كل نشاط يجب أن يحمل دوراً واحداً `A` فقط.
-- غياب `A` لأي نشاط يُعد خللاً في التوزيع ويُسجَّل في سجل المخاطر.
-- تُحدَّث المصفوفة عند أي تغيير في الهيكل التنظيمي أو في أدوار المنصة.
+- Each cell in the matrix carries only one code from `R`, `A`, `C`, or `I`.
+- `R` cannot be assigned to more than two roles per activity.
+- Each activity must have exactly one `A` role.
+- Absence of `A` for any activity is a distribution defect and is recorded in the risk log.
+- The matrix is updated on any change in organizational structure or platform roles.
 
-## 9. الاستثناءات والبدائل
+## 9. Exceptions and Alternatives
 
-| الحالة | البديل |
+| Case | Alternative |
 |---|---|
-| غياب راعي المنصة لظرف طارئ | ينتقل `A` إلى مكتب هندسة المنصة مع توثيق |
-| غياب مسؤول المنتج | يتولى مكتب هندسة المنصة `A` و`R` مع إخطار الراعي |
-| تعارض بين مسؤول أمن المعلومات ومسؤول العمليات | يرفع لمكتب هندسة المنصة ويُحسم خلال 48 ساعة |
-| إضافة دور جديد داخل المنصة | يُضاف إلى `docs/governance/raci.md` ويُحدَّث سجل التغيير |
+| Platform Sponsor absence in an emergency | `A` transfers to Platform Engineering Office with documentation |
+| Product Owner absence | Platform Engineering Office assumes `A` and `R` with Sponsor notification |
+| Conflict between Security Lead and Operations Lead | Escalated to Platform Engineering Office and resolved within 48 hours |
+| Adding a new internal platform role | Added to `docs/governance/raci.md` and the change log is updated |
 
-## 10. مؤشرات الالتزام
+## 10. Adherence Indicators
 
-| المؤشر | الهدف | القياس | الدور المسؤول |
+| Indicator | Target | Measurement | Responsible Role |
 |---|---|---|---|
-| نسبة الأنشطة ذات `A` واحد | 100% | فحص ربع سنوي | مسؤول الحوكمة |
-| نسبة القرارات الموثقة بنشاط وقرار وتاريخ | 100% | فحص ربع سنوي | مكتب هندسة المنصة |
-| نسبة تغطية أدوار المنصة في مصفوفة الاستخدام اليومي | 100% | مراجعة نصف سنوية | مسؤول المنتج |
-| نسبة تحديث RACI بعد أي تغيير في الهيكل | خلال 14 يوم | مراجعة نصف سنوية | مكتب هندسة المنصة |
+| Percentage of activities with a single `A` | 100% | Quarterly review | Governance Lead |
+| Percentage of decisions documented with activity, decision, and date | 100% | Quarterly review | Platform Engineering Office |
+| Percentage of platform roles covered in the daily usage matrix | 100% | Semi-annual review | Product Owner |
+| Percentage of RACI updates after any organizational change | Within 14 days | Semi-annual review | Platform Engineering Office |
 
-## 11. سجل التغيير
+## 11. Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مكتب هندسة المنصة | إنشاء أولي للمصفوفة بالأدوار دون أسماء أفراد |
+| 1.0.0 | 2026-07-15 | Platform Engineering Office | Initial matrix creation with roles only, no individual names |

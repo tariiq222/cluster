@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-DOC-001
-title: المستندات والروابط المحكومة
+title: Documents and Governed Links
 type: domain
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مالك موديول Documents
+owner: Documents Module Owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: On every change
 sources:
 - docs/adr/013-documents-and-file-security.md
 - docs/adr/007-transactional-outbox.md
@@ -18,42 +18,42 @@ references:
 - docs/architecture/module-catalog.md
 - docs/data-security/retention-and-legal-hold.md
 ---
-# المستندات
+# Documents
 
-## 1. الغرض والحدود
+## 1. Purpose and Scope
 
-يمتلك موديول Documents الملف المخزن مرة واحدة، بياناته الوصفية، تصنيفه، إصداراته، روابط استخدامه، قيود المستند كحقائق، ومنح التنزيل وسجل الوصول بعد قرار Authorization. تحتفظ موديولات الأعمال بمعرّف المستند وعلاقة استخدام فقط، ولا تخزن نسخة من الملف ولا تقرأ Object Storage مباشرة.
+The Documents module owns the stored file-once, its metadata, classification, versions, usage links, document-specific restriction facts, download grants, and the post-Authorization access log. Business modules retain only the document identifier and a usage relationship; they do not store a copy of the file and do not read Object Storage directly.
 
-يدعم الإصدار الأول الرفع، الفحص الداخلي، الإصدارات غير القابلة للاستبدال، الربط بأكثر من سجل، حقائق قيود خاصة بالمستند عند الحاجة، وسجل العرض والتنزيل. لا يقرر Documents الوصول بصورة مستقلة؛ Authorization وحده يصدر Allow أو Deny وقرارات الحقول. الأرشفة الرسمية وOCR والتوقيع الإلكتروني وأرقام الحفظ خارج الإصدار الأول، لكن النموذج لا يمنع إضافتها لاحقاً.
+The first release supports upload, internal scanning, immutable versions, linking to multiple records, document-specific restriction facts when needed, and a view/download log. Documents does not decide access on its own; Authorization alone issues Allow or Deny and field decisions. Formal archival, OCR, electronic signature, and retention numbers are out of scope for the first release, but the model does not preclude adding them later.
 
-## 2. المصطلحات والنماذج
+## 2. Terms and Models
 
-| المصطلح | التعريف |
+| Term | Definition |
 |---|---|
-| Document | الهوية المنطقية والبيانات الوصفية والتصنيف وحقائق القيود عبر جميع الإصدارات. |
-| DocumentVersion | ملف ثنائي غير قابل للتعديل مع hash وحالة فحص. |
-| DocumentLink | علاقة استخدام بين المستند وسجل مصدر عام. |
-| OwnRestrictionFacts | حقائق قيود المستند التي تدخل في قرار Authorization ولا تمنح أو تمنع بذاتها. |
-| EffectiveRestrictionFacts | مجموعة حقائق المستند وحقائق جميع الروابط النشطة المقدمة إلى Authorization. |
-| AccessGrant | منحة تشغيلية قصيرة العمر تصدر بعد `AccessDecision=Allow` لعملية محددة، وليست قراراً أو صلاحية دائمة. |
+| Document | Logical identity, metadata, classification, and restriction facts across all versions. |
+| DocumentVersion | Immutable binary file with hash and scan state. |
+| DocumentLink | Usage relationship between a document and a generic source record. |
+| OwnRestrictionFacts | Document restriction facts that feed into the Authorization decision and do not themselves grant or deny. |
+| EffectiveRestrictionFacts | The union of the document's facts and the facts of all active links, presented to Authorization. |
+| AccessGrant | Short-lived operational grant issued after `AccessDecision=Allow` for a specific operation; not a decision or a permanent permission. |
 
 ### 2.1 Aggregates
 
-- `DocumentAggregate`: الهوية، المالك، التصنيف، البيانات الوصفية، حقائق القيود والحالة.
-- `DocumentVersionAggregate`: رقم الإصدار، مفتاح الكائن، الحجم، النوع، البصمة وحالة الفحص.
-- `DocumentLinkAggregate`: مرجع المصدر، الغرض، قيود الرابط وحالته.
-- `DocumentAccessRecord`: سجل append-only للعرض والتنزيل والتصدير ومحاولات المنع الحساسة.
+- `DocumentAggregate`: identity, owner, classification, metadata, restriction facts, and state.
+- `DocumentVersionAggregate`: version number, object key, size, type, fingerprint, and scan state.
+- `DocumentLinkAggregate`: source reference, purpose, link restrictions, and state.
+- `DocumentAccessRecord`: append-only log of view, download, export, and sensitive denial attempts.
 
 ### 2.2 Value Objects
 
-- `DocumentId`، `VersionNumber`، `ObjectKey`، `ContentHash`، `MimeType`، `FileSize`.
-- `Classification`: `public|internal|confidential|top_secret`، وتقابلها `عام|داخلي|سري|سري للغاية`.
-- `SourceReference`: `module_code` و`record_type` و`record_id`.
-- `DocumentRestrictionFacts`: النطاق والتصنيف والحالة و`field_policy_key` ومتطلبات التدقيق، بلا Allow أو Deny أو خريطة حقول.
+- `DocumentId`, `VersionNumber`, `ObjectKey`, `ContentHash`, `MimeType`, `FileSize`.
+- `Classification`: `public|internal|confidential|top_secret`.
+- `SourceReference`: `module_code`, `record_type`, `record_id`.
+- `DocumentRestrictionFacts`: scope, classification, state, `field_policy_key`, and audit requirements, with no Allow/Deny and no field map.
 
-## 3. قاعدة أشد القيود
+## 3. Most-Restrictive Rule
 
-يجمع Documents حقائق أي عملية `view_metadata|preview|download|add_version|link|unlink|export` كالتالي، ثم يرسلها إلى Authorization دون تقييم محلي:
+Documents collects the facts for any `view_metadata|preview|download|add_version|link|unlink|export` operation as follows, then forwards them to Authorization without local evaluation:
 
 ```text
 AuthorizationRecordFacts = DocumentRestrictionFacts
@@ -62,95 +62,98 @@ AuthorizationRecordFacts = DocumentRestrictionFacts
                            + ...
 ```
 
-- Authorization وحده يطبق أشد القيود ويصدر `AccessDecision` و`FieldAccessDecision`؛ لا يصدر Documents أو الموديول المرتبط Allow أو Deny.
-- ربط المستند لاحقاً بسجل أشد تقييداً يقيّد الوصول إلى المستند من جميع المسارات فوراً، ولا ينشئ نسخة أوسع.
-- إلغاء رابط لا يوسع الوصول تلقائياً قبل إعادة حساب القرار وتسجيل التغيير.
-- الرابط لا يمنح المستخدم صلاحية إلى المستند أو السجل الآخر.
-- إذا تعذر جلب `AuthorizationRecordFacts` لأي مصدر مرتبط يصدر Authorization منعاً بسبب `facts_unavailable`؛ لا يستخدم آخر قرار مخزن للسماح.
-- البحث والإشعار والتقرير والتصدير تستخدم القرار نفسه ولا تعرض الاسم أو المقتطف أو عدد الروابط قبل السماح.
+- Authorization alone applies the most-restrictive rule and issues `AccessDecision` and `FieldAccessDecision`; neither Documents nor the linked module issues Allow or Deny.
+- Linking a document later to a more restrictive record immediately restricts access to the document from all paths; it does not create a wider copy.
+- Unlinking does not automatically widen access before the decision is recomputed and the change is logged.
+- A link does not grant the user permission to the document or to the other record.
+- If `AuthorizationRecordFacts` cannot be fetched for any linked source, Authorization issues a denial for `facts_unavailable`; the last stored decision is never reused to allow.
+- Search, notification, report, and export use the same decision and do not expose name, snippet, or link count before the grant is made.
 
-## 4. الجداول والقيود والفهارس
+## 4. Tables, Constraints, and Indexes
 
 ### 4.1 `documents`
 
-- `id` BIGINT PK، `public_id` CHAR(26) UNIQUE NOT NULL.
-- `owner_organization_unit_id` BIGINT NOT NULL.
-- `created_by_user_id` BIGINT NOT NULL.
-- `name` VARCHAR(255) NOT NULL، `description` TEXT NULL.
+- `id` UUID PK, `public_id` CHAR(36) UNIQUE NOT NULL.
+- `owner_organization_unit_id` UUID NOT NULL.
+- `created_by_user_id` UUID NOT NULL.
+- `name` VARCHAR(255) NOT NULL, `description` TEXT NULL.
 - `classification` VARCHAR(24) NOT NULL: `public|internal|confidential|top_secret`.
 - `status` VARCHAR(24) NOT NULL: `draft|active|archived|held`.
-- `restriction_facts` JSON NOT NULL؛ حقائق typed اختيارية وفق schema معلن، بلا كود حر أو Allow أو Deny.
-- `current_version_id` BIGINT NULL.
-- `retention_policy_key` VARCHAR(128) NULL.
+- `restriction_facts` JSON NULL; optional typed facts per a declared schema, with no free code and no Allow/Deny.
+- `current_version_id` UUID NULL.
+- `retention_until` DATETIME(3) NULL, `retention_policy_key` VARCHAR(128) NULL.
+- `legal_hold` BOOLEAN NOT NULL DEFAULT FALSE, `legal_hold_reason` VARCHAR(1000) NULL, `legal_hold_at` DATETIME(3) NULL.
 - `lock_version` INT NOT NULL DEFAULT 1.
-- `created_at`، `updated_at`، `archived_at` DATETIME NULL.
-- فهارس: `(owner_organization_unit_id, status)`، `(classification, status)`.
+- `created_at`, `updated_at`.
+- Indexes: `(owner_organization_unit_id, status)`, `(classification, status)`.
 
 ### 4.2 `document_versions`
 
-- `id` BIGINT PK، `document_id` BIGINT NOT NULL FK.
+- `id` UUID PK, `public_id` UUID UNIQUE NOT NULL, `document_id` UUID NOT NULL FK.
+- `storage_object_id` UUID NOT NULL FK -> `document_storage_objects.id`.
 - `version_number` INT NOT NULL.
-- `object_key` VARCHAR(512) UNIQUE NOT NULL؛ قيمة عشوائية لا تحتوي اسم الملف.
+- `object_key` VARCHAR(512) UNIQUE NOT NULL; random value that does not contain the file name.
 - `original_filename` VARCHAR(255) NOT NULL.
-- `declared_mime_type` VARCHAR(128) NOT NULL، `detected_mime_type` VARCHAR(128) NULL.
-- `size_bytes` BIGINT NOT NULL، `sha256` CHAR(64) NOT NULL.
+- `declared_mime_type` VARCHAR(128) NOT NULL, `detected_mime_type` VARCHAR(128) NULL.
+- `size_bytes` BIGINT NOT NULL, `sha256` CHAR(64) NULL.
 - `scan_status` VARCHAR(24) NOT NULL: `pending|scanning|clean|infected|failed`.
 - `availability_status` VARCHAR(24) NOT NULL: `uploading|quarantined|available|rejected|missing`.
-- `scan_engine_version` VARCHAR(128) NULL، `scan_result` JSON NULL.
-- `created_by_user_id` BIGINT NOT NULL، `created_at` DATETIME NOT NULL.
-- قيد فريد: `(document_id, version_number)`.
-- فهارس: `(document_id, version_number)`، `(scan_status, created_at)`، `(sha256)`.
-- لا Update للملف أو hash بعد الانتقال إلى `available`؛ أي تغيير إصدار جديد.
+- `scan_engine_version` VARCHAR(128) NULL, `scan_result` JSON NULL.
+- `scanned_at` DATETIME(3) NULL, `available_at` DATETIME(3) NULL.
+- `created_by_user_id` UUID NOT NULL, `created_at` DATETIME NOT NULL.
+- Unique constraint: `(document_id, version_number)`.
+- Indexes: `(document_id, version_number)`, `(document_id, availability_status)`, `(scan_status, created_at)`, `(sha256)`.
+- No update to the file or hash after transition to `available`; any change creates a new version.
 
 ### 4.3 `document_links`
 
-- `id` BIGINT PK، `document_id` BIGINT NOT NULL FK.
-- `source_module` VARCHAR(64) NOT NULL، `source_type` VARCHAR(64) NOT NULL، `source_id` VARCHAR(128) NOT NULL.
+- `id` UUID PK, `document_id` UUID NOT NULL FK.
+- `source_module` VARCHAR(64) NOT NULL, `source_type` VARCHAR(64) NOT NULL, `source_id` VARCHAR(128) NULL.
 - `relation_type` VARCHAR(32) NOT NULL: `attachment|evidence|deliverable|reference`.
-- `link_classification` VARCHAR(24) NULL: `public|internal|confidential|top_secret`؛ حقيقة قيد يمكنها التشديد فقط.
-- `linked_by_user_id` BIGINT NOT NULL.
-- `status` VARCHAR(16) NOT NULL: `active|unlinked`.
-- `created_at` DATETIME NOT NULL، `unlinked_at` DATETIME NULL، `unlink_reason` VARCHAR(1000) NULL.
-- قيد فريد منطقي للرابط النشط: `(document_id, source_module, source_type, source_id, relation_type)`.
-- فهارس: `(source_module, source_type, source_id, status)`، `(document_id, status)`.
+- `link_classification` VARCHAR(24) NULL: `public|internal|confidential|top_secret`; a restriction fact that can only tighten.
+- `linked_by_user_id` UUID NOT NULL.
+- `status` VARCHAR(16) NOT NULL DEFAULT 'active': `active|unlinked`.
+- `created_at` DATETIME NOT NULL, `unlinked_at` DATETIME NULL, `unlink_reason` VARCHAR(1000) NULL.
+- Logical unique constraint for an active link: `(document_id, source_module, source_type, source_id, relation_type, status)`.
+- Indexes: `(source_module, source_type, source_id, status)`, `(document_id, status)`.
 
 ### 4.4 `document_restriction_facts`
 
-- `id` BIGINT PK، `document_id` BIGINT NOT NULL FK.
-- `fact_key` VARCHAR(128) NOT NULL؛ مفتاح من schema القيود المعلن.
-- `fact_value` JSON NOT NULL؛ قيمة typed لا تحمل قرار وصول أو payload أعمال.
-- `valid_from`، `valid_until` DATETIME NULL.
-- `recorded_by_user_id` BIGINT NOT NULL، `created_at` DATETIME NOT NULL.
-- قيد فريد: `(document_id, fact_key, valid_from)`.
-- فهرس: `(document_id, fact_key, valid_until)`.
-- لا يفسر Documents هذه الصفوف كسماح أو منع؛ يضمها إلى `AuthorizationRecordFacts` فقط.
+- `id` UUID PK, `document_id` UUID NOT NULL FK.
+- `fact_key` VARCHAR(128) NOT NULL; a key from the declared restriction schema.
+- `fact_value` JSON NOT NULL; a typed value that carries no access decision and no business payload.
+- `valid_from` DATETIME NOT NULL, `valid_until` DATETIME NULL.
+- `recorded_by_user_id` UUID NOT NULL, `created_at` DATETIME NOT NULL.
+- Unique constraint: `(document_id, fact_key, valid_from)`.
+- Index: `(document_id, fact_key, valid_until)`.
+- Documents does not interpret these rows as allow or deny; it only feeds them into `AuthorizationRecordFacts`.
 
 ### 4.5 `document_access_events`
 
-- `id` BIGINT PK، `document_id` BIGINT NOT NULL، `document_version_id` BIGINT NULL.
-- `actor_user_id` BIGINT NOT NULL، `acting_organization_unit_id` BIGINT NOT NULL.
+- `id` UUID PK, `document_id` UUID NOT NULL, `document_version_id` UUID NULL.
+- `actor_user_id` UUID NOT NULL, `acting_organization_unit_id` UUID NOT NULL.
 - `action` VARCHAR(24) NOT NULL: `metadata_view|preview|download|export|denied`.
-- `decision` VARCHAR(16) NOT NULL، `decision_reason_code` VARCHAR(64) NOT NULL.
-- `source_context` JSON NULL؛ معرفات فقط دون payload أعمال.
-- `ip_address` VARBINARY(16) NULL، `user_agent_hash` CHAR(64) NULL.
-- `occurred_at` DATETIME NOT NULL، `event_id` CHAR(36) UNIQUE NOT NULL.
-- Append-only، وفهارس `(document_id, occurred_at)`، `(actor_user_id, occurred_at)`، `(action, occurred_at)`.
+- `decision` VARCHAR(16) NOT NULL, `decision_reason_code` VARCHAR(64) NOT NULL.
+- `source_context` JSON NULL; identifiers only with no business payload.
+- `ip_address` VARCHAR(45) NULL, `user_agent_hash` CHAR(64) NULL.
+- `occurred_at` DATETIME NOT NULL, `event_id` UUID UNIQUE NOT NULL.
+- Append-only, with indexes `(document_id, occurred_at)`, `(actor_user_id, occurred_at)`, `(action, occurred_at)`.
 
-## 5. العقود
+## 5. Contracts
 
 ### 5.1 Commands
 
 - `CreateDocument(metadata, classification, restrictionFacts): DocumentId`.
 - `InitiateDocumentUpload(documentId, filename, size, declaredMime, idempotencyKey): UploadTicket`.
 - `FinalizeDocumentUpload(documentId, uploadToken, sha256)`.
-- `RecordDocumentScanResult(versionId, result)`؛ لعامل الفحص الموثوق فقط.
+- `RecordDocumentScanResult(versionId, result)`; reserved for the trusted scan worker.
 - `AddDocumentVersion(documentId, upload)`.
 - `UpdateDocumentMetadata(documentId, expectedVersion)`.
 - `ChangeDocumentClassification(documentId, newClassification, reason)`.
 - `LinkDocument(documentId, sourceReference, relationType)`.
 - `UnlinkDocument(linkId, reason)`.
 - `ArchiveDocument(documentId, reason)`.
-- `PlaceDocumentOnHold(documentId, reason)` و`ReleaseDocumentHold` للمخول.
+- `PlaceDocumentOnHold(documentId, reason)` and `ReleaseDocumentHold` for authorized callers.
 
 ### 5.2 Queries
 
@@ -161,25 +164,25 @@ AuthorizationRecordFacts = DocumentRestrictionFacts
 - `ListDocumentsLinkedToSource(sourceReference, accessDecision)`.
 - `GetDocumentIntegrityStatus(documentId, versionId)`.
 
-يطلب Documents `DecideAccess` و`ResolveFieldAccess` باستخدام حقائق حديثة. لا ينشئ `AccessGrant` إلا بعد `AccessDecision=Allow` صادر من Authorization؛ والمنحة أحادية الاستخدام، مرتبطة بالمستخدم والإصدار والفعل، قصيرة العمر، ولا تصدر قبل تسجيل الوصول الحساس المطلوب.
+Documents requests `DecideAccess` and `ResolveFieldAccess` with fresh facts. It does not issue an `AccessGrant` until an `AccessDecision=Allow` is received from Authorization; the grant is single-use, bound to the user, version, and action, short-lived, and is not issued before the required sensitive access is logged.
 
-### 5.3 عقود المصادر المطلوبة
+### 5.3 Required Source Contracts
 
-كل موديول يسمح بالربط ينفذ عقد الوصول الوحيد التالي:
+Every module that allows linking implements the single access contract below:
 
 - `GetAuthorizationRecordFacts(sourceReference): AuthorizationRecordFacts`.
 
-تثبت الحقائق وجود الهدف وتصنيفه ونطاقه وحالته و`field_policy_key` وقيوده اللازمة. لا يصدر المالك قرار وصول، ولا يستدعي Documents بنية المصدر أو جداوله.
+The facts establish the target's existence, classification, scope, state, `field_policy_key`, and required restrictions. The owner does not issue access decisions, and Documents does not call the source's structure or tables.
 
-### 5.4 العقود المقدمة للموديولات
+### 5.4 Contracts Exposed to Other Modules
 
-- `CreateDocument`، `AddDocumentVersion`، `LinkDocument`.
+- `CreateDocument`, `AddDocumentVersion`, `LinkDocument`.
 - `GetDocumentDownloadGrant`.
-- `GetAuthorizationRecordFacts(documentId)`؛ يعيد حقائق المستند وروابطه بلا قرار وصول.
-- `GetDocumentReferenceSummary(reference, accessDecision)`؛ يعيد بيانات آمنة بعد قرار Allow صادر من Authorization.
+- `GetAuthorizationRecordFacts(documentId)`; returns document and link facts without an access decision.
+- `GetDocumentReferenceSummary(reference, accessDecision)`; returns safe data after an Allow decision from Authorization.
 - `VerifyDocumentEvidenceAvailable(documentIds[])`.
 
-## 6. الأحداث
+## 6. Events
 
 - `DocumentCreated`
 - `DocumentUploadInitiated`
@@ -197,29 +200,29 @@ AuthorizationRecordFacts = DocumentRestrictionFacts
 - `DocumentHoldPlaced`
 - `DocumentHoldReleased`
 
-الأحداث العامة لا تحمل رابط تنزيل أو محتوى أو اسماً سرياً. أحداث الحقيقة وOutbox تحفظ في Transaction واحدة، والمستهلكات Idempotent.
+Public events carry no download link, content, or confidential name. Fact and Outbox events are persisted in a single transaction, and consumers are idempotent.
 
-## 7. الحالات
+## 7. States
 
 ### 7.1 Document
 
 ```text
-Draft -> Active: توفر أول إصدار clean وربط أو نشر مخول
-Draft -> Archived: إلغاء قبل التفعيل
-Active -> Archived: أرشفة منطقية
-Active | Archived -> Held: حجز يمنع الإتلاف وفك الروابط المقيد
-Held -> Active | Archived: رفع الحجز إلى الحالة السابقة
+Draft -> Active: a first clean version is available and an authorized link or publish exists
+Draft -> Archived: cancellation before activation
+Active -> Archived: logical archival
+Active | Archived -> Held: hold blocks disposal and tears down restricted links
+Held -> Active | Archived: release returns to the prior state
 ```
 
 ### 7.2 DocumentVersion
 
 ```text
-Uploading -> Quarantined: اكتمال الرفع والتحقق من الحجم/hash
+Uploading -> Quarantined: upload completes and size/hash verification passes
 Quarantined -> Scanning
-Scanning -> Available: نتيجة clean والنوع مسموح
-Scanning -> Rejected: infected أو نوع محظور
-Scanning -> Quarantined: فشل فني قابل لإعادة المحاولة
-Available | Rejected: نهائيان؛ لا تعديل، وإعادة الرفع تنشئ إصداراً جديداً
+Scanning -> Available: clean result and allowed type
+Scanning -> Rejected: infected or disallowed type
+Scanning -> Quarantined: technical failure that is retryable
+Available | Rejected: terminal; no modification, and re-upload creates a new version
 ```
 
 ### 7.3 DocumentLink
@@ -228,93 +231,93 @@ Available | Rejected: نهائيان؛ لا تعديل، وإعادة الرفع
 Active -> Unlinked
 ```
 
-لا حذف نهائياً للرابط من واجهة المستخدم.
+No hard delete of a link from the UI.
 
-## 8. الـInvariants
+## 8. Invariants
 
-- الملف الثنائي يخزن مرة واحدة لكل إصدار ولا يستبدل بصمت.
-- `version_number` متزايد بلا تكرار داخل المستند، و`current_version_id` يشير إلى إصدار `available` فقط.
-- لا معاينة أو تنزيل قبل `scan_status=clean` و`availability_status=available`.
-- `sha256` المحسوب من التخزين يطابق المعلن قبل الفحص.
-- التصنيف لا يمكن تخفيضه دون قدرة مستقلة وسبب وتدقيق؛ تخفيضه لا يتجاوز روابط أشد.
-- القرار الفعال يصدر من Authorization باستخدام حقائق المستند وجميع الروابط النشطة؛ أي رابط غير قابل للحل ينتج Fail Closed.
-- إضافة رابط لا توسع الوصول أبداً، وإزالة رابط لا تمنح وصولاً دون إعادة قرار كامل.
-- المستخدم الذي يرى أحد السجلات المرتبطة ولا يرى سجلاً مرتبطاً آخر لا يستطيع تنزيل المستند المشترك.
-- المستند المحجوز لا يتلف ولا تزال روابطه التي يفرضها الحجز.
-- لا حذف نهائياً من الواجهة، وسياسة الاحتفاظ هي وحدها التي تسمح بعملية إتلاف مستقبلية محكومة.
-- لا يحمل الموديول معنى `evidence` التجاري؛ يتحقق فقط من وجود علاقة ونوعها وتوفر الإصدار.
+- The binary file is stored once per version and is never silently replaced.
+- `version_number` is strictly increasing within a document, and `current_version_id` points only to an `available` version.
+- No preview or download before `scan_status=clean` and `availability_status=available`.
+- The `sha256` computed from storage matches the declared value before scanning.
+- Classification cannot be lowered without an independent capability, reason, and audit; lowering does not bypass links that are more restrictive.
+- The effective decision is issued by Authorization using the document's facts and all active links; any link that cannot be resolved fails closed.
+- Adding a link never widens access, and removing a link never grants access without a full re-decision.
+- A user who sees one linked record but not another linked record cannot download the shared document.
+- A held document is not disposed, and the links that the hold enforces are not removed.
+- No hard delete from the UI; only the retention policy permits a future controlled disposal operation.
+- The module carries no commercial `evidence` meaning; it only verifies the existence, type, and availability of a relationship.
 
-## 9. الأمن
+## 9. Security
 
-- Object Storage داخلي، مشفر أثناء النقل وعند التخزين، وممنوع الوصول إليه مباشرة من المتصفح بلا `AccessGrant`.
-- مفاتيح الكائنات عشوائية ولا تحتوي أسماء أو وحدات أو تصنيفات.
-- قائمة امتدادات وأنواع MIME وأحجام مسموحة مركزياً؛ يعتمد القرار على النوع المكتشف لا الامتداد وحده.
-- كل ملف يمر بفحص داخلي في quarantine؛ العمال فقط يملكون نقل الكائن إلى مساحة available.
-- الروابط الموقعة قصيرة العمر وأحادية الاستخدام قدر الإمكان، ومقيدة بالفعل والمستخدم والإصدار.
-- العرض والتنزيل والتصدير للمحتوى السري يسجل قبل إرجاع النتيجة؛ فشل التدقيق الحرج يمنع العملية.
-- Authorization وحده يطبق `DecideAccess` و`ResolveFieldAccess` على RBAC + ABAC والنطاق والتصنيف والحالة والتفويض وصلاحية الحقول؛ Documents يخزن ويقدم facts فقط.
-- السوبر أدمن يدير الإعدادات والسياسات، لكن الوصول الإداري لا يلغي تصنيف المحتوى أو قاعدة أشد الروابط، وكل اطلاع حساس مسجل.
-- لا ترسل الملفات أو metadata إلى خدمة خارج مركز البيانات.
+- Object Storage is internal, encrypted in transit and at rest, and is never directly accessible from the browser without an `AccessGrant`.
+- Object keys are random and carry no names, units, or classifications.
+- The list of allowed extensions, MIME types, and sizes is centrally managed; the decision relies on the detected type, not the extension alone.
+- Every file passes internal scanning in quarantine; only workers may move the object into the available space.
+- Signed links are short-lived and single-use when possible, and are restricted to the action, user, and version.
+- View, download, and export of confidential content are logged before the response is returned; a critical audit failure blocks the operation.
+- Authorization alone applies `DecideAccess` and `ResolveFieldAccess` to RBAC + ABAC, scope, classification, state, delegation, and field permissions; Documents only stores and exposes facts.
+- The super admin manages settings and policies, but administrative access does not override content classification or the most-restrictive link rule, and every sensitive view is logged.
+- Files and metadata are never sent to a service outside the data center.
 
-## 10. الفشل والتعافي
+## 10. Failure and Recovery
 
-- رفع ناقص أو hash غير مطابق: يحذف الجزء المؤقت وفق السياسة ويظل الإصدار غير متاح.
-- ملف مصاب: ينتقل `Rejected`، يعزل الكائن، ويسجل حدث أمني دون كشف تفاصيل المحرك للمستخدم.
-- تعطل محرك الفحص: يبقى الإصدار `Quarantined` وتطبق retry؛ لا إتاحة متفائلة.
-- فقد الكائن أو عدم تطابق hash لاحقاً: `availability_status=missing`، يمنع التنزيل ويصدر تنبيه سلامة.
-- تعطل مصدر مرتبط أثناء جلب الحقائق: يصدر Authorization منعاً آمناً بسبب `facts_unavailable`.
-- تعارض إضافة إصدار: قفل تفاؤلي وترقيم ذري؛ لا إصدارين بالرقم نفسه.
-- فشل إنشاء رابط بعد رفع الملف: يبقى المستند دون الرابط، ولا يعتبره المصدر دليلاً حتى نجاح `DocumentLinked`.
-- فشل Outbox يرجع معاملة metadata أو الرابط؛ الفحص غير المتزامن قابل لإعادة المحاولة.
-- انتهاء AccessGrant أو استخدامه ثانية: `401/403` ويطلب قرار جديد.
-- تجاوز سعة التخزين: يرفض بدء الرفع قبل إنشاء إصدار غير مكتمل متروك.
+- Incomplete upload or hash mismatch: the temporary portion is deleted per policy and the version remains unavailable.
+- Infected file: transitions to `Rejected`, the object is isolated, and a security event is logged without exposing scanner details to the user.
+- Scanner outage: the version stays `Quarantined` and retry is applied; no optimistic availability.
+- Object loss or later hash mismatch: `availability_status=missing`, download is blocked, and an integrity alert is issued.
+- Linked source outage while fetching facts: Authorization issues a safe denial for `facts_unavailable`.
+- Version-add conflict: optimistic locking and atomic numbering; no two versions share the same number.
+- Link-creation failure after upload: the document remains without the link, and the source does not treat it as evidence until `DocumentLinked` succeeds.
+- Outbox failure rolls back the metadata or link transaction; asynchronous scanning is retryable.
+- AccessGrant expiration or reuse: `401/403` and a new decision is required.
+- Storage capacity exceeded: the upload is refused before an incomplete version is left behind.
 
-## 11. الاختبارات ومعايير القبول
+## 11. Tests and Acceptance Criteria
 
-### 11.1 اختبارات المجال
+### 11.1 Domain Tests
 
-- أول إصدار clean يفعّل المستند، والمصاب لا يفعله.
-- إضافة إصدار لا تعدل الإصدار السابق.
-- منع جعل إصدار quarantined هو current.
-- منع تخفيض التصنيف بلا سبب وقدرة.
-- منع أرشفة أو إتلاف مستند held.
+- A first clean version activates the document; an infected one does not.
+- Adding a version does not modify the previous version.
+- Prevent making a quarantined version the current one.
+- Prevent lowering classification without a reason and capability.
+- Prevent archiving or disposing of a held document.
 
-### 11.2 اختبارات أشد القيود
+### 11.2 Most-Restrictive Tests
 
-- مستند بحقائق قيد داخلية مرتبط بـWorkRecord مصنف سرياً يصبح سرياً فعلياً بقرار Authorization.
-- مستند مرتبط بسجلين، والمستخدم مصرح له بواحد فقط: لا metadata ولا تنزيل ولا نتيجة بحث.
-- إضافة رابط أشد تسحب وصولاً كان مسموحاً من مسار آخر.
-- إزالة الرابط الأشد لا تسمح قبل إعادة Authorization كاملة.
-- تعطل عقد مصدر واحد من عدة مصادر يمنع الوصول.
-- حقائق قيود المستند الأضيق تجعل Authorization يمنع رغم سماح السياقات الأخرى.
+- A document with internal restriction facts linked to a WorkRecord classified confidential becomes effectively confidential by Authorization decision.
+- A document linked to two records, where the user is authorized for only one: no metadata, no download, and no search result.
+- Adding a more restrictive link withdraws access that was previously allowed on another path.
+- Removing the more restrictive link does not allow access before a full Authorization re-run.
+- Outage of one source contract out of several blocks access.
+- Narrower document restriction facts cause Authorization to deny even when other contexts allow.
 
-### 11.3 اختبارات الأمن والتخزين
+### 11.3 Security and Storage Tests
 
-- MIME مزور وامتداد مزدوج وملف يتجاوز الحد وhash غير صحيح.
-- لا يستطيع API pod قراءة quarantine بمسار التنزيل العام.
-- AccessGrant لمستخدم أو إصدار مختلف يفشل، وإعادة استخدامه تفشل.
-- العرض والتنزيل السري يسجلان، وفشل Audit الحرج يمنع الرد.
-- اسم الملف ومفتاح الكائن لا يظهران في حدث Outbox العام.
+- Spoofed MIME, double extension, oversize file, and bad hash.
+- An API pod cannot read quarantine via the public download path.
+- An AccessGrant for a different user or version fails, and reuse fails.
+- Confidential view and download are logged, and a critical audit failure blocks the response.
+- File name and object key do not appear in a public Outbox event.
 
-### 11.4 اختبارات العقود والتشغيل
+### 11.4 Contract and Operational Tests
 
-- Contract test لكل مصدر يدعم `GetAuthorizationRecordFacts` ولا يعيد Allow أو Deny أو حقولاً مقررة.
-- Idempotency لإعادة `DocumentVersionUploaded` و`DocumentLinked`.
-- فشل عامل الفحص ثم نجاحه لا ينشئ إصداراً ثانياً.
-- استعادة قاعدة البيانات وObject Storage تحافظ على تطابق hashes وروابط الإصدارات.
-- البحث والتقرير والتصدير يعيدون فقط المستندات التي اجتازت قرار أشد القيود.
+- Contract test for every source that supports `GetAuthorizationRecordFacts`, verifying it does not return Allow/Deny or decided fields.
+- Idempotency for re-`DocumentVersionUploaded` and re-`DocumentLinked`.
+- A scanner failure followed by success does not create a second version.
+- Database and Object Storage restore preserve version hashes and link integrity.
+- Search, report, and export return only documents that pass the most-restrictive decision.
 
-## 12. الاعتماديات وحدود التكامل
+## 12. Dependencies and Integration Boundaries
 
-- يعتمد على Authorization وحده لقرار الوصول والحقول، وعلى Organization للنطاق وIdentity لهوية الفاعل وAudit للتسجيل الحساس.
-- يعتمد تقنياً على Object Storage وQueue ومحرك فحص ملفات داخلي وShared/Clock وIdentifiers.
-- تعتمد عليه موديولات الأعمال والمهمات عبر العقود فقط؛ لا تصل إلى `object_key` ولا جداول الإصدارات.
-- تستهلك Notifications حدث توفر الإصدار دون تضمين الملف.
-- يستهلك Search وReporting metadata المسموح فهرستها عبر أحداث مشتقة، ويعيدان فحص الوصول وقت القراءة.
-- لا يعتمد على موديول أعمال بعينه؛ كل مصدر، ومنها WorkRecords وStrategy وPortfolioProjects وRisk، ينفذ عقد الرابط العام.
+- Depends on Authorization alone for access and field decisions, on Organization for scope, on Identity for actor identity, and on Audit for sensitive logging.
+- Technically depends on Object Storage, Queue, an internal file-scanning engine, Shared/Clock, and Identifiers.
+- Business and task modules depend on it through contracts only; they do not reach `object_key` or version tables.
+- Notifications consumes the version-available event without embedding the file.
+- Search and Reporting consume indexable metadata through derived events and re-check access at read time.
+- It does not depend on any specific business module; every source, including WorkRecords, Strategy, PortfolioProjects, and Risk, implements the generic link contract.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول Documents | توحيد الواجهة الأمامية وتثبيت عقود الروابط |
+| 1.0.0 | 2026-07-15 | Documents Module Owner | Unified the front end and stabilized link contracts |

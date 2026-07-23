@@ -1,14 +1,14 @@
 ---
 doc_id: PLN-R1-W13-FE-001
-title: خطة إقفال W1.3 – التفويض المركزي وتجربة الوصول
+title: W1.3 Closure Plan — Central Authorization and Access Experience
 type: plans
 status: accepted
 version: 3.0.0
 date: 2026-07-19
-owner: التنفيذ التقني
+owner: Technical Implementation
 reviewers: []
 classification: internal
-review_cycle: عند كل تغيير في قرار الوصول
+review_cycle: on every change to the access decision
 sources:
 - docs/plans/release-1-platform.md
 - docs/plans/active-delivery-status.md
@@ -20,73 +20,85 @@ references:
 - docs/architecture/module-catalog.md
 - docs/contracts/api/openapi.yaml
 ---
-# خطة إقفال W1.3 – التفويض المركزي وتجربة الوصول
+# W1.3 Closure Plan — Central Authorization and Access Experience
 
-## الحكم الحالي
+## Current Verdict
 
-رحلات W1.3 وR1 خضراء وظيفياً، لكن W1.3 ليست مغلقة كقرار وصول مركزي كامل. التطبيق
-يربط عقد `DecideAccess` بمحرك `FixtureFacilityDecision`، بينما محرك
-`RbacAbacDecideAccess` الذي يقرأ الأدوار والإسنادات والتفويضات والمنع الصريح غير
-مربوط بمسار التشغيل. لذلك تثبت الاختبارات الحالية رحلة fixture وعزل المنشأة، ولا
-تثبت أن تغيير دور أو تفويض من إدارة Authorization يغير وصول المستخدم الفعلي.
+W1.3 and R1 journeys are green functionally, but W1.3 is not closed as a fully
+central access decision. The application binds the `DecideAccess` contract to
+the `FixtureFacilityDecision` engine, while the `RbacAbacDecideAccess` engine
+that reads roles, assignments, delegations, and explicit deny is not bound to
+the runtime path. Existing tests therefore prove a fixture journey and facility
+isolation, and do not prove that a role or delegation change in Authorization
+administration changes the real user's access.
 
-الفجوات التنفيذية التابعة لذلك هي:
+The resulting implementation gaps are:
 
-- محلل جلسة الإنتاج غير مستخدم في جميع متحكمات Authorization.
-- لا يوجد عقد إدارة لـ`role_capabilities` أو`explicit_denies`.
-- `role_assignments` لا يميز `scope_type`، ولا يطبق وراثة Cluster/Facility/Unit.
-- إنشاء التفويض لا يثبت أن المفوّض يملك القدرة والنطاق اللذين يفوضهما.
-- `effect=deny` في `role_capabilities` لا يدخل القرار.
-- `classification_policies` و`field_access_templates` مخزنة لكن لا تقود القرار أو
-  ترشيح الحقول فعلياً.
-- كتالوج القدرات الثابت لا يغطي كل أفعال R1 ولا مساحات R2 وR3 القادمة.
-- استجابات الموارد لا تقدم عقداً موحداً لـ`allowed_actions` و`field_access` يمكن
-  للواجهة استهلاكه دون إعادة بناء السياسة في React.
+- The production session parser is not used by all Authorization controllers.
+- There is no management contract for `role_capabilities` or `explicit_denies`.
+- `role_assignments` does not distinguish `scope_type`, and does not apply
+  Cluster/Facility/Unit inheritance.
+- Delegation creation does not prove that the delegator has the capability and
+  scope they are delegating.
+- `effect=deny` in `role_capabilities` does not enter the decision.
+- `classification_policies` and `field_access_templates` are stored but do not
+  drive the decision or field filtering.
+- The static capability catalog does not cover every R1 action or the upcoming
+  R2 and R3 surfaces.
+- Resource responses do not present a unified contract for `allowed_actions`
+  and `field_access` that the frontend can consume without rebuilding the policy
+  in React.
 
-بناءً على ذلك، تبقى R1 مكتملة كرحلة منتج محلية، ويعاد فتح W1.3 كفجوة تكامل أمني
-قبل بدء دمج R2. لا يعاد بناء واجهات R1 ولا تعاد كتابة الموديولات؛ المطلوب استبدال
-قرار الـfixture بعقد تشغيل حقيقي وتمرير نتيجته عبر المستهلكين الحاليين.
+Accordingly, R1 stays complete as a local product journey, and W1.3 is reopened
+as a security integration gap before merging R2. R1 frontends are not rebuilt
+and modules are not rewritten; the requirement is to replace the fixture
+decision with a real runtime contract and pass its result through the existing
+consumers.
 
-## النتيجة المطلوبة
+## Required Outcome
 
-يصبح المسار الوحيد للوصول:
+The single access path becomes:
 
 ```text
-جلسة Identity الفعلية
-  -> حالة الحساب وهوية المنفذ والأصيل
-  -> حقائق النطاق والتكليف والعلاقة من Organization
-  -> الدور والقدرات والإسناد والتفويض والمنع من Authorization
-  -> RecordFacts موثوقة يبنيها الموديول المالك
-  -> قرار المورد والتصنيف
+Actual Identity session
+  -> Account state, actor identity, and originator identity
+  -> Scope, assignment, and relationship facts from Organization
+  -> Role, capabilities, assignment, delegation, and deny from Authorization
+  -> Trusted RecordFacts built by the owning module
+  -> Resource and classification decision
   -> FieldAccess + allowed_actions
-  -> استجابة API مصفاة ثم واجهة متكيفة
+  -> Filtered API response then adaptive frontend
 ```
 
-Laravel يعيد القرار عند كل قراءة أو كتابة حساسة. تستخدم React النتيجة لتحسين
-التجربة فقط؛ إخفاء زر أو مسار في المتصفح ليس حماية ولا مصدراً للقرار.
+Laravel reapplies the decision on every sensitive read or write. React uses the
+result to improve the experience only; hiding a button or a route in the browser
+is not protection and is not a source of the decision.
 
-## العقود التي تثبت قبل التنفيذ
+## Contracts Established Before Implementation
 
 ### PrincipalContext
 
-يبنيه Identity من جلسة غير مقيدة، ويحتوي فقط على `user_id` وحالة الحساب وهوية
-الأصيل عند التفويض ومعرفات النطاق التنظيمي السارية. لا يقبل المتحكم حقائق مستخدم
-أو أدواراً يرسلها المتصفح.
+Built by Identity from an unrestricted session. Contains only `user_id`, account
+state, originator identity under delegation, and active organizational scope
+identifiers. The controller does not accept user facts or roles sent by the
+browser.
 
 ### AuthorizationScope
 
-يمثل `cluster` أو`facility` أو`unit` أو`record_set` مع `scope_id` وقاعدة وراثة
-صريحة. `null` ليس اختصاراً غامضاً لصلاحية شاملة؛ أي نطاق شامل يمثل بنوع معلوم.
+Represents `cluster`, `facility`, `unit`, or `record_set` with `scope_id` and an
+explicit inheritance rule. `null` is not an ambiguous shortcut for blanket
+authority; any blanket scope is represented by a known type.
 
 ### RecordFacts
 
-يبنيه مالك السجل من قاعدة بياناته ويشمل معرف المورد ومالكه ومنشأته ووحدته وحالته
-وتصنيفه ونسخة الحقائق و`field_policy_key` عند الحاجة. لا يرسل payload السجل إلى
-Authorization ولا يسمح للمتصفح بتقرير هذه الحقائق.
+Built by the record owner from its database. Includes the resource identifier,
+its owner, originating facility, unit, state, classification, facts version, and
+`field_policy_key` when needed. The record payload is not sent to Authorization
+and the browser is not allowed to decide these facts.
 
 ### AccessProjection
 
-تعيد واجهات المنتج، بجانب البيانات المصفاة:
+Product endpoints return, alongside the filtered data:
 
 ```json
 {
@@ -100,108 +112,129 @@ Authorization ولا يسمح للمتصفح بتقرير هذه الحقائق.
 }
 ```
 
-لا تعرض الاستجابة اسماً أو عدداً أو عنواناً لمورد ممنوع. القوائم والبحث والتقارير
-تطبق ScopePredicate قبل pagination، ثم تعيد القرار عند الحاجة للسجل والحقول.
+The response exposes no name, count, or title of a forbidden resource. Lists,
+search, and reports apply ScopePredicate before pagination, then reapply the
+decision for the record and fields when needed.
 
-## أثر التغيير على الموديولات
+## Module Impact
 
-| الموديول | ما يتغير | ما لا يتغير | دليل الإقفال |
+| Module | What Changes | What Does Not Change | Closure Evidence |
 |---|---|---|---|
-| `Identity` | توحيد محلل الجلسة الفعلية، التحقق من الحساب النشط والجلسة غير المقيدة، وإبطال الجلسات المتأثرة عند تغيير أمني يستدعي ذلك | كلمات المرور والجلسات تبقى ملك Identity | حساب مقفل أو جلسة ملغاة لا تصل لأي مورد محمي |
-| `Organization` | تقديم حقائق التكليفات والنطاقات والعلاقات السارية عبر contracts، وحسم وراثة Cluster/Facility/Unit | لا تنتقل شجرة التنظيم أو جداولها إلى Authorization | انتقال المستخدم أو انتهاء تكليفه يغير القرار دون تعديل الدور |
-| `Authorization` | ربط المحرك الحقيقي، إكمال إدارة RoleCapability وExplicitDeny والنطاقات والتفويضات والسياسات، وإصدار AccessProjection قابل للتفسير | لا يقرأ جداول موديولات الأعمال | تغيير الدور أو المنع أو التفويض يغير القرار فوراً في API حقيقي |
-| `Audit` | استهلاك أحداث تغييرات الوصول وتسجيل القرارات الحساسة append-only | لا يصبح Audit محرك قرار | يمكن تتبع من منح أو منع أو فوض والوصول الحساس دون تعديل السجل |
-| `PlatformSettings` | توفير نسخ إعدادات التصنيف والقدرات القابلة للتفويض عند الحاجة | لا يخزن أدوار المستخدمين | كل قرار يشير إلى `policy_version` منشورة |
-| `WorkDefinitions` | التحقق عند النشر من وجود `field_policy_key` منشورة | schema والإصدارات تبقى ملك الموديول | لا ينشر نوع عمل بسياسة حقول مجهولة |
-| `Workflow` | استخدام capabilities لحل المنفذ وأفعال review/approve/return، وإعادة القرار عند كل انتقال | تعريف المسار وحالته لا ينتقلان إلى Authorization | المستخدم يرى وينفذ انتقالاته المسموحة فقط |
-| `WorkRecords` | توسيع RecordFacts، ترشيح القوائم قبل pagination، وإرجاع allowed_actions وfield_access | payload ودورة حياة السجل تبقيان ملك الموديول | منع عنوان السجل وحقوله وأفعاله خارج النطاق |
-| `Tasks` | فحص الإسناد والقراءة والتحديث والإكمال بحسب المسؤول والمشارك والنطاق | المسؤولية والمنشن ودورة المهمة تبقى ملك Tasks | لا تظهر المهمة أو موردها لمستخدم غير مخول |
-| `Documents` | إعادة القرار للمستند والمورد المرتبط عند الربط والتنزيل، وتطبيق التصنيف والتدقيق الحساس | التخزين والفحص والإصدارات تبقى ملك Documents | رابط تنزيل قصير العمر لا يصدر إلا بعد القرارين |
-| `Search` | بناء الفهرس بلا حقول حساسة خام، وتطبيق ScopePredicate وعدم كشف عنوان نتيجة ممنوعة | الفهرس مشتق وقابل لإعادة البناء | نفس المستخدم يحصل على نفس حدود WorkRecords |
-| `Reporting` | تطبيق القرار نفسه على التقرير والتصدير والتنزيل واللوحة | الحسابات وRead Models تبقى ملك Reporting | لا يوسع التصدير نطاق القراءة ولا يكشف صفوفاً إضافية |
-| `Notifications` | تصفية الإشعار والرابط عند العرض إذا فقد المستلم الوصول للمورد | التسليم ومنع التكرار يبقيان كما هما | لا يكشف عنوان إشعار مورداً لم يعد مسموحاً |
-| `Workspace` | اشتقاق الصناديق والعدادات من موارد مسموحة فقط | لا يصبح مصدراً للصلاحيات | العداد والقائمة متوافقان ولا يكشفان وجود عناصر ممنوعة |
-| `RecordsGovernance` و`Collaboration` | إضافة RecordFacts وقدرات القراءة/الحجز/التعليق عند فتح شرائحهما | لا عمل مسبق خارج المسار المستخدم | اختبارات كل شريحة عند تفعيلها |
-| `Strategy` | تعريف قدرات وRecordFacts للخطة والهدف والمؤشر قبل تنفيذ R2 | لا يعتمد Authorization على جداول Strategy | رحلة R2 تمر بالمحرك الحقيقي من أول دمج |
-| `PortfolioProjects` | تعريف قدرات المشروع والمحفظة والميزانية والأثر ونطاقاتها قبل تنفيذ R2 | الربط مع Strategy يبقى IDs وعقوداً | عزل المشروع والأثر والتصدير ضمن النطاق نفسه |
-| `Risk` | تعريف قدرات الخطر والضابط والمعالجة والقبول وKRI قبل تنفيذ R3 | تقييم الخطر يبقى ملك Risk | High/Critical وaccept والمعالجة تستخدم القرار المركزي |
+| `Identity` | Unify the actual session parser, verify an active account and unrestricted session, and invalidate affected sessions on security changes that require it | Passwords and sessions stay owned by Identity | A locked account or revoked session cannot reach any protected resource |
+| `Organization` | Provide active assignment, scope, and relationship facts via contracts, and resolve Cluster/Facility/Unit inheritance | The organization tree and its tables do not move to Authorization | A user move or assignment expiration changes the decision without role changes |
+| `Authorization` | Bind the real engine, complete management of RoleCapability, ExplicitDeny, scopes, delegations, and policies, and emit an explainable AccessProjection | Does not read tables of business modules | Role, deny, or delegation changes immediately reflect in the real API |
+| `Audit` | Consume access change events and log sensitive decisions append-only | Does not become a decision engine | Granting, denying, or delegating and sensitive access are traceable without record mutation |
+| `PlatformSettings` | Supply published classification and delegable-capability setting versions when needed | Does not store user roles | Every decision references a published `policy_version` |
+| `WorkDefinitions` | Verify at publish time that the work type has a published `field_policy_key` | Schema and versions stay owned by the module | A work type with an unknown field policy cannot be published |
+| `Workflow` | Use capabilities to resolve the actor and review/approve/return actions, and reapply the decision at each transition | Path definition and its state do not move to Authorization | The user sees and executes only their allowed transitions |
+| `WorkRecords` | Extend RecordFacts, filter lists before pagination, and return allowed_actions and field_access | Record payload and lifecycle stay owned by the module | Title, fields, and actions outside the scope are denied |
+| `Tasks` | Inspect assignment, read, update, and completion by owner, participant, and scope | Responsibility, mentions, and task lifecycle stay owned by Tasks | No task or its resource appears to an unauthorized user |
+| `Documents` | Reapply the decision for the document and the linked resource on link and download, and apply classification and sensitive auditing | Storage, scanning, and versions stay owned by Documents | A short-lived download link is issued only after both decisions |
+| `Search` | Build the index without raw sensitive fields, apply ScopePredicate, and do not expose the title of a forbidden result | The index is derived and rebuildable | The same user gets the same limits as WorkRecords |
+| `Reporting` | Apply the same decision to report, export, download, and board | Calculations and read models stay owned by Reporting | Export does not widen the read scope or expose extra rows |
+| `Notifications` | Filter the notification and its link at display if the recipient lost access to the resource | Delivery and dedup stay as they are | Does not expose a notification title for a resource that is no longer allowed |
+| `Workspace` | Derive inboxes and counters only from allowed resources | Does not become a source of permissions | Counter and list agree and do not reveal forbidden items |
+| `RecordsGovernance` and `Collaboration` | Add RecordFacts and reservation/comment capabilities when their slices open | No prior work outside the used path | Tests for each slice when enabled |
+| `Strategy` | Define capabilities and RecordFacts for plan, objective, and indicator before R2 implementation | Authorization does not depend on Strategy tables | The R2 journey passes through the real engine from the first merge |
+| `PortfolioProjects` | Define project, portfolio, budget, and impact capabilities and their scopes before R2 implementation | Linkage with Strategy stays IDs and contracts | Project, impact, and export isolation within the same scope |
+| `Risk` | Define risk, control, treatment, acceptance, and KRI capabilities before R3 implementation | Risk evaluation stays owned by Risk | High/Critical, accept, and treatment use the central decision |
 
-## ما يجب أن يظهر للمستخدم النهائي
+## What Must Appear to the End User
 
-### كل مستخدم
+### Every User
 
-- نطاق العمل الحالي وأدواره الفعالة وتاريخ انتهائها.
-- التفويضات المستلمة والصادرة دون أكواد تقنية.
-- الأفعال المسموحة على المورد الحالي فقط.
-- الحقول مخفية أو masked أو readonly أو editable حسب قرار الخادم.
-- سبب مفهوم للمنع مع `decision_id` يمكن استخدامه للدعم دون كشف المورد.
+- Current work scope, its active roles, and their expiration dates.
+- Received and issued delegations without technical codes.
+- Allowed actions on the current resource only.
+- Fields hidden, masked, readonly, or editable per the server decision.
+- A human-readable reason for the denial with a `decision_id` usable for support
+  without exposing the resource.
 
-### المدير ضمن نطاقه
+### Manager Within Scope
 
-- أعضاء النطاق وأدوارهم الفعالة والمؤقتة.
-- إنشاء تفويض من القدرات التي يملكها فقط، وبنطاق ومدة لا يتجاوزانهما.
-- تنبيه قبل الحفظ عند التكرار أو التعارض أو قرب انتهاء التكليف المصدر.
+- Scope members and their active and temporary roles.
+- Delegation creation from owned capabilities only, with scope and duration not
+  exceeding them.
+- Pre-save warnings on duplication, conflict, or near expiration of the source
+  assignment.
 
-### مسؤول إدارة الوصول
+### Access Administrator
 
-- كتالوج أدوار يبين الصلاحيات والمستخدمين والنطاقات والحالة.
-- محرر مصفوفة Role × Capability مع الحساسية وAllow/Deny.
-- معالج إسناد: مستخدم ثم دور ثم نوع النطاق ثم النطاق ثم المدة ثم مراجعة الأثر.
-- إدارة التفويضات والمنع الصريح والعلاقات الإشرافية وسياسات التصنيف والحقول.
-- محاكي قرار مبني على حقائق خادم موثوقة، لا على حقائق يكتبها المتصفح.
+- A role catalog showing permissions, users, scopes, and state.
+- A Role × Capability matrix editor with sensitivity and Allow/Deny.
+- An assignment wizard: user, then role, then scope type, then scope, then
+  duration, then impact review.
+- Management of delegations, explicit deny, supervisory relationships, and
+  classification and field policies.
+- A decision simulator built on trusted server facts, not on browser-supplied
+  facts.
 
-### المدقق الأمني
+### Security Auditor
 
-- سجل تغييرات الأدوار والإسنادات والتفويضات والمنع.
-- القرارات الحساسة وأسبابها ونسخ السياسات ومعرفات correlation.
-- بحث محكوم في السجل دون كشف payload أو PII غير لازمة.
+- A log of role, assignment, delegation, and deny changes.
+- Sensitive decisions with reasons, policy versions, and correlation IDs.
+- Constrained log search without exposing payload or unnecessary PII.
 
-## موجات التنفيذ وحدود الملكية
+## Implementation Waves and Ownership Boundaries
 
-لا يبدأ التنفيذ البرمجي قبل اعتماد هذه الحدود في الخطة. عند البدء تكون الموجات:
+Code implementation does not start before these boundaries are adopted in the
+plan. When starting, the waves are:
 
-1. **العقود والبيانات:** `PrincipalContext` و`AuthorizationScope` و`RecordFacts`
-   و`AccessProjection`، ثم migration آمنة لـ`scope_type` وقيود التفويض.
-2. **القطع التشغيلي:** ربط SessionPrincipalResolver والمحرك الحقيقي، وإبقاء fixture
-   في `local/testing` فقط عبر binding صريح لا يمكن أن يعمل في production.
-3. **إدارة السياسة:** RoleCapability وExplicitDeny وDelegation validation وسياسات
-   التصنيف والحقول مع idempotency وoptimistic locking وOutbox.
-4. **مستهلكو R1:** Organization وIdentity ثم WorkRecords/Tasks/Workflow ثم
-   Documents/Search/Reporting/Notifications/Workspace، كل مجموعة باختبار عزل مستهدف.
-5. **إسقاط الواجهة:** endpoint للسياق الشخصي وallowed_actions وfield_access، ثم واجهات
-   الموظف والمدير والإدارة والتدقيق دون قرار محلي في React.
-6. **إقفال R1 الأمني:** رحلة مستخدمين ومنشأتين تثبت منح دور، تطبيقه، انتهاءه، منعاً
-   صريحاً، تفويضاً، field masking، بحثاً وتقريراً وتنزيلاً متطابقين.
+1. **Contracts and Data:** `PrincipalContext`, `AuthorizationScope`,
+   `RecordFacts`, and `AccessProjection`, then a safe migration for
+   `scope_type` and delegation constraints.
+2. **Operational Cutover:** Bind the SessionPrincipalResolver and the real
+   engine, and keep the fixture only in `local/testing` through an explicit
+   binding that cannot run in production.
+3. **Policy Management:** RoleCapability, ExplicitDeny, Delegation validation,
+   and classification and field policies with idempotency, optimistic locking,
+   and Outbox.
+4. **R1 Consumers:** Organization and Identity, then WorkRecords/Tasks/Workflow,
+   then Documents/Search/Reporting/Notifications/Workspace, each group with a
+   targeted isolation test.
+5. **Frontend Drop:** Endpoints for personal context, allowed_actions, and
+   field_access, then the employee, manager, administration, and audit screens
+   without a local decision in React.
+6. **R1 Security Closure:** A two-user two-facility journey that proves role
+   granting, its application, its expiration, explicit deny, delegation, field
+   masking, and search, report, and download matching.
 
-R2 لا يدمج قبل الموجة السادسة. يمكن تحضير عقود قدراته وRecordFacts بالتوازي، لكن
-لا يضاف bypass أو محرك fixture جديد لتسريع الشريحة.
+R2 is not merged before wave six. Its capability contracts and RecordFacts can
+be prepared in parallel, but no bypass or new fixture engine is added to speed
+up the slice.
 
-## بوابات القبول
+## Acceptance Gates
 
-- يفشل boot في production إذا كان `FixtureFacilityDecision` أو محلل bearer التطويري
-  مربوطاً بمسار مستخدم.
-- كل Capability مستعملة في route أو command موجودة في كتالوج canonical ومزروعة
-  بصورة idempotent.
-- لا يستطيع المفوض منح قدرة أو نطاق أو مدة أعلى مما يملكه.
-- المنع الصريح وRoleCapability deny والتصنيف يتقدمان على allow.
-- انتهاء التكليف أو الدور أو التفويض يغير القرار بالساعة المرجعية نفسها.
-- القوائم والبحث والتقارير والتصدير والتنزيل تعيد حدود المورد نفسها.
-- حقل hidden لا يصل إلى JSON، وmasked لا يصل خاماً، وreadonly يرفض في الكتابة.
-- اختبارات API المستهدفة و`make verify-boundaries` وبناء Web ورحلة E2E الأمنية
-  خضراء على revision واحد، ثم تعاد بوابات R1 الحالية لمنع الانحدار.
+- Boot fails in production if `FixtureFacilityDecision` or the development
+  bearer parser is bound to a user path.
+- Every capability used in a route or command is in the canonical catalog and
+  seeded idempotently.
+- A delegator cannot grant a capability, scope, or duration higher than they
+  own.
+- Explicit deny, RoleCapability deny, and classification override allow.
+- Assignment, role, or delegation expiration changes the decision at the same
+  reference hour.
+- Lists, search, reports, exports, and downloads return the same resource
+  limits.
+- A hidden field never reaches JSON, a masked field never appears raw, and a
+  readonly field is rejected on write.
+- The targeted API tests, `make verify-boundaries`, the Web build, and the
+  security E2E journey are green on a single revision, then the current R1
+  gates are rerun to prevent regression.
 
-## خارج النطاق
+## Out of Scope
 
-- إعادة تصميم شكل الواجهة قبل تثبيت عقود AccessProjection.
-- نقل بيانات Organization أو Identity إلى جداول Authorization.
-- إنشاء خدمة صلاحيات مستقلة خارج modular monolith.
-- سياسات R2/R3 التفصيلية قبل تنفيذ موديولاتها؛ المطلوب الآن namespace وعقودها فقط.
-- أي اعتماد على role name أو إخفاء React كحماية.
+- Redesigning the frontend before fixing the AccessProjection contracts.
+- Moving Organization or Identity data into Authorization tables.
+- Creating a standalone permissions service outside the modular monolith.
+- Detailed R2/R3 policies before their modules are implemented; only
+  namespaces and contracts are required now.
+- Any reliance on role names or React hiding as protection.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | التغيير |
+| Version | Date | Change |
 |---|---|---|
-| 3.0.0 | 2026-07-19 | إعادة فتح W1.3 كفجوة تكامل أمني، وتوثيق أثر القطع الحقيقي على الموديولات ومخرجات المستخدم وبوابات ما قبل R2 |
-| 2.0.0 | 2026-07-19 | تحويل العقد المقترح إلى بطاقة تنفيذ W1.3 لليوم الأول وتثبيت اكتمال W1.2 وبداية العمل في `work-1-3*` |
-| 1.0.0 | 2026-07-18 | عقد شرائح الواجهة الأولي |
+| 3.0.0 | 2026-07-19 | Reopen W1.3 as a security integration gap, and document the real engine cutover's impact on modules, user outputs, and pre-R2 gates |
+| 2.0.0 | 2026-07-19 | Convert the proposed contract into a W1.3 execution card for Day 1, pin W1.2 completion, and begin work in `work-1-3*` |
+| 1.0.0 | 2026-07-18 | Initial frontend slice contract |

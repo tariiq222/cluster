@@ -1,14 +1,14 @@
 ---
 doc_id: PLN-RC-001
-title: قائمة الجاهزية الآلية للتشغيل النهائي
+title: Automated Readiness Checklist for Final Operations
 type: plans
 status: accepted
 version: 4.0.0
 date: 2026-07-19
-owner: التنفيذ التقني
+owner: Technical Implementation
 reviewers: []
 classification: internal
-review_cycle: عند الحاجة
+review_cycle: on demand
 sources:
 - docs/product/releases-and-roadmap.md
 - docs/architecture/overview.md
@@ -17,51 +17,52 @@ sources:
 - docs/plans/active-delivery-status.md
 references: []
 ---
-# قائمة الجاهزية الآلية للتشغيل النهائي
+# Automated Readiness Checklist for Final Operations
 
-هذه القائمة هي بوابة تقنية آلية واحدة بعد إكمال برنامج الأيام الخمسة. لا يوجد
-قبول يدوي أو UAT أو تدريب أو توقيعات. يسجل التنفيذ التقني مخرجات الأوامر في
-`docs/plans/active-delivery-status.md`؛ الفشل يعيد العمل إلى التنفيذ حتى ينجح.
+This checklist is a single automated technical gate after the five-day program
+completes. No manual acceptance, UAT, training, or signatures. Technical
+implementation records command outputs in `docs/plans/active-delivery-status.md`;
+failure returns work to execution until it passes.
 
-## الفحوص الآلية
+## Automated Checks
 
-| # | الأمر | الضابط |
+| # | Command | Guard |
 |---|---|---|
-| C-01 | `make verify-boundaries` | لا joins أو استعلامات مباشرة بين جداول الموديولات |
-| C-02 | `make verify-w1-1` | رحلة W1.1، العزل، Outbox، relay وDLQ خضراء |
-| C-03 | `make verify-w1-2` | شرائح W1.2 واختبارات الواجهة خضراء |
-| C-04 | `make test-api` | كل اختبارات API، ومنها R1 وR2 وR3، خضراء |
-| C-05 | `make test-web` | العميل المولد والواجهة واختباراتها وتغطيتها خضراء |
-| C-06 | `make verify-w1-1-local` | صور الإنتاج وحزمة Compose ورحلة التشغيل المحلية خضراء |
-| C-07 | `npm --prefix apps/web run build` | بناء الواجهة من lockfile دون موارد خارجية |
-| C-08 | `./scripts/validate-docs.sh` | عقود الوثائق والروابط صحيحة |
+| C-01 | `make verify-boundaries` | No joins or direct queries between module tables |
+| C-02 | `make verify-w1-1` | W1.1 journey, isolation, Outbox, relay, and DLQ green |
+| C-03 | `make verify-w1-2` | W1.2 slices and frontend tests green |
+| C-04 | `make test-api` | All API tests, including R1, R2, and R3, green |
+| C-05 | `make test-web` | Generated client, frontend, its tests, and coverage green |
+| C-06 | `make verify-w1-1-local` | Production images, Compose bundle, and local operations journey green |
+| C-07 | `npm --prefix apps/web run build` | Frontend build from lockfile without external resources |
+| C-08 | `./scripts/validate-docs.sh` | Doc contracts and links correct |
 
-## النشر والاستعادة الآليان
+## Automated Deployment and Restore
 
-| # | الأمر/الفحص | الضابط |
+| # | Command/Check | Guard |
 |---|---|---|
-| O-01 | فحص CI على commit الإطلاق | جميع الوظائف خضراء والصورة مثبتة بالـdigest |
-| O-02 | `make deploy-vps` ثم smoke test آلي | النشر المباشر يعمل على الخادم المستهدف |
-| O-03 | سكربت rollback قابل للتشغيل ثم smoke test | الرجوع قابل للتكرار ولا يفقد البيانات؛ إن لم يوجد السكربت فبناؤه عمل تقني مفتوح |
-| O-04 | سكربت backup مع checksum | نسخة MySQL خارج الخادم قابلة للقراءة؛ إن لم يوجد السكربت فبناؤه عمل تقني مفتوح |
-| O-05 | سكربت restore إلى هدف معزول ثم الرحلة الحرجة | RPO/RTO ضمن القيم المعلنة؛ لا يعلن التشغيل قبل وجود الأمر ونجاحه |
-| O-06 | إعادة تشغيل Compose وفحص healthchecks | worker/queue تستعيد ولا تضيع معاملات |
+| O-01 | CI check on the release commit | All jobs green and image pinned by digest |
+| O-02 | `make deploy-vps` then an automated smoke test | Direct deployment works on the target server |
+| O-03 | Runnable rollback script then a smoke test | Rollback is repeatable and does not lose data; if the script is missing, building it is open technical work |
+| O-04 | Backup script with checksum | An off-server MySQL backup is readable; if the script is missing, building it is open technical work |
+| O-05 | Restore script to an isolated target then the critical journey | RPO/RTO within declared values; operations are not declared before the command exists and succeeds |
+| O-06 | Restart Compose and check healthchecks | Worker/queue recover and do not lose transactions |
 
-## الأمن والعزل الآليان
+## Automated Security and Isolation
 
-| # | الفحص | الضابط |
+| # | Check | Guard |
 |---|---|---|
-| S-01 | اختبارات RBAC + ABAC على API والبحث والتقارير والتصدير والتنزيل | قرار صلاحية موحّد في الخلفية |
-| S-02 | اختبار عزل منشأتين وقراءة السجلات السرية | صفر تسرب وتسجيل كل وصول |
-| S-03 | فحص الأسرار والاعتماديات والملفات المرفوعة | لا أسرار في Git، وفحص الملفات قبل الإتاحة |
-| S-04 | فحص تشفير أعمدة PII وقفل الحساب وإنهاء الجلسات | ضوابط الهوية والبيانات الحساسة مفعّلة |
-| S-05 | فحص منع الاتصال الخارجي ومنافذ Compose | سطح التشغيل محصور بالخادم الداخلي |
+| S-01 | RBAC + ABAC tests on API, search, reports, export, and download | A single authorization decision in the backend |
+| S-02 | Two-facility isolation test and sensitive record reads | Zero leaks and every access logged |
+| S-03 | Secrets, dependencies, and uploaded file scan | No secrets in Git, and files scanned before availability |
+| S-04 | PII column encryption, account lock, and session termination checks | Identity and sensitive data controls active |
+| S-05 | External connection and Compose port block check | Operations surface limited to the internal server |
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | التغيير |
+| Version | Date | Change |
 |---|---|---|
-| 4.0.0 | 2026-07-19 | تحويل القائمة إلى أوامر وفحوص آلية فقط، وإزالة UAT والتدريب والقبول والتوقيعات البشرية |
-| 3.0.0 | 2026-07-17 | تحويل القائمة إلى بوابة واحدة بعد اكتمال R1–R3 |
-| 2.0.0 | 2026-07-17 | تبسيط القائمة لخادم واحد ومطور واحد |
-| 1.0.0 | 2026-07-15 | إنشاء القائمة الأصلية |
+| 4.0.0 | 2026-07-19 | Convert the checklist to automated commands and checks only, and remove UAT, training, acceptance, and human signatures |
+| 3.0.0 | 2026-07-17 | Convert the checklist to a single gate after R1–R3 completion |
+| 2.0.0 | 2026-07-17 | Simplify the checklist to a single server and a single developer |
+| 1.0.0 | 2026-07-15 | Create the original checklist |

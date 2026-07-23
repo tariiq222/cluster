@@ -1,18 +1,18 @@
 ---
 doc_id: GOV-TR-001
-title: مصفوفة تتبع المتطلبات
+title: Requirements Traceability Matrix
 type: governance
 status: accepted
 version: 1.1.0
 date: 2026-07-15
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول المنتج
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
-- مسؤول العمليات
+- Product Owner
+- Software Engineering Owner
+- Information Security Owner
+- Operations Owner
 classification: internal
-review_cycle: ربع سنوي
+review_cycle: Quarterly
 sources: []
 references:
 - docs/architecture/overview.md
@@ -22,7 +22,7 @@ references:
 - docs/adr/005-work-records-dynamic-data.md
 - docs/adr/018-air-gapped-supply-chain.md
 - docs/adr/019-kubernetes-resilience-and-recovery.md
-- docs/adr/023-single-host-dokploy-deployment.md
+- docs/adr/023-single-host-docker-compose-deployment.md
 - docs/governance/document-control.md
 - docs/governance/glossary.md
 - docs/governance/assumptions-constraints.md
@@ -32,208 +32,208 @@ references:
 - docs/product/success-metrics.md
 - docs/data-security/logical-data-model.md
 ---
-# مصفوفة تتبع المتطلبات
+# Requirements Traceability Matrix
 
-## 1. الغرض
+## 1. Purpose
 
-تربط هذه الوثيقة كل متطلب تشغيلي أو غير وظيفي أو أمني أو تشغيلي تشغيلي بمصدر القرار الأصلي، وبالقدرة أو الموديول الذي يحققه، وبالإصدار الذي يدخل فيه، ومعيار القياس، ودور التحقق. تمنع فقدان المتطلبات بين فرق العمل، وتمكن من قياس التغطية، وتكشف المتطلبات المعزولة التي لا رابط لها بقيمة.
+This document links every operational, non-functional, security, or operational requirement to the source of the original decision, to the capability or module that fulfills it, to the version in which it is introduced, to the measurement standard, and to the verification role. It prevents the loss of requirements across work teams, enables measuring coverage, and reveals orphaned requirements that have no link to value.
 
-لا تتوسع الوثيقة في تفاصيل تنفيذ المتطلبات. كل متطلب هنا يحمل مرجعاً إلى الوثيقة التي تشرح تنفيذه ومعيار قبوله التفصيلي.
+The document does not elaborate on the implementation details of requirements. Each requirement here carries a reference to the document that explains its implementation and its detailed acceptance criterion.
 
-## 2. معرف المتطلب
+## 2. Requirement Identifier
 
-تُمنح المتطلبات معرفات وفق الصيغة:
+Requirements are assigned identifiers according to the format:
 
 ```text
-{الفئة}-{الإصدار}-{التسلسل}
+{Category}-{Version}-{Sequence}
 ```
 
-| الفئة | المعنى |
+| Category | Meaning |
 |---|---|
-| `FR` | متطلب وظيفي Functional Requirement |
-| `NFR` | متطلب غير وظيفي Non-Functional Requirement |
-| `SEC` | متطلب أمني Security Requirement |
-| `OPS` | متطلب تشغيلي Operational Requirement |
+| `FR` | Functional Requirement |
+| `NFR` | Non-Functional Requirement |
+| `SEC` | Security Requirement |
+| `OPS` | Operational Requirement |
 
-| الإصدار | الرمز |
+| Version | Code |
 |---|---|
-| الإصدار الأول | `R1` |
-| الإصدار الثاني | `R2` |
-| الإصدار الثالث | `R3` |
+| First Version | `R1` |
+| Second Version | `R2` |
+| Third Version | `R3` |
 
-مثال: `FR-R1-001` أول متطلب وظيفي للإصدار الأول.
+Example: `FR-R1-001` is the first functional requirement of the first version.
 
-## 3. معايير القبول المشتركة
+## 3. Common Acceptance Criteria
 
-كل متطلب يحمل معيار قبول قابلاً للقياس. تُستخدم المقاييس التالية عند الاقتضاء:
+Every requirement carries a measurable acceptance criterion. The following metrics are used where applicable:
 
-| المقياس | التعريف | الأداة |
+| Metric | Definition | Tool |
 |---|---|---|
-| زمن الاستجابة P95 | الزمن الذي لا يتجاوزه 95% من الطلبات تحت حمل طبيعي | قياس الأداء |
-| زمن الاستجابة P99 | الزمن الذي لا يتجاوزه 99% من الطلبات في الظروف القصوى | قياس الأداء |
-| زمن الفشل MTTR | متوسط زمن الاستعادة من حادث | سجل الحوادث |
-| توفر الخدمة | نسبة الزمن الذي تكون فيه الخدمة متاحة | المراقبة |
-| RPO | أقصى فترة مقبولة لفقد البيانات | اختبار الاستعادة |
-| RTO | أقصى مدة مقبولة لإعادة الخدمة | اختبار الاستعادة |
-| تغطية الاختبار | نسبة الاختبارات التي تغطي السطر أو السلوك | أداة التغطية |
-| زمن الفحص | الزمن الذي يستغرقه فحص أمني آلي | أداة الفحص |
-| زمن النشر | الزمن من الموافقة إلى الإنتاج | سجل الإصدارات |
-| مؤشر قابلية الاستخدام | نسبة المستخدمين الذين ينجحون في المهمة دون مساعدة | اختبار ميداني |
+| P95 Response Time | The time not exceeded by 95% of requests under normal load | Performance Measurement |
+| P99 Response Time | The time not exceeded by 99% of requests under extreme conditions | Performance Measurement |
+| MTTR | Average time to recover from an incident | Incident Log |
+| Service Availability | Percentage of time the service is available | Monitoring |
+| RPO | Maximum acceptable period of data loss | Recovery Test |
+| RTO | Maximum acceptable time to restore service | Recovery Test |
+| Test Coverage | Percentage of tests covering a line or behavior | Coverage Tool |
+| Scan Time | Time required for an automated security scan | Scanning Tool |
+| Deployment Time | Time from approval to production | Release Log |
+| Usability Index | Percentage of users who complete the task without assistance | Field Test |
 
-## 4. المتطلبات الوظيفية FR
+## 4. Functional Requirements FR
 
-### 4.1 إصدار 1 - المنصة العامة الكاملة
+### 4.1 Release 1 - Full General Platform
 
-| المعرف | المتطلب | الإصدار | الموديول أو القدرة | المصدر | معيار القياس | التحقق |
+| ID | Requirement | Release | Module or Capability | Source | Measurement Criterion | Verification |
 |---|---|---|---|---|---|---|
-| FR-R1-001 | إنشاء وتعديل الهيكل التنظيمي للتجمع والمنشآت والوحدات بأنواع محكومة | R1 | Organization | وثيقة الرؤية §6 | إنشاء شجرة متعددة الأعماق | اختبار حالة استخدام |
-| FR-R1-002 | إدارة الحسابات المحلية ودورة الحياة وكلمة المرور | R1 | Identity | وثيقة الرؤية §6.6 | 100% من الحسابات لها سياسة سريان | اختبار أمني |
-| FR-R1-003 | إدارة الأدوار والقدرات والتفويضات | R1 | Authorization | وثيقة الرؤية §10.4 | تطبيق القرار في API والبحث | اختبار معماري |
-| FR-R1-004 | إنشاء علاقات إشرافية بنوع وقدرات ومدى زمني | R1 | Organization | وثيقة الرؤية §7 | انتهاء العلاقة يسحب القدرات آلياً | اختبار سلوكي |
-| FR-R1-005 | إنشاء أنواع أعمال وحقول وعلاقات من الواجهة | R1 | WorkDefinitions | وثيقة الرؤية §12 | نشر إصدار بدون كود | اختبار ميداني |
-| FR-R1-006 | تنفيذ مسارات بموافقات وإعادة وتصعيد وتفرع | R1 | Workflow | وثيقة الرؤية §13 | تنفيذ المسارات المعقدة | اختبار وظيفي |
-| FR-R1-007 | إدارة دورة حياة الطلب الداخلي | R1 | `WorkRecords`، لنوع العمل المنشور `request` | وثيقة الرؤية §17.3 | رحلة كاملة من المسودة للإغلاق | اختبار رحلة |
-| FR-R1-008 | إدارة المهام بمسؤول واحد ومشاركين وتعليقات ومنشن | R1 | Tasks | وثيقة الرؤية §14 | نجاح دورة الاعتماد | اختبار رحلة |
-| FR-R1-009 | رفع المستندات وتصنيفها وإصدارها وربطها بالسجلات | R1 | Documents | وثيقة الرؤية §15 | حفظ الإصدار مع checksum | اختبار وظيفي |
-| FR-R1-010 | إرسال إشعارات داخلية وتجميعها وقراءة حالتها | R1 | Notifications | وثيقة الرؤية §16.3 | 0 إشعار مفقود بعد Commit | اختبار تحمل |
-| FR-R1-011 | بحث موحد محكوم بصلاحية النطاق والحقل | R1 | Search | وثيقة الرؤية §16.1 | 0 عنوان مكشوف لسجل محظور | اختبار أمني |
-| FR-R1-012 | لوحات وتقارير قابلة للضبط دون كود | R1 | Reporting | وثيقة الرؤية §16.2 | عرض لوحة حسب الدور | اختبار ميداني |
-| FR-R1-013 | توفير واجهة موحّدة بالعربية والإنجليزية مع RTL/LTR | R1 | Unified Shell | وثيقة الرؤية §8 | عمل الواجهة بلغتين | اختبار قابلية استخدام |
-| FR-R1-014 | تطبيق قرار الوصول في الواجهة الخلفية وليس في الواجهة | R1 | Authorization | ADR-004 | 0 اعتماد على إخفاء الواجهة | اختبار معماري |
-| FR-R1-015 | تسجيل أحداث التدقيق للأعمال الحساسة | R1 | Audit | وثيقة الرؤية §11.2 | تسجيل كل تغيير حالة | اختبار سلوكي |
-| FR-R1-016 | تنفيذ تصدير التقارير ضمن صلاحيات الحقول | R1 | Reporting | وثيقة الرؤية §10.7 | التصدير يحترم الإخفاء | اختبار أمني |
-| FR-R1-017 | إدارة حالة الحساب وتعطيله وإنهاء جلساته | R1 | Identity | وثيقة الرؤية §6.6 | التعطيل يلغي الجلسات والتفويضات | اختبار سلوكي |
-| FR-R1-018 | تنفيذ استعادة كلمة المرور بمسار محكوم | R1 | Identity | وثيقة الرؤية §6.6 | 0 ظهور كلمة المرور للمسؤول | اختبار أمني |
-| FR-R1-019 | إدارة الإعدادات العامة للنواة واللغة والمنطقة الزمنية | R1 | PlatformSettings | وثيقة الرؤية §9 | تغيير الإعداد لا يتطلب كود | اختبار ميداني |
-| FR-R1-020 | استيراد الهيكل من CSV/XLSX بمسار موافقة مزدوجة | R1 | Organization | وثيقة الرؤية §30 | 0 تطبيق على أخطاء حرجة | اختبار رحلة |
+| FR-R1-001 | Create and modify the organizational structure of the cluster, facilities, and units with governed types | R1 | Organization | Vision Document §6 | Create a multi-depth tree | Use-case test |
+| FR-R1-002 | Manage local accounts, their lifecycle, and passwords | R1 | Identity | Vision Document §6.6 | 100% of accounts have an expiration policy | Security test |
+| FR-R1-003 | Manage roles, capabilities, and authorizations | R1 | Authorization | Vision Document §10.4 | Enforce the decision in the API and search | Architecture test |
+| FR-R1-004 | Create supervisory relationships with a type, capabilities, and time range | R1 | Organization | Vision Document §7 | Expiration automatically withdraws capabilities | Behavioral test |
+| FR-R1-005 | Create work types, fields, and relations from the interface | R1 | WorkDefinitions | Vision Document §12 | Publish a version without code | Field test |
+| FR-R1-006 | Execute workflows with approvals, returns, escalations, and branching | R1 | Workflow | Vision Document §13 | Execute complex workflows | Functional test |
+| FR-R1-007 | Manage the lifecycle of an internal request | R1 | `WorkRecords`, for the published work type `request` | Vision Document §17.3 | Full journey from draft to closure | Journey test |
+| FR-R1-008 | Manage tasks with one owner, participants, comments, and mentions | R1 | Tasks | Vision Document §14 | Successful approval lifecycle | Journey test |
+| FR-R1-009 | Upload, classify, version, and link documents to records | R1 | Documents | Vision Document §15 | Save the version with a checksum | Functional test |
+| FR-R1-010 | Send, aggregate, and mark internal notifications as read | R1 | Notifications | Vision Document §16.3 | 0 notifications lost after commit | Resilience test |
+| FR-R1-011 | Provide unified search governed by scope and field permissions | R1 | Search | Vision Document §16.1 | 0 titles exposed for a restricted record | Security test |
+| FR-R1-012 | Provide configurable dashboards and reports without code | R1 | Reporting | Vision Document §16.2 | Display a dashboard according to role | Field test |
+| FR-R1-013 | Provide a unified Arabic and English interface with RTL/LTR | R1 | Unified Shell | Vision Document §8 | Interface works in both languages | Usability test |
+| FR-R1-014 | Enforce the access decision in the backend, not in the interface | R1 | Authorization | ADR-004 | 0 reliance on interface hiding | Architecture test |
+| FR-R1-015 | Record audit events for sensitive operations | R1 | Audit | Vision Document §11.2 | Record every state change | Behavioral test |
+| FR-R1-016 | Execute report exports within field permissions | R1 | Reporting | Vision Document §10.7 | Export respects masking | Security test |
+| FR-R1-017 | Manage account status, disable accounts, and terminate their sessions | R1 | Identity | Vision Document §6.6 | Disabling revokes sessions and authorizations | Behavioral test |
+| FR-R1-018 | Implement password recovery through a governed flow | R1 | Identity | Vision Document §6.6 | 0 password disclosures to administrators | Security test |
+| FR-R1-019 | Manage general kernel, language, and time-zone settings | R1 | PlatformSettings | Vision Document §9 | Changing a setting requires no code | Field test |
+| FR-R1-020 | Import the structure from CSV/XLSX through a dual-approval flow | R1 | Organization | Vision Document §30 | 0 application of critical errors | Journey test |
 
-### 4.2 إصدار 2 - الاستراتيجية والمحافظ
+### 4.2 Release 2 - Strategy and Portfolios
 
-| المعرف | المتطلب | الإصدار | الموديول أو القدرة | المصدر | معيار القياس | التحقق |
+| ID | Requirement | Release | Module or Capability | Source | Measurement Criterion | Verification |
 |---|---|---|---|---|---|---|
-| FR-R2-001 | إنشاء خطة استراتيجية ومحاور وأهداف ومبادرات | R2 | Strategy | وثيقة الرؤية §18.1 | ربط هدف بمحور ومؤشر | اختبار وظيفي |
-| FR-R2-002 | تعريف مؤشرات بمعادلة تجميع وخط أساس ومالك ودورية | R2 | Strategy | وثيقة الرؤية §18.1 | حفظ إصدار تعريف المؤشر | اختبار سلوكي |
-| FR-R2-003 | توزيع المستهدفات على المنشآت مع تحقق المجموع | R2 | Strategy | وثيقة الرؤية §18.1 | منع اعتماد التوزيع إذا لم يحقق مجموع التجمع | اختبار سلوكي |
-| FR-R2-004 | إدخال واعتماد قراءة المؤشر بأدلة | R2 | Strategy | وثيقة الرؤية §18.1 | قفل الفترة بعد الاعتماد | اختبار رحلة |
-| FR-R2-005 | إنشاء محفظة وبرنامج ومشروع بقالب | R2 | PortfolioProjects | وثيقة الرؤية §18.2 | حفظ إصدار القالب على المشروع | اختبار سلوكي |
-| FR-R2-006 | تشغيل مشروع عادي ومشروع تحسين بقالبين مختلفين | R2 | PortfolioProjects | وثيقة الرؤية §18.2 | تنفيذ PDSA وDMAIC وFOCUS-PDCA | اختبار ميداني |
-| FR-R2-007 | حساب إنجاز المشروع من المعالم المعتمدة وأدلتها | R2 | PortfolioProjects | وثيقة الرؤية §18.2 | 0 اعتماد على عدد المهام | اختبار سلوكي |
-| FR-R2-008 | إدارة ميزانية إدارية مع اعتمد ومخطط ومصروف ومتوقع | R2 | PortfolioProjects | وثيقة الرؤية §18.2 | حساب الانحراف | اختبار سلوكي |
-| FR-R2-009 | حساب صحة المشروع والبرنامج والمحفظة بقواعد حارسة | R2 | PortfolioProjects | وثيقة الرؤية §18.2 | عدم إخفاء مشروع حرج بمتوسط | اختبار سلوكي |
-| FR-R2-010 | ربط مشروع بمؤشر وقياس أثر فعلي معتمد | R2 | PortfolioProjects | وثيقة الرؤية §18.3 | مجموع الأثر المنسوب ≤ التحسن | اختبار سلوكي |
-| FR-R2-011 | إدارة بوابات المشروع بمحرك العمليات | R2 | PortfolioProjects | وثيقة الرؤية §18.2 | استخدام محرك المسارات المشترك | اختبار معماري |
-| FR-R2-012 | تعريف تصنيف حرج للمشروع ورفعه آلياً وفق قواعد | R2 | PortfolioProjects | وثيقة الرؤية §18.2 | توثيق قرار التصنيف | اختبار سلوكي |
+| FR-R2-001 | Create a strategic plan, pillars, objectives, and initiatives | R2 | Strategy | Vision Document §18.1 | Link an objective to a pillar and indicator | Functional test |
+| FR-R2-002 | Define indicators with an aggregation formula, baseline, owner, and frequency | R2 | Strategy | Vision Document §18.1 | Save a version of the indicator definition | Behavioral test |
+| FR-R2-003 | Distribute targets across facilities with sum validation | R2 | Strategy | Vision Document §18.1 | Prevent approval when the distribution does not meet the cluster total | Behavioral test |
+| FR-R2-004 | Enter and approve an indicator reading with evidence | R2 | Strategy | Vision Document §18.1 | Lock the period after approval | Journey test |
+| FR-R2-005 | Create a portfolio, program, and project from a template | R2 | PortfolioProjects | Vision Document §18.2 | Save the template version on the project | Behavioral test |
+| FR-R2-006 | Run a standard project and an improvement project with two different templates | R2 | PortfolioProjects | Vision Document §18.2 | Execute PDSA, DMAIC, and FOCUS-PDCA | Field test |
+| FR-R2-007 | Calculate project completion from approved milestones and their evidence | R2 | PortfolioProjects | Vision Document §18.2 | 0 reliance on task count | Behavioral test |
+| FR-R2-008 | Manage an administrative budget with approved, planned, spent, and forecast amounts | R2 | PortfolioProjects | Vision Document §18.2 | Calculate variance | Behavioral test |
+| FR-R2-009 | Calculate project, program, and portfolio health using guardrail rules | R2 | PortfolioProjects | Vision Document §18.2 | Do not hide a critical project behind an average | Behavioral test |
+| FR-R2-010 | Link a project to an indicator and measure approved actual impact | R2 | PortfolioProjects | Vision Document §18.3 | Attributed total impact ≤ improvement | Behavioral test |
+| FR-R2-011 | Manage project gates through the workflow engine | R2 | PortfolioProjects | Vision Document §18.2 | Use the shared workflow engine | Architecture test |
+| FR-R2-012 | Define a critical project classification and raise it automatically according to rules | R2 | PortfolioProjects | Vision Document §18.2 | Document the classification decision | Behavioral test |
 
-### 4.3 إصدار 3 - المخاطر المؤسسية
+### 4.3 Release 3 - Enterprise Risk
 
-| المعرف | المتطلب | الإصدار | الموديول أو القدرة | المصدر | معيار القياس | التحقق |
+| ID | Requirement | Release | Module or Capability | Source | Measurement Criterion | Verification |
 |---|---|---|---|---|---|---|
-| FR-R3-001 | إنشاء سجل مخاطر لجهة أو وحدة | R3 | Risk | وثيقة الرؤية §19.2 | تسجيل مالك ومستوى | اختبار وظيفي |
-| FR-R3-002 | تقييم احتمالية وأثر ومستوى كامن ومتبقي | R3 | Risk | وثيقة الرؤية §19.2 | حساب المستوى وفق مصفوفة | اختبار سلوكي |
-| FR-R3-003 | إدارة ضوابط التحكم وفعاليتها | R3 | Risk | وثيقة الرؤية §19.2 | ربط ضابط بمستوى متبقي | اختبار سلوكي |
-| FR-R3-004 | إدارة خطط المعالجة عبر خدمة المهام | R3 | Risk | وثيقة الرؤية §19.3 | استخدام Tasks المشترك | اختبار معماري |
-| FR-R3-005 | تسجيل مالك الخطر ومواعيد المراجعة | R3 | Risk | وثيقة الرؤية §19.2 | تنبيه قبل موعد المراجعة | اختبار سلوكي |
-| FR-R3-006 | ربط مؤشر يعرّفه ويقيسه Strategy كـKRI وضبط عتباته وتنبيهاته | R3 | Risk للروابط والعتبات والتنبيهات؛ Strategy للتعريف والقياس | وثيقة الرؤية §19.2 | قياس Strategy معتمد يتجاوز عتبة Risk فيولد تنبيهاً | اختبار سلوكي وحدود ملكية |
-| FR-R3-007 | قبول أو تخفيف أو نقل أو تجنب الخطر | R3 | Risk | وثيقة الرؤية §19.2 | توثيق القرار بالسبب | اختبار سلوكي |
-| FR-R3-008 | تصعيد المخاطر الحرجة وفق مصفوفة | R3 | Risk | وثيقة الرؤية §19.2 | تصعيد آلي وفق القاعدة | اختبار سلوكي |
-| FR-R3-009 | ربط الخطر بهدف ومؤشر ومشروع | R3 | Risk | وثيقة الرؤية §19.3 | عرض الأثر المتقاطع | اختبار سلوكي |
-| FR-R3-010 | لوحات مخاطر على مستوى الإدارة والمنشأة والتجمع | R3 | Risk | وثيقة الرؤية §19.2 | تغيير اللوحة بالنطاق | اختبار ميداني |
+| FR-R3-001 | Create a risk register for an entity or unit | R3 | Risk | Vision Document §19.2 | Record an owner and level | Functional test |
+| FR-R3-002 | Assess probability, impact, inherent level, and residual level | R3 | Risk | Vision Document §19.2 | Calculate the level according to the matrix | Behavioral test |
+| FR-R3-003 | Manage controls and their effectiveness | R3 | Risk | Vision Document §19.2 | Link a control to a residual level | Behavioral test |
+| FR-R3-004 | Manage treatment plans through the task service | R3 | Risk | Vision Document §19.3 | Use shared Tasks | Architecture test |
+| FR-R3-005 | Record the risk owner and review dates | R3 | Risk | Vision Document §19.2 | Alert before the review date | Behavioral test |
+| FR-R3-006 | Link an indicator defined and measured by Strategy as a KRI, and configure its thresholds and alerts | R3 | Risk for links, thresholds, and alerts; Strategy for definition and measurement | Vision Document §19.2 | An approved Strategy measurement exceeding a Risk threshold generates an alert | Behavioral and ownership-boundary test |
+| FR-R3-007 | Accept, mitigate, transfer, or avoid the risk | R3 | Risk | Vision Document §19.2 | Document the decision and reason | Behavioral test |
+| FR-R3-008 | Escalate critical risks according to the matrix | R3 | Risk | Vision Document §19.2 | Automatic escalation according to the rule | Behavioral test |
+| FR-R3-009 | Link a risk to an objective, indicator, and project | R3 | Risk | Vision Document §19.3 | Display cross-cutting impact | Behavioral test |
+| FR-R3-010 | Provide risk dashboards at management, facility, and cluster levels | R3 | Risk | Vision Document §19.2 | Change the dashboard by scope | Field test |
 
-## 5. المتطلبات غير الوظيفية NFR
+## 5. Non-Functional Requirements NFR
 
-| المعرف | المتطلب | الإصدار | المصدر | معيار القياس | التحقق |
+| ID | Requirement | Release | Source | Measurement Criterion | Verification |
 |---|---|---|---|---|---|
-| NFR-R1-001 | زمن استجابة P95 أقل من 1.5 ثانية لقراءة عادية | R1 | وثيقة الرؤية §24 | P95 ≤ 1.5s | اختبار أداء |
-| NFR-R1-002 | زمن استجابة P99 أقل من 3 ثوانٍ في الظروف القصوى | R1 | وثيقة الرؤية §24 | P99 ≤ 3s | اختبار أداء |
-| NFR-R1-003 | دعم حتى 20,000 حساب | R1 | وثيقة الرؤية §24.1 | استيعاب 20k | اختبار سعة |
-| NFR-R1-004 | دعم حتى 2,000 مستخدم متزامن | R1 | ADR-019 | 2k تزامن | اختبار تحميل |
-| NFR-R1-005 | زمن نشر إصدار جديد أقل من 30 دقيقة | R1 | وثيقة التشغيل | ≤ 30 دقيقة | سجل النشر |
-| NFR-R1-006 | دعم RTL وLTR بنفس الجودة | R1 | وثيقة الرؤية §8.5 | عمل اللغتين | اختبار قابلية استخدام |
-| NFR-R1-007 | توفر الخدمة ≥ 99.5% خلال شهر | R1 | وثيقة الرؤية §24.2 | ≥ 99.5% | المراقبة |
-| NFR-R1-008 | زمن النسخ الاحتياطي اليومي ≤ 60 دقيقة | R1 | وثيقة التشغيل | ≤ 60 دقيقة | سجل التشغيل |
-| NFR-R2-001 | زمن استجابة لوحة المؤشرات P95 أقل من 2 ثانية | R2 | وثيقة الأداء | P95 ≤ 2s | اختبار أداء |
-| NFR-R2-002 | تحمل نمو عدد المشاريع بنسبة 50% دون إعادة بنية | R2 | وثيقة السعة | استيعاب 1.5x | اختبار سعة |
-| NFR-R3-001 | زمن تقييم المخاطر P95 أقل من 2 ثانية | R3 | وثيقة الأداء | P95 ≤ 2s | اختبار أداء |
-| NFR-R3-002 | دعم 5,000 خطر نشط دون تراجع في الأداء | R3 | وثيقة السعة | 5k سجل | اختبار سعة |
+| NFR-R1-001 | P95 response time below 1.5 seconds for a normal read | R1 | Vision Document §24 | P95 ≤ 1.5s | Performance test |
+| NFR-R1-002 | P99 response time below 3 seconds under extreme conditions | R1 | Vision Document §24 | P99 ≤ 3s | Performance test |
+| NFR-R1-003 | Support up to 20,000 accounts | R1 | Vision Document §24.1 | Accommodate 20k | Capacity test |
+| NFR-R1-004 | Support up to 2,000 concurrent users | R1 | ADR-019 | 2k concurrent | Load test |
+| NFR-R1-005 | New-release deployment time below 30 minutes | R1 | Operations Document | ≤ 30 minutes | Deployment log |
+| NFR-R1-006 | Support RTL and LTR with equal quality | R1 | Vision Document §8.5 | Both languages work | Usability test |
+| NFR-R1-007 | Service availability ≥ 99.5% per month | R1 | Vision Document §24.2 | ≥ 99.5% | Monitoring |
+| NFR-R1-008 | Daily backup time ≤ 60 minutes | R1 | Operations Document | ≤ 60 minutes | Operations log |
+| NFR-R2-001 | Indicator-dashboard response time P95 below 2 seconds | R2 | Performance Document | P95 ≤ 2s | Performance test |
+| NFR-R2-002 | Tolerate 50% growth in project count without re-architecture | R2 | Capacity Document | Accommodate 1.5x | Capacity test |
+| NFR-R3-001 | Risk-evaluation time P95 below 2 seconds | R3 | Performance Document | P95 ≤ 2s | Performance test |
+| NFR-R3-002 | Support 5,000 active risks without performance degradation | R3 | Capacity Document | 5k records | Capacity test |
 
-## 6. متطلبات الأمن SEC
+## 6. Security Requirements SEC
 
-| المعرف | المتطلب | الإصدار | المصدر | معيار القياس | التحقق |
+| ID | Requirement | Release | Source | Measurement Criterion | Verification |
 |---|---|---|---|---|---|
-| SEC-R1-001 | منع الوصول الوارد ونشر خدمات الحالة والإدارة افتراضياً | R1 | ADR-023 | المنافذ المعتمدة فقط متاحة | فحص مضيف حي |
-| SEC-R1-002 | تشفير الحقول الحساسة على مستوى العمود بـKMS داخلي | R1 | وثيقة الرؤية §13 | جميع PII مشفرة | فحص أمني |
-| SEC-R1-003 | تطبيق قرار الوصول في Laravel وليس الواجهة | R1 | ADR-004 | لا منح صلاحية في JS | اختبار معماري |
-| SEC-R1-004 | منع المنح الضمني للقدرات بعلاقة | R1 | وثيقة الرؤية §7.3 | كل قدرة معلنة | اختبار معماري |
-| SEC-R1-005 | تسجيل الوصول للمحتوى السري والحساس | R1 | وثيقة الرؤية §11.2 | تسجيل كامل | اختبار سلوكي |
-| SEC-R1-006 | فرض سياسة كلمة مرور أدنى قابلة للزيادة فقط | R1 | وثيقة الرؤية §6.6 | لا تخفيض عن الحد | اختبار سلوكي |
-| SEC-R1-007 | قفل الحساب بعد عدد محاولات فاشلة | R1 | وثيقة الرؤية §6.6 | قفل بعد N محاولة | اختبار أمني |
-| SEC-R1-008 | إنهاء الجلسات وتعطيل التفويضات عند تعطيل الحساب | R1 | وثيقة الرؤية §6.6 | إنهاء فوري | اختبار سلوكي |
-| SEC-R1-009 | عدم السماح بالاستعلامات المباشرة بين جداول موديولات الأعمال | R1 | ADR-003 | 0 Joins عابرة | اختبار معماري |
-| SEC-R1-010 | توقيع رقمي على حزم تعريفات الأعمال والمسارات | R1 | وثيقة الرؤية §12.5 | تحقق توقيع | اختبار أمني |
-| SEC-R1-011 | فحص الاعتماديات والأسرار وبناء صور runtime من lockfiles | R1 | ADR-023 | CI أخضر والصور بلا أدوات بناء أو أسرار | فحص CI |
-| SEC-R1-012 | فصل النسخ المشفرة عن خادم الإنتاج | R1 | ADR-023 | مخزن خارج نطاق عطل الخادم | فحص تشغيلي |
-| SEC-R1-013 | عزل سجل التدقيق بسلسلة Hash | R1 | وثيقة الرؤية §11.2 | ربط الأحداث | اختبار أمني |
-| SEC-R1-014 | تقييد قراءة الكلمات السرية على المستخدم نفسه | R1 | وثيقة الرؤية §6.6 | 0 وصول للمسؤول | اختبار أمني |
-| SEC-R2-001 | منع اعتماد توزيع مستهدف لا يحقق مجموع التجمع | R2 | وثيقة الرؤية §18.1 | تحقق رياضي | اختبار سلوكي |
-| SEC-R2-002 | تقييد اعتماد مساهمة مشروع بما لا يتجاوز التحسن المرصود | R2 | وثيقة الرؤية §18.3 | تحقق منطقي | اختبار سلوكي |
-| SEC-R3-001 | تطبيق سياسة شهية المخاطر على التصعيد | R3 | وثيقة الرؤية §19.2 | حد أقصى للتصعيد | اختبار سلوكي |
-| SEC-R3-002 | توثيق قرار قبول الخطر بالسبب والمالك | R3 | وثيقة الرؤية §19.2 | تسجيل كامل | اختبار سلوكي |
+| SEC-R1-001 | Deny inbound access and publishing of status and administration services by default | R1 | ADR-023 | Only approved ports are available | Live-host scan |
+| SEC-R1-002 | Encrypt sensitive fields at column level with an internal KMS | R1 | Vision Document §13 | All PII encrypted | Security scan |
+| SEC-R1-003 | Enforce the access decision in Laravel, not in the interface | R1 | ADR-004 | No permission grants in JS | Architecture test |
+| SEC-R1-004 | Prevent implicit capability grants through a relationship | R1 | Vision Document §7.3 | Every capability declared | Architecture test |
+| SEC-R1-005 | Log access to confidential and sensitive content | R1 | Vision Document §11.2 | Complete logging | Behavioral test |
+| SEC-R1-006 | Enforce a minimum password policy that may only be strengthened | R1 | Vision Document §6.6 | No reduction below the minimum | Behavioral test |
+| SEC-R1-007 | Lock the account after a number of failed attempts | R1 | Vision Document §6.6 | Lock after N attempts | Security test |
+| SEC-R1-008 | Terminate sessions and revoke authorizations when an account is disabled | R1 | Vision Document §6.6 | Immediate termination | Behavioral test |
+| SEC-R1-009 | Disallow direct queries between business-module tables | R1 | ADR-003 | 0 cross-module joins | Architecture test |
+| SEC-R1-010 | Digitally sign work-definition and workflow packages | R1 | Vision Document §12.5 | Signature verification | Security test |
+| SEC-R1-011 | Scan dependencies and secrets and build runtime images from lockfiles | R1 | ADR-023 | Green CI and images without build tools or secrets | CI scan |
+| SEC-R1-012 | Separate encrypted backups from the production server | R1 | ADR-023 | Storage outside the server-failure domain | Operations scan |
+| SEC-R1-013 | Isolate the audit log with a hash chain | R1 | Vision Document §11.2 | Event chaining | Security test |
+| SEC-R1-014 | Restrict secret reading to the user themselves | R1 | Vision Document §6.6 | 0 administrator access | Security test |
+| SEC-R2-001 | Prevent approval of a target distribution that does not meet the cluster total | R2 | Vision Document §18.1 | Mathematical validation | Behavioral test |
+| SEC-R2-002 | Restrict approval of a project contribution so that it does not exceed observed improvement | R2 | Vision Document §18.3 | Logical validation | Behavioral test |
+| SEC-R3-001 | Apply the risk appetite policy to escalation | R3 | Vision Document §19.2 | Escalation ceiling | Behavioral test |
+| SEC-R3-002 | Document the risk-acceptance decision with reason and owner | R3 | Vision Document §19.2 | Complete recording | Behavioral test |
 
-## 7. متطلبات التشغيل OPS
+## 7. Operational Requirements OPS
 
-| المعرف | المتطلب | الإصدار | المصدر | معيار القياس | التحقق |
+| ID | Requirement | Release | Source | Measurement Criterion | Verification |
 |---|---|---|---|---|---|
-| OPS-R1-001 | RPO لا يتجاوز 15 دقيقة | R1 | وثيقة الرؤية §24.3 | RPO ≤ 15m | اختبار استعادة |
-| OPS-R1-002 | RTO لا يتجاوز ساعتين | R1 | وثيقة الرؤية §24.3 | RTO ≤ 2h | اختبار استعادة |
-| OPS-R1-003 | توفر ≥ 99.5% شهرياً | R1 | وثيقة الرؤية §24.2 | ≥ 99.5% | المراقبة |
-| OPS-R1-004 | نسخ احتياطي مشفّر خارج خادم الإنتاج | R1 | ADR-023 | مخزن خارج نطاق عطل الخادم | فحص تشغيلي |
-| OPS-R1-005 | اختبار استعادة دوري موثق | R1 | وثيقة الرؤية §24.3 | اختبار شهري | سجل التشغيل |
-| OPS-R1-006 | نشر VPS مباشر مع فحص صحة ورجوع | R1 | ADR-023 | رجوع إلى commit سليم | سجل النشر |
-| OPS-R1-007 | فصل بيانات وأسرار وvolumes الإنتاج عن Dev/Test | R1 | ADR-023 | لا مشاركة بين البيئات | فحص تشغيلي |
-| OPS-R1-008 | تحديث مضبوط ثم deploy وrollback عبر Compose | R1 | ADR-023 | سجل deploy وrollback مكتمل | سجل العمليات |
-| OPS-R1-009 | مراقبة وتنبيه على توفر الخدمة والأخطاء | R1 | وثيقة الرؤية §23.5 | تنبيه خلال 5 دقائق | اختبار مراقبة |
-| OPS-R1-010 | سجلات مركزية للأحداث والوصول | R1 | وثيقة الرؤية §11.2 | تجميع السجلات | فحص تشغيلي |
-| OPS-R1-011 | بناء صور من lockfiles ونشرها عبر Compose | R1 | ADR-023 | تطابق commit المنشور ونجاح الصحة | فحص تشغيلي |
-| OPS-R1-012 | تثبيت Composer وnpm بالـlockfiles وسجل تحديث مراجع | R1 | ADR-023 | تطابق lockfiles والcommit والإصدار | فحص CI |
-| OPS-R2-001 | إعادة بناء لوحة المؤشرات خلال 5 دقائق بعد الفترة | R2 | وثيقة التشغيل | ≤ 5m | اختبار سلوكي |
-| OPS-R2-002 | استعادة مشروع بآخر لقطة خلال RTO المحدد | R2 | وثيقة التشغيل | استعادة كاملة | اختبار استعادة |
-| OPS-R3-001 | تنبيه آلي عند تجاوز مخاطر لعتبة شهية المخاطر | R3 | وثيقة التشغيل | تنبيه فوري | اختبار سلوكي |
-| OPS-R3-002 | أرشفة تقييمات المخاطر وفق سياسة الاحتفاظ | R3 | وثيقة الاحتفاظ | مدة محددة | فحص تشغيلي |
+| OPS-R1-001 | RPO no greater than 15 minutes | R1 | Vision Document §24.3 | RPO ≤ 15m | Recovery test |
+| OPS-R1-002 | RTO no greater than two hours | R1 | Vision Document §24.3 | RTO ≤ 2h | Recovery test |
+| OPS-R1-003 | Availability ≥ 99.5% monthly | R1 | Vision Document §24.2 | ≥ 99.5% | Monitoring |
+| OPS-R1-004 | Encrypted backup outside the production server | R1 | ADR-023 | Storage outside the server-failure domain | Operations scan |
+| OPS-R1-005 | Documented periodic recovery test | R1 | Vision Document §24.3 | Monthly test | Operations log |
+| OPS-R1-006 | Direct VPS deployment with health check and rollback | R1 | ADR-023 | Rollback to a healthy commit | Deployment log |
+| OPS-R1-007 | Separate production data, secrets, and volumes from Dev/Test | R1 | ADR-023 | No sharing between environments | Operations scan |
+| OPS-R1-008 | Controlled update followed by deploy and rollback through Compose | R1 | ADR-023 | Complete deploy and rollback record | Operations log |
+| OPS-R1-009 | Monitor and alert on service availability and errors | R1 | Vision Document §23.5 | Alert within five minutes | Monitoring test |
+| OPS-R1-010 | Centralized logs for events and access | R1 | Vision Document §11.2 | Log aggregation | Operations scan |
+| OPS-R1-011 | Build images from lockfiles and deploy them through Compose | R1 | ADR-023 | Published commit matches and health succeeds | Operations scan |
+| OPS-R1-012 | Pin Composer and npm with lockfiles and maintain a reference-update log | R1 | ADR-023 | Lockfiles, commit, and release match | CI scan |
+| OPS-R2-001 | Rebuild the indicator dashboard within five minutes after the period | R2 | Operations Document | ≤ 5m | Behavioral test |
+| OPS-R2-002 | Restore a project from its latest snapshot within the defined RTO | R2 | Operations Document | Full restoration | Recovery test |
+| OPS-R3-001 | Alert automatically when risks exceed the risk-appetite threshold | R3 | Operations Document | Immediate alert | Behavioral test |
+| OPS-R3-002 | Archive risk assessments according to the retention policy | R3 | Retention Document | Defined period | Operations scan |
 
-## 8. مصفوفة التغطية Release Coverage
+## 8. Release Coverage Matrix
 
-| القدرة | FR | NFR | SEC | OPS | الإصدار |
+| Capability | FR | NFR | SEC | OPS | Release |
 |---|---|---|---|---|---|
-| النواة المؤسسية | FR-R1-001 إلى FR-R1-004، FR-R1-017، FR-R1-019 | NFR-R1-001 إلى NFR-R1-005 | SEC-R1-001 إلى SEC-R1-009 | OPS-R1-001 إلى OPS-R1-012 | R1 |
-| منشئ أنواع الأعمال والمسارات | FR-R1-005، FR-R1-006 | NFR-R1-001 | SEC-R1-010 | OPS-R1-006 | R1 |
-| الطلبات والمهام والمستندات | FR-R1-007 إلى FR-R1-010 | NFR-R1-002 | SEC-R1-005 | OPS-R1-009 | R1 |
-| البحث والتقارير | FR-R1-011، FR-R1-012 | NFR-R1-001 | SEC-R1-009 | OPS-R1-010 | R1 |
-| الواجهة الموحّدة | FR-R1-013 | NFR-R1-006 | SEC-R1-003 | OPS-R1-009 | R1 |
-| الاستراتيجية والمؤشرات | FR-R2-001 إلى FR-R2-004 | NFR-R2-001 | SEC-R2-001 | OPS-R2-001 | R2 |
-| المحافظ والبرامج والمشاريع | FR-R2-005 إلى FR-R2-012 | NFR-R2-002 | SEC-R2-002 | OPS-R2-002 | R2 |
-| المخاطر المؤسسية | FR-R3-001 إلى FR-R3-010 | NFR-R3-001، NFR-R3-002 | SEC-R3-001، SEC-R3-002 | OPS-R3-001، OPS-R3-002 | R3 |
+| Enterprise core | FR-R1-001 to FR-R1-004, FR-R1-017, FR-R1-019 | NFR-R1-001 to NFR-R1-005 | SEC-R1-001 to SEC-R1-009 | OPS-R1-001 to OPS-R1-012 | R1 |
+| Work-type and workflow builder | FR-R1-005, FR-R1-006 | NFR-R1-001 | SEC-R1-010 | OPS-R1-006 | R1 |
+| Requests, tasks, and documents | FR-R1-007 to FR-R1-010 | NFR-R1-002 | SEC-R1-005 | OPS-R1-009 | R1 |
+| Search and reporting | FR-R1-011, FR-R1-012 | NFR-R1-001 | SEC-R1-009 | OPS-R1-010 | R1 |
+| Unified interface | FR-R1-013 | NFR-R1-006 | SEC-R1-003 | OPS-R1-009 | R1 |
+| Strategy and indicators | FR-R2-001 to FR-R2-004 | NFR-R2-001 | SEC-R2-001 | OPS-R2-001 | R2 |
+| Portfolios, programs, and projects | FR-R2-005 to FR-R2-012 | NFR-R2-002 | SEC-R2-002 | OPS-R2-002 | R2 |
+| Enterprise risk | FR-R3-001 to FR-R3-010 | NFR-R3-001, NFR-R3-002 | SEC-R3-001, SEC-R3-002 | OPS-R3-001, OPS-R3-002 | R3 |
 
-## 9. مصفوفة الأدوار والمسؤولية عن المتطلب
+## 9. Requirement Role and Responsibility Matrix
 
-| الفئة | مسؤول التصنيف | مسؤول القياس | مسؤول القبول |
+| Category | Classification Owner | Measurement Owner | Acceptance Owner |
 |---|---|---|---|
-| `FR` | مسؤول المنتج | مسؤول هندسة البرمجيات | راعي المنصة |
-| `NFR` | مسؤول هندسة البرمجيات | مسؤول العمليات | راعي المنصة |
-| `SEC` | مسؤول أمن المعلومات | مسؤول أمن المعلومات | راعي المنصة |
-| `OPS` | مسؤول العمليات | مسؤول العمليات | راعي المنصة |
+| `FR` | Product Owner | Software Engineering Owner | Platform Sponsor |
+| `NFR` | Software Engineering Owner | Operations Owner | Platform Sponsor |
+| `SEC` | Information Security Owner | Information Security Owner | Platform Sponsor |
+| `OPS` | Operations Owner | Operations Owner | Platform Sponsor |
 
-## 10. مؤشرات صحة المتطلبات
+## 10. Requirements Health Indicators
 
-| المؤشر | الهدف | القياس |
+| Indicator | Target | Measurement |
 |---|---|---|
-| نسبة المتطلبات المغطاة باختبارات | ≥ 90% لكل إصدار | تقرير CI |
-| نسبة المتطلبات التي لها معيار قياس موضوعي | 100% | مراجعة ربع سنوية |
-| نسبة المتطلبات المعزولة بدون قيمة قابلة للقياس | 0% | مراجعة نصف سنوية |
-| نسبة المتطلبات التي لها مالك واضح | 100% | مراجعة ربع سنوية |
+| Percentage of requirements covered by tests | ≥ 90% per release | CI report |
+| Percentage of requirements with an objective measurement criterion | 100% | Quarterly review |
+| Percentage of isolated requirements without a measurable value | 0% | Semi-annual review |
+| Percentage of requirements with a clear owner | 100% | Quarterly review |
 
-## 11. سجل التغيير
+## 11. Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مكتب هندسة المنصة | إنشاء أولي يربط المتطلبات الوظيفية وغير الوظيفية والأمنية والتشغيلية بالإصدارات والمصادر والمعايير |
-| 1.1.0 | 2026-07-15 | مكتب هندسة المنصة | إسناد FR-R1-007 إلى `WorkRecords` وتحديث المراجع المعمارية والتشغيلية |
+| 1.0.0 | 2026-07-15 | Platform Engineering Office | Initial creation linking functional, non-functional, security, and operational requirements to versions, sources, and standards |
+| 1.1.0 | 2026-07-15 | Platform Engineering Office | Assignment of FR-R1-007 to `WorkRecords` and updating architectural and operational references |

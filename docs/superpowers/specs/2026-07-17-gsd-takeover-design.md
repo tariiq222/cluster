@@ -1,158 +1,178 @@
 ---
 doc_id: PLN-TR-001
-title: تصميم استلام Codex للعمل وإزالة GSD
+title: Design of Codex Work Takeover and GSD Removal
 type: plans
 status: proposed
 version: 1.0.0
 date: 2026-07-17
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- قائد التقنية
+- Software Engineering Lead
+- Technology Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: With every change
 sources:
 - docs/plans/implementation-roadmap.md
 - docs/plans/release-1-platform.md
 references:
 - docs/governance/document-control.md
 ---
-# تصميم استلام Codex للعمل وإزالة GSD
+# Design of Codex Work Takeover and GSD Removal
 
-## 1. القرار المعتمد
+## 1. Adopted Decision
 
-يتولى Codex إدارة العمل الجاري مباشرة من مصادر المشروع المعتمدة، مع إزالة وقت تشغيل GSD
-وإعداداته وقيوده ومخرجاته الوسيطة. تبقى إعدادات OpenCode المستقلة و`model-swarm`،
-ويُنقل فقط المحتوى الفريد والقابل للتحقق من `.planning/` إلى وثائق مشروع محكومة قبل حذفها.
+Codex manages ongoing work directly from approved project sources, with removal of the
+GSD runtime, its settings, constraints, and intermediate outputs. The standalone
+OpenCode settings and `model-swarm` are retained, and only the unique, verifiable
+content from `.planning/` is transferred to governed project documents before deletion.
 
-اعتمد المستخدم هذا الاتجاه في 2026-07-17 وأمر بالتنفيذ دون جولة أسئلة إضافية.
+The user adopted this direction on 2026-07-17 and ordered execution without an
+additional questions round.
 
-## 2. الوضع الذي كشفه التدقيق
+## 2. State Revealed by the Audit
 
-- شجرة العمل على `main` غير نظيفة وتحتوي تغييرات تطبيق وتوثيق وخطط غير ملتزمة؛ جميعها
-  عمل مشروع يجب حفظه.
-- تثبيت GSD المحلي داخل `.opencode/` بحجم يقارب 131 ميجابايت، وبيان التثبيت يسجل
-  592 ملفاً للإصدار 1.7.0.
-- توجد 448 ملفاً متتبعاً تحت `.opencode/gsd-core/`، إضافة إلى 71 أمراً و71 مهارة
-  و35 وكيلاً ومجموعة hooks وسكربتات وMCP مرتبطة به.
-- `.planning/` بحجم يقارب 1.1 ميجابايت، وتعرض 25 مرحلة وخمس عشرة خطة من عشرين
-  بوصفها مكتملة في W1.1، لكن هذه الحالة لا تُقبل كدليل تنفيذ دون مطابقتها بالكود
-  والاختبارات والالتزامات الفعلية.
-- `AGENTS.md` الحالي مولّد من GSD ويخلط معلومات صحيحة مع وصف قديم للمستودع وقيود
-  تشغيل خاصة بالأداة.
-- لا توجد عملية GSD نشطة وقت التدقيق؛ عملية OpenCode الرسومية المستقلة ليست ضمن الحذف.
-- لا توجد إحالات نشطة إلى GSD خارج `.opencode/` و`.planning/` إلا في `AGENTS.md`.
+- The work tree on `main` is not clean and contains application, documentation, and
+  plan changes that are uncommitted; all of it is project work that must be preserved.
+- Local GSD install inside `.opencode/` is approximately 131 MB, and the install
+  manifest lists 592 files for version 1.7.0.
+- 448 tracked files exist under `.opencode/gsd-core/`, plus 71 commands, 71 skills,
+  35 agents, a hook set, scripts, and MCP servers tied to it.
+- `.planning/` is approximately 1.1 MB and shows 25 phases and fifteen of twenty
+  plans marked as complete in W1.1, but this state is not accepted as execution
+  evidence without matching it against actual code, tests, and commits.
+- The current `AGENTS.md` is generated from GSD and mixes correct information with
+  outdated repository descriptions and tool-specific runtime constraints.
+- No GSD process was active at audit time; the standalone OpenCode graphical
+  process is not part of the deletion.
+- There are no active GSD references outside `.opencode/` and `.planning/` except
+  in `AGENTS.md`.
 
-## 3. البدائل
+## 3. Alternatives
 
-### البديل المختار: نقل القيمة ثم الإزالة الانتقائية
+### Chosen Alternative: Transfer Value then Selective Removal
 
-يُستخرج المحتوى الفريد من `.planning/` إلى حالة تسليم مستقلة، ثم تحذف مكونات GSD
-وتُعاد كتابة نقاط الربط، مع إبقاء OpenCode و`model-swarm`. يحقق هذا الاستلام الكامل
-من دون التضحية بأدوات مستقلة أو بعمل المشروع الجاري.
+Extract unique content from `.planning/` to a standalone delivery state, then delete
+the GSD components and rewrite connection points, while keeping OpenCode and
+`model-swarm`. This achieves full takeover without sacrificing standalone tools or
+ongoing project work.
 
-### بديل مرفوض: حذف وقت التشغيل مع إبقاء `.planning/`
+### Rejected Alternative: Delete the Runtime but Keep `.planning/`
 
-يقلل خطر فقد المعلومات، لكنه يبقي نموذج الحالة والمراحل وأسماء الملفات الخاصة بـGSD
-مرجعاً حياً، ولذلك لا يحقق الاستقلال المطلوب.
+Reduces the risk of information loss, but keeps the GSD-specific state model, phases,
+and file names as a live reference, so it does not achieve the required independence.
 
-### بديل مرفوض: حذف `.opencode/` و`.planning/` بالكامل
+### Rejected Alternative: Delete `.opencode/` and `.planning/` Entirely
 
-يزيل الأداة بسرعة، لكنه يحذف `model-swarm` وإعدادات OpenCode المستقلة وقد يفقد قرارات
-وخططاً لم تُنقل بعد.
+Removes the tool quickly, but deletes `model-swarm`, the standalone OpenCode settings,
+and may lose decisions and plans that were not yet transferred.
 
-## 4. حدود الاستلام
+## 4. Takeover Boundaries
 
-### ما سيبقى
+### What Will Remain
 
-- جميع شيفرة المنتج والتوثيق والعقود والبنية التحتية والاختبارات والتغييرات غير الملتزمة.
-- `docs/plans/implementation-roadmap.md` بوصفها خارطة التنفيذ المعتمدة.
-- OpenCode وملفات `model-swarm` وحزمة `@opencode-ai/plugin` اللازمة لها.
-- الملفات المحلية المستقلة التي يثبت فحص الاعتماديات أنها لا تستدعي GSD؛ تزال منها
-  أي فقرة ربط متبقية بالأداة.
-- سجل Git القائم؛ لا يتضمن هذا العمل إعادة كتابة التاريخ.
+- All product code, documentation, contracts, infrastructure, tests, and uncommitted changes.
+- `docs/plans/implementation-roadmap.md` as the approved execution roadmap.
+- OpenCode, the `model-swarm` files, and the `@opencode-ai/plugin` package they need.
+- Standalone local files that dependency inspection proves do not invoke GSD; any
+  remaining GSD connection paragraphs are removed from them.
+- The existing Git history; this work does not include rewriting history.
 
-### ما سيُنقل
+### What Will Be Transferred
 
-- الوضع الفعلي الحالي لـW1.1 بعد التحقق من الكود والاختبارات والالتزامات.
-- القرارات الفريدة غير الموجودة في الوثائق المعتمدة.
-- الأعمال المفتوحة القابلة للتنفيذ ومعايير قبولها ومراجع أدلتها.
-- يُجمع ذلك في وثيقة حالة تسليم محكومة تحت `docs/plans/` بدلاً من نسخ شجرة
-  `.planning/` أو الاحتفاظ بتنسيقها.
+- The actual current state of W1.1 after verifying code, tests, and commits.
+- Unique decisions not present in approved documents.
+- Open executable work, its acceptance criteria, and evidence references.
+- All of this is gathered into one governed delivery document under `docs/plans/`
+  instead of copying the `.planning/` tree or preserving its format.
 
-### ما سيُحذف أو يعاد بناؤه
+### What Will Be Deleted or Rebuilt
 
-- `.opencode/gsd-core/` وكل commands وskills وagents وhooks والسكربتات والـplugin
-  والـMCP وبيانات التثبيت المملوكة لـGSD.
-- `.planning/` كاملة بعد نجاح النقل والتحقق.
-- أقسام GSD المولدة في `AGENTS.md`، ثم استبدالها بتعليمات مشروع موجزة ومحدثة تستند
-  إلى الوثائق والكود الحاليين ولا تفرض أي workflow خارجي.
-- مفاتيح GSD من `.opencode/opencode.json` وأي إحالات متبقية في ملفات مستقلة.
-- نواتج محلية أو اعتماديات لا يعود لها مستهلك بعد الإزالة، مع إبقاء ما يحتاجه
-  `model-swarm`.
+- `.opencode/gsd-core/` and every command, skill, agent, hook, script, plugin,
+  MCP, and install manifest owned by GSD.
+- `.planning/` in full after transfer and verification succeed.
+- GSD-generated sections in `AGENTS.md`, then replaced with concise, current
+  project instructions grounded in current documents and code that do not impose
+  any external workflow.
+- GSD keys from `.opencode/opencode.json` and any remaining references in
+  standalone files.
+- Local outputs or dependencies with no consumer after removal, while keeping
+  what `model-swarm` needs.
 
-## 5. بنية العمل بعد الاستلام
+## 5. Post-Takeover Truth Layers
 
-تكون طبقات الحقيقة بعد التنظيف كما يلي:
+The truth layers after cleanup are as follows:
 
-1. `docs/` للقرارات والخارطة والعقود والخطط المحكومة.
-2. الكود والاختبارات والالتزامات الفعلية لإثبات حالة التنفيذ.
-3. وثيقة حالة تسليم واحدة تحت `docs/plans/` للعمل النشط والأدلة والخطوة التالية.
-4. `AGENTS.md` لتعليمات التنفيذ المحلية فقط.
-5. `.opencode/` لأدوات OpenCode المستقلة، من دون MCP أو أوامر أو hooks تخص GSD.
+1. `docs/` for decisions, the roadmap, contracts, and governed plans.
+2. Actual code, tests, and commits proving execution state.
+3. One delivery-state document under `docs/plans/` for active work, evidence, and
+   the next step.
+4. `AGENTS.md` for local execution instructions only.
+5. `.opencode/` for standalone OpenCode tools, without MCP, commands, or hooks
+   specific to GSD.
 
-لا تُستمد نسبة الإنجاز من ملف حالة مولد. يتغير وضع أي بند فقط عند وجود دليل من
-الاختبارات أو الكود أو وثيقة معتمدة أو التزام Git محدد.
+Completion percentage is not derived from a generated state file. Any item's
+status changes only when there is evidence from tests, code, an approved
+document, or a specific Git commit.
 
-## 6. تدفق النقل
+## 6. Transfer Flow
 
-1. تسجيل لقطة قبلية لشجرة Git ومسارات GSD ومخرجات التخطيط، من دون تعديل ملفات العمل.
-2. تصنيف محتوى `.planning/` إلى: مكرر في `docs/`، مثبت في Git، فريد يستحق النقل،
-   أو ناتج وسيط يمكن إسقاطه.
-3. إنشاء حالة التسليم المستقلة وربط كل ادعاء إنجاز بدليل، وعدم ترحيل النسب والملخصات
-   غير المثبتة كما هي.
-4. إزالة ملفات GSD باستخدام بيان التثبيت مع قائمة سماح صريحة للملفات المستقلة.
-5. تنظيف ملفات الربط المشتركة، ثم حذف `.planning/` بعد إثبات اكتمال النقل.
-6. استبدال `AGENTS.md` والتحقق من أن OpenCode و`model-swarm` بقيا صالحين.
-7. مقارنة لقطة Git اللاحقة بالسابقة للتأكد من عدم فقد أي تغيير خارج النطاق.
+1. Record a baseline snapshot of the Git tree, GSD paths, and planning outputs,
+   without modifying working files.
+2. Classify `.planning/` content into: duplicated in `docs/`, locked in Git,
+   unique and worth transferring, or intermediate output that can be dropped.
+3. Create the standalone delivery state and tie every completion claim to
+   evidence; do not migrate unverified percentages and summaries as is.
+4. Remove GSD files using the install manifest with an explicit allow-list for
+   standalone files.
+5. Clean up shared connection files, then delete `.planning/` after transfer
+   completion is proven.
+6. Replace `AGENTS.md` and verify that OpenCode and `model-swarm` remain valid.
+7. Compare the post-cleanup Git snapshot with the baseline to confirm no
+   out-of-scope change was lost.
 
-## 7. السلامة والتراجع
+## 7. Safety and Rollback
 
-- لا يستخدم التنفيذ `git reset --hard` أو `git checkout --` أو إعادة كتابة التاريخ.
-- لا يلتزم أي تغيير سابق للمستخدم ضمن التزامات التنظيف؛ يُستخدم staging انتقائي.
-- تُحصر عمليات الحذف في مسارات مثبتة الملكية لـGSD أو مخرجات `.planning/` بعد النقل.
-- عند ظهور ملف مشترك أو ملكية ملتبسة، يُحفظ الملف وتزال منه إحالة GSD فقط حتى يثبت
-  عدم وجود مستهلك مستقل.
-- يستطيع Git استعادة الملفات المتتبعة المحذوفة، أما الملفات غير المتتبعة ذات القيمة
-  فتنقل قبل الحذف إلى الوثيقة المحكومة أو إلى مسار مشروع متتبع.
+- Execution does not use `git reset --hard`, `git checkout --`, or history rewriting.
+- No prior user change is committed inside cleanup commits; selective staging is used.
+- Deletions are confined to paths proven to be owned by GSD or to `.planning/`
+  outputs after transfer.
+- When a shared file or ambiguous ownership appears, the file is preserved and
+  only the GSD reference is removed until the absence of a standalone consumer
+  is proven.
+- Git can restore deleted tracked files; untracked files of value are moved before
+  deletion to a governed document or to a tracked project path.
 
-## 8. التحقق ومعيار الاكتمال
+## 8. Verification and Completion Criteria
 
-يُعد الاستلام مكتملاً عند تحقق جميع الشروط التالية:
+The takeover is complete when all the following conditions are met:
 
-- غياب وقت تشغيل GSD وأوامره ومهاراته ووكلائه وhooks وMCP وبيانات تثبيته.
-- غياب `.planning/` بعد وجود وثيقة حالة تسليم تغطي القيمة الفريدة المثبتة.
-- عدم وجود إحالات تشغيلية إلى GSD في ملفات المشروع؛ يسمح فقط بهذه الوثيقة كسجل قرار
-  تاريخي وبسجل Git القائم.
-- بقاء `model-swarm` وإعداد OpenCode المستقل قابلين للتحميل دون استدعاء ملف محذوف.
-- نجاح `./scripts/validate-docs.sh`، وتشغيل بناء MkDocs الصارم إذا كانت تبعياته متاحة.
-- نجاح فحوص JSON/Node المستهدفة لملفات OpenCode المتبقية.
-- تطابق جميع تغييرات المنتج غير الملتزمة قبل التنظيف وبعده، باستثناء مسارات الاستلام
-  والتنظيف المعلنة.
-- إظهار `git status` النهائي بوضوح: تغييرات المستخدم محفوظة، وحذف GSD وإضافات الاستلام
-  منفصلة وقابلة للمراجعة.
+- Absence of GSD runtime, commands, skills, agents, hooks, MCP, and install manifests.
+- Absence of `.planning/` after a delivery-state document exists that covers the
+  unique, proven value.
+- No operational references to GSD in project files; only this document as a
+  historical decision record and the existing Git log are allowed.
+- `model-swarm` and the standalone OpenCode configuration remain loadable without
+  invoking any deleted file.
+- `./scripts/validate-docs.sh` succeeds, and the strict MkDocs build runs if its
+  dependencies are available.
+- Targeted JSON/Node checks pass for the remaining OpenCode files.
+- All uncommitted product changes before cleanup match those after, except for
+  the declared takeover and cleanup paths.
+- The final `git status` shows clearly: user changes preserved, GSD deletions and
+  takeover additions separated and reviewable.
 
-## 9. خارج النطاق
+## 9. Out of Scope
 
-- تغيير سلوك Laravel أو React أو العقود التشغيلية.
-- إكمال خطط W1.1 المتبقية ضمن عملية التنظيف نفسها.
-- حذف OpenCode أو `model-swarm`.
-- حذف GSD من إعدادات المستخدم العامة خارج هذا المستودع؛ يتطلب ذلك تفويضاً مستقلاً
-  لأن النطاق الحالي هو `/Users/tariq/code/R3/cluster`.
-- إعادة كتابة سجل Git لإزالة أسماء GSD من الالتزامات القديمة.
+- Changing Laravel or React behavior or operational contracts.
+- Completing the remaining W1.1 plans within the same cleanup process.
+- Deleting OpenCode or `model-swarm`.
+- Removing GSD from the user's global settings outside this repository; this
+  requires separate authorization because the current scope is
+  `/Users/tariq/code/R3/cluster`.
+- Rewriting Git history to remove GSD names from old commits.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-17 | مكتب هندسة المنصة | تثبيت تصميم استلام العمل وإزالة GSD مع حماية العمل الجاري |
+| 1.0.0 | 2026-07-17 | Platform Engineering Office | Lock in work-takeover and GSD-removal design while protecting ongoing work |

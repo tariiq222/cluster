@@ -1,5 +1,5 @@
 sequenceDiagram
-    actor User as المستخدم
+    actor User as User
     participant UI as React Shell
     participant Module as WorkRecords or owning module
     participant Auth as Authorization
@@ -7,7 +7,7 @@ sequenceDiagram
     participant Org as Organization
     participant Audit as Audit
 
-    User->>UI: فتح سجل
+    User->>UI: Open record
     UI->>Module: Get record (id)
     Module->>Module: Build trusted RecordFacts
     Module->>Auth: DecideAccess(action, actor, RecordFacts)
@@ -23,4 +23,4 @@ sequenceDiagram
         Audit-->>Module: Audited
     end
     Module-->>UI: Authorized response only
-    UI-->>User: عرض الحقول المسموحة
+    UI-->>User: Show allowed fields

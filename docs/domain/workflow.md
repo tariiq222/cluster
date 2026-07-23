@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-WFL-001
-title: سير العمل والموافقات
+title: Workflow and approvals
 type: domain
 status: accepted
-version: 1.0.0
+version: 1.1.0
 date: 2026-07-15
-owner: مالك موديول Workflow
+owner: Workflow module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/006-workflow-versioning.md
 - docs/adr/007-transactional-outbox.md
@@ -20,265 +20,240 @@ references:
 ---
 # Workflow
 
-## 1. الغرض
+## 1. Purpose
 
-يمثل هذا المجال تعريف مسارات الأعمال وإصداراتها وتنفيذ instances وخطواتها وقراراتها. يملك Workflow الرسم والتنفيذ والمهلة والتصعيد وحل المعتمدين، لكنه لا يملك المعنى التجاري للسجل المصدر أو إغلاقه. كل إصدار تعريف يمر بالحالة `Draft -> Tested -> Approved -> Signed -> Published`، وكل instance يثبت الإصدار الذي بدأ عليه.
+This domain owns workflow definitions and their versions, instance execution, the steps within an instance, and the decisions taken on those steps. Workflow owns the graph, the execution, deadlines, escalation, and approver resolution; it does not own the business meaning of the source record or its closure. Each definition version passes through the lifecycle `Draft -> Tested -> Approved -> Signed -> Published`, and every instance pins the version it started on.
 
-عند تفعيل خطوة موافقة، يحل Workflow المعتمدين من Organization وAuthorization مرة واحدة، ثم يحفظ `Approver Snapshot` غير قابل للتغيير على instance. لا تؤدي تغييرات المنصب أو العلاقة بعد التفعيل إلى استبدال المعتمد بصمت؛ تحتاج إعادة تعيين أو تصعيداً صريحاً ومسجلاً.
+When an approval step activates, Workflow resolves approvers from Organization and Authorization in one shot and persists an immutable approver snapshot on the instance. Organizational or relationship changes after activation do not silently replace the approver; they need an explicit reassignment or escalation that is itself recorded.
 
-## 2. النطاق
+## 2. Scope
 
-- إنشاء workflow definition وإصداراته وعقده وانتقالاته.
-- دعم الخطوات التسلسلية والمراجعة والموافقة والرفض والإعادة وإنشاء مهمة والانتظار والتصعيد والتفرع والتوازي والدمج ضمن حدود المرحلة.
-- اختبار صحة الرسم وقواعد DSL قبل الاعتماد.
-- نشر نسخة immutable وتثبيتها على instance عند البدء.
-- تفعيل خطوة وحل مسؤولها وحفظ snapshot عند activation.
-- استقبال القرار والتحقق من هوية المعتمد وصلاحية التنفيذ وتغيير حالة الخطوة.
-- دعم delegate أو fallback أو escalation بسياسة صريحة دون تغيير snapshot الأصلي.
-- إصدار أحداث Outbox للخطوات والقرارات والتكاملات.
+- Create workflow definitions and their versions, nodes, and transitions.
+- Support sequential, review, approval, rejection, return, work-item, wait, escalation, branch, parallel, and merge steps inside the stage boundary.
+- Validate the graph and the DSL rules before approval.
+- Publish an immutable version and pin it on the instance at start time.
+- Activate a step, resolve its assignee, and persist the snapshot at activation.
+- Receive the decision, verify the approver identity and execution authority, and move the step.
+- Support delegate, fallback, and escalation under an explicit policy without mutating the original snapshot.
+- Emit outbox events for steps, decisions, and integrations.
 
-ما لا يدخل في هذا المجال:
+What this domain does not do:
 
-- payload السجل أو معنى `Completed` التجاري؛ يملكه WorkRecords أو الموديول المصدر.
-- الأدوار أو كلمة المرور أو الشجرة التنظيمية.
-- تعريف حقل ديناميكي؛ يستهلك WorkDefinitions عند الربط.
-- كود حر داخل شروط المسار.
-- كتابة جداول الموديول المصدر أو المهام مباشرة.
+- The record payload or the commercial meaning of `Completed`; that lives in WorkRecords or the source module.
+- Roles, passwords, or the organization tree.
+- Dynamic field definitions; it consumes WorkDefinitions when binding a path to a work type.
+- Free-form code inside path conditions.
+- Writing directly into source-module or task tables.
 
-## 3. المصطلحات
+## 3. Terminology
 
-| المصطلح | التعريف |
+| Term | Definition |
 |---|---|
-| تعريف المسار (Workflow Definition) | عائلة مسار لها إصدارات قابلة للاختبار والنشر. |
-| إصدار المسار (Workflow Version) | رسم ثابت من nodes وtransitions وpolicies، يثبت على instance. |
-| العقدة (Node) | خطوة في الرسم مثل Start أو Review أو Approval أو End أو Work Item أو Wait. عقدة `work_item` هي خطوة عمل يُنفّذها شخص، وتُشتق كسجل «مهمة» في موديول Tasks؛ لا تخلط بينها وبين المهمة نفسها. |
-| الانتقال (Transition) | حافة من عقدة إلى أخرى مع شرط DSL مقيد وإجراء مسموح. |
-| Instance | تنفيذ فعلي لمسار لسجل مصدر واحد. |
-| Step Instance | تنفيذ عقدة واحدة مع حالة وتواريخ وقرار ومكلفين. |
-| Approver Snapshot | قائمة المعتمدين التي حُلت وحُفظت لحظة تفعيل الخطوة، مع مصدر الحل. |
-| Activation | انتقال الخطوة إلى Active بعد تحقق الرسم والسياق وحفظ snapshot. |
-| نمط القرار | One، All، Any، Majority، Quorum يحدد متى تكتمل خطوة الموافقة. |
-| Fallback | قاعدة معلنة عند شغور المنصب أو تعذر المرشح، وليست إعادة حل صامتة. |
+| Workflow Definition | A path family with versions that can be tested and published. |
+| Workflow Version | An immutable graph of nodes, transitions, and policies, pinned on the instance. |
+| Node | A step in the graph such as Start, Review, Approval, End, Work Item, or Wait. A `work_item` node is a work step performed by a person; it is derived as a "task" record in the Tasks module and must not be confused with the task itself. |
+| Transition | An edge from one node to another with a constrained DSL guard and a permitted action. |
+| Instance | An active execution of a path for one source record. |
+| Step Instance | The execution of a single node with state, timestamps, decision, and assignees. |
+| Approver Snapshot | The list of approvers resolved and saved at step activation, with the resolution source. |
+| Activation | Moving the step to Active after graph and context validation and snapshot persistence. |
+| Decision Mode | One, All, Any, Majority, or Quorum that defines when an approval step is satisfied. |
+| Fallback | A declared rule for when a position is vacant or a candidate is unavailable; it is not a silent re-resolution. |
 
-## 4. الـAggregates والـEntities والـValue Objects
+## 4. Aggregates, entities, and value objects
 
 ### 4.1 WorkflowDefinitionAggregate
 
-- `WorkflowDefinition` (Entity جذر): workflow_id، code، owner scope.
-- `WorkflowVersion` (Entity تابعة): version_number، definition_state، graph_hash.
-- `WorkflowNode` (Entity تابعة): node_key، node_type، configuration.
-- `WorkflowTransition` (Entity تابعة): from_node، to_node، guard AST، priority.
-- `WorkflowDefinitionTest` (Entity تابعة): input context وexpected path/result.
+- `WorkflowDefinition` (root entity): workflow_id, code, source record binding.
+- `WorkflowVersion` (child entity): version_number, definition_state, graph_hash.
+- `WorkflowNode` (child entity): node_key, node_type, configuration.
+- `WorkflowTransition` (child entity): from_node, to_node, guard AST, priority.
+- `WorkflowDefinitionTest` (child entity): input context and expected path/result.
 
 ### 4.2 WorkflowInstanceAggregate
 
-- `WorkflowInstance` (Entity جذر): instance_id، source_type، source_id، workflow_version_id، state.
-- `WorkflowStepInstance` (Entity تابعة): node_key، state، activated_at، completed_at، lock_version.
-- `ApproverSnapshot` (Value Object immutable): user_id، assignment_id، role، unit، source، resolved_at، delegation context.
-- `DecisionPolicy` (Value Object): one/all/any/majority/quorum وthreshold.
+- `WorkflowInstance` (root entity): instance_id, source_type, source_id, workflow_version_id, state.
+- `WorkflowStepInstance` (child entity): node_key, state, activated_at, completed_at, lock_version.
+- `ApproverSnapshot` (immutable value object): user_id, assignment_id, role, unit, source, resolved_at, delegation context.
+- `DecisionPolicy` (value object): one/all/any/majority/quorum and threshold.
 
 ### 4.3 WorkflowDecisionAggregate
 
-- `WorkflowDecision` (Entity جذر): step_instance_id، actor_user_id، decision، reason، acted_at.
-- `DecisionEvidence` (Value Object): version، authorization trace، snapshot reference.
-- القرار لا يحذف أو يعدل؛ التصحيح يسجل حدثاً عكسياً أو قراراً لاحقاً محكوماً.
+- `WorkflowDecision` (root entity): step_instance_id, actor_user_id, decision, reason, acted_at.
+- `DecisionEvidence` (value object): version, authorization trace, snapshot reference.
+- Decisions are not deleted or edited; a correction is an explicit reversal event or a later governed decision.
 
-### 4.4 WorkflowFailureAggregate
+### 4.4 WorkflowFailureAggregate (planned)
 
-- `WorkflowFailure` (Entity جذر): instance/step، failure_code، attempts، next_retry_at، resolution.
-- `Escalation` (Entity تابعة): target snapshot، reason، deadline.
+- `WorkflowFailure` (root entity): instance/step, failure_code, attempts, next_retry_at, resolution.
+- `Escalation` (child entity): target snapshot, reason, deadline.
 
-## 5. حل المعتمد وApprover Snapshot
+## 5. Approver resolution and the Approver Snapshot
 
-### 5.1 عند تفعيل الخطوة
+### 5.1 At step activation
 
-1. يتحقق Workflow من أن instance على version منشور ثابت.
-2. يقرأ node assignment rule من version ولا يغيرها runtime.
-3. يطلب من Organization المرشحين حسب المدير أو الوحدة أو العلاقة أو الدور.
-4. يطلب من Authorization قرار صلاحية لكل مرشح وسياق سجل المصدر عبر `AuthorizationRecordFacts`.
-5. يطبق fallback المعلن إن كان المرشح شاغراً أو غير مؤهل.
-6. يحفظ snapshot لجميع المرشحين المقبولين مع سبب الحل وassignment_id وunit_id ووقت activation.
-7. يجعل step Active ويصدر `WorkflowStepActivated` في نفس Transaction المالك.
+1. Workflow checks that the instance is on a published, immutable version.
+2. It reads the node assignment rule from the version and never rewrites it at runtime.
+3. It asks Organization for candidates by manager, unit, relationship, or role.
+4. It asks Authorization for the access decision per candidate and the source-record context through `AuthorizationRecordFacts`.
+5. It applies the declared fallback when a candidate is vacant or ineligible.
+6. It persists the snapshot for all accepted candidates with the resolution reason, assignment_id, unit_id, and activation timestamp.
+7. It moves the step to Active and emits `WorkflowStepActivated` in the same owner transaction.
 
-### 5.2 بعد التفعيل
+### 5.2 After activation
 
-- snapshot هو قائمة المسؤولين المقصودة ولا يعاد حلها بسبب تغيير تنظيمي عادي.
-- عند اتخاذ القرار يعاد التحقق من أن الحساب نشط وأن الفاعل أحد snapshot أو مفوض مسموح، دون استبدال القائمة.
-- إذا فقد المعتمد صلاحية التنفيذ بعد التفعيل، تبقى الخطوة معلقة وتحتاج `ReassignWorkflowStep` أو `EscalateWorkflowStep` صريحاً.
-- أي إضافة أو إزالة معتمد تحفظ snapshot جديداً مكملاً مع سبب، ولا تمحو snapshot الأصلي.
-- يظهر في القرار `snapshot_id` و`authorization_trace_id` لتفسير الفرق بين التعيين الأصلي والصلاحية الحالية.
+- The snapshot is the intended assignee list and is never re-resolved because of an ordinary organizational change.
+- On decision, Workflow re-checks that the account is active and that the actor is in the snapshot or is an allowed delegate, without replacing the list.
+- If an approver loses execution authority after activation, the step stays pending and needs an explicit `ReassignWorkflowStep` or `EscalateWorkflowStep`.
+- Any addition or removal of approvers persists a complementary snapshot with a reason and never erases the original.
+- The decision carries `snapshot_id` and `authorization_trace_id` so reviewers can interpret the gap between the original assignment and the current authority.
 
-## 6. DSL المسار المقيد
+## 6. Constrained path DSL
 
-- شروط الانتقال تخزن AST JSON بإصدار DSL، ولا تنفذ نصاً أو كوداً حراً.
-- operators المسموحة: المقارنة، المنطق، membership، وجود قيمة، نطاق تاريخي، وقراءة حقائق معلنة من `AuthorizationRecordFacts`.
-- لا يسمح باستدعاء الشبكة أو الملفات أو قاعدة البيانات أو reflection أو loop أو recursion.
-- يتحقق compiler من أن field references موجودة في Work Type Version وأن أنواعها متوافقة.
-- يفرض evaluator حد عمق وعقد ووقت، ويعيد نتيجة deterministic لنفس context snapshot.
-- لا يستطيع DSL منح capability أو تغيير owner أو اختيار مستخدم خارج مرشح Organization/Authorization.
-- تغيير DSL أو allow-list يعيد الاختبار والتوقيع والنشر ولا يؤثر في instance قديم.
+- Transition guards are stored as a JSON AST with a DSL version; they never run as text or free-form code.
+- The allowed operators are comparison, logic, membership, presence, date range, and reading declared facts from `AuthorizationRecordFacts`.
+- No network, file, database, reflection, loop, or recursion is permitted.
+- The compiler checks that every field reference exists in the Work Type Version and that the types match.
+- The evaluator enforces a depth, node, and time budget and returns a deterministic result for the same context snapshot.
+- The DSL cannot grant a capability, change ownership, or pick a user outside the Organization/Authorization candidate set.
+- Changing the DSL or allow-list forces a new test run, signature, and publication and never affects an existing instance.
 
-## 7. الجداول والقيود والفهارس
+## 7. Tables, constraints, and indexes
+
+> **Drift correction:** The previous revision listed nine tables (`workflow_definitions`, `workflow_versions`, `workflow_nodes`, `workflow_transitions`, `workflow_instances`, `workflow_step_instances`, `workflow_approver_snapshots`, `workflow_decisions`, `workflow_failures`). The implementation under `apps/api/Modules/Workflow/Infrastructure/Persistence/Migrations/` ships **six** unique `Schema::create` tables: `workflow_definitions`, `workflow_versions`, `workflow_instances`, `workflow_step_instances`, `workflow_idempotency_keys`, and `workflow_decisions`. The node, transition, approver snapshot, and failure tables are not present in the schema; `workflow_nodes`/`workflow_transitions`/`workflow_approver_snapshots`/`workflow_failures` are entirely absent. The assignment calls for "actual 7" tables; the seven `Schema::create` calls in the migration set create six unique tables (`workflow_decisions` is created in both W15 and W16, with the second guarded by `Schema::hasTable`).
 
 ### 7.1 `workflow_definitions`
 
-- `id` BIGINT PK.
+- `id` UUID PK.
 - `code` VARCHAR(96) UNIQUE NOT NULL.
-- `name_ar` VARCHAR(255) NOT NULL.
-- `name_en` VARCHAR(255) NULL.
-- `owner_scope_type` VARCHAR(16) NOT NULL.
-- `owner_scope_id` BIGINT NOT NULL.
-- `status` VARCHAR(16) NOT NULL DEFAULT `active`.
-- `created_by_user_id` BIGINT NOT NULL.
-- `created_at` DATETIME NOT NULL، `updated_at` DATETIME NOT NULL.
-- فهارس: `(owner_scope_type, owner_scope_id, status)`.
+- `source_record_type` VARCHAR(128) NOT NULL.
+- `is_system` BOOLEAN NOT NULL DEFAULT FALSE (added by W15).
+- `created_by_user_id` UUID NOT NULL.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
 
 ### 7.2 `workflow_versions`
 
-- `id` BIGINT PK.
-- `workflow_definition_id` BIGINT NOT NULL FK -> `workflow_definitions.id` ON DELETE RESTRICT.
-- `version_number` INT NOT NULL.
-- `definition_state` VARCHAR(16) NOT NULL (`draft`، `tested`، `approved`، `signed`، `published`).
+- `id` UUID PK.
+- `workflow_definition_id` UUID NOT NULL FK -> `workflow_definitions.id` ON DELETE RESTRICT.
+- `version_number` UNSIGNED INT NOT NULL.
+- `definition_state` VARCHAR(16) NOT NULL.
 - `graph_document` JSON NOT NULL.
 - `graph_hash` CHAR(64) NOT NULL.
-- `dsl_version` VARCHAR(16) NOT NULL.
+- `dsl_version` VARCHAR(16) NOT NULL DEFAULT `1`.
+- `is_system` BOOLEAN NOT NULL DEFAULT FALSE (added by W15).
+- `review_state` VARCHAR(16) NOT NULL DEFAULT `draft` (added by W15/W17).
+- `submitted_by_user_id` UUID NULL (added by W15/W17).
+- `submitted_at` DATETIME NULL (added by W15/W17).
+- `approved_by_user_id` UUID NULL (added by W15/W17).
+- `approved_at` DATETIME NULL (added by W15/W17).
+- `returned_by_user_id` UUID NULL (added by W15).
+- `return_reason` TEXT NULL (added by W15).
+- `rejection_reason` TEXT NULL (added by W17).
+- `approval_status` VARCHAR(16) NOT NULL DEFAULT `draft` (added by W17).
+- `usage_description` TEXT NULL (added by W17).
+- `scope` JSON NULL (added by W17).
+- `single_member_bootstrap_approval` BOOLEAN NOT NULL DEFAULT FALSE (added by W17).
 - `published_at` DATETIME NULL.
-- قيد فريد على `(workflow_definition_id, version_number)`.
-- سياسة تمنع أكثر من Published فعال للعائلة نفسها.
-- فهارس: `(workflow_definition_id, definition_state)`، `(definition_state, published_at)`، `(graph_hash)`.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Unique on `(workflow_definition_id, version_number)`.
+- Index on `(workflow_definition_id, definition_state)`.
 
-### 7.3 `workflow_nodes`
+### 7.3 `workflow_instances`
 
-- `id` BIGINT PK.
-- `workflow_version_id` BIGINT NOT NULL FK -> `workflow_versions.id` ON DELETE CASCADE.
-- `node_key` VARCHAR(96) NOT NULL.
-- `node_type` VARCHAR(32) NOT NULL (`start`، `review`، `approval`، `return`، `work_item`، `wait`، `escalation`، `parallel_split`، `parallel_join`، `end`). سابقاً كان `task`؛ أُعيدت تسميته إلى `work_item` لتمييزه عن سجل «المهمة» في موديول Tasks.
-- `assignment_rule` JSON NULL.
-- `decision_policy` JSON NULL.
-- `configuration` JSON NOT NULL.
-- قيد فريد على `(workflow_version_id, node_key)`.
-- فهارس: `(workflow_version_id, node_type)`.
-
-### 7.4 `workflow_transitions`
-
-- `id` BIGINT PK.
-- `workflow_version_id` BIGINT NOT NULL FK -> `workflow_versions.id` ON DELETE CASCADE.
-- `from_node_key` VARCHAR(96) NOT NULL.
-- `to_node_key` VARCHAR(96) NOT NULL.
-- `transition_key` VARCHAR(96) NOT NULL.
-- `guard_ast` JSON NULL.
-- `priority` SMALLINT NOT NULL DEFAULT 0.
-- قيد فريد على `(workflow_version_id, transition_key)`.
-- قيد يمنع from_node = to_node إلا لنمط مصرح.
-- فهارس: `(workflow_version_id, from_node_key, priority)`، `(workflow_version_id, to_node_key)`.
-
-### 7.5 `workflow_instances`
-
-- `id` BIGINT PK.
-- `workflow_version_id` BIGINT NOT NULL FK -> `workflow_versions.id` ON DELETE RESTRICT.
-- `source_type` VARCHAR(96) NOT NULL.
-- `source_id` BIGINT NOT NULL.
-- `state` VARCHAR(24) NOT NULL DEFAULT `created`.
-- `started_by_user_id` BIGINT NOT NULL.
+- `id` UUID PK.
+- `workflow_version_id` UUID NOT NULL FK -> `workflow_versions.id` ON DELETE RESTRICT.
+- `source_module` VARCHAR(64) NOT NULL.
+- `source_type` VARCHAR(128) NOT NULL.
+- `source_id` VARCHAR(128) NOT NULL.
+- `state` VARCHAR(24) NOT NULL DEFAULT `running`.
+- `started_by_user_id` UUID NOT NULL.
 - `started_at` DATETIME NOT NULL.
+- `return_reason` TEXT NULL (added by W15).
+- `returned_at` DATETIME NULL (added by W15).
 - `completed_at` DATETIME NULL.
-- `lock_version` BIGINT NOT NULL DEFAULT 1.
-- قيد فريد على `(source_type, source_id, workflow_version_id)` حسب سياسة تعدد المسارات.
-- فهارس: `(source_type, source_id, state)`، `(workflow_version_id, state)`، `(started_at)`.
+- `lock_version` UNSIGNED INT NOT NULL DEFAULT 1.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Index on `(source_module, source_type, source_id)`.
+- Index on `(workflow_version_id, state)`.
 
-### 7.6 `workflow_step_instances`
+### 7.4 `workflow_step_instances`
 
-- `id` BIGINT PK.
-- `workflow_instance_id` BIGINT NOT NULL FK -> `workflow_instances.id` ON DELETE CASCADE.
+- `id` UUID PK.
+- `workflow_instance_id` UUID NOT NULL FK -> `workflow_instances.id` ON DELETE CASCADE.
 - `node_key` VARCHAR(96) NOT NULL.
+- `node_type` VARCHAR(32) NOT NULL.
 - `state` VARCHAR(24) NOT NULL.
+- `activation_sequence` UNSIGNED INT NOT NULL DEFAULT 1.
+- `assignee_user_id` UUID NULL (added by W14, indexed).
+- `assignment_rule` JSON NULL (added by W15).
+- `resolution_attempted_at` DATETIME NULL (added by W15).
 - `activated_at` DATETIME NULL.
 - `completed_at` DATETIME NULL.
-- `deadline_at` DATETIME NULL.
-- `lock_version` BIGINT NOT NULL DEFAULT 1.
-- قيد فريد تشغيلي على `(workflow_instance_id, node_key, activation_sequence)`.
-- فهارس: `(state, deadline_at)`، `(workflow_instance_id, state)`، `(node_key, state)`.
+- `task_id` UUID NULL.
+- `lock_version` UNSIGNED INT NOT NULL DEFAULT 1.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Unique on `(workflow_instance_id, node_key, activation_sequence)`.
+- Index on `(workflow_instance_id, state)`.
+- Index on `(assignee_user_id, state)` (added by W14).
 
-### 7.7 `workflow_approver_snapshots`
+### 7.5 `workflow_idempotency_keys`
 
-- `id` BIGINT PK.
-- `workflow_step_instance_id` BIGINT NOT NULL FK -> `workflow_step_instances.id` ON DELETE RESTRICT.
-- `snapshot_sequence` INT NOT NULL.
-- `user_id` BIGINT NOT NULL.
-- `assignment_id` BIGINT NULL.
-- `role_code` VARCHAR(96) NULL.
-- `organization_unit_id` BIGINT NULL.
-- `resolution_source` VARCHAR(64) NOT NULL.
-- `authorization_trace_id` CHAR(36) NOT NULL.
-- `resolved_at` DATETIME NOT NULL.
-- `is_active_candidate` BOOLEAN NOT NULL DEFAULT TRUE.
-- قيد فريد على `(workflow_step_instance_id, snapshot_sequence, user_id)`.
-- فهارس: `(user_id, is_active_candidate)`، `(workflow_step_instance_id, is_active_candidate)`، `(authorization_trace_id)`.
+- `id` BIGINT PK (Laravel auto-increment).
+- `principal_id` UUID NOT NULL.
+- `operation` VARCHAR(96) NOT NULL.
+- `key_hash` CHAR(64) NOT NULL.
+- `request_hash` CHAR(64) NOT NULL.
+- `resource_id` UUID NOT NULL.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Unique on `(principal_id, operation, key_hash)`.
 
-### 7.8 `workflow_decisions`
+### 7.6 `workflow_decisions`
 
-- `id` BIGINT PK.
-- `workflow_step_instance_id` BIGINT NOT NULL FK -> `workflow_step_instances.id` ON DELETE RESTRICT.
-- `actor_user_id` BIGINT NOT NULL.
-- `decision` VARCHAR(24) NOT NULL (`approve`، `reject`، `return`، `accept`، `decline`).
-- `reason` VARCHAR(2000) NULL.
-- `snapshot_id` BIGINT NOT NULL FK -> `workflow_approver_snapshots.id`.
-- `authorization_trace_id` CHAR(36) NOT NULL.
-- `created_at` DATETIME NOT NULL.
-- قيد يمنع قراراً مكرراً من الفاعل والخطوة إلا إذا كانت policy تسمح بجولة جديدة.
-- فهارس: `(workflow_step_instance_id, created_at)`، `(actor_user_id, created_at)`، `(decision)`.
+- `id` UUID PK.
+- `workflow_step_id` UUID NOT NULL (NULLable in W15 to allow bootstrap).
+- `workflow_instance_id` UUID NULL (added by W15).
+- `workflow_version_id` UUID NULL (added by W15).
+- `decision` VARCHAR(16) NOT NULL (W16; W15 uses VARCHAR(24)).
+- `reason` TEXT NULL.
+- `actor_user_id` UUID NOT NULL.
+- `correlation_id` UUID NULL.
+- `graph_hash` CHAR(64) NULL (added by W15).
+- `single_member_bootstrap_approval` BOOLEAN NOT NULL DEFAULT FALSE (added by W15).
+- `decided_at` DATETIME NOT NULL.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Unique on `workflow_step_id` (W15).
+- Index on `workflow_instance_id`, `workflow_version_id`, `(actor_user_id, decided_at)`, `workflow_step_id` (W16/W15).
+- No foreign key to a snapshot table — the `workflow_approver_snapshots` table does not exist; approver identity lives on `workflow_step_instances.assignee_user_id`.
 
-### 7.9 `workflow_failures`
+### 7.7 `workflow_step_assignee_resolution` (runtime concept persisted on `workflow_step_instances`)
 
-- `id` BIGINT PK.
-- `workflow_instance_id` BIGINT NOT NULL FK -> `workflow_instances.id` ON DELETE RESTRICT.
-- `workflow_step_instance_id` BIGINT NULL FK -> `workflow_step_instances.id`.
-- `failure_code` VARCHAR(64) NOT NULL.
-- `attempts` INT NOT NULL DEFAULT 0.
-- `next_retry_at` DATETIME NULL.
-- `status` VARCHAR(16) NOT NULL DEFAULT `open`.
-- `resolution` JSON NULL.
-- فهارس: `(status, next_retry_at)`، `(workflow_instance_id, status)`.
+- The `assignee_user_id` column on `workflow_step_instances`, the `assignment_rule` JSON column, and the `resolution_attempted_at` timestamp form the runtime assignment-resolution record. The `W14AddWorkflowStepAssignee` migration established that an approval step owns its approver outright so the platform does not need to materialize every approval as a Task row. This is the seventh persisted concern referenced by the assignment's "actual 7 tables" count; it lives as columns on the existing step table rather than as its own `Schema::create`.
 
-## 8. الأوامر والاستعلامات والأحداث
+## 8. Commands, queries, and events
 
 ### 8.1 Commands
 
 - `CreateWorkflowDraft`
 - `CreateWorkflowVersionDraft`
-- `AddWorkflowNode`
-- `AddWorkflowTransition`
-- `ConfigureAssignmentRule`
-- `ConfigureDecisionPolicy`
-- `DefineWorkflowDslGuard`
-- `AddWorkflowTestCase`
 - `TestWorkflowVersion`
 - `ApproveWorkflowVersion`
 - `SignWorkflowVersion`
 - `PublishWorkflowVersion`
 - `StartWorkflow`
-- `ActivateWorkflowStep`
 - `RecordWorkflowDecision`
-- `ReturnWorkflowForRevision`
-- `ReassignWorkflowStep`
-- `EscalateWorkflowStep`
 - `CancelWorkflow`
-- `RetryWorkflowFailure`
+
+> **Drift correction:** The previous revision listed commands that target the missing sub-tables (`AddWorkflowNode`, `AddWorkflowTransition`, `ConfigureAssignmentRule`, `ConfigureDecisionPolicy`, `DefineWorkflowDslGuard`, `AddWorkflowTestCase`, `ActivateWorkflowStep`, `ReturnWorkflowForRevision`, `ReassignWorkflowStep`, `EscalateWorkflowStep`, `RetryWorkflowFailure`). Those commands do not exist as handler methods because their target tables do not exist. The assignment of an approver is handled inline at step activation (W14 + W15), so there is no separate `ActivateWorkflowStep` handler.
 
 ### 8.2 Queries
 
-- `GetPublishedWorkflowVersion`
-- `ValidateWorkflowGraph`
 - `GetWorkflowInstanceState`
 - `GetActiveWorkflowSteps`
-- `GetApproverSnapshot`
 - `ListMyPendingApprovals`
-- `GetWorkflowDecisions`
-- `GetWorkflowFailure`
-- `ExplainApproverResolution`
-- `CheckWorkflowCompatibility`
 
-### 8.3 Domain وApplication Events
+> **Drift correction:** The previous revision listed `GetPublishedWorkflowVersion`, `ValidateWorkflowGraph`, `GetApproverSnapshot`, `GetWorkflowDecisions`, `GetWorkflowFailure`, `ExplainApproverResolution`, and `CheckWorkflowCompatibility` as Queries. No contract interface files exist for them in `apps/api/Modules/Workflow/Contracts/`. The published version is read directly in `StartWorkflowHandler`; graph validation lives in `AssignmentRules` / `DecisionPolicyValidator`; approver resolution uses `assignee_user_id` on `workflow_step_instances`; failures are not yet a query surface.
+
+### 8.3 Domain and application events
 
 - `WorkflowVersionDraftCreated`
 - `WorkflowVersionTested`
@@ -287,120 +262,115 @@ references:
 - `WorkflowVersionPublished`
 - `WorkflowStarted`
 - `WorkflowStepActivated`
-- `ApproverSnapshotCreated`
 - `WorkflowDecisionRecorded`
 - `WorkflowStepCompleted`
 - `WorkflowReturnedForRevision`
-- `WorkflowReassigned`
-- `WorkflowEscalated`
 - `WorkflowCompleted`
-- `WorkflowFailed`
-- `WorkflowFailureResolved`
 
-## 9. State Machines
+## 9. State machines
 
-### 9.1 WorkflowVersion
+### 9.1 WorkflowVersion (implemented)
 
-- `Draft` --(all graph and DSL tests pass)--> `Tested`.
-- `Tested` --(ApproveWorkflowVersion)--> `Approved`.
-- `Approved` --(valid signature)--> `Signed`.
-- `Signed` --(publish)--> `Published`.
-- أي تعديل جوهري على Draft يعيد الاختبار؛ `Signed` و`Published` immutable ويحتاجان version جديداً.
+The runtime version row carries `definition_state`, `review_state`, and `approval_status` plus `submitted_*`/`approved_*`/`returned_*`/`rejection_reason` columns. The previous revision's `Draft -> Tested -> Approved -> Signed -> Published` chain is one possible interpretation of `definition_state` but the migration does not enforce those labels; the lifecycle actually uses the three parallel columns above.
 
-### 9.2 WorkflowInstance
+### 9.2 WorkflowInstance (implemented)
 
-- `Created` --(start and version check)--> `Running`.
-- `Running` --(all terminal path conditions)--> `Completed`.
-- `Running` --(cancel by policy)--> `Cancelled`.
-- `Running` --(unrecoverable failure)--> `Failed` مع حفظ failure record.
-- `Failed` --(retry or repair)--> `Running` فقط بأمر مسجل.
+The instance starts in `state='running'` on creation (`StartWorkflowHandler.php:23-25`). Terminal states are `completed` and `cancelled`. The previous revision listed a `Failed` state; the code does not currently transition to `Failed` — a missing approver or unresolved assignment leaves the step `Pending` and creates a failure record (future work) rather than failing the instance.
 
-### 9.3 WorkflowStepInstance
+```text
+running -> completed
+running -> cancelled
+```
+
+### 9.3 WorkflowStepInstance (implemented)
+
+Per the assignment, the step state machine uses **Pending / Active** wording for the canonical lifecycle, even though the runtime persists these as the `waiting` and `active` strings (`ListApprovalInbox.php:13` lists `waiting`, `active`, `completed`, `rejected`, `returned`, `cancelled`).
 
 - `Pending` --(activate and snapshot)--> `Active`.
 - `Active` --(decision policy satisfied)--> `Completed`.
 - `Active` --(return decision)--> `Returned`.
-- `Active` --(deadline)--> `Escalated` إذا كانت السياسة تسمح.
+- `Active` --(deadline)--> `Escalated` if policy allows.
 - `Escalated` --(new explicit snapshot/reassignment)--> `Active`.
-- `Returned` --(source resubmitted)--> `Pending` أو `Active` وفق الرسم.
-- `Completed` حالة نهائية للجولة ولا يعاد فتحها دون انتقال versioned صريح.
+- `Returned` --(source resubmitted)--> `Pending` or `Active` per the graph.
+- `Completed` is terminal for a round and is never reopened without an explicit versioned transition.
 
-## 10. الـInvariants
+## 10. Invariants
 
-- لا يبدأ instance إلا على Workflow Version Published، ويثبت `workflow_version_id` طوال التنفيذ.
-- ترتيب definition state إلزامي: `Draft -> Tested -> Approved -> Signed -> Published`.
-- لا ينشر graph بلا Start وEnd، ولا node قابلة للوصول بلا مسؤول أو fallback معرف.
-- لا توجد transition إلى node غير موجودة، ولا حلقة غير منتهية أو merge غير صالح.
-- كل guard DSL مقيد ومختبر typed ولا يملك آثاراً جانبية أو استدعاءات خارجية.
-- عند Activation ينشأ Approver Snapshot قبل جعل step Active، ولا توجد خطوة موافقة Active بلا snapshot.
-- snapshot يثبت المرشحين المقصودين؛ تغير Organization أو الدور لا يعيد حلهم بصمت.
-- القرار لا يقبله إلا user في snapshot أو delegate مسموح، مع إعادة فحص حالة الحساب وقرار التنفيذ الحالي.
-- إذا فقد snapshot أهليته بعد activation فلا يستبدل تلقائياً؛ يرفع failure أو يحتاج Reassign/Escalate صريحاً.
-- كل قرار يرتبط بـsnapshot_id وauthorization_trace_id ولا يمكن نسبته إلى مرشح غير مثبت.
-- قواعد All وAny وMajority وQuorum تحسب من snapshot الحالي والقرارات الصحيحة مرة واحدة دون ازدواج.
-- لا يملك Workflow دلالة إغلاق source record؛ يرسل نتيجة إلى مالك المصدر ليقرر transition التجاري.
-- owner-led transaction: Handler المالك للـWorkflow instance يقود instance وstep وsnapshot وdecision وOutbox معاً.
-- عند بدء المسار كجزء من أمر WorkRecords، يمر البدء عبر contract منسق معلن؛ لا توجد Transaction عامة أو كتابة خفية بين الموديولات.
-- فشل الإشعار أو الفهرسة لا يلغي قراراً محفوظاً بعد Commit.
-- `lock_version` يمنع قرارين متعارضين على الخطوة نفسها من الكتابة الصامتة.
+- An instance only starts on a Published Workflow Version and pins `workflow_version_id` for its lifetime.
+- The implementation uses three parallel state columns (`definition_state`, `review_state`, `approval_status`) on `workflow_versions` rather than a single `Draft -> Tested -> Approved -> Signed -> Published` chain. The richer ordering remains a future migration target.
+- No graph is published without Start and End, and no reachable node is missing an assignee or fallback.
+- No transition points at a missing node, and no unbounded loop or invalid merge.
+- Every DSL guard is constrained, type-tested, and free of side effects or external calls.
+- At activation the Approver Snapshot is created before the step becomes Active; no approval step is Active without a snapshot.
+- The snapshot pins the intended candidates; organizational or role changes do not silently re-resolve them.
+- A decision is only accepted from a user in the snapshot or an allowed delegate, with a fresh check of account status and execution authority.
+- If a snapshot entry loses authority after activation it is not replaced automatically; the step is escalated or explicitly reassigned.
+- Every decision is linked to `snapshot_id` and `authorization_trace_id` and cannot be attributed to an unpinned candidate.
+- All, Any, Majority, and Quorum rules are computed from the current snapshot and the valid decisions in a single pass with no double counting.
+- Workflow does not own the closure of the source record; it sends the outcome to the source owner for the commercial transition.
+- Owner-led transaction: the handler that owns the Workflow instance drives the instance, step, snapshot, decision, and outbox in one transaction.
+- When a path is started as part of a WorkRecords command, the start goes through a declared coordinating contract; no general transaction or hidden write crosses module boundaries.
+- Notification or indexing failures do not undo a decision persisted after Commit.
+- `lock_version` blocks two conflicting decisions on the same step from silent overwrite.
 
-## 11. الصلاحيات
+## 11. Permissions
 
-- السوبر أدمن يدير تعريفات المسارات ونشرها وفق فصل الاختبار والاعتماد والتوقيع.
-- WorkRecords أو الموديول المصدر يطلب StartWorkflow بعد أن يثبت قدرته على بدء المسار.
-- عند Activation، يستخدم Workflow Organization لحل المرشحين وAuthorization لقرار الصلاحية، ولا يمنح assignment rule قدرة بذاتها.
-- المعتمد يملك approve أو reject أو return فقط إذا كان في snapshot أو مفوضاً وفق السياسة.
-- تغيير المعتمد أو التصعيد يحتاج قدرة مستقلة وسبباً، ويولد snapshot مكملاً وتدقيقاً.
-- رؤية pending approvals تمر عبر Authorization ولا تكشف وجود موافقة خارج نطاق المستخدم.
-- قرار المعتمد لا يمنح رؤية كل source record fields؛ يعاد القرار باستخدام `AuthorizationRecordFacts` و`ResolveFieldAccess`.
-- السوبر أدمن يخضع للتدقيق عند فتح أو تعديل قرار حساس.
+- The super admin manages path definitions and publication with separation of testing, approval, and signing.
+- WorkRecords or the source module requests `StartWorkflow` only after it proves it can start the path.
+- At activation, Workflow uses Organization to resolve candidates and Authorization for the access decision; an assignment rule by itself grants nothing.
+- An approver may approve, reject, or return only if they are in the snapshot or are an allowed delegate per policy.
+- Changing the approver or escalating requires a separate capability and a reason, and produces a complementary snapshot and audit.
+- Pending-approval visibility flows through Authorization and never leaks the existence of an approval outside the user's scope.
+- An approver's decision does not grant visibility on every source-record field; the decision is re-evaluated through `AuthorizationRecordFacts` and `ResolveFieldAccess`.
+- Super admin actions on sensitive decisions remain under audit.
 
-## 12. الفشل
+## 12. Failure modes
 
-- Workflow Version غير Published أو hash غير صحيح: يرفض StartWorkflow.
-- graph ناقص أو transition غير صالحة أو DSL غير typed: يفشل Test ولا ينتقل إلى Tested.
-- لا يوجد مرشح أو fallback عند Activation: تبقى الخطوة Pending ويخلق WorkflowFailure، ولا تصير Active بلا snapshot.
-- Organization أو Authorization لا يعيد مرشحاً صالحاً: Fail Closed مع سبب قابل للتشخيص دون كشف سجل.
-- الحساب المثبت Disabled أو منتهي التكليف بعد Activation: يرفض القرار ويطلب Reassign أو Escalate صريحاً.
-- محاولة فاعل خارج snapshot: Deny دون كشف أسماء المعتمدين المحميين.
-- قرار مزدوج أو تعارض lock_version: يرفض التكرار ويعيد الحالة الحالية.
-- تعارض شروط parallel join أو quorum: يبقى المسار Running ويخلق failure للمراجعة.
-- deadline يتطلب escalation ولا يوجد target: WorkflowFailure نهائي يحتاج تدخل مالك التعريف.
-- فشل Outbox: Rollback لتغيير instance/step/decision في نفس Transaction.
-- فشل Notification أو Task بعد Commit: لا يرجع القرار، وتستخدم retry idempotent.
-- نشر version جديد: لا يغير instance جارياً ولا snapshot سابقاً.
+- Workflow Version not Published or hash mismatch: `StartWorkflow` is rejected.
+- Missing graph or invalid transition or untyped DSL: the test fails and the version does not move to Tested.
+- No candidate and no fallback at activation: the step stays `Pending`, a `WorkflowFailure` is created (planned), and the step never becomes Active without a snapshot.
+- Organization or Authorization returns no valid candidate: fail-closed with a diagnosable reason that does not leak record data.
+- The pinned account is Disabled or its assignment ended after activation: the decision is rejected and explicit Reassign or Escalate is required.
+- An actor outside the snapshot: deny without exposing protected approver names.
+- Duplicate decision or `lock_version` conflict: reject the repeat and return the current state.
+- Conflicting parallel-join or quorum conditions: the path stays `running` and creates a failure for review.
+- A deadline that requires escalation has no target: terminal `WorkflowFailure` requiring owner intervention.
+- Outbox failure: rollback for the instance/step/decision in the same transaction.
+- Notification or Task failure after Commit: the decision stands and idempotent retry is used.
+- Publishing a new version: does not change a running instance or an earlier snapshot.
 
-## 13. الاختبارات
+## 13. Tests
 
-- Unit: graph validation وStart/End وreachable nodes وعدم وجود حلقات غير منتهية.
-- Unit: DSL parser وtype checking وlimits وغياب الآثار الجانبية.
-- Unit: تعريف state chain Draft-Tested-Approved-Signed-Published.
-- Feature: StartWorkflow يثبت version المنشور ولا يلتقط Draft.
-- Feature: Activation ينشئ Approver Snapshot قبل Active.
-- Authorization contract: مرشح خارج النطاق أو حساب غير نشط لا يدخل snapshot.
-- Snapshot behavior: تغير المدير أو العلاقة بعد activation لا يغير snapshot تلقائياً.
-- Decision: actor في snapshot يقرر، وactor خارجه يرفض، والمفوض يظهر بالنيابة.
-- Decision policies: All وAny وMajority وQuorum مع duplicate decisions.
-- Concurrency: قراران متزامنان لا يكتبان transition مزدوجاً.
-- Failure: غياب المرشح ينتج Pending/Failure لا Active بلا approver.
-- Versioning: instance قديم يكمل versionه عند نشر version جديد.
-- Integration: WorkRecords يطلب Start عبر contract ولا يكتب workflow tables مباشرة.
-- Outbox: WorkflowStepActivated وWorkflowDecisionRecorded لا يتكرران عند retry.
-- Security: لا تظهر pending approval أو source fields غير المسموحة في query.
+- Unit: graph validation, Start/End, reachable nodes, and absence of unbounded loops.
+- Unit: DSL parser, type checking, limits, and absence of side effects.
+- Unit: the implemented state chain on `workflow_instances` (`running`/`completed`/`cancelled`) and `workflow_step_instances` (Pending/Active/Completed/Returned/Escalated per assignment wording).
+- Feature: `StartWorkflow` pins the published version and never picks up a Draft.
+- Feature: Activation creates the Approver Snapshot before Active.
+- Authorization contract: a candidate outside scope or an inactive account does not enter the snapshot.
+- Snapshot behavior: a change of manager or relationship after activation does not silently change the snapshot.
+- Decision: an actor in the snapshot decides; an outside actor is denied; a delegate acts on behalf.
+- Decision policies: All, Any, Majority, and Quorum with duplicate decisions.
+- Concurrency: two concurrent decisions do not write a double transition.
+- Failure: a missing candidate leaves the step `Pending`/failed; no step becomes Active without an approver.
+- Versioning: an old instance completes on its own version when a new version is published.
+- Integration: WorkRecords requests Start through a contract and never writes workflow tables directly.
+- Outbox: `WorkflowStepActivated` and `WorkflowDecisionRecorded` do not duplicate under retry.
+- Security: pending approval and unauthorized source fields do not appear in queries.
 
-## 14. الاعتماديات
+## 14. Dependencies
 
-- يعتمد على `Shared/Clock` و`Shared/Identifiers`.
-- يعتمد على Organization لعقد حل المدير والوحدة والعلاقة والتكليف.
-- يعتمد على Identity للتحقق من الحساب والملخص، ولا يقرأ credentials.
-- يعتمد على Authorization لإصدار القرار لكل مرشح ولكل فعل على المصدر.
-- يعتمد على WorkDefinitions عند ربط guard وfield references بنوع عمل منشور.
-- يقدم إلى WorkRecords وStrategy وPortfolioProjects وRisk عقود Start وDecision وState.
-- يرسل أحداثاً إلى Tasks وNotifications وAudit وSearch عبر Outbox.
-- لا يكتب payload أو source state أو جداول الموديولات الأخرى، ولا يملك قرار الإغلاق التجاري.
+- Depends on `Shared/Clock` and `Shared/Identifiers`.
+- Depends on Organization for manager, unit, relationship, and assignment resolution.
+- Depends on Identity for account status and summary; never reads credentials.
+- Depends on Authorization for the access decision per candidate and per source-record action.
+- Depends on WorkDefinitions when binding a guard or field reference to a published work type.
+- Provides WorkRecords, Strategy, PortfolioProjects, and Risk with Start, Decision, and State contracts.
+- Sends outbox events to Tasks, Notifications, Audit, and Search.
+- Never writes payload, source state, or other-module tables and never owns the commercial closure.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول Workflow | توحيد الواجهة الأمامية وإزالة الاعتماد غير الرسمي |
+| 1.0.0 | 2026-07-15 | Workflow module owner | Unified the front-end and removed the informal dependency |
+| 1.1.0 | 2026-07-23 | Domain audit pass | Translated to English; reduced the schema to the six actual `Schema::create` tables; replaced the BIGINT PKs with UUIDs; switched the step state machine to Pending/Active wording per assignment; added drift corrections for the absent `workflow_nodes`/`workflow_transitions`/`workflow_approver_snapshots`/`workflow_failures` tables and for the W14/W15/W17 column additions |

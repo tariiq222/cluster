@@ -1,16 +1,16 @@
 ---
 doc_id: GOV-CR-001
-title: مراجعة اتساق القرارات الملزمة
+title: Consistency Review of Binding Decisions
 type: governance
 status: accepted
 version: 2.0.0
 date: 2026-07-15
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: Every change
 sources: []
 references:
 - docs/architecture/overview.md
@@ -24,35 +24,35 @@ references:
 - docs/governance/traceability-matrix.md
 - docs/plans/release-1-platform.md
 ---
-# نتيجة مراجعة الاتساق
+# Consistency Review Result
 
-## النتيجة
+## Result
 
-**Pass** لنطاق الإصلاح المكوّن من `docs/plans/**` و`docs/architecture/**` و`docs/domain/**` و`docs/governance/**` و`docs/operations/**`.
+**Pass** for the remediation scope consisting of `docs/plans/**`, `docs/architecture/**`, `docs/domain/**`, `docs/governance/**`, and `docs/operations/**`.
 
-## ما تم التحقق منه
+## What Was Verified
 
-| الضابط | النتيجة | الدليل |
+| Control | Result | Evidence |
 |---|---|---|
-| مصدر الوثائق | Pass | جميع المراجع في النطاق تشير إلى مسارات حالية تحت `docs/`، وتعرّف `docs/governance/document-control.md` هذا المسار مصدراً وحيداً. |
-| حدود الطلب الداخلي | Pass | «الطلب الداخلي العام» نوع منشور في `WorkDefinitions`، وكل مثيل وعلاقة ومشارك ونشاط تابع له مملوك لـ`WorkRecords`. لا يوجد موديول أو namespace أو جدول أو aggregate مستقل للطلبات. |
-| خطة R1 | Pass | تستخدم W1.6 `WorkRecord` و`RecordRelation` و`RecordParticipant` و`RecordActivity`، وتسند ملكية التنفيذ إلى `WorkRecords`. |
-| التتبّع | Pass | يسند `FR-R1-007` إلى `WorkRecords` ويصف `request` بأنه رمز نوع عمل منشور. |
-| ملكية KRI | Pass | يملك `Strategy` وحده تعريفات المؤشرات وقياساتها، بينما يملك `Risk` روابط KRI والعتبات والتنبيهات؛ لا توجد قراءة مؤشر مكررة في Risk. |
-| خطة R3 | Pass | موديول `Risk` مخطط في خطة R3، وW3.0 مواصفة سياسة لازمة لتنفيذ الخطة وليست دليلاً على غياب التخطيط. |
-| ما بعد R3 | Pass | المجالات المذكورة بعد R3 مرشحات غير ملزمة، ولا تصبح موديولات إلا بقرار حدود وملكية وعقود وADR. |
-| التصنيفات | Pass | القيم canonical هي `public` و`internal` و`confidential` و`top_secret`، وأسماء العرض العربية هي عام وداخلي وسري وسري للغاية. |
-| علامات النص المؤقت | Pass | لا توجد علامات نص مؤقت أو عناصر إصلاح معلّقة في النطاق. |
+| Documentation source | Pass | All references in scope point to current paths under `docs/`, and `docs/governance/document-control.md` defines this path as the single source. |
+| Internal request boundaries | Pass | The “general internal request” is a published type in `WorkDefinitions`, and every instance, relation, participant, and activity belonging to it is owned by `WorkRecords`. There is no independent request module, namespace, table, or aggregate. |
+| R1 plan | Pass | W1.6 uses `WorkRecord`, `RecordRelation`, `RecordParticipant`, and `RecordActivity`, and assigns execution ownership to `WorkRecords`. |
+| Traceability | Pass | `FR-R1-007` is assigned to `WorkRecords` and describes `request` as a published work-type code. |
+| KRI ownership | Pass | `Strategy` alone owns indicator definitions and measurements, while `Risk` owns KRI links, thresholds, and alerts; Risk contains no duplicate indicator reading. |
+| R3 plan | Pass | The `Risk` module is planned in the R3 plan, and W3.0 is a policy specification required to implement the plan, not evidence that planning is absent. |
+| Post-R3 | Pass | Domains mentioned after R3 are non-binding filters and become modules only through a boundary, ownership, contract, and ADR decision. |
+| Classifications | Pass | Canonical values are `public`, `internal`, `confidential`, and `top_secret`; their display names are Public, Internal, Confidential, and Top Secret. |
+| Temporary-text markers | Pass | There are no temporary-text markers or pending remediation items in scope. |
 
-لا تُعد كلمة «طلب» في النص التشغيلي، ولا مصطلح HTTP request، تعريفاً لموديول أو مساحة أسماء أو جدول أو aggregate.
+The word “request” in operational text and the HTTP term request do not define a module, namespace, table, or aggregate.
 
-## حدود النتيجة
+## Result Boundaries
 
-تثبت هذه النتيجة اتساق الملفات الواقعة في المجلدات الخمسة المحددة فقط. لا تقدم حكماً على ملفات خارج هذا النطاق.
+This result establishes consistency only for files in the five specified directories. It makes no determination about files outside this scope.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مكتب هندسة المنصة | مراجعة أولية للتعارضات |
-| 2.0.0 | 2026-07-15 | مكتب هندسة المنصة | تحويل المراجعة إلى نتيجة Pass بعد إصلاح المراجع وحدود `WorkRecords` والتصنيفات والتتبّع ضمن النطاق |
+| 1.0.0 | 2026-07-15 | Platform Engineering Office | Initial review of conflicts |
+| 2.0.0 | 2026-07-15 | Platform Engineering Office | Converted the review to a Pass result after fixing references, `WorkRecords` boundaries, classifications, and traceability within scope |

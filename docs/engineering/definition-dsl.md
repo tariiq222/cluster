@@ -1,16 +1,16 @@
 ---
 doc_id: ARC-EN-007
-title: لغة تعريف العمل المقيدة
+title: Constrained Work Definition DSL
 type: engineering
 status: draft
 version: 1.0.0
 date: 2026-07-15
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Lead
 reviewers:
-- مسؤول أمن المعلومات
-- مسؤول هندسة البرمجيات
+- Information Security Lead
+- Software Engineering Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: With every change
 sources:
 - docs/adr/005-work-records-dynamic-data.md
 - docs/adr/006-workflow-versioning.md
@@ -18,42 +18,44 @@ references:
 - docs/architecture/overview.md
 - docs/data-security/logical-data-model.md
 ---
-# لغة تعريف العمل المقيدة
 
-## الغرض
+> **NOT IMPLEMENTED.** Repository automation does not verify runtime DSL limits for field count, layout depth, payload size, text length, relation count, or validation-rule count. These limits remain required design constraints until executable validation and boundary tests are present.
+# Constrained Work Definition DSL
 
-تصف DSL تعريف نوع العمل وإصداره: الحقول، الشكل، التحقق، العلاقات، وحالات العرض. هي بيانات مصادق عليها وليست لغة برمجة، ولا تمنح التعريف قدرة تنفيذية خارج المحرك المعتمد.
+## Purpose
 
-## السطح المسموح
+The DSL describes a work type definition and its version: fields, shape, validation, relationships, and display states. It is validated data, not a programming language, and gives the definition no execution capability outside the approved engine.
 
-تقبل DSL مخططاً versioned من قيم محدودة: أنواع حقول معتمدة، required، نطاقات وأطوال، قوائم ثابتة، قواعد مقارنة محلية بين حقول معلنة، layouts، وعلاقات من قائمة أنواع وموديولات مسموحة. يفسر المحرك هذه القواعد تفسيراً حتمياً بزمن وذاكرة وحدود عمق معروفة.
+## Allowed Surface
 
-## الحظر المطلق
+The DSL accepts a versioned schema composed of bounded values: approved field types, `required`, ranges and lengths, fixed lists, local comparison rules between declared fields, layouts, and relationships selected from an allowlist of types and modules. The engine interprets these rules deterministically within known time, memory, and depth limits.
 
-لا تقبل DSL ولا محولاتها:
+## Absolute Prohibitions
 
-- SQL أو نص استعلام أو اسم جدول أو تعبير ORM.
-- طلب شبكة أو URL أو webhook أو تكامل خارجي.
-- قراءة أو كتابة ملف أو مسار تخزين أو تحميل كود.
-- JavaScript أو PHP أو shell أو template قابل للتنفيذ أو أي كود حر.
-- reflection أو dynamic import أو استدعاء دالة باسم وارد من التعريف.
+Neither the DSL nor its transformers accept:
 
-يعد أي نص غير مطابق للمخطط أو متجاوز للحدود خطأ نشر، لا قيمة تتجاهل بصمت.
+- SQL, query text, table names, or ORM expressions.
+- Network requests, URLs, webhooks, or external integrations.
+- File reads or writes, storage paths, or code loading.
+- JavaScript, PHP, shell, executable templates, or any arbitrary code.
+- Reflection, dynamic imports, or calling a function whose name comes from the definition.
 
-## الإصدارات والتوافق
+Any text that does not match the schema or exceeds a boundary is a publication error, not a value to ignore silently.
 
-1. يحمل كل تعريف `dsl_version` و`work_type_version` غير قابلين للتعديل بعد النشر.
-2. يحتفظ `WorkRecord` بإصدار التعريف الذي أنشئ به؛ لا يعاد تفسير سجل قائم بإصدار أحدث.
-3. التغييرات المتوافقة تضيف حقلاً اختيارياً أو قيمة قائمة لا تغير دلالة سابقة.
-4. التغييرات غير المتوافقة تنشئ إصداراً جديداً، مع خطة تحويل صريحة ومراجعة توافق، ولا تطبق بصمت.
-5. يحتفظ المحرك بعدد محدود ومعلن من إصدارات DSL المدعومة. عند انتهاء الدعم، يرفض النشر الجديد ويعرض مسار ترقية؛ لا يحذف parser مطلوباً لسجل محفوظ قبل ترحيل موثق.
+## Versions and Compatibility
 
-## حدود الموارد والتدقيق
+1. Every definition has immutable `dsl_version` and `work_type_version` values after publication.
+2. A `WorkRecord` retains the definition version with which it was created; an existing record is not reinterpreted using a newer version.
+3. A compatible change adds an optional field or a list value without changing prior meaning.
+4. An incompatible change creates a new version with an explicit conversion plan and compatibility review; it is never applied silently.
+5. The engine retains a limited, declared set of supported DSL versions. When support ends, it rejects new publication and presents an upgrade path. It must not remove a parser required by a stored record before a documented migration.
 
-يحدد الإصدار المدعوم الحد الأقصى للحقول، عمق layout، حجم payload، طول النص، وعدد العلاقات وقواعد التحقق. يسجل النشر والرفض والتحويل مع نسخة المخطط وhash التعريف والمعتمد. تختبر كل نسخة DSL بحالات قبول ورفض وتوافق خلفي وحدود موارد.
+## Resource Limits and Audit
 
-## سجل التغيير
+A supported version is intended to define maximum field count, layout depth, payload size, text length, relationship count, and validation-rule count. Runtime enforcement and automated boundary tests for these limits are not currently verified in the repository. Publication, rejection, and conversion must be recorded with the schema version, definition hash, and approver. Every DSL version requires acceptance, rejection, backward-compatibility, and resource-boundary tests before these controls can be treated as implemented.
 
-| الإصدار | التاريخ | الدور | التغيير |
+## Change Log
+
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول هندسة البرمجيات | تحديد DSL مقيدة وإصداراتها وحدودها الأمنية |
+| 1.0.0 | 2026-07-15 | Software Engineering Lead | Defined the constrained DSL, versioning rules, security boundaries, and implementation gap |

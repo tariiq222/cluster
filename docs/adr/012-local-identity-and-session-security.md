@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-012
-title: الهوية المحلية وأمن الجلسات
+title: Local Identity and Session Security
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: Identity والجلسات والحسابات المميزة
+- Platform Architecture Council
+scope: Identity, sessions, and privileged accounts
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -24,28 +24,28 @@ related_adrs:
 - ADR-020
 review_by: 2026-10-15
 ---
-# ADR-012: الهوية المحلية وأمن الجلسات
+# ADR-012:    
 ## Context
-التشغيل المعزول لا يملك موفر هوية خارجي، وتحتوي المنصة PII وظيفية.
+         PII .
 ## Drivers
-استقلال محلي وحماية الحسابات والجلسات والإدارة.
+     .
 ## Decision
-الحسابات محلية؛ كلمات المرور Argon2id بحدود غير قابلة للتخفيض، وجلسات httpOnly قصيرة، وMFA للحسابات الإدارية، واسترداد ثنائي الإدارة وBreak-glass محكوم.
+    Argon2id      httpOnly  MFA      Break-glass .
 ## Scope
-يشمل حسابات المستخدمين والخدمات والإدارة والطوارئ.
+     .
 ## Alternatives
-رُفضت المصادقة الخارجية الإلزامية وحفظ كلمات المرور أو الأسرار القابلة للاسترجاع.
+          .
 ## Consequences
-يتطلب تشغيل دورة حياة الحساب محلياً وتدقيقاً دقيقاً.
+       .
 ## Security
-قفل تدريجي، CSRF، إنهاء الجلسات عند التغيير الحساس، وفصل الحساب اليومي عن الإداري.
+  CSRF          .
 ## Operations
-تنبيه على القفل والاسترداد والطوارئ وتدوير الأسرار ضمن البيئة.
+        .
 ## Rollback
-تعطل السياسة أو تغييرات الحساب بإصدار سياسة مدقق؛ لا يعاد تفعيل جلسة ملغاة.
+            .
 ## Enforcement
-اختبارات Argon2id والقفل وMFA والاسترداد الثنائي وBreak-glass.
+ Argon2id  MFA   Break-glass.
 ## Review
-ربع سنوي وعند تغير تهديدات الهوية.
+quarterly    .
 ## References
-`docs/data-security/identity-session-security.md`، `docs/data-security/threat-model.md`.
+`docs/data-security/identity-session-security.md` `docs/data-security/threat-model.md`.

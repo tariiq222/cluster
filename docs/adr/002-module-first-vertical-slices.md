@@ -5,17 +5,17 @@ type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: تنظيم الكود
+- Platform Architecture Council
+scope:  
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -26,26 +26,26 @@ review_by: 2027-01-15
 ---
 # ADR-002: Module-First Vertical Slices
 ## Context
-التنظيم الطبقي العام يشتت حالة الاستخدام، والشرائح بلا موديولات تضعف ملكية المجال.
+           .
 ## Drivers
-تجميع ما يتغير معاً ووضوح الاختبار والمراجعة.
+      .
 ## Decision
-الموديول هو الحد الأعلى؛ داخله تنظم الكتابة والقراءة حسب حالة الاستخدام، وDomain مشترك للموديول.
+           Domain  .
 ## Scope
-يشمل Laravel وReact؛ Controller رفيع وHandler منسق وSlice تملك اختباراتِها.
+ Laravel React Controller  Handler  Slice  .
 ## Alternatives
-رُفضت الطبقات الأفقية العامة ونسخ Domain داخل كل Slice.
+     Domain   Slice.
 ## Consequences
-يتحسن التركيز لكن يلزم منع Shared عام لسياسات المجال.
+     Shared   .
 ## Security
-كل Slice يستدعي التفويض الخلفي قبل القراءة أو الكتابة.
+ Slice       .
 ## Operations
-لا يضيف مكونات تشغيلية مستقلة.
+    .
 ## Rollback
-يمكن عكس Slice في إصدار التطبيق مع ترحيلها المملوك.
+  Slice      .
 ## Enforcement
-قوالب الموديولات وفحوص namespace والاعتماد في CI.
+   namespace   CI.
 ## Review
-عند ظهور حالة استخدام مشتركة حقيقية بين موديولين.
+       .
 ## References
-`docs/architecture/overview.md`، `docs/architecture/context-map.md`.
+`docs/architecture/overview.md` `docs/architecture/context-map.md`.

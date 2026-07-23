@@ -1,93 +1,93 @@
 ---
 doc_id: ARC-MC-001
-title: كتالوج الموديولات canonical
+title: Canonical Module Catalog
 type: architecture
 status: accepted
 version: 1.2.0
 date: '2026-07-15'
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
-- مسؤول المنتج
+- Software Engineering Lead
+- Information Security Lead
+- Product Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references: []
 ---
-# كتالوج الموديولات
+# Module Catalog
 
-## 1. قواعد الكتالوج
+## 1. Catalog rules
 
-- الموديولات التالية وعددها تسعة عشر هي الحدود القانونية الوحيدة.
-- كل موديول يملك مجاله وجداوله وترحيلاته وواجهاته وأحداثه واختباراته.
-- العقود أسماء توجيهية canonical؛ يمكن إثراء حقول DTO دون تغيير الملكية أو اتجاه الاعتماد.
-- لا يعيد أي عقد نموذج ORM أو يتيح Query Builder أو اسم جدول.
-- جميع عمليات الوصول تمر عبر `Authorization` باستخدام `RecordFacts` يبنيها المالك.
-- جميع التغييرات العابرة غير الفورية تنشر عبر Transactional Outbox بتسليم at-least-once.
+- The following nineteen modules are the only legal boundaries.
+- Each module owns its domain, tables, migrations, interfaces, events, and tests.
+- Contracts are canonical routing names; DTO fields can be enriched without changing ownership or dependency direction.
+- No contract returns an ORM model or exposes a Query Builder or table name.
+- All access goes through `Authorization` using `RecordFacts` built by the owner.
+- All asynchronous cross-boundary changes publish through the Transactional Outbox with at-least-once delivery.
 
-## 2. الملخص
+## 2. Summary
 
-| الموديول | المسؤولية المختصرة | الرتبة |
+| Module | Brief responsibility | Rank |
 |---|---|---:|
-| `PlatformSettings` | إعدادات المنصة العامة المصدرة بإصدارات | 0 |
-| `Organization` | الهيكل والمناصب والتكليفات والعلاقات التنظيمية | 0 |
-| `Identity` | الحسابات والجلسات والملف التشغيلي | 1 |
-| `Authorization` | قرار وصول مركزي RBAC + ABAC | 2 |
-| `Audit` | تدقيق append-only ووصول حساس | 3 |
-| `Workflow` | تعريف وتنفيذ المسارات بإصدارات ثابتة | 4 |
-| `RecordsGovernance` | الاحتفاظ والحجز والإتلاف المحكوم | 4 |
-| `WorkDefinitions` | أنواع العمل والنماذج والحقول والإصدارات | 5 |
-| `Documents` | الملفات والإصدارات والتصنيف والروابط | 5 |
-| `Collaboration` | النقاش والتعليقات والمنشن والمشاركون | 6 |
-| `Tasks` | المهمة والمسؤول والموعد ودورة الحياة | 7 |
-| `WorkRecords` | مثيلات الأعمال الديناميكية، بما فيها الطلبات | 8 |
-| `Strategy` | الخطط والأهداف والمبادرات والمؤشرات | 8 |
-| `PortfolioProjects` | المحافظ والبرامج والمشاريع | 9 |
-| `Risk` | المخاطر والضوابط وخطط المعالجة | 10 |
-| `Notifications` | إشعارات داخل المنصة | 11 |
-| `Search` | فهرس بحث داخلي محكوم | 11 |
-| `Reporting` | التقارير واللوحات وRead Models | 11 |
-| `Workspace` | مساحة العمل وصناديق المستخدم المشتقة | 11 |
+| `PlatformSettings` | Versioned publication of general platform settings | 0 |
+| `Organization` | Structure, positions, assignments, and organizational relations | 0 |
+| `Identity` | Accounts, sessions, and the operational profile | 1 |
+| `Authorization` | Centralized access decision: RBAC + ABAC | 2 |
+| `Audit` | Append-only audit and sensitive access | 3 |
+| `Workflow` | Definition and execution of routes with immutable versions | 4 |
+| `RecordsGovernance` | Governed retention, hold, and disposition | 4 |
+| `WorkDefinitions` | Work types, forms, fields, and versions | 5 |
+| `Documents` | Files, versions, classification, and links | 5 |
+| `Collaboration` | Discussion, comments, mentions, and participants | 6 |
+| `Tasks` | The task, assignee, deadline, and lifecycle | 7 |
+| `WorkRecords` | Dynamic business instances, including requests | 8 |
+| `Strategy` | Plans, objectives, initiatives, and indicators | 8 |
+| `PortfolioProjects` | Portfolios, programs, and projects | 9 |
+| `Risk` | Risks, controls, and treatment plans | 10 |
+| `Notifications` | In-platform notifications | 11 |
+| `Search` | Governed internal search index | 11 |
+| `Reporting` | Reports, dashboards, and Read Models | 11 |
+| `Workspace` | Workspace and derived user inboxes | 11 |
 
 ## 3. `PlatformSettings`
 
-**المسؤولية:** إدارة إعدادات المنصة العامة التي لا تنتمي إلى مجال آخر، ونشرها بإصدارات قابلة للتتبع.
+**Responsibility:** Manage the general platform settings that do not belong to another domain, and publish them with traceable versions.
 
-**يملك:**
+**Owns:**
 
-- مفاتيح الإعدادات وقيمها typed.
-- إصدارات الإعدادات وحالة المسودة والنشر.
-- اللغة والـlocale والمنطقة الزمنية الافتراضية، وسياسات الجلسة وكلمة المرور فوق الحد الأمني الثابت، وحدود تشغيل عامة معلنة.
-- سجل تفعيل الإصدار؛ أما التدقيق الأمني النهائي فيملكه `Audit`.
+- typed setting keys and values.
+- setting versions, draft state, and publication.
+- language, locale, default time zone, and session and password policies above the fixed security floor, and declared general operational limits.
+- the version activation log; final security audit belongs to `Audit`.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `GetEffectivePlatformSetting`
 - `GetPlatformSettingsVersion`
 - `PublishPlatformSettingsVersion`
 
-**أحداث:**
+**Events:**
 
 - `PlatformSettingsVersionPublished`
 
-**يعتمد على:** لا شيء.
+**Depends on:** nothing.
 
-**لا يملك:** إعدادات نموذج عمل، أو مسار، أو مؤشر، أو مشروع. تبقى إعدادات المجال في موديول المجال.
+**Does not own:** work-type form, route, indicator, or project settings. Domain settings remain in the domain module.
 
 ## 4. `Organization`
 
-**المسؤولية:** تمثيل التجمع والمنشآت والوحدات والمناصب والتسلسل الإداري والتكليفات والعلاقات الإشرافية وقدراتها.
+**Responsibility:** Represent the cluster, facilities, units, positions, the management hierarchy, assignments, supervisory relations, and their capabilities.
 
-**يملك:**
+**Owns:**
 
-- المؤسسات والمنشآت والوحدات وأنواعها.
-- الأشخاص وPII الأساسية ونسخة `person_version` المتزايدة.
-- المناصب وخطوط الإشراف والتعيينات الأساسية والمؤقتة.
-- العلاقات الإشرافية والوظيفية والتنسيقية ومددها وقدراتها.
-- عضويات الفرق التنظيمية التي ليست حسابات دخول ولا أدوار صلاحية.
+- organizations, facilities, units, and their types.
+- persons, basic PII, and the incremental `person_version` copy.
+- positions, supervisory lines, and primary and temporary assignments.
+- supervisory, functional, and coordination relations and their durations and capabilities.
+- team memberships that are not login accounts or permission roles.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `ResolveOrganizationScope`
 - `ResolveDirectManager`
@@ -97,7 +97,7 @@ references: []
 - `ValidateOrganizationReference`
 - `ValidatePersonReference`
 
-**أحداث:**
+**Events:**
 
 - `OrganizationUnitCreated`
 - `OrganizationUnitMoved`
@@ -109,22 +109,22 @@ references: []
 - `SupervisoryRelationshipActivated`
 - `SupervisoryRelationshipExpired`
 
-**يعتمد على:** لا شيء.
+**Depends on:** nothing.
 
-**لا يملك:** الحساب أو كلمة المرور أو الدور أو سجل العمل أو المشروع.
+**Does not own:** the account, password, role, or work or project record.
 
 ## 5. `Identity`
 
-**المسؤولية:** الحسابات المحلية والاعتماد والجلسات ودورة حياة المستخدم والملف التشغيلي.
+**Responsibility:** Local accounts, authentication, sessions, user lifecycle, and the operational profile.
 
-**يملك:**
+**Owns:**
 
-- المستخدمين وبيانات الاعتماد وتاريخ تغييرها.
-- الجلسات والاستعادة المحكومة ومحاولات الدخول.
-- الملف الشخصي التشغيلي والتفضيلات الهووية.
-- `person_id` كمعرف خارجي وملخص عرض محدود، بلا PII مرجعية أو FK إلى Organization.
+- users, credentials, and password change history.
+- sessions, controlled recovery, and login attempts.
+- the operational profile and identity-side preferences.
+- `person_id` as an external identifier and a limited display summary, with no reference PII or FK to Organization.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `AuthenticateUser`
 - `GetUserIdentity`
@@ -133,7 +133,7 @@ references: []
 - `RevokeUserSessions`
 - `ChangePassword`
 
-**أحداث:**
+**Events:**
 
 - `UserAccountCreated`
 - `UserAccountChanged`
@@ -142,22 +142,22 @@ references: []
 - `UserSessionsRevoked`
 - `UserProfileUpdated`
 
-**يعتمد على:** `Organization`, `PlatformSettings`.
+**Depends on:** `Organization`, `PlatformSettings`.
 
-**لا يملك:** جهة المستخدم أو منصبه أو دوره التجاري؛ يشير إليها بمعرفات ويتحقق منها عبر العقود.
+**Does not own:** the user's organization, position, or business role; it references them by identifiers and validates them through contracts.
 
 ## 6. `Authorization`
 
-**المسؤولية:** تحويل القدرة والدور والنطاق والعلاقة والتصنيف والحالة والتفويض وسياسة الحقل إلى قرار مركزي قابل للتفسير.
+**Responsibility:** Turn capability, role, scope, relation, classification, state, delegation, and field policy into a centralized, explainable access decision.
 
-**يملك:**
+**Owns:**
 
-- الأدوار والقدرات وإسناداتها.
-- التفويضات ومددها وقيودها.
-- سياسات التصنيف وقوالب الوصول إلى الحقول.
-- schema الخاص بـ`RecordFacts` وعقود `AccessDecision` و`ScopePredicate`.
+- roles, capabilities, and their assignments.
+- delegations and their durations and constraints.
+- classification policies and field access templates.
+- the `RecordFacts` schema and the `AccessDecision` and `ScopePredicate` contracts.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `DecideAccess(actor, capability, RecordFacts)`
 - `ResolveFieldAccess`
@@ -165,58 +165,60 @@ references: []
 - `FilterReadableOrganizationScopes`
 - `ExplainAccessDecision`
 
-**أحداث:**
+**Events:**
 
 - `RoleAssigned`
 - `RoleRevoked`
 - `DelegationActivated`
 - `DelegationExpired`
 - `AuthorizationPolicyPublished`
-- `AccessDecisionEvaluated` عند وجوب التدقيق غير المتزامن
+- `AccessDecisionEvaluated` when non-blocking audit is required
 
-**يعتمد على:** `Identity`, `Organization`, `PlatformSettings`.
+**Depends on:** `Identity`, `Organization`, `PlatformSettings`.
 
-**قاعدة منع الدورات:** لا يعتمد على أي موديول سجلات أو أعمال، ولا يقرأ جداوله. الموديول المالك يبني `RecordFacts` من بيانات موثوقة ثم يطلب القرار.
+**Cycle-prevention rule:** it does not depend on any record or business module and does not read its tables. The owning module builds `RecordFacts` from trusted data and then requests the decision.
 
 ## 7. `Audit`
 
-**المسؤولية:** سجل append-only للأعمال الحساسة والتغييرات والوصول والتنزيل والتصدير، مع قابلية البحث المحكومة.
+**Status: planned for R2/R3**
 
-**يملك:**
+**Responsibility:** Append-only log of sensitive actions, changes, access, downloads, and exports, with controlled search.
 
-- أحداث التدقيق غير القابلة للتعديل.
-- أحداث الوصول الحساس.
-- روابط correlation وcausation وهوية المنفذ والأصيل عند التفويض.
-- نقاط استهلاك أحداث التدقيق غير المتزامنة.
+**Owns:**
 
-**عقود متزامنة:**
+- immutable audit events.
+- sensitive access events.
+- correlation and causation links and the actor / on-behalf-of identity at delegation.
+- downstream consumption points for audit events.
+
+**Synchronous contracts (feature handlers):**
 
 - `AppendCriticalAuditEvent`
 - `RecordSensitiveAccess`
 - `QueryAuthorizedAuditTrail`
 
-**أحداث:**
+**Events:**
 
 - `CriticalAuditEventAppended`
 - `SensitiveAccessRecorded`
 
-**يستهلك:** أحداث التغيير المنشورة، بما فيها أحداث `Authorization`.
+**Consumes:** published change events, including `Authorization` events.
 
-**يعتمد على:** `Authorization` لحماية استعلامات سجل التدقيق. لا يستدعيه `Authorization` متزامناً؛ أحداث تغييرات الصلاحية تصل عبر Outbox، وبذلك لا تنشأ دورة.
+**Depends on:** `Authorization` to protect audit trail queries. `Authorization` does not call it synchronously; permission-change events arrive via the Outbox, so no cycle arises.
 
-**لا يملك:** سجل النشاط المفهوم للمستخدم داخل المجال، ولا يسمح بتعديل أو حذف حدث تدقيق.
+**Does not own:** the in-domain user-facing activity log, and does not allow editing or deleting an audit event.
 
 ## 8. `Workflow`
 
-**المسؤولية:** تعريف المسارات وتنفيذ الموافقات والتفرع والتوازي والنصاب والتصعيد بإصدارات ثابتة.
+**Responsibility:** Define routes and execute approvals, branching, parallelism, quorum, and escalation with immutable versions.
 
-**يملك:**
+**Owns:**
 
-- تعريفات المسار ومسوداتها وإصداراتها المنشورة.
-- العقد والانتقالات والشروط الآمنة.
-- مثيلات المسار والخطوات والقرارات والتصعيدات.
+- route definitions, drafts, and published versions.
+- safe nodes, transitions, and conditions.
+- route instances, steps, decisions, and escalations.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `ValidateWorkflowVersion`
 - `PublishWorkflowVersion`
@@ -225,7 +227,7 @@ references: []
 - `ReturnWorkflowForRevision`
 - `GetWorkflowInstanceState`
 
-**أحداث:**
+**Events:**
 
 - `WorkflowVersionPublished`
 - `WorkflowStarted`
@@ -234,22 +236,23 @@ references: []
 - `WorkflowCompleted`
 - `WorkflowFailed`
 
-**يعتمد على:** `Organization`, `Authorization`, `Audit`.
+**Depends on:** `Organization`, `Authorization`, `Audit`.
 
-**لا يملك:** معنى إكمال سجل عمل أو مشروع أو خطر. يتلقى `subject_ref` وسياق حل المعتمد ولا يستدعي الموديول المصدر.
-
+**Does not own:** the meaning of completing a work, project, or risk record. It receives `subject_ref` and the assignee resolution context and does not call the source module.
 ## 9. `RecordsGovernance`
 
-**المسؤولية:** سياسات الاحتفاظ، والحجز القانوني أو الإداري، ومراجعة الإتلاف، وتوثيق القرار دون امتلاك محتوى السجل.
+**Status: planned for R2/R3**
 
-**يملك:**
+**Responsibility:** Retention policies, legal or administrative hold, disposition review, and disposition evidence without owning record content.
 
-- جداول الاحتفاظ وإصداراتها.
-- موضوعات الحوكمة العامة المرتبطة بـ`record_ref`.
-- أوامر الحجز ومددها وأسبابها.
-- حالات مراجعة الإتلاف وإثباتاته.
+**Owns:**
 
-**عقود متزامنة:**
+- the retention tables and their versions.
+- general governance subjects linked to `record_ref`.
+- hold orders and their durations and reasons.
+- disposition review states and their proofs.
+
+**Synchronous contracts (feature handlers):**
 
 - `RegisterGovernedRecord`
 - `ResolveRetentionPolicy`
@@ -258,7 +261,7 @@ references: []
 - `DecideDispositionEligibility`
 - `ConfirmDispositionOutcome`
 
-**أحداث:**
+**Events:**
 
 - `RecordHoldPlaced`
 - `RecordHoldReleased`
@@ -266,22 +269,22 @@ references: []
 - `RecordDispositionApproved`
 - `RecordDispositionCompleted`
 
-**يعتمد على:** `PlatformSettings`, `Authorization`, `Audit`.
+**Depends on:** `PlatformSettings`, `Authorization`, `Audit`.
 
-**لا يملك:** payload أو الملف أو عملية الحذف داخل المصدر. الموديول المالك ينفذ الإتلاف بعد قرار صريح وفي معاملته ثم يؤكد النتيجة.
+**Does not own:** payload, file, or any deletion inside the source. The owning module executes the disposition after an explicit decision and inside its own transaction, then confirms the outcome.
 
 ## 10. `WorkDefinitions`
 
-**المسؤولية:** تعريف أنواع الأعمال الديناميكية والنماذج والحقول والعلاقات والقوائم وإصداراتها.
+**Responsibility:** Define dynamic work types, forms, fields, relations, lists, and their versions.
 
-**يملك:**
+**Owns:**
 
-- تعريف نوع العمل ومسودته وإصداره المنشور.
-- تعريفات الحقول والتحقق والتخطيطات والعلاقات.
-- تعريفات القوائم وTyped projection metadata.
-- ربط نوع العمل بإصدار مسار صالح.
+- the work type definition, draft, and published version.
+- field definitions, validation, layouts, and relations.
+- list definitions and typed projection metadata.
+- the link between a work type and a valid route version.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `CreateWorkTypeDraft`
 - `ValidateWorkTypeVersion`
@@ -289,27 +292,27 @@ references: []
 - `GetPublishedWorkTypeSchema`
 - `GetProjectionDefinition`
 
-**أحداث:**
+**Events:**
 
 - `WorkTypeVersionPublished`
 - `WorkTypeVersionRetired`
 
-**يعتمد على:** `PlatformSettings`, `Workflow`, `Authorization`, `Audit`.
+**Depends on:** `PlatformSettings`, `Workflow`, `Authorization`, `Audit`.
 
-**لا يملك:** أي `WorkRecord` أو payload تشغيلي. حذف حقل منشور يعني إيقافه أو إخفاءه لا إتلاف القيم السابقة.
+**Does not own:** any `WorkRecord` or operational payload. Deleting a published field means deprecating or hiding it, not destroying the previous values.
 
 ## 11. `Documents`
 
-**المسؤولية:** الملفات والبيانات الوصفية والتصنيف والإصدارات والروابط والتنزيل المحكوم.
+**Responsibility:** Files, metadata, classification, versions, links, and governed download.
 
-**يملك:**
+**Owns:**
 
-- Metadata المستند والنسخ وchecksum وحالة الفحص.
-- روابط التخزين المتوافق مع S3.
-- روابط المستند إلى `record_ref`.
-- أحداث التنزيل والوصول الخاصة بالمستند.
+- document metadata, versions, checksum, and scan state.
+- S3-compatible storage links.
+- document links to `record_ref`.
+- document-specific download and access events.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `CreateDocument`
 - `AddDocumentVersion`
@@ -317,7 +320,7 @@ references: []
 - `AuthorizeDocumentDownload`
 - `GetDocumentSummary`
 
-**أحداث:**
+**Events:**
 
 - `DocumentCreated`
 - `DocumentVersionAdded`
@@ -325,21 +328,23 @@ references: []
 - `DocumentDownloaded`
 - `DocumentClassified`
 
-**يعتمد على:** `RecordsGovernance`, `Authorization`, `Audit`.
+**Depends on:** `RecordsGovernance`, `Authorization`, `Audit`.
 
-**لا يملك:** الملف داخل جدول الأعمال، ولا يمنح رابط المصدر وصولاً تلقائياً. يطبق أشد قيود المستند والسجل المرتبط.
+**Does not own:** the file inside a business table, and does not grant the source link automatic access. It applies the strictest restrictions of the document and the linked record.
 
 ## 12. `Collaboration`
 
-**المسؤولية:** النقاشات العامة المرتبطة بالسجلات، والتعليقات والمنشن والمشاركون والاشتراكات وسجل النشاط التعاوني.
+**Status: planned for R2/R3**
 
-**يملك:**
+**Responsibility:** Record-linked discussions, comments, mentions, participants, subscriptions, and the collaboration activity log.
 
-- threads والتعليقات والإصدارات المنطقية للتعديل المحكوم.
-- المشاركين والمنشنات والاشتراكات.
-- روابط التعليق بالمستندات.
+**Owns:**
 
-**عقود متزامنة:**
+- threads, comments, and logical versions for governed editing.
+- participants, mentions, and subscriptions.
+- comment links to documents.
+
+**Synchronous contracts (feature handlers):**
 
 - `CreateCollaborationThread`
 - `AddComment`
@@ -347,28 +352,28 @@ references: []
 - `AddParticipant`
 - `ListAuthorizedThread`
 
-**أحداث:**
+**Events:**
 
 - `CollaborationThreadCreated`
 - `CommentAdded`
 - `ParticipantAdded`
 - `ParticipantMentioned`
 
-**يعتمد على:** `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
+**Depends on:** `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
 
-**لا يملك:** حالة المهمة أو السجل المصدر. المنشن يضيف مشاركاً حسب السياسة ولا يغير المسؤول أو حالة المصدر.
+**Does not own:** task state or the source record. A mention adds a participant per policy and does not change the assignee or the source state.
 
 ## 13. `Tasks`
 
-**المسؤولية:** المهمة المستقلة أو المرتبطة، ومسؤولها الواحد، ومشاركوها من `Collaboration`، وموعدها وأولويتها ودورة حياتها.
+**Responsibility:** The standalone or linked task, its single assignee, participants from `Collaboration`, its deadline, priority, and lifecycle.
 
-**يملك:**
+**Owns:**
 
-- المهمة و`source_ref` والمنشئ والمسؤول الواحد.
-- الأولوية والموعد والحالة وقاعدة الإغلاق المثبتة عند الإنشاء.
-- سجل انتقالات المهمة؛ أما النصوص والمرفقات فتملكها القدرات المختصة.
+- the task, `source_ref`, the creator, and the single assignee.
+- priority, deadline, state, and the closing rule fixed at creation.
+- the task transition log; text and attachments belong to the respective capability modules.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `CreateTask`
 - `AssignTask`
@@ -377,7 +382,7 @@ references: []
 - `CompleteTask`
 - `GetTaskSummary`
 
-**أحداث:**
+**Events:**
 
 - `TaskCreated`
 - `TaskAssigned`
@@ -385,22 +390,22 @@ references: []
 - `TaskCompleted`
 - `TaskCancelled`
 
-**يعتمد على:** `Identity`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
+**Depends on:** `Identity`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
 
-**لا يملك:** payload المصدر ولا يمنح الاطلاع على المهمة حق رؤية كل حقول المصدر. لا توجد مهام فرعية في المرحلة الأولى.
+**Does not own:** the source payload and does not grant task visibility on every source field. There are no sub-tasks in phase one.
 
 ## 14. `WorkRecords`
 
-**المسؤولية:** مثيلات أنواع الأعمال الديناميكية وحالتها التجارية وEnvelope وpayload والنطاق والجهات المشاركة.
+**Responsibility:** Instances of dynamic work types, their business state, Envelope, payload, scope, and stakeholders.
 
-**يملك:**
+**Owns:**
 
-- `WorkRecord` Envelope: النوع والإصدار والمالك والمنشئ والحالة والتصنيف والرؤية و`lock_version`.
-- payload المرتبط بإصدار `WorkDefinitions`.
-- الأطراف والعلاقات التشغيلية الخاصة بالسجل.
-- Typed projections التي يعدها المصدر للنشر إلى المستهلكات.
+- the `WorkRecord` Envelope: type, version, owner, creator, state, classification, visibility, and `lock_version`.
+- the payload bound to a published `WorkDefinitions` version.
+- the record's stakeholders and operational relations.
+- typed projections the source produces for downstream consumers.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `CreateWorkRecord`
 - `SaveWorkRecordDraft`
@@ -411,7 +416,7 @@ references: []
 - `GetAuthorizedWorkRecord`
 - `ResolveWorkRecordFacts`
 
-**أحداث:**
+**Events:**
 
 - `WorkRecordCreated`
 - `WorkRecordSubmitted`
@@ -420,23 +425,25 @@ references: []
 - `WorkRecordCompleted`
 - `WorkRecordClassified`
 
-**يعتمد على:** `WorkDefinitions`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
+**Depends on:** `WorkDefinitions`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
 
-**قاعدة الطلبات:** الطلب الداخلي العام مجرد `WorkRecord` من نوع عمل منشور رمزه `request`؛ `request` نوع عمل لا تصنيف بيانات. لا يوجد موديول أو جدول أو Aggregate باسم `Requests`، ولا تستخدم أحداث `Request*`.
+**Request rule:** the generic internal request is a `WorkRecord` of a published work type whose code is `request`; `request` is a work type, not a data classification. There is no module, table, or Aggregate named `Requests`, and `Request*` events are not used.
 
 ## 15. `Strategy`
 
-**المسؤولية:** الخطط والمحاور والأهداف والمبادرات والمؤشرات وبطاقات الأداء والمستهدفات والقياسات والأثر المعتمد.
+**Status: planned for R2/R3**
 
-**يملك:**
+**Responsibility:** Plans, axes, objectives, initiatives, indicators, scorecards, targets, measurements, and approved impact.
 
-- الخطط الاستراتيجية وإصداراتها والمحاور والأهداف والمبادرات.
-- تعريفات المؤشرات وإصداراتها ووحداتها ومعادلاتها وملاكها.
-- فترات القياس وخطوط الأساس والمستهدفات وتوزيعها.
-- القياسات والأدلة وقرارات اعتمادها.
-- الأثر الفعلي المعتمد المنسوب إلى المشاريع.
+**Owns:**
 
-**عقود متزامنة:**
+- strategic plans and their versions, axes, objectives, and initiatives.
+- indicator definitions, versions, units, formulas, and owners.
+- measurement periods, baselines, targets, and their distribution.
+- measurements, evidence, and their approval decisions.
+- the approved actual impact attributed to projects.
+
+**Synchronous contracts (feature handlers):**
 
 - `CreateStrategicPlan`
 - `PublishStrategicPlanVersion`
@@ -448,7 +455,7 @@ references: []
 - `SubmitProjectIndicatorImpact`
 - `ApproveProjectIndicatorImpact`
 
-**أحداث:**
+**Events:**
 
 - `StrategicPlanPublished`
 - `IndicatorDefined`
@@ -457,23 +464,25 @@ references: []
 - `IndicatorMeasurementApproved`
 - `ProjectIndicatorImpactApproved`
 
-**يعتمد على:** `Organization`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
+**Depends on:** `Organization`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
 
-**قاعدة المؤشرات:** `Strategy` المالك الوحيد للمؤشرات. لا يملكها `Reporting` أو `PortfolioProjects` أو `Risk`، ولا تنسخ تلك الموديولات تعريفاتها أو قياساتها.
+**Indicator rule:** `Strategy` is the sole owner of indicators. `Reporting`, `PortfolioProjects`, and `Risk` do not own them and do not copy their definitions or measurements.
 
 ## 16. `PortfolioProjects`
 
-**المسؤولية:** المحافظ والبرامج والمشاريع والقوالب والمراحل والمعالم والميزانية الإدارية والصحة والأثر المخطط.
+**Status: planned for R2/R3**
 
-**يملك:**
+**Responsibility:** Portfolios, programs, projects, templates, phases, milestones, administrative budget, health, and planned impact.
 
-- المحافظ والبرامج والمشاريع بتسلسل المحفظة ← البرنامج ← المشروع.
-- قوالب ودورات حياة المشاريع والمراحل والمعالم وخط الأساس والأوزان.
-- المشاركات والأدوار الخاصة بالمشروع.
-- snapshots الميزانية الإدارية والصحة والتقدم.
-- رابط المشروع إلى `indicator_id` والأثر المتوقع كبيانات تخطيط، لا تعريف المؤشر ولا قياسه.
+**Owns:**
 
-**عقود متزامنة:**
+- portfolios, programs, and projects in the portfolio ← program ← project sequence.
+- project templates and lifecycles, phases, milestones, baseline, and weights.
+- project memberships and project-specific roles.
+- administrative budget, health, and progress snapshots.
+- the project link to `indicator_id` and expected impact as planning data, not the indicator definition or measurement.
+
+**Synchronous contracts (feature handlers):**
 
 - `CreatePortfolio`
 - `CreateProgram`
@@ -484,7 +493,7 @@ references: []
 - `GetProjectSummary`
 - `SubmitProjectImpactToStrategy`
 
-**أحداث:**
+**Events:**
 
 - `ProjectCreated`
 - `ProjectBaselineApproved`
@@ -493,23 +502,25 @@ references: []
 - `ProjectHealthChanged`
 - `ProjectImpactSubmitted`
 
-**يعتمد على:** `Organization`, `Strategy`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
+**Depends on:** `Organization`, `Strategy`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
 
-**لا يملك:** المبادرات الاستراتيجية أو المؤشرات. الإنجاز يحسب من المعالم المعتمدة وأدلتها، لا من عدد المهام.
+**Does not own:** strategic initiatives or indicators. Completion is computed from approved milestones and their evidence, not from task counts.
 
 ## 17. `Risk`
 
-**المسؤولية:** سجل المخاطر المؤسسي والضوابط وخطط المعالجة، وربط مؤشرات Strategy كـKRI مع عتبات وتنبيهات وتصعيد، والربط بالاستراتيجية والمشاريع.
+**Status: planned for R2/R3**
 
-**يملك:**
+**Responsibility:** The enterprise risk register, controls, and treatment plans, with Strategy indicators linked as KRIs with thresholds, alerts, and escalation, and links to strategy and projects.
 
-- المخاطر وفئاتها ومصادرها ومالكها ومواعيد مراجعتها.
-- تقييم الاحتمالية والأثر والمستوى الكامن والمتبقي.
-- الضوابط وفعاليتها واستجابات الخطر.
-- روابط خطط المعالجة إلى مهام، وروابط الهدف والمؤشر والمشروع.
-- روابط KRI وعتباتها وقواعد التنبيه وحالة التصعيد؛ لا تعريف المؤشر ولا قياساته.
+**Owns:**
 
-**عقود متزامنة:**
+- risks and their categories, sources, owners, and review dates.
+- likelihood, impact, inherent, and residual assessment.
+- controls and their effectiveness and risk responses.
+- treatment plan links to tasks and links to objective, indicator, and project.
+- KRI links, thresholds, alert rules, and escalation state; not the indicator definition or its measurements.
+
+**Synchronous contracts (feature handlers):**
 
 - `CreateRisk`
 - `AssessRisk`
@@ -520,7 +531,7 @@ references: []
 - `ConfigureRiskIndicatorThreshold`
 - `GetRiskSummary`
 
-**أحداث:**
+**Events:**
 
 - `RiskCreated`
 - `RiskAssessed`
@@ -529,104 +540,106 @@ references: []
 - `RiskIndicatorThresholdBreached`
 - `RiskAccepted`
 
-**يعتمد على:** `Organization`, `Strategy`, `PortfolioProjects`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
+**Depends on:** `Organization`, `Strategy`, `PortfolioProjects`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit`.
 
-**الحالة:** موديول `Risk` مخطط بالفعل ضمن R3 في `docs/plans/release-3-risk.md`؛ مواصفة W3.0 للمصفوفة والشهية ودورات المراجعة شرط تنفيذ للخطة القائمة، وليست خطة موديول مفقودة أو تناقضاً معها. يظل `Strategy` المالك الوحيد لتعريفات KRI وقياساتها، ويملك `Risk` الروابط والعتبات والتنبيهات فقط.
+**Status:** the `Risk` module is already planned in R3 in `docs/plans/release-3-risk.md`; the W3.0 specification for the matrix, appetite, and review cycles is an execution prerequisite for the existing plan, not a missing module plan or a conflict with it. `Strategy` remains the sole owner of KRI definitions and their measurements, and `Risk` owns only the links, thresholds, and alerts.
 
 ## 18. `Notifications`
 
-**المسؤولية:** إنشاء وتجميع وعرض إشعارات داخل المنصة وحالة القراءة والتفضيلات.
+**Responsibility:** Create, aggregate, and display in-platform notifications with read state and preferences.
 
-**يملك:**
+**Owns:**
 
-- الإشعارات والمستلم وحالة القراءة.
-- تفضيلات الإشعار وقواعد التجميع.
-- `source_ref` والرابط الآمن دون نسخ payload المصدر.
-- Inbox منع التكرار للأحداث المستهلكة.
+- notifications, recipients, and read state.
+- notification preferences and aggregation rules.
+- `source_ref` and the safe link without copying the source payload.
+- the dedupe Inbox for consumed events.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `ListMyNotifications`
 - `MarkNotificationRead`
 - `UpdateNotificationPreferences`
 
-**يستهلك:** أحداث `WorkRecords`, `Workflow`, `Tasks`, `Collaboration`, `Strategy`, `PortfolioProjects`, `Risk`, `RecordsGovernance` حسب سياسة معلنة.
+**Consumes:** events from `WorkRecords`, `Workflow`, `Tasks`, `Collaboration`, `Strategy`, `PortfolioProjects`, `Risk`, `RecordsGovernance` per declared policy.
 
-**يعتمد على:** `Identity`, `Authorization` وعقود أحداث المنتجين.
+**Depends on:** `Identity`, `Authorization`, and producer event contracts.
 
-**لا يقرر:** صلاحية رؤية المصدر. يعاد طلب القرار من endpoint المالك عند فتح الرابط. لا بريد ولا SMS ولا WhatsApp في المرحلة الأولى.
+**Does not decide:** source visibility. The decision is re-requested from the owner's endpoint when the link is opened. No email, SMS, or WhatsApp in phase one.
 
 ## 19. `Search`
 
-**المسؤولية:** فهرسة النص والحقول المسموحة وإرجاع نتائج محكومة بالنطاق والتصنيف والحقول.
+**Responsibility:** Index allowed text and fields and return results governed by scope, classification, and fields.
 
-**يملك:**
+**Owns:**
 
-- تعريفات الفهارس ونقاط التقدم ونسخ البحث المشتقة.
-- Inbox منع التكرار وإصدارات وثيقة الفهرس.
-- حقائق تفويض مشتقة لازمة للترشيح الأولي.
+- index definitions, progress marks, and derived search copies.
+- the dedupe Inbox and the index document version.
+- derived authorization facts required for the initial filter.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `SearchAccessibleRecords`
 - `RebuildSearchProjection`
 
-**يستهلك:** أحداث `WorkRecords`, `Tasks`, `Collaboration`, `Documents`, `Strategy`, `PortfolioProjects`, `Risk`.
+**Consumes:** events from `WorkRecords`, `Tasks`, `Collaboration`, `Documents`, `Strategy`, `PortfolioProjects`, `Risk`.
 
-**يعتمد على:** `Authorization` وعقود أحداث المنتجين.
+**Depends on:** `Authorization` and producer event contracts.
 
-**لا يملك:** الحقيقة التشغيلية، ولا يعيد عنواناً أو مقتطفاً أو حقلاً محظوراً، ولا يكتب في سجل المصدر.
+**Does not own:** operational truth, and does not return a title, snippet, or field that is forbidden, and does not write to the source.
 
 ## 20. `Reporting`
 
-**المسؤولية:** تعريف التقارير واللوحات وRead Models العابرة للموديولات والتصدير المحكوم.
+**Responsibility:** Define cross-module reports, dashboards, and Read Models with governed export.
 
-**يملك:**
+**Owns:**
 
-- تعريفات التقارير واللوحات وقوالبها.
-- إسقاطات القراءة وحالة تحديثها.
-- تعريفات التجميع والتصدير، لا تعريف المؤشر التجاري.
+- report and dashboard definitions and their templates.
+- read projections and their rebuild status.
+- aggregation and export definitions, not the business indicator definition.
 
-**عقود متزامنة:**
+**Synchronous contracts (feature handlers):**
 
 - `RunAuthorizedReport`
 - `GetAuthorizedDashboard`
 - `ExportAuthorizedReport`
 - `RebuildReportingProjection`
 
-**يستهلك:** أحداث أو Projection Feeds من `Organization`, `WorkRecords`, `Workflow`, `Tasks`, `Strategy`, `PortfolioProjects`, `Risk`.
+**Consumes:** events or Projection Feeds from `Organization`, `WorkRecords`, `Workflow`, `Tasks`, `Strategy`, `PortfolioProjects`, `Risk`.
 
-**يعتمد على:** `Organization`, `Authorization` وعقود المنتجين.
+**Depends on:** `Organization`, `Authorization`, and producer contracts.
 
-**لا يملك:** المؤشرات أو القياسات، ولا يكتب في بيانات الأعمال، ولا يشغل تحليلات ثقيلة على JSON الخام أو على مسار المعاملات عند تأثيرها في الأداء.
+**Does not own:** indicators or measurements, does not write to business data, and does not run heavy analytics on raw JSON or on the transaction path when performance would impact it.
 
 ## 21. `Workspace`
 
-**المسؤولية:** مساحة عمل المستخدم وصناديق الموافقات والمهام والعناصر المعادة والمتأخرة وSaved Views كإسقاط شخصي موحد.
+**Status: planned for R2/R3**
 
-**يملك:**
+**Responsibility:** The user workspace and the personalized inboxes of approvals, tasks, returned items, and overdue items, plus saved views as a unified personal projection.
 
-- عناصر مساحة العمل المشتقة ومؤشرها إلى المصدر.
-- Saved Views وتفضيلات العرض الخاصة بالمساحة.
-- نقاط استهلاك الأحداث وإصدارات الإسقاط.
+**Owns:**
 
-**عقود متزامنة:**
+- workspace items and their pointer to the source.
+- saved views and personal display preferences.
+- event consumption points and projection versions.
+
+**Synchronous contracts (feature handlers):**
 
 - `GetMyWorkspace`
 - `GetOrganizationWorkspace`
 - `SaveWorkspaceView`
 - `RebuildWorkspaceProjection`
 
-**يستهلك:** أحداث `WorkRecords`, `Workflow`, `Tasks`, `Collaboration`, `Strategy`, `PortfolioProjects`, `Risk`.
+**Consumes:** events from `WorkRecords`, `Workflow`, `Tasks`, `Collaboration`, `Strategy`, `PortfolioProjects`, `Risk`.
 
-**يعتمد على:** `Authorization` وعقود أحداث المنتجين.
+**Depends on:** `Authorization` and producer event contracts.
 
-**لا يملك:** حالة أي عنصر مصدر، ولا ينفذ الانتقال نيابة عنه. ينقل المستخدم إلى endpoint المالك لإعادة التفويض والتنفيذ.
+**Does not own:** the state of any source item, and does not perform the transition on its behalf. The user is redirected to the owner's endpoint for re-delegation and execution.
 
-## 22. قواعد الإضافة والتغيير
+## 22. Addition and change rules
 
-- مجالات ما بعد R3 مرشحات استكشاف فقط، وليست موديولات مقررة أو ملتزماً بتنفيذها.
-- لا ينشأ موديول جديد لمجرد وجود شاشة أو جدول.
-- أي موديول جديد يحتاج معنى مجال مستقل، ومالك بيانات، وعقوداً، ورتبة في DAG، واختبارات حدود، وADR معتمد.
-- لا ينقل كيان بين الموديولات بصمت؛ يوثق التغيير وخطة ترحيل العقود والبيانات.
-- لا تستخدم مجلدات `Shared` إلا للـClock وIdentifiers وTransaction/Outbox primitives والأنواع التقنية المحايدة؛ لا توضع فيها DTOs أو سياسات مجال.
+- Post-R3 candidate areas are exploration only; they are not committed modules and their implementation is not bound.
+- A new module is not created just because a screen or a table exists.
+- Any new module needs an independent domain meaning, a data owner, contracts, a DAG rank, boundary tests, and an accepted ADR.
+- An entity is not moved between modules silently; the change and the contract and data migration plan are documented.
+- The `Shared` directory is used only for the Clock, identifiers, Transaction/Outbox primitives, and domain-neutral technical types; DTOs and domain policies are not placed there.

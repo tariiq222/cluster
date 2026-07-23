@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-NSR-001
-title: الإشعارات والبحث والتقارير
+title: Notifications, Search, and Reporting
 type: domain
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مالك موديولات Notifications وSearch وReporting
+owner: Owner of the Notifications, Search, and Reporting modules
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: On every change
 sources:
 - docs/adr/014-authorized-search.md
 - docs/adr/015-authorized-reporting.md
@@ -21,33 +21,33 @@ references:
 - docs/architecture/context-map.md
 - docs/data-security/authorization-model.md
 ---
-# الإشعارات والبحث والتقارير
+# Notifications, Search, and Reporting
 
-## الغرض والنطاق
+## Purpose and Scope
 
-هذه موديولات مشتقة منفصلة تشترك في قاعدة: لا تملك حقيقة المصدر ولا تكتب فيه ولا تمنح حق الوصول إليه. `Notifications` ينشئ إشعارات داخل التطبيق فقط. `Search` يفهرس حقولاً ونصوصاً مسموحة. `Reporting` يملك تعريفات التقارير واللوحات وRead Models والتصدير المحكوم. جميعها تستهلك Outbox أو Projection Feeds، وتعيد التفويض عند العرض أو الفتح أو التصدير.
+These are separate derived modules that share a single rule: they do not own the source of truth, do not write to it, and do not grant access to it. `Notifications` creates in-app notifications only. `Search` indexes permitted fields and texts. `Reporting` owns report and dashboard definitions, read models, and governed exports. All three consume the Outbox or Projection Feeds, and re-authorize at display, open, or export.
 
-خارج النطاق: البريد وSMS وWhatsApp، تنفيذ انتقال مجال، تعريف مؤشر أو قياس، ومصدر حقيقة بديل.
+Out of scope: email, SMS, and WhatsApp; domain transition execution; indicator or metric definition; and any alternative source of truth.
 
-## الكيانات والجداول
+## Entities and Tables
 
-| الموديول والجداول | الحقائق المملوكة | القيود |
+| Module and Tables | Owned Facts | Constraints |
 |---|---|---|
-| Notifications: `notifications`, `notification_preferences`, `notification_inbox` | المستلم، النوع، `source_ref`، القراءة والتجميع ومنع التكرار | فريد `(consumer, event_id)`؛ لا payload أو عنوان مصدر حساس |
-| Search: `search_index_entries`, `search_checkpoints`, `search_inbox` | وثيقة الفهرس المشتقة، نسخة المصدر وحقائق ترشيح أولي | فريد `(source_type, source_id, projection_version)`؛ لا تخزين حقل غير قابل للفهرسة |
-| Reporting: `report_definitions`, `dashboard_definitions`, `report_read_models`, `report_runs`, `export_artifacts`, `report_inbox` | القالب، الإسقاط، حالة التحديث، تشغيل التقرير ودفعة التصدير | الفهرس حسب النطاق والزمن؛ artifact مؤقت ومحكوم بالاحتفاظ |
+| Notifications: `notifications`, `notification_inbox`, `notification_recipients`, `notification_dead_letters` | Recipient, type, `source_ref`, read state, aggregation, deduplication, dead-letter failures | Unique `(event_id, recipient_user_id)`; no sensitive payload or source title |
+| Search: `search_index_entries`, `search_checkpoints`, `search_inbox` | Derived index document, source version, and preliminary filtering facts | Unique `(source_type, source_id, projection_version)`; no storage of non-indexable fields |
+| Reporting: `report_definitions`, `dashboard_definitions`, `report_read_models`, `report_runs`, `export_artifacts`, `report_inbox` | Template, projection, refresh state, report run, and export batch | Indexed by scope and time; artifact is temporary and governed by retention |
 
-كل مرجع مصدر هو `{source_module, source_type, source_id, source_version}`. لا توجد joins مباشرة على جداول المنتجين.
+Every source reference is `{source_module, source_type, source_id, source_version}`. There are no direct joins on producer tables.
 
-## الأوامر والاستعلامات والأحداث
+## Commands, Queries, and Events
 
-**Notifications Commands:** `MarkNotificationRead`, `UpdateNotificationPreferences`, `RebuildNotificationProjection`. **Queries:** `ListMyNotifications`, `CountUnreadNotifications`. **Events:** `NotificationCreated`, `NotificationRead`.
+**Notifications HTTP features:** `ListMyNotifications`, `MarkNotificationRead`. **Notification workers:** `ConsumeTechnicalAlert`, `ConsumeWorkRecordSubmitted`. **Events:** `NotificationCreated`, `NotificationRead`.
 
-**Search Commands:** `IndexSourceEvent`, `RemoveIndexEntry`, `RebuildSearchProjection`. **Queries:** `SearchAccessibleRecords`, `GetSearchIndexLag`. **Events:** `SearchIndexUpdated`, `SearchIndexFailed`.
+**Search workers:** derived-event consumer that builds `search_index_entries` from authorized projection feeds. **Events:** `SearchIndexUpdated`, `SearchIndexFailed`.
 
-**Reporting Commands:** `CreateReportDefinition`, `PublishDashboardDefinition`, `RefreshReportingProjection`, `RunAuthorizedReport`, `ExportAuthorizedReport`, `RebuildReportingProjection`. **Queries:** `GetAuthorizedDashboard`, `GetReportRun`, `GetReportingFreshness`. **Events:** `ReportDefinitionPublished`, `ReportingProjectionRefreshed`, `ReportExportCreated`.
+**Reporting workers:** derived-event consumer that builds `report_read_models` and refreshes dashboards. **Events:** `ReportDefinitionPublished`, `ReportingProjectionRefreshed`, `ReportExportCreated`.
 
-## الحالات
+## States
 
 ```text
 Notification: Unread -> Read
@@ -56,34 +56,34 @@ ReportRun: Queued -> Running -> Completed | Failed | Expired
 ExportArtifact: Available -> Expired -> Disposed
 ```
 
-## الثوابت
+## Invariants
 
-- الإشعار رابط آمن وملخص عام فقط؛ فتحه يستدعي endpoint المالك لإعادة التفويض، ولا يكشف المصدر عند المنع.
-- البحث يرشح أولياً بالحقائق المشتقة ثم يعيد `DecideAccess` و`ResolveFieldAccess` لكل نتيجة قبل عنوان أو مقتطف أو عدّاد.
-- التقرير واللوحة والتصدير يعيدون التفويض على السجل والحقول وقت التنفيذ؛ Read Model أو قرار مخزن لا يكفي.
-- لا يظهر `Hidden` في نتيجة أو اقتراح أو تجميع أو export. التجميع المصرح به لا يفتح التفاصيل.
-- المستهلكات at-least-once وidempotent، وتحفظ checkpoint أو inbox؛ إعادة البناء من الأحداث أو feed تعطي نتيجة مكافئة.
-- فشل الإسقاط لا يغير أو يرجع معاملة المصدر؛ يعرض freshness ويدخل retry/dead-letter قابل للمراجعة.
-- الاحتفاظ يزيل artifact التصدير بعد مدة السياسة، ويبقي أثر التدقيق دون الملف.
+- A notification is always a safe link and a public summary only; opening it calls the owner's endpoint to re-authorize, and never reveals the source when access is denied.
+- Search pre-filters using derived facts and then re-runs `DecideAccess` and `ResolveFieldAccess` for every result before any title, excerpt, or counter is shown.
+- Reports, dashboards, and exports re-authorize at the record and field level at execution time; a stored read model or decision is not sufficient.
+- `Hidden` never appears in results, suggestions, aggregations, or exports. An authorized aggregation never reveals its underlying details.
+- Consumers are at-least-once and idempotent, and persist a checkpoint or inbox; rebuilding from events or a feed yields an equivalent result.
+- A projection failure never mutates or rolls back the source transaction; it surfaces freshness and enters a reviewable retry/dead-letter path.
+- Retention removes the export artifact after the policy period and keeps the audit trail without the file.
 
-## الأمن والفشل
+## Security and Failure
 
-يستخدم كل عرض أو تصدير `Authorization` مع `AuthorizationRecordFacts` الحديثة التي يقدمها المصدر؛ لا يبني Search أو Reporting قراراً محلياً. الفشل في Authorization أو المصدر أو إعادة التفويض فشل مغلق: لا عنوان ولا مقتطف ولا صف تقرير ولا artifact. يسجل Audit البحث الحساس، عرض التقارير الحساسة، وكل تصدير مع الحقول ومعرفات المصدر. الإشعار داخل التطبيق فقط؛ لا توجد قناة خارجية تفشل أو تتجاوز التصنيف.
+Every display or export uses `Authorization` with the current `AuthorizationRecordFacts` provided by the source; Search and Reporting never build a local decision. Failure in Authorization, the source, or re-authorization is a closed failure: no title, no excerpt, no report row, and no artifact. The audit log records sensitive searches, sensitive report views, and every export with fields and source identifiers. Notifications are in-app only; there is no external channel that can fail or bypass classification.
 
-## الاختبارات
+## Tests
 
-- مستخدم فقد النطاق بعد الفهرسة أو بناء التقرير لا يرى نتيجة أو صفاً أو artifact.
-- حقل Hidden لا يظهر في Search أو dashboard أو CSV/PDF، والنتيجة المجمعة لا تكشف التفصيل.
-- إشعار لسجل لم يعد مسموحاً يعرض نصاً عاماً ويمنع الفتح بلا تسريب.
-- إعادة حدث المنتج أو إعادة البناء لا تكرر إشعاراً ولا صف فهرس أو تقرير.
-- تعطل المنتج أو Authorization أو consumer ينتج deny أو retry بلا تغيير مصدر، وفشل تدقيق تصدير حساس يمنع التسليم.
+- A user who lost scope after indexing or report build must not see a result, row, or artifact.
+- A `Hidden` field must not appear in Search, dashboards, or CSV/PDF, and an aggregated result must not expose its detail.
+- A notification for a record that is no longer permitted displays the public text and blocks opening without leaking.
+- Replaying a producer event or rebuilding must not duplicate a notification, an index row, or a report row.
+- A producer, Authorization, or consumer outage must produce deny or retry without mutating the source, and a sensitive-export audit failure must block delivery.
 
-## الاعتماديات
+## Dependencies
 
-يعتمد Notifications على Identity وAuthorization، ويعتمد Search على Authorization، ويعتمد Reporting على Organization وAuthorization. الثلاثة تستهلك عقود أحداث WorkRecords وWorkflow وTasks وCollaboration وDocuments وStrategy وPortfolioProjects وRisk وRecordsGovernance وفق ما يعلنه كل موديول. لا تعتمد عليها أي حقيقة أعمال متزامنة.
+Notifications depends on Identity and Authorization; Search depends on Authorization; Reporting depends on Organization and Authorization. All three consume the event contracts of WorkRecords, Workflow, Tasks, Collaboration, Documents, Strategy, PortfolioProjects, Risk, and RecordsGovernance as declared by each module. They do not depend on any synchronous business transaction.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديولات Notifications وSearch وReporting | إنشاء المواصفة المعتمدة |
+| 1.0.0 | 2026-07-15 | Owner of the Notifications, Search, and Reporting modules | Initial accepted specification. |

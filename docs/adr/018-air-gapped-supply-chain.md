@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-018
-title: سلسلة التوريد المعزولة
+title: Air-Gapped Supply Chain
 type: adr
 status: superseded
 version: 1.1.0
 date: 2026-07-16
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: البناء والحزم والصور والشبكة
+- Platform Architecture Council
+scope: Build, packages, images, and network
 supersedes:
 - ADR-010
 superseded_by:
@@ -26,30 +26,30 @@ related_adrs:
 - ADR-019
 review_by: 2026-10-15
 ---
-# ADR-018: سلسلة التوريد المعزولة
+# ADR-018:   
 
-> استبدل هذا القرار بـ[ADR-023](023-single-host-dokploy-deployment.md) بعد توضيح أن البيئة خادم داخلي واحد محدود المنافذ وليست Air-gap مؤسسية.
+>    [ADR-023](023-single-host-dokploy-deployment.md)           Air-gap .
 ## Context
-البناء والتشغيل داخل مركز البيانات بلا اتصال إنترنت خارجي.
+        .
 ## Drivers
-سيادة البيانات ومنع تسرب الشبكة والتحكم في الاعتماديات.
+       .
 ## Decision
-تستخدم صور OCI ومرايا Composer وnpm وAV داخلية فقط؛ توقع الصور وتنتج SBOM، وNetworkPolicy تمنع egress افتراضياً ولا CDN أو خطوط أو scripts خارجية.
+  OCI  Composer npm AV      SBOM NetworkPolicy  egress   CDN    scripts .
 ## Scope
-يشمل CI/CD والصور والحزم وDNS ووقت التشغيل في البيئة المعزولة.
+ CI/CD   DNS     .
 ## Alternatives
-رُفض pull وقت التشغيل ومرايا عامة وخدمات SaaS تتطلب تحققاً دورياً.
+ pull      SaaS   .
 ## Consequences
-يتطلب مساراً Offline موثقاً لتغذية المرايا ومعالجة الثغرات.
+  Offline     .
 ## Security
-فحص أسرار وثغرات وتحقق التوقيع وتسجيل محاولات الخروج.
+       .
 ## Operations
-تراقب صحة المرايا وسعة registry وتدير تحديثات الحزم دورياً.
+    registry    .
 ## Rollback
-تنشر صورة داخلية موقعة سابقة مع SBOM معروف؛ لا تجلب بديلاً خارجياً.
+      SBOM     .
 ## Enforcement
-`verify-airgap` وفحص URL خارجي وتوقيع الصورة وNetworkPolicy default-deny.
+`verify-airgap`  URL    NetworkPolicy default-deny.
 ## Review
-ربع سنوي وعند إضافة اعتماد أو مرآة.
+quarterly     .
 ## References
-`docs/data-security/threat-model.md`، `docs/governance/assumptions-constraints.md`.
+`docs/data-security/threat-model.md` `docs/governance/assumptions-constraints.md`.

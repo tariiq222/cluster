@@ -1,68 +1,84 @@
 ---
 doc_id: DOM-PLS-001
-title: إعدادات المنصة والتقويم التشغيلي
+title: Platform settings and operational calendar
 type: domain
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مالك موديول PlatformSettings
+owner: PlatformSettings module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/architecture/dependency-rules.md
 references:
 - docs/architecture/module-catalog.md
 - docs/architecture/context-map.md
 ---
-# إعدادات المنصة والتقويم التشغيلي
+# Platform settings and operational calendar
 
-## الغرض والنطاق
+## Purpose and scope
 
-يمتلك `PlatformSettings` الإعدادات العامة التي لا يملكها مجال آخر، وإصداراتها المنشورة، والتقويم التشغيلي. يشمل اللغة والـlocale والمنطقة الزمنية، وحدود الجلسة فوق الحد الأمني الثابت، وحدود التشغيل، وأيام العمل والعطل وساعات العمل وقواعد احتساب المواعيد. لا يملك إعدادات نوع عمل أو مسار أو مشروع أو مؤشر.
+`PlatformSettings` owns the platform-wide settings that no other domain owns, their published versions, and the operational calendar. It covers language, locale, and timezone; session ceilings above the static security floor; operational limits; and working days, holidays, working hours, and due-date calculation rules. It does not own work-type, workflow, project, or indicator settings.
 
-## الكيانات والجداول والقيود
+## Entities, tables, and constraints
 
-| الجدول | الحقيقة | القيود |
+| Table | Reality | Constraints |
 |---|---|---|
-| `platform_setting_versions` | إصدار إعدادات عام وحالته وhash | منشور واحد فعال؛ المنشور immutable |
-| `platform_settings` | مفتاح typed وقيمة ضمن الإصدار | فريد `(version_id, setting_key)`؛ allow-list للمفاتيح والأنواع |
-| `business_calendars` | تقويم نطاقه تجمع أو منشأة وسياسته | تقويم فعال واحد لكل نطاق وزمن |
-| `business_calendar_days` | يوم عمل/عطلة واستثناء ساعات | فريد `(calendar_id, calendar_date)` |
+| `platform_setting_versions` | A platform-wide settings version with its status and content hash | One published row at a time, enforced by a nullable generated unique `published_slot`; a published version is immutable |
+| `platform_settings` | A typed key and value within a settings version | Unique `(platform_setting_version_id, setting_key)`; allow-list for keys and types |
+| `business_calendars` | A calendar scoped to a cluster or facility and its policy | Indexed on `(scope_type, scope_id, status)`; no database-level single-active-calendar-per-scope invariant; the handler treats `status = 'published'` as the active row |
+| `business_calendar_weekdays` | The working/non-working flag and hours for a weekday within a calendar | Unique `(business_calendar_id, weekday)`; `weekday` is `0`–`6` |
+| `business_calendar_exceptions` | A date-based working day, holiday, or override window with optional hours and reason | Indexed on `(business_calendar_id, starts_on, ends_on)` |
 
-## الأوامر والاستعلامات والأحداث والحالات
+> **Drift correction:** The previous revision described a single `business_calendar_days` table with `calendar_id` and `calendar_date`. The actual schema (`CreatePlatformSettingsTables.php:50-77`) splits weekday rules into `business_calendar_weekdays` and date-based overrides into `business_calendar_exceptions`. The previous claim that the schema enforces "one active calendar per scope and time" is also dropped — the migration does not add a partial unique index on `(scope_type, scope_id, status)`; only the read path filters by `status = 'published'`.
 
-**Commands:** `CreatePlatformSettingsDraft`, `SetPlatformSetting`, `PublishPlatformSettingsVersion`, `CreateBusinessCalendar`, `SetBusinessCalendarDay`.
+## Commands, queries, events, and states
 
-**Queries:** `GetEffectivePlatformSetting`, `GetPlatformSettingsVersion`, `GetBusinessCalendar`, `CalculateBusinessDueAt`.
+**Commands (exposed by feature handlers):**
 
-**Events:** `PlatformSettingsVersionPublished`, `BusinessCalendarPublished`.
+- `PlatformSettingsHandler`: `CreateSettingsVersion`, `SetSettingsValue`, `ValidateSettingsVersion`, `PublishSettingsVersion`.
+- `BusinessCalendarHandler`: `SetBusinessCalendarWeekday`, `SetBusinessCalendarException`.
+
+> **Drift correction:** The previous revision listed commands `CreatePlatformSettingsDraft`, `SetPlatformSetting`, `CreateBusinessCalendar`, and `SetBusinessCalendarDay`. Only the four handler methods above are wired to HTTP controllers and feature entry points. `CreateBusinessCalendar` does not exist as a discrete command — calendars are created as side effects of `SetBusinessCalendarWeekday` / `SetBusinessCalendarException`.
+
+**Queries:**
+
+- `ResolveBusinessCalendar` — resolves the effective working window for a `(scope_type, scope_id, date)`.
+- `GetEffectivePlatformSettings` — returns the currently published settings document.
+
+> **Drift correction:** The previous revision listed `CalculateBusinessDueAt` as a query contract. There is no such contract in `apps/api/Modules/PlatformSettings/Contracts/`; due-date calculation lives inside `ResolveBusinessCalendar` / `BusinessCalendarHandler::forDate`.
+
+**Events:** `PlatformSettingsVersionPublished`, `BusinessCalendarExceptionChanged`, `BusinessCalendarWeekdayChanged`.
 
 ```text
 SettingsVersion: Draft -> Validated -> Published -> Retired
-BusinessCalendar: Draft -> Published -> Superseded
+BusinessCalendar: status is a free string(16); the handler treats only 'published' as active.
 ```
 
-## الثوابت والأمن والفشل
+> **Drift correction:** The previous revision stated a `BusinessCalendar: Draft -> Published -> Superseded` state machine. The migration accepts any `string(16)` value and the handler enforces only `'published'` for the read path (`DatabaseBusinessCalendars.php:165-169`). No `'superseded'` value is generated anywhere in the code.
 
-- لا يخفض إعداد منشور الحد الأدنى الأمني الثابت لكلمة المرور أو الجلسة.
-- كل موعد تشغيلي يحسب من تقويم نطاق السجل وبـ`Asia/Riyadh`؛ تخزن الطوابع UTC.
-- لا يغير نشر تقويم موعداً مثبتاً أو SLA جارياً بصمت؛ يعاد الحساب فقط بأمر المالك وسياسة صريحة.
-- النشر والتعديل قدرات إدارية مركزية، وتسجيلها في Audit إلزامي؛ لا يمنح دور الإدارة اعتماد أعمال.
-- مفتاح أو نوع أو تقويم غير صالح، أو نشر بلا تحقق، يرفض. فشل Outbox يلف النشر، ويستهلك الآخرون آخر إصدار منشور فقط.
+## Constants, security, and failure modes
 
-## الاختبارات والاعتماديات
+- A published setting never lowers the static security floor for passwords or sessions.
+- Every operational timestamp is computed from the record's scope calendar in `Asia/Riyadh`; stored timestamps are UTC.
+- Publishing a calendar does not silently change a fixed appointment or an in-flight SLA. Recalculation happens only via an explicit owner command and policy.
+- Publication and modification are centralized administrative capabilities; their audit logging is mandatory. An admin role does not grant work approval.
+- An invalid key, type, or calendar, or publishing without validation, is rejected. An outbox failure rolls back publication; every other consumer only reads the last published version.
 
-- اختبار typed keys، وعدم خفض الحد الأمني، وimmutability للإصدار المنشور.
-- اختبار اللغة والـlocale والمنطقة الزمنية، والعطل وساعات العمل وحساب موعد يعبر نهاية الأسبوع.
-- اختبار أن تغيير التقويم لا يعدل موعداً مثبتاً، واختبار Outbox idempotency.
+## Tests and dependencies
 
-لا يعتمد على موديول مجال. تعتمد عليه Identity وAuthorization وWorkDefinitions وRecordsGovernance، وتستهلك باقي الموديولات عقد التقويم فقط.
+- Test typed keys, the non-degradation of the security floor, and the immutability of a published version.
+- Test language, locale, timezone, holidays, working hours, and due-date calculation crossing a weekend.
+- Test that changing a calendar does not alter a fixed appointment, and outbox idempotency.
 
-## سجل التغيير
+The module has no domain dependencies. `Identity`, `Authorization`, `WorkDefinitions`, and `RecordsGovernance` depend on it; the remaining modules consume only the calendar contract.
 
-| الإصدار | التاريخ | الدور | التغيير |
+## Change log
+
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول PlatformSettings | إنشاء المواصفة المعتمدة |
+| 1.0.0 | 2026-07-15 | PlatformSettings module owner | Initial accepted specification |
+| 1.0.1 | 2026-07-23 | Domain audit pass | Calendar table names aligned to `business_calendar_weekdays` + `business_calendar_exceptions`; commands/queries list aligned to `PlatformSettingsHandler` and `BusinessCalendarHandler`; `Superseded` state removed |

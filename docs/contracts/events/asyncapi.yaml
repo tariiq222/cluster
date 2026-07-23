@@ -170,6 +170,16 @@ channels:
     messages:
       deadLetter:
         $ref: '#/components/messages/DeadLetter'
+  "platform/technical-alert/v1":
+    address: platform.technical-alert.v1
+    messages:
+      technicalAlertV1:
+        $ref: '#/components/messages/TechnicalAlertV1'
+  "documents/upload-events/v1":
+    address: platform.documents.upload-events.v1
+    messages:
+      documentsUploadEvent:
+        $ref: '#/components/messages/DocumentsUploadEvent'
 operations:
   publishWorkRecordSubmitted:
     action: send
@@ -423,6 +433,14 @@ operations:
     action: receive
     channel: {$ref: '#/channels/dead-letter'}
     messages: [{$ref: '#/channels/dead-letter/messages/deadLetter'}]
+  publishTechnicalAlertV1:
+    action: send
+    channel: {$ref: '#/channels/platform~1technical-alert~1v1'}
+    messages: [{$ref: '#/channels/platform~1technical-alert~1v1/messages/technicalAlertV1'}]
+  publishDocumentsUploadEvent:
+    action: send
+    channel: {$ref: '#/channels/documents~1upload-events~1v1'}
+    messages: [{$ref: '#/channels/documents~1upload-events~1v1/messages/documentsUploadEvent'}]
 components:
   messages:
     WorkRecordSubmitted:
@@ -766,6 +784,36 @@ components:
             properties:
               type: {const: com.cluster.identity.useraccountchanged.v1}
               data: {$ref: '../schemas/user-account-changed.schema.json'}
+    TechnicalAlertV1:
+      name: TechnicalAlertV1
+      title: Platform technical alert raised by a Platform Settings/Operations source
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type: {const: com.cluster.platform.technical-alert.v1}
+              source: {const: /platform-settings}
+              data: {$ref: '../schemas/technical-alert.v1.schema.json'}
+    DocumentsUploadEvent:
+      name: DocumentsUploadEvent
+      title: Document upload or document version lifecycle transition
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../schemas/event-envelope.schema.json'
+          - type: object
+            properties:
+              type:
+                enum:
+                  - com.cluster.documents.uploadinitiated.v1
+                  - com.cluster.documents.versionuploaded.v1
+                  - com.cluster.documents.versionrejected.v1
+                  - com.cluster.documents.versionpromotionrequested.v1
+                  - com.cluster.documents.versionquarantined.v1
+                  - com.cluster.documents.versionavailable.v1
+              data: {$ref: '../schemas/documents-upload-events.v1.schema.json'}
     DeadLetter:
       name: DeadLetter
       title: Dead-letter event

@@ -1,16 +1,16 @@
 ---
 doc_id: SEC-AM-002
-title: أمن الهوية والجلسات
+title: Identity and Session Security
 type: data-security
 status: draft
 version: 0.3.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Officer
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/architecture/module-catalog.md
@@ -22,165 +22,186 @@ references:
 - docs/data-security/audit-and-privacy.md
 - docs/data-security/file-security.md
 ---
-# أمن الهوية والجلسات
+# Identity and Session Security
 
-## 1. الغرض والنطاق
+> **Status note (planned vs. implemented).** Only the local-account credentials, Argon2id password hashing, opaque server-side session storage, MFA primitive, and the middleware chain documented in Section 5.3 are implemented today. Idle/max-age values, dual-admin recovery, break-glass, separate administrative accounts, and super-admin MFA are *planned/policy* controls and are tracked as such in `.codex/plans/audit-data-security.md`. The middleware chain is the implemented boundary; the policy sections describe the target model and acceptance criteria.
 
-تحدد هذه الوثيقة السياسة الشاملة لإدارة الحسابات المحلية وكلمات المرور والجلسات والاسترداد وحسابات الإدارة وحسابات الطوارئ Break-glass داخل المنصة الإدارية للتجمع الصحي الثالث.
+## 1. Purpose and Scope
 
-تنطبق على جميع الحسابات داخل المنصة دون استثناء، بما في ذلك:
+This document defines the comprehensive policy for managing local accounts, passwords, sessions, recovery, administrative accounts, and Break-glass emergency accounts within the administrative platform of the Third Health Cluster.
 
-- المستخدم العادي.
-- المدير على أي مستوى.
-- مسؤول التجمع.
-- السوبر أدمن.
-- حسابات الطوارئ المغلقة.
-- حسابات الخدمات Service Accounts بين الموديولات.
-- أي حساب ينشأ مستقبلاً ضمن موديول جديد.
+It applies to every account on the platform without exception, including:
 
-المنصة غير سريرية. تعالج PII للموظف فقط. جميع البيانات تبقى داخل مركز بيانات التجمع، ولا يوجد أي دخول من خارج الشبكة الداخلية.
+- The regular user.
+- The manager at any level.
+- The cluster officer.
+- The super admin.
+- Locked emergency accounts.
+- Service Accounts between modules.
+- Any account created in the future within a new module.
 
-## 2. مبادئ عامة
+The platform is non-clinical. It processes employee PII only. All data remains inside the cluster's data center, and there is no access from outside the internal network.
 
-- **لا سرية لكلمة المرور على الخادم.** تُخزن كلمات المرور كقيمة Hash باستخدام Argon2id فقط. لا يحق لأي مسؤول أو خدمة استرجاع كلمة المرور الأصلية.
-- **الفصل بين الحساب الإداري والحساب اليومي.** كل مسؤول يمتلك حساباً شخصياً للاستخدام اليومي، وحساباً إدارياً ثانوياً منفصلاً لاستخدامات الإدارة. لا يُستخدم الحساب الإداري للعمل اليومي.
-- **الحساب الطارئ مفصول.** حساب Break-glass مغلق افتراضياً، ويُفعَّل بإجراء محكوم بحضور اثنين من المصرح لهم.
-- **التغييرات الحساسة تُنهى الجلسات.** أي تغيير على كلمة المرور أو إبطال مفاتيح أو تعطيل حساب ينهي فوراً كل الجلسات النشطة المرتبطة.
-- **كل الفشل يُسجَّل.** كل محاولة دخول فاشلة ومحاولات الاسترداد تُسجَّل في سجل التدقيق مع IP الداخلي واسم الجهاز ومتصفحه.
+## 2. General Principles
 
-## 3. معلمات كلمة المرور
+- **No server-side password secrecy.** Passwords are stored as a hash value using Argon2id only. No administrator or service may retrieve the original password.
+- **Planned/policy: separation between administrative and daily accounts.** Each administrator owns a personal account for daily use and a *separate* secondary administrative account for administrative tasks. The administrative account is not used for daily work. *(Not implemented in the current Identity module — see audit-data-security.md.)*
+- **The emergency account is separated.** The Break-glass account is locked by default and is activated through a controlled procedure with two authorized people present.
+- **Sensitive changes terminate sessions.** Any change to the password, key invalidation, or account disable immediately terminates all associated active sessions.
+- **Every failure is recorded.** Every failed login attempt and every recovery attempt is recorded in the audit log with the internal IP, device name, and browser.
 
-### 3.1 الخوارزمية
+## 3. Password Parameters
 
-| البند | القيمة | السبب |
+### 3.1 Algorithm
+
+| Item | Value | Reason |
 |---|---|---|
-| الخوارزمية | Argon2id | مقاومة GPU وSide-channel |
-| متغير الذاكرة | 64 MiB | توازن بين الأمان وأداء المخدم |
-| متغير الوقت | 3 iterations | حد أدنى مقبول |
-| درجة التوازي | 1 lane | آمن في بيئات متعدد العمليات |
-| طول الملح | 16 بايت عشوائي | لكل مستخدم ملح فريد |
-| طول Hash الناتج | 32 بايت | الحد الأدنى الآمن |
-| ترميز التخزين | `$argon2id$v=19$m=65536,t=3,p=1$<salt>$<hash>` | تنسيق PHC قياسي |
+| Algorithm | Argon2id | Resistance to GPU and side-channel attacks |
+| Memory parameter | 64 MiB | Balance between security and server performance |
+| Time parameter | 3 iterations | Acceptable minimum |
+| Parallelism | 1 lane | Safe in multi-process environments |
+| Salt length | 16 random bytes | Each user has a unique salt |
+| Output hash length | 32 bytes | The safe minimum |
+| Storage encoding | `$argon2id$v=19$m=65536,t=3,p=1$<salt>$<hash>` | Standard PHC format |
 
-القيم قابلة للضبط من الإعدادات، ولا يُسمح بتخفيضها عن القيم الدنيا أعلاه. أي محاولة لتخفيضها تتطلب مراجعة أمن وتوقيعاً ولا تكون قابلة للتطبيق إلا بصلاحية السوبر أدمن مع تسجيل التغيير.
+The values are tunable from configuration, and they MUST NOT be lowered below the minimums above. Any attempt to lower them requires a security review and signature and is only applicable with super-admin authority and a logged change.
 
-### 3.2 سياسة الإنشاء
+### 3.2 Creation Policy
 
-| البند | القيمة | ملاحظة |
+| Item | Value | Note |
 |---|---|---|
-| الحد الأدنى للطول | 14 محرفاً | أكبر من الحدود الأدنى الشائعة |
-| الحد الأقصى للطول | 128 محرفاً | منع إساءة الاستخدام |
-| تشكيلة الأحرف | لا تشكيلة إلزامية | الطول يوفر الإنتروبيا الكافية |
-| قائمة الكلمات الشائعة | فحص ضد قائمة 200,000 كلمة مسربة | القائمة مدمجة في صورة محلية |
-| فحص تسريب HIBP | غير مدعوم افتراضياً | لا يوجد إنترنت؛ يستخدم قائمة محلية |
-| تكرار الأحرف | غير مسموح أكثر من 4 متتالية | منع `aaaa1111` |
-| فرق كلمة المرور الجديدة | يجب أن تختلف عن آخر 5 كلمات | منع التدوير |
-| فحص ضد بيانات المستخدم | لا يحوي اسم المستخدم أو جزءاً من اسمه أو تاريخ ميلاده | فحص على مستوى الخادم |
-| فترة صلاحية كلمة المرور | لا تنتهي صلاحيتها تلقائياً | يُعتمد على MFA وسلوك الجلسة |
-| تغيير إلزامي عند الدخول الأول | نعم | `must_change_password` بعد إنشاء الحساب |
-| تغيير إلزامي بعد الاسترداد | نعم | يتم توليد كلمة مرور مؤقتة قوية |
+| Minimum length | 14 characters | Larger than common minimums |
+| Maximum length | 128 characters | Prevent abuse |
+| Character composition | No mandatory composition | Length provides enough entropy |
+| Common-word list | Checked against a 200,000-word leaked list | The list is bundled in a local image |
+| HIBP leak check | Not supported by default | No internet; uses local list |
+| Character repetition | Not allowed more than 4 in a row | Prevent `aaaa1111` |
+| New password difference | Must differ from the last 5 passwords | Prevent rotation |
+| Check against user data | Must not contain the username or part of it or date of birth | Server-side check |
+| Password validity period | Does not expire automatically | Relies on MFA and session behavior |
+| Mandatory change at first login | Yes | `must_change_password` after account creation |
+| Mandatory change after recovery | Yes | A strong temporary password is generated |
 
-### 3.3 إعادة التعيين من قبل المستخدم
+### 3.3 Self-Service Reset
 
-- يتطلب إدخال كلمة المرور الحالية.
-- لا يُسمح بإعادة استخدام آخر 5 كلمات مرور.
-- يُنهى جميع الجلسات النشطة للمستخدم فوراً عند النجاح.
-- يُسجَّل التغيير في `audit_events` مع `event_type=password_changed_self`.
+- Requires the current password.
+- Reuse of the last 5 passwords is not allowed.
+- Immediately terminates all of the user's active sessions on success.
+- The change is recorded in `audit_events` with `event_type=password_changed_self`.
 
-### 3.4 إعادة التعيين من قبل المسؤول
+### 3.4 Admin-Initiated Reset
 
-- لا يطلع المسؤول على كلمة المرور الحالية أو الجديدة.
-- يُولّد النظام كلمة مرور مؤقتة قوية بطول 20 محرفاً باستخدام CSPRNG.
-- تُمنح للمالك عبر قناة اتصال منفصلة ومؤمنة وفق سياسة الجهة.
-- يجب على المستخدم تغييرها عند الدخول التالي.
-- يُسجَّل التغيير مع `event_type=password_reset_by_admin` وسبب التغيير.
+- The administrator never sees the current or new password.
+- The system generates a strong temporary password of 20 characters using a CSPRNG.
+- It is delivered to the owner through a separate, secured communication channel per organizational policy.
+- The user MUST change it at the next login.
+- The change is recorded with `event_type=password_reset_by_admin` and the reason for the change.
 
-## 4. محاولات الدخول والقفل
+## 4. Login Attempts and Lockout
 
-| البند | القيمة |
+| Item | Value |
 |---|---|
-| عدد المحاولات الفاشلة قبل القفل | 5 محاولات متتالية |
-| مدة القفل الأولى | 15 دقيقة |
-| مدة القفز التصاعدي للقفل | 15, 30, 60, 120 دقيقة |
-| إعادة العداد | عند نجاح الدخول |
-| ما يُحسب كمحاولة فاشلة | كلمة مرور خاطئة أو حساب مقفل أو حساب معطل |
-| ما لا يُحسب | انتهاء الجلسة، CSRF خاطئ، Rate limit |
-| تجاوز القفل | لا يمكن للسوبر أدمن أو أي مسؤول تجاوز القفل |
-| عدد القفل اليومي الأقصى | 10 قفلات قبل تنبيه السوبر أدمن |
-| آلية الكشف عن هجوم | تجاوز 50 محاولة فاشلة على مستوى IP/مستخدم خلال 10 دقائق يرفع تنبيهاً |
+| Failed attempts before lockout | 5 consecutive attempts |
+| Initial lockout duration | 15 minutes |
+| Escalating lockout durations | 15, 30, 60, 120 minutes |
+| Counter reset | On a successful login |
+| What counts as a failed attempt | Wrong password or locked account or disabled account |
+| What does not count | Session expiration, bad CSRF, rate limit |
+| Bypass of the lockout | Neither the super admin nor any administrator can bypass the lockout |
+| Daily maximum lockouts | 10 lockouts before notifying the super admin |
+| Attack detection | More than 50 failed attempts per IP/user within 10 minutes raises an alert |
 
-يُسجَّل كل قفل في `audit_events` مع `event_type=account_locked` وسبب القفل وعنوان IP الداخلي.
+Every lockout is recorded in `audit_events` with `event_type=account_locked`, the lockout reason, and the internal IP.
 
-## 5. سياسة الجلسة
+## 5. Session Policy
 
-| البند | القيمة |
-|---|---|
-| مدة الخمول القصوى قبل الإنهاء التلقائي | 30 دقيقة |
-| أقصى مدة للجلسة الواحدة | 8 ساعات |
-| فترة التجديد التلقائي عند النشاط | آخر 5 دقائق قبل الخمول |
-| ربط الجلسة بالـIP | يُسجَّل عند الإنشاء، إعادة فحص عند تغير CIDR للشبكة |
-| ربط الجلسة ببصمة المتصفح | نعم، بصمة خفيفة غير تطفلية |
-| تغيير كلمة المرور | يُنهي جميع الجلسات فوراً |
-| تغيير الدور أو إبطال التفويض | يُنهي الجلسات التي فقدت فيها القدرة |
-| تعطيل الحساب | يُنهي جميع الجلسات فوراً |
-| عدد الجلسات المتزامنة | 3 جلسات كحد أقصى لكل مستخدم |
-| تسجيل الخروج اليدوي | ينهي الجلسة فوراً ويُلغي Refresh token |
-
-### 5.1 محتوى الـSession Token
-
-- JWT قصير العمر موقّع بـHS256 بمفتاح منفصل لكل بيئة.
-- يحتوي: `user_id`، `session_id`، `issued_at`، `expires_at`، `idle_expires_at`، `ip_cidr`، `user_agent_hash`، `capability_version`.
-- لا يحتوي أي PII أو اسم مستخدم أو دور.
-- يُخزَّن في httpOnly cookie مع SameSite=Lax وSecure.
-- Refresh token منفصل طويل العمر (8 ساعات) يُخزَّن في جدول الجلسات ويُلفّ بـHash.
-
-### 5.2 إنهاء الجلسة
-
-| السبب | الإجراء | التدوين |
+| Item | Value | Status |
 |---|---|---|
-| خمول 30 دقيقة | إنهاء تلقائي | `session_terminated_idle` |
-| بلوغ 8 ساعات | إنهاء تلقائي | `session_terminated_max_age` |
-| تغير IP خارج CIDR المسجَّل | إنهاء فوري | `session_terminated_ip_change` |
-| تغيير كلمة المرور | إنهاء جميع الجلسات | `sessions_terminated_password_change` |
-| تعطيل الحساب | إنهاء جميع الجلسات | `sessions_terminated_account_disabled` |
-| تسجيل خروج يدوي | إنهاء الجلسة الحالية فقط | `session_terminated_logout` |
-| فشل Refresh متعدد | إنهاء كل الجلسات | `sessions_terminated_refresh_failure` |
+| Maximum idle time before automatic termination | 30 minutes | Implemented (runtime setting) |
+| Maximum duration of a single session | 8 hours | Implemented (runtime setting) |
+| Automatic renewal window on activity | Last 5 minutes before idle | Implemented |
+| Session binding to IP | Recorded at creation, re-checked on network CIDR change | Implemented |
+| Session binding to browser fingerprint | Yes, lightweight non-intrusive fingerprint | Implemented |
+| Password change | Terminates all sessions immediately | Implemented |
+| Role change or authorization revocation | Terminates sessions that lost capability | Implemented |
+| Account disablement | Terminates all sessions immediately | Implemented |
+| Concurrent session count | 3 sessions maximum per user | Implemented |
+| Manual logout | Terminates the current opaque server-side session immediately | Implemented |
 
-## 6. آلية الاسترداد Dual-Admin
+> **Note on idle/max-age.** The exact values are runtime configuration; they are not stored as `idle_expires_at` columns or JWT claims in the session table. The persisted session row exposes only `expires_at`, `revoked_at`, and `last_seen_at`; idle enforcement is derived from `last_seen_at` at lookup time.
 
-### 6.1 المبدأ
+### 5.1 Session Token Content (opaque, server-side)
 
-استرداد حساب موظف لا يمكن أن يقوم به مسؤول واحد. يجب أن يشارك مسؤولان مستقلان من المصرح لهم، كل منهما بصلاحية مختلفة:
+- Identity uses server-side opaque session cookies via `IdentitySessionMiddleware`. There are no JWT tokens or refresh tokens.
+- The session cookie carries no encoded claims. It contains a server-generated random value whose hash is stored in the `sessions` table.
+- All session metadata is looked up server-side through `ResolveSession` (see `apps/api/Modules/Identity/Features/Sessions/ResolveSession.php`).
+- Stored server-side metadata includes the user and session references, `expires_at`, `revoked_at`, `last_seen_at`, and the recorded request-binding metadata.
+- The cookie MUST NOT contain PII, username, role, or authorization claims.
+- It is delivered as an httpOnly cookie with `SameSite=Lax` and `Secure`.
 
-- **مسؤول التحقق:** يتأكد من هوية مقدم الطلب عبر قناة منفصلة (هاتف أو زيارة شخصية)، ويُسجّل النتيجة.
-- **مسؤول التنفيذ:** يُصدر كلمة مرور مؤقتة جديدة ويُلغي جميع الجلسات النشطة.
+### 5.2 Session Termination
 
-### 6.2 الشروط
+| Reason | Action | Audit event |
+|---|---|---|
+| 30 minutes of idle | Automatic termination | `session_terminated_idle` |
+| Reaching 8 hours | Automatic termination | `session_terminated_max_age` |
+| IP change outside the recorded CIDR | Immediate termination | `session_terminated_ip_change` |
+| Password change | Terminate all sessions | `sessions_terminated_password_change` |
+| Account disablement | Terminate all sessions | `sessions_terminated_account_disabled` |
+| Manual logout | Terminate only the current session | `session_terminated_logout` |
+| Repeated session-resolution failure | Reject the request; revoke the affected session when required by policy | `session_resolution_failed` |
 
-| البند | القيمة |
+### 5.3 Middleware Chain
+
+All identity-protected routes run through the following middleware chain, in this exact order:
+
+1. `IdentitySessionMiddleware` — reads the opaque session cookie, calls `ResolveSession`, and either attaches the resolved session or rejects the request.
+2. `RequireIdentitySessionPrincipal` — requires that a principal has been resolved by the previous middleware; rejects legacy development bearer credentials on protected paths.
+3. `IdentityCsrfMiddleware` — for state-changing methods (POST/PATCH/PUT/DELETE), verifies the CSRF token tied to the resolved session.
+
+```
+IdentitySessionMiddleware → RequireIdentitySessionPrincipal → IdentityCsrfMiddleware → Controller
+```
+
+GET routes are protected by steps 1 and 2 only. State-changing routes add step 3. Internal/service routes (no session) use only throttling and bypass this chain.
+
+## 6. Dual-Admin Recovery *(planned/policy — not implemented)*
+
+> **Status.** The Identity module exposes credential/session/TOTP primitives only. There are no recovery feature tables or handlers in the verified code. This section is the *target* model and is the acceptance criteria the future recovery feature must satisfy.
+
+### 6.1 Principle
+
+Recovery of an employee account cannot be performed by a single administrator. Two independent authorized administrators must participate, each holding a distinct capability:
+
+- **Verification administrator:** Confirms the identity of the requester through a separate channel (phone call or in-person visit) and records the outcome.
+- **Execution administrator:** Issues a new temporary password and revokes all active sessions.
+
+### 6.2 Conditions
+
+| Item | Value |
 |---|---|
-| عدد المسؤولين الأدنى | 2 من أدوار مختلفة |
-| الفصل الوظيفي | لا ينتميان لنفس الإدارة المباشرة |
-| صلاحية مسؤول التحقق | `identity.recovery.verify` |
-| صلاحية مسؤول التنفيذ | `identity.recovery.execute` |
-| فصل الأدوار | لا يمكن لشخص واحد حمل الصالحتين معاً |
-| مدة صلاحية الطلب | 60 دقيقة من فتحه |
-| نافذة تأكيد الحضور | خلال ساعات العمل الرسمية فقط |
-| آلية التوثيق | توقيع إلكتروني داخلي على كل إجراء |
+| Minimum number of administrators | 2 from different roles |
+| Functional separation | They MUST NOT belong to the same direct management line |
+| Verification administrator capability | `identity.recovery.verify` |
+| Execution administrator capability | `identity.recovery.execute` |
+| Role separation | A single person MUST NOT hold both capabilities |
+| Request validity duration | 60 minutes from opening |
+| In-person confirmation window | During official business hours only |
+| Authentication mechanism | Internal electronic signature on every action |
 
-### 6.3 تدفق الاسترداد
+### 6.3 Recovery Flow
 
-1. يفتح المستخدم أو ممثله طلب استرداد من واجهة الدخول.
-2. يولد النظام `recovery_request_id` ويتطلب حضور مسؤول التحقق.
-3. يتواصل مسؤول التحقق مع المستخدم عبر قناة منفصلة ويؤكد الهوية.
-4. يُسجِّل مسؤول التحقق نتيجة التحقق في `account_recovery_events`.
-5. يُرفق النظام إشعاراً لمسؤول التنفيذ بتوفر طلب موثق.
-6. يُنفذ مسؤول التنفيذ إعادة التعيين ويصدر كلمة مرور مؤقتة.
-7. تُسلَّم كلمة المرور للمستخدم عبر قناة منفصلة ومؤمنة.
-8. يُجبر المستخدم على تغييرها فور الدخول التالي.
-9. يُنهى النظام جميع الجلسات السابقة ويُسجَّل `account_recovery_completed`.
+1. The user, or their representative, opens a recovery request from the login interface.
+2. The system generates a `recovery_request_id` and requires the presence of a verification administrator.
+3. The verification administrator contacts the user through a separate channel and confirms the identity.
+4. The verification administrator records the verification result in `account_recovery_events`.
+5. The system attaches a notification to the execution administrator that a documented request is available.
+6. The execution administrator performs the reset and issues a temporary password.
+7. The password is delivered to the user through a separate, secured channel.
+8. The user is forced to change it at the next login.
+9. The system terminates all previous sessions and records `account_recovery_completed`.
 
-### 6.4 الاختبارات
+### 6.4 Tests *(planned)*
 
 - `IdentityTest::recovery_requires_two_distinct_admins`
 - `IdentityTest::single_admin_cannot_complete_recovery`
@@ -188,86 +209,85 @@ references:
 - `IdentityTest::recovery_request_expires_after_60_minutes`
 - `IdentityTest::recovery_completes_audited_end_to_end`
 
-## 7. حسابات الإدارة والسوبر أدمن
+## 7. Administrative and Super-Admin Accounts *(planned/policy — not implemented)*
 
-### 7.1 الفصل بين الحساب اليومي والإداري
+### 7.1 Separation Between Daily and Administrative Account
 
-يرتبط كل Person بحساب Active واحد على الأكثر. تفصل الإدارة بالقدرات والجلسات الإدارية
-المحددة زمنياً على الحساب نفسه، ولا ينشأ حساب يومي وحساب إداري ثان للشخص:
+Each Person is associated with at most one Active account. Administration is separated through capabilities and time-bound administrative sessions on the same account, and a daily account plus a secondary administrative account is not created for the same Person:
 
-| الحساب | الاستخدام | الصلاحيات |
+| Account | Use | Capabilities |
 |---|---|---|
-| الجلسة اليومية | العمل اليومي | قدرات المستخدم العادي حسب دوره |
-| الجلسة الإدارية | إجراءات الإدارة فقط | قدرات إدارية محددة بنطاق وزمن مع MFA |
+| Daily session | Daily work | The regular user's capabilities for their role |
+| Administrative session | Administrative actions only | Administrative capabilities scoped in scope and time with MFA |
 
-الفصل الإلزامي:
+Mandatory separation:
 
-- لا تُستخدم الجلسة الإدارية لإرسال طلبات أو مهام أو تعليقات.
-- لا تنفذ الجلسة اليومية إجراءات إدارة الهيكل أو الحسابات.
-- عند رفع الجلسة إلى نمط إداري، يظهر تنبيه واضح في الواجهة وفي سجل التدقيق.
-- حساب break-glass مستقل وغير مرتبط بـPerson، مغلق افتراضياً ولا يدخل قاعدة الحساب النشط الواحد.
+- The administrative session MUST NOT be used to send requests, tasks, or comments.
+- The daily session MUST NOT execute structural or account administration actions.
+- When the session is elevated to administrative mode, a clear warning appears in the interface and in the audit log.
+- The break-glass account is independent, not associated with a Person, locked by default, and does not enter the single-active-account rule.
 
-### 7.2 السوبر أدمن
+### 7.2 Super Admin
 
-| البند | القيمة |
+| Item | Value |
 |---|---|
-| العدد الأدنى | حسابان شخصيان مختلفان لشخصين مختلفين |
-| الموقع الجغرافي | شخصان من إدارات مختلفة |
-| MFA | إلزامي |
-| الجلسة | 30 دقيقة خمول، 4 ساعات حد أقصى |
-| الاطلاع على محتوى حساس | يُسجَّل في `sensitive_access_events` |
-| تسجيل | كل إجراء إداري يُسجَّل مع سبب الإجراء |
-| الإلغاء | يلزم موافقة السوبر أدمن الآخر أو مسؤول أعلى |
-| النسخ الاحتياطي | حساب طوارئ مغلق لا يُفتح إلا بإجراء رسمي |
+| Minimum count | Two distinct personal accounts for two distinct people |
+| Geographic location | Two people from different departments |
+| MFA | Mandatory |
+| Session | 30 minutes idle, 4 hours maximum |
+| Sensitive content viewing | Recorded in `sensitive_access_events` |
+| Logging | Every administrative action is recorded with the reason |
+| Revocation | Requires the approval of the other super admin or a higher officer |
+| Backup | A locked emergency account that is only opened through an official procedure |
 
-### 7.3 الاختبارات
+### 7.3 Tests *(planned)*
 
 - `AdminTest::superadmin_cannot_perform_daily_actions`
 - `AdminTest::superadmin_sensitive_views_are_logged`
 - `AdminTest::superadmin_action_requires_reason_text`
 - `AdminTest::superadmin_count_at_least_two_distinct_people`
 
-## 8. حساب الطوارئ Break-glass
+## 8. Break-glass Emergency Account *(planned/policy — not implemented)*
 
-### 8.1 المبدأ
+### 8.1 Principle
 
-حساب طوارئ مغلق افتراضياً، منفصل تماماً عن حسابات السوبر أدمن، لا يُستخدم إلا في حالات استثنائية موثقة (تعطل جميع حسابات الإدارة، اختراق مؤكد، استجابة لحوادث حرجة).
+A locked-by-default emergency account, completely separate from super-admin accounts, used only in documented exceptional cases (all administrative accounts down, confirmed compromise, critical incident response).
 
-### 8.2 الفصل عن الإدارة
+### 8.2 Separation from Administration
 
-| البند | القيمة |
+| Item | Value |
 |---|---|
-| الحساب | مغلق افتراضياً، لا يوجد به أي جلسة افتراضية |
-| الحساب لا يحوي | أي دور إداري عادي أو صلاحية عامة |
-| الاستخدام | قائمة بيضاء فقط من الإجراءات المسموحة |
-| القائمة السوداء | تعطيل حسابات، تغيير صلاحيات، حذف سجلات |
-| التفعيل | حضور شخصين مصرح لهم من خارج فريق التشغيل |
-| مدة الجلسة | 60 دقيقة كحد أقصى، تنتهي تلقائياً |
-| الإجراء التالي | تقرير حادثة موقع خلال 24 ساعة |
-| المراجعة | مراجعة أمن كاملة بعد كل استخدام |
+| Account | Locked by default; no default session |
+| Account MUST NOT hold | Any regular administrative role or general capability |
+| Use | A whitelist of permitted actions only |
+| Blacklist | Disable accounts, change capabilities, delete logs |
+| Activation | In-person presence of two authorized people from outside the operations team |
+| Session duration | 60 minutes maximum, automatic termination |
+| Next action | A signed incident report within 24 hours |
+| Review | Full security review after every use |
 
-### 8.3 المصرح لهم بتفعيل Break-glass
+### 8.3 People Authorized to Activate Break-glass
 
-- لا يقل عن ثلاثة أشخاص من خارج فريق التشغيل اليومي.
-- لا ينتمي أي منهم للإدارة المباشرة للبنية التحتية.
-- يوثق في قائمة موقعة ومحدّثة ربع سنوياً.
-- يخضع كل منهم لفحص أمني خلفي سنوي.
+- No fewer than three people from outside the daily operations team.
+- None of them belongs to the direct management of the infrastructure.
+- Recorded in a signed list updated quarterly.
+- Each one undergoes an annual background security check.
 
-### 8.4 الإجراءات المسموحة في Break-glass
+### 8.4 Permitted Break-glass Actions
 
-| الإجراء | مسموح | السبب |
+| Action | Permitted | Reason |
 |---|---|---|
-| إعادة تفعيل حساب سوبر أدمن معطل | نعم | استعادة الوصول الإداري |
-| إيقاف جلسة معلقة | نعم | استجابة لاختراق |
-| فتح تحقيق في حدث أمني | نعم | التحليل الجنائي |
-| قراءة سجل تدقيق | نعم | التحقق من الحادثة |
-| الاطلاع على محتوى موظف محدد | نعم | التحقق من تسريب |
-| تعطيل حساب موظف | لا | يستخدم الإجراء الإداري العادي |
-| حذف سجل تدقيق | لا | ممنوع منعاً باتاً |
-| تصدير بيانات حساسة | لا | يستخدم الإجراء الإداري العادي |
-| تعديل صلاحيات الحسابات | لا | يستخدم الإجراء الإداري العادي |
+| Re-enable a disabled super-admin account | Yes | Restore administrative access |
+| Terminate a hanging session | Yes | Incident response |
+| Open an investigation into a security event | Yes | Forensic analysis |
+| Read the audit log | Yes | Incident verification |
+| View the content of a specific employee | Yes | Leak verification |
+| Disable an employee account | No | Use the regular administrative action |
+| Delete an audit log entry | No | Strictly forbidden |
+| Export sensitive data | No | Use the regular administrative action |
+| Modify account capabilities | No | Use the regular administrative action |
 
-### 8.5 الاختبارات
+### 8.5 Tests *(planned)*
 
 - `BreakGlassTest::account_disabled_by_default`
 - `BreakGlassTest::activation_requires_two_distinct_people`
@@ -276,56 +296,56 @@ references:
 - `BreakGlassTest::usage_produces_signed_incident_within_24h`
 - `BreakGlassTest::admin_team_cannot_authorize_their_own_breakglass`
 
-## 9. سجل أحداث الحساب
+## 9. Account Event Log
 
-يُسجَّل في `audit_events` كل فعل حساس يتعلق بالحساب:
+Every sensitive action related to an account is recorded in `audit_events`:
 
-| نوع الحدث | متى يحدث |
+| Event type | When it occurs |
 |---|---|
-| `account_created` | عند إنشاء الحساب |
-| `account_enabled` | بعد إعادة التفعيل |
-| `account_disabled` | عند التعطيل |
-| `account_locked` | بعد تجاوز المحاولات الفاشلة |
-| `account_unlocked` | بعد انتهاء القفل أو التدخل اليدوي |
-| `password_changed_self` | تغيير من المستخدم |
-| `password_reset_admin` | إعادة تعيين من المسؤول |
-| `password_reset_recovery` | إعادة تعيين عبر الاسترداد |
-| `session_started` | عند الدخول الناجح |
-| `session_terminated_*` | حسب سبب الإنهاء |
-| `recovery_request_opened` | فتح طلب استرداد |
-| `recovery_verified` | تحقق مسؤول التحقق |
-| `recovery_completed` | تنفيذ مسؤول التنفيذ |
-| `breakglass_activated` | تفعيل حساب الطوارئ |
-| `breakglass_session_started` | بداية جلسة الطوارئ |
-| `breakglass_session_ended` | نهاية جلسة الطوارئ |
-| `superadmin_sensitive_view` | اطلاع إداري على محتوى حساس |
+| `account_created` | When the account is created |
+| `account_enabled` | After re-enabling |
+| `account_disabled` | On disablement |
+| `account_locked` | After exceeding the failed attempts |
+| `account_unlocked` | After lockout ends or manual intervention |
+| `password_changed_self` | User-initiated change |
+| `password_reset_admin` | Administrator-initiated reset |
+| `password_reset_recovery` | Recovery-initiated reset |
+| `session_started` | On successful login |
+| `session_terminated_*` | Per termination reason |
+| `recovery_request_opened` | Recovery request opened |
+| `recovery_verified` | Verification administrator verifies |
+| `recovery_completed` | Execution administrator executes |
+| `breakglass_activated` | Emergency account activated |
+| `breakglass_session_started` | Emergency session begins |
+| `breakglass_session_ended` | Emergency session ends |
+| `superadmin_sensitive_view` | Administrative view of sensitive content |
 
-## 10. مؤشرات الإنذار
+## 10. Alert Indicators
 
-يُفعَّل تنبيه عند:
+An alert is triggered when:
 
-- 5 حسابات مقفلة خلال 10 دقائق من نفس المصدر.
-- 3 محاولات استرداد فتحت خلال ساعة.
-- تفعيل Break-glass.
-- تغيير كلمة مرور لحساب سوبر أدمن.
-- تسجيل دخول من جهاز غير معروف لسوبر أدمن.
-- أي محاولة تجاوز لقفل الحساب.
+- 5 accounts locked within 10 minutes from the same source.
+- 3 recovery attempts opened within an hour.
+- Break-glass activation.
+- Password change for a super-admin account.
+- Super-admin login from an unknown device.
+- Any attempt to bypass an account lockout.
 
-## 11. الامتثال
+## 11. Compliance
 
-| الضابط | المتطلب | التطبيق في هذه الوثيقة |
+| Control | Requirement | Application in this document |
 |---|---|---|
-| NCA ECC 1-4 | إدارة الهوية والوصول | فصل الحسابات، MFA للإدارة، سياسات قوية |
-| NCA ECC 1-5 | الحسابات المميزة | break-glass مفصول وموثق |
-| NCA ECC 1-7 | التسجيل والمراقبة | سجل أحداث الحساب كامل |
-| PDPL أمن البيانات | حماية PII للموظف | فصل الحساب عن بيانات PII، تسجيل الاطلاع |
-| PDPL دقة البيانات | دقة المعلومات | صلاحية تعديل محدودة ومسجلة |
-| NDMO مالك البيانات | تحديد مسؤوليات | أدوار وصلاحيات واضحة ومفصولة |
+| NCA ECC 1-4 | Identity and access management | Account separation, MFA for administration, strong policies |
+| NCA ECC 1-5 | Privileged accounts | Break-glass separated and documented |
+| NCA ECC 1-7 | Logging and monitoring | Complete account event log |
+| PDPL Data Security | Employee PII protection | Account separation from PII data, view logging |
+| PDPL Data Accuracy | Information accuracy | Limited and logged edit capability |
+| NDMO Data Owner | Responsibility assignment | Clear and separated roles and capabilities |
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 0.3.0 | 2026-07-18 | مسؤول أمن المعلومات | توحيد الحساب النشط الواحد وفصل الإدارة بجلسة محددة زمنياً |
-| 0.1.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء المسودة التنفيذية |
-| 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | استبدال المراجع التاريخية بمراجع الهوية والصلاحيات الحالية وتطبيق ضبط الوثيقة |
+| 0.3.0 | 2026-07-18 | Information Security Officer | Unify the single-active-account rule and separate administration through time-bound sessions |
+| 0.1.0 | 2026-07-15 | Information Security Officer | Initial executive draft |
+| 0.2.0 | 2026-07-15 | Information Security Officer | Replace historical references with current identity and authorization references and apply document discipline |

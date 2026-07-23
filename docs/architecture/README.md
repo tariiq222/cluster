@@ -1,27 +1,27 @@
 ---
 doc_id: ARC-IDX-001
-title: فهرس المعمار
+title: Architecture Index
 type: architecture
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references: []
 ---
-# المعمار
+# Architecture
 
-| الوثيقة | الغرض |
+| Document | Purpose |
 |---|---|
-| [النظرة المعمارية](overview.md) | مصدر الحقيقة للحدود والقرارات العامة |
-| [خريطة السياقات](context-map.md) | الاعتمادات وملكية الحقائق |
-| [كتالوج الموديولات](module-catalog.md) | المسؤوليات والعقود والأحداث |
-| [قواعد الاعتماد](dependency-rules.md) | DAG وقيود التكامل والمعاملات |
-| [C4 والتدفقات](c4-and-flows.md) | روابط الرسومات القابلة للتحرير |
-| [المتطلبات غير الوظيفية](non-functional-requirements.md) | أهداف التحقق المعماري |
-| [الرسومات](diagrams/) | مصادر Mermaid للرسم |
+| [Architecture Overview](overview.md) | Source of truth for boundaries and authoritative decisions |
+| [Context Map](context-map.md) | Dependencies and fact ownership |
+| [Module Catalog](module-catalog.md) | Responsibilities, contracts, and events |
+| [Dependency Rules](dependency-rules.md) | DAG, integration constraints, and transaction rules |
+| [C4 and Flows](c4-and-flows.md) | Editable diagram sources |
+| [Non-Functional Requirements](non-functional-requirements.md) | Architecture verification targets |
+| [Diagrams](diagrams/system-context.mmd) | Mermaid sources for the diagrams |

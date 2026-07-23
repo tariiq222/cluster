@@ -1,82 +1,90 @@
 ---
 doc_id: OPS-TP-001
-title: الطوبولوجيا الفيزيائية ومجالات العطل
+title: Physical Topology and Failure Domains
 type: operations
-status: proposed
+status: accepted
 version: 2.0.0
 date: 2026-07-16
-owner: مسؤول العمليات
+owner: Operations Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources:
 - docs/architecture/overview.md
 - docs/adr/023-single-host-dokploy-deployment.md
 references:
-- docs/operations/kubernetes-platform.md
+- docs/architecture/docker-compose-platform.md
 - docs/operations/ha-dr-backup.md
 ---
-# الطوبولوجيا الفيزيائية ومجالات العطل
+# Physical Topology and Failure Domains
 
-## النطاق
+## Scope
 
-تعمل مكونات الإنتاج على VPS واحد محدود المنافذ. هذا النموذج لا يذكر عنواناً أو نطاقاً أو سراً فعلياً، ولا يدعي توافراً عالياً عند فشل الخادم.
+Production components run on a single, port-restricted VPS. This model does
+not name any real address, domain, or secret, and does not claim high
+availability when the host fails.
 
 ```text
-مستخدم
-  -> جدار ناري: 80/443
+User
+  -> Firewall: 80/443
   -> Caddy / HTTPS
        -> React/Nginx -> Laravel API
        -> Laravel worker
-       -> MySQL وRedis الموجودان على VPS عبر شبكة خاصة
-  -> مراقبة محلية وتنبيهات
+       -> Host-resident MySQL and Redis over a private network
+  -> Local monitoring and alerts
 
-خارج نطاق عطل الخادم
-  -> مخزن نسخ مشفر باعتمادات منفصلة
-  -> هدف استعادة منفصل عند التمرين أو العطل
+Out of host-failure scope
+  -> Encrypted backup store with separate credentials
+  -> Separate restore target for exercises and incidents
 ```
 
-## حدود الوصول
+## Access boundaries
 
-| المسار | السياسة |
+| Path | Policy |
 |---|---|
-| HTTPS للمستخدم | المنفذ التشغيلي الوحيد المتاح للمستخدمين المعتمدين |
-| HTTP | اختياري للتحويل إلى HTTPS فقط |
-| SSH | VPN أو شبكة/عناوين إدارة مقيدة |
-| MySQL وRedis | loopback أو واجهة خاصة تسمح لشبكة Docker فقط |
-| Docker socket/API | لا ينشر عبر الشبكة العامة |
-| النسخ | اتصال صادر إلى مخزن خارجي معتمد أو نقل محكوم |
+| User HTTPS | The only operational port exposed to authorized users |
+| HTTP | Optional, for HTTPS redirect only |
+| SSH | VPN or restricted administrative network/addresses |
+| MySQL and Redis | Loopback or a private interface accessible only to the Docker network |
+| Docker socket/API | Not exposed on the public network |
+| Backups | Outbound connection to an approved external store, or a controlled transfer |
 
-## مجال العطل
+## Failure domain
 
-الخادم والطاقة والقرص والشبكة المحلية مجال عطل واحد. تعدد الحاويات لا يحمي من فشل الجهاز. تخفف المخاطر بالمراقبة، وإمكانية إعادة إنشاء Compose على هدف آخر، ونسخ خارج الخادم، وتمرين استعادة مقاس.
+The server, power, disk, and local network are a single failure domain. A
+multi-container layout does not protect against a machine failure. Risks are
+mitigated through monitoring, the ability to recreate the Compose stack on
+another target, off-host backups, and a measured restore exercise.
 
-## السعة المرجعية
+## Reference capacity
 
-| البند | الهدف | معيار التحقق |
+| Item | Target | Validation method |
 |---|---:|---|
-| الحسابات | 5,000 إلى 20,000 | اختبار حجم بيانات مماثل |
-| المستخدمون المتزامنون | حتى 2,000 | اختبار حمل على الخادم الفعلي |
-| API | `p95 <= 500ms` | قياس تحت الحمل المعتمد |
-| البحث | `p95 <= 2s` | قياس تحت الحمل المعتمد |
-| فقد البيانات | `RPO <= 15 دقيقة` | تمرين استعادة من النسخة الخارجية |
-| التعافي | `RTO <= ساعتين` | إعادة إنشاء واستعادة على هدف منفصل |
+| Accounts | 5,000 to 20,000 | Similar-volume data test |
+| Concurrent users | Up to 2,000 | Load test on the actual host |
+| API | `p95 <= 500ms` | Measurement under approved load |
+| Search | `p95 <= 2s` | Measurement under approved load |
+| Data loss | `RPO <= 15 minutes` | Restore exercise from the external backup |
+| Recovery | `RTO <= 2 hours` | Recreation and restore on a separate target |
 
-لا تعد هذه الأرقام مضمونة حتى تنجح اختبارات الخادم الفعلي. إذا فشل الحمل أو التعافي يعاد تقدير الموارد أو قرار الخادم الواحد.
+These numbers are not guaranteed until they succeed under tests on the actual
+host. If load or recovery fails, resources or the single-host decision are
+re-evaluated.
 
-## قبول الطوبولوجيا
+## Topology acceptance
 
-- لا يظهر من مسار المستخدم إلا المنافذ المعتمدة.
-- لا يمكن الوصول إلى خدمات الحالة أو الإدارة من الشبكة غير المصرح بها.
-- يمكن إعادة إنشاء الحزمة من commit وlockfiles وCompose.
-- لا يمنع فشل الخادم الوصول إلى النسخة الخارجية.
-- تنجح استعادة معزولة على هدف آخر ضمن القياسات المعتمدة.
+- Only the approved ports are reachable from the user path.
+- State and management services are inaccessible from unauthorized networks.
+- The bundle can be recreated from a commit, lockfiles, and Compose.
+- A host failure does not block access to the external backup.
+- An isolated restore on a separate target succeeds within the approved
+  metrics.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول العمليات | إنشاء نموذج Kubernetes متعدد العقد |
-| 2.0.0 | 2026-07-16 | مالك المنصة | اعتماد خادم داخلي واحد وDokploy ونسخ خارج نطاق عطله |
+| 1.0.0 | 2026-07-15 | Operations Lead | Initial multi-node Kubernetes model |
+| 2.0.0 | 2026-07-16 | Platform Owner | Adopted a single internal host with Compose and backups outside its failure domain |

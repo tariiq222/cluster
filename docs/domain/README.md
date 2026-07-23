@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-OV-001
-title: فهرس مواصفات المجال
+title: Domain specifications index
 type: domain
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/architecture/module-catalog.md
 - docs/architecture/context-map.md
@@ -18,22 +18,24 @@ references:
 - docs/architecture/overview.md
 - docs/adr/004-authorization-and-isolation.md
 ---
-# مواصفات المجال
+# Domain specifications
 
-| الموديول | الوثيقة |
+| Module | Document |
 |---|---|
-| إعدادات المنصة | [platform-settings.md](platform-settings.md) |
-| التنظيم والأشخاص | [organization-and-people.md](organization-and-people.md) |
-| الهوية | [identity.md](identity.md) |
-| الصلاحيات | [authorization.md](authorization.md) |
-| تعريفات العمل | [work-definitions.md](work-definitions.md) |
-| المسارات | [workflow.md](workflow.md) |
-| سجلات العمل | [work-records.md](work-records.md) |
-| حوكمة السجلات | [records-governance.md](records-governance.md) |
-| المستندات | [documents.md](documents.md) |
-| التعاون والمهام ومساحة العمل | [collaboration-tasks-workspace.md](collaboration-tasks-workspace.md) |
-| الإشعارات والبحث والتقارير | [notifications-search-reporting.md](notifications-search-reporting.md) |
-| التدقيق | [audit.md](audit.md) |
-| الاستراتيجية | [strategy.md](strategy.md) |
-| المحافظ والمشاريع | [portfolio-projects.md](portfolio-projects.md) |
-| المخاطر | [risk.md](risk.md) |
+| Platform settings | [platform-settings.md](platform-settings.md) |
+| Organization and people | [organization-and-people.md](organization-and-people.md) |
+| Identity | [identity.md](identity.md) |
+| Authorization | [authorization.md](authorization.md) |
+| Work definitions | [work-definitions.md](work-definitions.md) |
+| Workflows | [workflow.md](workflow.md) |
+| Work records | [work-records.md](work-records.md) |
+| Records governance | [records-governance.md](records-governance.md) |
+| Documents | [documents.md](documents.md) |
+| Collaboration, tasks, and workspace | [collaboration-tasks-workspace.md](collaboration-tasks-workspace.md) |
+| Notifications, search, and reporting | [notifications-search-reporting.md](notifications-search-reporting.md) |
+| Audit | [audit.md](audit.md) |
+| Strategy | [strategy.md](strategy.md) |
+| Portfolio and projects | [portfolio-projects.md](portfolio-projects.md) |
+| Risk | [risk.md](risk.md) |
+
+> **Translation banner:** This domain documentation set is being translated from Arabic to English. Sections marked **TRANSLATION PENDING** still contain Arabic source text and will be revised in a follow-up pass. The translation preserves front matter, headings, and table structure; technical terms keep the canonical code names. Where the audit (`audit-domain.md`) flagged DRIFT-OPEN findings, this translation applies the documented corrections and notes the source-of-truth migration in the same paragraph.

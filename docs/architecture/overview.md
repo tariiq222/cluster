@@ -1,212 +1,212 @@
 ---
 doc_id: ARC-OV-001
-title: النظرة المعمارية لمنصة التجمع الصحي الثالث
+title: Architecture Overview for the Third Health Cluster Platform
 type: architecture
 status: accepted
 version: 1.2.0
 date: '2026-07-16'
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
-- مسؤول العمليات
+- Software Engineering Lead
+- Information Security Lead
+- Operations Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references: []
 ---
-# النظرة المعمارية
+# Architecture Overview
 
-## 1. سلطة هذه الحزمة
+## 1. Authority of this bundle
 
-هذه الوثيقة هي نقطة الدخول إلى مصدر الحقيقة المعماري العربي للمنصة. تتكون الحزمة الملزمة من هذه الوثيقة والوثائق الخمس المرتبطة بها:
+This document is the entry point to the Arabic architectural source of truth for the platform. The binding bundle consists of this document and the five linked documents:
 
-- [خريطة السياقات](context-map.md)
-- [كتالوج الموديولات](module-catalog.md)
-- [قواعد الاعتماد](dependency-rules.md)
-- [رسومات C4 والتدفقات](c4-and-flows.md)
-- [المتطلبات غير الوظيفية](non-functional-requirements.md)
+- [Context Map](context-map.md)
+- [Module Catalog](module-catalog.md)
+- [Dependency Rules](dependency-rules.md)
+- [C4 and Flows](c4-and-flows.md)
+- [Non-Functional Requirements](non-functional-requirements.md)
 
-عند التعارض، تكون الأولوية للقرارات الصريحة في هذه الحزمة، ثم لأحدث ADR معتمد. لا تعد الملفات المحذوفة أو النسخ المحلية خارج `docs/` مراجع موازية لهذه الحزمة.
+On conflict, the explicit decisions in this bundle take precedence, followed by the latest accepted ADR. Deleted files or local copies outside `docs/` are not parallel references for this bundle.
 
-## 2. الغرض والنطاق
+## 2. Purpose and scope
 
-المنصة نظام إداري مؤسسي موحد للتجمع الصحي الثالث وإداراته ومنشآته التابعة. تحول الطلبات والموافقات والمهام والمستندات والاستراتيجية والمشاريع والمخاطر من البريد وملفات Excel والورق إلى سجلات رقمية محكومة وقابلة للبحث والقياس والتدقيق.
+The platform is a unified enterprise administrative system for the Third Health Cluster and its directorates and affiliated facilities. It converts requests, approvals, tasks, documents, strategy, projects, and risks from email, Excel files, and paper into governed, searchable, measurable, auditable digital records.
 
-المنصة:
+The platform:
 
-- تخدم التجمع كجهة تشغيلية كاملة، لا كجهة إشرافية فقط.
-- تدعم التشغيل المحلي داخل كل منشأة مع حوكمة مركزية.
-- تعمل على VPS واحد عبر Docker Compose مباشر وCaddy، ويقتصر الوصول العام على HTTPS.
-- تقدم تطبيق ويب واحداً بالعربية افتراضياً مع دعم الإنجليزية و`RTL/LTR`.
-- تبدأ كـLaravel Modular Monolith وواجهة React + TypeScript موحدة.
+- serves the cluster as a full operational entity, not only as a supervisory one.
+- supports local operation within each facility with centralized governance.
+- runs on a single VPS via direct Docker Compose and Caddy, with public access restricted to HTTPS.
+- delivers a single web application in Arabic by default with English and `RTL/LTR` support.
+- starts as a Laravel Modular Monolith with a unified React + TypeScript frontend.
 
-خارج النطاق:
+Out of scope:
 
-- السجل الطبي وبيانات المرضى والأنظمة السريرية.
-- الرواتب والإجازات والترقيات الرسمية التي يديرها «موارد».
-- المحاسبة والمشتريات والفواتير كنظام مالي كامل.
-- التكاملات الخارجية وترحيل البيانات في المرحلة الأولى.
-- تطبيق جوال أصلي أو اعتماد تشغيلي على خدمات سحابية عامة.
+- medical records, patient data, and clinical systems.
+- payroll, leave, and formal promotions managed by "Mawared".
+- accounting, procurement, and invoicing as a full financial system.
+- external integrations and data migration in phase one.
+- a native mobile application or operational reliance on public cloud services.
 
-## 3. القيود الحاكمة
+## 3. Governing constraints
 
-- فريق التطوير المتوقع من مطورين اثنين إلى أربعة.
-- الخبرة الأقوى في Laravel، مع نضج أقل في React وتشغيل المنصات.
-- من 5,000 إلى 20,000 حساب وحتى 2,000 مستخدم متزامن.
-- MySQL داخل حزمة Docker Compose على خادم الإنتاج الواحد، مع نسخ خارج الخادم.
-- نشر VPS محدود المنافذ عبر Docker Compose؛ لا يدّعي Air-gap أو HA عند فشل الخادم.
-- توسع مرحلي يبدأ بالعمل الإداري، ثم الاستراتيجية والمشاريع، ثم المخاطر.
-- عزل تنظيمي دقيق داخل قاعدة مشتركة، وليس عزلاً متعدد العملاء أو قاعدة لكل منشأة.
+- Expected development team of two to four engineers.
+- Strongest experience in Laravel, with less maturity in React and platform operations.
+- Five thousand to twenty thousand accounts and up to two thousand concurrent users.
+- MySQL inside the Docker Compose bundle on the single production server, with off-server copies.
+- Limited-port VPS deployment via Docker Compose; does not claim air-gap or HA on host failure.
+- Phased expansion starting with administrative work, then strategy and projects, then risk.
+- Strict organizational isolation inside a shared database, not multi-tenant or per-facility databases.
 
-## 4. القرارات المعمارية الملزمة
+## 4. Binding architectural decisions
 
-1. **Modular Monolith:** تطبيق Laravel واحد قابل للتوسع أفقياً، بحدود موديولات وملكية بيانات وعقود صريحة.
-2. **Monorepo:** يحتفظ المستودع الواحد بتطبيق Laravel وواجهة React + TypeScript والبنية والوثائق؛ لا يخفف ذلك حدود الموديولات أو ملكية البيانات.
-3. **Module-First Vertical Slices:** الموديول هو الحد الأعلى، وحالات الاستخدام وحدات داخلية مستقلة في الكتابة والقراءة.
-4. **DDD وCQRS خفيفان:** مجال مشترك داخل الموديول، Commands للكتابة، Queries وRead Models للقراءة، بلا Event Sourcing.
-5. **مالك واحد لكل حقيقة:** لا يقرأ موديول أو يكتب جداول موديول آخر.
-6. **DAG بلا دورات:** كل اعتماد يتجه إلى موديول أسبق رتبة كما هو محدد في [قواعد الاعتماد](dependency-rules.md).
-7. **Authorization مركزي:** القرار يجمع RBAC وABAC، ويتلقى `RecordFacts` من الموديول المالك دون أن يعتمد على الموديولات التجارية.
-8. **Caller-owned transaction:** المستدعي الذي يبدأ حالة استخدام الكتابة يفتح المعاملة ويقرر `commit/rollback`، وكل عقد متزامن مشارك ينضم إليها ولا يملكها.
-9. **Outbox بتسليم at-least-once:** الحدث يحفظ مع تغيير المصدر في المعاملة نفسها، والمستهلكات Idempotent.
-10. **إصدارات غير قابلة للتغيير:** تعريفات أنواع العمل والمسارات المنشورة ثابتة، والسجل الجاري يثبت إصدارَيهما.
-11. **بحث وتقارير مشتقة:** الفهارس والإسقاطات ليست مصدر حقيقة ولا تكتب في سجلات الأعمال.
-12. **واجهة واحدة:** جلسة وتنقل وتصميم موحد، وإخفاء عناصر الواجهة لتحسين التجربة لا لإقامة حد أمني.
-13. **تشغيل ذاتي مقيد:** Docker Compose وCaddy يشغلان التطبيق، ولا تنشر MySQL أو Redis أو Docker للعامة، ولا تعتمد الواجهة على CDN أو سكربتات عامة وقت التشغيل.
+1. **Modular Monolith:** a single Laravel application that can scale horizontally, with module boundaries, data ownership, and explicit contracts.
+2. **Monorepo:** the single repository holds the Laravel application, the React + TypeScript frontend, infrastructure, and docs; this does not dilute module boundaries or data ownership.
+3. **Module-First Vertical Slices:** the module is the upper boundary; use cases are independent internal units for write and read.
+4. **Light DDD and CQRS:** a shared domain inside the module, Commands for write, Queries and Read Models for read, with no Event Sourcing.
+5. **One owner per fact:** no module reads or writes another module's tables.
+6. **DAG without cycles:** every dependency points to a lower-ranked module as defined in [Dependency Rules](dependency-rules.md).
+7. **Centralized Authorization:** the decision combines RBAC and ABAC, and receives `RecordFacts` from the owning module without depending on business modules.
+8. **Caller-owned transaction:** the caller that initiates a write use case opens the transaction and decides `commit`/`rollback`; every synchronous contract joins it and does not own it.
+9. **Outbox with at-least-once delivery:** the event is persisted with the source change in the same transaction, and consumers are idempotent.
+10. **Immutable versions:** definitions of work types and published routes are immutable, and the running record pins both versions.
+11. **Derived search and reports:** indexes and projections are not a source of truth and do not write to business records.
+12. **Single frontend:** unified session, navigation, and design; hiding UI elements improves UX, not as a security boundary.
+13. **Constrained self-hosting:** Docker Compose and Caddy run the application; MySQL and Redis are not exposed publicly, and the frontend does not depend on a CDN or public scripts at runtime.
 
-## 5. الموديولات القانونية الوحيدة
+## 5. The only canonical modules
 
-هذه الأسماء التسعة عشر هي الأسماء canonical. لا يجوز إنشاء موديول أعمال جديد أو مرادف لها دون قرار معماري جديد.
+These nineteen names are the canonical names. No new business module or alias may be created without a new architectural decision.
 
-| المجموعة | الموديولات |
+| Group | Modules |
 |---|---|
-| الأساس المؤسسي | `PlatformSettings`, `Organization`, `Identity`, `Authorization`, `Audit` |
-| تعريف وتشغيل العمل | `Workflow`, `WorkDefinitions`, `WorkRecords`, `RecordsGovernance` |
-| قدرات التعاون | `Documents`, `Collaboration`, `Tasks`, `Workspace`, `Notifications` |
-| القراءة المؤسسية | `Search`, `Reporting` |
-| المجالات المتخصصة | `Strategy`, `PortfolioProjects`, `Risk` |
+| Enterprise foundation | `PlatformSettings`, `Organization`, `Identity`, `Authorization`, `Audit` |
+| Work definition and operation | `Workflow`, `WorkDefinitions`, `WorkRecords`, `RecordsGovernance` |
+| Collaboration capabilities | `Documents`, `Collaboration`, `Tasks`, `Workspace`, `Notifications` |
+| Enterprise read | `Search`, `Reporting` |
+| Specialized domains | `Strategy`, `PortfolioProjects`, `Risk` |
 
-التفاصيل والملكية والعقود في [كتالوج الموديولات](module-catalog.md).
+Detailed ownership, contracts, and events live in [Module Catalog](module-catalog.md).
 
-## 6. الطلب هو WorkRecord
+## 6. The request is a WorkRecord
 
-لا يوجد موديول باسم `Requests`، ولا جدول أو Aggregate مستقل للطلب العام. الطلب الداخلي العام هو:
+No module named `Requests` exists, and there is no separate Aggregate or table for the generic request. The generic internal request is:
 
-- تعريف منشور يملكه `WorkDefinitions`؛
-- مثيل `WorkRecord` يملكه `WorkRecords`؛
-- مسار تنفيذ اختياري يملكه `Workflow`؛
-- مهام مرتبطة يملكها `Tasks`؛
-- نقاش يملكه `Collaboration`؛
-- ملفات يملكها `Documents`.
+- a published definition owned by `WorkDefinitions`;
+- a `WorkRecord` instance owned by `WorkRecords`;
+- an optional execution route owned by `Workflow`;
+- related tasks owned by `Tasks`;
+- a discussion owned by `Collaboration`;
+- attached files owned by `Documents`.
 
-يستخدم نوع العمل تصنيفاً مثل `request` لتكوين النموذج والحالات والانتقالات، لكن التصنيف لا ينشئ حداً معمارياً جديداً. أحداثه canonical هي مثل `WorkRecordCreated` و`WorkRecordSubmitted` و`WorkRecordStateChanged` و`WorkRecordCompleted`.
+A work type uses a classification such as `request` to shape the form, states, and transitions, but the classification does not create a new architectural boundary. Its canonical events are `WorkRecordCreated`, `WorkRecordSubmitted`, `WorkRecordStateChanged`, and `WorkRecordCompleted`.
 
-## 7. Strategy يملك المؤشرات
+## 7. Strategy owns the indicators
 
-`Strategy` هو المالك الوحيد لكل ما يتعلق بالمؤشرات:
+`Strategy` is the sole owner of everything related to indicators:
 
-- تعريف المؤشر وإصداره ووحدته واتجاهه ومعادلة تجميعه.
-- الفترات وخطوط الأساس والمستهدفات وتوزيعها.
-- القياسات والأدلة وحالات اعتمادها.
-- ملاك المؤشرات والمنسقون.
-- الأثر الفعلي المعتمد المنسوب إلى مشروع.
+- the indicator definition, its version, unit, direction, and aggregation formula.
+- periods, baselines, targets, and their distribution.
+- measurements, evidence, and their approval states.
+- indicator owners and coordinators.
+- the approved actual impact attributed to a project.
 
-يحتفظ `PortfolioProjects` فقط بمعرف المؤشر وبيانات التخطيط الخاصة بالمشروع، ويستخدم عقود `Strategy` لتسجيل الارتباط أو تقديم الأثر للاعتماد. لا ينسخ تعريف المؤشر أو قياساته ولا يكتب جداول `Strategy`.
+`PortfolioProjects` keeps only the indicator identifier and project-specific planning data, and uses `Strategy` contracts to register the link or submit impact for approval. It does not copy the indicator definition or its measurements and does not write `Strategy` tables.
 
-## 8. النموذج التشغيلي للبيانات
+## 8. Operational data model
 
-### 8.1 البيانات الثابتة
+### 8.1 Static data
 
-تستخدم الموديولات المتخصصة والنواة جداول علائقية واضحة يملك كل موديول ترحيلاتها وقيودها.
+Specialized modules and the core use clearly defined relational tables; each module owns its migrations and constraints.
 
-### 8.2 بيانات العمل الديناميكية
+### 8.2 Dynamic work data
 
-يستخدم `WorkRecords` نموذجاً هجيناً:
+`WorkRecords` uses a hybrid model:
 
-- Envelope علائقي ثابت يحوي الهوية والمالك والمنشئ والحالة والتصنيف والإصدار و`lock_version`.
-- Payload ديناميكي مرتبط بإصدار منشور من `WorkDefinitions`.
-- Typed projections للحقول المختارة للبحث والتقارير.
-- علاقات صريحة بدلاً من EAV عام أو Joins بين الموديولات.
+- a stable relational Envelope holding identity, owner, creator, state, classification, version, and `lock_version`.
+- a dynamic payload bound to a published version from `WorkDefinitions`.
+- typed projections for selected fields for search and reporting.
+- explicit relations instead of a generic EAV or cross-module joins.
 
-### 8.3 الحقائق المشتقة
+### 8.3 Derived facts
 
-`Search` و`Reporting` و`Workspace` و`Notifications` تخزن إسقاطات أو رسائل مشتقة. يمكن إعادة بنائها ولا تصبح مصدراً للحالة التشغيلية.
+`Search`, `Reporting`, `Workspace`, and `Notifications` store projections or derived messages. They can be rebuilt and do not become the source of operational state.
 
-## 9. الوصول والعزل
+## 9. Access and isolation
 
-قرار الوصول مركزي في `Authorization` ويتكون من:
+Access decisions are centralized in `Authorization` and consist of:
 
 ```text
-قدرة الدور
-+ حالة الحساب
-+ النطاق التنظيمي
-+ العلاقة الإشرافية
-+ الملكية والمشاركة
-+ التصنيف
-+ حالة السجل
-+ التكليف أو التفويض الساري
-+ سياسة الحقل
-= قرار وصول قابل للتفسير
+role capability
++ account state
++ organizational scope
++ supervisory relationship
++ ownership and participation
++ classification
++ record state
++ active assignment or delegation
++ field policy
+= explainable access decision
 ```
 
-الموديول المالك يقرأ الحد الأدنى غير الحساس من Envelope، ويبني `RecordFacts`، ثم يطلب القرار. لا يستدعي `Authorization` الموديول المالك ولا يعرف Aggregate أو جدوله؛ لذلك لا تنشأ دورة اعتماد. يطبق القرار نفسه على API والبحث والتقارير والتصدير والتنزيل، ويقدم المنع الصريح والتصنيف الأعلى على السماح العام.
+The owning module reads the minimal non-sensitive slice of the Envelope, builds `RecordFacts`, and then requests the decision. `Authorization` does not call the owning module and does not know its Aggregate or table; therefore no dependency cycle arises. The same decision applies to API, search, reports, export, and download, and explicit denial or higher classification takes precedence over general allow.
 
-## 10. الاتصال بين الموديولات
+## 10. Inter-module communication
 
-### 10.1 متزامن
+### 10.1 Synchronous
 
-يستخدم عند الحاجة إلى نتيجة فورية أو invariant مشترك، مثل قرار الوصول، حل المدير، بدء مسار أو إنشاء مهمة ذرية. العقد منشور من الموديول المالك، ومدخلاته ومخرجاته DTOs ثابتة لا نماذج ORM.
+Used when an immediate result or a shared invariant is required, such as an access decision, manager resolution, starting a route, or atomic task creation. The contract is published by the owning module, and its inputs and outputs are immutable DTOs, not ORM models.
 
-### 10.2 غير متزامن
+### 10.2 Asynchronous
 
-يستخدم للإشعارات والفهرسة والإسقاطات واللوحات والتدقيق غير الحرج. يحفظ المنتج الحدث في Outbox داخل معاملة المصدر، ثم يسلمه عامل بعد `commit` مرة واحدة على الأقل. يسجل كل مستهلك `event_id` قبل تطبيق الأثر لمنع التكرار.
+Used for notifications, indexing, projections, dashboards, and non-critical audit. The producer persists the event in the Outbox inside the source transaction, then a worker delivers it after `commit` at least once. Each consumer records the `event_id` before applying the effect to prevent duplicates.
 
-### 10.3 حدود المعاملة
+### 10.3 Transaction boundaries
 
-- Handler المستدعي هو مالك المعاملة.
-- العقود المستدعاة متزامناً تنضم إلى المعاملة القائمة ولا تبدأ معاملة مستقلة ولا تنفذ `commit`.
-- لا تمتد المعاملة إلى عامل أو محرك بحث أو تخزين خارجي أو تكامل شبكي.
-- فشل الإشعار أو الفهرسة لا يبطل الحقيقة المحفوظة.
+- The caller Handler is the transaction owner.
+- Synchronously called contracts join the existing transaction, do not start a new one, and do not issue `commit`.
+- The transaction does not extend to a worker, search engine, external storage, or network integration.
+- A notification or indexing failure does not invalidate the persisted truth.
 
-## 11. البنية التشغيلية
+## 11. Operational topology
 
-- Caddy على VPS واحد أمام React Unified Web App وLaravel Web/API.
-- عامل Outbox/Notifications واحد معرف في Docker Compose؛ لا Scheduler بلا مهام مجدولة.
-- MySQL وRedis الموجودان على الخادم يصل إليهما التطبيق عبر شبكة خاصة ولا تنشر منافذهما للعامة.
-- Logs وMetrics وتنبيهات تناسب الخادم الواحد ولا تفترض عنقوداً خارجياً.
-- الصور تبنى مباشرة من Dockerfiles وlockfiles عند النشر.
-- مخزن نسخ احتياطي مشفر خارج نطاق عطل خادم الإنتاج وباعتمادات منفصلة.
+- Caddy on a single VPS in front of the React Unified Web App and Laravel Web/API.
+- A single Outbox/Notifications worker defined in Docker Compose; no scheduler without scheduled work.
+- MySQL and Redis on the host are reached by the application via a private network, and their ports are not exposed publicly.
+- Logs, metrics, and alerts fit the single host and do not assume an external cluster.
+- Images are built directly from Dockerfiles and lockfiles at deploy time.
+- An encrypted backup store lives outside the production host failure domain with separate credentials.
 
-أهداف التعافي الملزمة: `RPO ≤ 15 دقيقة` و`RTO ≤ ساعتين` مع اختبار استعادة دوري فعلي.
+Binding recovery targets: `RPO ≤ 15 minutes` and `RTO ≤ 2 hours`, with periodic actual restore drills.
 
-## 12. المراحل
+## 12. Phases
 
-| المرحلة | النتيجة |
+| Phase | Outcome |
 |---|---|
-| الأولى | الأساس المؤسسي، تعريف العمل، `WorkRecords` للطلبات العامة، المسارات، المهام، التعاون، المستندات، مساحة العمل، الإشعارات، البحث والتقارير التشغيلية |
-| الثانية | `Strategy` بما فيه المؤشرات، ثم `PortfolioProjects` وربط أثر المشاريع بالمؤشرات |
-| الثالثة | `Risk` وربطه بالاستراتيجية والمشاريع والمهام والمستندات |
-| لاحقاً | مجالات مرشحة غير ملزمة؛ لا يعد أي منها موديولاً مقرراً قبل مواصفة حدود وملكية وعقود وقرار صريح |
+| One | Enterprise foundation, work definition, `WorkRecords` for general requests, routes, tasks, collaboration, documents, workspace, notifications, operational search and reports |
+| Two | `Strategy` including indicators, then `PortfolioProjects` and linking project impact to indicators |
+| Three | `Risk` and its links to strategy, projects, tasks, and documents |
+| Later | candidate areas are not binding; none of them counts as a committed module until a boundary, ownership, and contract specification and an explicit decision are in place |
 
-## 13. بوابات الجودة
+## 13. Quality gates
 
-- اختبارات معمارية لاتجاه DAG ومنع imports أو SQL عابر للموديولات.
-- Contract tests للعقود المتزامنة.
-- Event schema وcompatibility tests.
-- اختبارات Outbox وIdempotency وإعادة المحاولة.
-- اختبارات صلاحية للنطاق والتصنيف والحقول والبحث والتقرير والتصدير.
-- اختبارات تعارض التعديل باستخدام optimistic locking.
-- رحلة كاملة من الواجهة إلى قاعدة البيانات والطابور والإسقاطات.
-- اختبارات حمل حتى 2,000 مستخدم متزامن، وتعطل/إعادة تشغيل الحاويات، واستعادة البيانات والملفات إلى هدف منفصل.
+- Architecture tests for DAG direction and to prevent cross-module imports or SQL.
+- Contract tests for synchronous contracts.
+- Event schema and compatibility tests.
+- Outbox, idempotency, and retry tests.
+- Validity tests for scope, classification, fields, search, report, and export.
+- Concurrency tests using optimistic locking.
+- An end-to-end journey from the frontend to the database, queue, and projections.
+- Load tests up to two thousand concurrent users, container outage and recovery drills, and restore drills for data and files to a separate target.
 
-## 14. قرارات مؤجلة لا تغير الحدود
+## 14. Deferred decisions that do not change the boundaries
 
-تُحسم قبل بوابة التشغيل المعنية: موقع مخزن النسخ الخارجي، سعة الخادم وضبط MySQL وOpenSearch والسجلات، مدد الاحتفاظ التفصيلية، والتصنيف الأمني الرسمي. منصة النشر محسومة في ADR-023 إلى Docker Compose مباشر وCaddy؛ ولا تغير هذه القرارات ملكية البيانات أو DAG أو عقود الموديولات.
+To be resolved before the relevant operational gate: the external backup store location, server capacity and tuning of MySQL and OpenSearch and logs, detailed retention durations, and the official security classification. The deployment platform is decided in ADR-023 as direct Docker Compose and Caddy; these decisions do not alter data ownership, the DAG, or module contracts.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.1.0 | 2026-07-15 | مكتب هندسة المنصة | تثبيت النظرة المعمارية |
-| 1.2.0 | 2026-07-16 | مالك المنصة | اعتماد Dokploy وDocker Compose على خادم داخلي واحد |
+| 1.1.0 | 2026-07-15 | Platform Engineering Office | Stabilize the architecture overview |
+| 1.2.0 | 2026-07-16 | Platform Owner | Adopt Dokploy and Docker Compose on a single internal host |

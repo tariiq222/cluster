@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-RGV-001
-title: حوكمة السجلات والاحتفاظ والحجز
+title: Records governance, retention, and legal hold
 type: domain
 status: accepted
-version: 1.0.0
+version: 1.1.0
 date: 2026-07-15
-owner: مالك موديول RecordsGovernance
+owner: RecordsGovernance module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: confidential
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/016-audit-and-records-governance.md
 - docs/architecture/dependency-rules.md
@@ -18,22 +18,25 @@ references:
 - docs/architecture/module-catalog.md
 - docs/data-security/retention-and-legal-hold.md
 ---
-# حوكمة السجلات والاحتفاظ والحجز
 
-## الغرض والنطاق
+> **Planned for R2/R3.** This module is documented but not yet implemented in the codebase.
 
-يمتلك `RecordsGovernance` سياسات الاحتفاظ، وموضوعات الحوكمة المرتبطة بـ`record_ref`، والحجز، وأهلية الإتلاف وقرارها وإثباتها. لا يملك payload أو ملفاً أو حذفاً في موديول المصدر؛ المالك ينفذ الإتلاف في معاملته ويؤكد النتيجة.
+# Records governance, retention, and legal hold
 
-## الكيانات والجداول والقيود
+## Purpose and scope
 
-| الجدول | الحقيقة | القيود |
+`RecordsGovernance` owns retention policies, governed-record subjects keyed by `record_ref`, legal holds, and disposition eligibility with its decision and evidence. It does not own record payloads or files, and it does not delete inside the source module; the source owner performs the disposal inside its own transaction and confirms the outcome.
+
+## Entities, tables, and constraints
+
+| Table | Reality | Constraints |
 |---|---|---|
-| `retention_policy_versions`, `retention_rules` | سياسة احتفاظ versioned وقواعدها | المنشور immutable؛ قاعدة فعالة واحدة للمطابقة |
-| `governed_records` | `record_ref`، السياسة، تاريخ الاستحقاق والحالة | فريد `(record_type, record_id)` |
-| `record_holds`, `record_hold_targets` | الحجز ونطاقه وسببه ومدته | الحجز النشط يمنع الإتلاف؛ فريد للهدف والحجز |
-| `disposition_reviews`, `disposition_evidence` | أهلية الإتلاف وقراراته وإثباته | لا approval بلا أهلية ولا hold نشط |
+| `retention_policy_versions`, `retention_rules` | A versioned retention policy and its rules | The published version is immutable; only one effective rule matches a given record |
+| `governed_records` | A `record_ref`, its policy, the due date, and the current status | Unique `(record_type, record_id)` |
+| `record_holds`, `record_hold_targets` | A legal hold, its scope, reason, and duration | An active hold blocks disposal; unique per target and per hold |
+| `disposition_reviews`, `disposition_evidence` | Disposition eligibility with its decision and evidence | No approval without eligibility and an inactive hold |
 
-## الأوامر والاستعلامات والأحداث والحالات
+## Commands, queries, events, and states
 
 **Commands:** `PublishRetentionPolicyVersion`, `RegisterGovernedRecord`, `PlaceRecordHold`, `ReleaseRecordHold`, `DecideDispositionEligibility`, `ConfirmDispositionOutcome`.
 **Queries:** `ResolveRetentionPolicy`, `GetRecordGovernanceStatus`, `GetActiveRecordHolds`, `GetDispositionEligibility`.
@@ -45,23 +48,24 @@ Hold: Active -> Released | Expired | Superseded
 DispositionReview: Pending -> Eligible -> Approved -> Completed | Rejected
 ```
 
-## الثوابت والأمن والفشل
+## Constants, security, and failure modes
 
-- الحجز النشط يعلّق الإتلاف ولا يمكن لمالك السجل أو الأدمن تجاوزه.
-- الحوكمة تسجل القرار فقط؛ مصدر السجل يعيد التحقق من الحجز ثم ينفذ الإتلاف ويؤكد النتيجة.
-- كل قرار وصول وإتلاف يخضع Authorization وAudit؛ لا يحل قبول إداري محل المسار أو فصل الواجبات المطلوب.
-- تعذر قراءة hold أو سياسة أو تأكيد المصدر يساوي منعاً آمناً للإتلاف. فشل Outbox يلف قرار الحوكمة؛ فشل إتلاف المصدر لا يغلق المراجعة.
+- An active hold suspends disposal and cannot be bypassed by the record owner or any admin.
+- Governance records the decision only; the record source re-checks the hold, performs the disposal, and confirms the outcome.
+- Every access and disposal decision is subject to Authorization and Audit; no administrative acceptance replaces the required workflow or duty-of-separation rules.
+- An inability to read a hold, policy, or source confirmation equals a safe refusal of disposal. An outbox failure rolls back the governance decision; a source-side disposal failure does not close the review.
 
-## الاختبارات والاعتماديات
+## Tests and dependencies
 
-- حجز فعال يمنع eligibility والإتلاف، ورفعه يعيد التقييم لا الإتلاف التلقائي.
-- مصدر لا يؤكد النتيجة لا يجعل disposition مكتملة، وإعادة الحدث idempotent.
-- حدود: لا يقرأ payload ولا يحذف في WorkRecords أو Documents، واختبار fail-closed لعقد المصدر.
+- An active hold blocks eligibility and disposal; releasing it re-triggers evaluation but never causes automatic disposal.
+- A source that does not confirm the outcome leaves the disposition incomplete, and replayed events are idempotent.
+- Boundary: does not read payloads and never deletes inside WorkRecords or Documents; tests cover the fail-closed contract for the source module.
 
-يعتمد على PlatformSettings وAuthorization وAudit، ويقدم قرارات إلى WorkRecords وDocuments وباقي ملاك السجلات عبر العقد فقط.
+Depends on PlatformSettings, Authorization, and Audit; delivers decisions to WorkRecords, Documents, and the remaining record owners through contracts only.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول RecordsGovernance | إنشاء المواصفة المعتمدة |
+| 1.0.0 | 2026-07-15 | RecordsGovernance module owner | Initial accepted specification |
+| 1.1.0 | 2026-07-23 | Domain audit pass | Translated to English; module status banner added to mark the spec as planned-only until the module lands |

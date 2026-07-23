@@ -1,16 +1,16 @@
 ---
 doc_id: OPS-IR-001
-title: الاستجابة للحوادث
+title: Incident Response
 type: operations
-status: proposed
+status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مسؤول العمليات
+owner: Operations Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources:
 - docs/adr/019-kubernetes-resilience-and-recovery.md
 - docs/architecture/overview.md
@@ -19,52 +19,67 @@ references:
 - docs/operations/observability-and-slos.md
 - docs/operations/runbooks.md
 ---
-# الاستجابة للحوادث
+# Incident Response
 
-## الأدوار
+## Roles
 
-| الدور | المسؤولية |
+| Role | Responsibility |
 |---|---|
-| قائد الحادث | إعلان المستوى، تنسيق القرار، توثيق الزمن والأثر وإغلاق الحادث |
-| مسؤول العمليات | التشخيص والاحتواء والاستعادة الفنية |
-| مسؤول أمن المعلومات | قيادة التحقيق الأمني وحفظ الأدلة وقرار الإخطار الأمني |
-| مسؤول التطبيق | تحليل الأثر الوظيفي والتحقق بعد الإصلاح |
-| مسؤول التواصل | تحديث أصحاب المصلحة المعتمدين دون كشف بيانات حساسة |
+| Incident commander | Declares severity, coordinates decisions, records timeline and impact, and closes the incident |
+| Operations lead | Technical diagnosis, containment, and recovery |
+| Information security lead | Leads the security investigation, preserves evidence, and decides on security notification |
+| Application lead | Analyzes the functional impact and verifies the fix |
+| Communications lead | Updates approved stakeholders without disclosing sensitive data |
 
-تعين الأدوار في جدول on-call محكوم؛ لا تتضمن هذه الوثيقة أسماء أفراد أو وسائل اتصال فعلية.
+Roles are assigned in a governed on-call roster. This document does not
+include individual names or actual contact details.
 
-## التصنيف
+## Severity
 
-| المستوى | مثال | زمن الاستجابة |
+| Level | Example | Response time |
 |---|---|---|
-| P1 | توقف واسع، فقد بيانات محتمل، اختراق نشط، أو خرق RTO | فوري |
-| P2 | تدهور كبير، خرق SLO مستمر، فشل HA مع استمرار الخدمة | عاجل |
-| P3 | أثر محدود أو إنذار استباقي | ضمن دورة الدعم |
+| P1 | Widespread outage, potential data loss, active breach, or RTO breach | Immediate |
+| P2 | Major degradation, sustained SLO breach, or severe incident with the service still up | Urgent |
+| P3 | Limited impact or predictive alert | Within the support cycle |
 
-## دورة الاستجابة
+## Response cycle
 
-1. يفتح قائد الحادث سجلاً: الوقت، المبلغ، النطاق، الإصدار، والأثر المعروف.
-2. يقيّم P1/P2/P3 ويستدعي الأدوار اللازمة، ثم يرسل تحديثاً أولياً إلى القناة الداخلية المعتمدة.
-3. يحتوي الأثر بأقل تغيير قابل للعكس: عزل workload، إيقاف promotion، تعليق حساب، أو تحويل حركة، مع حفظ الأدلة أولاً عند الاشتباه الأمني.
-4. يجمع logs وmetrics وtraces وaudit records، ويحفظ النسخ وفق chain of custody ولا يضعها في قنوات عامة.
-5. يستأصل السبب ويستعيد الخدمة باستخدام runbook أو تغيير معتمد، ثم يتحقق من health وSLO والوظائف الحرجة.
-6. يعلن قائد الحادث الاستعادة فقط بعد تحقق مستقل مناسب، ثم ينشئ post-incident خلال فترة العمل المتفق عليها.
+1. The incident commander opens a record: time, reporter, scope, release, and
+   known impact.
+2. P1/P2/P3 is assessed, the required roles are paged, and an initial update
+   is sent to the approved internal channel.
+3. The impact is contained with the smallest reversible change: isolate a
+   workload, stop a promotion, suspend an account, or reroute traffic. When
+   a security issue is suspected, evidence is preserved first.
+4. Logs, metrics, traces, and audit records are collected. Copies are kept
+   under chain of custody and never posted to public channels.
+5. The cause is eradicated and the service is restored through a runbook or
+   an approved change, then health, SLO, and critical functions are verified.
+6. The incident commander declares recovery only after an appropriate
+   independent check, and a post-incident review is opened within the agreed
+   working period.
 
-## حوادث الأمن والبيانات
+## Security and data incidents
 
-- لا تعاد تشغيل أو تحذف موارد مشتبه بها قبل إرشاد مسؤول أمن المعلومات إذا كان ذلك قد يتلف الأدلة.
-- يستخدم break-glass فقط بإجراء ثنائي الأشخاص، لمدة محدودة، مع تسجيل كامل ومراجعة لاحقة.
-- يحدد مسؤول أمن المعلومات متطلبات الإخطار النظامي والخصوصي؛ هذه الوثيقة لا تفترض جهة إشعار أو مهلة قانونية.
+- Suspected resources are not restarted or deleted before the information
+  security lead confirms it, if doing so could destroy evidence.
+- Break-glass is used only with a two-person procedure, for a limited
+  duration, with a full audit trail and a later review.
+- The information security lead determines regulatory and privacy
+  notification requirements. This document assumes no specific notifying
+  authority or legal deadline.
 
-## معايير الإغلاق
+## Closing criteria
 
-- سبب أو فرضية موثقة، مع الأثر والمدة وخط الزمن.
-- تحقق من إزالة الأثر أو قبول خطر مؤقت مع مالك وموعد.
-- روابط الأدلة والتغييرات والـrunbook المستخدم.
-- إجراءات وقائية قابلة للملكية والقياس، ومراجعة ما بعد الحادث للحوادث P1 وP2.
+- A documented cause or hypothesis with impact, duration, and timeline.
+- Confirmation that the impact is removed, or a temporary risk is accepted
+  with an owner and a date.
+- Links to evidence, changes, and the runbook used.
+- Preventive actions that can be owned and measured, and a post-incident
+  review for every P1 and P2.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول العمليات | إنشاء إطار الاستجابة للحوادث |
+| 1.0.0 | 2026-07-15 | Operations Lead | Initial incident-response framework |

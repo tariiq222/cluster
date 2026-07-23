@@ -1,24 +1,24 @@
 ---
 doc_id: PRD-IDX-001
-title: فهرس المنتج
+title: Product Index
 type: product
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مسؤول المنتج
+owner: Product Owner
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Lead
 classification: internal
-review_cycle: ربع سنوي
+review_cycle: Quarterly
 sources: []
 references: []
 ---
-# المنتج
+# Product
 
-| الوثيقة | الغرض |
+| Document | Purpose |
 |---|---|
-| [الرؤية والنطاق](vision-and-scope.md) | القيمة والحدود المعتمدة |
-| [الشخصيات والرحلات](personas-and-journeys.md) | المستخدمون والرحلات القابلة للقياس |
-| [الإصدارات وخارطة الطريق](releases-and-roadmap.md) | نطاق R1 إلى R3 وبوابات الخروج |
-| [مؤشرات النجاح](success-metrics.md) | مقاييس المنتج والتشغيل |
+| [Vision and Scope](vision-and-scope.md) | Approved value proposition and boundaries |
+| [Personas and Journeys](personas-and-journeys.md) | Users and measurable journeys |
+| [Releases and Roadmap](releases-and-roadmap.md) | R1 through R3 scope and exit gates |
+| [Success Metrics](success-metrics.md) | Product and operational metrics |

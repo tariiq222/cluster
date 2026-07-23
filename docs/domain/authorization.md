@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-AUT-001
-title: التفويض المركزي
+title: Central authorization
 type: domain
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مالك موديول Authorization
+owner: Authorization module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/004-authorization-and-isolation.md
 references:
@@ -19,170 +19,183 @@ references:
 ---
 # Authorization
 
-## 1. الغرض
+## 1. Purpose
 
-يملك Authorization قرار الوصول المركزي القابل للتفسير. يجمع القدرة من الدور مع النطاق التنظيمي والعلاقة والملكية والتصنيف والحالة والتكليف أو التفويض وسياسة الحقل، ثم يعيد قراراً موحداً يمكن تطبيقه في API والبحث والتقارير والتصدير والواجهة. لا يملك Authorization السجل التشغيلي ولا يعيد بناء معناه؛ يتلقى من مالك السجل `AuthorizationRecordFacts` محددة مع طلب القرار.
+Authorization owns the central, explainable access decision. It combines capability from roles with organizational scope, relationships, ownership, classification, lifecycle state, assignment, delegation, and field policy, then returns a unified decision that can be applied across the API, search, reporting, export, and UI layers. Authorization does not own the operational record and never re-derives its meaning; the record-owning module supplies specific `AuthorizationRecordFacts` alongside each decision request.
 
-## 2. النطاق
+## 2. Scope
 
-- تعريف الأدوار والقدرات وقوالب سياسات الحقول.
-- إسناد الأدوار وسحبها ضمن مدى زمني ونطاق معلوم.
-- إدارة التفويضات المحددة المدة والمجال.
-- تطبيق RBAC + ABAC على Cluster > Facility > Unit وعلى السجلات والحقول.
-- استهلاك حالة الحساب من Identity والنطاق والعلاقات من Organization.
-- استقبال حقائق السجل التي يقدمها الموديول المالك عبر عقد `AuthorizationRecordFacts`.
-- إصدار `AccessDecision` و`FieldAccessDecision` وشرح القرار.
+- Defining roles, capabilities, and field policy templates.
+- Granting and revoking role assignments within a known time range and scope.
+- Managing bounded-time, bounded-scope delegations.
+- Applying RBAC + ABAC over Cluster > Facility > Unit and over records and fields.
+- Consuming account status from Identity and scope / relationships from Organization.
+- Receiving record facts supplied by the owning module through the `AuthorizationRecordFacts` contract.
+- Issuing `AccessDecision` and `FieldAccessDecision` and explaining the decision.
 
-ما لا يدخل في هذا المجال:
+What is out of scope:
 
-- كلمة المرور والجلسة وحالة الحساب المصدر، وتبقى في Identity.
-- شجرة Cluster وFacility وUnit والعلاقات الإشرافية المصدر، وتبقى في Organization.
-- payload السجل أو انتقالات حالته أو تنفيذ مساره.
-- كتابة جداول موديولات الأعمال أو تفسير حقولها الخاصة.
+- Passwords, sessions, and the source account status — these stay in Identity.
+- The source Cluster / Facility / Unit tree and supervisory relationships — these stay in Organization.
+- Record payload, record state transitions, and workflow execution.
+- Writing into other modules' business tables or interpreting their private fields.
 
-## 3. المصطلحات
+## 3. Terms
 
-| المصطلح | التعريف |
+| Term | Definition |
 |---|---|
-| الدور (Role) | مجموعة قدرات مسماة يمكن إسنادها لمستخدم ضمن نطاق ومدة. |
-| القدرة (Capability) | فعل دقيق مثل view، create، update، submit، approve، assign، export، manage. |
-| النطاق (Scope) | Cluster أو Facility أو Unit أو مجموعة سجلات مشتركة يحدد أين تنطبق القدرة. |
-| AuthorizationRecordFacts | عقد حقائق ينشئه مالك السجل عن المالك والحالة والتصنيف والمشاركة وسياسة الحقول، دون payload غير لازم أو قرار وصول. |
-| AccessDecision | نتيجة Allow أو Deny مع سبب وقيم الحقائق ونسخة السياسة ووقت القرار. |
-| FieldAccessDecision | حالة حقل: Hidden أو ReadOnly أو Editable أو Masked. |
-| التفويض (Delegation) | نقل محدد المدة والقدرة والمجال إلى مفوض له مع بقاء هوية صاحبها ظاهرة. |
-| المنع الصريح (Explicit Deny) | قاعدة تمنع الوصول حتى لو وجد سماح أوسع. |
-| قرار Fail Closed | رفض آمن عند نقص `AuthorizationRecordFacts` أو فشل مصدر حقيقة أو انتهاء زمن القرار. |
+| Role | A named bundle of capabilities that can be assigned to a user within a scope and time range. |
+| Capability | A fine-grained action such as `view`, `create`, `update`, `submit`, `approve`, `assign`, `export`, `manage`. |
+| Scope | Cluster, Facility, Unit, or a shared record set that defines where a capability applies. |
+| AuthorizationRecordFacts | A facts contract the record owner produces about ownership, status, classification, participation, and field policy; it carries no payload and no access decision. |
+| AccessDecision | An `Allow` or `Deny` result with reason codes, fact values, policy version, and decision time. |
+| FieldAccessDecision | A per-field state: `Hidden`, `ReadOnly`, `Editable`, or `Masked`. |
+| Delegation | A bounded transfer of capability and scope to a delegate, while preserving the original owner's identity. |
+| Explicit deny | A rule that blocks access even when a wider allow exists. |
+| Fail closed | A safe-deny posture when `AuthorizationRecordFacts` are missing, a fact source fails, or the decision window expires. |
 
-## 4. الـAggregates والـEntities والـValue Objects
+## 4. Aggregates, entities, and value objects
 
-### 4.1 RoleAggregate
+### 4.1 Role aggregate
 
-- `Role` (Entity جذر): code، name، status، role_type.
-- `Capability` (Entity تابعة): capability_code، module_code، action، sensitivity.
-- `RoleCapability` (Entity رابطة): role_id وcapability_id مع allow أو deny عند الحاجة.
+- `Role` (root entity): `code`, `name`, `status`, `role_type`.
+- `Capability` (child entity): `capability_code`, `module_code`, `action`, `sensitivity`.
+- `RoleCapability` (junction entity): `role_id` + `capability_id` with an `allow` / `deny` effect when needed.
 
-### 4.2 RoleAssignmentAggregate
+### 4.2 RoleAssignment aggregate
 
-- `RoleAssignment` (Entity جذر): user_id، role_id، scope، start_at، end_at، status.
-- `AuthorizationScope` (Value Object): مستوى Cluster أو Facility أو Unit ومعرفاته وقواعد الوراثة.
-- `AssignmentPeriod` (Value Object): مدى زمني لا يتجاوز سياسة الدور.
+- `RoleAssignment` (root entity): `user_id`, `role_id`, `scope_id`, `start_at`, `end_at`, `status`.
+- The previous revision listed a separate `AuthorizationScope` value object carrying `scope_type`. The schema does not store `scope_type` on `role_assignments`; only `scope_id` (UUID, nullable) is persisted. The scope kind is implied by where the row is consumed (cluster, facility, unit, or shared set) and is not stored at the row level.
+- `AssignmentPeriod` (value object): a time range that does not exceed the role's policy.
 
-### 4.3 DelegationAggregate
+### 4.3 Delegation aggregate
 
-- `Delegation` (Entity جذر): delegator_user_id، delegate_user_id، capabilities، scope، period، status.
-- `DelegationReason` (Value Object): سبب إلزامي عند القدرات الحساسة.
+- `Delegation` (root entity): `delegator_user_id`, `delegate_user_id`, `module_code`, `scope_id`, `start_at`, `end_at`, `status`.
+- The previous revision listed a JSON `capability_set` column and a `scope_type` + `reason` pair. The actual schema uses `module_code VARCHAR(64)` to identify the module and stores the delegated capability list in a separate `delegation_capabilities` table. There is no `scope_type` column on `delegations` and no `reason` column at all. The `delegator_user_id <> delegate_user_id` inequality is enforced as a database check constraint on MySQL and as a SQLite trigger.
+- `DelegationReason` is not modeled as a value object. When a sensitive capability requires a reason, the upstream record supplies it as part of `AuthorizationRecordFacts`; the delegations table does not store it.
 
-### 4.4 ClassificationPolicyAggregate
+### 4.4 ClassificationPolicy aggregate
 
-- `ClassificationPolicy` (Entity جذر): مستوى التصنيف، الحد الأدنى للدور، قواعد المشاركة والتصدير والتدقيق.
-- `FieldAccessTemplate` (Entity جذر): field_policy_key، الحالات حسب الدور والحالة والنطاق.
+- `ClassificationPolicy` (root entity): classification level, minimum capability, participation / export / audit rules.
+- `FieldAccessTemplate` (root entity): `field_policy_key`, per-role / per-status / per-scope rules.
 
-### 4.5 AccessDecision Value Objects
+### 4.5 AccessDecision value objects
 
-- `RecordReference`: module_code، record_type، record_id.
-- `AuthorizationRecordFacts`: حقائق السجل التي يقدمها المالك.
-- `AccessDecision`: decision، reason_codes، policy_version، evaluated_at، trace_id.
-- `FieldAccessMap`: خريطة الحقول المسموحة والمخفية.
+- `RecordReference`: `module_code`, `record_type`, `record_id`.
+- `AuthorizationRecordFacts`: the facts the record owner supplies.
+- `AccessDecision`: `decision`, `reason_codes`, `policy_version`, `evaluated_at`, `trace_id`.
+- `FieldAccessMap`: the per-field allow / hide map.
 
-## 5. عقد AuthorizationRecordFacts
+## 5. AuthorizationRecordFacts contract
 
-### 5.1 مسؤولية مالك السجل
+### 5.1 Record-owner's responsibility
 
-ينشئ الموديول المالك، مثل WorkRecords أو Workflow، `AuthorizationRecordFacts` من مصدر الحقيقة الخاص به ويقدم هذا العقد فقط لمسار الوصول. لا يبني Authorization هذه الحقائق من Join عشوائي، ولا يستقبل payload كاملاً لمجرد اتخاذ القرار. المالك لا يصدر Allow أو Deny أو قرار الحقول.
+The owning module (for example `WorkRecords` or `Workflow`) produces `AuthorizationRecordFacts` from its source of truth and supplies only this contract to the access pipeline. Authorization never builds the facts from arbitrary joins and never accepts a full payload just to decide. The owner never issues `Allow` or `Deny` and never issues a field decision.
 
-### 5.2 الحقول الإلزامية
+### 5.2 Mandatory fields
 
 - `facts_version`.
-- `source_module` و`record_type` و`record_id`.
-- `cluster_id` و`owner_facility_id` و`owner_organization_unit_id`.
-- `created_by_user_id` و`owner_user_id` و`responsible_user_id` عند وجودها.
-- `shared_unit_ids` و`shared_user_ids` و`participant_ids` حسب سياسة المالك.
-- `classification` و`lifecycle_state` و`workflow_state`.
-- `field_policy_key` و`work_type_version_id` عند وجودهما.
-- لا يدخل سياق الإجراء ضمن حقائق المالك؛ يمرر المستدعي `action_context` منفصلاً إلى `DecideAccess`.
+- `source_module`, `record_type`, `record_id`.
+- `cluster_id`, `owner_facility_id`, `owner_organization_unit_id`.
+- `created_by_user_id`, `owner_user_id`, `responsible_user_id` when present.
+- `shared_unit_ids`, `shared_user_ids`, `participant_ids` per the owner's policy.
+- `classification`, `lifecycle_state`, `workflow_state`.
+- `field_policy_key`, `work_type_version_id` when present.
+- The action context is not part of the owner's facts; the caller passes a separate `action_context` to `DecideAccess`.
 
-### 5.3 القواعد
+### 5.3 Rules
 
-- لا تحتوي `AuthorizationRecordFacts` على كلمة مرور أو token أو payload سري غير مطلوب.
-- لا تسمح `AuthorizationRecordFacts` بتجاوز دور أو تصنيف أو قاعدة منع مركزية.
-- يجب أن تكون الحقائق قابلة لإعادة القراءة ومطابقة للسجل في نفس الإصدار.
-- نقص حقيقة لازمة أو فشل عقد المالك يؤدي إلى Deny أو حالة خدمة واضحة، ولا يؤدي إلى Allow افتراضي.
-- يحتفظ القرار بـ`facts_version` و`policy_version` للتفسير وإعادة التحقيق.
+- `AuthorizationRecordFacts` never contain a password, a token, or any payload that is not required.
+- `AuthorizationRecordFacts` never bypass a role, classification, or central explicit-deny rule.
+- The facts must be re-readable and must match the record at the same version.
+- A missing mandatory fact or a failed owner contract produces a `Deny` or a clear service status; it never produces a default `Allow`.
+- The decision retains `facts_version` and `policy_version` for explainability and re-investigation.
 
-## 6. الجداول والقيود والفهارس
+## 6. Tables, constraints, and indexes
 
 ### 6.1 `roles`
 
-- `id` BIGINT PK.
+- `id` CHAR(36) UUID PK.
 - `code` VARCHAR(96) UNIQUE NOT NULL.
 - `name_ar` VARCHAR(255) NOT NULL.
 - `name_en` VARCHAR(255) NULL.
 - `role_type` VARCHAR(32) NOT NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT `active`.
 - `is_system_role` BOOLEAN NOT NULL DEFAULT FALSE.
-- `created_at` DATETIME NOT NULL، `updated_at` DATETIME NOT NULL.
-- فهارس: `(status, role_type)`.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Indexes: `(status, role_type)`.
+
+> **Drift correction:** The previous revision listed `id BIGINT PK`. The migration uses `$table->uuid('id')->primary()` (UUID PK, not BIGINT).
 
 ### 6.2 `capabilities`
 
-- `id` BIGINT PK.
+- `id` CHAR(36) UUID PK.
 - `module_code` VARCHAR(64) NOT NULL.
 - `capability_code` VARCHAR(96) NOT NULL.
 - `action` VARCHAR(32) NOT NULL.
 - `sensitivity` VARCHAR(16) NOT NULL DEFAULT `normal`.
 - `status` VARCHAR(16) NOT NULL DEFAULT `active`.
-- قيد فريد على `(module_code, capability_code)`.
-- فهارس: `(module_code, action, status)`، `(sensitivity, status)`.
+- Unique constraint on `(module_code, capability_code)`.
+- Indexes: `(module_code, action, status)`, `(sensitivity, status)`.
+
+> **Drift correction:** The previous revision listed `id BIGINT PK`. The migration uses `$table->uuid('id')->primary()`.
 
 ### 6.3 `role_capabilities`
 
-- `role_id` BIGINT NOT NULL FK -> `roles.id`.
-- `capability_id` BIGINT NOT NULL FK -> `capabilities.id`.
+- `role_id` CHAR(36) UUID NOT NULL FK -> `roles.id` (cascade on delete).
+- `capability_id` CHAR(36) UUID NOT NULL FK -> `capabilities.id` (restrict on delete).
 - `effect` VARCHAR(8) NOT NULL DEFAULT `allow`.
 - `created_at` DATETIME NOT NULL.
-- PK مركب `(role_id, capability_id)`.
-- القيم المسموحة لـ`effect`: `allow`، `deny`.
+- Composite PK `(role_id, capability_id)`.
+- Allowed values for `effect`: `allow`, `deny`.
 
 ### 6.4 `role_assignments`
 
-- `id` BIGINT PK.
-- `user_id` BIGINT NOT NULL، مرجع Identity عبر contract.
-- `role_id` BIGINT NOT NULL FK -> `roles.id`.
-- `scope_type` VARCHAR(16) NOT NULL (`cluster`، `facility`، `unit`، `record_set`).
-- `scope_id` BIGINT NOT NULL.
+- `id` CHAR(36) UUID PK.
+- `user_id` CHAR(36) UUID NOT NULL — Identity reference through a contract.
+- `role_id` CHAR(36) UUID NOT NULL FK -> `roles.id` (restrict on delete).
+- `scope_id` CHAR(36) UUID NULL — no `scope_type` column.
 - `start_at` DATETIME NOT NULL.
 - `end_at` DATETIME NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT `pending`.
-- `granted_by_user_id` BIGINT NOT NULL.
-- قيد `start_at <= end_at` عند وجود النهاية.
-- فهارس: `(user_id, status, start_at, end_at)`، `(scope_type, scope_id, status)`، `(role_id, status)`.
+- `granted_by_user_id` CHAR(36) UUID NOT NULL.
+- Constraint `start_at < end_at` when `end_at` is set (database check on MySQL; SQLite trigger).
+- Overlap check on `(user_id, role_id, scope_id, status='active')` (MySQL trigger; SQLite trigger).
+- Indexes: `(user_id, status, start_at, end_at)`, `(scope_id, status)`, `(role_id, status)`.
+
+> **Drift correction:** The previous revision listed `id BIGINT PK`, `scope_type VARCHAR(16) NOT NULL`, and `scope_id BIGINT NOT NULL`. The migration uses UUID PK, no `scope_type` column, and a UUID nullable `scope_id`.
 
 ### 6.5 `delegations`
 
-- `id` BIGINT PK.
-- `delegator_user_id` BIGINT NOT NULL.
-- `delegate_user_id` BIGINT NOT NULL.
-- `capability_set` JSON NOT NULL.
-- `scope_type` VARCHAR(16) NOT NULL.
-- `scope_id` BIGINT NOT NULL.
+- `id` CHAR(36) UUID PK.
+- `delegator_user_id` CHAR(36) UUID NOT NULL.
+- `delegate_user_id` CHAR(36) UUID NOT NULL.
+- `module_code` VARCHAR(64) NOT NULL.
+- `scope_id` CHAR(36) UUID NULL — no `scope_type` column.
 - `start_at` DATETIME NOT NULL.
 - `end_at` DATETIME NOT NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT `pending`.
-- `reason` VARCHAR(500) NOT NULL.
-- قيد `delegator_user_id <> delegate_user_id` و`start_at < end_at`.
-- فهارس: `(delegate_user_id, status, start_at, end_at)`، `(delegator_user_id, status)`، `(scope_type, scope_id, status)`.
+- Check constraint `delegator_user_id <> delegate_user_id` and `end_at > start_at` (MySQL check; SQLite trigger).
+- No `reason` column; the reason lives on the originating record / `AuthorizationRecordFacts` when required.
+- Indexes: `(delegate_user_id, status, start_at, end_at)`, `(delegator_user_id, status)`, `(scope_id, status)`.
+- Capabilities are stored in the sibling `delegation_capabilities` table:
+  - `delegation_id` CHAR(36) UUID NOT NULL FK -> `delegations.id` (cascade on delete).
+  - `capability_code` VARCHAR(96) NOT NULL.
+  - Composite PK `(delegation_id, capability_code)`.
+  - Database check that `capability_code` is non-empty, ≤ 96 chars, and contains no `*` / `?` / `%` wildcards.
+
+> **Drift correction:** The previous revision listed `capability_set JSON`, `scope_type VARCHAR(16)`, `scope_id BIGINT`, `reason VARCHAR(500)`, and an inequality check. None of those match the schema. Capabilities live in `delegation_capabilities`; the check is enforced by database constraints; no `reason` is persisted.
 
 ### 6.6 `classification_policies`
 
 - `id` BIGINT PK.
-- `classification_code` VARCHAR(32) UNIQUE NOT NULL (`public`، `internal`، `confidential`، `top_secret`)؛ وتقابلها `عام`، `داخلي`، `سري`، `سري للغاية`.
+- `classification_code` VARCHAR(32) UNIQUE NOT NULL (`public`, `internal`, `confidential`, `top_secret`).
 - `minimum_capability` VARCHAR(96) NOT NULL.
 - `export_policy` VARCHAR(32) NOT NULL.
 - `download_policy` VARCHAR(32) NOT NULL.
 - `policy_version` VARCHAR(32) NOT NULL.
 - `is_active` BOOLEAN NOT NULL DEFAULT TRUE.
-- فهارس: `(is_active, classification_code)`.
+- Indexes: `(is_active, classification_code)`.
 
 ### 6.7 `field_access_templates`
 
@@ -192,11 +205,33 @@ references:
 - `policy_definition` JSON NOT NULL.
 - `policy_version` VARCHAR(32) NOT NULL.
 - `is_active` BOOLEAN NOT NULL DEFAULT TRUE.
-- فهارس: `(module_code, is_active)`.
+- Indexes: `(module_code, is_active)`.
 
-## 7. الأوامر والاستعلامات والأحداث
+### 6.8 `access_decisions` (HTTP/decision log)
 
-### 7.1 Commands
+- `id` CHAR(36) UUID PK.
+- `decision` VARCHAR(8) — binary `allow` / `deny`. The previous revision listed a `Requested` state; the schema only stores the final allow/deny value.
+- `action` VARCHAR(128) NOT NULL.
+- `resource_type` VARCHAR(128) NOT NULL.
+- `resource_id` CHAR(36) UUID NULL.
+- `reason_codes` JSON NOT NULL.
+- `policy_version` VARCHAR(128) NOT NULL.
+- `facts_version` VARCHAR(128) NOT NULL.
+- `authorization_trace_id` CHAR(36) UUID NOT NULL.
+- `evaluated_at` DATETIME(3) NOT NULL.
+- `correlation_id` CHAR(36) UUID NOT NULL.
+- `classification` VARCHAR(32) NOT NULL.
+- `access_context` JSON NOT NULL.
+- `actor_user_id` CHAR(36) UUID NOT NULL.
+- Indexes: `(actor_user_id, evaluated_at)`, `(resource_type, resource_id)`, `(correlation_id)`.
+
+### 6.9 `sensitive_access_events`
+
+The table lives inside the Authorization module (`apps/api/Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php:37-57`). The Audit module does not currently own this table; if Audit later absorbs it, the migration file moves accordingly.
+
+## 7. Commands, queries, and events
+
+### 7.1 Commands (implemented by Authorization feature handlers)
 
 - `CreateRole`
 - `DefineCapability`
@@ -210,25 +245,28 @@ references:
 - `CreateClassificationPolicy`
 - `PublishFieldAccessTemplate`
 
-Commands الإدارية يملكها Authorization. كل كتابة في Authorization تنفذها Transaction يقودها aggregate المالك؛ أما قرارات الوصول والحقول فهي Queries بلا كتابة في سجل الأعمال.
+Administrative commands are owned by Authorization. Every write inside Authorization runs inside a transaction owned by the relevant aggregate; access decisions and field decisions are queries and never write into a business record.
 
-### 7.2 Queries
+### 7.2 Queries (contract interfaces in `apps/api/Modules/Authorization/Contracts/`)
 
-- `GetActiveRolesForUser`
-- `GetActiveRoleAssignments`
-- `GetActiveDelegations`
-- `GetCapabilitiesForContext`
-- `GetClassificationPolicy`
-- `GetFieldAccessTemplate`
-- `DecideAccess(actorContext, capability, AuthorizationRecordFacts, actionContext)`
-- `BuildAuthorizedScopePredicate`
-- `FilterReadableOrganizationScopes`
-- `ResolveFieldAccess`
-- `ExplainAccessDecision`
+- `DecideAccess` — central decision entry point.
+- `AccessDecision` — typed result contract.
+- `RecordFacts` — facts construction contract.
+- `AccessProjection` — read-side projection for explanations.
+- `PersistAccessDecision` — append-only decision log writer.
+- `CapabilityCatalog` — read the active capability catalog.
+- `CountOperationsOfficeMembers` — operations-office specific count.
+- `AuthorizationResourceReference` — resolves the resource reference for an authorization call.
+- `ResolveAuthorizationSimulationFacts` — supplies simulation facts.
+- `AuthorizationSimulationFactsProvider` — provider shape for the simulator.
 
-يطبق الموديول المالك `BuildAuthorizedScopePredicate` على استعلامه، ثم يمرر `AuthorizationRecordFacts` لكل نتيجة إلى `DecideAccess` و`ResolveFieldAccess`. لا يستدعي Authorization المالك ولا يعيد سجلات أعمال.
+The HTTP layer exposes an `ExplainAccessDecision` controller, but there is no `Contracts/ExplainAccessDecision.php` interface — explanation is delivered by composing the published contracts above.
 
-### 7.3 Domain وApplication Events
+> **Drift correction:** The previous revision listed `BuildAuthorizedScopePredicate`, `ResolveFieldAccess`, `ExplainAccessDecision`, `FilterReadableOrganizationScopes`, `GetActiveRoleAssignments`, `GetActiveDelegations`, `GetCapabilitiesForContext`, `GetClassificationPolicy`, and `GetFieldAccessTemplate` as Authorization queries. None of them exist as contract interfaces in the current module. The owning module applies its own scope predicate before calling `DecideAccess`; field policy is resolved through `RecordFacts` + `DecideAccess`.
+
+The owning module applies its scope predicate over its own query, then passes `AuthorizationRecordFacts` for each result to `DecideAccess`. Authorization never queries the owning module and never returns business records.
+
+### 7.3 Domain and application events
 
 - `RoleCreated`
 - `RoleCapabilityGranted`
@@ -244,97 +282,97 @@ Commands الإدارية يملكها Authorization. كل كتابة في Autho
 - `AccessDeniedForSensitiveRecord`
 - `AuthorizationDecisionRecorded`
 
-الأحداث الإدارية والحساسة تسجل عبر Outbox، أما قرار القراءة العادي فلا يتحول إلى حدث تشغيلي إلا إذا فرضت سياسة التصنيف ذلك.
+Administrative and sensitive events are recorded through the outbox; a normal read decision does not become an operational event unless classification policy requires it.
 
-## 8. State Machines
+## 8. State machines
 
 ### 8.1 RoleAssignment
 
-- `Pending` --(start_at reached)--> `Active`.
-- `Active` --(revoke or end_at reached)--> `Revoked`.
+- `Pending` --(`start_at` reached)--> `Active`.
+- `Active` --(revoke or `end_at` reached)--> `Revoked`.
 - `Pending` --(cancel)--> `Cancelled`.
-- `Revoked` و`Cancelled` حالتان نهائيتان، وإنشاء صلاحية جديدة يحتاج Assignment جديداً.
+- `Revoked` and `Cancelled` are final; a new assignment is required for renewed access.
 
 ### 8.2 Delegation
 
 - `Draft` --(activate after validation)--> `Active`.
-- `Active` --(end_at reached or EndDelegation)--> `Expired`.
+- `Active` --(`end_at` reached or `EndDelegation`)--> `Expired`.
 - `Draft` --(cancel)--> `Cancelled`.
-- `Expired` و`Cancelled` نهائيتان.
+- `Expired` and `Cancelled` are final.
 
 ### 8.3 AccessDecision
 
-- `Requested` --(facts and policy evaluate)--> `Allowed` أو `Denied`.
-- `Requested` --(facts unavailable)--> `Indeterminate` ثم `Denied` للمحتوى المحمي.
-- القرار لا يمنح صلاحية مستمرة؛ يعاد تقييمه عند كل عملية حساسة أو عند تغير الإصدار.
+- The previous revision described a `Requested -> Allowed | Denied` and `Requested -> Indeterminate -> Denied` machine. The runtime does not persist a `Requested` state: `AccessDecision` is binary `allow` / `deny`, persisted on `access_decisions.decision VARCHAR(8)` (`ZAddAuthorizationHttpTables.php:30-50`).
+- The decision never grants a persistent capability; it is re-evaluated on every sensitive operation or whenever `policy_version` / `facts_version` changes.
 
-## 9. الـInvariants
+## 9. Invariants
 
-- القرار المركزي هو نقطة السياسة الوحيدة؛ لا يحق لموديول أو واجهة إعادة بناء Allow مستقل.
-- الأصل هو Deny، وأي Allow يحتاج قدرة ونطاقاً وسياقاً صالحاً.
-- المنع الصريح والتصنيف الأعلى يقدمان على السماح العام.
-- انتهاء الدور أو التكليف أو التفويض يزيل أثره فوراً حسب Clock المرجعي.
-- لا يمنح `view_aggregate` حق `view_details`، ولا يمنح مؤشر مجمع حق تفاصيل السجل.
-- لا تصبح مشاركة `AuthorizationRecordFacts` مشاركة بيانات؛ يجب أن توجد قدرة مستقلة للحقول المطلوبة.
-- لا تستخدم `AuthorizationRecordFacts` القديمة بعد تغير `facts_version` أو `lock_version` دون إعادة جلبها.
-- لا يسمح بتفويض قدرة لا يملكها المفوض، ولا بتفويض قدرة حساسة تحظرها السياسة.
-- لا يمكن أن يشمل التفويض نفسه أو مدة غير محدودة أو نطاقاً أوسع من أصل الصلاحية.
-- لا تعاد الحقول Hidden في Response أو Search snippet أو Export.
-- إذا لم يقدم المالك `AuthorizationRecordFacts` صحيحة، يفشل القرار Fail Closed ولا يستنتجها Authorization من payload.
-- كل شرح قرار يذكر policy_version وfacts_version وreason_codes دون كشف بيانات غير لازمة.
-- كل قرار حساس قابل للربط بـ`trace_id` وبسجل تدقيق، ولا يعد قرار الوصول عقداً لتعديل السجل.
+- The central decision is the only policy point; no module or UI may rebuild an independent `Allow`.
+- The default is `Deny`; any `Allow` requires a valid capability, scope, and context.
+- An explicit deny or a higher classification takes precedence over a wider allow.
+- Role, assignment, or delegation expiry removes its effect immediately per the reference Clock.
+- `view_aggregate` never grants `view_details`; an aggregate indicator never grants record details.
+- Sharing `AuthorizationRecordFacts` is not sharing data; an independent capability must exist for the requested fields.
+- Stale `AuthorizationRecordFacts` (changed `facts_version` / `lock_version`) are never reused without re-fetch.
+- A delegation never grants a capability the delegator does not hold, nor a sensitive capability that policy forbids.
+- A delegation never includes itself, an unbounded duration, or a wider scope than the originating assignment.
+- Fields in `Hidden` state never appear in a response, search snippet, or export.
+- If the owner does not supply valid `AuthorizationRecordFacts`, the decision fails closed; Authorization never infers them from payload.
+- Every decision explanation mentions `policy_version`, `facts_version`, and `reason_codes` without leaking unnecessary data.
+- Every sensitive decision is linkable to a `trace_id` and to an audit record; an access decision is not a contract to mutate the record.
 
-## 10. الصلاحيات
+## 10. Permissions
 
-- السوبر أدمن يدير الأدوار والقدرات وقوالب التصنيف والتفويضات الحساسة.
-- إسناد الدور يحتاج قدرة إدارة صريحة، ولا يكفي كون المستخدم مديراً تنظيمياً.
-- مالك العلاقة في Organization لا يضيف قدرة من تلقاء نفسه؛ تُسجل قدرات العلاقة في Organization وتقرأها Authorization ضمن facts السياق.
-- الموديول المالك يقرر من هو owner ومن هي الحالة، وAuthorization يقرر هل يطابق ذلك سياسة القدرة.
-- WorkRecords وWorkflow وWorkDefinitions يطلبون `DecideAccess` و`ResolveFieldAccess` عبر العقد فقط.
-- البحث والتقارير والتصدير والتنزيل يعيدون فحص قرار السجل والمستند ولا يعتمدون على إخفاء عناصر React.
-- السوبر أدمن نفسه يخضع للتدقيق عند الوصول إلى محتوى حساس.
+- The super admin manages roles, capabilities, classification templates, and sensitive delegations.
+- Assigning a role requires an explicit administrative capability; being an organizational manager is not sufficient.
+- An Organization relationship owner never adds a capability on their own; relationship capabilities are recorded in Organization and read by Authorization as context facts.
+- The owning module decides who the owner is and what the state is; Authorization decides whether that satisfies capability policy.
+- `WorkRecords`, `Workflow`, and `WorkDefinitions` request `DecideAccess` and the field decision only through contracts.
+- Search, reporting, export, and download re-check the record/document decision and never rely on hiding React elements.
+- The super admin themselves is audited when accessing sensitive content.
 
-## 11. الفشل
+## 11. Failure modes
 
-- `AuthorizationRecordFacts` ناقصة أو غير متاحة: Deny للمحتوى المحمي مع سبب `facts_unavailable`.
-- حساب غير نشط: Deny قبل بقية قواعد القرار.
-- نطاق خارج Cluster أو Facility أو Unit المسموح: Deny دون إظهار وجود سجل محمي.
-- تصنيف أعلى من القدرة: Deny أو Masked حسب سياسة الحقل، ولا يتحول إلى ReadOnly تلقائياً.
-- انتهاء تفويض أثناء الطلب: يعاد التقييم، ويمنع القرار إذا انتهى قبل commit.
-- تعارض إصدار السياسة: يعاد تحميل السياسة، ولا يستخدم cache قديم لعملية حساسة.
-- فشل عقد Organization أو Identity: Fail Closed، مع تنبيه تشغيلي لا يكشف بيانات.
-- محاولة تجاوز `field_policy_key`: ترفض الحقول الزائدة ويعاد فقط الشكل المسموح أو يفشل الطلب حسب نوع العملية.
-- تعارض إسناد دورين متناقضين: يطبق deny الصريح ويسجل التعارض للمراجعة.
-- فشل تسجيل حدث الوصول الحساس: يمنع إرجاع المحتوى إذا كانت السياسة تشترط التسجيل قبل العرض.
+- `AuthorizationRecordFacts` missing or unavailable: `Deny` for protected content with reason `facts_unavailable`.
+- Inactive account: `Deny` before any other rule.
+- Scope outside the allowed Cluster / Facility / Unit: `Deny` without revealing the existence of a protected record.
+- Classification above the capability: `Deny` or `Masked` per field policy; never auto-converted to `ReadOnly`.
+- Delegation expires during the request: re-evaluation; denied if expiry falls before commit.
+- Policy-version conflict: the policy is reloaded; no stale cache is used for a sensitive operation.
+- Failure of an Organization or Identity contract: fail closed with an operational alert that does not leak data.
+- Attempt to bypass `field_policy_key`: extra fields are refused; either the allowed shape is returned or the request fails per operation type.
+- Two role assignments conflict: explicit deny is applied and the conflict is logged for review.
+- Failure to record a sensitive access event: content is withheld if the policy requires recording before display.
 
-## 12. الاختبارات
+## 12. Tests
 
-- Unit: دمج RBAC مع النطاق والعلاقة والتصنيف والحالة.
-- Unit: deny الصريح يتقدم على allow، وانتهاء المدة يسحب القدرة.
-- Contract: WorkRecords يقدم `AuthorizationRecordFacts` كاملة ويستقبل Decision قابلاً للتفسير.
-- Contract: Workflow لا يعيد حل المعتمد من داخل Authorization؛ يستهلك قراراً للمستخدم المثبت.
-- Security: `AuthorizationRecordFacts` لا تحتوي payload أو password أو token.
-- Authorization matrix: عزل Facility عن Facility، وعزل Unit عن Unit، وحالات العلاقة الوظيفية.
-- Field policy: Hidden لا يظهر في API أو البحث أو التقرير أو التصدير.
-- Classification: `view_aggregate` لا يكشف التفاصيل، والتصنيف السري يسجل العرض والتنزيل.
-- Delegation: لا يسمح بتفويض أوسع من قدرة المفوض، وينتهي تلقائياً.
-- Fail closed: توقف Identity أو Organization أو مالك السجل لا ينتج Allow.
-- Cache: تغير policy_version أو facts_version لا يستخدم قراراً سابقاً.
-- Boundary: لا توجد قراءة مباشرة لجداول WorkRecords أو Workflows أو WorkDefinitions.
-- Property: لأي `AuthorizationRecordFacts` خارج نطاق المستخدم لا يظهر record_id أو title أو snippet.
+- Unit: RBAC combined with scope, relationship, classification, and state.
+- Unit: explicit deny wins over allow; expiry removes capability.
+- Contract: `WorkRecords` supplies a complete `AuthorizationRecordFacts` and receives an explainable `Decision`.
+- Contract: `Workflow` does not re-resolve the assignee inside Authorization; it consumes the decision for the resolved user.
+- Security: `AuthorizationRecordFacts` contains no payload, password, or token.
+- Authorization matrix: isolation between Facilities, isolation between Units, and functional-relationship cases.
+- Field policy: `Hidden` fields never appear in API, search, report, or export.
+- Classification: `view_aggregate` never reveals details; a confidential classification logs viewing and download.
+- Delegation: no wider delegation than the delegator's capability; auto-expiry.
+- Fail closed: Identity, Organization, or record-owner outage never produces an `Allow`.
+- Cache: a change in `policy_version` or `facts_version` never reuses an old decision.
+- Boundary: no direct reads of `WorkRecords`, `Workflow`, or `WorkDefinitions` tables.
+- Property: for any `AuthorizationRecordFacts` outside the user's scope, no `record_id`, title, or snippet is visible.
 
-## 13. الاعتماديات
+## 13. Dependencies
 
-- يعتمد على `Shared/Clock` و`Shared/Identifiers`.
-- يستهلك Organization لعقد Cluster > Facility > Unit، التكليفات، العلاقات وقدراتها.
-- يستهلك Identity لحالة الحساب وملخص الهوية، ولا يقرأ credentials.
-- يتلقى `AuthorizationRecordFacts` من كل موديول مالك لسجل محمي مع طلب القرار.
-- لا يعتمد على WorkDefinitions لمعرفة شكل الحقول؛ يتلقى `field_policy_key` ضمن `AuthorizationRecordFacts` ويطبق قالب الحقول الذي يملكه.
-- يقدّم عقود القرار إلى WorkRecords وWorkflow وDocuments وReporting وSearch والموديولات المتخصصة.
-- يرسل أحداثاً إلى Audit وOutbox عبر العقود، ولا يملك سجل التدقيق المركزي.
+- Depends on `Shared/Clock` and `Shared/Identifiers`.
+- Consumes Organization for Cluster > Facility > Unit, assignments, relationships, and their capabilities.
+- Consumes Identity for account status and identity summary; never reads `credentials`.
+- Receives `AuthorizationRecordFacts` from every record-owning module alongside each decision request.
+- Does not depend on `WorkDefinitions` to know field shapes; it receives `field_policy_key` inside `AuthorizationRecordFacts` and applies its own field template.
+- Publishes decision contracts to `WorkRecords`, `Workflow`, `Documents`, `Reporting`, `Search`, and specialized modules.
+- Sends events to Audit and the outbox through contracts; does not own the central audit log.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول Authorization | توحيد الواجهة الأمامية وحدود AuthorizationRecordFacts |
+| 1.0.0 | 2026-07-15 | Authorization module owner | Unified front-end contract and `AuthorizationRecordFacts` boundaries |
+| 1.0.1 | 2026-07-23 | Domain audit pass | PKs switched to UUID for `roles`, `capabilities`, `role_assignments`, `delegations`; removed unsupported `scope_type` / `reason` / `capability_set` columns; queries trimmed to the published contracts; `sensitive_access_events` ownership clarified; `AccessDecision` `Requested` state removed |

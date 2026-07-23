@@ -1,16 +1,16 @@
 ---
 doc_id: SEC-DM-001
-title: النموذج المنطقي للبيانات
+title: Logical Data Model
 type: data-security
 status: draft
 version: 0.4.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Chief Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Manager
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/architecture/overview.md
@@ -23,32 +23,32 @@ references:
 - docs/data-security/classification-and-handling.md
 - docs/data-security/retention-and-legal-hold.md
 ---
-# النموذج المنطقي للبيانات
+# Logical Data Model
 
-## 1. الهدف
+## 1. Purpose
 
-تحدد هذه الوثيقة شكل البيانات المؤسسي على المستوى المنطقي، وتجمع في رسم واحد:
+This document defines the enterprise data shape at the logical level, consolidating in one diagram:
 
-- الكيانات الأساسية للهوية والارتباط الوظيفي.
-- الكيانات التنظيمية والعلاقات الإشرافية.
-- كيانات الأعمال وقدرات المنصة المشتركة.
-- العلاقات العرضية ومتعدد الأشكال التي تربط السجلات ببعضها.
-- حقول التصنيف والاحتفاظ والملكية التي يعتمدها قرار الوصول.
+- Core identity and employment-relationship entities.
+- Organizational entities and supervisory relationships.
+- Business entities and shared platform capabilities.
+- Cross-cutting and polymorphic relationships linking records together.
+- Classification, retention, and ownership fields on which the access decision depends.
 
-تمنع الوثيقة تكرار البيانات بين الموديولات، وتجعل لكل معلومة مالكاً واحداً، وتحدد أي Join مسموح وأي عقد يجب المرور من خلاله.
+The document prevents data duplication between modules, assigns one owner per piece of information, and determines which joins are allowed and which contracts must be traversed.
 
-## 2. المبادئ
+## 2. Principles
 
-- مالك واحد لكل معلومة فعلية. الموديولات الأخرى تشير بمعرفات أو تستهلك أحداثاً.
-- الكيانات الديناميكية (مثل أنواع الأعمال) تستخدم Envelope علائقي ثابت وحمولة مرتبطة بإصدار التعريف المنشور.
-- لا Joins عشوائية بين موديولات الأعمال؛ يُمر عبر عقد أو Read Model.
-- كل سجل يحمل الجهة المالكة والوحدة التنظيمية والتصنيف والحالة وإصدار التعريف.
-- قيم التصنيف الوحيدة هي `public` (عام)، `internal` (داخلي)، `confidential` (سري)، `top_secret` (سري للغاية).
-- تُحفظ أرقام الإصدارات على السجلات الجارية لمنع التعديل الصامت.
-- كل نوع `UUID` في الجداول أدناه يعني RFC 9562 UUIDv7 بأحرف صغيرة، وليس UUID عاماً أو مولداً من قاعدة البيانات.
-- تُحفظ بيانات PII الأساسية للموظف داخل Organization مالك Person. يحتفظ Identity بمرجع `person_id` وملخص عرض محدود فقط.
+- One owner per actual piece of information. Other modules reference it by identifiers or consume events.
+- Dynamic entities (such as work types) use a stable relational envelope plus a payload bound to the published definition version.
+- No ad-hoc joins between business modules; traversal goes through contracts or Read Models.
+- Every record carries the owning entity, organizational unit, classification, status, and definition version.
+- The only classification values are `public`, `internal`, `confidential`, `top_secret`.
+- Version numbers are stored on live records to prevent silent modification.
+- Every `UUID` type in the tables below means RFC 9562 UUIDv7 in lowercase, not a generic or database-generated UUID.
+- Core employee PII is stored within the Organization module that owns the Person. Identity retains only the `person_id` reference and a limited display projection.
 
-## 3. المخطط العام ERD
+## 3. Overall ERD
 
 ```mermaid
 erDiagram
@@ -151,550 +151,558 @@ erDiagram
     EXPLICIT_DENY }o--o| WORK_TYPE_DEFINITION : "scoped to type"
 ```
 
-## 4. كيانات الهوية والحقائق التنظيمية
+> **Planned module (Audit) — not implemented.** The `AUDIT_EVENT`, `AUDIT_HASH_LINK`, and `AUDIT_EXPORT_BATCH` entities shown above are planned and are not present as migrations. Only `access_decisions`, `sensitive_access_events`, and document access events persistence exists today. The audit-related references in the rest of this diagram (e.g. `AUDIT_EVENT` as the target of `RECORD_CLASSIFICATION` consumption and any read paths implied by other entities) are likewise planned.
+
+## 4. Identity and Organizational-Fact Entities
 
 ### 4.1 Person
 
-الشخص الحقيقي الذي يربط النظام حسابه التشغيلي بحقوقه القانونية.
+The real person whose operational account the system links to their legal rights.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف ثابت لا يكشف تسلسلاً |
-| national_id | string | مشفر، فريد | الهوية الوطنية أو ما يعادلها |
-| full_name_ar | string | إلزامي | الاسم بالعربية |
-| full_name_en | string | اختياري | الاسم بالإنجليزية |
-| date_of_birth | date | مشفر | تاريخ الميلاد |
-| gender | enum | اختياري | الجنس |
-| primary_email | string | اختياري، مشفر | بريد التواصل الرئيسي |
-| primary_phone | string | اختياري، مشفر | الهاتف الرئيسي |
-| status | enum | إلزامي | active, suspended, left |
-| created_at | timestamp | إلزامي | لحظة الإنشاء |
-| updated_at | timestamp | إلزامي | آخر تحديث |
+| id | UUID | PK | Stable identifier that does not expose sequence |
+| national_id | string | Encrypted, unique | National identity or equivalent |
+| full_name_ar | string | Required | Name in Arabic |
+| full_name_en | string | Optional | Name in English |
+| date_of_birth | date | Encrypted | Date of birth |
+| gender | enum | Optional | Gender |
+| primary_email | string | Optional, encrypted | Primary contact email |
+| primary_phone | string | Optional, encrypted | Primary phone |
+| status | enum | Required | active, suspended, left |
+| created_at | timestamp | Required | Creation timestamp |
+| updated_at | timestamp | Required | Last update timestamp |
 
-قواعد:
+Rules:
 
-- `Person` منفصل عن `UserAccount` لإتاحة إنشاء سجل لشخص لم يحصل على حساب بعد.
-- الحقول الشخصية الحساسة تُخزن مشفرة على مستوى العمود وتدخل ضمن سياسة «سري للغاية».
-- لا يحق للموظف تعديل حقول الهوية الوطنية بعد الاعتماد.
+- `Person` is separated from `UserAccount` to allow creating a record for a person who has not yet obtained an account.
+- Sensitive personal fields are stored encrypted at the column level and fall under the "top secret" policy.
+- Employees may not modify national-identity fields after approval.
 
 ### 4.2 UserAccount
 
-الحساب التشغيلي الذي يستخدم المستخدم لتسجيل الدخول والتفاعل مع المنصة.
+The operational account the user uses to sign in and interact with the platform.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف الحساب |
-| person_id | UUID | مرجع خارجي اختياري، بلا FK | الشخص الذي يملكه Organization |
-| person_version | bigint | اختياري | آخر نسخة مرجع تحققت أو طبقت ذرياً |
-| username | string | فريد، غير قابل للتغيير | اسم الدخول |
-| account_type | enum | إلزامي | individual, break_glass, service |
-| status | enum | إلزامي | pending, active, locked, disabled, archived |
-| must_change_password | boolean | إلزامي | يجبر على تغيير كلمة المرور |
-| password_changed_at | timestamp | اختياري | آخر تغيير |
-| password_expires_at | timestamp | اختياري | انتهاء صلاحية كلمة المرور |
-| failed_attempts | int | افتراضي 0 | عدد المحاولات الفاشلة المتتالية |
-| locked_until | timestamp | اختياري | لحظة انتهاء القفل |
-| last_login_at | timestamp | اختياري | آخر دخول ناجح |
-| last_login_ip | string | اختياري | آخر IP داخلي |
-| created_at, updated_at | timestamp | إلزامي | زمن الإنشاء والتحديث |
-| disabled_reason | enum | اختياري | voluntarily, security, hr, other |
+| id | UUID | PK | Account identifier |
+| person_id | UUID | Optional external reference, no FK | Person owned by Organization |
+| person_version | bigint | Optional | Latest reference version verified or applied atomically |
+| username | string | Unique, immutable | Sign-in name |
+| account_type | enum | Required | individual, break_glass, service |
+| status | enum | Required | pending, active, locked, disabled, archived |
+| must_change_password | boolean | Required | Forces password change |
+| password_changed_at | timestamp | Optional | Last change |
+| password_expires_at | timestamp | Optional | Password expiration |
+| failed_attempts | int | Default 0 | Consecutive failed attempts |
+| locked_until | timestamp | Optional | Lock expiry timestamp |
+| last_login_at | timestamp | Optional | Last successful sign-in |
+| last_login_ip | string | Optional | Last internal IP |
+| created_at, updated_at | timestamp | Required | Creation and update timestamps |
+| disabled_reason | enum | Optional | voluntarily, security, hr, other |
 
-قواعد:
+Rules:
 
-- حساب Active واحد على الأكثر لكل Person، يفرضه Identity بلا unique FK عابر. الحساب الخدمي وbreak-glass لا يرتبطان بـPerson.
-- تعطيل الحساب ينهي كل جلساته فوراً ويلغي جميع تفويضاته النشطة.
-- `break_glass` حساب يخضع لإجراءات خاصة ولا يستخدم للعمل اليومي.
+- At most one active account per Person, enforced by Identity without a cross-module unique FK. Service accounts and break-glass are not linked to a Person.
+- Disabling an account terminates all its sessions immediately and revokes all active delegations.
+- `break_glass` accounts are subject to special procedures and are not used for daily work.
 
 ### 4.3 Employment
 
-ارتباط الشخص بالجهة التي يتبع لها رسمياً. يملك `Organization` كلاً من Employment وPerson.
+A person's formal association with the entity they officially belong to. `Organization` owns both Employment and Person.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف الارتباط |
-| person_id | UUID | FK | الشخص |
-| organization_unit_id | UUID | FK | الجهة |
-| employment_type | enum | إلزامي | full_time, part_time, contract, secondment |
-| start_date | date | إلزامي | بداية الارتباط |
-| end_date | date | اختياري | نهاية الارتباط |
-| status | enum | إلزامي | active, suspended, ended |
-| source_system | string | اختياري | النظام المرجعي مثل «موارد» |
-| created_at, updated_at | timestamp | إلزامي | زمن الإنشاء والتحديث |
+| id | UUID | PK | Association identifier |
+| person_id | UUID | FK | Person |
+| organization_unit_id | UUID | FK | Entity |
+| employment_type | enum | Required | full_time, part_time, contract, secondment |
+| start_date | date | Required | Association start |
+| end_date | date | Optional | Association end |
+| status | enum | Required | active, suspended, ended |
+| source_system | string | Optional | Source system such as "HR" |
+| created_at, updated_at | timestamp | Required | Creation and update timestamps |
 
-قواعد:
+Rules:
 
-- يمكن أن يكون للشخص أكثر من `Employment` تاريخياً، لكن نشط واحد في لحظة معينة لجهة بعينها.
-- انتهاء `Employment` يلغي تلقائياً المنصب الأساسي والتكليفات والعضويات النشطة المرتبطة به وفق سياسة.
+- A person may have multiple historical `Employment` records, but only one active at a given moment for a given entity.
+- Ending an `Employment` automatically cancels the primary position, assignments, and active memberships associated with it per policy.
 
 ### 4.4 PositionAssignment
 
-المنصب الرسمي الذي يشغله الموظف في وحدة محددة، ويملكه `Organization`.
+The official position an employee holds in a specific unit, owned by `Organization`.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف التكليف |
-| employment_id | UUID | FK | الارتباط الوظيفي |
-| position_id | UUID | FK | المنصب |
-| assignment_scope | enum | إلزامي | primary, acting, additional |
-| start_date | date | إلزامي | بداية التكليف |
-| end_date | date | اختياري | نهاية التكليف |
-| status | enum | إلزامي | active, paused, ended |
-| created_at, updated_at | timestamp | إلزامي | زمن الإنشاء والتحديث |
+| id | UUID | PK | Assignment identifier |
+| employment_id | UUID | FK | Employment link |
+| position_id | UUID | FK | Position |
+| assignment_scope | enum | Required | primary, acting, additional |
+| start_date | date | Required | Assignment start |
+| end_date | date | Optional | Assignment end |
+| status | enum | Required | active, paused, ended |
+| created_at, updated_at | timestamp | Required | Creation and update timestamps |
 
-قواعد:
+Rules:
 
-- تكليف أساسي واحد نشط لكل `Employment`.
-- التكليف الإضافي يمكن أن يكون متعدداً لكن نشطاً واحداً في الوقت ذاته لنفس المنصب.
-- يحدد `PositionAssignment` مع `Employment` الجهة والوحدة والمنصب اللذين يحلان وقت الحاجة للمدير أو المعتمد.
+- One active primary assignment per `Employment`.
+- Additional assignments may be multiple but only one active at the same time for the same position.
+- `PositionAssignment` together with `Employment` identifies the entity, unit, and position to be resolved when a manager or approver is needed.
 
 ### 4.5 TemporaryAssignment
 
-تكليف مؤقت على وظيفة في وحدة أخرى لفترة محددة. يملكه `Organization` ويقدمه كحقائق زمنية إلى Authorization دون قرار وصول.
+A temporary assignment to a role in another unit for a defined period. Owned by `Organization` and presented as time-bound facts to Authorization without an access decision.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف التكليف المؤقت |
-| person_id | UUID | FK | الشخص |
-| organization_unit_id | UUID | FK | الوحدة المضيفة |
-| position_id | UUID | FK | المنصب المؤقت |
-| authority_scope_tags | json | إلزامي | حقائق نطاق الأعمال المشمولة |
-| authority_profile_key | string | اختياري | مفتاح حقائق سلطة يفسره Authorization وفق سياسته |
-| start_at | datetime | إلزامي | لحظة البداية |
-| end_at | datetime | إلزامي | لحظة النهاية |
-| status | enum | إلزامي | scheduled, active, expired, revoked |
-| approved_by_user_id | UUID | FK | معتمد التكليف |
-| justification | text | إلزامي | المبرر الإداري |
-| created_at, updated_at | timestamp | إلزامي | الزمن |
+| id | UUID | PK | Temporary assignment identifier |
+| person_id | UUID | FK | Person |
+| organization_unit_id | UUID | FK | Hosting unit |
+| position_id | UUID | FK | Temporary position |
+| authority_scope_tags | json | Required | Facts on covered business scope |
+| authority_profile_key | string | Optional | Authority facts key interpreted by Authorization per its policy |
+| start_at | datetime | Required | Start timestamp |
+| end_at | datetime | Required | End timestamp |
+| status | enum | Required | scheduled, active, expired, revoked |
+| approved_by_user_id | UUID | FK | Assignment approver |
+| justification | text | Required | Administrative justification |
+| created_at, updated_at | timestamp | Required | Timestamps |
 
-قواعد:
+Rules:
 
-- ينتهي التكليف آلياً عند `end_at` ولا تعود حقائقه سارية في قرار Authorization.
-- لا يحل التكليف المؤقت محل التكليف الأساسي ولا يلغيه.
-- يحق للمستهلك قراءة التكليف النشط فقط.
+- The assignment ends automatically at `end_at`, and its facts no longer apply in the Authorization decision.
+- A temporary assignment does not replace or cancel the primary assignment.
+- Consumers may only read active assignments.
 
 ### 4.6 CommitteeMembership
 
-عضوية المستخدم في لجنة أو فريق أو مجلس. يملكها `Organization` ويعرضها كحقيقة علاقة زمنية فقط.
+A user's membership in a committee, team, or council. Owned by `Organization` and exposed only as a time-bound relationship fact.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف العضوية |
-| committee_id | UUID | FK | اللجنة |
-| person_id | UUID | FK | الشخص |
-| role | enum | إلزامي | chair, secretary, member, observer |
-| start_at | date | إلزامي | بداية العضوية |
-| end_at | date | اختياري | نهاية العضوية |
-| status | enum | إلزامي | active, paused, ended |
-| voting_weight | decimal | اختياري | وزن تصويت اللجنة |
-| created_at, updated_at | timestamp | إلزامي | الزمن |
+| id | UUID | PK | Membership identifier |
+| committee_id | UUID | FK | Committee |
+| person_id | UUID | FK | Person |
+| role | enum | Required | chair, secretary, member, observer |
+| start_at | date | Required | Membership start |
+| end_at | date | Optional | Membership end |
+| status | enum | Required | active, paused, ended |
+| voting_weight | decimal | Optional | Committee voting weight |
+| created_at, updated_at | timestamp | Required | Timestamps |
 
-قواعد:
+Rules:
 
-- يمكن للشخص أن يكون عضواً في عدة لجان.
-- وزن التصويت والتصويت نفسه لا يحلان محل صلاحيات الأعمال؛ يفسرهما Authorization وفق سياسته المركزية.
-- انتهاء العضوية يلغي تلقائياً المهام والقرارات المرتبطة بها وفق قواعد الموديول المالك.
+- A person may be a member of multiple committees.
+- Voting weight and the vote itself do not replace business permissions; Authorization interprets them via its central policy.
+- Ending a membership automatically cancels related tasks and decisions per the owning module's rules.
 
-## 5. الكيانات التنظيمية والعلاقات
+## 5. Organizational Entities and Relationships
 
-### 5.1 Organization و OrgUnit و OrgUnitType
+### 5.1 Organization, OrgUnit, and OrgUnitType
 
-- `Organization` يمثل التجمع الصحي الثالث بأعلى مستوى.
-- `OrgUnit` كيان متكرر يشير إلى نفسه عبر `parent_id` لبناء شجرة مرنة بأنواع محكومة.
-- `OrgUnitType` يحكم الأنواع المسموحة: تجمع، منشأة، قطاع، إدارة، قسم، وحدة، لجنة.
-- اللجنة `OrgUnit` من نوع لجنة وليست Aggregate مستقلاً؛ يملك Organization اللجنة و`Employment` و`PositionAssignment` و`TemporaryAssignment` و`CommitteeMembership` وسجلها الزمني.
+- `Organization` represents the third-party healthcare cluster at the top level.
+- `OrgUnit` is a self-referencing recursive entity via `parent_id` to build a flexible tree of governed types.
+- `OrgUnitType` governs the allowed types: cluster, facility, sector, administration, department, unit, committee.
+- A committee `OrgUnit` is of type committee and is not an independent aggregate; Organization owns the committee and `Employment`, `PositionAssignment`, `TemporaryAssignment`, `CommitteeMembership`, and their time records.
 
 ### 5.2 Position
 
-- يصف المنصب كنمط مهام وصلاحيات لا كشخص.
-- يحوي `authority_profile_key` كحقيقة تنظيمية؛ يملك Authorization القدرات وقوالب الوصول للحقول ويفسر هذا المفتاح.
-- المنصب لا يرتبط بشخص مباشرة، بل عبر `Employment` و`PositionAssignment`.
+- Describes the position as a pattern of duties and authorities, not as a person.
+- Holds `authority_profile_key` as an organizational fact; Authorization owns the capabilities and field-access templates and interprets this key.
+- A position is not linked to a person directly, but via `Employment` and `PositionAssignment`.
 
 ### 5.3 SupervisoryRelationship
 
-- يحدد علاقة إشراف بين مصدر وهدف عبر `relationship_type`: direct, functional, coordination, read_only, none.
-- يحوي `effective_from` و`effective_to` ليُحسب فقط داخل النافذة الزمنية.
-- يحمل `RelationshipAuthorityFact` كوسوم ونطاق ونسخة حقائق. لا يصدر `Organization` سماحاً أو منعاً؛ Authorization وحده يفسر الحقائق ويقرر.
+- Defines a supervisory relationship between a source and a target via `relationship_type`: direct, functional, coordination, read_only, none.
+- Carries `effective_from` and `effective_to` so it is counted only within the time window.
+- Holds `RelationshipAuthorityFact` as tags, scope, and facts version. Organization issues no allow or deny; only Authorization interprets the facts and decides.
 
-### 5.4 Role و RoleAssignment
+### 5.4 Role and RoleAssignment
 
-- `Role` يجمع `Capability` متعددة ويحدد النطاق الافتراضي.
-- `RoleAssignment` يربط `UserAccount` بـ `Role` بنطاق اختياري `OrgUnit` ونافذة زمنية.
+- `Role` groups multiple `Capability` entries and defines the default scope.
+- `RoleAssignment` links `UserAccount` to `Role` with an optional `OrgUnit` scope and time window.
 
 ### 5.5 Delegation
 
-- تفويض قدرة محددة من مستخدم إلى آخر لمدة ولـ `module_tags` محددة.
-- يظهر الإجراء في السجل بصيغة «نفذه فلان بالنيابة عن فلان».
-- ينتهي آلياً عند `end_at`.
+- Delegation of a specific capability from one user to another for a duration and specific `module_tags`.
+- The action appears in the log as "executed by X on behalf of Y".
+- Ends automatically at `end_at`.
 
-## 6. كيانات قدرات المنصة المشتركة
+## 6. Shared Platform Capability Entities
 
 ### 6.1 WorkDefinitions
 
-- `WorkTypeDefinition` معرف نوع العمل (اسم، وصف، تصنيف افتراضي).
-- `WorkTypeVersion` إصدار منشور غير قابل للتعديل يحوي:
-  - `FieldDefinition` الحقول بأنواعها والتحققات وقواعد الوصول.
-  - `ListViewDefinition` أعمدة وفلاتر العرض.
-  - `FormLayout` ترتيب النموذج.
-  - `RelationDefinition` الروابط المسموحة.
-- `WorkRecord` سجل تشغيلي:
-  - `Envelope`: id، work_type_version_id، owner_organization_unit_id، created_by_user_id، status، classification، lock_version.
-  - `WorkPayload` للحقول الديناميكية المرتبطة بالإصدار.
-  - `WorkRelation` للربط بسجلات أخرى.
-  - `FieldPolicyFact` لمفتاح سياسة الحقول والنسخة والقيود الوصفية؛ Authorization يملك السياسة والقرار النهائي.
+- `WorkTypeDefinition` is the work-type identifier (name, description, default classification).
+- `WorkTypeVersion` is an immutable published version containing:
+  - `FieldDefinition` fields with types, validations, and access rules.
+  - `ListViewDefinition` view columns and filters.
+  - `FormLayout` form ordering.
+  - `RelationDefinition` allowed relations.
+- `WorkRecord` is the operational record:
+  - `Envelope`: id, work_type_version_id, owner_organization_unit_id, created_by_user_id, status, classification, lock_version.
+  - `WorkPayload` for dynamic fields bound to the version.
+  - `WorkRelation` to link to other records.
+  - `FieldPolicyFact` for the field-policy key, version, and descriptive constraints; Authorization owns the policy and the final decision.
 
 ### 6.2 Workflow
 
-- `WorkflowDefinition` و`WorkflowVersion` بإصدار غير قابل للتعديل.
-- `WorkflowInstance` يحفظ `workflow_version_id` لحظة البدء.
-- `WorkflowStep` حالات التنفيذ، و`WorkflowDecision` قرارات الاعتماد.
-- مع `workflow_step_id` يُحفظ زمن البدء والانتهاء والمستخدم.
+- `WorkflowDefinition` and `WorkflowVersion` with an immutable version.
+- `WorkflowInstance` stores `workflow_version_id` at start time.
+- `WorkflowStep` execution states, and `WorkflowDecision` approval decisions.
+- With `workflow_step_id` the start and end timestamps and the user are stored.
 
 ### 6.3 Tasks
 
-- `Task` يحمل `source_type` و`source_id` لإعادة التحقق من رؤية المصدر.
-- `TaskParticipant` يدعم owner, contributor, observer.
-- `TaskComment` و`TaskMention` للتعليقات والمنشن.
-- `TaskActivity` سجل زمني للأحداث الوظيفية.
+- `Task` carries `source_type` and `source_id` to re-validate visibility of the source.
+- `TaskParticipant` supports owner, contributor, observer.
+- `TaskComment` and `TaskMention` for comments and mentions.
+- `TaskActivity` is a time record of functional events.
 
 ### 6.4 Documents
 
-- `Document` كيان منطقي.
-- `DocumentVersion` إصدارات فعلية مع `checksum` و`size` و`mime`.
-- `StorageObject` المخزن الفعلي داخل الحجر.
-- `QuarantineRecord` نتائج الفحص لكل إصدار.
-- `DocumentLink` ربط بمستندات أخرى بسجلات.
-- `DocumentAccessEvent` سجل التحميل والمشاهدة.
-- قواعد الوصول الخاصة بالمستند وروابطه تُعرض كـ`DocumentConstraintFacts` فقط؛ Authorization يطبق أشد القيود ويصدر `allow` أو `deny` وقرار الحقول.
+- `Document` is a logical entity.
+- `DocumentVersion` is the actual versions with `checksum`, `size`, and `mime`.
+- `StorageObject` is the physical storage inside the quarantine.
+- `QuarantineRecord` is the scan result per version.
+- `DocumentLink` links to other documents with records.
+- `DocumentAccessEvent` is the download and view log.
+- Document-specific access rules and its links are exposed only as `DocumentConstraintFacts`; Authorization applies the strictest constraint and issues `allow` or `deny` and the field decision.
 
 ### 6.5 Notifications
 
-- `Notification` يمثل إشعاراً واحداً.
-- `NotificationRecipient` ربط بالمستلم وحالته.
-- مرتبط بـ `EventOutbox` لإعادة المحاولة ومنع التكرار.
+- `Notification` represents a single notification.
+- `NotificationRecipient` is the link to the recipient and its status.
+- Linked to `EventOutbox` for retries and deduplication.
 
 ### 6.6 Search
 
-- `IndexEntry` مفهرس مشتق من `WorkRecord`.
-- لا يخزن حقولاً حساسة خام، ويخزن معرفات وأجزاء مقيدة بصلاحية الفهرس.
+- `IndexEntry` is an indexer derived from `WorkRecord`.
+- It does not store raw sensitive fields; it stores identifiers and fragments gated by index authorization.
 
 ### 6.7 Reporting
 
-- `ReportDefinition` يحوي استعلاماً معتمداً على Read Models.
-- `ReportRun` تنفيذ واحد بحالة ونتيجة.
-- `ReportResult` مخرجات قابلة للتصدير ضمن سياسات الحقول.
+- `ReportDefinition` holds an approved query on Read Models.
+- `ReportRun` is a single execution with status and result.
+- `ReportResult` is the exportable output within field policies.
 
 ### 6.8 Audit
 
-- `AuditEvent` حدث غير قابل للتعديل.
-- `AuditHashLink` روابط Hash chain تربط الأحداث.
-- `AuditExportBatch` حزمة يومية موقعة وغير قابلة للتغيير.
+**Planned module (Audit) — not implemented.** The Audit module described here — `AuditEvent`, `AuditHashLink`, and `AuditExportBatch` — is planned and is not present in the implemented migrations. Only `access_decisions`, `sensitive_access_events`, and document access events persistence exists today.
 
-## 7. كيانات الأعمال
+- `AuditEvent` is an immutable event.
+- `AuditHashLink` is the hash-chain link connecting events.
+- `AuditExportBatch` is a daily signed, immutable bundle.
+
+## 7. Business Entities
 
 ### 7.1 Strategy
 
-- `StrategicPlan` يحتوي محاور وأهداف ومبادرات.
-- `StrategicAxis` و`StrategicObjective` و`StrategicInitiative`.
-- `Indicator` يحمل `aggregation_formula` و`baseline` و`owner_user_id`.
-- `IndicatorTarget` يوزع المستهدفات على الجهات.
-- `IndicatorMeasurement` قراءة دورية بأدلة.
+- `StrategicPlan` contains axes, objectives, and initiatives.
+- `StrategicAxis`, `StrategicObjective`, `StrategicInitiative`.
+- `Indicator` carries `aggregation_formula`, `baseline`, and `owner_user_id`.
+- `IndicatorTarget` distributes targets to entities.
+- `IndicatorMeasurement` is a periodic reading with evidence.
 
 ### 7.2 PortfolioProjects
 
-- `Portfolio` يحتوي برامج.
-- `Program` يحتوي مشاريع.
-- `Project` يحوي `template_id` و`owner_organization_unit_id` و`criticality`.
-- `ProjectPhase` و`ProjectMilestone`.
-- `ProjectBudgetSnapshot` و`ProjectHealthSnapshot`.
-- `ProjectIndicatorLink` يربط مشروعاً بمؤشر مع أثر متوقع وفعلي.
+- `Portfolio` contains programs.
+- `Program` contains projects.
+- `Project` holds `template_id`, `owner_organization_unit_id`, and `criticality`.
+- `ProjectPhase` and `ProjectMilestone`.
+- `ProjectBudgetSnapshot` and `ProjectHealthSnapshot`.
+- `ProjectIndicatorLink` links a project to an indicator with expected and actual impact.
 
 ### 7.3 Risk
 
-- `RiskRegister` و`Risk` مرتبطان بـ `OrgUnit`.
-- `RiskTreatmentTask` يستخدم `Task` للتنفيذ.
-- `RiskControl` و`RiskIndicator`.
+- `RiskRegister` and `Risk` are linked to `OrgUnit`.
+- `RiskTreatmentTask` uses `Task` for execution.
+- `RiskControl` and `RiskIndicator`.
 
-## 8. الحقول الإلزامية على كل سجل أعمال
+## 8. Mandatory Fields on Every Business Record
 
-كل `WorkRecord` يحوي على الأقل:
+Every `WorkRecord` contains at least:
 
 - `owner_organization_unit_id`
 - `created_by_user_id`
-- `current_responsible_user_id` (اختياري)
+- `current_responsible_user_id` (optional)
 - `classification`
 - `status`
 - `work_type_version_id`
 - `lock_version`
-- `legal_hold` (boolean)
-- `retention_until` (timestamp)
+- `legal_hold` (boolean) — **planned retention/legal-hold subsystem; not present in the implemented WorkRecords/Documents schemas.**
+- `retention_until` (timestamp) — **planned retention/legal-hold subsystem; not present in the implemented WorkRecords/Documents schemas.**
 
-تستخدم هذه الحقول في قرار الوصول وفي سياسات الاحتفاظ والتدقيق.
+These fields are used in the access decision and in retention and audit policies.
 
-## 9. قواعد العلاقات والـJoins
+## 9. Relationship and Join Rules
 
-- Joins بين جداول نفس الموديول فقط.
-- الإشارة إلى كيان موديول آخر تتم بمعرف ثابت مثل `person_id` أو `organization_unit_id` أو `work_record_id`.
-- أي استعلام عابر للموديولات يمر عبر Reporting Read Model أو عقد محدد.
-- يحظر على Search وReporting الكتابة في جداول الأعمال.
+- Joins are only between tables of the same module.
+- References to entities of other modules use a stable identifier such as `person_id`, `organization_unit_id`, or `work_record_id`.
+- Any cross-module query traverses a Reporting Read Model or a specific contract.
+- Search and Reporting are forbidden from writing to business tables.
 
-## 10. بطاقة المالكيات
+## 10. Ownership Card
 
-| المعلومة | المالك | الاستخدام الخارجي |
+| Information | Owner | External Use |
 |---|---|---|
-| Person | Organization | معرف مرجعي وعقد تحقق؛ لا تنسخ PII |
-| UserAccount | Identity | معرف للحساب |
-| Employment | Organization | حقائق علاقة وظيفية عبر عقد |
-| PositionAssignment | Organization | حقائق منصب عبر عقد |
-| TemporaryAssignment | Organization | حقائق تكليف زمني عبر عقد |
-| CommitteeMembership | Organization | حقائق عضوية زمنية عبر عقد |
-| OrgUnit | Organization | معرف + عقد |
-| Position | Organization | عقد قراءة |
-| SupervisoryRelationship | Organization | حقائق علاقة إلى Authorization دون قرار |
-| Role و RoleAssignment | Authorization | قرار صلاحية |
-| Delegation | Authorization | قرار صلاحية |
-| WorkTypeDefinition/Version | WorkDefinitions | تعريف ورقم إصدار |
-| WorkflowDefinition/Version | Workflow | تعريف ورقم إصدار |
-| WorkflowInstance | Workflow | مرجع بسجل أعمال |
-| Task | Tasks | معرف مصدر وعقد |
-| Document | Documents | معرف وروابط |
-| Notification | Notifications | معرف |
-| AuditEvent | Audit | غير قابل للقراءة العامة |
+| Person | Organization | Reference identifier and validation contract; do not copy PII |
+| UserAccount | Identity | Account identifier |
+| Employment | Organization | Employment-relationship facts via contract |
+| PositionAssignment | Organization | Position facts via contract |
+| TemporaryAssignment | Organization | Time-bound assignment facts via contract |
+| CommitteeMembership | Organization | Time-bound membership facts via contract |
+| OrgUnit | Organization | Identifier + contract |
+| Position | Organization | Read contract |
+| SupervisoryRelationship | Organization | Relationship facts to Authorization without decision |
+| Role and RoleAssignment | Authorization | Permission decision |
+| Delegation | Authorization | Permission decision |
+| WorkTypeDefinition/Version | WorkDefinitions | Definition and version number |
+| WorkflowDefinition/Version | Workflow | Definition and version number |
+| WorkflowInstance | Workflow | Reference to business record |
+| Task | Tasks | Source identifier and contract |
+| Document | Documents | Identifier and links |
+| Notification | Notifications | Identifier |
+| AuditEvent | Audit | Not publicly readable — **Planned module (Audit) — not implemented.** |
 
-## 11. سياسة الإصدارات وعدم التعديل الصامت
+## 11. Versioning and Silent-Modification Policy
 
-- السجلات الجارية تحفظ `work_type_version_id` و`workflow_version_id` ولا تُرحل بصمت.
-- نشر إصدار جديد لا يغير السجلات القائمة؛ الترحيل اختياري ومسبوق بفحص توافق.
-- لا يحق للموظف تغيير `owner_organization_unit_id` أو `work_type_version_id` مباشرة.
-- تعديل `classification` يخضع لقواعد lowering ورفع منفصلتين موثقتتين.
+- Live records store `work_type_version_id` and `workflow_version_id` and are not migrated silently.
+- Publishing a new version does not change existing records; migration is optional and preceded by a compatibility check.
+- Employees may not directly change `owner_organization_unit_id` or `work_type_version_id`.
+- Modifying `classification` is subject to separately documented lowering and raising rules.
 
-## 12. النوافذ الزمنية
+## 12. Time Windows
 
-- جميع علاقات الارتباط الوظيفي تحمل `effective_from` و`effective_to` أو `start_at` و`end_at`.
-- قرار الوصول يحل المستخدم عند زمن الطلب، ويعتبر النافذة الزمنية سارية المفعول فقط.
-- انتهاء نافذة التكليف أو العضوية يلغي آلياً القدرات الناتجة عنها.
+- All employment-relationship links carry `effective_from` and `effective_to` or `start_at` and `end_at`.
+- The access decision resolves the user at request time and considers the time window in effect only.
+- Expiry of an assignment or membership window automatically cancels the resulting capabilities.
 
-## 13. بيانات التعريف الحساسة وحمايتها
+## 13. Sensitive Identification Data and Its Protection
 
-- الحقول التي تحتوي PII للموظف مثل `national_id` و`date_of_birth` و`primary_email` و`primary_phone` تخزن مشفرة على مستوى العمود باستخدام KMS داخلي.
-- مفاتيح التشفير تدور وفق سياسة فصل المفاتيح.
-- أي BackUp يحوي هذه الحقول يخضع لمتطلبات التخزين المنفصل المشفر.
+- Fields containing employee PII such as `national_id`, `date_of_birth`, `primary_email`, and `primary_phone` are stored encrypted at the column level using an internal KMS.
+- Encryption keys rotate per the key-segregation policy.
+- Any backup containing these fields is subject to separate encrypted-storage requirements.
 
-## 14. ملاحظات تنفيذية
+## 14. Implementation Notes
 
-- الترحيلات ترقم وتخضع لإجراءات صعود وهبوط محكومة في كل بيئة.
-- الجداول الكبيرة مثل `audit_events` تُقسم إلى أقسام زمنية.
-- الفهارس تُبنى على أعمدة القرار: `owner_organization_unit_id`، `classification`، `status`، `created_by_user_id`.
-- لا تُنشأ حقول JSON ضخمة في الجداول التي تُستعلم بشكل تقليدي.
-- تُحفظ أرقام الإصدارات مع السجلات التشغيلية في الأعمال الديناميكية لتجنب إعادة التفسير عند كل قراءة.
+- Migrations are versioned and subject to controlled up/down procedures in every environment.
+- Large tables such as `audit_events` are partitioned by time — **planned partitioning; no `audit_events` table or partitioning exists in the implemented schemas.**
+- Indexes are built on decision columns: `owner_organization_unit_id`, `classification`, `status`, `created_by_user_id`.
+- No large JSON columns are created in tables queried in the traditional way.
+- Version numbers are stored alongside operational records in dynamic business to avoid re-interpretation on every read.
 
-## 15. كيانات قرار الوصول
+## 15. Access-Decision Entities
 
-تُفصل هذه الكيانات عن كيانات النواة لتمكين قرار وصول قابل للتفسير والتدقيق. لا تملك أي موديول أعمال حقولها، بل يستهلكها موديول Authorization فقط.
+These entities are separated from core entities to enable an explainable, auditable access decision. No business module owns their fields; only the Authorization module consumes them.
 
 ### 15.1 AccessContext
 
-تمثيل مجمَّد لكل مدخلات قرار الوصول في لحظة طلب واحد. يُحفظ لمدة التدقيق ولا يُعدَّل بعد الإصدار.
+A frozen representation of every access-decision input at the moment of a single request. Stored for the audit period and not modified after issuance.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف السياق |
-| subject_user_account_id | UUID | معرف خارجي بلا FK | صاحب الطلب |
-| subject_person_id | UUID | معرف خارجي بلا FK | نسخة تعريفية للشخص |
-| acting_as_user_account_id | UUID | معرف خارجي اختياري بلا FK | حساب المفوَّض له عند التفويض |
-| delegation_id | UUID | FK, optional | التفويض الساري إن وُجد |
-| request_action | string | إلزامي | الفعل المطلوب مثل view, edit, approve, export |
-| request_resource_type | string | إلزامي | نوع المورد مثل work_record, document, task |
-| request_resource_id | UUID | اختياري | معرف المورد المستهدف |
-| captured_at | timestamp | إلزامي | زمن التقاط المدخلات |
-| expires_at | timestamp | إلزامي | زمن انتهاء صلاحية السياق لإعادة الاستخدام |
-| session_id | UUID | معرف خارجي اختياري بلا FK | الجلسة المرتبطة |
-| source_ip | string | اختياري | IP داخلي |
-| correlation_id | UUID | إلزامي | معرف ربط لطلبات متعددة |
+| id | UUID | PK | Context identifier |
+| subject_user_account_id | UUID | External identifier, no FK | Request owner |
+| subject_person_id | UUID | External identifier, no FK | Identifying version of the person |
+| acting_as_user_account_id | UUID | Optional external identifier, no FK | Delegate account under delegation |
+| delegation_id | UUID | FK, optional | Active delegation, if any |
+| request_action | string | Required | Requested action such as view, edit, approve, export |
+| request_resource_type | string | Required | Resource type such as work_record, document, task |
+| request_resource_id | UUID | Optional | Target resource identifier |
+| captured_at | timestamp | Required | Input capture timestamp |
+| expires_at | timestamp | Required | Context expiry timestamp for reuse |
+| session_id | UUID | Optional external identifier, no FK | Associated session |
+| source_ip | string | Optional | Internal IP |
+| correlation_id | UUID | Required | Linking identifier for multi-request flows |
 
-قواعد:
+Rules:
 
-- يُجمَّد السياق لحظة استلام الطلب ويُختم بتوقيع داخلي لمنع العبث.
-- لا تُضاف معلومات جديدة بعد الإصدار؛ أي طلب جديد ينشئ سياقاً جديداً.
-- يحق لموديول التدقيق قراءته، ولا يحق لأي موديول أعمال قراءته.
+- The context is frozen at request reception and sealed with an internal signature to prevent tampering.
+- No new information is added after issuance; any new request creates a new context.
+- The audit module may read it; no business module may read it.
 
 ### 15.2 RecordFacts
 
-حقائق السجل المستهدف التي يعتمدها قرار الوصول. تُجمَّع في AccessContext ولا تُقرأ مباشرة من السجل عند التقييم.
+The target record's facts on which the access decision depends. Collected in AccessContext and not read directly from the record during evaluation.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| access_context_id | UUID | FK | السياق المالك |
-| record_type | string | إلزامي | نوع السجل |
-| record_id | UUID | إلزامي | معرف السجل |
-| owner_organization_unit_id | UUID | معرف خارجي بلا FK | الجهة المالكة |
-| classification | enum | إلزامي | public, internal, confidential, top_secret |
-| state | string | إلزامي | حالة السجل مثل draft, submitted, completed |
-| status | string | إلزامي | الحالة التشغيلية |
-| field_policy_key | string | إلزامي | مفتاح سياسة يملكها Authorization |
-| facts_version | string | إلزامي | نسخة حقائق المالك |
-| work_type_version_id | UUID | FK, optional | إصدار التعريف للأنواع الديناميكية |
-| workflow_version_id | UUID | FK, optional | إصدار المسار |
-| legal_hold | boolean | إلزامي | علم الحجز القانوني |
-| created_by_user_account_id | UUID | معرف actor خارجي بلا FK | المنشئ |
-| snapshot_at | timestamp | إلزامي | زمن تجميد الحقائق |
+| id | UUID | PK | Identifier |
+| access_context_id | UUID | FK | Owning context |
+| record_type | string | Required | Record type |
+| record_id | UUID | Required | Record identifier |
+| owner_organization_unit_id | UUID | External identifier, no FK | Owning entity |
+| classification | enum | Required | public, internal, confidential, top_secret |
+| state | string | Required | Record state such as draft, submitted, completed |
+| status | string | Required | Operational status |
+| field_policy_key | string | Required | Policy key owned by Authorization |
+| facts_version | string | Required | Owner's facts version |
+| work_type_version_id | UUID | FK, optional | Definition version for dynamic types |
+| workflow_version_id | UUID | FK, optional | Workflow version |
+| legal_hold | boolean | Required | Legal-hold flag — **planned retention/legal-hold subsystem; the implemented WorkRecords/Documents schemas do not provide this field.** |
+| created_by_user_account_id | UUID | External actor identifier, no FK | Creator |
+| snapshot_at | timestamp | Required | Facts-freeze timestamp |
 
-قواعد:
+Rules:
 
-- تُجمَّد الحقائق في `AccessContext` لمنع التقييم بناءً على قراءة متغيرة.
-- أي تعديل على السجل بعد إنشاء السياق لا يؤثر في القرار؛ يُطلب تقييم جديد.
-- غياب أي حقيقة إلزامية يعني فشل التقييم ومنع الوصول.
+- Facts are frozen in `AccessContext` to prevent evaluation against variable reads.
+- Any modification to the record after context creation does not affect the decision; a new evaluation is required.
+- Absence of any required fact means evaluation fails and access is denied.
 
 ### 15.3 GetAuthorizationRecordFacts
 
-عقد قراءة ينفذه الموديول المالك لإرجاع `AuthorizationRecordFacts`. يشمل هوية المصدر والمالك التنظيمي والتصنيف والحالة وخطوة المسار والحجز القانوني و`field_policy_key` و`facts_version` و`lock_version`. لا يأخذ هوية الفاعل أو `AccessContext`، ولا يعيد `allow` أو `deny` أو guard أو خريطة حقول.
+A read contract executed by the owning module to return `AuthorizationRecordFacts`. It includes the source identity, the organizational owner, classification, status, workflow step, legal hold, `field_policy_key`, `facts_version`, and `lock_version`. It does not take the actor identity or `AccessContext`, and does not return `allow` or `deny`, a guard, or a field map.
 
-بالنسبة للمستند، يضيف العقد `DocumentConstraintFacts`: `own_policy_key`، وحالة المستند، وتصنيفه، وحقائق الروابط النشطة مع مراجع المصادر ومفاتيح قيودها ونسخها. هذه مدخلات وصفية فقط؛ Authorization يطبق قاعدة أشد القيود ويملك القرار وسياسة الحقول.
+For documents, the contract adds `DocumentConstraintFacts`: `own_policy_key`, document status, classification, and active-link facts with source references and their constraint keys and versions. These are descriptive inputs only; Authorization applies the strictest constraint and owns the decision and field policy.
 
 ### 15.4 AccessDecision
 
-النتيجة النهائية للطلب. لا تُعدَّل بعد الإصدار وتُحفظ في التدقيق.
+The final result of the request. Not modified after issuance and stored in audit.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| access_context_id | UUID | FK, unique | السياق |
-| outcome | enum | إلزامي | allow, deny |
-| requested_action | string | إلزامي | الفعل المطلوب |
-| allowed_fields | json | اختياري | الحقول المسموحة عند السماح |
-| denied_fields | json | اختياري | الحقول الممنوعة |
-| decision_step_reached | enum | إلزامي | المرحلة التي حسمت القرار |
-| decided_at | timestamp | إلزامي | زمن الحسم |
-| policy_version | string | إلزامي | إصدار سياسة القرار |
-| signature | string | إلزامي | توقيع داخلي للحماية من العبث |
+| id | UUID | PK | Identifier |
+| access_context_id | UUID | FK, unique | Context |
+| outcome | enum | Required | allow, deny |
+| requested_action | string | Required | Requested action |
+| allowed_fields | json | Optional | Allowed fields when permitted |
+| denied_fields | json | Optional | Denied fields |
+| decision_step_reached | enum | Required | The step that decided the outcome |
+| decided_at | timestamp | Required | Decision timestamp |
+| policy_version | string | Required | Decision-policy version |
+| signature | string | Required | Internal signature against tampering |
 
-قواعد:
+Rules:
 
-- أي خطأ أو عدم يقين في أي مرحلة من مراحل القرار ينتج عنه `deny`.
-- لا يُسمح بإعادة استخدام القرار بعد `expires_at` للـ`AccessContext`.
-- أي قرار `allow` لحقل مصنف `confidential` (سري) أو `top_secret` (سري للغاية) يستوجب تسجيل `SensitiveAccessEvent` في Audit.
+- Any error or uncertainty in any decision stage produces `deny`.
+- Reusing the decision after `expires_at` of the `AccessContext` is not allowed.
+- Any `allow` decision on a field classified `confidential` or `top_secret` requires logging a `SensitiveAccessEvent` in Audit — **Planned module (Audit) — not implemented for the broader audit subsystem; only `access_decisions` and `sensitive_access_events` are persisted today.**
 
 ### 15.5 AccessDecisionReason
 
-تفسير القرار، يُستخدم في شرح الرفض أو السماح للمستخدم وفي التدقيق.
+Explanation of the decision, used to explain deny or allow to the user and in audit.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| access_decision_id | UUID | FK | القرار |
-| step | enum | إلزامي | المرحلة المفسِّرة |
-| code | string | إلزامي | رمز ثابت مثل DENY_BY_CLASSIFICATION |
-| message_key | string | إلزامي | مفتاح الرسالة المعتمدة |
-| message_params | json | اختياري | متغيرات الرسالة |
-| severity | enum | إلزامي | info, warn, block |
+| id | UUID | PK | Identifier |
+| access_decision_id | UUID | FK | Decision |
+| step | enum | Required | Explained step |
+| code | string | Required | Stable code such as DENY_BY_CLASSIFICATION |
+| message_key | string | Required | Approved message key |
+| message_params | json | Optional | Message parameters |
+| severity | enum | Required | info, warn, block |
 
 ### 15.6 FieldDecision
 
-قرار على مستوى حقل واحد، مرتبط بـ `AccessDecision`.
+A field-level decision associated with `AccessDecision`.
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| access_decision_id | UUID | FK | القرار |
-| field_path | string | إلزامي | مسار الحقل مثل payload.budget |
-| decision | enum | إلزامي | hide, read, edit |
-| reason_code | string | اختياري | سبب القرار |
-| classification_at_field | enum | اختياري | public, internal, confidential, top_secret |
+| id | UUID | PK | Identifier |
+| access_decision_id | UUID | FK | Decision |
+| field_path | string | Required | Field path such as payload.budget |
+| decision | enum | Required | hide, read, edit |
+| reason_code | string | Optional | Reason code |
+| classification_at_field | enum | Optional | public, internal, confidential, top_secret |
 
 ### 15.7 ClearanceLevel
 
-مستوى التصريح الممنوح للمستخدم. يُمنح من السوبر أدمن فقط.
+The clearance level granted to a user. Granted by super admin only.
 
-| الحقل | النوع | القيد | الوصف |
+**Planned module (Audit) — not implemented.** The `ClearanceLevel` table/entity described here is planned and has no corresponding migration. Only `access_decisions`, `sensitive_access_events`, and document access events persistence exists today.
+
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| user_account_id | UUID | FK | الحساب |
-| classification | enum | إلزامي | public, internal, confidential, top_secret |
-| granted_by_user_account_id | UUID | FK | مانح التصريح |
-| granted_at | timestamp | إلزامي | لحظة المنح |
-| expires_at | timestamp | اختياري | انتهاء الصلاحية |
-| justification | text | إلزامي | مبرر المنح |
+| id | UUID | PK | Identifier |
+| user_account_id | UUID | FK | Account |
+| classification | enum | Required | public, internal, confidential, top_secret |
+| granted_by_user_account_id | UUID | FK | Granter of the clearance |
+| granted_at | timestamp | Required | Grant timestamp |
+| expires_at | timestamp | Optional | Expiry |
+| justification | text | Required | Grant justification |
 
-قواعد:
+Rules:
 
-- مستوى التصريح الحد الأعلى لما يمكن للمستخدم قراءته افتراضياً.
-- لا يحل محل المنع الصريح ولا يحل محل تصنيف السجل.
-- يخضع `top_secret` (سري للغاية) لموافقة مزدوجة إلزامية.
+- The clearance level is the upper bound that the user can read by default.
+- It does not replace explicit deny nor record classification.
+- `top_secret` requires mandatory dual approval.
 
 ### 15.8 RecordClassification
 
-قيمة تصنيف السجل الحالية. يحوي سجل السجل التصنيفي لأغراض التدقيق.
+The current classification value of the record. It holds the classification history for audit purposes.
 
-| الحقل | النوع | القيد | الوصف |
+**Planned module (Audit) — not implemented.** The `RecordClassification` table/entity described here is planned and has no corresponding migration. Only `access_decisions`, `sensitive_access_events`, and document access events persistence exists today.
+
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| record_type | string | إلزامي | نوع السجل |
-| record_id | UUID | إلزامي | معرف السجل |
-| classification | enum | إلزامي | public, internal, confidential, top_secret |
-| previous_classification | enum | اختياري | public, internal, confidential, top_secret |
-| change_type | enum | إلزامي | initial, raise, lower |
-| changed_by_user_account_id | UUID | FK | من نفّذ التغيير |
-| approved_by_user_account_id | UUID | FK, optional | المعتمد الثاني لخفض التصنيف |
-| changed_at | timestamp | إلزامي | لحظة التغيير |
-| justification | text | إلزامي | مبرر التغيير |
+| id | UUID | PK | Identifier |
+| record_type | string | Required | Record type |
+| record_id | UUID | Required | Record identifier |
+| classification | enum | Required | public, internal, confidential, top_secret |
+| previous_classification | enum | Optional | public, internal, confidential, top_secret |
+| change_type | enum | Required | initial, raise, lower |
+| changed_by_user_account_id | UUID | FK | Who performed the change |
+| approved_by_user_account_id | UUID | FK, optional | Second approver for classification lowering |
+| changed_at | timestamp | Required | Change timestamp |
+| justification | text | Required | Change justification |
 
-قواعد:
+Rules:
 
-- تخفيض التصنيف يحتاج معتمدين مختلفين اثنين على الأقل.
-- يُحظر على المستخدم الواحد تخفيض تصنيف سجل المنشئ له.
-- يحفظ السجل التصنيفي كاملاً ولا يُعدَّل بأثر رجعي.
+- Lowering classification requires at least two different approvers.
+- A single user is forbidden from lowering the classification of a record they created.
+- The classification history is kept in full and is not retroactively altered.
 
 ### 15.9 ExplicitDeny
 
-قواعد منع صريحة تُقيَّم قبل التصريح والتصنيف.
+Explicit deny rules evaluated before clearance and classification. The `explicit_denies` table is implemented by the Authorization module.
 
-| الحقل | النوع | القيد | الوصف |
+
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| user_account_id | UUID | FK, optional | الحساب المستهدف |
-| classification | enum | اختياري | public, internal, confidential, top_secret |
-| work_type_key | string | اختياري | نوع عمل محدد |
-| organization_unit_id | UUID | FK, optional | نطاق تنظيمي |
-| resource_pattern | string | اختياري | نمط مورد مثل prefix أو regex |
-| reason | text | إلزامي | سبب المنع |
-| issued_by_user_account_id | UUID | FK | مصدر المنع |
-| issued_at | timestamp | إلزامي | لحظة الإصدار |
-| expires_at | timestamp | اختياري | انتهاء المنع |
-| revocable | boolean | إلزامي | قابل للإلغاء لاحقاً |
+| id | UUID | PK | Identifier |
+| user_account_id | UUID | FK, optional | Target account |
+| classification | enum | Optional | public, internal, confidential, top_secret |
+| work_type_key | string | Optional | Specific work type |
+| organization_unit_id | UUID | FK, optional | Organizational scope |
+| resource_pattern | string | Optional | Resource pattern such as prefix or regex |
+| reason | text | Required | Reason for denial |
+| issued_by_user_account_id | UUID | FK | Deny issuer |
+| issued_at | timestamp | Required | Issuance timestamp |
+| expires_at | timestamp | Optional | Deny expiry |
+| revocable | boolean | Required | Revocable later |
 
-قواعد:
 
-- يُطبَّق المنع الصريح قبل التصريح، ويلغي أي سماح آخر.
-- لا يحق لمستخدم إصدار منع صريح على نفسه أو على دور أعلى.
-- يحفظ التدقيق كل استخدام لقاعدة منع صريحة.
+- Explicit deny is applied before clearance and overrides any allow.
+- A user may not issue an explicit deny against themselves or a higher role.
+- Audit retains every use of an explicit deny rule.
 
-## 16. بطاقة مرجعية سريعة لقرار الوصول
+## 16. Quick Reference Card for Access Decision
 
-| الكيان | المُنتِج | المُستهلِك | يُحفظ في |
+| Entity | Producer | Consumer | Stored in |
 |---|---|---|---|
-| AccessContext | Authorization لكل طلب | Authorization، Audit | جدول AccessContext |
-| RecordFacts | Authorization | Authorization | مُضمَّن في AccessContext |
-| AuthorizationRecordFacts | الموديول المالك عبر `GetAuthorizationRecordFacts` | Authorization | snapshot ضمن AccessContext |
-| AccessDecision | Authorization لكل طلب | الموديول الطالب، Audit | جدول AccessDecision |
-| AccessDecisionReason | Authorization | الواجهة للعرض، Audit | جدول AccessDecisionReason |
-| FieldDecision | Authorization | الموديول الطالب | مُضمَّن في AccessDecision |
-| ClearanceLevel | Authorization | Authorization، Audit | جدول ClearanceLevel |
-| RecordClassification | Authorization | Authorization، Audit | جدول RecordClassification |
-| ExplicitDeny | Authorization | Authorization، Audit | جدول ExplicitDeny |
+| AccessContext | Authorization per request | Authorization, Audit — **Audit storage is planned (Audit) — not implemented.** | AccessContext table |
+| RecordFacts | Authorization | Authorization | Embedded in AccessContext |
+| AuthorizationRecordFacts | Owning module via `GetAuthorizationRecordFacts` | Authorization | Snapshot within AccessContext |
+| AccessDecision | Authorization per request | Requesting module, Audit — **Audit storage is planned (Audit) — not implemented.** | AccessDecision table |
+| AccessDecisionReason | Authorization | UI for display, Audit — **Audit storage is planned (Audit) — not implemented.** | AccessDecisionReason table |
+| FieldDecision | Authorization | Requesting module | Embedded in AccessDecision |
+| ClearanceLevel | Authorization | Authorization, Audit — **Planned module (Audit) — not implemented.** | ClearanceLevel table |
+| RecordClassification | Authorization | Authorization, Audit — **Planned module (Audit) — not implemented.** | RecordClassification table |
+| ExplicitDeny | Authorization | Authorization | `explicit_denies` table |
 
-## 17. ملاحظات تنفيذية لقرار الوصول
+## 17. Implementation Notes for Access Decision
 
-- كل قراءة لـ`AccessDecision` يجب أن تكون مصحوبة بفحص `expires_at` على `AccessContext`.
-- لا يُسمح بتمرير القرار عبر طبقة العرض؛ الواجهة تستهلك `allowed_fields` فقط.
-- الفهارس الأساسية على `AccessContext.subject_user_account_id`، `AccessContext.request_resource_id`، `AccessDecision.outcome`، و`AccessDecision.decided_at`.
-- تقسيم زمنية لجداول `AccessDecision` و`AccessContext` بعد تجاوز حجم سنة كاملة.
-- يُحظر على الموديولات تخزين نسخة من القرار؛ تُستخرج من العقد في كل طلب.
-- أي إضافة أو تعديل على `GetAuthorizationRecordFacts` تتطلب اختبار حدود الموديول واختبار منع حقول القرار في CI.
+- Every read of `AccessDecision` must be accompanied by an `expires_at` check on the `AccessContext`.
+- The decision may not be passed through the presentation layer; the UI consumes `allowed_fields` only.
+- Primary indexes are on `AccessContext.subject_user_account_id`, `AccessContext.request_resource_id`, `AccessDecision.outcome`, and `AccessDecision.decided_at`.
+- Time partitioning for `AccessDecision` and `AccessContext` tables after exceeding one year of volume.
+- Modules are forbidden from storing a copy of the decision; it is fetched via the contract on every request.
+- Any addition or modification to `GetAuthorizationRecordFacts` requires module-boundary tests and a deny-decision-fields test in CI.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 0.4.0 | 2026-07-18 | مسؤول أمن المعلومات | نقل ملكية Person إلى Organization وإزالة FKs العابرة وفق ADR-024 |
-| 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء النموذج المنطقي الموسع |
-| 0.3.0 | 2026-07-15 | مسؤول أمن المعلومات | إزالة كيانات الطلب ومزود قرار الموديول وتصحيح ملكيات Organization وتحويل عقود الوصول إلى حقائق فقط |
+| 0.4.0 | 2026-07-18 | Chief Information Security Officer | Transfer Person ownership to Organization and remove cross-module FKs per ADR-024 |
+| 0.2.0 | 2026-07-15 | Chief Information Security Officer | Create the extended logical data model |
+| 0.3.0 | 2026-07-15 | Chief Information Security Officer | Remove request entities and module-decision provider, correct Organization ownership, and convert access contracts to facts only |

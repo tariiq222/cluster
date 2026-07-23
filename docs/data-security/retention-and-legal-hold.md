@@ -1,16 +1,16 @@
 ---
 doc_id: SEC-RT-001
-title: الاحتفاظ والحجز القانوني
+title: Retention and Legal Hold
 type: data-security
 status: draft
 version: 0.2.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Officer
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/adr/016-audit-and-records-governance.md
@@ -20,101 +20,106 @@ references:
 - docs/data-security/authorization-model.md
 - docs/data-security/classification-and-handling.md
 ---
-# الاحتفاظ والحجز القانوني
 
-## 1. الهدف
+# Retention and Legal Hold
 
-تحدد هذه الوثيقة فترات الاحتفاظ المعتمدة لفئات البيانات الرئيسية، وآلية الحجز القانوني التي تعلّق الإتلاف، وقواعد الإتلاف النهائي، ومسؤوليات كل طرف.
+> **Planned policy.** The retention durations, the `LegalHoldCase` / `LegalHoldTarget` / `DisposalEvent` / `RetentionExtension` tables, the scheduler, the destruction workflow, and the audit-export lifecycle described in this document are **planned policy** and are **not implemented** in the verified modules. No `retention_policies`, `legal_hold_cases`, `legal_hold_targets`, `disposal_events`, or `retention_extensions` migrations exist under `apps/api/Modules/`. The `documents` table does carry a nullable `retention_until` and a `retention_policy_key` column, and a `legal_hold` flag, but there is no scheduler, no disposal runner, and no legal-hold lifecycle table behind them. This document therefore defines the target behavior and must not be read as a description of the current runtime.
 
-الفترات الافتراضية في هذه الوثيقة هي الحد الأدنى، ويجوز لنوع عمل أو مستند اعتماد مدة أطول عند الحاجة التنظيمية أو النظامية.
+## 1. Objective
 
-## 2. الفئات المعتمدة للاحتفاظ
+This document defines the approved retention periods for the major data classes, the legal-hold mechanism that suspends destruction, the final-destruction rules, and the responsibilities of each party.
 
-| الفئة | الرمز | المدة | نقطة بداية العد | النطاق |
+The default periods in this document are the minimum. A work type or a document may adopt a longer period when regulatory or statutory needs require it.
+
+## 2. Approved Retention Classes
+
+| Class | Code | Period | Counting Starts From | Scope |
 |---|---|---|---|---|
-| سجلات الأعمال | business | 7 سنوات | اكتمال السجل أو إغلاقه | كل أنواع الأعمال وطلبات ومشاريع ومهام ومستندات تشغيلية |
-| سجلات التدقيق | audit | 10 سنوات | لحظة إنشاء الحدث | AuditEvent و SensitiveAccessEvent و AuditExportBatch |
-| دفعات التصدير | export | 24 ساعة | إنشاء الدفعة | AuditExportBatch و ExportArtifact |
+| Business records | business | 7 years | Record completion or closure | All work types, requests, projects, tasks, and operational documents |
+| Audit records | audit | 10 years | Event creation | `AuditEvent`, `SensitiveAccessEvent`, `AuditExportBatch` |
+| Export batches | export | 24 hours | Batch creation | `AuditExportBatch`, `ExportArtifact` |
 
-### 2.1 سجلات الأعمال (7 سنوات)
+### 2.1 Business Records (7 years)
 
-- يحسب العد من لحظة إغلاق السجل أو اكتماله بحسب نوع العمل.
-- السجل النشط في نهاية المدة يدخل في وضع `pending_archival` ويُخطر المالك.
-- يحتفظ النظام بنسخة الأرشيف مع الحفاظ على إمكانية البحث ضمن الصلاحيات.
-- الإتلاف بعد المدة يخضع لإذن من السوبر أدمن ومسؤول حوكمة البيانات.
+- Counting starts at the record's closure or completion time, depending on the work type.
+- An active record that reaches the end of the period moves to `pending_archival` and the owner is notified.
+- The system retains the archive copy while preserving search within authorization.
+- Destruction after the period requires approval from the super-admin and the data-governance officer.
 
-### 2.2 سجلات التدقيق (10 سنوات)
+### 2.2 Audit Records (10 years)
 
-- يحسب العد من لحظة إنشاء الحدث.
-- لا تُعدَّل ولا تُحذف قبل انتهاء المدة حتى بطلب السوبر أدمن.
-- تُحفظ في مخزن غير قابل للتعديل مع Hash chain مستمر.
-- النسخ الاحتياطي للجداول الزمنية جزء من سياسة الاستعادة.
+- Counting starts at event creation time.
+- Records are not modified or deleted before the period ends, even on super-admin request.
+- Records are stored in an immutable store with a continuous hash chain.
+- Backup of the time-series tables is part of the recovery policy.
 
-### 2.3 دفعات التصدير (24 ساعة)
+### 2.3 Export Batches (24 hours)
 
-- يحسب العد من لحظة إنشاء الدفعة أو الملف.
-- تُحذف تلقائياً بعد 24 ساعة من مخزن التصدير المؤقت.
-- يحتفظ النظام بسجل التصدير في `audit_events` لمدة 10 سنوات دون محتوى الملف.
-- يحق للسوبر أدمن تمديد الحفظ لدفعة بعينها مع تسجيل المبرر.
+- Counting starts at batch or file creation time.
+- Batches are deleted automatically after 24 hours from the temporary export store.
+- The system keeps the export record in `audit_events` for 10 years without the file content.
+- Super-admin may extend retention for a specific batch with a documented reason.
 
-## 3. الحقول الداعمة على السجلات
+## 3. Supporting Fields on Records
 
-كل `WorkRecord` وكل `Document` يحويان على الأقل:
+> **Planned columns.** The fields below describe the target logical model. They are not all present on the implemented `documents` and `WorkRecord` tables. The implemented `documents` table exposes only `retention_until` (nullable), `retention_policy_key` (nullable), and a `legal_hold` flag with reason/date fields. The full set below is the planned target.
 
-| الحقل | النوع | الوصف |
+Each `WorkRecord` and each `Document` should at minimum carry:
+
+| Field | Type | Description |
 |---|---|---|
 | `retention_class` | enum | business, audit, export |
-| `retention_until` | timestamp | تاريخ انتهاء الصلاحية |
-| `retention_started_at` | timestamp | نقطة بداية العد |
-| `legal_hold` | boolean | علم الحجز القانوني |
-| `legal_hold_id` | UUID, optional | معرف حالة الحجز النشطة |
+| `retention_until` | timestamp | Expiry timestamp |
+| `retention_started_at` | timestamp | Counting start point |
+| `legal_hold` | boolean | Legal-hold flag |
+| `legal_hold_id` | UUID, optional | Active hold case id |
 | `disposal_status` | enum | active, pending_archival, archived, disposed |
-| `disposed_at` | timestamp, optional | لحظة الإتلاف الفعلي |
+| `disposed_at` | timestamp, optional | Actual destruction time |
 
-## 4. الحجز القانوني (Legal Hold)
+## 4. Legal Hold
 
-### 4.1 الهدف
+### 4.1 Objective
 
-يعلق الحجز القانوني تطبيق فترات الاحتفاظ وعمليات الإتلاف على السجلات المعنية، ويحفظ الأدلة لحاجة محتملة لتحقيق أو نزاع أو التزام نظامي.
+A legal hold suspends retention enforcement and destruction operations on the affected records, preserving evidence for a potential investigation, dispute, or regulatory obligation.
 
-### 4.2 حالات الحجز
+### 4.2 Hold States
 
-| الحالة | الوصف | الأثر |
+| State | Description | Effect |
 |---|---|---|
-| `active` | الحجز ساري | يمنع الإتلاف ويمنع تعديل المحتوى الحساس |
-| `released` | أُنهي الحجز | يستأنف العداد ويطبق الإتلاف عند انتهاء المدة |
-| `superseded` | استُبدل بحجز أحدث | يُربط بالحجز الجديد في السجل |
-| `expired` | انتهى تاريخ الانتهاء دون تمديد | يستأنف العداد |
+| `active` | Hold in force | Prevents destruction and sensitive modification |
+| `released` | Hold released | Counter resumes, destruction applies at period end |
+| `superseded` | Replaced by a newer hold | Linked to the newer case in the record |
+| `expired` | Reached expiry without extension | Counter resumes |
 
-### 4.3 إصدار الحجز
+### 4.3 Issuing a Hold
 
-- يحق للشؤون القانونية أو السوبر أدمن إصدار الحجز.
-- يحتاج الحجز واحداً مما يلي:
-  - رقم قضية أو إجراء نظامي.
-  - قرار لجنة مراجعة.
-  - طلب من جهة حكومية مختصة.
-- يُسجل الحجز في `LegalHoldCase` ويرتبط بالسجلات عبر `LegalHoldTarget`.
-- يحوي الحجز وصف النطاق والمبرر والمستخدم المصدر وتاريخ البداية والنهاية.
-- يحق تمديد الحجز بإصدار جديد يربط بالحجز السابق.
+- Legal affairs or super-admin may issue a hold.
+- A hold requires one of:
+  - A case or proceeding reference number.
+  - A review-committee decision.
+  - A request from a competent government authority.
+- The hold is recorded in `LegalHoldCase` and linked to records via `LegalHoldTarget`.
+- The hold carries the scope description, reason, originating user, start, and end date.
+- Extending the hold issues a new hold that references the predecessor.
 
-### 4.4 قواعد الحجز
+### 4.4 Hold Rules
 
-- لا يحق لمستخدم عادي إلغاء حجز قانوني ساري.
-- لا يحق لمالك السجل إلغاء الحجز على سجله.
-- يحق للسوبر أدمن إصدار حجز شامل على نوع عمل كامل أو وحدة كاملة.
-- يعرض الموديول حالة الحجز كحقيقة؛ يفسرها Authorization وحده وقد يصدر قرار حقل `read` بدلاً من `edit` دون تغيير التصنيف.
-- أي محاولة حذف أو تعديل لسجل محجوز تُسجل في `AuditEvent` ويفشل الإجراء.
+- An ordinary user cannot release an active legal hold.
+- The record owner cannot release a hold on their own record.
+- Super-admin may issue a blanket hold on a whole work type or whole org unit.
+- The module exposes hold state as a fact; Authorization alone interprets it and may issue a `read` field decision in place of `edit` without changing the classification.
+- Any deletion or sensitive modification attempt against a held record is recorded in `AuditEvent` and fails.
 
-### 4.5 نطاق الحجز
+### 4.5 Hold Scope
 
-- حجز على سجل واحد.
-- حجز على نوع عمل بأكمله ضمن وحدة تنظيمية.
-- حجز على وحدة تنظيمية بأكملها.
-- حجز على مشروع أو مبادرة أو لجنة.
+- Hold on a single record.
+- Hold on a whole work type within an org unit.
+- Hold on a whole org unit.
+- Hold on a project, initiative, or committee.
 
-تُقيَّم السجلات الداخلة في النطاق عبر `LegalHoldTarget`.
+Records that fall within the scope are evaluated through `LegalHoldTarget`.
 
-## 5. دورة حياة السجل
+## 5. Record Lifecycle
 
 ```text
 created → active → (legal_hold?) pending_archival → archived → disposed
@@ -122,42 +127,42 @@ created → active → (legal_hold?) pending_archival → archived → disposed
                           release_hold → resumes
 ```
 
-- `created`: السجل منشور وقيد الاستخدام.
-- `active`: السجل مكتمل أو جارٍ ويخضع للعد.
-- `legal_hold`: علم على السجل يمنع الإتلاف.
-- `pending_archival`: قرب انتهاء المدة وأُخطر المالك.
-- `archived`: انتقل إلى مخزن الأرشيف مع إيقاف الكتابة.
-- `disposed`: أُتلف نهائياً بعد موافقة وإجراء موثق.
+- `created`: The record is published and in use.
+- `active`: The record is complete or in progress and subject to counting.
+- `legal_hold`: A flag on the record that prevents destruction.
+- `pending_archival`: Period is nearing expiry; the owner has been notified.
+- `archived`: Moved to the archive store; writes are disabled.
+- `disposed`: Destroyed after documented approval and procedure.
 
-## 6. قواعد الإتلاف
+## 6. Destruction Rules
 
-- الإتلاف النهائي مسموح فقط بعد انتهاء فترة الاحتفاظ وعدم وجود حجز قانوني ساري.
-- يحتاج الإذن إلى:
-  - السوبر أدمن.
-  - مسؤول حوكمة البيانات.
-  - ممثل الشؤون القانونية عند الحاجة.
-- يُسجل الإتلاف في `AuditEvent` بنوع `record_disposed` مع تفاصيل السجل.
-- يحتفظ النظام ببيانات وصفية عن السجل المُتلف دون المحتوى، لمدة 10 سنوات.
-- الإتلاف يطبق على السجلات فقط ولا يطبق على سجلات التدقيق التي تخضع لمدة 10 سنوات كاملة.
+- Final destruction is permitted only after the retention period has elapsed and no active legal hold exists.
+- Approval requires:
+  - Super-admin.
+  - Data-governance officer.
+  - A legal-affairs representative when needed.
+- Destruction is recorded in `AuditEvent` with type `record_disposed` and the record details.
+- The system retains descriptive metadata about the destroyed record (no content) for 10 years.
+- Destruction applies to records only; audit records are subject to the full 10-year period and are not destroyed through this flow.
 
-## 7. الاستثناءات والتمديد
+## 7. Exceptions and Extensions
 
-- يسمح بتمديد فترة الاحتفاظ عند وجود:
-  - متطلب نظامي صريح.
-  - ربط بدعوى قائمة أو متوقعة.
-  - طلب من مدقق خارجي.
-- يحفظ التمديد في `RetentionExtension` ويربط بالسجل أو فئة السجلات.
-- يحق للسوبر أدمن تحديد تمديد افتراضي لنوع عمل كامل.
-- التمديد لا يحل محل الحجز القانوني عند وجود إجراء قضائي.
+- Retention may be extended when:
+  - An explicit regulatory requirement exists.
+  - An ongoing or expected litigation ties the record.
+  - An external auditor requests retention.
+- Extensions are stored in `RetentionExtension` and tied to the record or class of records.
+- Super-admin may set a default extension for a whole work type.
+- An extension does not replace a legal hold while a proceeding is active.
 
-## 8. الاستعادة والنسخ الاحتياطي
+## 8. Recovery and Backup
 
-- النسخ الاحتياطي يلتزم بفترات الاحتفاظ ولا يحتفظ بسجلات تجاوزت مدتها إلا بقرار صريح.
-- النسخ التي تحوي سجلات منتهية تحت حجز تُحفظ في وحدة منفصلة.
-- الاستعادة الجزئية تراعي الحجز القانوني ولا تستعيد سجلاً متلفاً.
-- اختبار الاستعادة جزء من خطة تشغيلية دورية ويُسجل نتيجته.
+- Backup respects retention periods and does not retain records past their expiry without an explicit decision.
+- Backups that contain expired records still under hold are kept in a separate unit.
+- Partial recovery respects legal hold and never restores a disposed record.
+- Recovery testing is part of a periodic operational plan and its result is recorded.
 
-## 9. المخطط ERD للاحتفاظ والحجز
+## 9. ERD for Retention and Hold
 
 ```mermaid
 erDiagram
@@ -186,130 +191,136 @@ erDiagram
     RETENTION_EXTENSION }o--|| RETENTION_POLICY : "extends"
 ```
 
-## 10. بطاقات الكيانات الرئيسية
+> **Planned.** All entities in this ERD are planned. No corresponding migrations exist in the verified modules.
+
+## 10. Entity Cards
+
+> **Planned entity cards.** The tables below describe the target logical model. None of these tables exist in the verified migrations today.
 
 ### 10.1 RetentionPolicy
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف السياسة |
-| target_type | enum | إلزامي | work_record, document, document_version, audit_event, audit_export_batch, export_artifact |
-| retention_class | enum | إلزامي | business, audit, export |
-| retention_years | int | اختياري | للمدد بالسنوات |
-| retention_hours | int | اختياري | للمدد بالساعات |
-| starts_from | enum | إلزامي | closed_at, created_at, completed_at, exported_at |
-| default | boolean | إلزامي | سياسة افتراضية للنوع |
-| created_at, updated_at | timestamp | إلزامي | الزمن |
+| id | UUID | PK | Policy id |
+| target_type | enum | required | work_record, document, document_version, audit_event, audit_export_batch, export_artifact |
+| retention_class | enum | required | business, audit, export |
+| retention_years | int | optional | For year-based periods |
+| retention_hours | int | optional | For hour-based periods |
+| starts_from | enum | required | closed_at, created_at, completed_at, exported_at |
+| default | boolean | required | Default policy for the type |
+| created_at, updated_at | timestamp | required | Lifecycle timestamps |
 
 ### 10.2 LegalHoldCase
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف القضية |
-| case_reference | string | فريد | الرقم المرجعي للإجراء |
-| authority_id | UUID | FK | الجهة مصدر الحجز |
-| reason | text | إلزامي | المبرر |
-| scope_type | enum | إلزامي | record, work_type, organization_unit, project |
-| scope_id | UUID | اختياري | معرف النطاق |
-| issued_by_user_account_id | UUID | FK | مصدر الحجز |
-| issued_at | timestamp | إلزامي | لحظة الإصدار |
-| effective_from | timestamp | إلزامي | بداية السريان |
-| effective_until | timestamp | اختياري | نهاية السريان |
-| status | enum | إلزامي | active, released, superseded, expired |
-| replaces_case_id | UUID | FK, optional | الحجز المستبدل |
+| id | UUID | PK | Case id |
+| case_reference | string | unique | Proceeding reference |
+| authority_id | UUID | FK | Hold-issuing authority |
+| reason | text | required | Justification |
+| scope_type | enum | required | record, work_type, organization_unit, project |
+| scope_id | UUID | optional | Scope id |
+| issued_by_user_account_id | UUID | FK | Issuer |
+| issued_at | timestamp | required | Issue time |
+| effective_from | timestamp | required | Effective start |
+| effective_until | timestamp | optional | Effective end |
+| status | enum | required | active, released, superseded, expired |
+| replaces_case_id | UUID | FK, optional | Predecessor hold |
 
 ### 10.3 LegalHoldTarget
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| case_id | UUID | FK | القضية |
-| target_type | string | إلزامي | نوع الهدف |
-| target_id | UUID | إلزامي | معرف الهدف |
-| added_at | timestamp | إلزامي | لحظة الإضافة |
-| added_by_user_account_id | UUID | FK | من أضاف الهدف |
+| id | UUID | PK | Target id |
+| case_id | UUID | FK | Case |
+| target_type | string | required | Target type |
+| target_id | UUID | required | Target id |
+| added_at | timestamp | required | Add time |
+| added_by_user_account_id | UUID | FK | Adder |
 
 ### 10.4 DisposalEvent
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| target_type | string | إلزامي | نوع السجل المتلف |
-| target_id | UUID | إلزامي | معرف السجل المتلف |
-| disposal_method | enum | إلزامي | logical_archive, secure_delete, cryptographic_erase |
-| retention_class | enum | إلزامي | الفئة الأصلية |
-| authorized_by_user_account_id | UUID | FK | من أذن |
-| performed_by_user_account_id | UUID | FK | من نفذ |
-| performed_at | timestamp | إلزامي | لحظة التنفيذ |
-| certificate_id | UUID | FK | شهادة الإتلاف |
+| id | UUID | PK | Event id |
+| target_type | string | required | Type of destroyed record |
+| target_id | UUID | required | Destroyed record id |
+| disposal_method | enum | required | logical_archive, secure_delete, cryptographic_erase |
+| retention_class | enum | required | Original class |
+| authorized_by_user_account_id | UUID | FK | Approver |
+| performed_by_user_account_id | UUID | FK | Executor |
+| performed_at | timestamp | required | Execution time |
+| certificate_id | UUID | FK | Destruction certificate |
 
 ### 10.5 RetentionExtension
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| id | UUID | PK | معرف |
-| target_type | string | إلزامي | نوع السجل الممتد |
-| target_id | UUID | إلزامي | معرف السجل |
-| additional_years | int | اختياري | سنوات مضافة |
-| additional_hours | int | اختياري | ساعات مضافة |
-| reason | text | إلزامي | المبرر |
-| issued_by_user_account_id | UUID | FK | مصدر التمديد |
-| issued_at | timestamp | إلزامي | لحظة الإصدار |
-| expires_at | timestamp | اختياري | نهاية التمديد |
+| id | UUID | PK | Extension id |
+| target_type | string | required | Extended record type |
+| target_id | UUID | required | Record id |
+| additional_years | int | optional | Added years |
+| additional_hours | int | optional | Added hours |
+| reason | text | required | Justification |
+| issued_by_user_account_id | UUID | FK | Issuer |
+| issued_at | timestamp | required | Issue time |
+| expires_at | timestamp | optional | Extension expiry |
 
-## 11. مسؤوليات
+## 11. Responsibilities
 
-| الدور | المسؤوليات |
+| Role | Responsibilities |
 |---|---|
-| السوبر أدمن | اعتماد سياسات الاحتفاظ، إصدار أو رفع الحجز، اعتماد الإتلاف |
-| مسؤول حوكمة البيانات | تطبيق السياسات، جدولة الإتلاف، مراجعة التمديدات |
-| الشؤون القانونية | طلب الحجز وتمديده، اعتماد الإتلاف للسجلات الحساسة |
-| مالك السجل | استلام إخطارات الانتهاء، طلب التمديد عند الحاجة |
-| المستخدم العادي | عدم محاولة تعديل أو حذف سجل محجوز، الإبلاغ عند الحاجة |
+| Super-admin | Approve retention policies, issue or lift holds, approve destruction |
+| Data-governance officer | Apply policies, schedule destruction, review extensions |
+| Legal affairs | Request and extend holds, approve destruction of sensitive records |
+| Record owner | Receive expiry notifications, request extensions when needed |
+| Ordinary user | Do not attempt to modify or delete a held record, report when needed |
 
-## 12. سيناريوهات مرجعية
+## 12. Reference Scenarios
 
-### 12.1 انتهاء فترة سجل أعمال دون حجز
+### 12.1 Business Record Reaches End of Period with No Hold
 
-1. يصل سجل أعمال إلى نهاية 7 سنوات من اكتماله.
-2. يدخل في `pending_archival` ويُخطر المالك.
-3. يوافق السوبر أدمن ومسؤول حوكمة البيانات على الإتلاف.
-4. يُسجل `DisposalEvent` ويُحفظ Metadata لمدة 10 سنوات.
+1. A business record reaches the 7-year mark from completion.
+2. It moves to `pending_archival` and the owner is notified.
+3. Super-admin and the data-governance officer approve destruction.
+4. A `DisposalEvent` is recorded and metadata is kept for 10 years.
 
-### 12.2 إصدار حجز على مشروع كامل
+### 12.2 Issuing a Hold on a Whole Project
 
-1. تطلب الشؤون القانونية حجزاً على مشروع محدد.
-2. يصدر السوبر أدمن `LegalHoldCase` بنطاق `project`.
-3. تُضاف جميع السجلات المرتبطة إلى `LegalHoldTarget`.
-4. يُمنع الإتلاف والتعديل الحساس حتى إصدار `release`.
-5. يُسجل كل إجراء في `AuditEvent`.
+1. Legal affairs requests a hold on a specific project.
+2. Super-admin issues a `LegalHoldCase` with `project` scope.
+3. All linked records are added to `LegalHoldTarget`.
+4. Destruction and sensitive modification are blocked until `release` is issued.
+5. Every action is recorded in `AuditEvent`.
 
-### 12.3 محاولة حذف سجل محجوز
+### 12.3 Attempted Deletion of a Held Record
 
-1. يحاول المستخدم الحذف المنطقي لسجل.
-2. يفشل الإجراء بسبب وجود حجز نشط.
-3. يُسجل الفشل في `AuditEvent` ويُخطر المستخدم بسبب الرفض.
-4. يُخطر مسؤول الأمن عند تكرار المحاولات.
+1. A user attempts a soft-delete.
+2. The action fails because of the active hold.
+3. The failure is recorded in `AuditEvent` and the user is informed of the reason.
+4. The security officer is alerted on repeated attempts.
 
-### 12.4 انتهاء دفعة تصدير
+### 12.4 Export Batch Expiry
 
-1. تُنشأ دفعة تصدير الساعة 10:00.
-2. تُحذف تلقائياً من مخزن التصدير الساعة 10:00 من اليوم التالي.
-3. يبقى سجل التصدير في `audit_events` لمدة 10 سنوات دون محتوى الملف.
+1. An export batch is created at 10:00.
+2. It is deleted automatically from the export store at 10:00 the next day.
+3. The export record remains in `audit_events` for 10 years without the file content.
 
-## 13. ملاحظات تنفيذية
+## 13. Implementation Notes
 
-- جدولة الإتلاف تعمل يومياً كـ`Scheduler Singleton` مع قفل لمنع التشغيل المتزامن.
-- فهرس فريد على `LegalHoldTarget.(case_id, target_type, target_id)` لمنع التكرار.
-- فهرس زمني على `WorkRecord.retention_until` لاستعلام السجلات القريبة من الانتهاء.
-- تقسيم الجداول الزمنية لـ`AuditEvent` بعد تجاوز سنة كاملة.
-- اختبارات CI تتحقق من أن كل `WorkTypeVersion` يحدد سياسة احتفاظ صريحة.
-- اختبارات `fail_closed` تتحقق من رفض الإتلاف عند تعذر قراءة حالة الحجز.
-- يربط النظام بين `retention_class` و`classification` لضمان احتفاظ أطول للتصنيفات الأعلى عند غياب سياسة خاصة.
+> **Planned notes.** All of the following are not yet implemented; they describe the target build.
 
-## سجل التغيير
+- Destruction scheduling runs daily as a `Scheduler Singleton` with a lock preventing concurrent runs.
+- A unique index on `LegalHoldTarget.(case_id, target_type, target_id)` prevents duplicates.
+- A time index on `WorkRecord.retention_until` queries near-expiry records.
+- Time-based tables such as `AuditEvent` are partitioned after the first full year.
+- CI tests verify that every `WorkTypeVersion` declares an explicit retention policy.
+- `fail_closed` tests verify that destruction is rejected when the hold status cannot be read.
+- The system links `retention_class` and `classification` to ensure longer retention for higher classifications when no explicit policy exists.
 
-| الإصدار | التاريخ | الدور | التغيير |
+## Change Log
+
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 0.1.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء المسودة التنفيذية |
-| 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | استبدال المراجع التاريخية بمراجع الحوكمة والتعافي الحالية وتطبيق ضبط الوثيقة |
+| 0.1.0 | 2026-07-15 | Information Security Officer | Initial draft created |
+| 0.2.0 | 2026-07-15 | Information Security Officer | Replaced historical references with current governance and recovery references; applied document tightening |

@@ -1,80 +1,80 @@
 ---
 doc_id: ARC-CM-001
-title: خريطة السياقات المعمارية
+title: Architecture Context Map
 type: architecture
 status: accepted
 version: 1.2.0
 date: '2026-07-15'
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references: []
 ---
-# خريطة السياقات
+# Context Map
 
-## 1. نطاق الخريطة
+## 1. Scope of the map
 
-تحدد هذه الوثيقة حدود السياقات، واتجاه الاعتماد، وعلاقات التكامل بين الموديولات التسعة عشر المعرفة في [النظرة المعمارية](overview.md). السهم `A → B` يعني أن `A` يعتمد على عقد منشور من `B`؛ لا يعني أن `A` يملك بيانات `B`.
+This document defines the context boundaries, dependency direction, and integration relationships between the nineteen modules defined in [Architecture Overview](overview.md). The arrow `A → B` means that `A` depends on a published contract from `B`; it does not mean that `A` owns `B`'s data.
 
-## 2. طبقات السياق
+## 2. Context layers
 
 ```mermaid
 flowchart TB
-    subgraph L11["المستهلكات الطرفية المشتقة"]
+    subgraph L11["Derived terminal consumers"]
         N["Notifications"]
         S["Search"]
         R["Reporting"]
         WS["Workspace"]
     end
 
-    subgraph L10["المخاطر"]
+    subgraph L10["Risk"]
         RK["Risk"]
     end
 
-    subgraph L9["المحافظ والمشاريع"]
+    subgraph L9["Portfolios and projects"]
         PP["PortfolioProjects"]
     end
 
-    subgraph L8["السجلات والاستراتيجية"]
+    subgraph L8["Records and strategy"]
         WR["WorkRecords"]
-        ST["Strategy\nالمالك الوحيد للمؤشرات"]
+        ST["Strategy\nSole owner of indicators"]
     end
 
-    subgraph L7["التنفيذ"]
+    subgraph L7["Execution"]
         T["Tasks"]
     end
 
-    subgraph L6["التعاون"]
+    subgraph L6["Collaboration"]
         C["Collaboration"]
     end
 
-    subgraph L5["التعريف والمحتوى"]
+    subgraph L5["Definition and content"]
         WD["WorkDefinitions"]
         D["Documents"]
     end
 
-    subgraph L4["التشغيل والحوكمة"]
+    subgraph L4["Operation and governance"]
         WF["Workflow"]
         RG["RecordsGovernance"]
     end
 
-    subgraph L3["التدقيق"]
+    subgraph L3["Audit"]
         AU["Audit"]
     end
 
-    subgraph L2["قرار الوصول"]
+    subgraph L2["Access decision"]
         AZ["Authorization"]
     end
 
-    subgraph L1["الهوية"]
+    subgraph L1["Identity"]
         I["Identity"]
     end
 
-    subgraph L0["الجذور"]
+    subgraph L0["Roots"]
         O["Organization"]
         PS["PlatformSettings"]
     end
@@ -191,14 +191,14 @@ flowchart TB
     WS -.-> RK
 ```
 
-الأسهم المتصلة عقود متزامنة مسموحة. الأسهم المتقطعة اعتماد على Published Events أو Projection Feeds إضافة إلى استدعاء `Authorization` عند القراءة. جميع الأسهم تتجه إلى رتبة أدنى؛ الموديولات الطرفية لا تقدم عقوداً تعتمد عليها موديولات المصدر.
+Solid arrows are allowed synchronous contracts. Dashed arrows indicate dependency on Published Events or Projection Feeds in addition to calling `Authorization` at read time. Every arrow points to a lower rank; terminal modules do not expose contracts that source modules depend on.
 
-## 3. مصفوفة الاعتماد المباشر
+## 3. Direct dependency matrix
 
-| الموديول | يعتمد مباشرة على |
+| Module | Depends directly on |
 |---|---|
-| `PlatformSettings` | لا شيء |
-| `Organization` | لا شيء |
+| `PlatformSettings` | nothing |
+| `Organization` | nothing |
 | `Identity` | `Organization`, `PlatformSettings` |
 | `Authorization` | `Identity`, `Organization`, `PlatformSettings` |
 | `Audit` | `Authorization` |
@@ -212,50 +212,50 @@ flowchart TB
 | `Strategy` | `Organization`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit` |
 | `PortfolioProjects` | `Organization`, `Strategy`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit` |
 | `Risk` | `Organization`, `Strategy`, `PortfolioProjects`, `Workflow`, `Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`, `Audit` |
-| `Notifications` | `Identity`, `Authorization`، وأحداث الموديولات المصدرية |
-| `Search` | `Authorization`، وأحداث المحتوى القابل للفهرسة |
-| `Reporting` | `Organization`, `Authorization`، وأحداث أو Projection Feeds المصدرية |
-| `Workspace` | `Authorization`، وأحداث عناصر العمل المصدرية |
+| `Notifications` | `Identity`, `Authorization`, and source module events |
+| `Search` | `Authorization`, and indexable content events |
+| `Reporting` | `Organization`, `Authorization`, and source events or Projection Feeds |
+| `Workspace` | `Authorization`, and source work item events |
 
-## 4. أنماط العلاقة
+## 4. Relationship patterns
 
-| النمط | الاستخدام | القاعدة |
+| Pattern | Use | Rule |
 |---|---|---|
-| Published Contract | قرار فوري أو invariant | العقد يملكه الموديول المقدم، ويعيد DTO ثابتاً |
-| Published Event | حقيقة حدثت واستهلاك مؤجل | المنتج يملك schema بصيغة ماضية ويحفظه في Outbox |
-| Projection Feed | إسقاط تقريري كبير أو إعادة بناء | المالك يقدم feed محكوماً ومتعدد الصفحات ولا يكشف جدوله |
-| Reference by ID | ربط سجل بسجل في سياق آخر | معرف ثابت مع تحقق عبر عقد، بلا Foreign Key عابر لملكية الموديول إذا منع الاستقلال |
-| Record Reference | ربط عام بمصدر | `{record_type, record_id}` مع إعادة تفويض عند فتح المصدر |
-| Customer/Supplier | موديول أعلى رتبة يستهلك عقد الأدنى | المستهلك لا يفرض نموذج تخزينه على المورد |
+| Published Contract | immediate decision or shared invariant | The contract is owned by the offering module and returns an immutable DTO |
+| Published Event | an event that occurred with deferred consumption | The producer owns the past-tense schema and persists it in the Outbox |
+| Projection Feed | large reporting projection or rebuild | The owner offers a controlled, paginated feed and does not expose its table |
+| Reference by ID | linking a record to a record in another context | stable identifier with verification via a contract; no cross-module Foreign Key or Join when module independence forbids it |
+| Record Reference | general link to a source | `{record_type, record_id}` with re-delegation when the source is opened |
+| Customer/Supplier | higher-ranked module consumes the lower-ranked module's contract | The consumer does not impose its storage model on the supplier |
 
-## 5. خريطة الحقائق الرئيسية
+## 5. Fact ownership map
 
-| الحقيقة | المالك الوحيد | ما يحتفظ به الآخرون |
+| Fact | Sole owner | What others keep |
 |---|---|---|
-| إعدادات المنصة المنشورة | `PlatformSettings` | مفتاح وإصدار أو Cache قابل للإبطال |
-| الشخص وPII الأساسية | `Organization` | `person_id` وملخص عرض محدود بلا FK أو join |
-| الهيكل والوحدات والمناصب والعلاقات | `Organization` | معرفات وملخصات مشتقة |
-| الحساب والجلسة والملف التشغيلي | `Identity` | `user_id` وملخص عرض |
-| الدور والقدرة والتفويض وسياسة الحقل | `Authorization` | قرار أو `decision_id` مؤقت، لا نسخة من السياسة |
-| تعريف نوع العمل وإصداره | `WorkDefinitions` | `work_type_version_id` |
-| مثيل العمل الديناميكي، بما فيه الطلب | `WorkRecords` | `record_ref` وإسقاطات مشتقة |
-| تعريف المسار ومثيلاته وقراراته | `Workflow` | `workflow_instance_id` |
-| التعليقات والمنشن والمشاركون | `Collaboration` | `thread_id` |
-| المهمة وحالتها ومسؤولها | `Tasks` | `task_id` أو إسقاط مساحة عمل |
-| الملف وإصداره وتصنيفه | `Documents` | `document_id` وسبب الربط |
-| سياسات الاحتفاظ والحجز والإتلاف | `RecordsGovernance` | `governance_subject_id` أو نتيجة قرار |
-| المؤشر وتعريفه وقياساته ومستهدفاته | `Strategy` | `indicator_id` وبيانات تخطيط محلية مسموحة |
-| المحفظة والبرنامج والمشروع | `PortfolioProjects` | معرفات وروابط وأحداث |
-| الخطر والضوابط وخطة المعالجة | `Risk` | معرفات وروابط وأحداث |
-| الحقيقة الأمنية والتشغيلية غير القابلة للتعديل | `Audit` | `audit_event_id` فقط |
-| نتيجة البحث | `Search` | لا يعتمد عليها مصدر لتقرير الحقيقة |
-| التقرير وRead Model | `Reporting` | لا يكتب إلى المصدر |
-| عنصر مساحة العمل | `Workspace` | مؤشر مشتق إلى سجل المصدر |
-| الإشعار | `Notifications` | رابط إلى المصدر يعاد تفويضه عند الفتح |
+| Published platform settings | `PlatformSettings` | key and version, or invalidable cache |
+| Person and basic PII | `Organization` | `person_id` and a limited display summary, no FK or join |
+| Structure, units, positions, relations | `Organization` | identifiers and derived summaries |
+| Account, session, operational profile | `Identity` | `user_id` and a display summary |
+| Role, capability, delegation, field policy | `Authorization` | decision or temporary `decision_id`, no policy copy |
+| Work type definition and version | `WorkDefinitions` | `work_type_version_id` |
+| Dynamic work instance, including the request | `WorkRecords` | `record_ref` and derived projections |
+| Route definition, instances, decisions | `Workflow` | `workflow_instance_id` |
+| Comments, mentions, participants | `Collaboration` | `thread_id` |
+| Task, state, assignee | `Tasks` | `task_id` or workspace projection |
+| Document, version, classification | `Documents` | `document_id` and link reason |
+| Retention, hold, and disposition policies | `RecordsGovernance` | `governance_subject_id` or decision result |
+| Indicator definition, measurements, targets | `Strategy` | `indicator_id` and local planning data only |
+| Portfolio, program, project | `PortfolioProjects` | identifiers, links, events |
+| Risk, controls, treatment plan | `Risk` | identifiers, links, events |
+| Immutable security and operational fact | `Audit` | `audit_event_id` only |
+| Search result | `Search` | source modules do not rely on it for truth |
+| Report and Read Model | `Reporting` | does not write to the source |
+| Workspace item | `Workspace` | derived pointer to the source record |
+| Notification | `Notifications` | redirect to the source re-delegated on open |
 
-## 6. RecordFacts وAuthorization بلا دورات
+## 6. RecordFacts and Authorization without cycles
 
-`RecordFacts` لغة منشورة يملك schema الخاص بها `Authorization`. يبني الموديول المالك القيم من Envelope أو Aggregate الذي يملكه ثم يمررها مع الفاعل والقدرة المطلوبة:
+`RecordFacts` is a published language whose schema is owned by `Authorization`. The owning module builds the values from the Envelope or Aggregate it owns and passes them along with the actor and the requested capability:
 
 ```text
 RecordFacts
@@ -264,44 +264,44 @@ RecordFacts
 - owner_organization_id
 - owner_organization_unit_id
 - created_by_user_id
-- current_assignee_user_id اختياري
-- participant_user_ids أو مفتاح مجموعة مشاركة
+- current_assignee_user_id optional
+- participant_user_ids or share group key
 - visibility_scope
 - shared_organization_unit_ids
 - classification
 - state
-- definition_version_id اختياري
-- field_policy_key اختياري
-- attributes محدودة ومعلنة لكل capability
+- definition_version_id optional
+- field_policy_key optional
+- attributes limited and declared per capability
 ```
 
 ```mermaid
 sequenceDiagram
-    participant Caller as الموديول المالك
+    participant Caller as Owning Module
     participant Auth as Authorization
     participant Identity as Identity
     participant Org as Organization
 
-    Caller->>Caller: تحميل Envelope غير الحساس وبناء RecordFacts
+    Caller->>Caller: Load non-sensitive Envelope and build RecordFacts
     Caller->>Auth: DecideAccess(actor, capability, RecordFacts)
     Auth->>Identity: ResolveActiveIdentity
-    Identity-->>Auth: حالة الحساب فقط
+    Identity-->>Auth: Account state only
     Auth->>Org: ResolveOrganizationScope
-    Org-->>Auth: النطاق والعلاقات السارية
-    Auth->>Auth: RBAC + ABAC + التصنيف + الحالة + الحقول
+    Org-->>Auth: Active scope and relations
+    Auth->>Auth: RBAC + ABAC + classification + state + fields
     Auth-->>Caller: AccessDecision + allowed_fields + explanation_code
 ```
 
-قواعد منع الدورة:
+Cycle-prevention rules:
 
-- `Authorization` لا يستورد `WorkRecords` أو `Tasks` أو `Documents` أو أي موديول أعمال.
-- `Authorization` لا يقرأ جداول السجل ولا يطلب payload منه.
-- الموديول المالك مسؤول عن صحة `RecordFacts` ولا يقبلها من العميل.
-- الاستعلامات الجماعية تطلب من `Authorization` `ScopePredicate` أو `AuthorizedScopeSet` ثم تطبقها داخل مخزن المالك.
-- `Search` و`Reporting` يخزنان حقائق تفويض مشتقة تكفي للترشيح الأولي، ثم يعاد فحص القرار عند فتح السجل أو تصدير الحقول الحساسة.
-- `Tasks` و`Documents` و`Collaboration` لا تستدعي الموديول المصدر للتحقق؛ يعيد endpoint المالك أو التطبيق المنسق تمرير `RecordFacts` الصحيحة.
+- `Authorization` does not import `WorkRecords`, `Tasks`, `Documents`, or any business module.
+- `Authorization` does not read record tables or request payload from them.
+- The owning module is responsible for the correctness of `RecordFacts` and does not accept them from the client.
+- Bulk queries ask `Authorization` for a `ScopePredicate` or `AuthorizedScopeSet` and apply it inside the owner's store.
+- `Search` and `Reporting` store derived authorization facts sufficient for the initial filter, then re-check the decision when the record is opened or sensitive fields are exported.
+- `Tasks`, `Documents`, and `Collaboration` do not call the source module to verify; the owner's endpoint or the orchestrating application re-passes the correct `RecordFacts`.
 
-## 7. WorkRecords وWorkDefinitions وWorkflow
+## 7. WorkRecords, WorkDefinitions, and Workflow
 
 ```mermaid
 flowchart LR
@@ -312,13 +312,13 @@ flowchart LR
 
     WR -->|"GetPublishedWorkTypeSchema"| WD
     WR -->|"StartWorkflow / RecordDecision"| WF
-    WR -->|"CreateTask عند الحاجة الذرية"| T
+    WR -->|"CreateTask when atomic"| T
     WF -.->|"WorkflowCompleted"| WR
 ```
 
-السهم غير المتزامن الأخير لا يغير `WorkRecords` تلقائياً داخل مستهلك خفي إذا كان الانتقال التجاري ملزماً؛ يتولى منسق صريح إصدار Command إلى `WorkRecords`. لا يملك `Workflow` معنى إكمال الطلب أو المشروع.
+The last asynchronous arrow does not mutate `WorkRecords` automatically inside a hidden consumer when the business transition is binding; an explicit coordinator issues the Command to `WorkRecords`. `Workflow` does not own the meaning of completing a request or project.
 
-## 8. Strategy وPortfolioProjects وRisk
+## 8. Strategy, PortfolioProjects, and Risk
 
 ```mermaid
 flowchart LR
@@ -331,22 +331,22 @@ flowchart LR
     RK -->|"Portfolio/project references"| PP
 ```
 
-- المبادرة عنصر داخل `Strategy` ولا تدخل تسلسل المحفظة والبرنامج والمشروع.
-- التسلسل الوحيد في `PortfolioProjects` هو: المحفظة ← البرنامج ← المشروع.
-- `PortfolioProjects` لا يملك المؤشر؛ يقدم الأثر المتوقع والفعلي إلى `Strategy` للاعتماد.
-- `Risk` لا ينسخ هدفاً أو مؤشراً أو مشروعاً، ويستخدم `Tasks` لخطط المعالجة و`Workflow` للموافقات و`Documents` للأدلة.
+- An initiative is an element inside `Strategy` and does not enter the portfolio/program/project chain.
+- The only sequence in `PortfolioProjects` is: portfolio ← program ← project.
+- `PortfolioProjects` does not own the indicator; it submits expected and actual impact to `Strategy` for approval.
+- `Risk` does not copy an objective, indicator, or project; it uses `Tasks` for treatment plans, `Workflow` for approvals, and `Documents` for evidence.
 
-## 9. السياقات المشتقة الطرفية
+## 9. Derived terminal contexts
 
-`Notifications` و`Search` و`Reporting` و`Workspace` مستهلكات نهائية بالنسبة إلى مصادر الأعمال:
+`Notifications`, `Search`, `Reporting`, and `Workspace` are terminal consumers relative to business sources:
 
-- لا يستدعيها المصدر متزامناً داخل معاملته.
-- لا تكتب في جداول المصدر.
-- تعالج الحدث أكثر من مرة بأمان.
-- تحفظ نقطة تقدم أو Inbox يمنع تكرار الأثر.
-- يمكن إعادة بناء إسقاطاتها من الأحداث أو Projection Feeds.
-- لا تستخدم نتيجة مشتقة لاتخاذ انتقال مجال دون إعادة الرجوع إلى عقد المالك.
+- the source does not call them synchronously inside its transaction.
+- they do not write to source tables.
+- they process the event more than once safely.
+- they keep a progress mark or an Inbox that prevents duplicate effects.
+- their projections can be rebuilt from events or Projection Feeds.
+- they do not use a derived result to take a domain transition without re-checking the owner's contract.
 
-## 10. الأنظمة خارج السياق
+## 10. Systems outside the context
 
-لا توجد تكاملات خارجية في المرحلة الأولى. «موارد» والأنظمة المالية والسريرية جهات مستقبلية خارج حدود المنصة. لا ينشأ Adapter أو Contract لها قبل تحديد النظام والبيانات والاتجاه والمالك ومتطلبات الأمن والتشغيل المعزول.
+There are no external integrations in phase one. "Mawared" and the financial and clinical systems are future entities outside the platform boundary. No Adapter or Contract is created for them before specifying the system, the data, the direction, the owner, and the security and isolation requirements.

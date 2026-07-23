@@ -1,16 +1,16 @@
 ---
 doc_id: SEC-CL-001
-title: تصنيف البيانات والتعامل معها
+title: Data Classification and Handling
 type: data-security
 status: draft
 version: 0.2.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Officer
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/adr/004-authorization-and-isolation.md
@@ -20,134 +20,139 @@ references:
 - docs/data-security/authorization-model.md
 - docs/data-security/retention-and-legal-hold.md
 ---
-# تصنيف البيانات والتعامل معها
+# Data Classification and Handling
 
-## 1. الهدف
+> **Status note (planned vs. implemented).** The four classification values and the `SensitiveAccessEvent` audit threshold (recording begins at `confidential`) are implemented by `ClassificationLevel`. The `ClearanceLevel` table, `RecordClassification` history, classification raise/lower capabilities, double-approval workflow, per-field classification storage, and super-admin clearance controls are *planned/policy* targets and are not implemented as runtime mechanisms today. They are tracked in `.codex/plans/audit-data-security.md` as DRIFT-OPEN and are documented here as the target model with acceptance criteria.
 
-تحدد هذه الوثيقة مستويات التصنيف الأربعة المعتمدة في المنصة، وقواعد التعامل معها في العرض والتنزيل والمشاركة والتصدير والتدقيق، إضافة إلى قواعد رفع وخفض التصنيف ومنح التصريح.
+## 1. Purpose
 
-يعتمد قرار الوصول في `authorization-model.md` على التصنيف، وأي معالجة محتوى حساس في الواجهة أو التقارير أو البحث تلتزم بهذه القواعد.
+This document defines the four approved classification levels used in the platform, and the rules for handling them in viewing, downloading, sharing, exporting, and auditing, in addition to the rules for raising and lowering classification and granting clearance.
 
-## 2. المستويات الأربعة
+The access decision in `authorization-model.md` depends on classification, and any sensitive-content processing in the interface, reports, or search follows these rules.
 
-| رمز التخزين | الاسم بالعربية | الاسم بالإنجليزية | الوصف الموجز |
-|---|---|---|---|
-| `public` | عام | Public | محتوى معتمد للنشر ضمن نطاقه المحدد |
-| `internal` | داخلي | Internal | محتوى العمل اليومي داخل التجمع والمنشآت |
-| `confidential` | سري | Confidential | محتوى لا يطلع عليه إلا من له حاجة عمل ومبرر |
-| `top_secret` | سري للغاية | Top Secret | محتوى حساس عالي الأثر، يخضع لإجراءات مزدوجة |
+## 2. The Four Levels
 
-هذه القيم الأربع وحدها صالحة للتخزين أو التبادل؛ أسماء العرض العربية لا تستخدم كرموز تقنية.
+| Storage code | English name | Short description |
+| `public` | Public | Content approved for publication within its defined scope |
+| `internal` | Internal | Daily work content inside the cluster and facilities |
+| `confidential` | Confidential | Content that only those with a work need and justification may see |
+| `top_secret` | Top Secret | High-impact sensitive content, subject to double controls |
 
-### 2.1 معايير تحديد المستوى
+These four values are the only ones valid for storage or exchange.
 
-- **عام:** معلومات منشورة للجميع مثل دليل الاستخدام وسياسات التجمع المعتمدة للنشر.
-- **داخلي:** معلومات العمل الإداري المعتاد مثل طلبات داخلية ومهام وقرارات تشغيلية عامة.
-- **سري:** معلومات تكشف بيانات مالية مفصلة أو نتائج تدقيق أو قرارات إدارية حساسة أو بيانات شخصية غير روتينية.
-- **سري للغاية:** معلومات تؤثر في استمرار العمل أو السمعة أو الأمن، أو بيانات شخصية عالية الحساسية، أو أسرار استراتيجية ومالية وعلاقات تعاقدية.
+### 2.1 Criteria for Determining the Level
 
-### 2.2 التصنيف الافتراضي
+- **Public:** Information published for everyone, such as user guides and cluster policies approved for publication.
+- **Internal:** Regular administrative work information, such as internal requests, tasks, and general operational decisions.
+- **Confidential:** Information that exposes detailed financial data, audit results, sensitive administrative decisions, or non-routine personal data.
+- **Top Secret:** Information that affects business continuity, reputation, or security, or highly sensitive personal data, or strategic and financial secrets and contractual relationships.
 
-- نوع العمل الجديد يحدد له تصنيف افتراضي في `WorkTypeVersion`.
-- الوثيقة المرفوعة تحدد لها تصنيف افتراضي في `Document` أو `DocumentVersion`.
-- التصنيف الافتراضي لا يقل عن `internal` (داخلي) لأي سجل أعمال أو مستند.
-- السوبر أدمن وحده يخفض التصنيف الافتراضي، ولا يخفض دون معطيات.
+### 2.2 Default Classification
 
-## 3. التصريح (Clearance)
+- A new work type is assigned a default classification in `WorkTypeVersion`.
+- An uploaded document is assigned a default classification in `Document` or `DocumentVersion`.
+- The default classification is not less than `internal` for any work record or document.
+- Only the super admin may lower the default classification, and only with documented justification.
 
-### 3.1 مستويات التصريح
+## 3. Clearance
 
-| رمز التصنيف | المستوى | يمنح قراءة افتراضية لـ |
+> **Status.** `ClearanceLevel` is a planned/policy table. It is not present in the verified migrations. The rules below describe the target model.
+
+### 3.1 Clearance Levels
+
+| Classification code | Level | Grants default read access to |
 |---|---|---|
-| `public` | عام | عام |
-| `internal` | داخلي | عام، داخلي |
-| `confidential` | سري | عام، داخلي، سري |
-| `top_secret` | سري للغاية | جميع المستويات |
+| `public` | Public | Public |
+| `internal` | Internal | Public, Internal |
+| `confidential` | Confidential | Public, Internal, Confidential |
+| `top_secret` | Top Secret | All levels |
 
-### 3.2 منح التصريح
+### 3.2 Granting Clearance
 
-- السوبر أدمن يمنح التصريح عبر `ClearanceLevel` مع مبرر إلزامي.
-- يخضع منح `top_secret` و`confidential` لمدة محددة ومراجعة دورية.
-- انتهاء الصلاحية يُلغي التصريح تلقائياً ويُسجل في التدقيق.
-- لا يحق للمستخدم تعديل تصنيفه أو تصريحه بنفسه.
+- The super admin grants clearance through `ClearanceLevel` with a mandatory justification.
+- Granting `top_secret` and `confidential` is time-bound and periodically reviewed.
+- Expiration automatically revokes the clearance and is recorded in the audit log.
+- A user MUST NOT modify their own classification or clearance.
 
-## 4. قواعد التعامل لكل مستوى
+## 4. Handling Rules per Level
 
-هذه القواعد قيود تملكها وتطبقها سياسات Authorization؛ ولا يصدر أي موديول مالك أو واجهة قرار `allow` أو `deny` أو قرار حقل.
+These rules are constraints owned and enforced by Authorization policies; no owner module or interface issues `allow`/`deny` decisions or field decisions.
 
-### 4.1 عام
+### 4.1 Public
 
-- لا يتطلب تصريحاً أعلى من `public`، لكنه يبقى خاضعاً لحالة الحساب والقدرة والنطاق وحالة السجل وقرار Authorization.
-- يظهر في البحث والنتائج المجمعة فقط بعد قرار Authorization للسجل والحقول.
-- لا يُسجل الاطلاع في `SensitiveAccessEvent`.
-- يجوز مشاركته مع جهات خارج المنصة عبر القنوات المعتمدة.
+- Requires no clearance higher than `public`, but is still subject to account status, capability, scope, record status, and the Authorization decision.
+- Appears in search and aggregated results only after the Authorization decision for the record and its fields.
+- Views are NOT recorded in `SensitiveAccessEvent`.
+- May be shared with parties outside the platform through approved channels.
 
-### 4.2 داخلي
+### 4.2 Internal
 
-- يسمح Authorization بعرضه للمستخدمين داخل نفس الجهة أو في علاقة إشراف تحقق سياسته.
-- يصدر Authorization `deny` لمن ليس له نطاق أو علاقة صالحة.
-- لا يُسجل الاطلاع الروتيني في `SensitiveAccessEvent`.
-- التنزيل والتصدير يخضعان لقرار الوصول ويظهران في سجل النشاط.
+- Authorization permits display to users inside the same entity or under a supervision relationship whose policy verifies it.
+- Authorization issues `deny` for those without a valid scope or relationship.
+- Routine views are NOT recorded in `SensitiveAccessEvent`.
+- Download and export are subject to the access decision and appear in the activity log.
 
-### 4.3 سري
+### 4.3 Confidential
 
-- لا يظهر في نتائج البحث العامة، ولا في القوائم الافتراضية.
-- يحتاج تصريح `confidential` على الأقل؛ المشاركة الصريحة لا تتجاوز متطلب التصريح.
-- كل قراءة محتوى حساس مصنف `confidential` (سري) تُسجل في `SensitiveAccessEvent`.
-- التنزيل والتصدير يحتاجان قرار `export` منفصل ويُسجلان في التدقيق.
-- الطباعة تحتاج سياسة منفصلة وتُسجل في التدقيق عند التفعيل.
-- المستندات المصنفة `confidential` لا تُفهرس نصوصها الحساسة في محرك البحث.
+- Does not appear in general search results or in default lists.
+- Requires at least `confidential` clearance; explicit sharing does not exceed the clearance requirement.
+- Every view of sensitive content classified `confidential` is recorded in `SensitiveAccessEvent`.
+- Download and export require a separate `export` decision and are recorded in the audit log.
+- Printing requires a separate policy and is recorded in the audit log when activated.
+- Documents classified `confidential` are NOT indexed by their sensitive text in the search engine.
 
-### 4.4 سري للغاية
+### 4.4 Top Secret
 
-- لا يظهر في القوائم ولا في النتائج المجمعة.
-- يحتاج تصريح `top_secret` وقرار Authorization، ولا تُقبل المشاركة الصريحة لرفع التصريح.
-- كل قراءة أو تنزيل أو تصدير أو طباعة تسجل في `SensitiveAccessEvent` مع تفاصيل IP والجهاز.
-- يحق للسوبر أدمن الاطلاع مع تسجيل إلزامي وإشعار لمسؤول الأمن.
-- يحق للمستخدم طلب الاطلاع تحت مبدأ `break_glass` وفق إجراء منفصل.
-- المستندات المصنفة `top_secret` لا تُفهرس نصوصها ولا عناوينها الظاهرة في البحث.
+- Does not appear in lists or aggregated results.
+- Requires `top_secret` clearance and an Authorization decision; explicit sharing is not accepted to raise clearance.
+- Every view, download, export, or print is recorded in `SensitiveAccessEvent` with IP and device details.
+- The super admin may view with mandatory recording and notification to the security officer.
+- A user may request to view under a `break_glass` principle following a separate procedure.
+- Documents classified `top_secret` are NOT indexed by their text or their visible titles in search.
 
-## 5. تغيير التصنيف
+## 5. Changing Classification
 
-### 5.1 رفع التصنيف
+> **Status.** Raise/lower capabilities, `RecordClassification` history, and double approval are planned/policy and are not implemented as runtime mechanisms today.
 
-- يحتاج مستخدم واحد بصلاحية `classification.raise` على السجل أو نوع العمل.
-- يُسجل التغيير في `RecordClassification` ويحفظ التصنيف السابق.
-- يُمنع تجاوز التصنيف الأعلى المحدد في سياسة نوع العمل.
-- يُخطر مالك السجل ومن لديه حق قراءة التصنيف السابق.
+### 5.1 Raising Classification
 
-### 5.2 خفض التصنيف (Lowering) — موافقة مزدوجة إلزامية
+- Requires a single user with `classification.raise` on the record or work type.
+- The change is recorded in `RecordClassification` and the previous classification is preserved.
+- Exceeding the highest classification set in the work-type policy is prohibited.
+- The record owner and anyone who had the previous classification's read right are notified.
 
-يتطلب خفض التصنيف الشروط التالية مجتمعة:
+### 5.2 Lowering Classification — Mandatory Double Approval
 
-1. مستخدمان مختلفان على الأقل يحملان صلاحية `classification.lower` على السجل أو نوع العمل.
-2. لا يحق لأي منهما أن يكون المنشئ الأصلي للسجل.
-3. لا يحق لأي منهما أن يكون المالك الحالي للجهة المالكة للسجل.
-4. يُسجل المبرر الإلزامي في كل تغيير.
-5. يُحفظ التصنيفان السابق والجديد في `RecordClassification`.
-6. يُخطر مالك السجل والمستخدمون الذين خسروا حق القراءة بسبب الخفض.
-7. يُمنع الخفض إلى `public` أو `internal` على سجل يحوي بيانات شخصية غير روتينية دون موافقة خطية موثقة.
+Lowering classification requires all of the following conditions together:
 
-### 5.3 سجل تغيير التصنيف
+1. At least two distinct users holding `classification.lower` on the record or work type.
+2. Neither of them may be the original creator of the record.
+3. Neither of them may be the current owner of the record's owning entity.
+4. A mandatory justification is recorded for every change.
+5. Both the previous and new classification are preserved in `RecordClassification`.
+6. The record owner and users who lost read access because of the lowering are notified.
+7. Lowering to `public` or `internal` on a record containing non-routine personal data is prohibited without documented written approval.
 
-يُحفظ `RecordClassification` لكل تغيير مع:
+### 5.3 Classification Change Log
 
-- نوع التغيير: `initial`, `raise`, `lower`.
-- التصنيف السابق والحالي.
-- المنفذ والمعتمد الثاني عند الخفض.
-- الزمن والمبرر.
-- أثر التغيير على قائمة المستخدمين المتأثرين (دون أسماء).
+`RecordClassification` is preserved for every change with:
 
-## 6. علاقة التصنيف بحقول السجل
+- Change type: `initial`, `raise`, `lower`.
+- Previous and current classification.
+- The executor and the second approver on lowering.
+- Timestamp and justification.
+- Effect of the change on the affected user list (without names).
 
-- يمكن أن يكون تصنيف السجل مختلفاً عن تصنيف حقل فيه.
-- `field_policies` في `WorkTypeVersion` تحدد تصنيف كل حقل.
-- قرار `FieldDecision` يستخدم التصريح والتصنيف الأعلى للحقل.
-- لا يجوز تعديل سياسة حقل في سجل قائم إلا بنشر إصدار جديد من نوع العمل.
+## 6. Relationship Between Classification and Record Fields
 
-## 7. الحقول الافتراضية وتصنيفها
+- The classification of a record may differ from the classification of a field inside it.
+- `field_policies` in `WorkTypeVersion` define the classification of every field.
+- The `FieldDecision` uses the clearance and the highest classification for the field.
+- A field policy on an existing record may only be modified by publishing a new version of the work type.
 
-| الحقل | التصنيف الافتراضي |
+## 7. Default Fields and Their Classification
+
+| Field | Default classification |
 |---|---|
 | `Person.national_id` | `top_secret` |
 | `Person.date_of_birth` | `confidential` |
@@ -159,25 +164,25 @@ references:
 | `WorkRecord.payload.public_summary` | `public` |
 | `IndicatorMeasurement.value` | `internal` |
 | `IndicatorMeasurement.evidence_url` | `confidential` |
-| `Document.body` | يتبع تصنيف المستند |
+| `Document.body` | Follows the document classification |
 | `DocumentAccessEvent` | `confidential` |
 
-## 8. قواعد العرض والبحث والتقارير
+## 8. Display, Search, and Reporting Rules
 
-- تُخفي الواجهة أي حقل `hide` دون استثناء.
-- تُظهر الواجهة `read` و`edit` فقط عند نجاح قرار الوصول للحقل.
-- لا يعرض البحث عنواناً لسجل محظور، ولا مقتطفاً من حقل مصنف `confidential` أو `top_secret`.
-- لا تُضمَّن حقول `confidential` في النتائج المجمعة إلا بقدرة مستقلة ممنوحة.
-- التصدير يخضع لقرار منفصل ويُلحق بكل دفعة تصدير تجزئة الحقول.
+- The interface hides every `hide` field without exception.
+- The interface shows `read` and `edit` only on a successful access decision for the field.
+- Search does not display a title for a forbidden record, nor a snippet from a field classified `confidential` or `top_secret`.
+- `confidential` fields are NOT included in aggregated results except through an independently granted capability.
+- Export is subject to a separate decision and a hash of the fields is attached to every export batch.
 
-## 9. قواعد المستندات
+## 9. Document Rules
 
-- المستند يحمل تصنيفاً مستقلاً عن السجل المرتبط، ويطبق أشد القيود.
-- رفع إصدار جديد لا يغير تصنيف المستند دون تغيير صريح.
-- تخفيض تصنيف المستند يخضع للقسم 5.2.
-- المستند المصنف `confidential` أو `top_secret` يُخزن مشفراً على مستوى الكائن بمفتاح منفصل.
+- A document carries a classification independent of the linked record, and the stricter rules apply.
+- Publishing a new version does NOT change the document classification without an explicit change.
+- Lowering a document classification is subject to Section 5.2.
+- A document classified `confidential` or `top_secret` is stored encrypted at the object level with a separate key.
 
-## 10. مخطط ERD للتصنيف والتصريح
+## 10. ERD for Classification and Clearance
 
 ```mermaid
 erDiagram
@@ -206,55 +211,59 @@ erDiagram
     WORK_RECORD ||--o{ SENSITIVE_ACCESS_EVENT : "accessed"
 ```
 
-## 11. سيناريوهات مرجعية
+> The entities `RECORD_CLASSIFICATION_HISTORY`, `CLEARANCE_LEVEL`, `CLASSIFICATION_CHANGE`, and `FIELD_CLASSIFICATION` are part of the planned logical model and are not implemented in the verified schema.
 
-### 11.1 رفع تصنيف بعد إضافة معلومات حساسة
+## 11. Reference Scenarios
 
-1. يضيف المستخدم بيانات مالية إلى طلب.
-2. يطلب النظام رفع التصنيف إلى `confidential` (سري) تلقائياً بحسب السياسة.
-3. يحتاج موافقة مستخدم بصلاحية `classification.raise` للسجل.
-4. يُسجل التغيير ويُخطر المنشئ والمالك.
+### 11.1 Raising Classification After Adding Sensitive Information
 
-### 11.2 خفض تصنيف مع موافقة مزدوجة
+1. The user adds financial data to a request.
+2. The system requests raising the classification to `confidential` automatically per policy.
+3. Approval by a user with `classification.raise` for the record is required.
+4. The change is recorded and the creator and owner are notified.
 
-1. يطلب المستخدم A خفض تصنيف وثيقة من `confidential` (سري) إلى `internal` (داخلي).
-2. يصدر Authorization قرار `deny` لأن المستخدم A هو المنشئ.
-3. يطلب المستخدم B غير المنشئ بصلاحية `classification.lower` الخفض.
-4. يوافق المستخدم C بصلاحية `classification.lower` ومن خارج الجهة المالكة.
-5. يُسجل التغيير وتُخطر الأطراف المتأثرة.
+### 11.2 Lowering Classification With Double Approval
 
-### 11.3 محاولة مشاركة محتوى `top_secret` (سري للغاية)
+1. User A requests lowering the classification of a document from `confidential` to `internal`.
+2. Authorization issues a `deny` decision because user A is the creator.
+3. User B, who is not the creator, requests lowering with `classification.lower`.
+4. User C, with `classification.lower` and from outside the owning entity, approves.
+5. The change is recorded and the affected parties are notified.
 
-1. يحاول المستخدم مشاركة مستند مصنف `top_secret` مع مستخدم آخر.
-2. يصدر Authorization قرار `deny` لأن التصنيف يمنع المشاركة لرفع التصريح.
-3. يُسجل الرفض في التدقيق مع تفاصيل الطلب.
+### 11.3 Attempt to Share `top_secret` Content
 
-## 12. ملاحظات تنفيذية
+1. The user tries to share a document classified `top_secret` with another user.
+2. Authorization issues a `deny` decision because the classification prohibits sharing to raise clearance.
+3. The rejection is recorded in the audit log with the request details.
 
-- فهرس فريد على `RecordClassification.(record_type, record_id, current)` لضمان تصنيف واحد فعال.
-- تخزين تاريخي كامل في `RecordClassificationHistory` مع سياسة عدم تعديل بأثر رجعي.
-- اختبارات CI ترفض أي نشر `WorkTypeVersion` بحقل دون تصنيف.
-- تغييرات `ClearanceLevel` تخضع لإشعار فوري للمستخدم والسوبر أدمن.
-- تصنيف الحقول يُخزن في `FieldClassification` ويُحمل مع `WorkTypeVersion`.
-- لا يُسمح بإخفاء حقل `top_secret` في الواجهة فقط؛ القرار يحدث في الخلفية ويُسجل.
+## 12. Implementation Notes
 
-## 13. ضوابط التدقيق المرتبطة بالتصنيف
+> The notes in this section describe the *target* implementation. Items that depend on planned tables are marked accordingly.
 
-| الفعل | التصنيف الأدنى للتسجيل |
+- Unique index on `RecordClassification.(record_type, record_id, current)` to guarantee a single effective classification. *(Planned — table not present.)*
+- Full history in `RecordClassificationHistory` with a no-retroactive-modification policy. *(Planned — table not present.)*
+- CI tests reject any `WorkTypeVersion` publication with a field that has no classification.
+- `ClearanceLevel` changes are subject to immediate notification to the user and the super admin. *(Planned — table not present.)*
+- Field classification is stored in `FieldClassification` and is loaded with `WorkTypeVersion`. *(Planned — table not present.)*
+- Hiding a `top_secret` field in the interface only is not allowed; the decision happens server-side and is recorded.
+
+## 13. Audit Controls Related to Classification
+
+| Action | Minimum classification for recording |
 |---|---|
-| قراءة حقل | `confidential` |
-| تنزيل مستند | `confidential` |
-| تصدير سجل | `confidential` |
-| طباعة محتوى | `confidential` |
-| تغيير تصنيف | جميع التغييرات |
-| فتح المشاركة | `confidential` |
-| إلغاء مشاركة | `confidential` |
-| رفع/خفض تصنيف | جميع التغييرات |
-| عرض محتوى `top_secret` | `top_secret` |
+| Field read | `confidential` |
+| Document download | `confidential` |
+| Record export | `confidential` |
+| Content print | `confidential` |
+| Classification change | All changes |
+| Open sharing | `confidential` |
+| Cancel sharing | `confidential` |
+| Raise/lower classification | All changes |
+| View `top_secret` content | `top_secret` |
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 0.1.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء المسودة التنفيذية |
-| 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | توحيد رموز التصنيف إلى `public` و`internal` و`confidential` و`top_secret` وتطبيق ضبط الوثيقة |
+| 0.1.0 | 2026-07-15 | Information Security Officer | Initial executive draft |
+| 0.2.0 | 2026-07-15 | Information Security Officer | Unify the classification codes to `public`, `internal`, `confidential`, and `top_secret`, and apply document discipline |

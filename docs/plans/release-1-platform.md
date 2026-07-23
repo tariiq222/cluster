@@ -1,14 +1,14 @@
 ---
 doc_id: PLN-R1-001
-title: خطة R1 السريعة – منصة العمل الإداري
+title: R1 Fast Plan — Administrative Work Platform
 type: plans
 status: accepted
 version: 6.2.0
 date: 2026-07-19
-owner: التنفيذ التقني
+owner: Technical Implementation
 reviewers: []
 classification: internal
-review_cycle: يومياً حتى اكتمال R1
+review_cycle: daily until R1 completion
 sources:
 - docs/plans/active-delivery-status.md
 - docs/plans/implementation-roadmap.md
@@ -21,166 +21,189 @@ references:
 - docs/plans/release-1/w1-2-frontend-slices.md
 - docs/engineering/delivery-workflow.md
 ---
-# خطة R1 السريعة
+# R1 Fast Plan
 
-## الهدف
+## Goal
 
-إكمال منصة العمل الإداري من W1.3 حتى رحلة R1 المتكاملة خلال الأيام الثلاثة الأولى
-من خارطة الخمسة أيام. W1.1 وW1.2 منتهيتان ولا تدخلان في التقدير.
+Complete the administrative work platform from W1.3 through the integrated R1
+journey during the first three days of the five-day roadmap. W1.1 and W1.2 are
+finished and are not included in estimation.
 
-لا توجد مرحلة اعتماد أو UAT يدوي أو ملاك حزم. كل موجة هي vertical slice تنتهي
-بـAPI وواجهة واختبار حقيقي. أفعال المراجعة والموافقة داخل Workflow وظائف منتج
-قابلة للتهيئة، وليست بوابات بشرية على تطوير الكود.
+No approval stage, manual UAT, or package owners. Each wave is a vertical slice
+that ends with a real API, frontend, and test. The review and approval actions
+inside Workflow are configurable product features, not human gates on code
+development.
 
-## ما هو منجز
+## What Is Delivered
 
-| الموجة | الحالة | الدليل |
+| Wave | Status | Evidence |
 |---|---|---|
-| W1.1 Walking Skeleton | مكتملة | `make verify-w1-1` و`make verify-w1-1-local` |
-| W1.2 Organization + Identity + Import | مكتملة | `make verify-w1-2` و`infra/dev/run-w1-2-e2e.sh` |
+| W1.1 Walking Skeleton | Complete | `make verify-w1-1` and `make verify-w1-1-local` |
+| W1.2 Organization + Identity + Import | Complete | `make verify-w1-2` and `infra/dev/run-w1-2-e2e.sh` |
 
-W1.2 تشمل التجمع والمنشآت والوحدات والمناصب وPerson وIdentity والحسابات والتكليفات
-والاستيراد الموقّع المفحوص. لا يعاد فتح تفاصيل تخطيطها. رحلة R1 حتى W1.10 مكتملة
-وظيفياً، لكن الإقفال الأمني لـW1.3 مفتوح وفق
-`release-1/w1-3-frontend-slices.md` لأن محرك الأدوار الحقيقي لم يقطع محل fixture.
+W1.2 covers cluster, facilities, units, positions, Person, Identity, accounts,
+temporary assignments, and the signed-and-scanned import. Its planning details
+are not reopened. The R1 journey through W1.10 is functionally complete, but
+the W1.3 security closure remains open per
+`release-1/w1-3-frontend-slices.md` because the real role engine has not cut
+over from the fixture.
 
-## اليوم الأول: W1.3 Authorization
+## Day 1: W1.3 Authorization
 
-### المخرج
+### Output
 
-قرار وصول مركزي قابل للتفسير يستهلك حقائق Organization وIdentity ويطبق نفس النتيجة
-على الموارد والحقول. يبدأ اليوم بدمج الأعمال الموجودة في `work-1-3*` بدلاً من
-إعادة كتابتها.
+A central, explainable access decision that consumes Organization and Identity
+facts and applies the same outcome to resources and fields. The day starts by
+merging existing work in `work-1-3*` instead of rewriting it.
 
-### النطاق الضروري
+### Required Scope
 
-- Role وCapability وRoleAssignment وDelegation وExplicitDeny.
-- SupervisoryRelationship وRelationshipCapability بمدد زمنية.
-- ClassificationPolicy وFieldAccessTemplate وSensitiveAccessEvent.
-- `DecideAccess` و`ExplainAccessDecision` وفلترة النطاقات القابلة للقراءة.
-- API لإدارة التعيينات والعلاقات والسياسات بالحد الأدنى، وصفحة React واحدة للإدارة
-  والتفسير.
+- Role, Capability, RoleAssignment, Delegation, and ExplicitDeny.
+- SupervisoryRelationship and RelationshipCapability with time bounds.
+- ClassificationPolicy, FieldAccessTemplate, and SensitiveAccessEvent.
+- `DecideAccess`, `ExplainAccessDecision`, and read-scope filtering.
+- Minimum API for managing assignments, relationships, and policies, plus a
+  single React page for administration and explanation.
 
-### القبول الآلي
+### Automated Acceptance
 
-- موظف منشأة لا يقرأ أو يبحث أو يصدّر بيانات منشأة أخرى.
-- المنع الصريح والتصنيف الأعلى يتغلبان على السماح العام.
-- انتهاء الدور أو العلاقة أو التفويض يسحب الأثر دون حذف التاريخ.
-- قرار الحقل hidden/readonly/editable يطبق في الاستجابة والكتابة.
-- الوصول الحساس يسجل append-only بلا PII في log.
-- لا FK أو join بين Authorization وOrganization أو Identity.
+- A facility employee cannot read, search, or export another facility's data.
+- Explicit deny and higher classification override general allow.
+- Role, relationship, or delegation expiration withdraws the effect without
+  deleting history.
+- The hidden/readonly/editable field decision is applied in response and
+  write.
+- Sensitive access is logged append-only without PII.
+- No FK or join between Authorization and Organization or Identity.
 
-### الإغلاق
+### Closure
 
-اختبارات Authorization وOrganization المستهدفة، `make verify-boundaries`، بناء Web،
-ورحلة E2E واحدة تثبت السماح والمنع والتفسير. لا يعد هذا الإغلاق نهائياً إلا إذا
-كانت الرحلة تستخدم جلسة الإنتاج ومحرك `RbacAbacDecideAccess` وتثبت أن منح الدور
-وسحبه والتفويض والمنع الصريح وسياسة الحقول تغير API والبحث والتقرير والتنزيل نفسه.
+The targeted Authorization and Organization tests, `make verify-boundaries`,
+the Web build, and a single E2E journey that proves allow, deny, and
+explanation. This closure is not final unless the journey uses the production
+session and the `RbacAbacDecideAccess` engine, and proves that role granting,
+revocation, delegation, explicit deny, and field policy change the API, search,
+report, and download in the same way.
 
-## اليوم الثاني: W1.4–W1.7 دورة العمل
+## Day 2: W1.4–W1.7 Work Cycle
 
-تنفذ أربع حزم مستقلة بالتوازي ثم تدمج في رحلة واحدة.
+Four independent packages run in parallel, then merge into one journey.
 
 ### W1.4 WorkDefinitions
 
-- تعريف نوع عمل وحقوله ونموذجه وقائمة عرضه.
-- Draft ثم Published immutable، وتثبيت الإصدار على السجلات الجارية.
-- تعطيل الحقل بدلاً من حذف بياناته، وفحص توافق قبل النشر.
-- حزمة تعريف قابلة للتصدير والاستيراد بلا بيانات أو أسرار.
+- A work type with its fields, model, and display list.
+- Draft then Published immutable, and the version pinned to in-flight records.
+- Field disabling instead of data deletion, and compatibility check before
+  publish.
+- A definition bundle exportable and importable without data or secrets.
 
-القبول: إنشاء نوع من React ونشر إصدار ثانٍ دون تغيير سجل مثبت على الإصدار الأول.
+Acceptance: create a type from React and publish a second version without
+changing a record pinned to the first version.
 
 ### W1.5 Workflow
 
-- WorkflowDefinition وWorkflowVersion وInstance وStepInstance وDecision.
-- الحد الأدنى: start، end، review، approve، reject، return، task، wait، condition.
-- resolved actor من capability أو relationship، ومسار بديل عند غيابه.
-- إصدار المسار immutable ومثبت على المعاملة، مع Outbox وidempotency.
+- WorkflowDefinition, WorkflowVersion, Instance, StepInstance, and Decision.
+- Minimum: start, end, review, approve, reject, return, task, wait, and
+  condition.
+- Resolved actor from capability or relationship, and a fallback path when
+  absent.
+- Immutable path version pinned to the transaction, with Outbox and idempotency.
 
-القبول: إرسال طلب، انتقاله، إعادته للتعديل أو رفضه، واستمرار معاملة قديمة على
-نسختها بعد نشر نسخة جديدة.
+Acceptance: submit a request, advance it, return it for edit or reject it, and
+keep an old transaction on its version after a new version is published.
 
-الأنماط المتقدمة مثل الأغلبية والنصاب والدمج المتوازي لا تعطل R1؛ تضاف بعد الرحلة
-الأساسية إذا بقي وقت.
+Advanced patterns like majority, quorum, and parallel merge do not block R1;
+they are added after the core journey if time remains.
 
 ### W1.6 WorkRecords
 
-- `request` يبقى نوعاً منشوراً، لا موديول طلبات منفصل.
-- Draft وSubmitted وInProgress وReturned وRejected وCompleted.
-- RecordParticipant وRecordRelation وRecordActivity داخل WorkRecords.
-- قائمة «طلباتي» وصندوق الوحدة وربط اختياري بمهمة ومستند.
+- `request` remains a published type, not a separate request module.
+- Draft, Submitted, InProgress, Returned, Rejected, and Completed.
+- RecordParticipant, RecordRelation, and RecordActivity inside WorkRecords.
+- A "My Requests" list, a unit inbox, and optional task and document links.
 
-القبول: طلب داخل منشأة وطلب بين جهتين يمران من الإنشاء إلى الإغلاق مع العزل
-والنشاط وOutbox في المعاملة نفسها.
+Acceptance: an intra-facility request and an inter-unit request pass from
+creation to closure with isolation, activity, and Outbox in the same
+transaction.
 
 ### W1.7 Tasks
 
-- مهمة بمسؤول ومشاركين وتعليق ومنشن ونشاط، مستقلة أو مرتبطة بسجل.
-- الإسناد يخضع لـ`DecideAccess`، والمنشن لا يغير المسؤولية.
-- حالات Open وInProgress وBlocked وDone وCancelled.
+- A task with owner, participants, comment, mention, and activity, standalone
+  or linked to a record.
+- Assignment is subject to `DecideAccess`, and mention does not change
+  responsibility.
+- States: Open, InProgress, Blocked, Done, and Cancelled.
 
-القبول: مهمة تنشأ من خطوة Workflow، تظهر للمسؤول، ويغلق اكتمالها الخطوة المنتظرة.
+Acceptance: a task created from a Workflow step appears to the owner, and its
+completion closes the awaited step.
 
-### إغلاق اليوم الثاني
+### Day 2 Closure
 
-رحلة React واحدة: إنشاء تعريف ومسار، نشرهما، إنشاء طلب، إنشاء مهمة، ثم إغلاق الطلب.
-تغطي الاختبارات ثبات الإصدارات والعزل وOutbox وإعادة التسليم.
+A single React journey: create a definition and a path, publish both, create a
+request, create a task, then close the request. Tests cover version stability,
+isolation, Outbox, and reassignment.
 
-## اليوم الثالث: W1.8–W1.10 إكمال R1
+## Day 3: W1.8–W1.10 Completing R1
 
 ### W1.8 Documents + Notifications
 
-- ملف بإصدار وchecksum وتصنيف، يمر عبر quarantine والفحص قبل الإتاحة.
-- صلاحية المستند لا تتجاوز المورد المرتبط، والتنزيل الحساس يسجل.
-- إشعارات مشتقة من Outbox مع Inbox وDLQ ومنع التكرار.
+- A file with version, checksum, and classification, passing through quarantine
+  and scanning before availability.
+- Document permission does not exceed the linked resource, and sensitive
+  download is logged.
+- Notifications derived from Outbox with inbox, DLQ, and duplicate prevention.
 
-القبول: ملف سليم يصبح متاحاً، ملف مرفوض يبقى محجوراً، وفشل عامل الإشعار لا يفقد
-الحدث ولا يكرر الإشعار.
+Acceptance: a clean file becomes available, a rejected file stays quarantined,
+and a notification worker failure does not lose the event or duplicate the
+notification.
 
 ### W1.9 Search + Reporting + Dashboard
 
-- فهرس مشتق لا ينسخ حقولاً حساسة خاماً.
-- البحث والتقرير والتصدير والتنزيل تستخدم `DecideAccess` نفسه.
-- Read Models قابلة لإعادة البناء، ولوحة واحدة تتكيف مع الدور والنطاق.
+- A derived index that does not copy raw sensitive fields.
+- Search, report, export, and download use the same `DecideAccess`.
+- Read models are rebuildable, and one board adapts to the role and scope.
 
-القبول: لا يظهر حتى عنوان مورد غير مسموح، وتغيير النطاق يغير نتائج البحث واللوحة،
-وإعادة بناء Read Model تعيد النتيجة نفسها.
+Acceptance: not even the title of a forbidden resource appears, changing scope
+changes search and board results, and rebuilding the read model yields the same
+result.
 
-### W1.10 القبول الآلي {#w1-10}
+### W1.10 Automated Acceptance {#w1-10}
 
-لا بيئة UAT ولا مراجعين. ينشأ seed ممثل ويشغل الاختبار الرحلة التالية بالعربية
-والإنجليزية:
+No UAT environment and no reviewers. A representative seed is created and the
+journey runs the following in Arabic and English:
 
-1. تسجيل الدخول واختيار النطاق.
-2. إنشاء نوع ومسار ونشرهما.
-3. إنشاء طلب وإرساله وإعادته ثم إكماله.
-4. إنشاء مهمة وإرفاق مستند واستلام إشعار.
-5. البحث عن الطلب وظهوره في التقرير واللوحة ضمن النطاق فقط.
+1. Login and scope selection.
+2. Create a type and a path and publish both.
+3. Create a request, submit it, return it, then complete it.
+4. Create a task, attach a document, and receive a notification.
+5. Search for the request and see it in the report and board within the scope
+   only.
 
-الإغلاق: API وWeb وE2E والحدود والتحليل والبناء خضراء على revision واحد.
+Closure: API, Web, E2E, boundaries, analysis, and build are green on a single
+revision.
 
-## خارج R1 السريع
+## Outside R1 Fast
 
-- التكاملات الخارجية والبريد وSMS وOCR والتوقيع الإلكتروني.
-- محررات no-code متقدمة أو عشرات قوالب العرض.
-- تصويت Workflow المعقد واللوحات المتخصصة لكل دور.
-- تدريب المستخدمين والبيانات الحقيقية والنشر الفعلي؛ هذه أعمال تشغيل بعد اكتمال
-  النظام ولا تعطل R2.
+- External integrations, mail, SMS, OCR, and electronic signatures.
+- Advanced no-code editors or dozens of display templates.
+- Complex Workflow voting and specialized boards per role.
+- User training, real data, and actual deployment; these are post-system
+  operations and do not block R2.
 
-## تعريف اكتمال R1
+## Definition of R1 Completion
 
-- W1.3–W1.9 تعمل كرحلة واحدة، لا كقوالب منفصلة.
-- اختبار W1.10 المتكامل أخضر بالعربية RTL والإنجليزية LTR.
-- التفويض والبحث والتقارير والملفات لا تسرب بيانات بين النطاقات.
-- العقود والحدود وOutbox وثبات الإصدارات مثبتة بالاختبارات.
-- يسجل revision ونتيجة اليوم الثالث في حالة التسليم.
+- W1.3–W1.9 work as one journey, not separate templates.
+- The integrated W1.10 test is green in Arabic RTL and English LTR.
+- Authorization, search, reports, and files do not leak data across scopes.
+- Contracts, boundaries, Outbox, and version stability are proven by tests.
+- The revision and Day 3 result are recorded in the active delivery status.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | التغيير |
+| Version | Date | Change |
 |---|---|---|
-| 6.2.0 | 2026-07-19 | الحفاظ على إقفال رحلة R1 الوظيفية مع إعادة فتح W1.3 أمنياً حتى قطع محرك fixture وتطبيق الأدوار والسياسات على كل المستهلكين |
-| 6.1.0 | 2026-07-19 | تنفيذ W1.8–W1.10: مستندات وإشعارات وSearch/Reporting/Dashboard ورحلة قبول RTL/LTR |
-| 6.0.0 | 2026-07-19 | تحويل بقية R1 إلى ثلاثة أيام وإزالة الاعتمادات البشرية وUAT والتفاصيل غير اللازمة للرحلة الأساسية |
-| 5.2.0 | 2026-07-18 | تثبيت W1.2 كمكتملة محلياً |
-| 5.0.0 | 2026-07-17 | إغلاق W1.1 محلياً |
+| 6.2.0 | 2026-07-19 | Keep the functional R1 journey closed while reopening W1.3 on security until the fixture engine is cut over and roles and policies are applied to every consumer |
+| 6.1.0 | 2026-07-19 | Execute W1.8–W1.10: documents, notifications, Search/Reporting/Dashboard, and RTL/LTR acceptance journey |
+| 6.0.0 | 2026-07-19 | Convert the rest of R1 to three days and drop human approvals, UAT, and detail not needed for the core journey |
+| 5.2.0 | 2026-07-18 | Pin W1.2 as complete locally |
+| 5.0.0 | 2026-07-17 | Close W1.1 locally |

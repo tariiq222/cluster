@@ -1,16 +1,16 @@
 ---
 doc_id: ARC-EN-002
-title: الشرائح الرأسية داخل الموديولات
+title: Vertical Slices Within Modules
 type: engineering
 status: draft
 version: 1.0.0
 date: 2026-07-15
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: With every change
 sources:
 - docs/architecture/dependency-rules.md
 - docs/adr/002-module-first-vertical-slices.md
@@ -18,47 +18,52 @@ references:
 - docs/architecture/overview.md
 - docs/engineering/coding-and-module-boundaries.md
 ---
-# الشرائح الرأسية داخل الموديولات
 
-## القاعدة
+> **PARTIALLY IMPLEMENTED.** The repository currently contains 12 module directories. Seven R2/R3 names are planned boundaries only, and events are feature-scoped where present rather than a root-level directory shared by every module.
+# Vertical Slices Within Modules
 
-التطبيق Modular Monolith. الموديول هو حد الملكية الأعلى؛ والـSlice حالة استخدام واحدة داخله. لا تنشأ طبقات تطبيقية عامة تجمع كود موديولات مختلفة.
+## Rule
+
+The application is a modular monolith. A module is the highest ownership boundary, and a slice is one use case within it. Do not create general application layers that combine code from different modules.
+
+The common implemented layout is:
 
 ```text
 Modules/<Module>/
-├── Domain/                 # قواعد واتساق الموديول المشتركة
-├── Contracts/              # DTOs وواجهات منشورة فقط
-├── Events/                 # أحداث صادرة بإصدار معلوم
-├── Infrastructure/         # التخزين والمحولات الخاصة بالمالك
-└── Features/<BusinessVerb>/ # Slice واحدة
-    ├── Command|Query
-    ├── Handler
-    ├── Http
-    └── Tests
+├── Contracts/                       # Published DTOs and interfaces only
+├── Domain/                          # Shared module rules and consistency
+├── Features/<BusinessVerb>/         # One use-case slice
+├── Infrastructure/
+│   └── Persistence/Migrations/      # Owner-specific storage changes
+└── Tests/                           # Module-level tests
 ```
 
-## قواعد الـSlice
+Some implemented modules also have root-level `Http/` or `Exceptions/` directories. Events are feature-scoped where present; the current repository does not have a common root-level `Events/` directory in every module.
 
-1. الاسم فعل ونتيجة أعمال مثل `SubmitWorkRecord` أو `ApproveMilestone`، وليس اسم طبقة مثل `RecordService`.
-2. Slice الكتابة تتحقق من الإدخال والصلاحية، تنفذ invariant في `Domain`، وتحفظ الحقيقة وOutbox في المعاملة نفسها.
-3. مالك الـHandler الذي يبدأ الكتابة هو مالك المعاملة؛ لا تفتح العقود المتزامنة معاملة مستقلة ولا تنفذ `commit`.
-4. Slice القراءة تعيد DTO أو View ثابتاً، وتطبق النطاق وقرار الحقول قبل الإخراج. لا تعيد ORM model.
-5. يستهلك الموديول الآخر عقداً أو حدثاً أو Read Model؛ لا يستورد تفاصيل Slice أو Domain أو Infrastructure للموديول المالك.
-6. تتطابق Feature الواجهة مع حالة الاستخدام، ولا تقرر صلاحية حساسة في المتصفح.
+The 12 implemented module directories are `Authorization`, `Documents`, `Identity`, `Notifications`, `Organization`, `PlatformSettings`, `Reporting`, `Search`, `Tasks`, `WorkDefinitions`, `WorkRecords`, and `Workflow`. Names reserved for later releases are planned boundaries, not implemented module directories.
 
-## معيار الاكتمال
+## Slice Rules
 
-تعد الـSlice مكتملة عند وجود نتيجة أعمال قابلة للعرض، اختبار نجاح وفشل الصلاحية وinvariant، عقد API أو event متوافق، اختبار حدود معماري، وتحديث الترحيل أو الإسقاط عند الحاجة.
+1. Name the slice for a business action and outcome, such as `SubmitWorkRecord` or `ApproveMilestone`, not for a layer such as `RecordService`.
+2. A write slice validates input and authorization, enforces its invariant in `Domain`, and saves the business fact and Outbox record in the same transaction.
+3. The Handler that starts the write owns the transaction. Synchronous contracts must not open an independent transaction or call `commit`.
+4. A read slice returns a stable DTO or View and applies scope and field decisions before output. It must not return an ORM model.
+5. Another module consumes a contract, event, or Read Model. It must not import the owning module's slice, Domain, or Infrastructure details.
+6. A frontend Feature corresponds to the use case and must not decide sensitive authorization in the browser.
 
-## ممنوعات
+## Completion Standard
 
-- `CommonHandler` أو Repository عام أو Workflow عام بلا استخدامين مستقرين على الأقل.
-- وضع قرار مجال في Controller أو React أو Job.
-- استخدام الحدث كأمر مخفي؛ الحدث يصف حقيقة تمت فقط.
-- جعل Search أو Reporting مصدر الحقيقة.
+A slice is complete when it produces a visible business outcome, includes success and failure tests for authorization and invariants, exposes a compatible API contract or event, satisfies the architectural boundary checks, and updates its migration or projection when needed.
 
-## سجل التغيير
+## Prohibited Patterns
 
-| الإصدار | التاريخ | الدور | التغيير |
+- A `CommonHandler`, generic Repository, or generic Workflow without at least two stable consumers.
+- A domain decision in a Controller, React component, or Job.
+- Using an event as a hidden command; an event describes only a fact that has already occurred.
+- Making Search or Reporting the source of truth.
+
+## Change Log
+
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول هندسة البرمجيات | توثيق قواعد الشرائح التنفيذية |
+| 1.0.0 | 2026-07-15 | Software Engineering Lead | Documented implementation rules for vertical slices |

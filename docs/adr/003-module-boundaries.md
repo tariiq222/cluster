@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-003
-title: حدود الموديولات وملكية البيانات
+title: Module Boundaries and Data Ownership
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: العقود والبيانات بين الموديولات
+- Platform Architecture Council
+scope: Module contracts and data
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -25,28 +25,28 @@ related_adrs:
 - ADR-011
 review_by: 2027-01-15
 ---
-# ADR-003: حدود الموديولات وملكية البيانات
+# ADR-003:    
 ## Context
-تحتاج الموديولات قدرات مشتركة من دون تشابك جداول أو دورات اعتماد.
+          .
 ## Drivers
-حماية الملكية، استقلال التغيير، وإمكان الفصل اللاحق.
+      .
 ## Decision
-كل حقيقة وجداولها وترحيلاتها يملكها موديول واحد؛ الاعتماد DAG عبر DTOs أو أحداث أو Projection Feeds.
+        DAG  DTOs    Projection Feeds.
 ## Scope
-لا SQL أو ORM أو joins عابرة للموديولات؛ المراجع بمعرفات وعقود ثابتة.
+ SQL  ORM  joins      .
 ## Alternatives
-رُفضت قاعدة بيانات مشتركة بلا ملكية وواجهات تعيد نماذج ORM.
+         ORM.
 ## Consequences
-تزداد العقود والإسقاطات، وينخفض التشابك.
+    .
 ## Security
-يحظر الوصول المباشر لبيانات موديول آخر ويقلل الإفصاح.
+       .
 ## Operations
-تملك كل وحدة ترحيلاتها وإعادة بناء إسقاطاتها.
+      .
 ## Rollback
-تتبع تغييرات العقود ترحيلاً متوافقاً قبل إزالة العقد السابق.
+        .
 ## Enforcement
-فحوص DAG وملكية الجداول وcontract tests في CI.
+ DAG   contract tests  CI.
 ## Review
-عند إضافة موديول أو نقل حقيقة بين الموديولات.
+       .
 ## References
-`docs/architecture/module-catalog.md`، `docs/architecture/context-map.md`.
+`docs/architecture/module-catalog.md` `docs/architecture/context-map.md`.

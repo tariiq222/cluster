@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-005
-title: WorkRecords والبيانات الديناميكية
+title: WorkRecords  
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: تعريف وتشغيل الأعمال الإدارية
+- Platform Architecture Council
+scope:    
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -24,28 +24,28 @@ related_adrs:
 - ADR-021
 review_by: 2027-01-15
 ---
-# ADR-005: WorkRecords والبيانات الديناميكية
+# ADR-005: WorkRecords  
 ## Context
-تحتاج المنصة أنواع أعمال قابلة للتعريف دون كود مع تقارير وصلاحيات قابلة للتنفيذ.
+            .
 ## Drivers
-المرونة، سلامة الإصدارات، وفهرسة الحقول المهمة.
+     .
 ## Decision
-الطلب العام هو `WorkRecord` فقط، لا `Requests` module/table/events؛ النموذج Envelope علائقي وpayload مرتبط بإصدار تعريف منشور وإسقاطات typed.
+   `WorkRecord`   `Requests` module/table/events  Envelope  payload      typed.
 ## Scope
-ينطبق على الأعمال الديناميكية، لا على المجالات المتخصصة ذات النموذج الثابت.
+          .
 ## Alternatives
-رُفض EAV العام وJSON فقط وجدول أو Aggregate باسم Requests.
+ EAV  JSON    Aggregate  Requests.
 ## Consequences
-يلزم إسقاطات وترحيل إصدارات محكوم، وتبقى التقارير فعالة.
+       .
 ## Security
-يحمل الـEnvelope المالك والتصنيف والحالة ويدعم `RecordFacts` وصلاحية الحقل.
+ Envelope     `RecordFacts`  .
 ## Operations
-تراقب إعادة بناء الإسقاطات وتعالج تعارض الكتابة بـ`lock_version`.
+       `lock_version`.
 ## Rollback
-لا يغير سجل جارٍ إصداره بصمت؛ يعكس النشر بإيقاف الإصدار لا بحذف قيمه.
+            .
 ## Enforcement
-فحوص تمنع `Request*` وتتحقق من تثبيت الإصدار وoptimistic locking.
+  `Request*`     optimistic locking.
 ## Review
-عند ظهور حاجة ثابتة متخصصة تستدعي موديولاً مستقلاً.
+       .
 ## References
-`docs/domain/work-records.md`، `docs/architecture/overview.md`.
+`docs/domain/work-records.md` `docs/architecture/overview.md`.

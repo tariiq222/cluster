@@ -1,9 +1,9 @@
 flowchart TB
-    USERS["المستخدمون"]
+    USERS["Users"]
     DNS["DNS"]
     FW["VPS Firewall<br/>80/443 + restricted SSH"]
 
-    subgraph VPS["VPS واحد"]
+    subgraph VPS["Single VPS"]
         subgraph COMPOSE["Docker Compose"]
             CADDY["Caddy"]
             WEB["React / Nginx"]

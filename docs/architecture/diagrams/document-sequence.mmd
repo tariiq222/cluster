@@ -1,5 +1,5 @@
 sequenceDiagram
-    actor User as المستخدم
+    actor User as User
     participant UI as React Shell
     participant Owner as Owning Module
     participant Doc as Documents
@@ -8,7 +8,7 @@ sequenceDiagram
     participant Audit as Audit
     participant Outbox as Transactional Outbox
 
-    User->>UI: رفع مستند إلى سجل عمل
+    User->>UI: Upload document to a work record
     UI->>Owner: UploadDocument command
     Owner->>Doc: CreateDocument(metadata, classification, record_ref)
     Doc->>Owner: GetAuthorizationRecordFacts(record_ref)
@@ -29,7 +29,7 @@ sequenceDiagram
         Owner-->>UI: Access denied
     end
 
-    User->>UI: تنزيل مستند
+    User->>UI: Download document
     UI->>Owner: GetDocument(id)
     Owner->>Doc: AuthorizeDocumentDownload(actor, document, record_ref)
     Doc->>Doc: Load DocumentFacts and enumerate all active links

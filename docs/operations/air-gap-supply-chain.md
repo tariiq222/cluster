@@ -1,61 +1,71 @@
 ---
 doc_id: OPS-SC-001
-title: سلسلة توريد الصور والتحديثات للخادم الداخلي
+title: Image and Update Supply Chain for the Internal Host
 type: operations
-status: proposed
+status: accepted
 version: 2.0.0
 date: 2026-07-16
-owner: مسؤول العمليات
+owner: Operations Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources:
 - docs/adr/023-single-host-dokploy-deployment.md
 - docs/architecture/overview.md
 references:
 - docs/governance/assumptions-constraints.md
 - docs/data-security/threat-model.md
-- docs/operations/kubernetes-platform.md
+- docs/architecture/docker-compose-platform.md
 ---
-# سلسلة توريد الصور والتحديثات للخادم الداخلي
+# Image and Update Supply Chain for the Internal Host
 
-> احتُفظ باسم الملف التاريخي لاستقرار الروابط. البيئة ليست Air-gap مؤسسية، ولا تشترط مرايا حزم أو registry داخلياً ما لم تفرضه البنية الفعلية لاحقاً.
+> The filename is kept for historical link stability. The environment is not
+> a corporate air gap, and it does not require package mirrors or an internal
+> registry unless the actual environment later imposes them.
 
-## المبدأ
+## Principle
 
-تبنى الاعتماديات من lockfiles، وتنتج صورة OCI ثابتة يمكن نسبها إلى Git revision. يسمح لمسار البناء والتحديث بالوصول إلى مصادر معتمدة، بينما لا تنزل حاوية الإنتاج حزماً عند بدء التشغيل ولا تعتمد الواجهة على CDN أو scripts عامة.
+Dependencies are built from lockfiles, producing a fixed OCI image that can
+be traced to a Git revision. The build and update path may reach approved
+sources, but production containers do not download packages at start-up,
+and the user-facing surface depends on no public CDN or public scripts.
 
-## تدفق الإصدار
+## Release flow
 
-1. يراجع التغيير وlockfiles ونتائج الاختبارات وفحص الأسرار والثغرات.
-2. تبنى صور Laravel وReact من Dockerfiles وlockfiles.
-3. يتحقق Compose وتنفذ migration ثم healthchecks.
-4. يسجل commit المنشور ويحتفظ بآخر commit معروف بالصحة للرجوع.
+1. The change, lockfiles, test results, secret scan, and vulnerability scan
+   are reviewed.
+2. Laravel and React images are built from the Dockerfiles and lockfiles.
+3. Compose is validated, migrations run, then healthchecks execute.
+4. The deployed commit is recorded and the last known-good commit is kept
+   for rollback.
 
-## الضوابط
+## Controls
 
-- لا تعتمد الحاويات على `latest` أو تنزيل حزم عند بدء خدمة المستخدم.
-- لا يحتوي Git أو image أو logs على أسرار.
-- لا تنفذ `composer install` أو `npm install` أو image pull غير متوقع داخل حاوية بدأت لخدمة المستخدم.
-- تراجع الثغرات والتراخيص قبل الإصدار.
-- لا يكون Docker socket متاحاً لمسار المستخدم.
-- يسجل تحديث Docker والصور ضمن نافذة صيانة وخطة رجوع.
+- Containers never depend on `latest` or download packages at user-service
+  start.
+- Git, images, and logs contain no secrets.
+- Production containers never run `composer install`, `npm install`, or
+  unexpected image pulls after they have started serving users.
+- Vulnerabilities and licenses are reviewed before release.
+- The Docker socket is not reachable from the user path.
+- Docker and image updates are scheduled inside a maintenance window with a
+  documented rollback plan.
 
-## دليل القبول لكل إصدار
+## Per-release acceptance evidence
 
-| الدليل | شرط القبول |
+| Evidence | Acceptance condition |
 |---|---|
-| Git commit | محدد ونجح CI عليه |
-| Compose | صالح ومتوافق مع متغيرات البيئة |
-| اختبارات وفحص | لا فشل أو استثناء غير معتمد يمنع النشر |
-| نشر VPS | `make deploy-vps` وhealthchecks ناجحة |
-| رجوع | commit سابق معروف بالصحة ومجرب |
+| Git commit | Pinned, and CI passed on it |
+| Compose | Valid and compatible with the environment variables |
+| Tests and scans | No failure or unapproved exception blocks the release |
+| VPS deploy | `make deploy-vps` with successful healthchecks |
+| Rollback | A previous known-good commit is available and rehearsed |
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول العمليات | إنشاء ضوابط سلسلة التوريد المعزولة |
-| 2.0.0 | 2026-07-16 | مالك المنصة | تحويل الضوابط إلى سلسلة تحديث Dokploy لخادم داخلي متصل بشكل مقيد |
+| 1.0.0 | 2026-07-15 | Operations Lead | Initial isolated supply-chain controls |
+| 2.0.0 | 2026-07-16 | Platform Owner | Repositioned the controls as the update supply chain for a single internal host with restricted connectivity |

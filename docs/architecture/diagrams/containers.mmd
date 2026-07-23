@@ -1,7 +1,7 @@
 flowchart TB
-    USER(["المستخدم"])
+    USER(["User"])
 
-    subgraph VPS["VPS واحد"]
+    subgraph VPS["Single VPS"]
         subgraph COMPOSE["Docker Compose"]
             CADDY["Caddy / HTTPS"]
             WEB["React / Nginx"]

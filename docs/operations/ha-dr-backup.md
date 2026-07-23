@@ -1,16 +1,16 @@
 ---
 doc_id: OPS-DR-001
-title: التوافر العالي والتعافي والنسخ الاحتياطي
+title: Recovery and Backup
 type: operations
-status: proposed
-version: 1.0.0
-date: 2026-07-15
-owner: مسؤول العمليات
+status: accepted
+version: 1.1.0
+date: 2026-07-16
+owner: Operations Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources:
 - docs/adr/023-single-host-dokploy-deployment.md
 - docs/architecture/overview.md
@@ -18,45 +18,74 @@ references:
 - docs/data-security/threat-model.md
 - docs/operations/runbooks.md
 ---
-# التوافر العالي والتعافي والنسخ الاحتياطي
+# Recovery and Backup
 
-## الأهداف الملزمة
+> **NOT IMPLEMENTED.** No backup or PITR scripts exist in the repository.
+> `PLATFORM_BACKUP_COMMAND` (and `PLATFORM_RESTORE_VALIDATION_COMMAND`) are
+> read by `apps/api/config/platform_operations.php` but no executor, scheduler,
+> or backup script implements them. The RPO `<= 15 min` and RTO `<= 2 h`
+> targets stated below are **aspirational** until scripts exist.
 
-| الهدف | القيمة | التحقق |
+## Binding objectives
+
+| Objective | Value | Verification |
 |---|---|---|
-| RPO | `<= 15 دقيقة` | آخر نقطة بيانات قابلة للاستعادة في التمرين |
-| RTO | `<= ساعتين` | من إعلان الكارثة إلى تحقق الخدمة |
-| اختبار الاستعادة | ربع سنوي | محضر، قياسات، فجوات وخطة علاج |
+| RPO | `<= 15 minutes` | Latest restorable data point in the exercise |
+| RTO | `<= 2 hours` | From disaster declaration to service recovery |
+| Restore exercise | Quarterly | Minutes, measurements, gaps, and a remediation plan |
 
-## حدود التوافر
+## Availability limits
 
-يعمل المنتج على VPS واحد عبر Docker Compose مباشر. لا توجد HA على مستوى المضيف؛ فشل الخادم يوقف الخدمة إلى أن يُستعاد الهدف أو تُنقل الحزمة إلى هدف بديل. تقتصر الحماية داخل الخادم على healthchecks ومراقبة السعة. لا يعامل Redis أو الفهرس كنسخة وحيدة من بيانات الأعمال.
+The product runs on a single VPS through Docker Compose. There is no
+host-level high availability; a host failure halts the service until the
+target is restored or the bundle is moved to a replacement. The only
+in-host protection is healthchecks and capacity monitoring. Redis and the
+search index are not treated as the sole copy of business data.
 
-## النسخ والاحتفاظ
+## Backups and retention
 
-- تلتقط مهمة MySQL على الـVPS نسخاً كاملة وincremental أو binlog بما يتيح PITR ضمن RPO.
-- ترسل النسخ إلى هدف مستقل عن الخادم ومشفر، بحساب ومفاتيح وصول منفصلة عن التطبيق.
-- يطبق الهدف الخارجي احتفاظاً immutable أو WORM متى كان متاحاً، مع توثيق البديل إن لم يتوفر.
-- تدقق checksums والتوقيعات بعد النسخ وقبل الاستعادة. فشل أي تحقق ينبه ولا يعد النسخ ناجحاً.
-- مدد الاحتفاظ التفصيلية وlegal hold تخضع لوثائق حوكمة البيانات ولا تستبدلها هذه الوثيقة.
+- A MySQL job on the VPS takes full and incremental backups or binlog copies
+  sufficient for PITR within the RPO.
+- Backups are sent to a target that is independent of the host and encrypted,
+  with an account and access keys separate from the application.
+- The external target applies immutable or WORM retention when available; the
+  fallback is documented when it is not.
+- Checksums and signatures are verified after backup and before restore. Any
+  verification failure raises an alert and the backup is not considered
+  successful.
+- Detailed retention periods and legal hold are governed by the data
+  governance documents; this document does not override them.
 
-## تسلسل التعافي
+## Recovery sequence
 
-1. يعلن قائد الحادث مستوى التعافي، ويمنع أي كتابة إضافية عند الحاجة.
-2. يحدد آخر backup سليم ووقت PITR المطلوب، ويوثق وقت البداية وأصحاب الموافقة.
-3. تستعاد MySQL إلى هدف منفصل أو شبكة معزولة، ثم تتحقق سلامة البيانات والتطبيق وقياس الفقد.
-4. تستعاد الملفات المتوافقة مع نقطة البيانات، ثم تعاد الفهارس والإسقاطات من مصادر الحقيقة عند الحاجة.
-5. يقرر قائد الحادث العودة للخدمة بعد فحص health وقيود الوصول والوظائف الحرجة.
-6. يقاس RPO/RTO الفعليان، وتفتح معالجة لأي إخفاق أو تجاوز.
+1. The incident commander declares the recovery level and blocks further
+   writes when required.
+2. The team identifies the last good backup and the required PITR time, and
+   records the start time and approvers.
+3. MySQL is restored to a separate target or an isolated network. Data,
+   application integrity, and the loss window are measured.
+4. Files consistent with the data point are restored, then indexes and
+   projections are rebuilt from sources of truth when needed.
+5. The incident commander decides on returning to service after health,
+   access controls, and critical functions are verified.
+6. Actual RPO/RTO are measured, and remediation is opened for any failure or
+   breach.
 
-لا تستعاد نسخة مباشرة فوق الإنتاج قبل تحققها في بيئة معزولة، إلا إذا وثق قائد الحادث أن ذلك غير ممكن وأن التأخير يهدد RTO.
+A backup is not restored directly over production without verification in an
+isolated environment, unless the incident commander documents that this is
+impossible and the delay would threaten RTO.
 
-## اختبار ربع سنوي
+## Quarterly exercise
 
-يشمل التمرين استعادة MySQL إلى نقطة زمنية، عينة ملفات، تشغيل حزمة Compose على هدف منفصل، تحقق مسار API والتدقيق، وقياس RPO/RTO. يحفظ الدليل دون بيانات حساسة ويشمل النسخة المختبرة والنتائج والانحرافات. تظل قيمتا RPO/RTO هدفَي تحقق؛ لا تعنيان توافراً مستمراً عند فشل الخادم.
+The exercise includes a point-in-time MySQL restore, a sample of files,
+running the Compose bundle on a separate target, verifying the API and audit
+paths, and measuring RPO/RTO. Evidence is kept without sensitive data and
+covers the tested backup, the results, and any deviations. The RPO and RTO
+values remain targets to be demonstrated; they do not imply continuous
+availability when the host fails.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.1.0 | 2026-07-16 | مسؤول العمليات | استبدال HA العنقودية بتعافٍ خارج الخادم وفق ADR-023 |
+| 1.1.0 | 2026-07-16 | Operations Lead | Replaced clustered high availability with off-host recovery under ADR-023 |

@@ -1,16 +1,16 @@
 ---
 doc_id: SEC-CL-002
-title: أمن الملفات
+title: File Security
 type: data-security
 status: draft
 version: 0.2.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Officer
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/architecture/module-catalog.md
@@ -23,458 +23,499 @@ references:
 - docs/data-security/identity-session-security.md
 - docs/data-security/audit-and-privacy.md
 ---
-# أمن الملفات
+# File Security
 
-## 1. الغرض والنطاق
+## 1. Purpose and Scope
 
-تحدد هذه الوثيقة السياسة الأمنية الكاملة لإدارة الملفات داخل المنصة الإدارية للتجمع الصحي الثالث، وتشمل:
+This document defines the complete security policy for file management inside the administrative platform of the Third Health Cluster, covering:
 
-- الحجر الفوري عند الاستلام fail-closed.
-- التحقق من السلامة Checksum.
-- فحص البرمجيات الخبيثة Antivirus.
-- كشف قنابل الضغط Zip Bomb.
-- السياسة الأشد للروابط المتعددة Multi-link والـHard links والـSymlinks.
-- تخزين غير قابل للتعديل.
-- تطبيق سياسة الحقل على كل عملية وصول.
+- Immediate fail-closed quarantine on receipt.
+- Checksum integrity verification.
+- Antivirus scanning.
+- Zip Bomb detection.
+- Most-restrictive policy for Multi-link, Hard links, and Symlinks.
+- Immutable storage.
+- Field-level policy enforcement on every access.
 
-المنصة غير سريرية. الملفات المرفوعة ملفات إدارية مرتبطة بسجلات أعمال (طلبات، عقود، محاضر، قرارات، مستندات مشاريع). لا تستقبل ملفات طبية أو سجلات مرضى.
+The platform is non-clinical. Uploaded files are administrative documents linked to business records (requests, contracts, minutes, decisions, project documents). It does not receive medical files or patient records.
 
-## 2. مبادئ أمن الملفات
+## 2. File Security Principles
 
-- **الحجر إلزامي قبل الإتاحة.** كل ملف يُرفع يدخل الحجر ولا يصبح متاحاً إلا بعد اجتياز كل الفحوصات. الحجر fail-closed: أي فشل في الفحص يبقي الملف محجوراً ولا يُتاح أبداً.
-- **عدم الثقة بالمرفوع.** كل ملف يُعامل كمرفوع غير موثوق حتى يثبت العكس.
-- **التخزين غير قابل للتعديل.** بعد اجتياز الفحص، يصبح كائن التخزين غير قابل للتعديل. كل تغيير يتطلب إصداراً جديداً وسجل جديد.
-- **الأشد بين السجل والمستند.** المستند المرتبط بسجل يطبق أشد قيود السجل أو المستند، ولا يرث وصولاً أوسع تلقائياً.
-- **الفصل بين حسابات الخدمة.** كل حساب خدمة (رفع، تحميل، فحص، حذف) بصلاحيات مستقلة ومقيدة.
-- **عدم بقاء بيانات حساسة على الأجهزة.** لا يُسمح بوضع Offline يحوي محتوى سري. التحميل يتطلب جلسة فعالة وصلاحية.
-- **العزل المادي للحجر.** منطقة الحجر معزولة عن منطقة الإتاحة، ولا يقرأ منها التطبيق مباشرة.
+- **Quarantine is mandatory before availability.** Every uploaded file enters quarantine and only becomes available after passing all checks. Quarantine is fail-closed: any check failure keeps the file quarantined and never makes it available.
+- **Trust nothing uploaded.** Every file is treated as untrusted until proven otherwise.
+- **Immutable storage.** Once checks pass, the storage object becomes immutable. Any change requires a new version and a new record.
+- **Most restrictive between record and document.** A document linked to a record applies the most restrictive of the record's or document's constraints, and does not automatically inherit wider access.
+- **Service-account separation.** Each service account (upload, download, scan, delete) has independent, restricted permissions.
+- **No sensitive data on devices.** Offline copies containing confidential content are not allowed. Download requires an active session and authorization.
+- **Physical isolation of quarantine.** The quarantine zone is isolated from the availability zone, and the application never reads directly from it.
 
-## 3. نموذج البيانات للملفات
 
-### 3.1 الكيانات
+## 3. File Data Model
 
-#### 3.1.1 `Document`
+This section describes the canonical entity model for files. The implemented Document storage model in `apps/api/Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php` is authoritative; columns listed here match that schema. Planned controls are marked **PLANNED**.
 
-| الحقل | النوع | القيد | الوصف |
+### 3.1 Entities
+
+#### 3.1.1 `documents` (table) — `Document`
+
+| Column | Type | Constraint | Description |
 |---|---|---|---|
-| `document_id` | UUID | PK | معرف المستند |
-| `owner_organization_unit_id` | UUID | إلزامي | الجهة المالكة |
-| `created_by_user_id` | UUID | إلزامي | المنشئ |
-| `classification` | enum | إلزامي | public, internal, confidential, top_secret |
-| `current_version_id` | UUID | إلزامي | الإصدار النشط |
-| `status` | enum | إلزامي | quarantine, available, rejected, archived |
-| `retention_until` | timestamp | إلزامي | نهاية الصلاحية |
-| `legal_hold` | boolean | إلزامي | حجز قانوني |
-| `created_at` | timestamp | إلزامي | لحظة الإنشاء |
+| `id` | UUID | PK | Document id (`document_id`) |
+| `public_id` | UUID | unique | Public identifier exposed to clients |
+| `owner_organization_unit_id` | UUID | indexed | Owning org unit |
+| `created_by_user_id` | UUID | indexed | Creator |
+| `name` | string | required | Document name |
+| `description` | text | nullable | Optional description |
+| `classification` | string(24) | indexed | public, internal, confidential, top_secret |
+| `status` | string(24) | indexed | draft, active, archived, held, rejected |
+| `current_version_id` | UUID | nullable | Active version |
+| `retention_until` | timestamp(3) | nullable | Retention expiry (PLANNED scheduler) |
+| `retention_policy_key` | string(128) | nullable | Retention policy key (PLANNED) |
+| `legal_hold` | boolean | indexed, default false | Legal hold flag |
+| `legal_hold_reason` | string(1000) | nullable | Legal hold reason |
+| `legal_hold_at` | timestamp(3) | nullable | Legal hold timestamp |
+| `lock_version` | unsigned int | default 1 | Optimistic concurrency token |
+| `created_at`, `updated_at` | timestamps | required | Lifecycle timestamps |
 
-#### 3.1.2 `DocumentVersion`
+#### 3.1.2 `document_versions` (table) — `DocumentVersion`
 
-| الحقل | النوع | القيد | الوصف |
+| Column | Type | Constraint | Description |
 |---|---|---|---|
-| `version_id` | UUID | PK | معرف الإصدار |
-| `document_id` | UUID | FK | المستند |
-| `version_no` | int | إلزامي، فريد ضمن المستند | رقم الإصدار |
-| `mime_type` | string | إلزامي | النوع المكتشف |
-| `declared_mime_type` | string | اختياري | النوع المُعلن من الرافع |
-| `size_bytes` | bigint | إلزامي | الحجم الفعلي |
-| `sha256` | string | إلزامي، فريد | Hash المحتوى |
-| `blake3` | string | اختياري | Hash ثانوي للتحقق |
-| `storage_object_id` | UUID | إلزامي | كائن التخزين |
-| `uploaded_by_user_id` | UUID | إلزامي | من رفع الإصدار |
-| `uploaded_at` | timestamp | إلزامي | لحظة الرفع |
-| `scan_status` | enum | إلزامي | pending, scanning, clean, infected, failed, rejected |
-| `scan_completed_at` | timestamp | اختياري | لحظة اكتمال الفحص |
-| `available_at` | timestamp | اختياري | لحظة الإتاحة بعد الفحص |
+| `id` | UUID | PK | Version id (`version_id`) |
+| `public_id` | UUID | unique | Public identifier |
+| `document_id` | UUID | FK -> documents, cascadeOnDelete | Document |
+| `storage_object_id` | UUID | FK -> document_storage_objects, restrictOnDelete | Storage object |
+| `version_number` | unsigned int | unique per document | Version number (`version_no`) |
+| `original_filename` | string | required | Original filename |
+| `declared_mime_type` | string(128) | required | MIME declared by uploader |
+| `detected_mime_type` | string(128) | nullable | MIME detected by scanner (`mime_type`) |
+| `size_bytes` | unsigned bigint | required | Actual size |
+| `sha256` | char(64) | nullable, indexed | Content hash — **nullable** during quarantine until hashing completes |
+| `scan_status` | string(24) | indexed | pending, scanning, clean, infected, failed |
+| `availability_status` | string(24) | indexed | uploading, quarantined, promotion_pending, available, rejected, missing |
+| `scan_engine_version` | string(128) | nullable | Scanner engine + signature version |
+| `scan_result` | JSON | nullable | Scanner structured result payload (`scan_result` JSON) |
+| `scanned_at` | timestamp(3) | nullable | Scan completion timestamp (`scan_completed_at`) |
+| `available_at` | timestamp(3) | nullable | Promotion to available timestamp |
+| `created_by_user_id` | UUID | indexed | Uploader |
+| `created_at`, `updated_at` | timestamps | required | Lifecycle timestamps |
 
-#### 3.1.3 `StorageObject`
+> **Drift correction.** Earlier revisions described BLAKE3, a strictly required/unique `sha256`, and `scan_status` values `rejected`. The implemented schema stores `sha256` as nullable (filled after hashing), exposes a JSON `scan_result` instead of separate `av_*` columns, and exposes scan status as a `DocumentScanStatus` enum with `pending, scanning, clean, infected, failed`. Availability is tracked in a separate `availability_status` column.
 
-| الحقل | النوع | القيد | الوصف |
+#### 3.1.3 `document_storage_objects` (table) — `StorageObject`
+
+| Column | Type | Constraint | Description |
 |---|---|---|---|
-| `storage_object_id` | UUID | PK | معرف كائن التخزين |
-| `sha256` | string | إلزامي، فريد | المحتوى |
-| `size_bytes` | bigint | إلزامي | الحجم |
-| `storage_path` | string | إلزامي، فريد | المسار داخل Object Storage |
-| `storage_class` | enum | إلزامي | quarantine, available, archive |
-| `encryption_key_id` | string | إلزامي | معرف مفتاح KMS |
-| `created_at` | timestamp | إلزامي | لحظة الكتابة |
-| `immutable` | boolean | إلزامي | هل هو قابل للتعديل |
-| `immutable_since` | timestamp | اختياري | لحظة تحوّله غير قابل للتعديل |
+| `id` | UUID | PK | Storage object id (`storage_object_id`) |
+| `disk` | string(64) | required | Object storage disk name |
+| `object_key` | string(512) | unique | Path inside object storage (`storage_path`) |
+| `storage_class` | string(24) | indexed | quarantine, available, archive |
+| `immutable` | boolean | default false | Whether object is immutable |
+| `immutable_since` | timestamp(3) | nullable | When object became immutable |
+| `created_at`, `updated_at` | timestamps | required | Lifecycle timestamps |
 
-#### 3.1.4 `QuarantineRecord`
+> **Drift correction.** The schema does not store `sha256`, `size_bytes`, or `encryption_key_id` on storage objects; the content hash lives on the version row, and KMS key handling is performed by the private object storage contract (`PrivateObjectStorage`).
 
-| الحقل | النوع | القيد | الوصف |
+#### 3.1.4 `document_quarantines` (table) — `QuarantineRecord`
+
+| Column | Type | Constraint | Description |
 |---|---|---|---|
-| `quarantine_id` | UUID | PK | معرف سجل الحجر |
-| `version_id` | UUID | FK | الإصدار |
-| `received_at` | timestamp | إلزامي | لحظة الاستلام |
-| `received_from_ip` | string | إلزامي | IP داخلي للرافع |
-| `checksum_verified` | boolean | إلزامي | نتيجة فحص التطابق |
-| `mime_verified` | boolean | إلزامي | نتيجة فحص النوع |
-| `mime_detected` | string | إلزامي | النوع المكتشف |
-| `mime_declared` | string | اختياري | النوع المُعلن |
-| `av_scanner` | string | إلزامي | المحرك المستخدم |
-| `av_signature_version` | string | إلزامي | إصدار التوقيعات |
-| `av_result` | enum | إلزامي | clean, infected, error, timeout |
-| `av_completed_at` | timestamp | اختياري | لحظة انتهاء الفحص |
-| `decompression_ratio` | decimal | اختياري | نسبة الضغط |
-| `uncompressed_total_bytes` | bigint | اختياري | الحجم بعد فك الضغط |
-| `embedded_files_count` | int | اختياري | عدد الملفات المضمنة |
-| `symlink_detected` | boolean | إلزامي | اكتشاف symlink |
-| `hardlink_detected` | boolean | إلزامي | اكتشاف hardlink |
-| `multi_link_score` | int | إلزامي | درجة الشك في الروابط المتعددة |
-| `policy_verdict` | enum | إلزامي | allowed, blocked, quarantined_hard |
-| `block_reason` | text | اختياري | سبب المنع |
-| `reviewed_by_user_id` | UUID | اختياري | من راجع يدوياً |
+| `id` | UUID | PK | Quarantine id (`quarantine_id`) |
+| `document_version_id` | UUID | FK -> document_versions, cascadeOnDelete | Version |
+| `storage_object_id` | UUID | FK -> document_storage_objects, restrictOnDelete | Storage object |
+| `upload_intent_id` | UUID | FK -> document_upload_intents, cascadeOnDelete | Originating upload intent |
+| `sha256_verified` | boolean | default false | Hash matches content (PLANNED boolean verification) |
+| `size_verified` | boolean | default false | Size matches declared size (PLANNED boolean verification) |
+| `mime_verified` | boolean | default false | MIME matches allowed list (PLANNED boolean verification) |
+| `detected_mime_type` | string(128) | nullable | MIME detected by scanner |
+| `scan_engine` | string(128) | nullable | Scanner engine used (`av_scanner`) |
+| `scan_signature_version` | string(128) | nullable | Signature version (`av_signature_version`) |
+| `scanner_outcome` | string(24) | nullable | clean, infected, error, timeout — stored here, not on `DocumentVersion` |
+| `policy_verdict` | string(24) | indexed | allowed, blocked, quarantined_hard |
+| `failure_codes` | JSON | nullable | Structured failure codes (replaces `block_reason` text) |
+| `scanned_at` | timestamp(3) | nullable | Scan completion timestamp |
+| `created_at`, `updated_at` | timestamps | required | Lifecycle timestamps |
 
-#### 3.1.5 `DocumentLink`
+> **Drift correction.** The earlier schema listed `received_at`, `received_from_ip`, `checksum_verified`, `mime_verified`, `av_result`, `av_completed_at`, `decompression_ratio`, `uncompressed_total_bytes`, `embedded_files_count`, `symlink_detected`, `hardlink_detected`, `multi_link_score`, `block_reason`, and `reviewed_by_user_id`. None of those columns exist in the implemented migration. The implemented quarantine record exposes only the **boolean SHA-256 / size / MIME verification fields**, the JSON `scan_result` payload via the version row, and a string `policy_verdict`. Decompression, link, and ratio signals described elsewhere in this document are **PLANNED** and not stored as columns today.
 
-| الحقل | النوع | القيد | الوصف |
+#### 3.1.5 `DocumentLink` (PLANNED)
+
+Linking a document to a business record is a planned control; no `document_links` migration exists in the verified modules. The conceptual model is documented here for future implementation:
+
+| Column | Type | Constraint | Description |
 |---|---|---|---|
-| `link_id` | UUID | PK | معرف الربط |
-| `document_id` | UUID | FK | المستند |
-| `target_type` | string | إلزامي | نوع الكيان |
-| `target_id` | string | إلزامي | معرف الكيان |
-| `link_type` | enum | إلزامي | attached, referenced, evidence |
-| `created_by_user_id` | UUID | إلزامي | المنشئ |
-| `created_at` | timestamp | إلزامي | لحظة الربط |
+| `link_id` | UUID | PK | Link id |
+| `document_id` | UUID | FK | Document |
+| `target_type` | string | required | Entity type |
+| `target_id` | string | required | Entity id |
+| `link_type` | enum | required | attached, referenced, evidence |
+| `created_by_user_id` | UUID | required | Creator |
+| `created_at` | timestamp | required | Link timestamp |
 
-#### 3.1.6 `DocumentAccessEvent`
+#### 3.1.6 `DocumentAccessEvent` (PLANNED)
 
-| الحقل | النوع | القيد | الوصف |
+| Column | Type | Constraint | Description |
 |---|---|---|---|
-| `event_id` | UUID | PK | الحدث |
-| `document_id` | UUID | FK | المستند |
-| `version_id` | UUID | FK | الإصدار |
-| `actor_user_id` | UUID | إلزامي | الفاعل |
-| `action` | enum | إلزامي | view, download, link, unlink |
-| `occurred_at` | timestamp(6) | إلزامي | اللحظة |
-| `actor_ip` | string | إلزامي | IP داخلي |
-| `user_agent` | string | اختياري | المتصفح |
-| `outcome` | enum | إلزامي | allowed, denied؛ نسخة تدقيق من نتيجة Authorization وليست قراراً يصدره Documents |
+| `event_id` | UUID | PK | Event id |
+| `document_id` | UUID | FK | Document |
+| `version_id` | UUID | FK | Version |
+| `actor_user_id` | UUID | required | Actor |
+| `action` | enum | required | view, download, link, unlink |
+| `occurred_at` | timestamp(6) | required | Event time |
+| `actor_ip` | string | required | Internal IP |
+| `user_agent` | string | nullable | Browser |
+| `outcome` | enum | required | allowed, denied; an audit copy of the Authorization outcome — not a decision issued by Documents |
 
-## 4. تدفق الملفات
+### 3.2 Upload-intent and outbox tables (implemented)
 
-### 4.1 الرفع
+The upload pipeline persists two additional tables that earlier revisions did not model:
 
-1. يبدأ المستخدم رفع ملف من خلال نقطة نهاية `POST /documents/upload`.
-2. يستدعي API خدمة الرفع `UploadDocument`.
-3. يُسجَّل رفع في `audit_events` بنوع `document.upload.initiated`.
-4. يكتب API محتوى الملف في مخزن الحجر بمسار مؤقت `quarantine/{uuid}.blob`.
-5. يحسب API `sha256` و`blake3` ويُسجَّل الحجم.
-6. يكتب `DocumentVersion` بحالة `scan_status=pending`.
-7. يكتب `QuarantineRecord` بنتيجة `policy_verdict=quarantined_hard` افتراضياً.
-8. يُدرج الفحص في طابور `document_scan_queue` ويعود 202 Accepted للعميل.
+#### 3.2.1 `document_upload_intents`
 
-### 4.2 الفحص
-
-1. العامل يستهلك من `document_scan_queue`.
-2. يحسب `decompression_ratio` و`uncompressed_total_bytes`.
-3. يفحص نوع MIME الحقيقي (Content-Type sniffing) ويقارنه مع المُعلن.
-4. يفحص الروابط المتعددة والـSymlinks والـHard links وفق السياسة الأشد.
-5. يفحص المحتوى باستخدام محرك AV موقّع داخلياً.
-6. يحدّث `QuarantineRecord` بنتائج الفحص.
-7. يحدّث `DocumentVersion.scan_status`.
-
-### 4.3 قرار الإتاحة
-
-الملف يصبح متاحاً فقط عند تحقق كل الشروط:
-
-| الشرط | التحقق |
-|---|---|
-| تطابق الـHash مع المحتوى | فحص ثنائي على SHA-256 وBLAKE3 |
-| نوع MIME مسموح في السياسات | قائمة بيضاء بحسب `work_type_version` |
-| الفحص نظيف | `av_result=clean` و`policy_verdict=allowed` |
-| نسبة الضغط ضمن الحدود | `decompression_ratio ≤ 100` و`uncompressed_total_bytes ≤ 500 MB` |
-| لا روابط متعددة مشبوهة | `multi_link_score ≤ 5` و`symlink_detected=false` و`hardlink_detected=false` |
-| حجم الملف ضمن الحدود | `size_bytes ≤ 200 MB` افتراضي، قابل للضبط بنوع العمل |
-
-عند تحقق كل الشروط:
-
-1. يُنقل كائن التخزين من الحجر إلى الإتاحة (نسخ مع حذف الأصلي).
-2. يُحدَّث `StorageObject.storage_class=available` و`immutable=true`.
-3. يُحدَّث `DocumentVersion.scan_status=clean` و`available_at`.
-4. يُحدَّث `Document.status=available`.
-5. يُسجَّل الحدث `document.scan.passed` في التدقيق.
-
-### 4.4 الفشل
-
-عند فشل أي شرط:
-
-1. يبقى `StorageObject.storage_class=quarantine` و`immutable=true`.
-2. يُحدَّث `DocumentVersion.scan_status=infected|failed|rejected`.
-3. يُحدَّث `Document.status=quarantine` أو `rejected`.
-4. يُسجَّل الحدث `document.scan.failed` مع `block_reason`.
-5. يُنبه السوبر أدمن عند تكرار الرفع من نفس المصدر.
-6. لا يُتاح الملف أبداً عبر واجهة API.
-
-## 5. سياسة الأنواع MIME
-
-### 5.1 القائمة البيضاء الافتراضية
-
-| الفئة | الأنواع المسموحة |
-|---|---|
-| مستندات | `application/pdf`, `application/msword`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document` |
-| جداول | `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` |
-| عروض | `application/vnd.ms-powerpoint`, `application/vnd.openxmlformats-officedocument.presentationml.presentation` |
-| صور | `image/png`, `image/jpeg`, `image/tiff` |
-| نصوص | `text/plain`, `text/csv`, `text/markdown` |
-| أرشيفات | `application/zip`, `application/x-7z-compressed`, `application/x-rar-compressed`, `application/x-tar`, `application/gzip` |
-
-### 5.2 الأنواع الممنوعة
-
-- كل ما يحوي تنفيذ: `.exe`, `.bat`, `.cmd`, `.sh`, `.ps1`, `.jar`, `.msi`.
-- الماكرو: `application/vnd.ms-excel.sheet.macroEnabled.12`.
-- السكريبت المضمّن: `text/html`, `application/xhtml+xml`.
-- الاختصارات: `.lnk`, `.url`.
-
-### 5.3 التحقق المزدوج
-
-- فحص النوع المُعلن في الـHeader.
-- فحص النوع الحقيقي من خلال Content sniffing (أول 4096 بايت).
-- إذا اختلف النوعان، يعتمد النوع المكتشف فقط.
-- رفض الملف عند اختلاف النوعين وكان المكتشف خارج القائمة البيضاء.
-
-## 6. سياسة Zip Bomb
-
-### 6.1 حدود الفك
-
-| البند | القيمة الافتراضية | قابل للضبط بنوع العمل |
+| Column | Type | Description |
 |---|---|---|
-| نسبة الضغط القصوى | 100:1 | نعم |
-| الحجم الإجمالي غير المضغوط | 500 MB | نعم |
-| عمق التداخل | 5 مستويات | لا |
-| عدد الملفات في الأرشيف | 10,000 | نعم |
-| الحجم المسموح للأرشيف الواحد | 200 MB | نعم |
+| `id` | UUID | Intent id |
+| `document_id` | UUID | Target document |
+| `document_version_id` | UUID | Target version |
+| `storage_object_id` | UUID | Reserved storage object |
+| `expires_at` | timestamp(3) | Intent expiry |
+| `completed_at` | timestamp(3) | Completion timestamp |
+| `signed_intent_payload` | encrypted text | Encrypted signed-upload contract |
+| `created_at`, `updated_at` | timestamps | Lifecycle timestamps |
 
-### 6.2 آلية الفحص
+#### 3.2.2 `document_outbox_events`
 
-1. يُفتح الأرشيف في وضع streaming بدون كتابة كاملة على القرص.
-2. تُقرأ كل إدخال مع حساب الحجم التراكمي.
-3. تُحسب نسبة الضغط مقارنة بحجم الإدخال المضغوط.
-4. إذا تجاوز الحجم التراكمي أو نسبة الضغط، يُرفض الأرشيف فوراً.
-5. يُسجَّل في `QuarantineRecord` القيم المرصودة قبل الرفض.
+| Column | Type | Description |
+|---|---|---|
+| `id` | UUID | Event id |
+| `aggregate_id` | UUID | Aggregate id (document or version) |
+| `event_type` | string(128) | `document.outbox.*` event type |
+| `payload` | JSON | Event payload |
+| `occurred_at` | timestamp(3) | Event time |
+| `published_at` | timestamp(3) | Publishing timestamp |
+| `created_at`, `updated_at` | timestamps | Lifecycle timestamps |
 
-### 6.3 الاختبارات
+> **Drift correction.** No `document_scan_queue` table exists. Scanner work is driven by the upload-intent lifecycle and persisted outbox events, not by a dedicated scan queue.
+
+## 4. File Flow
+
+### 4.1 Upload (intake)
+
+The intake flow is **intent-based** and runs through `DocumentUploadHandler`. `POST /documents/upload` does not queue a scan and return 202 directly; it reserves a storage object, persists a `document_upload_intents` row, returns a signed upload URL, and waits for the client to call the completion endpoint:
+
+1. The user starts an upload through the documents intake endpoint.
+2. The API calls `InitiateDocumentUpload` (`UploadDocument` feature) which reserves a `document_storage_objects` row and creates a `document_versions` row with `scan_status=pending` and `availability_status=uploading`.
+3. The API persists a `document_upload_intents` row bound to the new version and storage object, with an `expires_at` deadline.
+4. The API returns a signed upload intent (URL + headers) so the client can PUT the blob directly to private object storage; the API does **not** return 202 with a queue position.
+5. The scanner runs from the intake/outbox pipeline rather than a dedicated `document_scan_queue` table.
+6. The client completes the upload by calling the completion operation; `CompleteDocumentUpload` flips `document_upload_intents.completed_at` and records the outbox event.
+7. The scanner computes SHA-256 (nullable until hashing completes), verifies size, and verifies MIME via the `MalwareScanner` contract, persisting results to `document_quarantines` with `policy_verdict=quarantined_hard` until promotion.
+8. On clean verdict the version is promoted: `availability_status=available`, `scan_status=clean`, `available_at` is set, and a `document_outbox_events` row is emitted.
+
+> **Drift correction.** Earlier revisions asserted `POST /documents/upload` directly queued a scan and returned 202, computed BLAKE3, and used `document_scan_queue`. None of those steps match the implemented upload-intent/completion flow.
+
+### 4.2 Scanning
+
+1. The scanner resolves the in-flight upload intent from `document_upload_intents`.
+2. It hashes the received bytes and fills the version's nullable `sha256` column.
+3. It records size and MIME verification booleans (`sha256_verified`, `size_verified`, `mime_verified`) on `document_quarantines`.
+4. It detects the real MIME (content sniffing) and compares it to the declared MIME.
+5. It runs the multi-link / symlink / hardlink policy checks (PLANNED — not yet backed by stored columns).
+6. It scans the content using the internal AV engine through the `MalwareScanner` contract and writes the structured `scan_result` JSON plus the `scan_engine_version` on the version row.
+7. It updates `document_quarantines.policy_verdict` (defaults to `quarantined_hard` until promotion) and `document_versions.scan_status`.
+
+### 4.3 Availability Decision
+
+A version becomes `available` only when **all** of the following conditions hold:
+
+| Condition | Verification |
+|---|---|
+| SHA-256 hash matches the content | `document_quarantines.sha256_verified = true` |
+| MIME type is policy-allowed | `document_quarantines.mime_verified = true` |
+| Scanner is clean | `scanner_outcome = clean` and `policy_verdict = allowed` |
+| Decompression ratio within limits | **PLANNED** — `decompression_ratio ≤ 100` and `uncompressed_total_bytes ≤ 500 MB` (not stored today) |
+| No suspicious multi-link findings | **PLANNED** — `multi_link_score ≤ 5` with `symlink_detected=false` and `hardlink_detected=false` (not stored today) |
+| File size within limits | `size_bytes ≤ 200 MB` default, configurable per `work_type_version` |
+
+When every condition holds:
+
+1. The version row is promoted to `availability_status = available`; `scan_status = clean`; `available_at` is set.
+2. `document_quarantines.policy_verdict` is set to `allowed`.
+3. `document_storage_objects.immutable` is set to `true` and `immutable_since` is recorded.
+4. `document_outbox_events` emits `document.scan.passed`.
+
+### 4.4 Failure
+
+When any condition fails:
+
+1. `document_storage_objects.immutable` is set to `true` (the object stays in `quarantine`).
+2. `document_versions.scan_status` is set to `infected`, `failed`, or as the scanner dictates.
+3. `document_versions.availability_status` is set to `quarantined` or `rejected`.
+4. `document_quarantines.policy_verdict` is set to `blocked` and `failure_codes` is populated.
+5. `document_outbox_events` emits `document.scan.failed`.
+6. Super-admin is notified on repeated uploads from the same source.
+7. The file is never exposed through the API.
+
+## 5. MIME Type Policy
+
+### 5.1 Default Allow-list
+
+| Category | Allowed Types |
+|---|---|
+| Documents | `application/pdf`, `application/msword`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document` |
+| Spreadsheets | `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` |
+| Presentations | `application/vnd.ms-powerpoint`, `application/vnd.openxmlformats-officedocument.presentationml.presentation` |
+| Images | `image/png`, `image/jpeg`, `image/tiff` |
+| Text | `text/plain`, `text/csv`, `text/markdown` |
+| Archives | `application/zip`, `application/x-7z-compressed`, `application/x-rar-compressed`, `application/x-tar`, `application/gzip` |
+
+### 5.2 Disallowed Types
+
+- Anything containing executables: `.exe`, `.bat`, `.cmd`, `.sh`, `.ps1`, `.jar`, `.msi`.
+- Macros: `application/vnd.ms-excel.sheet.macroEnabled.12`.
+- Embedded scripts: `text/html`, `application/xhtml+xml`.
+- Shortcuts: `.lnk`, `.url`.
+
+### 5.3 Double Verification
+
+- Verify the declared MIME in the request header.
+- Verify the real MIME via content sniffing (first 4096 bytes).
+- If the two disagree, only the detected MIME is used.
+- Reject the file when the two disagree and the detected MIME is outside the allow-list.
+
+## 6. Zip Bomb Policy
+
+### 6.1 Decompression Limits
+
+| Item | Default Value | Configurable per Work Type |
+|---|---|---|
+| Maximum compression ratio | 100:1 | Yes |
+| Total uncompressed size | 500 MB | Yes |
+| Nesting depth | 5 levels | No |
+| Files per archive | 10,000 | Yes |
+| Single archive size | 200 MB | Yes |
+
+### 6.2 Scanning Mechanism
+
+1. Open the archive in streaming mode without writing it fully to disk.
+2. Read each entry while accumulating the running size.
+3. Compute the compression ratio against each compressed entry size.
+4. If the cumulative size or the compression ratio exceeds the limit, reject the archive immediately.
+5. Record the observed values on `document_quarantines` (PLANNED — the current schema does not store ratio/bytes columns; the failure must be persisted in `failure_codes`).
+
+### 6.3 Tests
 
 - `FileSecurityTest::zip_bomb_with_high_ratio_is_blocked`
 - `FileSecurityTest::nested_archives_with_cumulative_size_blocked`
 - `FileSecurityTest::archive_with_too_many_files_blocked`
 - `FileSecurityTest::decompression_does_not_exhaust_memory`
 
-## 7. سياسة الروابط المتعددة والـSymlinks (الأشد)
+## 7. Multi-link and Symlink Policy (Most Restrictive)
 
-### 7.1 القواعد
+### 7.1 Rules
 
-| النوع | الإجراء | السبب |
+| Type | Action | Reason |
 |---|---|---|
-| Symbolic link داخل الأرشيف | ممنوع مطلقاً | يمكن أن يشير لمسارات حساسة |
-| Symbolic link داخل ملف PDF/DOCX | ممنوع مطلقاً | مخاطر تنفيذ |
-| Hard link داخل الأرشيف | ممنوع مطلقاً | قد يشير لملفات النظام |
-| Hard link بين StorageObjects | ممنوع مطلقاً | كل كائن يجب أن يكون مستقلاً |
-| Shortcut داخل ملف Office | ممنوع مطلقاً | مخاطر ماكرو |
-| OLE object داخل Office | فحص خاص | مخاطر ماكرو |
-| Embedded file في PDF | فحص عدد وأنواع | مخاطر تنفيذ |
-| External reference في XLSX | ممنوع | تسرب بيانات |
-| Macro في Office | ممنوع | تنفيذ تعليمات |
+| Symbolic link inside archive | Always prohibited | Could point to sensitive paths |
+| Symbolic link inside PDF/DOCX | Always prohibited | Execution risk |
+| Hard link inside archive | Always prohibited | Could reference system files |
+| Hard link across StorageObjects | Always prohibited | Each object must be independent |
+| Shortcut inside Office | Always prohibited | Macro risk |
+| OLE object inside Office | Special inspection | Macro risk |
+| Embedded file in PDF | Inspect count and types | Execution risk |
+| External reference in XLSX | Prohibited | Data leakage |
+| Macro in Office | Prohibited | Instruction execution |
 
-### 7.2 آلية الكشف
+### 7.2 Detection Mechanism
 
-- `archive_read` بكشف `symlink` و`hardlink` قبل فك الضغط.
-- بالنسبة لـPDF، استخدام مكتبة تحليل آمنة تتجاهل Embedded JavaScript.
-- بالنسبة لـOffice، فحص ما إذا كان الملف يحوي VBA streams عبر فحص أول 8 بايت.
-- للأرشيفات المتداخلة Nested، تطبيق السياسة على كل مستوى بحد أقصى للعمق.
+- `archive_read` with `symlink` and `hardlink` detection before extraction.
+- For PDFs, use a safe parsing library that ignores embedded JavaScript.
+- For Office, inspect the first 8 bytes to detect VBA streams.
+- For nested archives, apply the policy at each level up to the maximum depth.
 
-### 7.3 درجة الشك Multi-link Score
+### 7.3 Multi-link Score
 
-تُحسب لكل ملف قبل الإتاحة:
+Computed per file before availability:
 
-| العنصر المكتشف | النقاط |
+| Detected Element | Points |
 |---|---|
-| Symlink واحد أو أكثر | 100 |
-| Hardlink واحد أو أكثر | 100 |
-| Macro في Office | 100 |
+| One or more symlinks | 100 |
+| One or more hardlinks | 100 |
+| Macro in Office | 100 |
 | Embedded executable | 100 |
-| External reference في XLSX | 50 |
-| OLE object في Office | 30 |
-| Embedded file في PDF | 10 لكل ملف |
+| External reference in XLSX | 50 |
+| OLE object in Office | 30 |
+| Embedded file in PDF | 10 per file |
 | Archive nesting depth 4 | 20 |
 | Archive nesting depth 5 | 40 |
 
-النتيجة ≤ 5 مع `symlink_detected=false` و`hardlink_detected=false` فقط هي المسموحة.
+**PLANNED.** The score is part of the documented policy; the implemented schema does not currently store `multi_link_score`, `symlink_detected`, or `hardlink_detected` columns. The scanner is expected to emit failure codes via `document_quarantines.failure_codes` until the columns land.
+## 8. Storage
 
-### 7.4 الاختبارات
+### 8.1 Storage Zone Separation
 
-- `FileSecurityTest::symlink_in_archive_blocked`
-- `FileSecurityTest::hardlink_in_archive_blocked`
-- `FileSecurityTest::macro_enabled_office_blocked`
-- `FileSecurityTest::nested_archive_with_symlink_blocked_at_open`
-- `FileSecurityTest::multi_link_score_threshold_enforced`
-
-## 8. التخزين
-
-### 8.1 الفصل بين مناطق التخزين
-
-| المنطقة | الاستخدام | الوصول |
+| Zone | Usage | Access |
 |---|---|---|
-| الحجر | الملفات قبل الفحص | حساب `quarantine_role` فقط |
-| الإتاحة | الملفات النظيفة | حساب `available_role` فقط |
-| الأرشيف | الملفات بعد انتهاء الصلاحية النشطة | حساب `archive_role` فقط |
-| التصدير | نسخ مخصصة للتصدير | حساب `export_role` فقط |
+| Quarantine | Files before scanning | `quarantine_role` account only |
+| Available | Clean files | `available_role` account only |
+| Archive | Files past active retention | `archive_role` account only |
+| Export | Copies dedicated to export | `export_role` account only |
 
-كل منطقة لها:
+Each zone has:
 
-- Prefix مختلف في Object Storage.
-- حساب خدمة منفصل.
-- NetworkPolicy تحدد الوصول.
+- A distinct prefix in Object Storage.
+- A separate service account.
+- A `NetworkPolicy` that scopes access.
 
-### 8.2 التشفير
+### 8.2 Encryption
 
-- تشفير at-rest باستخدام SSE-KMS بمفتاح منفصل لكل منطقة.
-- تشفير in-transit عبر TLS 1.3.
-- تدوير المفاتيح كل 12 شهراً أو عند الاشتباه.
-- فصل KMS عن الإنتاج.
+- At-rest encryption via SSE-KMS with a separate key per zone.
+- In-transit encryption via TLS 1.3.
+- Key rotation every 12 months or on suspicion.
+- KMS is separated from production.
 
-### 8.3 عدم القابلية للتعديل
+### 8.3 Immutability
 
-- بعد الإتاحة، `StorageObject.immutable=true`.
-- لا عملية UPDATE على مستوى API.
-- على مستوى Object Storage، سياسة `object_lock` تحظر الحذف والتعديل لمدة `retention_until`.
-- الإتلاف يتطلب عملية محكومة وفق سياسة الاحتفاظ.
+- After promotion, `document_storage_objects.immutable = true`.
+- No UPDATE is performed at the API layer.
+- At the object storage layer, `object_lock` policy forbids delete and modify until `retention_until`.
+- Destruction requires a controlled workflow per the retention policy.
 
-### 8.4 Hash كدليل
+### 8.4 Hash as Evidence
 
-- `sha256` يُحسب عند الاستلام ولا يتغير.
-- عند التحميل، يُعاد حساب الـHash على المحتوى المُسلَّم ويُقارن.
-- الاختلاف يرفع تنبيهاً حرجاً ويُسجَّل الحدث `document.integrity_violation`.
+- SHA-256 is computed on receipt and never changes.
+- On download, the hash is recomputed on the delivered bytes and compared.
+- Any mismatch raises a critical alert and emits `document.integrity_violation` via the outbox.
 
-## 9. التحميل والعرض
+## 9. Download and View
 
-### 9.1 روابط التحميل
+### 9.1 Download URLs
 
-- روابط موقعة بصلاحية قصيرة العمر (≤ 5 دقائق).
-- تتضمن معرف الجلسة والمستخدم والإصدار.
-- تحقق مزدوج عند كل GET من صلاحية المستخدم على السجل والمستند.
-- تسجيل `DocumentAccessEvent` بنوع `download` و`view` قبل إنشاء الرابط.
+- Signed URLs with a short TTL (≤ 5 minutes).
+- Bound to session, user, and version.
+- Authorization on the record and the document is re-checked on every GET.
+- A `DocumentAccessEvent` (`view`, `download`) is recorded **before** the signed URL is issued (PLANNED — see §3.1.6).
 
-### 9.2 تطبيق سياسة الحقل
+### 9.2 Field Policy Enforcement
 
-- يرسل Documents إلى `GetAuthorizationRecordFacts` تصنيف المستند وحالته و`own_policy_key` وحقائق الروابط ونسخها فقط؛ لا يعيد قراراً أو خريطة حقول.
-- يفسر Authorization هذه الحقائق ويصدر وحده قرار التحميل والعرض والحقول.
-- إذا كان المستند مرتبطاً بسجل، يُطبَّق أشد القيود.
-- مستخدم لا يملك صلاحية رؤية حقل مرتبط بمستند محمي لا يحق له تحميل المستند حتى لو امتلك صلاحية على السجل.
+- Documents forwards to `GetAuthorizationRecordFacts` only the document classification, status, `own_policy_key`, link facts, and the version pointer — never a decision or a field map.
+- Authorization interprets those facts and alone issues the download, view, and field decisions.
+- If the document is linked to a record, the most restrictive constraints apply.
+- A user without visibility into a field linked to a protected document cannot download the document even with record-level authorization.
 
-### 9.3 العزل المادي عن المحتوى السري
+### 9.3 Physical Isolation of Top-secret Content
 
-- عند رفع محتوى سري للغاية، يتم تخزينه في منطقة مخصصة بـKMS منفصل.
-- التحميل يتطلب صلاحية `documents.download.top_secret` ويتطلب حضور مراجع ثانٍ عندما تفرض سياسة Authorization ذلك.
+- Top-secret uploads are stored in a dedicated zone with a dedicated KMS key.
+- Download requires the `documents.download.top_secret` capability and a second reviewer when the Authorization policy mandates it.
 
-### 9.4 الاختبارات
+### 9.4 Tests
 
 - `FileSecurityTest::presigned_url_has_short_ttl`
 - `FileSecurityTest::download_checks_authorization_each_time`
 - `FileSecurityTest::download_blocked_when_record_field_classification_higher`
 - `FileSecurityTest::download_revalidates_session_on_each_request`
 
-## 10. فحوصات AV المتقدمة
+## 10. Advanced AV Scans
 
-### 10.1 المحرك المستخدم
+### 10.1 Engine Used
 
-- محرك AV موقّع داخلياً متوافق مع التشغيل المعزول.
-- تحديث توقيعات من مرآة داخلية موقعة.
-- لا اتصال مباشر بالإنترنت لتحديث التوقيعات.
+- Internal, signed AV engine compatible with isolated execution.
+- Signature updates from a signed internal mirror.
+- No direct internet access for signature updates.
 
-### 10.2 أنماط الفحص
+### 10.2 Scan Modes
 
-| النمط | الوصف | التطبيق |
+| Mode | Description | Application |
 |---|---|---|
-| توقيعات تقليدية | قاعدة بيانات توقيعات | نعم |
-| Heuristic | كشف سلوكي | نعم |
-| Sandbox داخلي | تنفيذ في بيئة معزولة | للملفات المشتبه بها فقط |
-| YARA rules | قواعد YARA مخصصة | لاكتشاف أنماط مرتبطة بالمنصة |
+| Traditional signatures | Signature database | Yes |
+| Heuristic | Behavioral detection | Yes |
+| Internal sandbox | Isolated execution | For suspicious files only |
+| YARA rules | Custom YARA rules | To detect platform-specific patterns |
 
-### 10.3 الملفات المشتبه بها
+### 10.3 Suspicious Files
 
-- الملفات التي تفشل الفحص التقليدي تُرفع يدوياً للمراجعة.
-- مدة الحجر اليدوي 30 يوماً افتراضياً، قابلة للتمديد.
-- مراجعة من فريق الأمن قبل الإتاحة أو الحذف.
+- Files failing the traditional scan are escalated to manual review.
+- Manual quarantine duration defaults to 30 days, extendable.
+- Security team review is required before promotion or deletion.
 
-## 11. الربط بالسجلات
+## 11. Linking to Records
 
-### 11.1 قواعد الربط
+### 11.1 Linking Rules
 
-- ربط المستند بسجل يتطلب صلاحية على السجل وعلى نوع المستند.
-- لا يسمح بربط مستند محجور.
-- حذف الربط لا يحذف المستند، يفك الربط فقط.
+- Linking a document to a record requires authorization on both the record and the document type.
+- Quarantined documents cannot be linked.
+- Removing a link removes the link only, not the document.
 
-### 11.2 تطبيق أشد القيود
+### 11.2 Most-restrictive Application
 
-- يعرض Documents قيوده وقيود الروابط كحقائق فقط، ويحسب Authorization القرار النهائي.
-- مستند مرتبط بسجل عند كلاهما، المستخدم يحتاج صلاحية على الأثنين.
-- إذا كانت صلاحية المستند أضيق من صلاحية السجل، تسود صلاحية المستند.
-- إذا كانت صلاحية السجل أضيق من صلاحية المستند، تسود صلاحية السجل.
+- Documents exposes its constraints and the link constraints as facts only; Authorization computes the final decision.
+- A document linked to a record requires authorization on both.
+- If the document authorization is narrower than the record authorization, the document authorization wins.
+- If the record authorization is narrower than the document authorization, the record authorization wins.
 
-### 11.3 الاختبارات
+### 11.3 Tests
 
 - `DocumentLinkTest::linking_requires_authorization_on_record`
 - `DocumentLinkTest::stricter_classification_wins`
 - `DocumentLinkTest::quarantined_document_cannot_be_linked`
 
-## 12. إدارة المخاطر والإتلاف
+## 12. Risk Management and Destruction
 
-### 12.1 دورة حياة المستند
+### 12.1 Document Lifecycle
 
-| المرحلة | الإجراء | التسجيل |
+| Phase | Action | Logging |
 |---|---|---|
-| نشط | متاح للتحميل ضمن الصلاحيات | كل تحميل مسجل |
-| أرشفة | نقل لمنطقة الأرشيف، قراءة فقط | `document.archived` |
-| حجز قانوني | منع الإتلاف | `document.legal_hold_set` |
-| إتلاف | حذف من Object Storage بعد موافقة مزدوجة | `document.destroyed` |
+| Active | Available for download within authorization | Every download recorded |
+| Archive | Move to archive zone, read-only | `document.archived` |
+| Legal hold | Block destruction | `document.legal_hold_set` |
+| Destruction | Delete from Object Storage after dual approval | `document.destroyed` |
 
-### 12.2 الإتلاف المحكوم
+### 12.2 Controlled Destruction
 
-- الإتلاف يتطلب موافقة مالك البيانات والسوبر أدمن.
-- كل عملية إتلاف تُسجَّل في `audit_events` بنوع `document.destroyed` مع `reason`.
-- الإتلاف يحذف من Object Storage فقط بعد مرور `retention_until`.
-- إتلاف البيانات المشفرة يمحو المفتاح بعد فترة سماح.
+- Destruction requires data owner and super-admin approval.
+- Each destruction is recorded in `document_outbox_events` with type `document.destroyed` and a `reason`.
+- Destruction removes the object from Object Storage only after `retention_until` has elapsed.
+- Destruction of encrypted data erases the key after a grace period.
 
-### 12.3 الاختبارات
+### 12.3 Tests
 
 - `LifecycleTest::archived_documents_are_read_only`
 - `LifecycleTest::legal_hold_blocks_destruction`
 - `LifecycleTest::destruction_requires_dual_approval`
 - `LifecycleTest::destruction_logged_with_reason`
 
-## 13. مؤشرات الإنذار
+## 13. Alerting Indicators
 
-- رفض ملف بسبب AV.
-- رفض ملف بسبب zip bomb.
-- رفض ملف بسبب symlink.
-- رفض ملف بسبب macro.
-- تكرار رفع من نفس المصدر.
-- ارتفاع نسبة رفض الملفات خلال ساعة.
-- محاولة تحميل مستند محجور.
-- محاولات متعددة للوصول لرابط منتهي الصلاحية.
+- File rejected by AV.
+- File rejected for zip bomb.
+- File rejected for symlink.
+- File rejected for macro.
+- Repeated uploads from the same source.
+- Spike in file rejection rate over an hour.
+- Attempt to download a quarantined document.
+- Multiple attempts to access an expired link.
 
-## 14. متطلبات البنية التحتية المعزولة
+## 14. Isolated Infrastructure Requirements
 
-- مرآة توقيعات AV داخلية محدثة شهرياً.
-- Sandbox داخلي لتنفيذ الملفات المشتبه بها.
-- لا اتصال بالإنترنت من أي مكون فحص.
-- سجلات الفحص منفصلة ومؤرشفة بشكل مستقل.
+- Internal AV signature mirror updated monthly.
+- Internal sandbox for executing suspicious files.
+- No internet egress from any scanning component.
+- Scan logs are separated and archived independently.
 
-## 15. الامتثال
+## 15. Compliance
 
-| المتطلب | التطبيق |
+| Requirement | Application |
 |---|---|
-| NCA ECC 1-3 حماية البيانات | تشفير، فصل، تدقيق |
-| NCA ECC 1-8 حماية البنية التحتية | فصل مناطق التخزين |
-| PDPL أمن البيانات | تطبيق سياسة الحقل وتشفير |
-| PDPL تقليل البيانات | رفض ملفات خارج القائمة البيضاء |
-| NDMO دورة حياة البيانات | مراحل نشط/أرشفة/إتلاف |
+| NCA ECC 1-3 Data Protection | Encryption, separation, audit |
+| NCA ECC 1-8 Infrastructure Protection | Storage zone separation |
+| PDPL Data Security | Field policy enforcement and encryption |
+| PDPL Data Minimization | Reject files outside the allow-list |
 
-## سجل التغيير
+| NDMO Data Lifecycle | Active / Archive / Destruction phases |
 
-| الإصدار | التاريخ | الدور | التغيير |
+## Change Log
+
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 0.1.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء المسودة التنفيذية |
-| 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | توحيد التصنيف والمراجع وضبط الوثيقة وتأكيد القرار المركزي للوصول |
+| 0.1.0 | 2026-07-15 | Information Security Officer | Initial draft created |
+| 0.2.0 | 2026-07-15 | Information Security Officer | Unified classification, references, document tightening, centralization of access decision |

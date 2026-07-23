@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-017
-title: مساحة العمل والإشعارات المشتقة
+title: Derived Workspace and Notifications
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: Workspace وNotifications
+- Platform Architecture Council
+scope: Workspace and notifications
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -25,28 +25,28 @@ related_adrs:
 - ADR-014
 review_by: 2027-01-15
 ---
-# ADR-017: مساحة العمل والإشعارات المشتقة
+# ADR-017:    
 ## Context
-يحتاج المستخدم صندوق عمل موحداً وتنبيهات من مصادر متعددة من دون امتلاك حالة المصدر.
+             .
 ## Drivers
-تجربة موحدة وفصل مصادر الأعمال عن المستهلكات الطرفية.
+       .
 ## Decision
-`Workspace` و`Notifications` يستهلكان الأحداث ويحفظان مؤشرات مشتقة فقط؛ ينقل الرابط إلى endpoint المالك لإعادة التفويض والتنفيذ.
+`Workspace` `Notifications`          endpoint    .
 ## Scope
-الإشعارات داخل المنصة فقط في المرحلة الأولى، ولا بريد أو SMS أو WhatsApp.
+          SMS  WhatsApp.
 ## Alternatives
-رُفضت تحديثات متزامنة من المصدر وتكرار payload أو حالة المصدر.
+      payload   .
 ## Consequences
-توجد نافذة اتساق نهائي وإعادة بناء Inbox، وتبقى الملكية سليمة.
+      Inbox   .
 ## Security
-الإشعار لا يمنح رؤية؛ تعاد الصلاحية عند الفتح ولا يحوي payload حساساً.
+          payload .
 ## Operations
-تجميع ومنع تكرار وretry وDLQ ومراقبة التأخير.
+   retry DLQ  .
 ## Rollback
-تعاد بناء الإسقاطات من الأحداث ولا تحتاج معاملة تعويضية للمصدر.
+         .
 ## Enforcement
-اختبارات idempotency وإعادة التفويض وعدم كتابة المصدر.
+ idempotency     .
 ## Review
-عند إضافة قناة إشعار معتمدة أو مصدر عمل جديد.
+        .
 ## References
-`docs/architecture/module-catalog.md`، `docs/architecture/context-map.md`.
+`docs/architecture/module-catalog.md` `docs/architecture/context-map.md`.

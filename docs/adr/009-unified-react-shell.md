@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-009
-title: واجهة React موحدة
+title:  React 
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: تطبيق الويب
+- Platform Architecture Council
+scope:  
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -24,28 +24,28 @@ related_adrs:
 - ADR-012
 review_by: 2027-01-15
 ---
-# ADR-009: واجهة React موحدة
+# ADR-009:  React 
 ## Context
-الواجهات المنفصلة للإدارة والمستخدم تضاعف الصيانة والتدريب.
+      .
 ## Drivers
-تجربة موحدة ودعم العربية RTL والإنجليزية LTR.
+    RTL  LTR.
 ## Decision
-تطبيق React وTypeScript واحد بجلسة وتنقل وتصميم موحدين؛ تسجل الموديولات routes وقوائمها بعقود واضحة.
+ React TypeScript        routes   .
 ## Scope
-يشمل جميع الأدوار، ويظهر قسم الإدارة ضمن التطبيق عند السماح.
+         .
 ## Alternatives
-رُفضت واجهة مستقلة للسوبر أدمن وتطبيقات متعددة للموديولات.
+       .
 ## Consequences
-تقل الازدواجية ويلزم منع Shell من معرفة تفاصيل كل موديول.
+    Shell     .
 ## Security
-إخفاء الواجهة تحسين تجربة فقط؛ الخلفية مرجع الصلاحية.
+       .
 ## Operations
-يبنى ويخدم محلياً بلا CDN أو موارد خارجية.
+    CDN   .
 ## Rollback
-يسترجع bundle الإصدار السابق مع توافق API.
+ bundle     API.
 ## Enforcement
-فحص routes المسجلة واختبارات عدم الاعتماد على إذن العميل.
+ routes       .
 ## Review
-عند دليل تشغيلي على حاجة تطبيق مستقل.
+      .
 ## References
-`docs/architecture/overview.md`، `docs/product/personas-and-journeys.md`.
+`docs/architecture/overview.md` `docs/product/personas-and-journeys.md`.

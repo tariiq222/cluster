@@ -1,47 +1,47 @@
 ---
 doc_id: ARC-NF-001
-title: المتطلبات غير الوظيفية المعمارية
+title: Architectural Non-Functional Requirements
 type: architecture
 status: accepted
 version: 1.1.0
 date: '2026-07-16'
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
-- مسؤول العمليات
+- Software Engineering Lead
+- Information Security Lead
+- Operations Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references: []
 ---
-# المتطلبات غير الوظيفية المعمارية
+# Architectural Non-Functional Requirements
 
-هذه متطلبات وأهداف تحقق، وليست ادعاء بأن البيئة أو المنتج المختار يحققها بالفعل. لا يُغلق أي بند إلا بدليل اختبار أو تشغيل موثق.
+These are verification requirements and targets, not a claim that the chosen environment or product already meets them. No item is closed except with documented test or operational evidence.
 
-| المجال | المتطلب | التحقق |
+| Domain | Requirement | Verification |
 |---|---|---|
-| السعة | يدعم التصميم المستهدف حتى 20,000 حساب و2,000 مستخدم متزامن. | اختبار حمل موثق على بيئة مماثلة للإنتاج قبل الإطلاق. |
-| الإتاحة والتعافي | هدف التعافي المعتمد `RPO <= 15 دقيقة` و`RTO <= ساعتين`. | استعادة فعلية للبيانات والملفات، وقياس الزمن وفقد البيانات. |
-| الاتساق | تغيير الحقيقة وOutbox في معاملة MySQL واحدة؛ الإسقاطات متسقة نهائياً. | اختبارات rollback، إعادة تسليم، وidempotency. |
-| سلامة التعديل | السجلات المتزامنة تستخدم `lock_version` أو آلية تفاؤلية مكافئة. | اختبار تعارض تعديل متوازٍ وعرض نتيجة قابلة للفهم. |
-| الأمن | قرار الوصول خلفي مركزي على القدرة والنطاق والتصنيف والحالة والحقول. | اختبارات منع إيجابية وسلبية للـAPI والبحث والتقرير والتصدير والتنزيل. |
-| الخصوصية | لا تدخل بيانات المرضى أو السجل السريري النطاق. | مراجعة schema وواجهات الإدخال والتصدير. |
-| التدقيق | الأفعال الحساسة والوصول الحساس يسجلان حسب السياسة. | اختبار أثر تدقيق صحيح مع correlation وفاعل/مفوّض عند وجوده. |
-| الاستضافة | يعمل المنتج على VPS واحد عبر Docker Compose وCaddy، ولا تنشر MySQL أو Redis للعامة. | فحص منافذ المضيف وCompose وتجربة وصول سلبية. |
-| القابلية للتوسع | يمكن زيادة موارد الخادم ونسخ Web/API والعمال داخل Compose؛ scheduler وحيد. | اختبار الحمل وعدد العمليات ومنع تنفيذ مهمة مجدولة مرتين. |
-| قابلية الرصد | تسجل الخدمات logs وmetrics وتنبيهات مركزية دون payload حساس. | اختبار إشارات الفشل، تأخر Outbox، وطوابير الأخطاء. |
-| الأداء | لا تنفذ تقارير ثقيلة أو فهرسة أو إشعارات داخل مسار معاملة المستخدم. | قياس مسار الكتابة وإثبات أن العمل المؤجل يعالج من Outbox. |
-| قابلية الاستخدام | واجهة React + TypeScript واحدة، عربية افتراضياً، وتدعم الإنجليزية و`RTL/LTR`. | اختبار رحلة لكل دور وحجم شاشة واتجاه واجهة. |
-| قابلية الصيانة | Monorepo مع حدود موديولات مفروضة واختبارات عقود. | فحص DAG وimports وملكية الجداول في CI. |
+| Capacity | The design supports up to 20,000 accounts and 2,000 concurrent users. | Documented load test on a production-like environment before launch. |
+| Availability and recovery | Adopted recovery target `RPO <= 15 minutes` and `RTO <= 2 hours`. | Actual restore of data and files, with measured time and data loss. |
+| Consistency | Truth change and Outbox in one MySQL transaction; projections are eventually consistent. | Rollback, redelivery, and idempotency tests. |
+| Modification safety | Concurrent records use `lock_version` or an equivalent optimistic mechanism. | Parallel modification conflict test with a human-readable result. |
+| Security | Back-end access decision is centralized on capability, scope, classification, state, and fields. | Positive and negative tests for API, search, report, export, and download. |
+| Privacy | Patient data and clinical records are out of scope. | Schema, input, and export review. |
+| Audit | Sensitive actions and sensitive access are recorded per policy. | Audit effect test with correlation and actor/on-behalf-of when present. |
+| Hosting | The product runs on a single VPS via Docker Compose and Caddy, and MySQL and Redis are not exposed publicly. | Host port and Compose scan, and a passive access test. |
+| Scalability | Server resources and Web/API/worker replicas can be scaled inside Compose; a single scheduler. | Load test, process count, and prevention of double execution of a scheduled task. |
+| Observability | Services emit logs, metrics, and centralized alerts without sensitive payload. | Failure signal test, Outbox delay, and error queues. |
+| Performance | Heavy reports, indexing, or notifications do not run inside the user transaction path. | Write path measurement and proof that deferred work processes from the Outbox. |
+| Usability | A single React + TypeScript frontend, Arabic by default, with English and `RTL/LTR` support. | Journey test per role, screen size, and UI direction. |
+| Maintainability | Monorepo with enforced module boundaries and contract tests. | DAG, import, and table ownership checks in CI. |
 
-## قرارات تتطلب إثباتاً قبل التشغيل
+## Decisions that require proof before going live
 
-منتج البحث والتخزين وإدارة الأسرار ليست محددة هنا. منصة النشر حُسمت في ADR-023 إلى Docker Compose مباشر وCaddy على VPS واحد؛ وتبقى السعة والاستعادة والمنافذ حقائق لا تقبل إلا بدليل تشغيل.
+The chosen search, storage, and secrets products are not specified here. The deployment platform is decided in ADR-023 as direct Docker Compose and Caddy on a single VPS; capacity, recovery, and ports remain facts that are only accepted with operational evidence.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مكتب هندسة المنصة | إنشاء المتطلبات غير الوظيفية |
-| 1.1.0 | 2026-07-16 | مالك المنصة | استبدال افتراض Kubernetes وAir-gap باستضافة Dokploy داخلية |
+| 1.0.0 | 2026-07-15 | Platform Engineering Office | Create the non-functional requirements |
+| 1.1.0 | 2026-07-16 | Platform Owner | Replace the Kubernetes and air-gap assumption with internal Dokploy hosting |

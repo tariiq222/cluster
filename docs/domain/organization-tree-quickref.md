@@ -1,15 +1,15 @@
 ---
 doc_id: DOM-ORG-002
-title: مرجع شجرة المنظمة السريع
+title: Organization Tree — Quick Reference
 type: domain
 status: draft
 version: 1.0.0
 date: 2026-07-21
-owner: مالك موديول Organization
+owner: Organization module owner
 reviewers:
-- مسؤول هندسة البرمجيات
+- Software Engineering Lead
 classification: internal
-review_cycle: مع كل تغيير في النموذج العلائقي
+review_cycle: on every change to the relational model
 sources:
 - docs/domain/organization-and-people.md
 references:
@@ -66,14 +66,19 @@ for fast ancestor queries.
 | `organization_units` | `unit_type_id` | `unit_types` | `restrict` |
 | `organization_units` | `(parent_id, parent_type)` | polymorphic (`clusters` / `facilities` / `organization_units`) | enforced in domain |
 | `positions` | `organization_unit_id` | `organization_units` | `restrict` |
-| `positions` | `manager_position_id` (nullable) | `positions` | self-referential — enforced in domain |
+| `positions` | `manager_position_id` (nullable) | `positions` | self-referential — DB FK with `restrictOnDelete`; cycle detection enforced in domain only |
 | `assignments` | `person_id` | `people` | `restrict` |
 | `assignments` | `position_id` | `positions` | `restrict` |
 | `temporary_assignments` | `person_id` | `people` | `restrict` |
 | `temporary_assignments` | `organization_unit_id` | `organization_units` | `restrict` |
 
 All structural foreign keys use `restrictOnDelete` — a node with active
-children cannot be deleted at the database level.
+children cannot be deleted at the database level. The `manager_position_id`
+foreign key is declared by
+`apps/api/Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationTreeTables.php`
+(`foreign('manager_position_id')->references('id')->on('positions')->restrictOnDelete()`);
+the database only guarantees referential integrity and `restrict` on delete, not
+cycle detection.
 
 ## 4. Two Independent Reporting Lines
 
@@ -133,7 +138,8 @@ the same pre-condition.
   unit hangs off `cluster`, `facility`, or `unit`.
 - Creating a facility before the cluster root. Same precondition as above.
 - Linking `position.manager_position_id` cyclically. Domain handlers reject
-  cycles; the database does not enforce this, so an import job that produces a
+  cycles; the database declares the self-referential FK with `restrictOnDelete`
+  but does **not** enforce acyclicity, so an import job that produces a
   cycle must be reviewed and rejected manually.
 - Deleting a unit or facility that still has children. `restrictOnDelete` is
   the database-side guard; the domain layer is expected to disallow
@@ -148,7 +154,11 @@ the same pre-condition.
 `organization_units` carries a denormalised `sort_order INTEGER DEFAULT 0`
 column (with the index `organization_units_sibling_order_index` on
 `(parent_type, parent_id, sort_order)`) so sibling rendering is stable
-across browsers, reloads, and freshly issued tokens.
+across browsers, reloads, and freshly issued tokens. This column and its
+index live in the dedicated migration
+`apps/api/Modules/Organization/Infrastructure/Persistence/Migrations/ZCreateOrganizationUnitsSortOrderTable.php`
+(separate from `CreateOrganizationTreeTables.php`), which is also the
+source-of-truth for the FK-map claim about `sort_order` listed in §3.
 
 - The list endpoint returns units ordered by
   `(parent_type, parent_id, sort_order, code, id)`; pagination cursors
@@ -160,22 +170,31 @@ across browsers, reloads, and freshly issued tokens.
   event `com.cluster.organization.organizationunitsreordered.v1`, and writes
   one `access_decisions` row per call. Requires `organization.unit.manage`
   and is idempotent.
-- The web app exposes this as the **إعادة الترتيب** button next to
-  *إضافة وحدة* in `OrganizationStructure`. On success it clears the
-  `cluster.org-board.layout.v1` localStorage key so the board re-lays out
+- The web app exposes this as the **Reorder** button next to
+  **Add Unit** in `OrganizationStructure`. On success it clears
+  the `cluster.org-board.layout.v1` localStorage key so the board re-lays out
   from the freshly ordered data instead of the user's drag history.
 
 ## 10. Source Cross-Reference
 
 The columns, foreign keys, and parent-type values documented above are
 sourced from the API module `apps/api/Modules/Organization/Infrastructure/Persistence` —
-specifically the `CreateOrganizationTreeTables` migration for `clusters`,
-`facilities`, `unit_types`, `organization_units`, and `positions`; the
-`ZCreateOrganizationTemporaryAssignmentsTable` migration for
-`temporary_assignments` and `temporary_assignment_capabilities`; and the
-`DatabaseResolveOrganizationScopeAncestry` and
-`DatabaseResolvePersonOrganizationScope` resolvers for the person-scope walk
-along the `parent_type` chain. On the front end the matching screens live at
+specifically:
+
+- `CreateOrganizationTreeTables` for `clusters`, `facilities`, `unit_types`,
+  `organization_units`, and `positions` (including the
+  `positions.manager_position_id` self-referential FK with
+  `restrictOnDelete`).
+- `ZCreateOrganizationUnitsSortOrderTable` for the `sort_order` column and
+  the `organization_units_sibling_order_index` on
+  `(parent_type, parent_id, sort_order)`.
+- `ZCreateOrganizationTemporaryAssignmentsTable` for
+  `temporary_assignments` and `temporary_assignment_capabilities`.
+- `DatabaseResolveOrganizationScopeAncestry` and
+  `DatabaseResolvePersonOrganizationScope` resolvers for the person-scope
+  walk along the `parent_type` chain.
+
+On the front end the matching screens live at
 `apps/web/src/features/organization/OrganizationOverview.tsx` and
 `OrganizationStructure.tsx`.
 
@@ -184,8 +203,8 @@ For full aggregates, read models, events, and state machines see
 temporary-assignment capability contract see
 [contracts/capabilities/temporary-assignment.md](../contracts/capabilities/temporary-assignment.md).
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | المؤلف | ملخص التغيير |
+| Version | Date | Author | Change summary |
 |---|---|---|---|
-| 1.0.0 | 2026-07-21 | مالك موديول Organization | إنشاء مرجع سريع للعلاقات بين Cluster/Facility/OrgUnit/Position |
+| 1.0.0 | 2026-07-21 | Organization module owner | Create quick reference for relationships between Cluster/Facility/OrgUnit/Position |

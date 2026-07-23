@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-020
-title: التنظيم والسلطة المحددة زمنياً
+title: Organization and Time-Bounded Authority
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: Organization والتكليفات والعلاقات
+- Platform Architecture Council
+scope: Organization, assignments, and relationships
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -24,28 +24,28 @@ related_adrs:
 - ADR-012
 review_by: 2027-01-15
 ---
-# ADR-020: التنظيم والسلطة المحددة زمنياً
+# ADR-020:    
 ## Context
-الجهات والوحدات والمناصب والعلاقات تتغير، بينما لا يجوز أن تنشئ صلاحيات دائمة ضمنية.
+            .
 ## Drivers
-عزل تنظيمي دقيق وحل معتمد قابل للتدقيق.
+      .
 ## Decision
-`Organization` يملك شجرة الوحدات والمناصب والتكليفات والعلاقات؛ كل تكليف وعلاقة وتفويض محدد بمدة وقدرات صريحة، ولا تمنح العلاقة قراراً ذاتياً خارج Authorization.
+`Organization`                     Authorization.
 ## Scope
-يشمل التجمع والمنشآت والوحدات والمناصب والتكليفات الأساسية والمؤقتة والعلاقات الإشرافية.
+         .
 ## Alternatives
-رُفضت أدوار مستنتجة من شجرة التنظيم وعلاقات دائمة غير مؤرخة.
+         .
 ## Consequences
-يزيد إدخال البيانات التنظيمية، ويمنع استمرار السلطة بعد انتهائها.
+        .
 ## Security
-انتهاء التكليف أو العلاقة يسحب أثره فوراً وتبطل الجلسات المتأثرة عند لزومها.
+           .
 ## Operations
-يراقب انتهاء التكليفات والشواغر ويفعل بديل المسار المعرف.
+       .
 ## Rollback
-يحفظ التاريخ ولا يحذف التكليف؛ يصحح بحدث أو فترة جديدة مدققة.
+          .
 ## Enforcement
-اختبارات الشجرة ومنع الدورة وفترة الصلاحية وعدم منح قدرة ضمنية.
+         .
 ## Review
-عند إضافة نوع علاقة أو قاعدة حل معتمد.
+       .
 ## References
-`docs/domain/organization-and-people.md`، `docs/architecture/module-catalog.md`.
+`docs/domain/organization-and-people.md` `docs/architecture/module-catalog.md`.

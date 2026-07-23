@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-PPM-001
-title: المحافظ والبرامج والمشاريع
+title: Portfolios, Programs, and Projects
 type: domain
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مالك موديول PortfolioProjects
+owner: PortfolioProjects module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/022-portfolio-projects-and-risk-boundaries.md
 - docs/architecture/dependency-rules.md
@@ -20,40 +20,55 @@ references:
 - docs/architecture/context-map.md
 - docs/plans/release-2-strategy-portfolio.md
 ---
-# المحافظ والبرامج والمشاريع
 
-## الغرض
+> **Planned for R2/R3.** This module is documented but not yet implemented in the codebase.
 
-يمتلك `PortfolioProjects` المحافظ والبرامج والمشاريع وقوالبها ومراحلها ومعالمها وخطوط أساسها وصحتها وميزانيتها الإدارية. التسلسل الوحيد هو `Portfolio -> Program -> Project`. لا يملك المبادرات أو تعريف المؤشرات أو قياساتها؛ تلك حقائق حصرية لـ`Strategy`.
+# Portfolios, Programs, and Projects
 
-## النطاق
+## Purpose
 
-- مشروع عادي أو تحسين، بجهة مالكة واحدة وجهات مشاركة بأدوار محددة.
-- قالب مشروع بإصدار ثابت، ومراحل ومعالم وبوابات `Workflow`.
-- خط أساس للأوزان والمدة والميزانية، وتقدم محسوب من المعالم المعتمدة ذات الأدلة، لا من عدد المهام.
-- لقطة ميزانية إدارية (`planned`, `actual`, `forecast`, `variance`) بلا فواتير أو أوامر شراء.
-- روابط تخطيطية إلى مؤشرات ومبادرات Strategy، وإرسال الأثر الفعلي إلى Strategy لاعتماده.
+`PortfolioProjects` owns portfolios, programs, projects and their templates,
+phases, milestones, baselines, health, and administrative budget. The only
+hierarchy is `Portfolio → Program → Project`. The module does NOT own
+initiatives or indicator definitions or measurements; those facts belong
+exclusively to `Strategy`.
 
-خارج النطاق: محرك موافقات مستقل، مهام فرعية، تعريف أو قياس مؤشر، ونسخ بيانات الخطر أو السجل الديناميكي.
+## Scope
 
-## الكيانات والجداول
+- A regular or improvement project, with one owning unit and participating
+  units in defined roles.
+- A project template with a fixed version, plus phases, milestones, and
+  `Workflow` gates.
+- A baseline for weights, duration, and budget; progress computed from
+  approved evidence-backed milestones, NOT from task counts.
+- An administrative-budget snapshot (`planned`, `actual`, `forecast`,
+  `variance`) — no billing or purchase orders.
+- Plan-time links to Strategy indicators and initiatives, with actual impact
+  delivered to Strategy for approval.
 
-| الجدول | الكيان والحقائق المملوكة | القيود والفهارس الرئيسية |
+Out of scope: a standalone approval engine; subtasks; indicator definition or
+measurement; copying risk data or live ledger entries.
+
+## Entities and Tables
+
+| Table | Entity and owned facts | Key constraints and indexes |
 |---|---|---|
-| `portfolios` | Portfolio، المالك، الحالة والتصنيف | `code` فريد؛ فهرس `(owner_organization_unit_id, status)` |
-| `programs` | Program تابع لمحفظة | فريد `(portfolio_id, code)`؛ لا Program بلا Portfolio |
-| `project_templates`, `project_template_versions` | القالب وإصداره المنشور | فريد `(template_id, version_number)`؛ المنشور immutable |
-| `projects` | Project، البرنامج، الجهة المالكة، القالب المثبت، الحالة، `lock_version` | فريد `project_number`؛ فهارس المالك والحالة والبرنامج |
-| `project_participants` | المشاركون ودور المشروع ومدته | فريد للمشارك والدور النشط؛ لا يمنح الدور وصولاً خارج المشروع |
-| `project_phases`, `project_milestones` | مراحل ومعالم المشروع وأوزانها وبواباتها | فريد مفتاح المرحلة/المعلم داخل المشروع؛ الأوزان موجبة |
-| `project_baselines` | خط أساس معتمد للمدة والأوزان والميزانية | خط أساس نشط واحد للمشروع؛ immutable بعد الاعتماد |
-| `project_budget_snapshots`, `project_health_snapshots` | لقطات الميزانية والصحة المحسوبة والتجاوز الإداري | فهرس `(project_id, captured_at)`؛ التجاوز له سبب ومدة |
-| `project_indicator_links` | `indicator_id`، خط الأساس والأثر المتوقع والنطاق | لا تعريف أو قيمة قياس مؤشر؛ فريد للرابط والنطاق والفترة |
-| `project_activities` | نشاط مفهوم للمستخدم append-only | فهرس `(project_id, occurred_at)` |
+| `portfolios` | Portfolio, owner, status, classification | `code` unique; index `(owner_organization_unit_id, status)` |
+| `programs` | Program under a portfolio | unique `(portfolio_id, code)`; no Program without a Portfolio |
+| `project_templates`, `project_template_versions` | Template and its published version | unique `(template_id, version_number)`; published version is immutable |
+| `projects` | Project, program, owning unit, pinned template, status, `lock_version` | unique `project_number`; indexes on owner, status, and program |
+| `project_participants` | Participants, project role, and duration | unique on active participant and role; the role does not grant access beyond the project |
+| `project_phases`, `project_milestones` | Project phases/milestones, weights, and gates | unique phase/milestone key within the project; weights positive |
+| `project_baselines` | Approved baseline for duration, weights, and budget | only one active baseline per project; immutable after approval |
+| `project_budget_snapshots`, `project_health_snapshots` | Computed budget/health snapshots and administrative override | index `(project_id, captured_at)`; an override carries a rationale and duration |
+| `project_indicator_links` | `indicator_id`, baseline, expected impact, and scope | no indicator definition or measurement value; unique on link, scope, and period |
+| `project_activities` | Append-only user-meaningful activity | index `(project_id, occurred_at)` |
 
-المراجع إلى Organization وStrategy وTasks وDocuments وWorkflow معرفات وعقود فقط، لا foreign keys أو joins بين موديولات الأعمال.
+References to `Organization`, `Strategy`, `Tasks`, `Documents`, and `Workflow`
+are identifiers and contracts only — no foreign keys or joins across business
+modules.
 
-## الأوامر
+## Commands
 
 - `CreatePortfolio`, `CreateProgram`, `CreateProject`
 - `CreateProjectTemplateDraft`, `PublishProjectTemplateVersion`
@@ -62,26 +77,32 @@ references:
 - `RecordBudgetSnapshot`, `RecalculateProjectHealth`, `SetTemporaryHealthOverride`
 - `RegisterProjectIndicatorLink`, `SubmitProjectImpactToStrategy`
 
-كل أمر يبني `AuthorizationRecordFacts` للمشروع من aggregate المالك ويطلب `DecideAccess` قبل الكتابة؛ يسجل النشاط وOutbox داخل معاملة الموديول نفسها.
+Every command builds `AuthorizationRecordFacts` for the project from the
+owner's aggregate and requests `DecideAccess` before writing; activity and
+Outbox are recorded inside the module's own transaction.
 
-## الاستعلامات
+## Queries
 
 - `GetAuthorizedProject`, `ListAuthorizedProjects`, `GetPortfolioSummary`, `GetProgramSummary`
 - `GetProjectProgress`, `GetProjectHealth`, `GetProjectBudget`, `ListProjectMilestones`
 - `GetProjectIndicatorLinks`, `GetAuthorizationRecordFacts`, `GetProjectActivity`
 
-تعيد القوائم `ScopePredicate` من Authorization وتطبقها قبل العنوان أو الملخص. فتح مؤشر أو مستند أو مهمة يعيد التفويض إلى مالكه.
+Lists return a `ScopePredicate` from Authorization and apply it before
+returning title or summary. Opening an indicator, document, or task re-runs
+authorization against its owner.
 
-## الأحداث
+## Events
 
 - `PortfolioCreated`, `ProgramCreated`, `ProjectCreated`, `ProjectTemplateVersionPublished`
 - `ProjectBaselineApproved`, `MilestoneSubmitted`, `MilestoneApproved`
 - `ProjectProgressChanged`, `ProjectHealthChanged`, `ProjectBudgetSnapshotRecorded`
 - `ProjectImpactSubmitted`, `ProjectClosed`, `ProjectCancelled`
 
-الأحداث الماضية تحمل معرفات وملخصاً آمناً فقط، وتصل عبر Transactional Outbox. Notifications وSearch وReporting وWorkspace مستهلكات idempotent ولا تغير حقيقة المشروع.
+Past events carry identifiers and a safe summary only, and are delivered via
+the Transactional Outbox. `Notifications`, `Search`, `Reporting`, and
+`Workspace` are idempotent consumers and MUST NOT alter project truth.
 
-## الحالات
+## State Machines
 
 ```text
 Project: Draft -> PendingApproval -> Active -> OnHold -> Closed
@@ -90,42 +111,49 @@ Milestone: Draft -> PendingApproval -> Approved | Returned | Rejected
 TemplateVersion: Draft -> Tested -> Approved -> Signed -> Published -> Retired
 ```
 
-قرار `WorkflowCompleted` لا يغير المشروع خفياً؛ منسق صريح يصدر `ApplyMilestoneDecision` أو انتقال المشروع بعد التحقق idempotently.
+A `WorkflowCompleted` decision MUST NOT silently mutate the project; an
+explicit coordinator issues `ApplyMilestoneDecision`, or the transition runs
+after idempotent verification.
 
-## الثوابت
+## Invariants
 
-- كل Program يتبع Portfolio واحداً وكل Project يتبع Program واحداً؛ لا تدخل Initiative في هذا التسلسل.
-- للمشروع جهة مالكة واحدة؛ المشاركة لا تنقل الملكية ولا تكشف حقولاً غير مصرح بها.
-- إصدار القالب وخط الأساس مثبتان؛ التغيير بعد الاعتماد يتطلب baseline جديداً بسبب وتدقيق.
-- مجموع أوزان المعالم المعتمدة لخط الأساس يساوي `100%`.
-- الإنجاز يساوي مجموع أوزان المعالم المعتمدة ذات الأدلة المتاحة؛ المهمة مؤشر مساعد فقط.
-- لا يغطي متوسط المحفظة مشروعاً حرجاً أحمر؛ قاعدة الحارس ترفع الحالة العامة وفق السياسة المنشورة.
-- الأثر المتوقع محلي للتخطيط؛ الأثر الفعلي لا يصبح معتمداً إلا في Strategy، ولا يتجاوز مجموع الآثار المنسوبة التحسن المرصود بلا مبرر معتمد.
-- لا حذف نهائي من الواجهة، والحجز أو الاحتفاظ من `RecordsGovernance` يمنع الأرشفة أو الإتلاف المخالف.
+- Each Program belongs to one Portfolio and each Project belongs to one Program; an Initiative MUST NOT enter this hierarchy.
+- A project has one owning unit; participation MUST NOT transfer ownership or expose un-authorized fields.
+- Template version and baseline are pinned; change after approval requires a new baseline with a rationale and an audit.
+- The sum of approved milestone weights for a baseline equals `100%`.
+- Completion equals the sum of weights of approved milestones with available evidence; tasks are an auxiliary signal only.
+- A portfolio average MUST NOT mask a single critical red project; the guardian rule elevates overall status per the published policy.
+- Expected impact is plan-time local; actual impact is approved only inside Strategy, and the assigned aggregate impact MUST NOT exceed the observed improvement without a documented justification.
+- No hard delete from the interface; `RecordsGovernance` holds or freezes archiving or destruction that would conflict.
 
-## الأمن والفشل
+## Security and Failure
 
-- يبني الموديول `AuthorizationRecordFacts` من المشروع، ولا يصدر Allow أو Deny أو قرار حقول؛ يصدر Authorization القرار وحده.
-- مدير المشروع لا يعتمد بوابة لا يظهر فيها ضمن snapshot أو تفويض صالح؛ لا يوجد override اعتماد للسوبر أدمن.
-- المستندات تخضع لأشد قيود المستند وكل روابطه، والمهام لا تمنح وصولاً تلقائياً إلى المشروع.
-- قالب أو مؤشر أو workflow غير منشور، أو مرجع غير صالح، أو `lock_version` قديم: يرفض الأمر بلا كتابة جزئية.
-- فشل بدء workflow أو كتابة Outbox يلف معاملة التغيير؛ فشل الإشعار أو التقرير بعد commit يعاد بمحاولة ولا يعكس الحقيقة.
+- The module builds `AuthorizationRecordFacts` from the project and does NOT issue Allow/Deny or field decisions; Authorization issues the decision alone.
+- A project manager MUST NOT approve a gate on which they do not appear in the snapshot or hold a valid delegation; no Super Admin approval override exists.
+- Documents are subject to the strictest document constraint and its links; tasks MUST NOT grant automatic access to the project.
+- Unpublished templates/indicators/workflows, invalid references, or stale `lock_version`: command rejected without partial write.
+- Workflow start failure or Outbox failure rolls back the change transaction; notification or reporting failure after commit is retried and MUST NOT reflect a different truth.
 
-## الاختبارات
+## Tests
 
-- وحدة: منع Program بلا Portfolio وProject بلا Program، ومنع Initiative داخل التسلسل.
-- وحدة: أوزان غير `100%` أو إنجاز بلا معلم معتمد ودليل مرفوضان.
-- تكامل: snapshot المعلم المعتمد فقط يغير التقدم، وقرار workflow المكرر لا يكرر الأثر.
-- أمن: مشارك مشروع أو مستخدم `view_aggregate` لا يرى الحقول أو الأدلة المحجوبة.
-- حدود: لا joins أو كتابة في Strategy أو Tasks أو Documents؛ أثر المشروع يمر بالعقد.
-- فشل: غياب معتمد لا يبدله أدمن، وفشل Outbox أو التعارض المتزامن لا ينتج نجاحاً جزئياً.
+- Unit: prevent Program without Portfolio and Project without Program; prevent Initiative inside the hierarchy.
+- Unit: weights not summing to `100%` or completion without an approved milestone and evidence are rejected.
+- Integration: only the approved milestone snapshot changes progress; a repeated workflow decision MUST NOT duplicate impact.
+- Security: a project participant or `view_aggregate` user MUST NOT see restricted fields or evidence.
+- Boundary: no joins or writes into `Strategy`, `Tasks`, or `Documents`; project impact flows through contracts.
+- Failure: missing approver is NOT replaced by an admin; Outbox failure or concurrent conflict MUST NOT produce partial success.
 
-## الاعتماديات
+## Dependencies
 
-يعتمد على Organization وStrategy وWorkflow وTasks وCollaboration وDocuments وRecordsGovernance وAuthorization وAudit. يستهلك Business Calendar من `PlatformSettings` لحساب مواعيد ومعالم العمل. يقدم `AuthorizationRecordFacts` لمسار الوصول وملخصات وأحداثاً للمستهلكات الأخرى، ولا يعتمد على Notifications أو Search أو Reporting أو Workspace.
+Depends on `Organization`, `Strategy`, `Workflow`, `Tasks`, `Collaboration`,
+`Documents`, `RecordsGovernance`, `Authorization`, and `Audit`. Consumes the
+Business Calendar from `PlatformSettings` for working dates and milestones.
+Provides `AuthorizationRecordFacts` for access paths, summaries, and events
+to other consumers; does NOT depend on `Notifications`, `Search`,
+`Reporting`, or `Workspace`.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول PortfolioProjects | إنشاء المواصفة المعتمدة |
+| 1.0.0 | 2026-07-15 | PortfolioProjects module owner | Create the accepted specification |

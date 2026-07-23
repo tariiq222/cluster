@@ -1,14 +1,14 @@
 ---
 doc_id: ENG-DLV-001
-title: تدفق البناء السريع
+title: Rapid Build Workflow
 type: engineering
 status: accepted
 version: 4.0.0
 date: 2026-07-19
-owner: التنفيذ التقني
+owner: Technical Delivery
 reviewers: []
 classification: internal
-review_cycle: عند تغير أدوات البناء أو الاختبار
+review_cycle: When build or test tooling changes
 sources:
 - docs/adr/002-module-first-vertical-slices.md
 - docs/adr/003-module-boundaries.md
@@ -18,52 +18,51 @@ references:
 - docs/engineering/testing-strategy.md
 - docs/plans/active-delivery-status.md
 ---
-# تدفق البناء السريع
 
-## الحلقة الوحيدة
+> **NOT IMPLEMENTED.** There is no dedicated day-five R1/R2/R3 verification target, and the deployment chain does not provide named health-check, rollback, backup, or restore targets. Use only the repository commands listed below; do not treat the complete end-of-product operational sequence as automated.
 
-1. **اختبار**: اكتب أضيق اختبار يصف السلوك التالي.
-2. **ابنِ**: نفذ vertical slice كاملة من العقد إلى API والواجهة عند الحاجة.
-3. **ادمج**: عند نجاح الاختبار والفحوص المتأثرة، ادمج الحزمة وانتقل فوراً للتالية.
+# Rapid Build Workflow
 
-الفشل يعيد العمل إلى الكود. لا مرحلة اعتماد، ولا مراجعة بشرية إلزامية، ولا تقرير
-تسليم. يُحدّث سجل الحالة مرة في نهاية يوم التنفيذ بالأمر والrevision والنتيجة.
+## The Single Loop
 
-## اختيار التحقق
+1. **Test:** Write the narrowest test that describes the next behavior.
+2. **Build:** Implement a complete vertical slice, from the contract through the API and UI when needed.
+3. **Integrate:** When the test and affected checks pass, integrate the package and move immediately to the next one.
 
-- API: أضيق `php artisan test` للموديول، ثم `make verify-boundaries` عند تغير عقد أو حد.
-- Web: الاختبار المستهدف، ثم `npm --prefix apps/web run build`.
-- وثائق فقط: `./scripts/validate-docs.sh`.
-- نهاية اليوم: رحلة E2E للمخرج اليومي.
-- نهاية اليوم الخامس: رحلات R1 وR2 وR3، البناء، الحدود، والوثائق.
+A failure sends the work back to the code. There is no approval stage, mandatory human review, or delivery report. Update the status log once at the end of the delivery day with the command, revision, and result.
 
-لا تشغل suite واسعة بعد تعديل نصي، ولا تكتفي باختبار mock لإثبات العزل أو سلامة
-المعاملة أو صلاحية الوصول.
+## Selecting Verification
 
-## العمل المتوازي
+- API: Run the narrowest module-scoped `php artisan test`, then `make verify-boundaries` when a contract or boundary changes.
+- Web: Run the targeted test, then `npm --prefix apps/web run build`.
+- Documentation only: Run `./scripts/validate-docs.sh`.
+- End of day: Run the E2E journey for that day's deliverable.
+- Day five: No aggregate R1/R2/R3 target exists. Run the relevant existing targets individually, such as `make verify-day3`, `make verify-screens`, and `make verify-w1-1`.
 
-- افصل الحزم حسب الموديول أو Feature directory.
-- حدّد كاتباً واحداً للعقود العامة وملفات الفهرسة والـlockfiles في كل يوم.
-- ادمج الملفات المشتركة بعد الحزم المستقلة، لا أثناءها.
-- لا توقف حزمة تنتظر حزمة أخرى إذا أمكنها البناء على contract أو fake صريح؛ قبل
-  الإغلاق يستبدل الـfake بالتكامل الحقيقي.
+Do not run a broad suite after a text-only edit, and do not rely on a mock-only test to prove isolation, transaction integrity, or access authorization.
 
-## ما لا يختصر
+## Parallel Work
 
-- حدود الموديولات وملكية البيانات.
-- التفويض الخلفي والعزل deny-by-default.
-- معاملة الأعمال وOutbox والاستهلاك idempotent.
-- migrations قابلة للترقية والرجوع الآمن دون حذف بيانات.
-- لا أسرار في المستودع، ولا PII خام في events أو logs.
+- Split packages by module or Feature directory.
+- Assign one writer per day to public contracts, index files, and lockfiles.
+- Integrate shared files after independent packages, not while those packages are in progress.
+- Do not block a package on another package when it can build against an explicit contract or fake. Replace the fake with the real integration before closing the work.
 
-## التشغيل
+## Controls That Must Not Be Shortened
 
-بعد اكتمال النظام فقط: CI نهائي، نشر VPS، فحص الصحة، رجوع، نسخة واستعادة. كلها
-أوامر آلية في `docs/plans/readiness-checklist.md` وليست لجنة إطلاق.
+- Module boundaries and data ownership.
+- Backend authorization and deny-by-default isolation.
+- The business transaction, Outbox, and idempotent consumption.
+- Upgrade-compatible migrations and safe application rollback without data deletion.
+- No secrets in the repository and no raw PII in events or logs.
 
-## سجل التغيير
+## Operations
 
-| الإصدار | التاريخ | التغيير |
+After the system is complete, `make deploy-vps` provides the repository's automated VPS deployment entry point. Final CI, health verification, rollback, backup, and restore remain separate operational activities; health-check, rollback, backup, and restore are not exposed as named Makefile targets in the deployment chain. Follow `docs/plans/readiness-checklist.md` and record the command and observed result for each manual step.
+
+## Change Log
+
+| Version | Date | Change |
 |---|---|---|
-| 4.0.0 | 2026-07-19 | اختصار التدفق إلى اختبار وبناء ودمج وإلغاء الموافقات والتقارير البشرية |
-| 3.0.0 | 2026-07-17 | فصل التطوير المحلي عن تشغيل الخادم |
+| 4.0.0 | 2026-07-19 | Reduced the workflow to test, build, and integrate; removed approvals and human delivery reports |
+| 3.0.0 | 2026-07-17 | Separated local development from final server operations |

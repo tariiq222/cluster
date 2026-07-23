@@ -1,16 +1,16 @@
 ---
 doc_id: DSN-UI-002
-title: تصميم إعادة توزيع الداشبورد والتنقل في بوابة العمل المؤسسي
+title: Design of Dashboard and Navigation Reorganization for the Enterprise Work Portal
 type: plans
 status: accepted
 version: 1.0.0
 date: 2026-07-22
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول المنتج
-- مسؤول هندسة البرمجيات
+- Product Lead
+- Software Engineering Lead
 classification: internal
-review_cycle: مع كل تغيير رئيسي في التنقل أو الصلاحيات أو الداشبورد
+review_cycle: With every major change in navigation, permissions, or dashboard
 sources:
 - docs/design-system.md
 - docs/product/personas-and-journeys.md
@@ -22,308 +22,363 @@ references:
 - docs/engineering/delivery-workflow.md
 ---
 
-# تصميم إعادة توزيع الداشبورد والتنقل في بوابة العمل المؤسسي
+# Design of Dashboard and Navigation Reorganization for the Enterprise Work Portal
 
-## 1. القرار المعتمد
+## 1. Adopted Decision
 
-تعاد هيكلة الواجهة حول **عمل المستخدم** لا حول موديولات الخلفية. يبقى للتطبيق مسار
-رئيسي واحد للداشبورد وقائمة جانبية واحدة، لكن محتواهما يتكيف مع القدرات الفعلية
-والنطاق النشط للمستخدم. لا تنشأ بوابات منفصلة للموظف والمدير ومسؤول المنصة، ولا تعرض
-روابط تؤدي إلى منع متوقع.
+The interface is restructured around **the user's work**, not around backend modules.
+The application retains a single primary route for the dashboard and a single
+sidebar, but their content adapts to the user's actual capabilities and active
+scope. No separate portals are created for employee, manager, and platform owner,
+and no links are shown that lead to an expected denial.
 
-اعتمد المستخدم هذا الاتجاه وتوزيع القائمة والداشبورد وخريطة الصفحات وقواعد الصلاحيات
-والتجاوب في 2026-07-22.
+The user adopted this direction, the sidebar and dashboard layout, the page map,
+the permission rules, and the responsive behavior on 2026-07-22.
 
-## 2. حدود الحقيقة الحالية
+## 2. Current State Boundaries
 
-هذه الوثيقة تصميم مستهدف، وليست ادعاء اكتمال تنفيذي. وقت إعدادها كانت الحالة الفعلية
-كما يلي:
+This document is a target design, not a claim of execution completeness. At the
+time it was prepared, the actual state was as follows:
 
-- `shellNavigation` في `AppWorkspace.tsx` يبني ثلاث مجموعات ثابتة: «مساحة عملي»،
-  «الإدارة والتشغيل»، و«مراجعة المنتج».
-- «الوثائق» تظهر تحت «مراجعة المنتج» مع شاشة التغطية ومرجع API، رغم أنها وظيفة
-  تشغيلية للمستخدم.
-- `routes.ts` يحتوي منطقاً ناشئاً لربط المسارات بالقدرات، لكنه ليس دليلاً وحده على أن
-  القائمة الفعلية أصبحت مصفاة حسب الصلاحيات.
-- `ProcessWorkspace` يجمع التشغيل وتعريفات العمل وتعريفات سير العمل في ثلاثة تبويبات.
-- `OrganizationWorkspace` يجمع خمس وظائف، و`AccessWorkspace` يضيف مستوى تبويبات أول
-  ثم سبعة تبويبات فرعية للتفويض.
-- الداشبورد الحالي يعرض شريطاً بصرياً كبيراً وأربع بطاقات ثم يعيد تلخيص الحالات في
-  مواضع أخرى، ويستخدم سجلات العمل العامة تحت عنوان يوحي بأنها قرارات تنتظر المستخدم.
-- توجد مكونات واتجاهات ناشئة لصندوق الموافقات وطلباتي ودليل الإجراءات، لكنها لا تعد
-  مكتملة حتى ترتبط بعقود مصفاة من الخادم ومسارات ظاهرة واختبارات تشغيلية.
+- `shellNavigation` in `AppWorkspace.tsx` builds three fixed groups: "My Work",
+  "Administration and Operations", and "Product Review".
+- "Documents" appears under "Product Review" together with the coverage screen
+  and API reference, even though it is an operational function for the user.
+- `routes.ts` contains emerging logic that links routes to capabilities, but by
+  itself it is not proof that the actual sidebar has become capability-filtered.
+- `ProcessWorkspace` bundles operations, work definitions, and workflow
+  definitions into three tabs.
+- `OrganizationWorkspace` bundles five functions, and `AccessWorkspace` adds a
+  first tab level and then seven sub-tabs for authorization.
+- The current dashboard displays a large visual bar and four cards, then
+  re-summarizes states elsewhere, and uses generic work logs under a heading
+  suggesting they are decisions waiting for the user.
+- Emerging components and directions exist for the approval inbox, my requests,
+  and the procedures directory, but they are not complete until linked to
+  server-filtered contracts, visible routes, and operational tests.
 
-أي تغير متزامن في شجرة العمل أثناء تنفيذ هذه المواصفة يجب مراجعته ودمجه، لا الكتابة
-فوقه أو اعتباره اكتمالاً تلقائياً.
+Any concurrent change in the work tree while this specification is being executed
+must be reviewed and merged, not overwritten or treated as automatic completion.
 
-## 3. الأهداف وخارج النطاق
+## 3. Goals and Out of Scope
 
-### الأهداف
+### Goals
 
-- جعل أول شاشة وأول مجموعة تنقل تجيبان: «ما الذي يحتاجني الآن؟».
-- فصل القرارات والموافقات عن المهام التنفيذية وعن الطلبات التي أنشأها المستخدم.
-- جعل كل كائن أو رحلة مستقلة صفحة مستقلة، مع مستويين كحد أقصى للتنقل.
-- إظهار صفحات الإدارة حسب القدرة والنطاق، مع إبقاء قرار المنع النهائي في الخلفية.
-- إبقاء البحث والإشعارات والسياق الشخصي في مواضع ثابتة لا تزاحم القائمة.
-- توحيد قوالب القوائم والتفاصيل والنماذج والحالات في العربية والإنجليزية.
+- Make the first screen and the first navigation group answer: "What needs me now?".
+- Separate decisions and approvals from execution tasks and from requests the
+  user initiated.
+- Make each independent object or journey an independent page, with a maximum
+  of two navigation levels.
+- Show administration pages based on capability and scope, while keeping the
+  final denial decision on the server.
+- Keep search, notifications, and personal context in fixed positions that do
+  not compete with the sidebar.
+- Unify list, detail, form, and state templates across Arabic and English.
 
-### خارج النطاق
+### Out of Scope
 
-- تغيير حدود موديولات الأعمال أو ملكية جداولها.
-- إنشاء نظام صلاحيات جديد أو استبدال RBAC وABAC الحاليين.
-- إنشاء داشبورد منفصل لكل دور أو نسخ الشاشات حسب persona.
-- إدخال بيانات ثابتة أو مؤشرات وهمية لتعويض عقد خلفي ناقص.
-- وضع شاشة التغطية أو مرجع API ضمن تجربة المستخدم التشغيلي العادية.
+- Changing business-module boundaries or the ownership of their tables.
+- Creating a new permission system or replacing the existing RBAC and ABAC.
+- Creating a separate dashboard for each role or cloning screens per persona.
+- Introducing static data or fake indicators to compensate for a missing backend
+  contract.
+- Including the coverage screen or API reference in the regular operational user
+  experience.
 
-## 4. مبادئ معمارية المعلومات
+## 4. Information Architecture Principles
 
-1. يبدأ التنقل من الهدف: قرار، طلب، مهمة، إجراء، وثيقة.
-2. المجموعة في القائمة عنوان بصري فقط؛ كل عنصر تحتها رابط مباشر إلى صفحة.
-3. يستخدم التبويب فقط إذا كان العنصران يعملان على الكائن نفسه ويشتركان في مصدر البيانات
-   أو المكوّن. الحد الأقصى تبويبان.
-4. صفحات التفاصيل لها روابط عميقة، ولا تحتاج مدخلاً مستقلاً في القائمة.
-5. الشاشات الشخصية تحت `/me/*` في قائمة المستخدم.
-6. البحث والإشعارات في الشريط العلوي.
-7. الأدوات الداخلية في قسم سفلي منفصل، ولا تظهر إلا لقدرات المنصة أو التطوير المناسبة.
-8. إخفاء الرابط تحسين تجربة، وليس بديلاً عن قرار التفويض في الخادم.
+1. Navigation starts from the goal: decision, request, task, procedure, document.
+2. The group in the sidebar is a visual heading only; each item under it is a
+   direct link to a page.
+3. A tab is used only if both items work on the same object and share the data
+   source or component. The maximum is two tabs.
+4. Detail pages have deep links and do not need a separate sidebar entry.
+5. Personal screens under `/me/*` live in the user menu.
+6. Search and notifications live in the top bar.
+7. Internal tools live in a separate lower section and appear only for the
+   appropriate platform or development capabilities.
+8. Hiding a link is a UX improvement, not a substitute for the server's
+   authorization decision.
 
-## 5. القائمة الجانبية المستهدفة
+## 5. Target Sidebar
 
-### مساحة عملي
+### My Work
 
-| الصفحة | الغرض | الظهور |
+| Page | Purpose | Visibility |
 |---|---|---|
-| الرئيسية | الأولويات والمتابعة والمؤشرات المصرح بها | عند توفر أي رحلة عمل للمستخدم |
-| بانتظار إجراء مني | خطوات القرار والاعتماد المسندة للمستخدم | عند توفر قدرة القرار أو عناصر مسندة |
-| طلباتي | الطلبات أو مثيلات السير التي بدأها المستخدم | عند توفر قدرة إنشاء/قراءة الطلبات |
-| مهامي | المهام التنفيذية المسندة | عند توفر `tasks.read` أو ما يعادلها |
-| الإجراءات والخدمات | الإجراءات المنشورة التي يستطيع المستخدم بدءها | عند وجود تعريفات منشورة ومصرح بها |
-| الوثائق | الوثائق المتاحة للمستخدم ضمن نطاقه | عند توفر قدرة الوثائق المناسبة |
+| Home | Priorities, follow-up, authorized indicators | When the user has any work journey |
+| Awaiting My Action | Decision and approval steps assigned to the user | When decision capability or assigned items exist |
+| My Requests | Requests or workflow instances the user started | When read/create request capability exists |
+| My Tasks | Execution tasks assigned to the user | When `tasks.read` or equivalent exists |
+| Procedures and Services | Published procedures the user can start | When published, authorized definitions exist |
+| Documents | Documents available to the user within their scope | When the appropriate document capability exists |
 
-### مجموعات الإدارة حسب مجال العمل
+### Administration Groups by Work Domain
 
-لا تجمع الإدارة في قائمة طويلة واحدة. يقسم كل رابط مستقل حسب المهمة التي ينفذها
-المستخدم، وتختفي أي مجموعة لا يبقى فيها عنصر مسموح:
+Administration is not gathered into one long sidebar. Each independent link is
+split by the task the user performs, and any group with no remaining allowed
+item is hidden:
 
-- **إدارة المنشآت والموظفين:** المنشآت والهيكل، الموظفون، التكليفات المؤقتة، استيراد
-  البيانات، والعلاقات الإشرافية.
-- **الإجراءات وسير العمل:** أنواع الطلبات، مسارات الاعتماد، ومراجعة ونشر الإجراءات.
-- **الحسابات والصلاحيات:** الحسابات، الأدوار والصلاحيات، إسنادات الأدوار، نطاقات
-  الوصول، التفويضات، سياسات التصنيف، وسياسات الحقول.
-- **التقارير والمؤشرات:** التقارير ولوحات المؤشرات.
+- **Facilities and Workforce Administration:** facilities and structure, people,
+  temporary assignments, data import, and supervisory relationships.
+- **Procedures and Workflow:** request types, approval paths, and procedure
+  review and publishing.
+- **Accounts and Permissions:** accounts, roles and capabilities, role
+  assignments, access scopes, delegations, classification policies, and field
+  policies.
+- **Reports and Indicators:** reports and indicator dashboards.
 
-لا يدمج «نطاقات الوصول» مع «التفويضات»، ولا «التقارير» مع «لوحات المؤشرات»، لأن كل
-زوج يملك كائناً ورحلة تشغيلية مختلفين.
+"Access Scopes" is not merged with "Delegations", and "Reports" is not merged with
+"Indicator Dashboards", because each pair owns a different operational object and
+journey.
 
-### الأدوات الداخلية
+### Internal Tools
 
-- فحص وشرح قرار الوصول.
-- تغطية المنتج.
-- مرجع API.
+- Inspect and explain an access decision.
+- Product coverage.
+- API reference.
 
-تظهر هذه المجموعة في أسفل القائمة لمالك المنصة أو المطور المصرح فقط. لا تستخدم كبديل
-لشاشات تشغيلية ناقصة.
+This group appears at the bottom of the sidebar for the platform owner or an
+authorized developer only. It is not used as a stand-in for missing operational
+screens.
 
-### قائمة المستخدم والشريط العلوي
+### User Menu and Top Bar
 
-- قائمة المستخدم: الأمان الشخصي، «سياق وصولي»، تغيير اللغة، وتسجيل الخروج.
-- الشريط العلوي: محدد النطاق، البحث العام، والإشعارات.
-- تغيير النطاق يعيد تحميل بيانات الداشبورد والعدادات والقوائم المرتبطة به.
+- User menu: personal security, "My Access Context", language switch, and sign
+  out.
+- Top bar: scope selector, global search, and notifications.
+- Changing the scope reloads the dashboard data, counters, and related sidebars.
 
-## 6. الداشبورد الرئيسي
+## 6. Main Dashboard
 
-يبقى المسار `/` داشبورد التطبيق الوحيد. يتكون بالترتيب من:
+The route `/` remains the application's only dashboard. It is composed, in order, of:
 
-1. رأس مضغوط يعرض النطاق الحالي ووصفاً قصيراً، مع «طلب جديد» و«استعراض الخدمات» إذا
-   كانا مسموحين.
-2. شريط أولوية قصير يعرض عدد عناصر «بانتظار إجراء مني» وزراً يفتح صندوقها. لا يستخدم
-   زر إنشاء طلب عندما يكون النص عن قرارات مطلوبة.
-3. أربعة مؤشرات كحد أقصى فوق الطية:
-   - بانتظار قراري.
-   - مهام مستحقة اليوم.
-   - أعمال متأخرة.
-   - طلباتي الجارية.
-4. قائمة «ما يحتاجك الآن» مرتبة بالاستحقاق وخطر التأخير، من مصدر صندوق الإجراءات
-   المصفى من الخادم.
-5. قائمة «متابعة طلباتي» مع المالك الحالي وآخر تحديث والحالة.
-6. ملخص «اليوم» للمواعيد والاستحقاقات.
-7. كتلة «مؤشرات نطاقي» للمدير أو صاحب قدرة التقارير فقط، وتأتي من تعريفات الداشبورد
-   المنشورة والمصفاة تفويضياً.
+1. A compact header showing the current scope and a short description, with
+   "New Request" and "Browse Services" if they are allowed.
+2. A short priority bar showing the count of "Awaiting My Action" items and a
+   button that opens their inbox. A new-request button is not used when the
+   text refers to decisions required.
+3. At most four indicators above the fold:
+   - Awaiting My Decision.
+   - Tasks due today.
+   - Overdue work.
+   - My active requests.
+4. A "What Needs You Now" list ordered by due date and delay risk, sourced from
+   the server-filtered procedure inbox.
+5. A "My Request Tracking" list with current owner, last update, and status.
+6. A "Today" summary of appointments and due items.
+7. A "My Scope Indicators" block for managers or anyone with reporting
+   capability, sourced from the published, authorization-filtered dashboard
+   definitions.
 
-لا تكرر الصفحة قائمة الإشعارات؛ يبقى الجرس والـdrawer مكانها الأساسي. لا يعرض
-`PrincipalDashboards` أو ما يخلفه حالة فارغة لمستخدم لا يملك لوحات، ولا يؤدي فشل
-لوحة إضافية إلى إسقاط بقية الداشبورد.
+The page does not repeat the notification list; the bell and the drawer keep
+their primary place. `PrincipalDashboards` (or what it leaves behind) is not
+shown as an empty state for users without dashboards, and a single dashboard
+failure does not drop the rest of the dashboard.
 
-## 7. خريطة الصفحات وقواعد التبويب
+## 7. Page Map and Tab Rules
 
-### مسارات العمل الشخصية
+### Personal Work Routes
 
-- بانتظار إجراء مني: قائمة ثم تفاصيل القرار أو الطلب المرتبط.
-- طلباتي: قائمة ثم تفاصيل الطلب وتاريخ خطواته.
-- مهامي: قائمة ثم تفاصيل المهمة.
-- الإجراءات والخدمات: دليل منشور ثم نموذج إنشاء موجّه.
-- الوثائق: قائمة ثم مسار تفاصيل وثيقة دائم؛ التفاصيل ليست تبويباً عاماً.
+- Awaiting My Action: list then detail of the decision or related request.
+- My Requests: list then detail of the request and its step history.
+- My Tasks: list then task detail.
+- Procedures and Services: published directory then a guided create form.
+- Documents: list then a permanent document-detail route; detail is not a
+  general-purpose tab.
 
-### صفحات الإدارة
+### Administration Pages
 
-- «المنشآت والهيكل» يسمح بتبويبين: المنشآت والهيكل، لأنهما يعملان على السلسلة
-  التنظيمية نفسها.
-- «الأدوار والصلاحيات» يسمح بتبويبين: الأدوار والصلاحيات، لأنهما يعملان على مصفوفة
-  الدور والقدرات نفسها.
-- الموظفون والتكليفات والاستيراد صفحات مستقلة.
-- أنواع الطلبات ومسارات الاعتماد ومراجعة النشر صفحات مستقلة.
-- الحسابات وإسنادات الأدوار والنطاقات والتفويضات والسياسات والعلاقات الإشرافية صفحات
-  مستقلة.
-- التقارير ولوحات المؤشرات صفحتان مستقلتان.
+- "Facilities and Structure" allows two tabs: facilities and structure, because
+  both work on the same organizational chain.
+- "Roles and Capabilities" allows two tabs: roles and capabilities, because both
+  work on the same role-capability matrix.
+- People, temporary assignments, and import are independent pages.
+- Request types, approval paths, and review/publish are independent pages.
+- Accounts, role assignments, scopes, delegations, policies, and supervisory
+  relationships are independent pages.
+- Reports and indicator dashboards are two independent pages.
 
-لا تنشأ مساحة داخلية بمستوى: رابط جانبي ثم تبويبات ثم تبويبات فرعية.
+No internal area is built with: sidebar link then tabs then sub-tabs.
 
-## 8. قوالب الشاشات الموحدة
+## 8. Unified Screen Templates
 
-### صفحة قائمة
+### List Page
 
-- `PageHeader` بعنوان ووصف وإجراء أساسي واحد.
-- بحث وفلاتر مرتبطة بعنوان URL عند الحاجة.
-- جدول أو قائمة قابلة للمسح السريع مع pagination أو cursor فعلي.
-- كل صف يفتح رابط تفاصيل دائم.
-- العمليات السريعة المحدودة فقط تستخدم `Drawer`.
+- `PageHeader` with a title, description, and one primary action.
+- Search and filters bound to the URL when needed.
+- A scannable table or list with real pagination or cursor.
+- Each row opens a permanent detail link.
+- Only limited quick actions use `Drawer`.
 
-### صفحة تفاصيل
+### Detail Page
 
-- الحالة والإجراءات المسموحة في الأعلى.
-- المحتوى الأساسي في منطقة واحدة واضحة.
-- معلومات المالك والنطاق والتواريخ في منطقة مساندة.
-- خط زمني للأحداث أو خطوات السير عندما ينطبق.
-- الأفعال تأتي من `allowed_actions` أو قرار مكافئ من الخادم، لا من تخمين الواجهة.
+- Status and allowed actions at the top.
+- Core content in one clear area.
+- Owner, scope, and date information in a supporting area.
+- A timeline of events or workflow steps when applicable.
+- Actions come from `allowed_actions` or an equivalent server decision, not
+  from UI guesswork.
 
-### نموذج إنشاء موجّه
+### Guided Create Form
 
-- يبدأ من إجراء أو نوع طلب منشور.
-- يعرض الحقول الصالحة لذلك الإصدار فقط.
-- يدعم المسودة والتحقق والإرسال عندما تسمح العقود.
-- يثبت السجل الجاري على إصدار النوع ومسار الاعتماد المنشورين.
+- Starts from a published procedure or request type.
+- Shows only the fields valid for that version.
+- Supports draft, validate, and submit when contracts allow.
+- Pins the live record to the published version of the type and approval path.
 
-تستخدم جميع القوالب `Page` و`PageHeader` و`Panel` و`Button` و`Field` و`Select` و`Drawer`
-و`Feedback` من `apps/web/src/ui`، ولا تنشأ primitives محلية داخل `features/`.
+All templates use `Page`, `PageHeader`, `Panel`, `Button`, `Field`, `Select`,
+`Drawer`, and `Feedback` from `apps/web/src/ui`, and no local primitives are
+created inside `features/`.
 
-## 9. التفويض وتدفق البيانات
+## 9. Authorization and Data Flow
 
-1. تحمل الجلسة القدرات الفعالة وهوية المستخدم والنطاق النشط.
-2. يبني `AppWorkspace` عناصر القائمة من سجل مسارات واحد يحوي المسار والاسم والأيقونة
-   والقدرة المطلوبة والمجموعة.
-3. تبقى العناصر المقيدة مخفية حتى يكتمل تحميل القدرات، ثم تزال المجموعات الفارغة.
-4. عند التنقل أو فتح رابط مباشر، يعيد API تطبيق القرار نفسه على القائمة والتفاصيل
-   والبحث والتقارير والتصدير والتنزيل.
-5. استجابة 401 تعالج كجلسة منتهية، و403 كمنع صريح، و404 كسجل غير موجود أو غير قابل
-   للكشف حسب عقد الأمان، و409/412 كتعارض أو نسخة قديمة.
-6. تغيير النطاق يلغي الطلبات الجارية القديمة منطقياً، ويعيد الاستعلام، ويصفر العدادات
-   المؤقتة قبل إظهار بيانات النطاق الجديد.
+1. The session carries effective capabilities, user identity, and active scope.
+2. `AppWorkspace` builds sidebar items from a single route registry containing
+   path, name, icon, required capability, and group.
+3. Gated items remain hidden until capabilities finish loading, then empty
+   groups are removed.
+4. On navigation or direct link, the API reapplies the same decision to the
+   sidebar, detail, search, reports, export, and download.
+5. A 401 response is handled as an expired session, 403 as an explicit denial,
+   404 as a record not found or not disclosable per the security contract, and
+   409/412 as conflict or stale version.
+6. Changing the scope logically cancels older in-flight requests, re-runs the
+   query, and zeros temporary counters before showing new-scope data.
 
-المصادر الأساسية للداشبورد والصفحات الشخصية:
+Primary sources for the dashboard and personal pages:
 
-- صندوق الإجراءات: `GET /workflow/steps?assignee=me` مع الحالة المناسبة.
-- طلباتي: قائمة مثيلات سير مصفاة للمستخدم الحالي من الخادم.
-- مهامي: `GET /tasks` المصفى للمسند إليه الحالي.
-- مؤشرات المدير: `GET /dashboards` ثم الداشبورد المصرح به ضمن النطاق.
-- الإشعارات والوثائق وسجلات العمل من عقودها الحالية المصفاة تفويضياً.
+- Procedure inbox: `GET /workflow/steps?assignee=me` with the appropriate state.
+- My Requests: server-filtered workflow instances list for the current user.
+- My Tasks: `GET /tasks` filtered for the current assignee.
+- Manager indicators: `GET /dashboards` then the dashboard authorized within
+  the scope.
+- Notifications, documents, and work logs from their current authorization-
+  filtered contracts.
 
-يحظر جلب جميع مثيلات السير أو الخطوات ثم تصفيتها في React حسب `user_id`. الفلترة
-الشخصية والأمنية مسؤولية الخادم، كما أن العدادات تستخدم المصدر المصفى نفسه الذي تفتحه
-القائمة. إذا تغير عقد API، تحدث OpenAPI ثم Orval قبل استهلاك الواجهة.
+Fetching every workflow instance or step and filtering it in React by
+`user_id` is forbidden. Personal and security filtering is the server's
+responsibility, and counters use the same filtered source the sidebar opens.
+If an API contract changes, update OpenAPI then Orval before the interface
+consumes it.
 
-## 10. الحالات والأخطاء
+## 10. States and Errors
 
-كل صفحة وكل widget يطبق الحالات الآتية:
+Every page and widget applies these states:
 
-- **Loading:** skeleton يحافظ على أبعاد الصفحة ولا يعرض صفراً مضللاً.
-- **Empty:** يشرح لماذا لا توجد بيانات وما الإجراء التالي إن وجد.
-- **Denied:** رسالة واضحة بلا أسماء أو أرقام من المورد المحمي.
-- **Error:** رسالة قابلة للفهم وإعادة محاولة محددة النطاق.
-- **Success:** تأكيد مرئي و`aria-live` ووجهة تالية واضحة.
-- **Stale/Conflict:** إعادة تحميل آمنة قبل تكرار القرار أو التحديث.
+- **Loading:** skeleton that preserves the page's dimensions and does not show a
+  misleading zero.
+- **Empty:** explains why there is no data and what the next step is, if any.
+- **Denied:** clear message with no names or numbers from the protected resource.
+- **Error:** understandable message and a scoped retry.
+- **Success:** visible confirmation with `aria-live` and a clear next destination.
+- **Stale/Conflict:** safe reload before repeating the decision or update.
 
-التقارير والمؤشرات تعرض المصدر والفترة وحالة الحداثة ووقت آخر تحديث عند انطباقها. لا
-تستخدم أرقام أو نصوص fixture في واجهة غير مخصصة للتطوير.
+Reports and indicators display the source, period, freshness state, and last
+update time when applicable. No fixture numbers or text are used in any
+interface not dedicated to development.
 
-## 11. الاتجاه البصري والتجاوب والوصولية
+## 11. Visual Direction, Responsiveness, and Accessibility
 
-- النبرة «غرفة عمليات هادئة»: كثافة مفيدة، أسطح مسطحة، ولون دلالي محدود.
-- يزال الـhero الضخم من الداشبورد ويستبدل بشريط أولوية مضغوط.
-- تبقى أربعة مؤشرات كحد أقصى فوق الطية، ولا توضع بطاقات داخل بطاقات.
-- سطح المكتب يستخدم sidebar بعرض كامل قابلة للطي مع tooltip واضح في الوضع المطوي.
-- تحت نقطة الانهيار المناسبة تتحول القائمة إلى drawer حقيقي يدعم Escape وإرجاع focus.
-- على الجوال يصبح الداشبورد عموداً واحداً، والمؤشرات 2×2، وتبقى الأفعال الأساسية
-  قابلة للوصول دون تمرير أفقي.
-- تعمل الواجهة في RTL وLTR، وتستخدم الخصائص المنطقية و`dir` موضعياً للنصوص والأرقام
-  المختلطة.
-- يحقق النص والتحديد والتركيز WCAG 2.2 AA، ولا يحمل اللون المعنى منفرداً.
-- يحترم `prefers-reduced-motion`، ولا تستخدم الحركة إلا لتوضيح الانتقال أو الحالة.
+- Tone: "calm operations room": useful density, flat surfaces, limited semantic color.
+- The large hero is removed from the dashboard and replaced with a compact
+  priority bar.
+- At most four indicators remain above the fold, and cards are never placed
+  inside cards.
+- Desktop uses a full-width collapsible sidebar with a clear tooltip in the
+  collapsed state.
+- Below the appropriate breakpoint the sidebar becomes a real drawer that
+  supports Escape and returns focus.
+- On mobile the dashboard becomes a single column, indicators become 2×2, and
+  primary actions remain reachable without horizontal scrolling.
+- The interface works in RTL and LTR, uses logical CSS properties and local
+  `dir` for mixed text and digits.
+- Text, selection, and focus meet WCAG 2.2 AA, and color does not carry
+  meaning alone.
+- `prefers-reduced-motion` is respected, and motion is used only to clarify a
+  transition or state.
 
-## 12. توافق المسارات والهجرة
+## 12. Route Compatibility and Migration
 
-- يحتفظ كل رابط عميق حالي صالح بمساره أو يحصل على تحويل واضح إلى الصفحة البديلة.
-- يظل `/` الصفحة الرئيسية، وتضاف مسارات واضحة لصندوق الإجراءات وطلباتي ودليل
-  الإجراءات وصفحات الإدارة المنفصلة.
-- لا يحذف مسار قبل وجود بديله واختبار الروابط المباشرة والتاريخ الخلفي/الأمامي.
-- يزال التصنيف «مراجعة المنتج» من التنقل التشغيلي، وتنقل أدواته إلى القسم الداخلي.
-- تفكك `OrganizationWorkspace` و`ProcessWorkspace` و`AccessWorkspace` تدريجياً مع إبقاء
-  المكونات الحالية قابلة لإعادة الاستخدام، لا بإعادة كتابة شاملة دفعة واحدة.
+- Every currently valid deep link either keeps its path or gets a clear redirect
+  to the replacement page.
+- `/` stays the home page, and explicit routes are added for the procedure inbox,
+  my requests, the procedures directory, and the independent administration pages.
+- No route is deleted before its replacement exists and direct links plus
+  back/forward history are tested.
+- The "Product Review" category is removed from operational navigation, and its
+  tools move to the internal section.
+- `OrganizationWorkspace`, `ProcessWorkspace`, and `AccessWorkspace` are
+  dismantled incrementally while keeping current components reusable, not via a
+  one-shot rewrite.
 
-## 13. شرائح التنفيذ المقترحة
+## 13. Proposed Implementation Slices
 
-تُنفذ المواصفة على شرائح رأسية مستقلة لتقليل تعارض العمل الجاري:
+The specification is executed in independent vertical slices to minimize
+conflict with ongoing work:
 
-1. **الأساس:** سجل المسارات والقدرات، تصفية القائمة، المجموعات الفارغة، الروابط
-   والتحويلات، وقائمة المستخدم والأدوات الداخلية.
-2. **مساحة عملي:** صندوق الإجراءات وطلباتي والمهام ودليل الإجراءات بعقود مصفاة من
-   الخادم.
-3. **الداشبورد:** تركيب الأولويات والعدادات والمتابعة والمؤشرات المصرح بها.
-4. **الإدارة التنظيمية:** فصل المنشآت والموظفين والتكليفات والاستيراد.
-5. **الإجراءات:** فصل أنواع الطلبات ومسارات الاعتماد ومراجعة النشر.
-6. **الهوية والوصول:** فصل الحسابات والإسنادات والنطاقات والتفويضات والسياسات.
-7. **التقارير والأدوات:** فصل التقارير عن اللوحات وعزل الأدوات الداخلية.
+1. **Foundation:** route and capability registry, sidebar filtering, empty
+   groups, links and redirects, and the user menu and internal tools.
+2. **My Work:** procedure inbox, my requests, tasks, and procedures directory
+   with server-filtered contracts.
+3. **Dashboard:** composing priorities, counters, follow-up, and authorized
+   indicators.
+4. **Organization Administration:** splitting facilities, people, temporary
+   assignments, and import.
+5. **Procedures:** splitting request types, approval paths, and review/publish.
+6. **Identity and Access:** splitting accounts, assignments, scopes,
+   delegations, and policies.
+7. **Reports and Tools:** separating reports from dashboards and isolating the
+   internal tools.
 
-كل شريحة تشمل الخلفية والعقود والواجهة والتعريب والوصولية والاختبارات ذات الصلة قبل
-الانتقال إلى التالية.
+Each slice includes backend, contracts, interface, localization, accessibility,
+and related tests before moving to the next.
 
-## 14. معايير القبول والتحقق
+## 14. Acceptance and Verification Criteria
 
-يعد التصميم منفذاً عندما تتحقق جميع الشروط التالية:
+The design is considered executed when all the following conditions are met:
 
-- يرى الموظف والمدير ومسؤول المنصة قوائم مختلفة مبنية على القدرات والنطاق، من دون
-  رابط ظاهر يعيد 403 في الرحلات العادية.
-- لا يستطيع أي مستخدم الوصول إلى مورد محمي عبر رابط مباشر أو بحث أو تقرير أو تصدير
-  عندما تمنعه الخلفية.
-- «بانتظار إجراء مني» يعرض فقط الخطوات المسندة للمستخدم، و«طلباتي» فقط ما بدأه،
-  و«مهامي» فقط المهام المسندة وفق العقد.
-- لا يكرر الداشبورد الإشعارات، ولا يعرض سجلات عامة تحت عنوان قرارات شخصية.
-- لا توجد صفحة بثلاثة تبويبات ولا مستوى تنقل ثالث.
-- كل مسار غير تفصيلي له مدخل واحد ظاهر عند توفر صلاحيته.
-- صفحات الأدوات الداخلية لا تظهر للمستخدم التشغيلي العادي.
-- تنجح اختبارات المسارات والقدرات والمجموعات النشطة والروابط المباشرة.
-- تنجح الاختبارات المستهدفة لصندوق الإجراءات وطلباتي والمهام والداشبورد وحالات
-  401/403/404/409/412.
-- ينجح `npm --prefix apps/web run build` والاختبارات المستهدفة المتأثرة.
-- تغطي E2E حساب موظف ومدير ومسؤول منصة على desktop وmobile وفي RTL وLTR، مع النجاح
-  والمنع والخطأ وإعادة التحميل والعودة والرابط المباشر.
-- يجتاز التحقق الآلي للوصولية، ثم فحص لوحة المفاتيح والتركيز يدوياً؛ النجاح الآلي
-  وحده لا يثبت اكتمال الوصولية.
+- Employee, manager, and platform owner see different sidebars built on
+  capabilities and scope, with no visible link that returns 403 in regular
+  journeys.
+- No user can reach a protected resource via a direct link, search, report, or
+  export when the backend denies them.
+- "Awaiting My Action" shows only the steps assigned to the user; "My Requests"
+  shows only what they started; "My Tasks" shows only tasks assigned to them
+  per the contract.
+- The dashboard does not repeat notifications and does not show generic logs
+  under a personal-decisions heading.
+- No page has three tabs and no third navigation level exists.
+- Every non-detail route has exactly one visible entry when its capability is held.
+- Internal-tools pages do not appear for the regular operational user.
+- Route, capability, active-group, and direct-link tests pass.
+- Targeted tests for the procedure inbox, my requests, my tasks, the dashboard,
+  and 401/403/404/409/412 cases pass.
+- `npm --prefix apps/web run build` and the affected targeted tests pass.
+- E2E covers an employee, a manager, and a platform owner account on desktop
+  and mobile, in RTL and LTR, with success, denial, error, reload, back, and
+  direct-link scenarios.
+- Automated accessibility checks pass, then keyboard and focus are inspected
+  manually; automated success alone does not prove accessibility completeness.
 
-## 15. المخاطر وضوابطها
+## 15. Risks and Controls
 
-- **تسريب البيانات بسبب الفلترة في العميل:** يمنع بجعل `me` والنطاق مرشحات خادمية
-  واختبار عدم رؤية بيانات الآخرين.
-- **تعارض مع العمل الجاري:** تفحص شجرة Git قبل كل شريحة وتحفظ التغييرات المتزامنة
-  وتدمجها انتقائياً.
-- **قائمة طويلة لمسؤول المنصة:** تخفف بالمجموعات، والطي، والبحث، مع عدم دمج كائنات
-  مستقلة في تبويبات عميقة.
-- **كسر الروابط المحفوظة:** يمنع بخريطة تحويلات واختبارات route parsing والتاريخ.
-- **عدادات غير متسقة:** تستخدم الصفحات والعدادات مصدر الاستعلام المصفى نفسه.
-- **تجميل بلا اكتمال:** لا تقبل اللقطات وحدها؛ يلزم عقد عامل وحالات كاملة واختبارات
-  ورحلة متصفح فعلية.
+- **Data leakage from client-side filtering:** prevented by making `me`, scope,
+  owner, and assignee server-side filters, and by testing that other users'
+  data is not visible.
+- **Conflict with ongoing work:** the Git tree is inspected before each slice,
+  concurrent changes are preserved, and merged selectively.
+- **Long sidebar for the platform owner:** mitigated with groups, collapse,
+  and search, without merging independent objects into deep tabs.
+- **Breaking saved links:** prevented with a redirect map and route parsing and
+  history tests.
+- **Inconsistent counters:** pages and counters use the same filtered query
+  source.
+- **Polish without completeness:** screenshots alone are not accepted; a working
+  contract, full states, tests, and an actual browser journey are required.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-22 | مكتب هندسة المنصة | اعتماد إعادة توزيع الداشبورد والقائمة والصفحات حسب عمل المستخدم وصلاحياته |
+| 1.0.0 | 2026-07-22 | Platform Engineering Office | Adopt the dashboard, sidebar, and page reorganization by user work and capabilities |

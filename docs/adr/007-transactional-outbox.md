@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-007
-title: Transactional Outbox للأحداث الداخلية
+title: Transactional Outbox  
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: الأحداث غير المتزامنة
+- Platform Architecture Council
+scope:   
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -24,28 +24,28 @@ related_adrs:
 - ADR-017
 review_by: 2026-10-15
 ---
-# ADR-007: Transactional Outbox للأحداث الداخلية
+# ADR-007: Transactional Outbox  
 ## Context
-الإشعارات والفهارس والإسقاطات لا يجوز أن تفقد حدث تغيير ناجح.
+         .
 ## Drivers
-تسليم موثوق من دون معاملة موزعة.
+     .
 ## Decision
-يحفظ المنتج تغييره وOutbox في المعاملة نفسها؛ العامل يسلم after-commit at-least-once والمستهلك idempotent عبر `event_id` وInbox.
+   Outbox      after-commit at-least-once  idempotent  `event_id` Inbox.
 ## Scope
-للإشعارات والفهرسة وRead Models والتدقيق غير الحرج، لا لإخفاء تدفق تجاري متزامن.
+  Read Models        .
 ## Alternatives
-رُفض النشر قبل commit أو بعده بلا Outbox وEvent Sourcing.
+   commit    Outbox Event Sourcing.
 ## Consequences
-اتساق نهائي ومراقبة تأخير وإعادة معالجة مطلوبة.
+      .
 ## Security
-يحمل الحدث schema version وبيانات دنيا؛ لا يكتب payload حساساً كاملاً في السجلات.
+  schema version     payload    .
 ## Operations
-retry محدود وDLQ وتنبيه ومقاييس lag وإعادة تشغيل آمنة.
+retry  DLQ   lag   .
 ## Rollback
-المستهلكات قابلة لإعادة المعالجة؛ يعطل المستهلك المعطوب بلا إبطال للحقيقة المصدرية.
+          .
 ## Enforcement
-اختبار المعاملة الواحدة وidempotency وschema compatibility وDLQ.
+   idempotency schema compatibility DLQ.
 ## Review
-ربع سنوي وعند إضافة وسيط أحداث.
+quarterly    .
 ## References
-`docs/architecture/overview.md`، `docs/architecture/diagrams/outbox-sequence.mmd`.
+`docs/architecture/overview.md` `docs/architecture/diagrams/outbox-sequence.mmd`.

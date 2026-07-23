@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-021
-title: ملكية الاستراتيجية والمؤشرات
+title: Strategy and Indicator Ownership
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: Strategy والمؤشرات
+- Platform Architecture Council
+scope: Strategy and indicators
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -25,28 +25,28 @@ related_adrs:
 - ADR-022
 review_by: 2027-01-15
 ---
-# ADR-021: ملكية الاستراتيجية والمؤشرات
+# ADR-021:   
 ## Context
-تحتاج الخطط والمؤشرات والمشاريع إلى ربط الأثر من دون ازدواج تعريف المؤشر أو قياساته.
+             .
 ## Drivers
-مصدر حقيقة واحد للمؤشر وتدقيق المستهدفات والقراءات والأثر.
+       .
 ## Decision
-`Strategy` هو المالك الوحيد للخطة والأهداف والمبادرات والمؤشرات وإصداراتها ومستهدفاتها وقياساتها والأثر الفعلي المعتمد؛ الآخرون يحتفظون بالمراجع فقط.
+`Strategy`                 .
 ## Scope
-يشمل توزيع المستهدفات، القياسات والأدلة، ومعادلات التجميع، ولا يحدد محفظة أو مشروعاً.
+           .
 ## Alternatives
-رُفض امتلاك Reporting أو PortfolioProjects للمؤشرات ونسخ قياساتها محلياً.
+  Reporting  PortfolioProjects    .
 ## Consequences
-تستخدم المشاريع عقود Strategy لتسجيل الارتباط أو تقديم أثر للاعتماد.
+   Strategy      .
 ## Security
-تعتمد القياسات والأثر عبر صلاحيات ومسارات وتطبق صلاحية الحقول على اللوحات.
+          .
 ## Operations
-تراقب دورات القياس وقفل الفترات وإعادة بناء إسقاطات اللوحات.
+        .
 ## Rollback
-تستبدل الإصدارات المنشورة بإصدار لاحق؛ لا تمحى قراءة أو أثر معتمد.
+          .
 ## Enforcement
-اختبارات تمنع كتابة أو نسخ تعريفات وقياسات المؤشر خارج Strategy.
+         Strategy.
 ## Review
-عند اعتماد معادلات أو دورات قياس جديدة.
+      .
 ## References
-`docs/domain/strategy.md`، `docs/architecture/module-catalog.md`.
+`docs/domain/strategy.md` `docs/architecture/module-catalog.md`.

@@ -1,20 +1,20 @@
 ---
 doc_id: ADR-014
-title: البحث المحكوم
+title: Authorized Search
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
+- Platform Architecture Council
 scope: Search
 supersedes:
 - ADR-008
@@ -26,28 +26,28 @@ related_adrs:
 - ADR-015
 review_by: 2027-01-15
 ---
-# ADR-014: البحث المحكوم
+# ADR-014:  
 ## Context
-البحث المركزي قد يكشف عنواناً أو مقتطفاً لسجل غير مسموح.
+         .
 ## Drivers
-بحث سريع دون تحويل الفهرس إلى مصدر الحقيقة أو منفذ إفصاح.
+          .
 ## Decision
-`Search` يستهلك أحداثاً لإنتاج فهرس مشتق، يطبق نطاقاً وتصنيفاً قبل الإرجاع ويعيد التفويض عند فتح المصدر.
+`Search`               .
 ## Scope
-لا يكتب Search إلى سجلات الأعمال ولا يفهرس حقلاً غير مسموح به.
+  Search         .
 ## Alternatives
-رُفض البحث المباشر في جداول الموديولات وفهرس بلا ترشيح تفويض.
+         .
 ## Consequences
-توجد نافذة اتساق نهائي وإعادة بناء لازمة بعد تغيرات كبيرة.
+         .
 ## Security
-لا يعيد عنواناً أو مقتطفاً أو حقلاً محظوراً، والفشل مغلق.
+         .
 ## Operations
-تراقب freshness وlag ونقطة التقدم وتعيد بناء الفهرس بأمان.
+ freshness lag      .
 ## Rollback
-تعطل نسخة الفهرس المعطوبة وتبنى من الأحداث أو Projection Feeds.
+        Projection Feeds.
 ## Enforcement
-اختبارات منع كشف العنوان والعزل والتفويض عند الفتح وidempotency.
+        idempotency.
 ## Review
-عند اختيار محرك بحث داخلي أو توسيع حقول الفهرسة.
+        .
 ## References
-`docs/architecture/module-catalog.md`، `docs/data-security/authorization-model.md`.
+`docs/architecture/module-catalog.md` `docs/data-security/authorization-model.md`.

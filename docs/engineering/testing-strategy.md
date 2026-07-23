@@ -1,16 +1,16 @@
 ---
 doc_id: ARC-EN-004
-title: استراتيجية الاختبار
+title: Testing Strategy
 type: engineering
 status: draft
 version: 1.0.0
 date: 2026-07-15
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Lead
 reviewers:
-- مسؤول أمن المعلومات
-- مسؤول العمليات
+- Information Security Lead
+- Operations Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: With every change
 sources:
 - docs/adr/002-module-first-vertical-slices.md
 - docs/adr/003-module-boundaries.md
@@ -18,38 +18,44 @@ references:
 - docs/architecture/overview.md
 - docs/engineering/coding-and-module-boundaries.md
 ---
-# استراتيجية الاختبار
 
-## بوابة التغطية
+> **NOT IMPLEMENTED.** The following gates are documented but not enforced in CI: 80% mutation score on Domain files, 2,000 concurrent-user load tests, RPO≤15 min / RTO≤2 h restore drill automation. Infection, k6/locust, and restore scripts are not present in the repository.
+# Testing Strategy
 
-كل طلب دمج يحقق تغطية line لا تقل عن **80% من الأسطر المتغيرة**. تقاس على diff الطلب بعد استبعاد الملفات المولدة والمخططات وترحيلات DDL البحتة بموافقة المراجع. لا تعوض التغطية الرقمية اختبار سيناريو ناقصاً.
+## Coverage Gate
 
-## طبقات الاختبار
+The intended merge-request target is at least **80% line coverage for changed lines**. It is measured against the request diff after generated files, schemas, and pure DDL migrations are excluded with reviewer approval. Numeric coverage does not compensate for a missing scenario test.
 
-| الطبقة | المطلوب |
+> **NOT IMPLEMENTED.** CI has no changed-line coverage gate for the API or web application. The web configuration applies a threshold to `src/api.ts`, not to each merge-request diff.
+
+## Test Layers
+
+| Layer | Requirement |
 |---|---|
-| Unit/Domain | invariants وValue Objects والانتقالات والحالات الحدية |
-| Application | Handler، المعاملة، الصلاحية، Outbox، والـidempotency |
-| Contract | كل عقد متزامن وschema/compatibility لكل event منشور |
-| Architecture | DAG، imports، ملكية الجداول، ومنع SQL/كتابة عابرة للحدود |
-| API/UI E2E | رحلة حرجة من الواجهة إلى الحفظ والطابور والإسقاط مع عقد API ثابت |
+| Unit/Domain | Invariants, Value Objects, transitions, and edge cases |
+| Application | Handler, transaction, authorization, Outbox, and idempotency |
+| Contract | Every synchronous contract and schema/compatibility coverage for every published event |
+| Architecture | DAG, imports, table ownership, and prevention of cross-boundary SQL/writes |
+| API/UI E2E | A critical journey from the UI through persistence, queueing, and projection, with a stable API contract |
 
-## الاختبارات الإلزامية حسب المخاطر
+> **NOT IMPLEMENTED.** There is no central runtime contract-test layer under `apps/api/tests/Contract/`. Repository scripts validate selected OpenAPI artifacts but do not provide the complete synchronous-contract and event-compatibility layer described above.
 
-1. **Mutation:** تشغل mutation testing على Domain والمنطق الحرج. لا يدمج التغيير إذا نجا mutant يزيل تحقق صلاحية أو invariant أو انتقال حالة أو قيد تصنيف؛ الهدف الأدنى 80% mutation score للملفات الحرجة المتغيرة.
-2. **الأمن:** اختبارات deny-by-default، النطاق التنظيمي، التصنيف، الحقول، التفويض، IDOR، الإدخال الخبيث، ومصادقة/جلسات. تشمل E2E لمسارات القراءة والتصدير والتنزيل.
-3. **الأداء:** اختبار حمل لكل Slice حرجة أو استعلام جديد، مع baseline محفوظ. بوابة الإصدار تتحقق من هدف 2,000 مستخدم متزامن للرحلات المحددة ومن عدم تجاوز SLO المعتمد.
-4. **الاستعادة:** اختبار restore دوري فعلي لنسخة قاعدة البيانات والملفات في بيئة معزولة، والتحقق من سلامة البيانات وتشغيل التطبيق. الهدف `RPO <= 15 دقيقة` و`RTO <= ساعتين`.
+## Mandatory Tests by Risk
 
-## التنفيذ
+1. **Mutation:** Run mutation testing on Domain code and critical logic. A change must not merge if a surviving mutant removes an authorization check, invariant, state transition, or classification constraint. The intended minimum is an 80% mutation score for changed critical files. **Not enforced:** no Infection dependency or CI job is present.
+2. **Security:** Test deny-by-default behavior, organizational scope, classification, fields, authorization, IDOR, malicious input, and authentication/session handling. Include E2E tests for read, export, and download paths.
+3. **Performance:** Run a load test for every critical slice or new query and preserve the baseline. The intended release gate checks 2,000 concurrent users for selected journeys and compliance with the approved SLO. **Not enforced:** no k6, Locust, or equivalent harness is present.
+4. **Recovery:** Periodically restore a real database and file backup in an isolated environment and verify data integrity and application operation. The intended target is `RPO <= 15 minutes` and `RTO <= 2 hours`. **Not enforced:** automated backup/restore drill scripts and a CI gate are absent.
 
-- الاختبارات حتمية ولا تعتمد على وقت النظام أو الشبكة أو بيانات مشتركة؛ تستخدم Clock وfixtures معزولة.
-- يكتب الاختبار قرب الـSlice، وتبقى اختبارات العقود والحراسة في مسار مركزي قابل للتشغيل في CI.
-- يفشل CI عند flaky test؛ يعزل الاختبار مؤقتاً فقط مع تذكرة ومالك وموعد إصلاح، ولا يعامل نجاح الإعادة كنجاح دائم.
-- يراجع مالك الموديول تقرير التغطية وmutation وE2E قبل قبول طلب الدمج.
+## Implementation
 
-## سجل التغيير
+- Tests are deterministic and do not depend on system time, the network, or shared data. They use a Clock and isolated fixtures.
+- A test lives near its slice. Contract and architectural guard tests remain in a central path that CI can run.
+- CI fails on a flaky test. Quarantine it only temporarily with a ticket, owner, and repair date; a successful rerun is not a permanent pass.
+- The module owner reviews available coverage and E2E results before accepting a merge request. Mutation, concurrent-load, and restore reports cannot be required until their missing tooling is implemented.
 
-| الإصدار | التاريخ | الدور | التغيير |
+## Change Log
+
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول هندسة البرمجيات | اعتماد بوابات الاختبار والتغطية والاستعادة |
+| 1.0.0 | 2026-07-15 | Software Engineering Lead | Documented intended testing, coverage, and recovery gates and identified unenforced gates |

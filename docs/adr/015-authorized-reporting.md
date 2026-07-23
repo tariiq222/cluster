@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-015
-title: التقارير واللوحات المحكومة
+title: Authorized Reporting
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: Reporting والتصدير
+- Platform Architecture Council
+scope: Reporting and export
 supersedes:
 - ADR-008
 superseded_by: []
@@ -27,28 +27,28 @@ related_adrs:
 - ADR-021
 review_by: 2027-01-15
 ---
-# ADR-015: التقارير واللوحات المحكومة
+# ADR-015:   
 ## Context
-التقارير العابرة للموديولات لا يجوز أن تضغط مسار المعاملات أو تتجاوز سياسة الحقول.
+            .
 ## Drivers
-قراءة مؤسسية قابلة للتوسع مع عزل وتصدير قابل للتدقيق.
+        .
 ## Decision
-`Reporting` يملك تعريفات التقارير واللوحات وRead Models مشتقة فقط؛ يطبق Authorization وFieldAccess عند العرض والتصدير.
+`Reporting`     Read Models    Authorization FieldAccess   .
 ## Scope
-يشمل الإسقاطات والتقارير والتصدير، ولا يملك تعريف المؤشر أو قياساته.
+         .
 ## Alternatives
-رُفضت joins مباشرة في جداول الأعمال والتقارير على JSON الخام ومستودع تحليلي مبكر.
+ joins       JSON    .
 ## Consequences
-توجد تأخيرات اتساق نهائي وإعادة بناء، ويخف حمل قاعدة المعاملات.
+         .
 ## Security
-يعاد تقييم الوصول للحقول عند التصدير ويسجل المحتوى الحساس.
+        .
 ## Operations
-تراقب freshness ومدة التقرير وحجم التصدير وتعالج الإخفاقات خارج الطلب.
+ freshness        .
 ## Rollback
-تعاد بناء Read Model أو تعطل تعريف التقرير دون تغيير المصدر.
+  Read Model       .
 ## Enforcement
-اختبارات عدم كتابة المصدر وصلاحية الحقول والتصدير والعزل.
+       .
 ## Review
-عند الحاجة المثبتة لمستودع تحليلي مستقل.
+as needed    .
 ## References
-`docs/architecture/module-catalog.md`، `docs/data-security/authorization-model.md`.
+`docs/architecture/module-catalog.md` `docs/data-security/authorization-model.md`.

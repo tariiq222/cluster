@@ -1,16 +1,16 @@
 ---
 doc_id: SEC-AU-001
-title: التدقيق والخصوصية
+title: Audit and Privacy
 type: data-security
 status: draft
 version: 0.3.0
 date: 2026-07-15
-owner: مسؤول أمن المعلومات
+owner: Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول العمليات
+- Platform Engineering Office
+- Operations Officer
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources: []
 references:
 - docs/architecture/module-catalog.md
@@ -24,134 +24,154 @@ references:
 - docs/data-security/identity-session-security.md
 - docs/data-security/file-security.md
 ---
-# التدقيق والخصوصية
 
-## 1. الغرض والنطاق
+# Audit and Privacy
 
-تحدد هذه الوثيقة سياسة التدقيق في المنصة الإدارية للتجمع الصحي الثالث، وتشمل:
+> **Planned module.** This document describes the central audit module, its append-only schema, the hash-chain procedures, the daily export, and the privacy workflows. **The audit module is planned, not implemented.** No `audit_events`, `audit_payloads`, `audit_hash_link`, `audit_export_batch`, `audit_merkle_roots`, `audit_writer`, `audit_reader`, or append-only-enforcing triggers exist in the verified migrations. The only audit-shaped persistence that is currently implemented lives in the Authorization module: `access_decisions` is written on every decision, and `sensitive_access_events` is written conditionally on confidential-or-above decisions (`apps/api/Modules/Authorization/Infrastructure/Persistence/DatabasePersistAccessDecision.php` and `apps/api/Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php`). Document access events are emitted as outbox events on the document aggregate (`document_outbox_events`, planned-table description in §3.3). The material below defines the target behavior of the planned audit module and must not be read as a description of the current runtime.
 
-- هيكل سجل التدقيق المركزي.
-- نموذج Append-only على مستوى قاعدة البيانات وفصل الأدوار.
-- Hash Chain لربط الأحداث وكشف التلاعب.
-- التصدير اليومي غير القابل للتغيير لأغراض الامتثال والاحتفاظ طويل المدى.
-- معالجة متطلبات PDPL للخصوصية ودورة حياة بيانات الموظف.
-- ربط NDMO بدورة حياة البيانات الوصفية.
+## 1. Purpose and Scope
 
-المنصة غير سريرية. تعالج PII للموظف فقط، ولا تستقبل أو ترسل بيانات خارج مركز بيانات التجمع. لذلك تركز هذه الوثيقة على ما يحدث داخل المنصة، وعلى قنوات التدقيق الداخلية، وعلى ضمانات عدم التلاعب.
+This document defines the audit policy in the administrative platform of the Third Health Cluster, covering:
 
-## 2. مبادئ التدقيق
+- The central audit log structure (planned).
+- The append-only model at the database level with role separation (planned).
+- The hash chain that links events and detects tampering (planned).
+- The daily, immutable export for compliance and long-term retention (planned).
+- PDPL privacy handling for the employee data lifecycle.
+- NDMO mapping for the metadata lifecycle.
 
-- **Append-only حقيقي على مستوى قاعدة البيانات.** لا يوجد أي UPDATE أو DELETE على جداول التدقيق من أي حساب، بمن فيهم DBA. قاعدة البيانات نفسها ترفض التعديل على مستوى محرك التخزين.
-- **فصل الدور.** حساب قاعدة البيانات الخاص بالتطبيق لا يملك أي صلاحية على جداول التدقيق. الكتابة تتم عبر Procedure مخصص، والقراءة عبر دور منفصل.
-- **Hash Chain لكل حدث.** كل حدث يحمل Hash الحدث السابق، وأي تعديل على حدث سابق يكسر السلسلة ويفشل التحقق.
-- **التصدير اليومي غير قابل للتغيير.** حزمة يومية موقعة ومخزنة في مخزن منفصل فيزيائياً.
-- **سجلان متكاملان.** سجل أمني مركزي للحوادث الحساسة، وسجل نشاط وظيفي مفهوم للمستخدم يظهر داخل السجل نفسه.
-- **الاحتفاظ حسب التصنيف.** مدة الاحتفاظ مرتبطة بتصنيف السجل وسياسة نوع العمل، وتخضع لقواعد إتلاف محكومة.
-- **لا تكرار للأحداث.** كل حدث يحمل `event_id` فريد، والمستهلكون Idempotent.
+The platform is non-clinical. It processes employee PII only and does not receive or send data outside the cluster data center. Therefore this document focuses on what happens inside the platform, the internal audit channels, and the tamper-resistance guarantees.
 
-## 3. نموذج البيانات
+## 2. Audit Principles (planned target)
 
-كل نوع `UUID` في الجداول أدناه يعني RFC 9562 UUIDv7. يولد التطبيق المعرفات قبل بدء
-المعاملة، ولا تستخدم إجراءات MySQL الدالة `UUID()` لأنها لا تضمن الإصدار السابع.
+- **True append-only at the database level.** No UPDATE or DELETE is permitted on the audit tables from any account, including DBAs. The database itself refuses modification at the storage-engine level.
+- **Role separation.** The application's database account has no privileges on the audit tables. Writes go through a dedicated procedure and reads through a separate role.
+- **Hash chain per event.** Each event carries the hash of the previous event; any modification of a prior event breaks the chain and the verification fails.
+- **Immutable daily export.** A signed daily bundle is stored in a physically separate store.
+- **Two complementary records.** A central security record for sensitive incidents, and a functional activity record that is intelligible to the user and shown inside the record itself.
+- **Retention by classification.** Retention duration is tied to the record classification and the work-type policy, and is subject to controlled destruction rules.
+- **No duplicate events.** Each event carries a unique `event_id`; consumers are idempotent.
 
-### 3.1 الجداول
+## 3. Data Model
 
-#### 3.1.1 `audit_events`
+Every `UUID` in the tables below means RFC 9562 UUIDv7. The application generates identifiers before the transaction starts; the MySQL `UUID()` function is not used because it does not guarantee v7.
 
-| الحقل | النوع | القيد | الوصف |
+> **Planned schema.** All tables in §3.1 (`audit_events`, `audit_payloads`, `audit_hash_link`, `audit_export_batch`) are planned and do not exist in the verified migrations.
+
+### 3.1 Planned Tables
+
+#### 3.1.1 `audit_events` (planned)
+
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| `event_id` | UUID | PK | معرف فريد للحدث |
-| `event_type` | string | إلزامي، مفهرس | نوع الحدث وفق قاموس مركزي |
-| `occurred_at` | timestamp(6) | إلزامي | لحظة الحدوث بدقة ميكروثانية |
-| `recorded_at` | timestamp(6) | إلزامي | لحظة الكتابة في السجل |
-| `actor_user_id` | UUID | اختياري | الفاعل البشري |
-| `actor_session_id` | UUID | اختياري | الجلسة |
-| `actor_service_account` | string | اختياري | الفاعل الآلي |
-| `actor_ip` | string | اختياري | IP داخلي |
-| `actor_user_agent` | string | اختياري | المتصفح أو العامل |
-| `target_type` | string | إلزامي | نوع الكيان الهدف |
-| `target_id` | string | إلزامي | معرف الكيان الهدف |
-| `target_owner_org_unit_id` | UUID | اختياري | الجهة المالكة |
-| `classification` | enum | إلزامي | تصنيف الحدث: public, internal, confidential, top_secret |
-| `outcome` | enum | إلزامي | success, denied, failure, error |
-| `reason` | text | اختياري | سبب الإجراء عند الحاجة |
-| `module` | string | إلزامي | اسم الموديول المنتج |
-| `payload_hash` | string | إلزامي | Hash لـ payload مفصول |
-| `payload_size` | int | إلزامي | حجم payload بالبايت |
-| `prev_event_hash` | string | إلزامي | Hash الحدث السابق في السلسلة |
-| `event_hash` | string | إلزامي، فريد | Hash الحدث الحالي |
-| `chain_id` | string | إلزامي | معرف سلسلة فرعية |
-| `sequence_no` | bigint | إلزامي | رقم التسلسل داخل السلسلة |
-| `export_batch_id` | UUID | اختياري، مفهرس | ربط بحزمة التصدير |
+| `event_id` | UUID | PK | Unique event id |
+| `event_type` | string | required, indexed | Event type per central dictionary |
+| `occurred_at` | timestamp(6) | required | Occurrence time with microsecond precision |
+| `recorded_at` | timestamp(6) | required | Time written to the log |
+| `actor_user_id` | UUID | optional | Human actor |
+| `actor_session_id` | UUID | optional | Session |
+| `actor_service_account` | string | optional | Machine actor |
+| `actor_ip` | string | optional | Internal IP |
+| `actor_user_agent` | string | optional | Browser or agent |
+| `target_type` | string | required | Target entity type |
+| `target_id` | string | required | Target entity id |
+| `target_owner_org_unit_id` | UUID | optional | Owning org unit |
+| `classification` | enum | required | Event classification: public, internal, confidential, top_secret |
+| `outcome` | enum | required | success, denied, failure, error |
+| `reason` | text | optional | Reason when needed |
+| `module` | string | required | Producing module |
+| `payload_hash` | string | required | Hash of separated payload |
+| `payload_size` | int | required | Payload size in bytes |
+| `prev_event_hash` | string | required | Hash of previous event in the chain |
+| `event_hash` | string | required, unique | Hash of the current event |
+| `chain_id` | string | required | Sub-chain id |
+| `sequence_no` | bigint | required | Sequence number within the sub-chain |
+| `export_batch_id` | UUID | optional, indexed | Link to export bundle |
 
-#### 3.1.2 `audit_payloads`
+#### 3.1.2 `audit_payloads` (planned)
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| `event_id` | UUID | PK, FK | ربط بالحدث |
-| `payload_encrypted` | blob | إلزامي | payload مشفر |
-| `payload_kms_key_id` | string | إلزامي | معرف مفتاح KMS |
-| `retention_until` | timestamp | إلزامي | نهاية صلاحية الاحتفاظ |
+| `event_id` | UUID | PK, FK | Link to event |
+| `payload_encrypted` | blob | required | Encrypted payload |
+| `payload_kms_key_id` | string | required | KMS key id |
+| `retention_until` | timestamp | required | Retention expiry |
 
-#### 3.1.3 `audit_hash_link`
+#### 3.1.3 `audit_hash_link` (planned)
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| `chain_id` | string | PK | سلسلة فرعية |
-| `sequence_no` | bigint | PK | رقم التسلسل |
-| `event_id` | UUID | فريد | الحدث |
-| `prev_event_hash` | string | إلزامي | hash السابق |
-| `event_hash` | string | إلزامي | hash الحالي |
-| `signed_at` | timestamp(6) | إلزامي | زمن التوقيع |
+| `chain_id` | string | PK | Sub-chain |
+| `sequence_no` | bigint | PK | Sequence number |
+| `event_id` | UUID | unique | Event |
+| `prev_event_hash` | string | required | Previous hash |
+| `event_hash` | string | required | Current hash |
+| `signed_at` | timestamp(6) | required | Signature time |
 
-#### 3.1.4 `audit_export_batch`
+#### 3.1.4 `audit_export_batch` (planned)
 
-| الحقل | النوع | القيد | الوصف |
+| Field | Type | Constraint | Description |
 |---|---|---|---|
-| `batch_id` | UUID | PK | معرف الحزمة |
-| `export_date` | date | فريد | تاريخ التصدير |
-| `started_at` | timestamp(6) | إلزامي | بداية التصدير |
-| `completed_at` | timestamp(6) | اختياري | لحظة الاكتمال |
-| `event_count` | bigint | إلزامي | عدد الأحداث |
-| `payload_digest` | string | إلزامي | Hash مجمّع لكل الأحداث |
-| `signature` | string | إلزامي | توقيع الحزمة |
-| `signature_key_id` | string | إلزامي | مفتاح التوقيع |
-| `storage_path` | string | إلزامي | مسار الحزمة في المخزن المنفصل |
-| `status` | enum | إلزامي | pending, completed, failed, verified |
-| `verified_at` | timestamp(6) | اختياري | لحظة التحقق الخارجي |
-| `verifier_user_id` | UUID | اختياري | من قام بالتحقق |
-| `failure_reason` | text | اختياري | سبب الفشل |
+| `batch_id` | UUID | PK | Bundle id |
+| `export_date` | date | unique | Export date |
+| `started_at` | timestamp(6) | required | Export start |
+| `completed_at` | timestamp(6) | optional | Completion time |
+| `event_count` | bigint | required | Number of events |
+| `payload_digest` | string | required | Aggregate hash of all events |
+| `signature` | string | required | Bundle signature |
+| `signature_key_id` | string | required | Signing key id |
+| `storage_path` | string | required | Bundle path in the separate store |
+| `status` | enum | required | pending, completed, failed, verified |
+| `verified_at` | timestamp(6) | optional | External verification time |
+| `verifier_user_id` | UUID | optional | Verifier |
+| `failure_reason` | text | optional | Failure reason |
 
-### 3.2 قاموس أنواع الأحداث
+### 3.2 Implemented Audit-shaped Persistence
 
-تُصنف الأحداث وفق قاموس مركزي مُصدَّر. لا يُسمح بإضافة نوع حدث دون موافقة السوبر أدمن ومراجعة أمن. تُستخدم بادئات للتقسيم:
+The following are the audit-related tables that **are** implemented today:
 
-| البادئة | الفئة | أمثلة |
+#### 3.2.1 `access_decisions` (implemented)
+
+Written by `DatabasePersistAccessDecision::record()` for every authorization decision. Captures the actor, capability, classification, decision (`allow`/`deny`), reason code, and decision id. The write participates in the same transaction as the underlying mutation and returns failure on missing actor, missing decision id, or transaction error.
+
+#### 3.2.2 `sensitive_access_events` (implemented)
+
+Written by the same persistence path **conditionally** when the decision is on a confidential-or-above classification (`apps/api/Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php`). This is the platform's current sensitive-audit record.
+
+#### 3.2.3 Document access events (implemented as outbox)
+
+The Documents module emits document lifecycle events through `document_outbox_events` (see `docs/data-security/file-security.md` §3.2.2). The current emission types include `document.uploaded`, `document.scan.passed`, `document.scan.failed`, `document.archived`, and `document.destroyed`. No dedicated `DocumentAccessEvent` table exists yet; the planned entity is documented in `file-security.md` §3.1.6.
+
+### 3.3 Event Type Dictionary (planned)
+
+Events are classified according to a central exported dictionary. Adding an event type requires super-admin approval and security review. Prefixes are used for grouping:
+
+| Prefix | Category | Examples |
 |---|---|---|
-| `auth.*` | أحداث الهوية والجلسة | `auth.login.success`, `auth.login.failed`, `auth.session.terminated.idle` |
-| `recovery.*` | أحداث الاسترداد | `recovery.request.opened`, `recovery.verified`, `recovery.completed` |
-| `breakglass.*` | أحداث الطوارئ | `breakglass.activated`, `breakglass.session.started`, `breakglass.session.ended` |
-| `access.*` | قرار الوصول | `access.granted`, `access.denied`, `access.sensitive.view` |
-| `record.*` | أحداث السجلات | `record.created`, `record.updated`, `record.deleted`, `record.classification.changed` |
-| `workflow.*` | أحداث المسارات | `workflow.step.activated`, `workflow.decision.recorded` |
-| `task.*` | أحداث المهام | `task.assigned`, `task.completed`, `task.commented` |
-| `document.*` | أحداث المستندات | `document.uploaded`, `document.downloaded`, `document.linked`, `document.quarantined` |
-| `export.*` | أحداث التصدير | `export.report.run`, `export.audit.batch.created` |
-| `admin.*` | أحداث الإدارة | `admin.user.created`, `admin.role.assigned`, `admin.config.changed` |
-| `system.*` | أحداث النظام | `system.backup.completed`, `system.restore.started` |
+| `auth.*` | Identity and session events | `auth.login.success`, `auth.login.failed`, `auth.session.terminated.idle` |
+| `recovery.*` | Recovery events | `recovery.request.opened`, `recovery.verified`, `recovery.completed` |
+| `breakglass.*` | Emergency events | `breakglass.activated`, `breakglass.session.started`, `breakglass.session.ended` |
+| `access.*` | Access decision | `access.granted`, `access.denied`, `access.sensitive.view` |
+| `record.*` | Record events | `record.created`, `record.updated`, `record.deleted`, `record.classification.changed` |
+| `workflow.*` | Workflow events | `workflow.step.activated`, `workflow.decision.recorded` |
+| `task.*` | Task events | `task.assigned`, `task.completed`, `task.commented` |
+| `document.*` | Document events | `document.uploaded`, `document.downloaded`, `document.linked`, `document.quarantined` |
+| `export.*` | Export events | `export.report.run`, `export.audit.batch.created` |
+| `admin.*` | Administration events | `admin.user.created`, `admin.role.assigned`, `admin.config.changed` |
+| `system.*` | System events | `system.backup.completed`, `system.restore.started` |
 
-## 4. آلية Append-only
+## 4. Append-only Mechanism (planned)
 
-### 4.1 منع التعديل على مستوى محرك MySQL
+### 4.1 Modification Block at the MySQL Engine
 
-يُمنع أي UPDATE أو DELETE على `audit_events` و`audit_payloads` و`audit_hash_link` على مستوى MySQL عبر:
+UPDATE and DELETE on `audit_events`, `audit_payloads`, and `audit_hash_link` are forbidden at the MySQL level via:
 
-- حساب قاعدة بيانات التطبيق `app_role` لا يحصل إلا على `INSERT` و`SELECT` (مقيد بـProcedure) لهذه الجداول.
-- حساب التدقيق `audit_writer` يحصل على `INSERT` فقط.
-- حساب المراجعة `audit_reader` يحصل على `SELECT` فقط.
-- حساب DBA لا يحصل على صلاحيات تعديل إلا عبر إجراء استثناء موثق، يُسجَّل في سجل تشغيلي خارجي.
+- The application database account `app_role` has only `INSERT` and `SELECT` (procedure-bound) on these tables.
+- The audit account `audit_writer` has `INSERT` only.
+- The audit-reader account `audit_reader` has `SELECT` only.
+- The DBA account has no modification privileges except through a documented exception procedure, which is recorded in an external operational log.
 
-#### 4.1.1 تطبيق الصلاحيات في MySQL
+#### 4.1.1 Applying Privileges in MySQL
 
 ```sql
 REVOKE UPDATE, DELETE ON audit_db.audit_events FROM 'app_role'@'%';
@@ -167,7 +187,7 @@ GRANT SELECT ON audit_db.audit_payloads TO 'audit_reader'@'%';
 GRANT SELECT ON audit_db.audit_hash_link TO 'audit_reader'@'%';
 ```
 
-#### 4.1.2 Triggers تأكيدية
+#### 4.1.2 Defensive Triggers
 
 ```sql
 DELIMITER //
@@ -189,16 +209,16 @@ END//
 DELIMITER ;
 ```
 
-### 4.2 الكتابة عبر Procedure مخصص
+### 4.2 Writing via Dedicated Procedure
 
-لا يكتب التطبيق مباشرة في الجداول. يستدعي Procedure يأخذ المعاملات، يحسب Hash، ويضيف الحدث. هذا يضمن:
+The application does not write directly to the tables. It calls a procedure that takes the parameters, computes the hash, and appends the event. This guarantees:
 
-- توليد `event_hash` بشكل موحد.
-- التحقق من `prev_event_hash`.
-- حساب `sequence_no` الذرّي.
-- منع فقدان Hash بسبب خطأ برمجي.
+- Uniform `event_hash` generation.
+- `prev_event_hash` validation.
+- Atomic `sequence_no` computation.
+- Hash loss prevention against programming error.
 
-#### 4.2.1 Procedure إضافة حدث
+#### 4.2.1 Event Append Procedure
 
 ```sql
 DELIMITER //
@@ -302,56 +322,56 @@ END proc//
 DELIMITER ;
 ```
 
-### 4.3 اختبار مقاومة التعديل
+### 4.3 Tamper-resistance Test
 
-يحاول المنفذ رفض أي محاولة:
+The engine is expected to reject any of:
 
-- `UPDATE` على `audit_events` يفشل على مستوى Trigger.
-- `DELETE` على `audit_events` يفشل على مستوى Trigger.
-- `TRUNCATE` مرفوض على مستوى حساب التطبيق.
-- حتى DBA يحتاج لإجراء استثناء موثق ومراجعة.
+- `UPDATE` on `audit_events` failing at the trigger level.
+- `DELETE` on `audit_events` failing at the trigger level.
+- `TRUNCATE` rejected at the application account level.
+- Even the DBA requires a documented exception and review.
 
-### 4.4 معالجة فقدان سلسلة
+### 4.4 Chain-loss Handling
 
-إذا اكتشف التحقق كسراً في Hash Chain:
+When verification detects a hash-chain break:
 
-- ينتقل النظام إلى وضع `audit_degraded`.
-- يُنشئ تنبيه فوري للسوبر أدمن وفريق الأمن.
-- يتوقف قبول الإجراءات الحساسة حتى استعادة السلسلة.
-- لا يُسمح بإعادة بناء السلسلة تلقائياً؛ يتطلب تدخلا يدوياً موثقاً.
-- تُسجَّل كل محاولة إعادة بناء كحدث جديد في السلسلة الجديدة.
+- The system enters `audit_degraded` mode.
+- An immediate alert is raised to super-admin and the security team.
+- Sensitive actions stop being accepted until the chain is restored.
+- Chain rebuild is not automatic; it requires documented manual intervention.
+- Every rebuild attempt is recorded as a new event in the new chain.
 
-## 5. Hash Chain وكشف التلاعب
+## 5. Hash Chain and Tamper Detection (planned)
 
-### 5.1 خصائص السلسلة
+### 5.1 Chain Properties
 
-- كل سلسلة `chain_id` تحمل `sequence_no` متصاعد.
-- `event_hash` يحوي `prev_event_hash` كمدخل.
-- أي تعديل على حدث سابق يغير `event_hash` ويكسر جميع الأحداث اللاحقة.
-- التحقق خطي للأمام، ومسح دوري يبدأ من نقطة آخر توقيع مسبق موثوق.
+- Every `chain_id` carries an increasing `sequence_no`.
+- `event_hash` includes `prev_event_hash` as input.
+- Any modification of a prior event changes `event_hash` and breaks all later events.
+- Verification is linear forward, and a periodic scan starts from the last trusted prior signature.
 
-### 5.2 نقاط التوقيع الخارجي
+### 5.2 External Signature Points
 
-كل ساعة يوقّع النظام الجذر Merkle لكل السلاسل الفرعية ويكتب:
+Every hour, the system signs the Merkle root of every sub-chain and writes:
 
-- `merkle_root` في جدول `audit_merkle_roots` مع التوقيع.
-- `audit_export_batch` بنسخة مكررة في مخزن منفصل.
+- `merkle_root` into the `audit_merkle_roots` table with the signature.
+- A duplicated copy in `audit_export_batch` in a separate store.
 
-### 5.3 التحقق
+### 5.3 Verification
 
-#### 5.3.1 التحقق الداخلي
+#### 5.3.1 Internal Verification
 
-- فاحص يعمل كـjob خلفي يتحقق كل ساعة من آخر 10000 حدث.
-- يفشل الفحص عند أي انقطاع في Hash.
-- يحفظ آخر تسلسل تم التحقق منه كنقطة استئناف.
+- A verifier running as a background job checks the last 10,000 events hourly.
+- The check fails on any hash break.
+- The last verified sequence is kept as a resume point.
 
-#### 5.3.2 التحقق الخارجي
+#### 5.3.2 External Verification
 
-- يومياً، يحمّل المدقق الخارجي قائمة `merkle_root` الموقعة وآخر `event_hash`.
-- يعيد التحقق من تجزئة الجذر.
-- يخزن النتيجة في تقرير موقع إلكترونياً.
+- Daily, the external verifier uploads the signed `merkle_root` list and the latest `event_hash`.
+- Re-validates the root hash.
+- Stores the result in an electronically signed report.
 
-### 5.4 الاختبارات
+### 5.4 Tests
 
 - `AuditChainTest::event_hash_includes_prev_hash`
 - `AuditChainTest::tampering_with_event_breaks_chain`
@@ -359,15 +379,15 @@ DELIMITER ;
 - `AuditChainTest::external_verifier_detects_modification`
 - `AuditChainTest::replay_attack_blocked_by_sequence`
 
-## 6. التصدير اليومي غير القابل للتغيير
+## 6. Daily Immutable Export (planned)
 
-### 6.1 الجدولة
+### 6.1 Schedule
 
-- مهمة مجدولة يومياً في وقت محدد (03:00 صباحاً بتوقيت المركز).
-- تلتقط كل أحداث اليوم السابق حتى 23:59:59.
-- تُنفّذ في منطقة زمنية `Asia/Riyadh` بشكل صريح.
+- Scheduled daily at a fixed time (03:00 cluster local).
+- Captures every event of the previous day up to 23:59:59.
+- Runs explicitly in the `Asia/Riyadh` time zone.
 
-### 6.2 محتوى الحزمة
+### 6.2 Bundle Layout
 
 ```text
 audit-export-YYYY-MM-DD/
@@ -380,33 +400,33 @@ audit-export-YYYY-MM-DD/
 └── chain-roots.json
 ```
 
-- `manifest.json` يصف الحزمة وعدد الأحداث وقيم التجزئة.
-- `events.parquet` يحوي حقول التدقيق الأساسية.
-- `payloads.enc` يحوي payloads مشفرة.
-- `signature.sig` يحوي توقيع ECDSA P-256 على `manifest.json`.
-- `chain-roots.json` يحوي جذور Merkle لكل سلسلة فرعية مع توقيع.
+- `manifest.json` describes the bundle, event count, and digest values.
+- `events.parquet` holds the core audit fields.
+- `payloads.enc` holds encrypted payloads.
+- `signature.sig` holds the ECDSA P-256 signature over `manifest.json`.
+- `chain-roots.json` holds signed Merkle roots for every sub-chain.
 
-### 6.3 خصائص عدم القابلية للتغيير
+### 6.3 Immutability Properties
 
-- الحزمة تُكتب بمفتاح KMS منفصل عن الإنتاج.
-- لا يمكن لمستخدم الإنتاج قراءة أو تعديل الحزمة.
-- النقل يتم عبر حساب خدمة منفصل `audit_export_role`.
-- التحقق من التوقيع يكون عبر المفتاح العام المخزن في HSM داخلي.
-- أي فشل في التحقق يوقف القراءة ويُسجَّل في سجل تشغيلي منفصل.
+- The bundle is written with a separate KMS key from production.
+- Production users cannot read or modify the bundle.
+- Transport uses a dedicated `audit_export_role` service account.
+- Signature verification uses the public key stored in an internal HSM.
+- Any verification failure stops reads and is recorded in a separate operational log.
 
-### 6.4 الاحتفاظ
+### 6.4 Retention
 
-- الحزم تحفظ لمدة 7 سنوات في مخزن التدقيق المنفصل.
-- يُفصل فيزيائياً عن الإنتاج (مخزن مستقل، VLAN مستقل).
-- نسخة احتياطية على شريط مشفرة خارج المنطقة.
+- Bundles are kept for 7 years in the separate audit store.
+- Physically separated from production (separate store, separate VLAN).
+- Tape backup encrypted outside the region.
 
-### 6.5 مؤشرات الفشل
+### 6.5 Failure Indicators
 
-- فشل التصدير خلال 30 دقيقة من الجدولة يرفع تنبيهاً.
-- فشل التحقق يرفع تنبيهاً حرجاً.
-- أي محاولة تعديل على مخزن التدقيق ترفع تنبيهاً حرجاً.
+- Export failure within 30 minutes of schedule raises an alert.
+- Verification failure raises a critical alert.
+- Any modification attempt on the audit store raises a critical alert.
 
-### 6.6 الاختبارات
+### 6.6 Tests
 
 - `AuditExportTest::daily_export_contains_all_events_of_previous_day`
 - `AuditExportTest::export_signature_verifies_with_public_key`
@@ -414,81 +434,81 @@ audit-export-YYYY-MM-DD/
 - `AuditExportTest::export_storage_path_is_write_only_for_app_role`
 - `AuditExportTest::failure_alerts_within_30_minutes`
 
-## 7. تطبيق الخصوصية وفق PDPL
+## 7. PDPL Privacy Application
 
-### 7.1 مبادئ المعالجة
+### 7.1 Processing Principles
 
-| المبدأ | التطبيق |
+| Principle | Application |
 |---|---|
-| أساس المعالجة | كل نوع عمل يحمل `processing_basis` ضمن تعريفه |
-| تقليل البيانات | كل حقل ديناميكي يحمل `purpose` و`retention_years` |
-| دقة البيانات | صلاحية تعديل PII للمالك فقط، تسجيل كل تعديل |
-| الاحتفاظ | `retention_until` محسوب من `retention_years` على نوع العمل |
-| حقوق صاحب البيانات | تدفق محكوم ضمن الطلبات الداخلية |
-| أمن البيانات | تشفير PII، فصل الأدوار، تدقيق الاطلاع |
-| الإخطار بالاختراق | آلية كشف وتنبيه خلال 24 ساعة |
+| Processing basis | Every work type carries `processing_basis` in its definition |
+| Data minimization | Every dynamic field carries `purpose` and `retention_years` |
+| Data accuracy | PII modification is permitted to the owner only; every modification is recorded |
+| Retention | `retention_until` is computed from `retention_years` on the work type |
+| Data subject rights | A controlled internal-requests workflow |
+| Data security | PII encryption, role separation, access auditing |
+| Breach notification | Detection and alerting within 24 hours |
 
-### 7.2 معالجة حقوق صاحب البيانات
+### 7.2 Data Subject Rights
 
-- **حق الاطلاع:** نموذج طلب ضمن تدفق محكوم، يولد تقرير بكل بياناته عبر Read Model مخصص. يُسجَّل الحدث.
-- **حق التصحيح:** نموذج طلب، صلاحية التصحيح للمالك أو من يفوضه النظام. يُسجَّل الحدث.
-- **حق الحذف:** متاح فقط خارج الإطار القانوني والمهني. لا يحذف السجلات الخاضعة للاحتفاظ النظامي. يُوثق الرفض مع الأساس.
-- **حق الاعتراض:** يحال للجهة المختصة للنظر.
+- **Right of access:** A request form within a controlled workflow generates a dedicated Read Model report of all subject data. The event is recorded.
+- **Right of rectification:** A request form, with correction authority granted to the owner or a delegate the system authorizes. The event is recorded.
+- **Right of erasure:** Available only outside the legal/professional frame. Records subject to statutory retention are not deleted. The rejection is documented with its basis.
+- **Right of objection:** Forwarded to the competent authority for review.
 
-### 7.3 الاستثناءات والقيود
+### 7.3 Exceptions and Limits
 
-- لا يحق للموظف حذف سجلات محاسبية أو إدارية خاضعة للاحتفاظ النظامي.
-- لا يحق للموظف الاعتراض على قرارات إدارية عبر هذا التدفق.
-- لا تنطبق حقوق PDPL على البيانات المجهولة الهوية المجمعة لأغراض المؤشرات.
+- Employees cannot delete accounting or administrative records subject to statutory retention.
+- Employees cannot use this workflow to object to administrative decisions.
+- PDPL rights do not apply to anonymized data aggregated for KPIs.
 
-### 7.4 الاختبارات
+### 7.4 Tests
 
 - `PrivacyTest::pii_fields_marked_with_purpose_and_retention`
 - `PrivacyTest::data_subject_access_request_works`
 - `PrivacyTest::deletion_blocked_for_legal_hold_records`
 - `PrivacyTest::pii_edits_audit_with_actor_and_reason`
 
-## 8. تطبيق NDMO
+## 8. NDMO Application
 
-### 8.1 تصنيف البيانات
+### 8.1 Data Classification
 
-| المستوى | الوصف | ضوابط |
+| Level | Description | Controls |
 |---|---|---|
-| عام (`public`) | بيانات منشورة | ضوابط النشر والنطاق |
-| داخلي (`internal`) | بيانات إدارية داخلية | قرار Authorization والنطاق التنظيمي |
-| سري (`confidential`) | PII للموظف | تشفير، صلاحية حقل، تدقيق |
-| سري للغاية (`top_secret`) | هويات وطنية ومعلومات حساسة | تشفير أعمدة، فصل إداري، تدقيق موسع |
+| `public` | Published data | Publication and scope controls |
+| `internal` | Internal administrative data | Authorization decision and org-unit scope |
+| `confidential` | Employee PII | Encryption, field authorization, auditing |
+| `top_secret` | National IDs and sensitive information | Column encryption, administrative separation, expanded audit |
 
-### 8.2 ملكية البيانات
+### 8.2 Data Ownership
 
-- كل سجل أعمال يحمل `owner_organization_unit_id`.
-- كل نوع عمل يحمل `data_steward_role`.
-- كل تغيير في تعريف نوع عمل يتطلب موافقة مالك البيانات.
+- Every work record carries `owner_organization_unit_id`.
+- Every work type carries `data_steward_role`.
+- Any change to a work-type definition requires data-owner approval.
 
-### 8.3 دورة حياة البيانات الوصفية
+### 8.3 Metadata Lifecycle
 
-| المرحلة | التطبيق |
+| Phase | Application |
 |---|---|
-| الإنشاء | توليد `record_id` و`created_at` و`created_by` ضمن Transaction |
-| الاستخدام | تسجيل كل اطلاع على محتوى سري |
-| الأرشفة | نقل للقراءة فقط، إيقاف الكتابة |
-| الإتلاف | عملية محكومة بموافقة مالك البيانات والسوبر أدمن |
+| Creation | Generate `record_id`, `created_at`, `created_by` in one transaction |
+| Use | Log every read of confidential content |
+| Archive | Move to read-only, disable writes |
+| Destruction | Controlled procedure with data-owner and super-admin approval |
 
-### 8.4 البيانات الرئيسية
+### 8.4 Master Data
 
-- `Person` وPII الأساسية مملوكان لـOrganization، و`UserAccount` والاعتمادات والجلسات مملوكة لـIdentity.
-- `OrgUnit` و`Position` واللجان و`Employment` و`PositionAssignment` و`TemporaryAssignment` و`CommitteeMembership` مملوكة لـ Organization.
-- `WorkRecord` مملوك لـ`WorkRecords`، و`Workflow` مملوك لـ`Workflow`.
-- لا يكرر Identity من PII سوى `display_name_ar` و`display_name_en` كملخص عرض مصنف، بلا هوية وطنية أو بريد أو هاتف.
+- `Person` and core PII belong to Organization; `UserAccount`, credentials, and sessions belong to Identity.
+- `OrgUnit`, `Position`, committees, `Employment`, `PositionAssignment`, `TemporaryAssignment`, and `CommitteeMembership` belong to Organization.
+- `WorkRecord` belongs to `WorkRecords`; `Workflow` belongs to `Workflow`.
+- Identity does not duplicate PII beyond `display_name_ar` and `display_name_en` as a classified display summary, with no national id, email, or phone.
 
-### 8.5 الاختبارات
+### 8.5 Tests
 
 - `NdmoTest::every_workrecord_has_owner_org_unit`
 - `NdmoTest::data_steward_role_required_for_definition_changes`
 - `NdmoTest::archived_records_are_read_only`
 - `NdmoTest::destruction_requires_dual_approval`
 
-## 9. اختبارات حارسة دورية
+## 9. Periodic Guard Tests
 
 - `AuditTest::append_only_enforced_at_db_level`
 - `AuditTest::audit_writer_role_lacks_update_grants`
@@ -500,42 +520,42 @@ audit-export-YYYY-MM-DD/
 - `NdmoTest::classification_levels_present_on_records`
 - `NdmoTest::retention_policy_present_on_work_types`
 
-## 10. مؤشرات الإنذار
+## 10. Alerting Indicators
 
-- فشل التحقق من Hash Chain.
-- فشل التصدير اليومي.
-- محاولة تعديل على `audit_events` أو `audit_payloads`.
-- محاولات وصول من حسابات تدقيق من خارج قائمة الحسابات المعتمدة.
-- تجاوز معدل كتابة التدقيق للحد الأعلى الطبيعي (كشف هجوم أو عطل).
-- تجاوز مدة الاحتفاظ لحد بدون خطة إتلاف.
-- نمو غير طبيعي في حجم جداول التدقيق.
+- Hash chain verification failure.
+- Daily export failure.
+- Modification attempt on `audit_events` or `audit_payloads`.
+- Access attempts by audit accounts outside the approved list.
+- Audit write rate exceeding the natural upper bound (attack or fault detection).
+- Retention period exceeded without a destruction plan.
+- Anomalous growth of audit table volume.
 
-## 11. خطة الاستجابة للحوادث المتعلقة بالتدقيق
+## 11. Audit Incident Response Plan
 
-- رصد الفشل → تنبيه فوري للسوبر أدمن.
-- عزل القراءة والكتابة من التطبيق مؤقتاً.
-- تجميد المخزن المنفصل.
-- تحليل الفجوة في السلسلة.
-- تقرير موقع خلال 24 ساعة.
-- قرار الاستئناف أو الإيقاف.
-- تسجيل كل إجراء في تدقيق تشغيلي خارجي.
+- Detection of failure → immediate super-admin alert.
+- Temporarily isolate application reads and writes.
+- Freeze the separate store.
+- Analyze the chain gap.
+- Signed report within 24 hours.
+- Resume-or-stop decision.
+- Every action is recorded in external operational audit.
 
-## 12. الامتثال
+## 12. Compliance
 
-| المتطلب | التطبيق |
+| Requirement | Application |
 |---|---|
-| NCA ECC 1-7 التسجيل والمراقبة | سجل تدقيق كامل مع فصل الأدوار |
-| NCA ECC 1-10 إدارة النسخ الاحتياطي | تصدير يومي مع توقيع ومستقل |
-| PDPL أمن البيانات | تشفير payloads وتدقيق الاطلاع |
-| PDPL حقوق صاحب البيانات | تدفق محكوم ومُسجَّل |
-| PDPL الاحتفاظ | سياسات retention مرتبطة بنوع العمل |
-| NDMO تصنيف البيانات | 4 مستويات مع ضوابط |
-| NDMO مالك البيانات | تعيين إلزامي على كل سجل |
+| NCA ECC 1-7 Logging and Monitoring | Complete audit log with role separation (planned) |
+| NCA ECC 1-10 Backup Management | Daily export with signature and isolation (planned) |
+| PDPL Data Security | Payload encryption and access auditing |
+| PDPL Data Subject Rights | Controlled and recorded workflow |
+| PDPL Retention | Retention policies tied to work type |
+| NDMO Data Classification | 4 levels with controls |
+| NDMO Data Ownership | Mandatory assignment on every record |
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 0.3.0 | 2026-07-18 | مسؤول أمن المعلومات | مواءمة ملكية Person وPII مع ADR-024 |
-| 0.1.0 | 2026-07-15 | مسؤول أمن المعلومات | إنشاء المسودة التنفيذية |
-| 0.2.0 | 2026-07-15 | مسؤول أمن المعلومات | توحيد التصنيف واستبدال المراجع التشغيلية التاريخية وضبط الوثيقة |
+| 0.1.0 | 2026-07-15 | Information Security Officer | Initial draft created |
+| 0.2.0 | 2026-07-15 | Information Security Officer | Unified classification, replaced historical operational references, applied document tightening |
+| 0.3.0 | 2026-07-18 | Information Security Officer | Aligned Person and PII ownership with ADR-024; marked the audit module, hash chain, and daily export as planned controls while retaining the implemented `access_decisions`, `sensitive_access_events`, and document outbox events |

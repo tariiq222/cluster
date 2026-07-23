@@ -1,17 +1,17 @@
 ---
 doc_id: GOV-AC-001
-title: الافتراضات والقيود والمخاطر
+title: Assumptions, Constraints, and Risks
 type: governance
 status: accepted
 version: 1.1.0
 date: 2026-07-16
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
-- مسؤول العمليات
+- Engineering Lead
+- Security Lead
+- Operations Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: Semi-annual
 sources: []
 references:
 - docs/architecture/overview.md
@@ -29,115 +29,115 @@ references:
 - docs/product/vision-and-scope.md
 - docs/product/releases-and-roadmap.md
 ---
-# الافتراضات والقيود والمخاطر
+# Assumptions, Constraints, and Risks
 
-## 1. الغرض
+## 1. Purpose
 
-تحدد هذه الوثيقة الافتراضات التي بُنيت عليها قرارات المنصة، والقيود التي لا يمكن تجاوزها، وما هو خارج النطاق، إضافة إلى المخاطر المؤسسية التي تراقبها الحوكمة. تُستخدم كأساس لقياس الانحراف عند التنفيذ. لا تُكرر الوثيقة تفاصيل القرارات المعمارية الموضحة في `docs/adr/`، بل تُحيل إليها ضمن مصدر الوثائق المعتمد `docs/`.
+This document defines the assumptions underpinning platform decisions, the constraints that cannot be violated, and what lies outside the scope, in addition to the institutional risks monitored by governance. It is used as the basis for measuring deviation during execution. The document does not repeat the architectural decisions detailed in `docs/adr/`, but refers to them within the approved documentation source `docs/`.
 
-## 2. الافتراضات المؤسسية
+## 2. Institutional Assumptions
 
-| الرقم | الافتراض | معيار التحقق | الأثر عند الانتهاك |
+| # | Assumption | Verification Criterion | Impact on Violation |
 |---|---|---|---|
-| A1 | التجمع الصحي الثالث جهة تشغيلية لها عملياتها الداخلية ولا مجرد دور رقابي | وجود إدارات تشغيلية ومهام داخل التجمع تستعمل المنصة | يعاد تصميم الصفحة الرئيسية ومساحة العمل |
-| A2 | فريق التطوير من 2 إلى 4 أشخاص بخبرة جيدة في Laravel وأقل نضجاً في React وتشغيل المنصات | مراجعة الفصل بين المعمارية والمنتج مع كل تعيين | يعاد تقدير خطة الإصدار |
-| A3 | المستخدم النهائي يدخل من شبكة معتمدة أو مسار وصول محمي على متصفح حديث | فحص الجلسة ومسار الشبكة من سجلات الإنتاج | يغلق المسار غير المعتمد ويعاد ضبط الجدار الناري |
-| A4 | المستخدمون يتقنون العربية ويقرؤون الإنجليزية عند الحاجة | اختبار قابلية الاستخدام مع عينة من كل دور | تُبسَّط الواجهة وتُخفف المصطلحات الإنجليزية |
-| A5 | القرارات التنظيمية تصدر من السوبر أدمن حصراً ولا تُمنح تلقائياً بعلاقة | اختبار معماري يمنع منح قدرات ضمنية | يعاد تصميم نموذج الصلاحيات |
-| A6 | المؤسسات الرسمية مثل «موارد» تبقى مسؤولة عن بياناتها دون التزام بالتكامل في المرحلة الأولى | عدم وجود عقد تكامل في خطة الإصدار الأول | يبقى الإصدار الأول كما هو دون تكاملات |
-| A7 | البيانات الحالية موجودة في البريد وExcel ولا تُرحل آلياً | تجربة تشغيلية على إدارة واحدة | الإصدار الأول يبدأ من الصفر |
+| A1 | The third health cluster is an operational entity with internal operations, not merely a supervisory role | Presence of operational departments and tasks within the cluster using the platform | Home page and workspace are redesigned |
+| A2 | Development team of 2 to 4 people with strong Laravel experience and less mature React and platform operations experience | Architecture and product separation review with each hiring | Release plan is re-estimated |
+| A3 | End users connect from an approved network or a protected access path on a modern browser | Session and network path inspection from production logs | Non-approved path is closed and firewall is reconfigured |
+| A4 | Users are proficient in Arabic and able to read English when needed | Usability testing with a sample of each role | Interface is simplified and English terms are reduced |
+| A5 | Organizational decisions are issued exclusively by the Super Admin and are not granted automatically through a relationship | Architectural test preventing implicit capability grants | Permission model is redesigned |
+| A6 | Official institutions such as "Mawared" remain responsible for their data without commitment to integration in the first phase | Absence of integration contract in the first release plan | First release remains as-is without integrations |
+| A7 | Current data exists in email and Excel and is not migrated automatically | Operational trial on one department | First release starts from scratch |
 
-## 3. الافتراضات التقنية
+## 3. Technical Assumptions
 
-| الرقم | الافتراض | معيار التحقق | الأثر عند الانتهاك |
+| # | Assumption | Verification Criterion | Impact on Violation |
 |---|---|---|---|
-| T1 | المنصة تعمل على VPS واحد عبر Docker Compose وCaddy، والوصول الوارد محكوم بجدار ناري | فحص المنافذ الحية وربط الخدمات | يُمنع النشر ويعاد ضبط المضيف |
-| T2 | MySQL على الخادم قادر على خدمة الحمل المقاس ضمن موارد الجهاز | اختبار تحميل على الخادم قبل الإطلاق | تُرفع موارد الخادم أو يعاد قرار الاستضافة |
-| T3 | صور الحاويات مثبتة بالـdigest وتدخل عبر مسار تحديث معتمد | فحص Compose وسجل الإصدار | يُمنع الإصدار |
-| T4 | Composer وnpm يستخدمان lockfiles ومصادر مسموحة أثناء البناء فقط | فحص البناء وغياب تنزيلات عند بدء الحاوية | يُمنع الإصدار |
-| T5 | التطبيق Laravel Modular Monolith يكفي للمرحلة الأولى والثانية والثالثة | غياب حاجة تشغيلية لفصل Microservice | يُعاد النظر في النمط وفق معيار الفصل |
-| T6 | Modular Monolith قابل لإعادة التنظيم دون إعادة كتابة كاملة | مراجعة معمارية نصف سنوية | يُفصل الموديول عند تحقق المعيار |
-| T7 | الواجهة React موحدة لجميع الأدوار بمن فيهم السوبر أدمن | اختبار قابلية استخدام للسوبر أدمن كموظف عادي | تُمنع الواجهات المنفصلة |
-| T8 | بيانات التطبيق على volumes محلية، والنسخة المشفرة تحفظ خارج خادم الإنتاج | اختبار استعادة إلى هدف منفصل | يُمنع تشغيل بيانات حقيقية |
-| T9 | محرك البحث لا يعتمد على خدمة SaaS لازمة لتشغيل المنتج | مراجعة فنية لمنتج البحث قبل اختياره | يُستبدل المنتج |
+| T1 | The platform runs on a single VPS via Docker Compose and Caddy, with inbound access controlled by a firewall | Live port scanning and service binding inspection | Deployment is blocked and the host is reconfigured |
+| T2 | MySQL on the server can serve the measured load within the machine's resources | Load test on the server before launch | Server resources are scaled up or hosting decision is revisited |
+| T3 | Container images are pinned by digest and enter through an approved update path | Compose and release log inspection | Release is blocked |
+| T4 | Composer and npm use lockfiles and approved sources during build only | Build inspection and absence of downloads at container start | Release is blocked |
+| T5 | The Laravel Modular Monolith application suffices for the first, second, and third phases | No operational need for Microservice separation | Pattern is reconsidered according to the separation criterion |
+| T6 | Modular Monolith can be reorganized without a complete rewrite | Semi-annual architectural review | Module is separated when the criterion is met |
+| T7 | The React interface is unified for all roles including Super Admin | Usability test for Super Admin as a regular employee | Separate interfaces are prohibited |
+| T8 | Application data lives on local volumes, and the encrypted backup is stored outside the production server | Recovery test to a separate target | Production data is prohibited |
+| T9 | The search engine does not depend on a SaaS service required to run the product | Technical review of the search product before selection | Product is replaced |
 
-## 4. الافتراضات التشغيلية
+## 4. Operational Assumptions
 
-| الرقم | الافتراض | معيار التحقق | الأثر عند الانتهاك |
+| # | Assumption | Verification Criterion | Impact on Violation |
 |---|---|---|---|
-| O1 | يوجد مالك مسؤول عن VPS وDocker والنسخ والاستعادة | توافر المالك وإجراء الطوارئ | تخفف أهداف الاستعادة أو يؤجل الإنتاج |
-| O2 | النسخ الاحتياطي في مخزن خارج خادم الإنتاج ومشفر | فحص المخزن وموقعه واعتماداته | يُمنع تشغيل بيانات حقيقية |
-| O3 | التطوير والاختبار لا يستخدمان بيانات الإنتاج ولا يشاركان أسراره | فحص الإعدادات والبيانات | يُمنع النشر في الإنتاج |
-| O4 | صيانة Docker والخادم تتم في نافذة معلنة تقبل توقف الخدمة | خطة صيانة معتمدة | تُعدَّل النافذة |
-| O5 | تحديث الحزم والصور يتم بمسار مراجعة موثق ثم نشر ورجوع مقاس | سجل تحديثات وإصدارات | يُمنع التحديث غير المراجع |
+| O1 | There is a responsible owner for the VPS, Docker, backups, and recovery | Owner availability and emergency procedure | Recovery targets are reduced or production is delayed |
+| O2 | Backup is in a vault outside the production server and encrypted | Vault inspection, location, and credentials | Production data is prohibited |
+| O3 | Development and testing do not use production data and do not share its secrets | Configuration and data inspection | Production deployment is blocked |
+| O4 | Docker and server maintenance is performed in a declared window that accepts service downtime | Approved maintenance plan | Window is adjusted |
+| O5 | Package and image updates go through a documented review path, then deploy with a measured rollback | Update and release log | Unreviewed updates are prohibited |
 
-## 5. القيود الصارمة Hard Constraints
+## 5. Hard Constraints
 
-| الرقم | القيد | الاستثناء المسموح | المرجع |
+| # | Constraint | Permitted Exception | Reference |
 |---|---|---|---|
-| C1 | الوصول الوارد default-deny؛ يسمح HTTPS ومسار إدارة مقيد فقط | منفذ مؤقت بموافقة وسجل إغلاق | ADR-023 |
-| C2 | لا تنشر MySQL أو Redis أو Docker socket للعامة | لا استثناء | ADR-023 |
-| C3 | لا CDN ولا خطوط أو سكربتات عامة لازمة لتشغيل الواجهة | لا استثناء | ADR-023 |
-| C4 | لا تكامل مع نظام خارجي في الإصدار الأول | لا استثناء | الإصدار الأول |
-| C5 | لا ترحيل بيانات من البريد أو Excel في الإصدار الأول | استيراد الهيكل من CSV/XLSX بعد موافقة السوبر أدمن | الإصدار الأول |
-| C6 | الحسابات محلية داخل المنصة ولا تتطلب خدمة هوية خارجية | لا استثناء | التصميم المعتمد |
-| C7 | الحساب الواحد للشخص الواحد افتراضياً ولا يُفتح حساب طوارئ إلا بإجراء موثق | حساب طوارئ مغلق بإجراء رسمي | التصميم المعتمد |
-| C8 | الكلمات لا يمكن تخفيضها عن الحد الأدنى للأمن المعرَّف في وثيقة الأمن | لا استثناء | وثيقة الأمن |
-| C9 | المنصة ليست نظاماً سريرياً ولا تُخزن بيانات مرضى | لا استثناء | وثيقة النطاق |
-| C10 | قرارات النظام تُنفذ في Laravel والواجهة ولا تُنفذ في JavaScript | استثناء واحد: إخفاء عناصر الواجهة | ADR-004 |
-| C11 | كل معاملة تحفظ في `Outbox` داخل نفس `Transaction` | لا استثناء | ADR-007 |
-| C12 | البحث والتقارير لا تكتب في جداول الأعمال | لا استثناء | ADR-008 |
-| C13 | العزل بين المنشآت افتراضي ولا يُكسر إلا بعلاقة أو مشاركة صريحة | لا استثناء | ADR-004 |
-| C14 | السجلات الجارية لا تُرحل بصمت إلى إصدار جديد | الترحيل بطلب صريح وفحص توافق | ADR-005 وADR-006 |
-| C15 | المستخدم العادي لا يستطيع تعديل جهته أو منصبه أو صلاحياته | السوبر أدمن فقط | التصميم المعتمد |
-| C16 | الحساب المعطل يلغي الجلسات والتفويضات فوراً | لا استثناء | التصميم المعتمد |
+| C1 | Inbound access is default-deny; only HTTPS and a restricted admin path are allowed | Temporary port with approval and closure log | ADR-023 |
+| C2 | MySQL, Redis, or Docker socket are not exposed to the public | No exception | ADR-023 |
+| C3 | No CDN, public lines, or scripts required to run the interface | No exception | ADR-023 |
+| C4 | No integration with an external system in the first release | No exception | First release |
+| C5 | No data migration from email or Excel in the first release | Structure import from CSV/XLSX after Super Admin approval | First release |
+| C6 | Accounts are local within the platform and do not require an external identity service | No exception | Approved design |
+| C7 | One account per person is the default; an emergency account is opened only by a documented procedure | Emergency account closed by formal procedure | Approved design |
+| C8 | Passwords cannot be reduced below the security minimum defined in the security document | No exception | Security document |
+| C9 | The platform is not a clinical system and does not store patient data | No exception | Scope document |
+| C10 | System decisions are executed in Laravel and the interface, not in JavaScript | One exception: hiding interface elements | ADR-004 |
+| C11 | Every transaction is recorded in `Outbox` within the same `Transaction` | No exception | ADR-007 |
+| C12 | Search and reporting do not write to business tables | No exception | ADR-008 |
+| C13 | Isolation between facilities is the default and is broken only by an explicit relationship or sharing | No exception | ADR-004 |
+| C14 | Live records are not silently migrated to a new release | Migration by explicit request and compatibility check | ADR-005 and ADR-006 |
+| C15 | A regular user cannot modify their entity, position, or permissions | Super Admin only | Approved design |
+| C16 | A disabled account immediately cancels sessions and delegations | No exception | Approved design |
 
-## 6. خارج النطاق Out of Scope
+## 6. Out of Scope
 
-| الرقم | البند | السبب | المالك المقترح مستقبلاً |
+| # | Item | Reason | Proposed Future Owner |
 |---|---|---|---|
-| OOS1 | السجل الطبي الإلكتروني وبيانات المرضى | المنصة إدارية لا سريرية | أنظمة HIS أو EMR منفصلة |
-| OOS2 | الرواتب والإجازات والترقيات الرسمية | مسؤولية «موارد» | نظام «موارد» |
-| OOS3 | النظام المالي والمحاسبي الكامل | مسؤولية أنظمة مالية متخصصة | النظام المالي |
-| OOS4 | المشتريات وأوامر الصرف كفواتير | المنصة لا تدير مالية تشغيلية | النظام المالي |
-| OOS5 | تطبيق جوال أصلي | الواجهة متجاوبة في المرحلة الأولى | مستقبلاً عند الحاجة |
-| OOS6 | مهام فرعية | تبسيط المرحلة الأولى | الإصدار الثاني أو ما بعده |
-| OOS7 | أرشفة رسمية كاملة مع أرقام حفظ | تحتاج بنية تحتية متخصصة | خدمة المستندات المتقدمة |
-| OOS8 | OCR داخلي | يحتاج بنية تحتية وأداة متخصصة | الإصدارات اللاحقة |
-| OOS9 | توقيع إلكتروني معتمد رسمياً | يحتاج بنية تحتية تشريعية | الإصدارات اللاحقة |
-| OOS10 | تكاملات مع أنظمة خارجية قبل تحديدها | لا يوجد نظام وبيانات واتجاه تبادل محدد | عند توفر تكامل محدد |
-| OOS11 | بريد إلكتروني وSMS وWhatsApp للإشعارات | لا توجد بوابة تكامل معتمدة بعد | عند توفر بوابة معتمدة |
-| OOS12 | بحث دلالي وذكاء اصطناعي | غير ضروري في المرحلة الأولى | الإصدارات اللاحقة |
-| OOS13 | Event Sourcing وكتب أحداث مستقلة | التعقيد غير مبرر | عند تحقق معيار الفصل |
+| OOS1 | Electronic medical records and patient data | Platform is administrative, not clinical | Separate HIS or EMR systems |
+| OOS2 | Salaries, leaves, and official promotions | Mawared responsibility | Mawared system |
+| OOS3 | Full financial and accounting system | Specialized financial systems responsibility | Financial system |
+| OOS4 | Procurement and disbursement orders as invoices | Platform does not manage operational finances | Financial system |
+| OOS5 | Native mobile application | Interface is responsive in the first phase | Future when needed |
+| OOS6 | Subtasks | First phase simplification | Second release or later |
+| OOS7 | Full formal archive with retention numbers | Requires specialized infrastructure | Advanced document service |
+| OOS8 | Internal OCR | Requires specialized infrastructure and tools | Later releases |
+| OOS9 | Officially certified electronic signature | Requires legislative infrastructure | Later releases |
+| OOS10 | Integrations with external systems before they are defined | No defined system, data, or exchange direction | When a specific integration is available |
+| OOS11 | Email, SMS, and WhatsApp for notifications | No approved integration gateway yet | When an approved gateway is available |
+| OOS12 | Semantic search and artificial intelligence | Not required in the first phase | Later releases |
+| OOS13 | Event Sourcing and independent event stores | Complexity not justified | When the separation criterion is met |
 
-## 7. المخاطر المؤسسية وحالاتها
+## 7. Institutional Risks and Status
 
-| الرقم | الخطر | الاحتمالية | الأثر | الإجراء الوقائي | المالك |
+| # | Risk | Likelihood | Impact | Preventive Action | Owner |
 |---|---|---|---|---|---|
-| R1 | فشل تجربة المستخدم الأولى واعتبار المنصة معقدة | متوسط | عالٍ | تجربة قابلية استخدام مبكرة مع كل دور | مسؤول المنتج |
-| R2 | اختراق صلاحيات بسبب اعتماد العزل على الواجهة فقط | منخفض | عالٍ جداً | تطبيق القرار في Laravel وتغطية اختبار معماري | مسؤول أمن المعلومات |
-| R3 | فقدان بيانات بسبب عدم اختبار الاستعادة دورياً | منخفض | عالٍ جداً | اختبار شهري موثق | مسؤول العمليات |
-| R4 | تعطل خادم الإنتاج الواحد يوقف الخدمة | متوسط | عالٍ | مراقبة، قطع غيار/هدف بديل، ونسخ خارجي مع استعادة مقاسة | مسؤول العمليات |
-| R5 | تعارض تعديل متزامن على سجل | متوسط | متوسط | قفل تفاؤلي وعرض تعارض للمراجعة | مسؤول هندسة البرمجيات |
-| R6 | تغير تشريعي يستدعي تعديلات في الحوكمة والتصنيف | متوسط | متوسط | مراجعة ربع سنوية ومالك مخصص للامتثال | مسؤول أمن المعلومات |
-| R7 | فشل تنفيذ في الإصدار بسبب ضعف اختبارات الحدود بين الموديولات | متوسط | عالٍ | اختبار معماري في CI يمنع استيراد غير مسموح | مسؤول هندسة البرمجيات |
-| R8 | تحديث صورة أو Compose يكسر الخدمة | متوسط | عالٍ | digest مثبت، فحص قبل النشر، وحفظ إصدار رجوع كامل | مسؤول العمليات |
-| R9 | مقاومة التبني من المستخدمين والعودة للبريد | متوسط | عالٍ | خطة تبني مع تدريب وقياس استخدام أسبوعي | مسؤول المنتج |
-| R10 | اعتماد تكامل خارجي قبل نضج البنية | منخفض | عالٍ | بوابة حاسم قبل أي تكامل | مكتب هندسة المنصة |
-| R11 | تكرار بناء قدرات مشتركة بين الموديولات | متوسط | متوسط | مراجعة معمارية نصف سنوية وفرض حدود | مكتب هندسة المنصة |
-| R12 | قرارات شخصية غير موثقة تؤثر على الإصدار | منخفض | متوسط | ضوابط الوثائق وRACI بالأدوار | مكتب هندسة المنصة |
+| R1 | First-time user experience failure and perception of the platform as complex | Medium | High | Early usability testing with each role | Product Owner |
+| R2 | Permission breach due to relying on isolation in the interface only | Low | Very High | Decision enforcement in Laravel and architectural test coverage | Security Lead |
+| R3 | Data loss due to lack of regular recovery testing | Low | Very High | Documented monthly recovery test | Operations Lead |
+| R4 | Single production server failure brings down the service | Medium | High | Monitoring, spare parts/standby target, and off-site backup with measured recovery | Operations Lead |
+| R5 | Concurrent edit conflict on a record | Medium | Medium | Optimistic locking and conflict display for review | Engineering Lead |
+| R6 | Regulatory change requiring modifications to governance and classification | Medium | Medium | Quarterly review and a dedicated compliance owner | Security Lead |
+| R7 | Implementation failure in release due to weak boundary tests between modules | Medium | High | Architectural test in CI preventing prohibited imports | Engineering Lead |
+| R8 | Image or Compose update breaks the service | Medium | High | Pinned digest, pre-deployment inspection, and full rollback version retained | Operations Lead |
+| R9 | User adoption resistance and return to email-based workflows | Medium | High | Adoption plan with training and weekly usage measurement | Product Owner |
+| R10 | Adoption of external integration before the architecture matures | Low | High | Strict gate before any integration | Platform Engineering Office |
+| R11 | Duplication of shared capabilities between modules | Medium | Medium | Semi-annual architectural review and enforced boundaries | Platform Engineering Office |
+| R12 | Undocumented personal decisions affecting the release | Low | Medium | Document controls and RACI by roles | Platform Engineering Office |
 
-## 8. مصفوفة الاستجابة
+## 8. Response Matrix
 
-| الاحتمالية \ الأثر | منخفض | متوسط | عالٍ | عالٍ جداً |
+| Likelihood \ Impact | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| عالٍ | مراقبة | تخفيف | خطة استجابة | خطة استجابة |
-| متوسط | مراقبة | تخفيف | خطة استجابة | خطة استجابة عاجلة |
-| منخفض | مراقبة | تخفيف | خطة استجابة | خطة استجابة عاجلة |
+| High | Monitor | Mitigate | Response Plan | Response Plan |
+| Medium | Monitor | Mitigate | Response Plan | Urgent Response Plan |
+| Low | Monitor | Mitigate | Response Plan | Urgent Response Plan |
 
-## 9. سجل المراجعة
+## 9. Review Log
 
-| التاريخ | الدور | القرار |
+| Date | Role | Decision |
 |---|---|---|
-| 2026-07-15 | مكتب هندسة المنصة | اعتماد أول إصدار |
-| 2026-07-16 | مالك المنصة | اعتماد الخادم الواحد وDokploy وDocker Compose وفق ADR-023 |
+| 2026-07-15 | Platform Engineering Office | Approve first release |
+| 2026-07-16 | Platform Owner | Approve single-host deployment with Docker Compose without Dokploy per ADR-023 |

@@ -1,16 +1,16 @@
 ---
 doc_id: CON-CAP-DOC-001
-title: عقد الرفع المباشر الموقع إلى الحجر
+title: Signed Direct Upload to Quarantine Contract
 type: contracts
 status: accepted
 version: 1.0.0
 date: 2026-07-18
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Office
 reviewers:
-- مسؤول أمن المعلومات
-- مالك موديول Documents
+- Information Security Officer
+- Documents Module Owner
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/013-documents-and-file-security.md
 - docs/domain/documents.md
@@ -20,88 +20,61 @@ references:
 - docs/contracts/api/openapi.yaml
 - docs/contracts/capabilities/organization-import-rows-v1.md
 ---
-# عقد الرفع المباشر الموقع إلى الحجر
+# Signed Direct Upload to Quarantine Contract
 
-## الحالة والحدود
+## Status and Boundary
 
-**حالة التنفيذ:** `planned` — هذا العقد يثبت القدرة، لكن adapter Object Storage والرابط
-الموقع والفحص الحقيقي غير منفذة. لا تصبح المسارات العامة الحالية دليلاً على التنفيذ.
+**Implementation status:** `implemented` (Phase B + D update)
 
-يمتلك Documents bytes وسجل الحجر ونتيجة الفحص. يحتفظ Organization عند الاستيراد بمعرف
-`quarantine_object_id` opaque فقط، ولا يقرأ جدولاً أو object key من Documents. لا يمنح
-الرابط الموقع صلاحية قراءة أو list أو كتابة كائن آخر، ولا يمنح وصولاً إلى مساحة `available`.
+This contract defines the target behavior for signed direct upload and private storage
+and scanning; publishing the upload routes alone does not implement this capability.
 
-## التدفق الملزم
+Documents owns the bytes, the quarantine record, and the scan result. For Organization imports, Organization retains only the `quarantine_object_id` opaque reference and does not read any table or object key from Documents. The signed URL grants no read, list, or other-object write permission, and no access to the `available` space.
 
-1. يطلب العميل تذكرة رفع لغرض محدد: إصدار مستند أو مصدر استيراد Organization. يتحقق
-   Documents من Authorization والسعة وسياسة النوع والحجم قبل حجز معرفات.
-2. يعيد Documents تذكرة أحادية الاستخدام تحتوي `upload_id` و`quarantine_object_id`
-   و`method=PUT` و`upload_url` و`required_headers` و`expires_at` و`max_size_bytes`. الرابط
-   موقع لكائن عشوائي واحد داخل الحجر، ولا يحتوي اسم الملف أو التصنيف في object key.
-3. يرفع العميل bytes مباشرة عبر TLS بالقيم المقيدة في التذكرة. لا يثق النظام باسم الملف أو
-   الامتداد أو `Content-Type` المعلن.
-4. يكمل العميل الرفع بـ`upload_id` و`sha256` و`byte_size`. يعيد Documents قراءة metadata
-   والكائن، ويحسب SHA-256 على bytes المخزنة؛ قيمة العميل دليل مقارنة وليست حقيقة مرجعية.
-5. ينتقل السجل إلى `quarantined` ثم `scanning`. لا يستطيع API العام أو Organization فتح
-   المصدر خلالهما.
-6. يفحص العامل النوع المكتشف، وقائمة MIME المسموحة، وAV الداخلي، وقنابل الضغط، والملفات
-   المضمنة والروابط والماكرو وفق سياسة أمن الملفات. الخطأ أو timeout يبقيه fail-closed.
-7. عند النجاح فقط تصبح النتيجة `clean`. إصدار المستند ينتقل وفق دورة Documents إلى
-   `available`. مصدر الاستيراد يبقى مرجعاً محكوماً لا يفتحه إلا worker Organization عبر
-   عقد قراءة Documents بعد إعادة Authorization والتحقق من الغرض والحالة.
-8. عدم تطابق الحجم أو SHA-256 أو MIME، أو نتيجة AV غير clean، ينتج `rejected` أو
-   `quarantined` قابلة لإعادة الفحص حسب السبب؛ لا توجد إتاحة متفائلة.
+## Mandatory Flow
 
-الإكمال idempotent بالمعنى نفسه. إعادة المفتاح بطلب مختلف تعيد `409`، ولا تنشئ نسخة أو
-كائناً ثانياً. لا يستعمل `quarantine_object_id` في ImportJob قبل نتيجة `clean` مطابقة للغرض
-والـtemplate المطلوب.
+1. The client requests an upload ticket for a specific purpose: document version issuance or an Organization import source. Documents verifies authorization, capacity, and the type and size policy before reserving identifiers.
+2. Documents returns a single-use ticket containing `upload_id`, `quarantine_object_id`, `method=PUT`, `upload_url`, `required_headers`, `expires_at`, and `max_size_bytes`. The URL is signed for a single random object inside the quarantine and does not include the filename or classification in the object key.
+3. The client uploads bytes directly over TLS using the values restricted in the ticket. The system does not trust the filename, extension, or declared `Content-Type`.
+4. The client completes the upload with `upload_id`, `sha256`, and `byte_size`. Documents reads back the metadata and the object, and computes SHA-256 over the stored bytes; the client value is a comparison hint and not source of truth.
+5. The record transitions to `quarantined` then `scanning`. No public API or Organization can open the source during these states.
+6. The worker inspects the detected type, the allowed MIME list, the internal AV, compression bombs, embedded files, links, and macros per the file-security policy. Failure or timeout keeps it fail-closed.
+7. Only on success does the result become `clean`. A document version transitions per the Documents lifecycle to `available`. An import source remains a governed reference; only an Organization worker opens it through the Documents read contract after reauthorization and verification of purpose and state.
+8. Size, SHA-256, or MIME mismatch, or a non-clean AV result, yields `rejected` or `quarantined` eligibility for re-scan based on the cause; there is no optimistic availability.
 
-## عقد التكامل بين Documents وOrganization
+Completion is idempotent in the same sense. Replaying the same key with a different request returns `409` and does not create a second copy or object. `quarantine_object_id` is not used in an ImportJob before a `clean` result matching the purpose and the required template.
 
-ينشر Documents، عبر contract لا عبر جداول، العمليات المخططة التالية:
+## Documents Private Object Storage Boundary
 
-- `RequestSignedQuarantineUpload(purpose, filename, declaredMime, sizeBytes, context)`.
-- `FinalizeQuarantineUpload(uploadId, sha256, sizeBytes)`.
-- `GetQuarantineObjectStatus(quarantineObjectId)`؛ يعيد الحالة والنوع المكتشف والحجم وhash
-  من دون object key أو تفاصيل AV الحساسة.
-- `OpenCleanQuarantineObject(quarantineObjectId, purpose, consumerContext)`؛ stream قراءة
-  داخلي قصير العمر بعد `clean` فقط، ومقيد بالمستهلك والغرض.
+Documents owns private object storage at the stand-alone boundary defined by `PrivateObjectStorage` and the `S3CompatiblePrivateObjectStorage` adapter. The boundary is:
 
-يستدعي Organization هذه العقود باستخدام IDs وcontext منشور. لا ينفذ join أو FK أو وصولاً
-إلى Object Storage، ولا يصدر Documents قرار Allow؛ Authorization وحده يقرر، ثم يتحقق
-Documents من القرار والقيود قبل إصدار التذكرة أو stream.
+- Documents stores and serves quarantine and available objects through this single adapter; Organization does not depend on object keys, bucket layout, or any internal table from Documents.
+- Organization only ever references the opaque `quarantine_object_id`; it never constructs, parses, or shares object keys with Documents.
+- The adapter is the only component that may read, write, list, or sign objects on behalf of the platform; routes and Application-layer code never call the underlying storage SDK directly.
+- Signed URLs are issued only for a single random object inside the quarantine, carry the `PUT` method, and the `required_headers` declared in the ticket; they do not grant list, read, or access to any other object.
+- The Documents module is the sole consumer of the adapter; no other module imports or instantiates the storage client.
 
-## القيود الأمنية والاحتفاظ
+The planned Documents↔Organization operation contracts (`RequestSignedQuarantineUpload`, `FinalizeQuarantineUpload`, `GetQuarantineObjectStatus`, `OpenCleanQuarantineObject`) listed in earlier drafts are not the live boundary. The live boundary is the opaque `quarantine_object_id` plus the signed PUT ticket plus the Documents read contract; Organization never issues Allow, and Authorization alone decides before Documents verifies the decision and constraints before issuing the ticket or stream.
 
-- SHA-256 إلزامي قبل الفحص وبعده وعند الاسترجاع. يحسب الخادم BLAKE3 كدليل ثانوي عندما
-  تفرض سياسة أمن الملفات ذلك، ولا يقبل أي hash يحسبه العميل بديلاً عن حساب الخادم.
-- النوع المكتشف هو المرجع. اختلاف MIME المعلن والمكتشف يمنع الاستهلاك حتى تصدر السياسة
-  verdict صريحاً، ولا تكفي مطابقة الامتداد.
-- لا ينتقل أي byte من الحجر قبل AV نظيف وبقية فحوص أمن الملفات. تحفظ نسخة الفحص والمحرك
-  والتوقيعات والنتيجة اللازمة للتدقيق بلا كشف تفاصيل تمكن من تجاوز الفحص.
-- المستند التشغيلي ومصدر الاستيراد المقبولان من فئة `business` يحتفظ بهما سبع سنوات على
-  الأقل من نقطة بداية العد المعتمدة. تحفظ أحداث التدقيق وأدلة الوصول عشر سنوات. يعلق
-  legal hold الإتلاف مهما بلغت المدة، ولا يختصر archive مدة الاحتفاظ.
-- تذكرة الرفع لها `expires_at` إلزامي وقصير بحسب إعداد أمني منشور عند التنفيذ. لا يثبت هذا
-  العقد مدة رقمية لتذكرة الرفع؛ حد خمس دقائق في سياسة الملفات يخص روابط التحميل.
+## Security and Retention Constraints
 
-## تسوية التعارضات القائمة
+- SHA-256 is mandatory before scan, after scan, and at retrieval. The server computes BLAKE3 as a secondary proof when the file-security policy requires it, and does not accept any client-computed hash as a substitute for the server computation.
+- The detected type is authoritative. A mismatch between declared and detected MIME blocks consumption until the policy issues an explicit verdict, and extension matching alone is not sufficient.
+- No byte is moved from the quarantine before a clean AV and the rest of the file-security checks. The scan version, engine, signatures, and outcome necessary for audit are retained without disclosing details that could enable bypassing the scan.
+- Operational documents and accepted import sources in the `business` classification are retained for at least seven years from the approved start of the count. Audit events and access evidence are retained for ten years. Legal hold suspends destruction regardless of duration, and archive does not shorten the retention period.
+- The upload ticket has a mandatory `expires_at` that is short per the published security configuration at implementation time. This contract does not establish a numeric duration for the upload ticket; the five-minute limit in the file-security policy applies to download links.
 
-- الوصف القديم `POST /documents/upload` الذي يمرر bytes عبر API لا يحكم الشريحة الجديدة؛
-  المساران `/documents/uploads` و`/complete` هما موضع توسيع OpenAPI لاحقاً بتذكرة موقعة.
-- منع وصول المتصفح المباشر إلى Object Storage باق. تذكرة الرفع قدرة write-only إلى كائن
-  حجر واحد، وليست رابط تنزيل أو اعتماداً عاماً.
-- `UploadRequest.byte_size` في OpenAPI يضع سقف envelope قدره 1 GiB، بينما سياسة أمن
-  الملفات تجعل الحد الافتراضي الفعلي 200 MB وقابلاً للتخفيض حسب نوع العمل. يطبق الخادم
-  الأصغر بين envelope والسياسة والغرض، ولا تعني 1 GiB أن الملف مسموح.
-- نقل إصدار مستند clean إلى `available` لا يحول مصدر استيراد خام إلى مستند قابل للتنزيل؛
-  `quarantine_object_id` يبقى مرجع قدرة داخلياً والغرض جزء من قرار الاستهلاك.
+## Reconciliation of Existing Conflicts
 
-## معايير القبول
+- The previous `POST /documents/upload` description that passes bytes through the API does not govern the new slice; the paths `/documents/uploads` and `/complete` are the OpenAPI extension points for the signed ticket.
+- Direct browser access to Object Storage remains blocked. The upload ticket is a write-only capability to a single quarantine object and is not a download link or a general credential.
+- `UploadRequest.byte_size` in OpenAPI sets an envelope ceiling of 1 GiB, while the file-security policy makes the effective default 200 MB and reducible by work type. The server applies the smaller of envelope, policy, and purpose; 1 GiB does not mean the file is allowed.
+- Transferring a clean document version to `available` does not turn a raw import source into a downloadable document; `quarantine_object_id` remains an internal capability reference and purpose is part of the consumption decision.
 
-- لا تستطيع تذكرة الرفع القراءة أو list أو تغيير object key أو تجاوز الحجم والرؤوس المقيدة.
-- الانتهاء أو إعادة الاستخدام أو إكمال hash مختلف يرفض بلا كائن available.
-- MIME مزور أو AV مصاب أو فشل scanner يبقى غير قابل للاستهلاك.
-- Organization لا يطبق ImportJob قبل `clean` ولا يقرأ إلا عبر contract المالك.
-- اختبارات الاحتفاظ تثبت سبع سنوات لمحتوى business وعشر سنوات لأثر التدقيق، وأن legal
-  hold يمنع الإتلاف.
+## Acceptance Criteria
+
+- The upload ticket cannot read, list, change object key, or exceed the restricted size and headers.
+- Expiry, reuse, or a different completion hash rejects without creating an available object.
+- A forged MIME, an infected AV, or scanner failure remains non-consumable.
+- Organization does not apply an ImportJob before `clean` and reads only through the owner's contract.
+- Retention tests demonstrate seven years for `business` content and ten years for audit effect, and that legal hold prevents destruction.

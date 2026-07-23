@@ -1,14 +1,14 @@
 ---
 doc_id: ARC-EN-005
-title: التكامل والتسليم والإصدار
+title: Continuous Integration, Delivery, and Release
 type: engineering
 status: accepted
 version: 3.0.0
 date: 2026-07-17
-owner: طارق
+owner: Technical Delivery
 reviewers: []
 classification: internal
-review_cycle: عند الحاجة
+review_cycle: As needed
 sources:
 - docs/adr/023-single-host-dokploy-deployment.md
 - docs/architecture/overview.md
@@ -16,53 +16,58 @@ references:
 - docs/engineering/database-migrations.md
 - docs/plans/readiness-checklist.md
 ---
-# التكامل والتسليم والإصدار
+
+> **NOT IMPLEMENTED.** Automated rollback, pre-migration backup, and restore targets are not wired into the deployment chain. Treat the related requirements below as manual operational controls until automation is added.
+
+# Continuous Integration, Delivery, and Release
 
 ## CI
 
-تعمل `.github/workflows/ci.yml` على GitHub-hosted runners عند كل push وpull request:
+`.github/workflows/ci.yml` runs on GitHub-hosted runners for every push and pull request:
 
-| الوظيفة | التحقق |
+| Job | Verification |
 |---|---|
-| `api` | Composer وPint وPHPStan وaudit واختبارات API وحدود الموديولات |
-| `web` | npm وعقد OpenAPI وlint والتغطية والبناء |
-| `docs` | تحقق الوثائق وبناء MkDocs |
-| `secrets` | فحص الأسرار عبر Gitleaks |
-| `production-bundle` | سياسة Compose وبناء الصور ورحلة MySQL/Redis/Worker/Browser الكاملة |
+| `api` | Composer validation, Pint, PHPStan, dependency audit, API tests, and module boundaries |
+| `web` | npm, the OpenAPI contract, linting, coverage, and build |
+| `docs` | Documentation validation and a strict MkDocs build |
+| `secrets` | Secret scanning with Gitleaks |
+| `w1-2-readiness` | W1.2 contract-readiness validation after the API, web, docs, and secrets jobs |
+| `production-bundle` | Compose policy, image builds, and the complete MySQL/Redis/Worker/Browser journey |
 
-لا runners ذاتية ولا registry إلزامي ولا توقيع صور أو SBOM أو receipts.
+There are no self-hosted runners, mandatory registry, image-signing step, SBOM step, or build receipts.
 
-## النشر
+## Deployment
 
-على الـVPS:
+On the VPS:
 
 ```sh
 install -m 600 infra/platform/production/.env.example infra/platform/production/.env.production
-# عدل الملف بالقيم الفعلية مرة واحدة
+# Edit the file once with the actual values.
 make deploy-vps
 ```
 
-يبني Compose الصور من المصدر، يشغل migration، ثم API والعامل والويب وCaddy. يستخدم
-MySQL وRedis الموجودين على الخادم من خلال `DB_HOST` و`REDIS_HOST`.
+Compose builds the images from source, runs the migration, and starts the API, worker, web application, and Caddy. It uses MySQL and Redis already present on the server through `DB_HOST` and `REDIS_HOST`.
 
-## الرجوع
+## Rollback
 
-1. اختر آخر commit سليم وتأكد أن مصدره وDocker base images ما زالت متاحة لإعادة البناء.
-2. تأكد أن migration متوافقة للخلف أو استخدم forward-fix.
-3. شغّل `make deploy-vps`.
-4. تحقق من `/up` وتسجيل الدخول والعامل.
+1. Select the latest known-good commit and ensure its source and Docker base images remain available for rebuilding.
+2. Confirm that its migrations are backward compatible or prepare a forward fix.
+3. Run `make deploy-vps` for the selected revision.
+4. Verify `/up`, login, and worker processing manually.
 
-## قواعد ثابتة
+No dedicated rollback Makefile target exists; rollback is a rebuild and redeployment of the selected compatible revision.
 
-- لا أسرار في Git؛ `.env.production` على الخادم فقط.
-- Caddy هو المدخل العام الوحيد على `80/443`.
-- MySQL وRedis غير متاحين من الإنترنت.
-- Dockerfiles تبني من lockfiles وتشغل مستخدمين غير root.
-- تؤخذ نسخة MySQL قبل migration عالية المخاطر.
+## Fixed Rules
 
-## سجل التغيير
+- No secrets in Git; `.env.production` exists only on the server.
+- Caddy is the only public entry point on ports `80/443`.
+- MySQL and Redis are not exposed to the internet.
+- Dockerfiles build from lockfiles and run as non-root users.
+- A valid MySQL backup is required before a high-risk migration, but the deployment chain does not automate this backup.
 
-| الإصدار | التاريخ | التغيير |
+## Change Log
+
+| Version | Date | Change |
 |---|---|---|
-| 3.0.0 | 2026-07-17 | اعتماد CI مستضاف ونشر VPS مباشر مع Caddy وMySQL/Redis خارجيين |
-| 2.0.0 | 2026-07-17 | تبسيط CI ونقل تشغيل الخادم إلى المرحلة النهائية |
+| 3.0.0 | 2026-07-17 | Adopted hosted CI and direct VPS deployment with Caddy and external MySQL/Redis |
+| 2.0.0 | 2026-07-17 | Simplified CI and moved server operation to the final phase |

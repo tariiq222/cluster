@@ -1,14 +1,14 @@
 ---
 doc_id: PLN-R2-001
-title: خطة R2 المتكاملة – دورة الاستراتيجية والمحافظ والمشاريع
+title: Integrated R2 Plan — Strategy, Portfolio, and Projects Cycle
 type: plans
 status: accepted
 version: 3.0.0
 date: 2026-07-19
-owner: التنفيذ التقني
+owner: Technical Implementation
 reviewers: []
 classification: internal
-review_cycle: عند كل إقفال لحزمة R2
+review_cycle: at each R2 package closure
 sources:
 - docs/plans/implementation-roadmap.md
 - docs/plans/release-1-platform.md
@@ -21,245 +21,303 @@ references:
 - docs/domain/collaboration-tasks-workspace.md
 - docs/domain/authorization.md
 ---
-# خطة R2 المتكاملة
+# Integrated R2 Plan
 
-## الهدف
+## Goal
 
-بناء دورة إدارة استراتيجية تبدأ من تحليل الواقع وصياغة التوجه، ثم الخطة وبطاقة
-الأداء والأهداف والمؤشرات والمبادرات والمراجعات، وتنتهي بتحويل المبادرات إلى محافظ
-وبرامج ومشاريع وقياس أثرها. المنتج في R2 مخصص لتجربة التجمع الصحي الثالث، ولا
-تدخل إعادة تصميمه كمنتج متعدد العملاء في هذا المسار.
+Build a strategic management cycle that starts from reality analysis and
+direction formulation, then the plan, performance scorecard, objectives,
+indicators, initiatives, and reviews, and ends by converting initiatives into
+portfolios, programs, projects, and impact measurement. The R2 product is
+dedicated to the Third Health Cluster experience, and multi-tenant redesign
+is not part of this path.
 
-لا يضم `Strategy` تفاصيل المشروع أو المهمة أو الخطر. تظل الملكية موزعة بين
-الموديولات، ويكون الدمج عبر contracts وevents وIDs وقرار Authorization واحد.
+`Strategy` does not include project, task, or risk detail. Ownership stays
+distributed across modules, and integration runs through contracts, events,
+IDs, and a single Authorization decision.
 
-## حكم خط الأساس
+## Baseline Verdict
 
-- `Strategy` و`PortfolioProjects` معرفان في الوثائق فقط؛ لا يوجد لهما كود أو جداول
-  أو API في الحالة الحالية.
-- `Tasks` موجود كنواة تشغيلية لإنشاء مهمة من Workflow وإكمالها، لكنه لا يطبق بعد
-  مواصفة المهام المرتبطة كاملة ولا يستهلك `DecideAccess` في جميع مساراته.
-- `RbacAbacDecideAccess` موجود، لكن binding التشغيلي الحالي ما زال
-  `FixtureFacilityDecision`، وبعض متحكمات R1 تستخدم principal تطويرياً.
-- لذلك لا يبدأ دمج R2 قبل إقفال W1.3 الأمني وتقوية عقد Tasks المشترك. يمكن تحضير
-  اختبارات وعقود R2، لكن لا يسمح بأي fixture أو bypass جديد.
+- `Strategy` and `PortfolioProjects` are defined in the docs only; no code,
+  tables, or API exist in the current state.
+- `Tasks` exists as an operational nucleus for creating a task from Workflow
+  and completing it, but it does not yet apply the linked tasks specification
+  in full and does not consume `DecideAccess` on all its paths.
+- `RbacAbacDecideAccess` exists, but the current operational binding is still
+  `FixtureFacilityDecision`, and some R1 controllers use a development
+  principal.
+- Accordingly, R2 integration does not start before W1.3 security closure and
+  the shared Tasks contract hardening. R2 tests and contracts can be prepared,
+  but no new fixture or bypass is allowed.
 
-## حدود الملكية
+## Ownership Boundaries
 
-| الموديول | يملك | لا يملك |
+| Module | Owns | Does Not Own |
 |---|---|---|
-| `Strategy` | التحليل والصياغة والخطة وإصداراتها وبطاقات الأداء والأهداف والمؤشرات والمبادرات والمراجعات والأثر الفعلي المعتمد | المحافظ والمشاريع والمهام والمخاطر |
-| `PortfolioProjects` | المحافظ والبرامج والمشاريع والقوالب والمراحل والمعالم وخطوط الأساس والميزانية الإدارية والصحة والأثر المتوقع | المبادرات وتعريف المؤشر وقياساته |
-| `Tasks` | المهمة والإسناد والمشاركة والتعليقات ودورة الإنجاز والنشاط | حالة الهدف أو المشروع أو قرار الوصول للمصدر |
-| `Workflow` | تعريف مسار المراجعة ومثيله وخطواته وقراراته | حالة الخطة أو المؤشر أو المشروع |
-| `Authorization` | RBAC وABAC والنطاق والتفويض والمنع والتصنيف وقرار الحقول | حقائق السجل أو بيانات المجال |
-| `Documents` | الملفات والإصدارات والفحص وروابط التنزيل | معنى الدليل أو قرار اعتماد الخطة والمشروع |
-| `Reporting` و`Search` و`Workspace` و`Notifications` | إسقاطات مشتقة قابلة لإعادة البناء | أي حقيقة تشغيلية مصدرية |
+| `Strategy` | Analysis, formulation, plan and its versions, scorecards, objectives, indicators, initiatives, reviews, and approved actual impact | Portfolios, projects, tasks, and risks |
+| `PortfolioProjects` | Portfolios, programs, projects, templates, phases, milestones, baselines, administrative budget, health, and expected impact | Initiatives, indicator definition, and its measurements |
+| `Tasks` | Task, assignment, participation, comments, completion cycle, and activity | Objective, project, or source access decisions |
+| `Workflow` | Review path definition, its instance, steps, and decisions | Plan, indicator, or project state |
+| `Authorization` | RBAC, ABAC, scope, delegation, deny, classification, and field decisions | Record facts or domain data |
+| `Documents` | Files, versions, scanning, and download links | Evidence meaning or plan and project approval decisions |
+| `Reporting`, `Search`, `Workspace`, `Notifications` | Rebuildable derived projections | Any source operational truth |
 
-## نموذج التكامل الملزم
+## Mandatory Integration Pattern
 
-كل قراءة أو كتابة محمية تتبع المسار نفسه:
+Every protected read or write follows the same path:
 
 ```text
-جلسة Identity الحقيقية
+Real Identity session
   -> PrincipalContext
-  -> الموديول المالك يبني RecordFacts من سجله
-  -> Authorization يطبق RBAC + ABAC + التصنيف + سياسة الحقول
+  -> Owning module builds RecordFacts from its record
+  -> Authorization applies RBAC + ABAC + classification + field policy
   -> AccessProjection: allowed_actions + field_access
-  -> Handler الموديول ينفذ الأمر داخل معاملة يملكها
+  -> Module handler executes the command inside its own transaction
   -> Audit + Transactional Outbox
-  -> مستهلكات idempotent للإشعار والبحث والتقرير ومساحة العمل
+  -> Idempotent consumers for notification, search, reporting, and workspace
 ```
 
-React تستخدم `allowed_actions` و`field_access` لتحسين التجربة فقط. لا تنشئ قراراً
-محلياً ولا ترسل أدوار المستخدم أو حقائق السجل. القوائم تطبق `ScopePredicate` قبل
-pagination وقبل كشف العنوان أو العدد.
+React uses `allowed_actions` and `field_access` to improve the experience only.
+It does not create a local decision and does not send user roles or record
+facts. Lists apply `ScopePredicate` before pagination and before exposing the
+title or count.
 
-## قدرات الصلاحيات المطلوبة
+## Required Authorization Capabilities
 
-يثبت Capability Catalog قبل أول route في R2، ويشمل على الأقل:
+The Capability Catalog is pinned before the first R2 route and includes at
+least:
 
 - `strategy.analysis.view|manage`.
 - `strategy.plan.create|update|submit|publish|retire`.
-- `strategy.objective.manage` و`strategy.initiative.manage`.
+- `strategy.objective.manage` and `strategy.initiative.manage`.
 - `strategy.indicator.define|publish|submit_measurement|approve_measurement`.
-- `strategy.review.manage` و`strategy.impact.approve`.
-- `portfolio.create|view|manage` و`program.create|view|manage`.
+- `strategy.review.manage` and `strategy.impact.approve`.
+- `portfolio.create|view|manage` and `program.create|view|manage`.
 - `project.create|view|update|assign|start|close`.
-- `project.baseline.approve` و`project.milestone.approve`.
-- `project.budget.view|manage` و`project.impact.submit`.
+- `project.baseline.approve` and `project.milestone.approve`.
+- `project.budget.view|manage` and `project.impact.submit`.
 - `task.view|create|assign|update|submit_completion|accept_completion|cancel`.
 
-كل قدرة تقيد بالنطاق التنظيمي والمدة والتصنيف والعلاقة بالسجل. المنع الصريح
-وRoleCapability deny والتصنيف الأعلى تتقدم على السماح، ولا يملك السوبر أدمن
-تجاوزاً تجارياً ضمنياً.
+Every capability is scoped by organizational scope, duration, classification,
+and record relationship. Explicit deny, RoleCapability deny, and higher
+classification override allow, and super admin has no implicit commercial
+override.
 
-## حزم التنفيذ والاعتماديات
+## Execution Packages and Dependencies
 
-### R2-0: إقفال الأساس المشترك
+### R2-0: Shared Foundation Closure
 
-**التبعية:** خطة W1.3.
+**Dependency:** W1.3 plan.
 
-- ربط `SessionPrincipalResolver` و`RbacAbacDecideAccess` في التشغيل الحقيقي.
-- منع boot في production عند ربط fixture أو principal تطويري بمسار مستخدم.
-- إكمال RoleCapability وExplicitDeny والتفويض والنطاقات وسياسات الحقول.
-- تقديم `PrincipalContext` و`RecordFacts` و`AccessProjection` موحدة.
-- إعادة بوابات R1 بالمحرك الحقيقي.
+- Bind `SessionPrincipalResolver` and `RbacAbacDecideAccess` in the real
+  runtime.
+- Block production boot when fixture or development principal is bound to a
+  user path.
+- Complete RoleCapability, ExplicitDeny, delegation, scopes, and field policies.
+- Deliver unified `PrincipalContext`, `RecordFacts`, and `AccessProjection`.
+- Re-gate R1 with the real engine.
 
-**الإقفال:** رحلة مستخدمين ونطاقين تثبت الدور وانتهاءه والمنع والتفويض وfield
-masking وتطابق API والبحث والتقرير والتنزيل.
+**Closure:** A two-user two-scope journey that proves role granting, its
+expiration, deny, delegation, field masking, and matching API, search, report,
+and download.
 
-### R2-1: تقوية Tasks كقدرة مشتركة
+### R2-1: Strengthen Tasks as a Shared Capability
 
-**التبعية:** R2-0.
+**Dependency:** R2-0.
 
-- نقل القراءة والانتقالات من SQL داخل Controllers إلى Handlers داخل الموديول.
-- تطبيق `DecideAccess` على القائمة والتفاصيل والإسناد والتحديث والإكمال والإلغاء.
-- تثبيت عقد `CreateLinkedTask` مع `SourceReference` و`SourceTaskPolicy`.
-- إكمال المشاركين والتعليقات والمنشن وسجل النشاط واعتماد الإنجاز عند الحاجة.
-- فتح المصدر يعيد التفويض إلى الموديول المالك؛ امتلاك المهمة لا يمنح المصدر.
-- `TaskCompleted` لا يغير المصدر مباشرة؛ يستهلكه Handler صريح لدى المالك.
+- Move reads and transitions from SQL inside Controllers to Handlers inside the
+  module.
+- Apply `DecideAccess` to list, detail, assignment, update, completion, and
+  cancellation.
+- Pin the `CreateLinkedTask` contract with `SourceReference` and
+  `SourceTaskPolicy`.
+- Complete participants, comments, mentions, activity log, and completion
+  approval when required.
+- Opening the source re-delegates authorization to the owning module; owning
+  the task does not grant the source.
+- `TaskCompleted` does not change the source directly; it is consumed by an
+  explicit handler at the owner.
 
-**الإقفال:** مهمة مستقلة ومهمة مرتبطة بمصدر تعملان مع optimistic locking وOutbox
-وIdempotency، ويمنع المستخدم غير المخول من المهمة ومن المصدر كل على حدة.
+**Closure:** A standalone task and a source-linked task both work with
+optimistic locking, Outbox, and Idempotency, and an unauthorized user is
+blocked from both the task and the source independently.
 
-### R2-2: التحليل والصياغة الاستراتيجية
+### R2-2: Strategy Analysis and Formulation
 
-**التبعية:** R2-0 وR2-1 لعناصر العمل الناتجة.
+**Dependency:** R2-0 and R2-1 for the resulting work items.
 
-- دورات الاستراتيجية والرؤية والرسالة والقيم والأولويات.
-- SWOT وPESTLE وأصحاب المصلحة وتحليل الفجوات والقضايا والافتراضات.
-- السيناريوهات والبدائل ومعايير المفاضلة وقرار التوجه المختار.
-- أدلة عبر Documents وإجراءات متابعة عبر Tasks ومراجعات عبر Workflow.
-- إصدار منشور immutable يحفظ علاقة المخرجات التحليلية بالأهداف الناتجة.
+- Strategy cycles, vision, mission, values, and priorities.
+- SWOT, PESTLE, stakeholder analysis, gap analysis, issues, and assumptions.
+- Scenarios, alternatives, decision criteria, and chosen direction.
+- Evidence via Documents, follow-up procedures via Tasks, and reviews via
+  Workflow.
+- An immutable published version preserves the relationship between analytical
+  outputs and the resulting objectives.
 
-**الإقفال:** يستطيع المستخدم المخول بناء تحليل موثق، مقارنة بدائل، اختيار توجه،
-وإنتاج مسودة خطة مع سجل يفسر مصدر كل هدف.
+**Closure:** The authorized user can build a documented analysis, compare
+alternatives, choose a direction, and produce a plan draft with a record
+explaining the source of every objective.
 
-### R2-3: الخطة وبطاقة الأداء والأهداف
+### R2-3: Plan, Scorecard, and Objectives
 
-**التبعية:** R2-2.
+**Dependency:** R2-2.
 
-- StrategicPlan وإصداراتها ومحاورها ومناظيرها وأهدافها ومبادراتها.
-- مناظير قابلة للتكوين مع قالب التجمع الصحي الثالث، بلا افتراض تجاري ثابت.
-- بطاقات التجمع والمنشآت والإدارات وعلاقات المحاذاة والتجميع.
-- أوزان المناظير والأهداف وخريطة السبب والنتيجة.
-- عروض الخريطة والشجرة والقائمة واللوحة مع snapshots تاريخية.
+- StrategicPlan and its versions, axes, perspectives, objectives, and
+  initiatives.
+- Configurable perspectives with the Third Health Cluster template, without a
+  fixed commercial assumption.
+- Cluster, facility, and department scorecards with alignment and rollup
+  relationships.
+- Perspective and objective weights and a cause-and-effect map.
+- Map, tree, list, and board views with historical snapshots.
 
-**الإقفال:** نسخة منشورة لا تتغير؛ تعديلها ينشئ نسخة لاحقة، وتعرض البطاقة المجمعة
-دون كشف أهداف أو حقول خارج نطاق المستخدم.
+**Closure:** A published version does not change; modifying it creates a later
+version, and the aggregated scorecard is shown without exposing objectives or
+fields outside the user's scope.
 
-### R2-4: المؤشرات والقياسات والمراجعات
+### R2-4: Indicators, Measurements, and Reviews
 
-**التبعية:** R2-3.
+**Dependency:** R2-3.
 
-- Indicator وإصداره ووحدته واتجاهه ودوريته ومعادلته وسياسة أدلته.
-- خط الأساس والمستهدفات وتوزيعها على الجهات وفترات القياس.
-- Measurement وCheck-in والتعليق والانحراف والاتجاه والحالة وآخر تحديث.
-- weighted average وratio of sums وsum وaverage وlatest بقوالب محكومة.
-- مراجعات شهرية وربع سنوية وسنوية ولقطات قبل المراجعة وإجراءات تصحيحية كمهام.
-- KPI Summary وBoards ومقارنة الفترات عبر Read Models مشتقة.
+- Indicator and its version, unit, direction, period, formula, and evidence
+  policy.
+- Baseline, targets, distribution across units, and measurement periods.
+- Measurement, check-in, comment, deviation, direction, state, and last update.
+- Weighted average, ratio of sums, sum, average, and latest with controlled
+  templates.
+- Monthly, quarterly, and annual reviews with pre-review snapshots and
+  corrective actions as tasks.
+- KPI Summary and Boards with period comparison via derived read models.
 
-**الإقفال:** الحساب يتم في الخادم، والتوزيع غير المتسق يرفض، والقياس يحتفظ بدليله
-وتاريخه، وتبقى النسخ السابقة قابلة للمراجعة بعد تعديل الاستراتيجية.
+**Closure:** Calculations run on the server, inconsistent distribution is
+rejected, measurement retains its evidence and history, and previous versions
+stay reviewable after strategy changes.
 
-### R2-5: المحافظ والبرامج والمشاريع
+### R2-5: Portfolios, Programs, and Projects
 
-**التبعية:** R2-3 لعقود المبادرات، ويمكن تطوير قلب المشاريع بالتوازي مع R2-4 بعد
-نشر العقود المشتركة.
+**Dependency:** R2-3 for initiative contracts; the project core can be
+developed in parallel with R2-4 after the shared contracts are published.
 
-- Portfolio وProgram وProject وProjectTemplate وPhase وMilestone.
-- تحويل أو ربط مبادرة استراتيجية بمشروع دون نقل ملكية المبادرة.
-- المشاركون والجدول والاعتماديات وخط الأساس والميزانية الإدارية.
-- تقدم محسوب من المعالم المعتمدة ذات الأدلة، لا من عدد المهام.
-- صحة Green/Amber/Red وقاعدة تمنع إخفاء مشروع حرج داخل متوسط محفظة أخضر.
-- مهام المشروع تنشأ عبر `CreateLinkedTask` ولا تمنح وصولاً تلقائياً للمشروع.
-- بوابات المعالم تستخدم Workflow، ويطبق الموديول القرار بأمر idempotent صريح.
+- Portfolio, Program, Project, ProjectTemplate, Phase, and Milestone.
+- Convert or link a strategy initiative to a project without moving initiative
+  ownership.
+- Participants, schedule, dependencies, baseline, and administrative budget.
+- Progress computed from approved milestones with evidence, not from task count.
+- Green/Amber/Red health with a rule that prevents hiding a critical project
+  inside an average green portfolio.
+- Project tasks are created via `CreateLinkedTask` and do not grant automatic
+  access to the project.
+- Milestone gates use Workflow, and the module applies the decision with an
+  explicit idempotent command.
 
-**الإقفال:** إنشاء مشروع من قالب يثبت نسخته ومراحله ومعالمه، وتساوي الأوزان 100%،
-وتعمل الميزانية والصحة والتقدم والعزل من React إلى MySQL.
+**Closure:** Creating a project from a template proves its version, phases,
+and milestones, weights sum to 100%, and budget, health, progress, and
+isolation work from React to MySQL.
 
-### R2-6: ربط الأثر والرحلة المتكاملة
+### R2-6: Impact Linkage and the Integrated Journey
 
-**التبعية:** R2-4 وR2-5.
+**Dependency:** R2-4 and R2-5.
 
-- `ProjectIndicatorLink` يحتفظ بمعرفات Strategy دون FK أو join عابر.
-- PortfolioProjects يملك baseline والأثر المتوقع وطلب إسناد الأثر.
-- Strategy يقرأ التحسن المرصود ويملك الأثر الفعلي المعتمد.
-- مجموع الأثر المنسوب لا يتجاوز التحسن المرصود دون مبرر ومسار مستقل.
-- تغيير القراءة أو baseline يعيد الحساب ويحفظ snapshot السابق.
-- حذف الرابط منطقي ومدقق ولا يحذف المشروع أو المؤشر.
+- `ProjectIndicatorLink` keeps Strategy identifiers without FK or cross-join.
+- PortfolioProjects owns the baseline, expected impact, and impact assignment
+  request.
+- Strategy reads the observed improvement and owns the approved actual impact.
+- The sum of attributed impact does not exceed the observed improvement without
+  justification and an independent path.
+- Changing a reading or baseline recomputes and preserves the previous
+  snapshot.
+- Link deletion is logical and audited and does not delete the project or
+  indicator.
 
-**الإقفال:** رحلة واحدة تعمل بالعربية RTL والإنجليزية LTR:
+**Closure:** A single journey works in Arabic RTL and English LTR:
 
 ```text
-تحليل -> توجه -> خطة -> هدف -> مؤشر -> مبادرة -> مشروع -> معلم -> مهمة
--> إنجاز -> قياس -> أثر -> مراجعة استراتيجية
+Analysis -> Direction -> Plan -> Objective -> Indicator -> Initiative ->
+Project -> Milestone -> Task -> Completion -> Measurement -> Impact ->
+Strategy Review
 ```
 
-## الاتصال بين الموديولات
+## Integration Between Modules
 
-### متزامن
+### Synchronous
 
-- التحقق من مرجع هدف أو مبادرة أو مؤشر منشور.
-- قرار Authorization وScopePredicate وFieldAccess.
-- إنشاء مهمة مرتبطة أو بدء Workflow عندما تكون النتيجة جزءاً من invariant الأمر.
-- تقديم أثر مشروع إلى Strategy واعتماده بأمر مستقل.
+- Verifying a published objective, initiative, or indicator reference.
+- Authorization decision, ScopePredicate, and FieldAccess.
+- Creating a linked task or starting Workflow when the result is part of the
+  command invariant.
+- Submitting a project impact to Strategy and approving it with an independent
+  command.
 
-العقود تعيد DTOs أو IDs فقط، ولا تعيد ORM models ولا تسمح بقراءة جدول الموديول
-الآخر. مالك حالة الاستخدام يملك المعاملة، والعقد المشارك ينضم إليها ولا ينفذ commit.
+Contracts return DTOs or IDs only, never ORM models, and never allow reading
+another module's table. The use case owner owns the transaction, and the
+participating contract joins it and does not commit.
 
-### غير متزامن
+### Asynchronous
 
-- Notifications وSearch وReporting وWorkspace وAudit غير الحرج.
-- تغير تقدم المشروع وصحته وقياس المؤشر وحالة المراجعة.
-- كل حدث يكتب في Outbox مع التغيير نفسه، وكل مستهلك يسجل `event_id` لمنع التكرار.
+- Non-critical Notifications, Search, Reporting, Workspace, and Audit.
+- Project progress, health, indicator measurement, and review state changes.
+- Every event is written to Outbox with the same change, and every consumer
+  records `event_id` to prevent duplicates.
 
-## ضوابط الدمج
+## Integration Controls
 
-- لا FK أو join أو ORM relation بين Strategy وPortfolioProjects وTasks.
-- لا قراءة مباشرة لجداول الموديولات من Controllers العامة؛ تمر العمليات عبر
-  Handlers وعقود الموديول.
-- اختبار الحدود يشمل `Modules/` وطبقة HTTP وأي SQL خام أو migration.
-- لا route بلا Capability canonical وRecordFacts واختبار deny-by-default.
-- لا يخزن Search أو Reporting عنواناً حساساً خاماً قبل قرار النشر، وتطبق الصلاحية
-  مرة أخرى عند القراءة والتصدير والتنزيل.
-- العقود وOpenAPI والعميل المولد والواجهة تتغير في الشريحة نفسها.
-- لا placeholder أو endpoint وهمي أو fixture يثبت قاعدة أمنية.
+- No FK, join, or ORM relation between Strategy, PortfolioProjects, and Tasks.
+- No direct read of module tables from public Controllers; operations flow
+  through Handlers and module contracts.
+- The boundaries test covers `Modules/`, the HTTP layer, and any raw SQL or
+  migration.
+- No route without a canonical Capability and RecordFacts and a deny-by-default
+  test.
+- Search and Reporting do not store raw sensitive titles before publish
+  decision, and authorization is reapplied at read, export, and download.
+- Contracts, OpenAPI, the generated client, and the frontend change in the same
+  slice.
+- No placeholder, fake endpoint, or fixture that proves a security rule.
 
-## التحقق المستهدف
+## Targeted Verification
 
-- اختبار API ضيق لكل Command وQuery قبل توسيع النطاق.
-- Contract tests بين Strategy وPortfolioProjects وTasks وWorkflow وAuthorization.
-- `make verify-boundaries` بعد كل حزمة تغير علاقة بين موديولين.
-- اختبارات الحساب والإصدارات والتزامن وOutbox وIdempotency.
-- اختبار عزل لمستخدمين ونطاقين في كل شريحة.
-- `npm --prefix apps/web run build` واختبار الواجهة المستهدف لكل capability.
-- E2E للحزمة عند إقفالها، ثم رحلة R2 الكاملة في R2-6.
-- `./scripts/validate-docs.sh` عند تغير العقود أو الخطة.
+- A focused API test for each Command and Query before widening scope.
+- Contract tests between Strategy, PortfolioProjects, Tasks, Workflow, and
+  Authorization.
+- `make verify-boundaries` after each package that changes a relationship
+  between modules.
+- Tests of calculation, versioning, concurrency, Outbox, and Idempotency.
+- An isolation test for two users and two scopes in every slice.
+- `npm --prefix apps/web run build` and the targeted frontend test per
+  capability.
+- E2E for the package at closure, then the full R2 journey in R2-6.
+- `./scripts/validate-docs.sh` when contracts or the plan change.
 
-## خارج R2
+## Outside R2
 
-- نقل المشاريع أو المهام أو المخاطر إلى داخل Strategy.
-- نظام مالي كامل أو فواتير أو أوامر شراء أو محاسبة مشاريع.
-- Multi-tenancy تجاري واشتراكات وWhite-label لعملاء متعددين.
-- اعتماد الذكاء الاصطناعي للخطط أو المؤشرات؛ يمكنه لاحقاً إنشاء مسودة فقط.
-- تكاملات Jira وSalesforce وTableau ومصادر القياس الخارجية في النسخة الأولى.
-- بناء Risk قبل إقفال R2؛ يبقى الخطر والضابط والمعالجة وKRI في R3.
+- Moving projects, tasks, or risks into Strategy.
+- A full financial system, invoicing, purchase orders, or project accounting.
+- Commercial multi-tenancy, subscriptions, and white-label for multiple
+  customers.
+- AI approval for plans or indicators; it may draft only later.
+- Jira, Salesforce, Tableau, and external measurement source integrations in
+  the first release.
+- Building Risk before R2 closure; risk, control, treatment, and KRI stay in
+  R3.
 
-## تعريف اكتمال R2
+## Definition of R2 Completion
 
-- رحلة R2-6 تعمل محلياً من React إلى MySQL وRedis والعودة.
-- كل فعل محمي يمر بالمحرك الحقيقي ويعيد allowed_actions وfield_access.
-- Strategy وPortfolioProjects وTasks لا تقرأ جداول بعضها ولا تنسخ حقائقها.
-- الإصدارات المنشورة واللقطات التاريخية والأثر المعتمد قابلة لإعادة التحقيق.
-- الاختبارات المستهدفة والحدود والبناء ورحلة E2E خضراء على revision واحد.
-- يسجل revision وأوامر التحقق والرحلة العاملة في `active-delivery-status.md`.
+- The R2-6 journey runs locally from React to MySQL and Redis and back.
+- Every protected action passes through the real engine and returns
+  allowed_actions and field_access.
+- Strategy, PortfolioProjects, and Tasks do not read each other's tables and do
+  not copy each other's facts.
+- Published versions, historical snapshots, and approved impact are
+  re-investigable.
+- Targeted tests, boundaries, build, and the E2E journey are green on a single
+  revision.
+- The revision, verification commands, and the working journey are recorded in
+  `active-delivery-status.md`.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | التغيير |
+| Version | Date | Change |
 |---|---|---|
-| 3.0.0 | 2026-07-19 | توسيع R2 إلى دورة الاستراتيجية الكاملة، وإدخال إقفال Authorization وتقوية Tasks كاعتمادين، وفصل ملكية Strategy وPortfolioProjects وتوثيق رحلة الأثر المتكاملة |
-| 2.0.0 | 2026-07-19 | ضغط R2 إلى شريحة يوم واحد وإزالة الملاك والاعتمادات وUAT والمخاطر الإدارية |
-| 1.0.0 | 2026-07-15 | الخطة الأصلية متعددة الموجات |
+| 3.0.0 | 2026-07-19 | Expand R2 to the full Strategy cycle, add Authorization closure and Tasks hardening as dependencies, separate Strategy and PortfolioProjects ownership, and document the integrated impact journey |
+| 2.0.0 | 2026-07-19 | Compress R2 to a one-day slice and remove package owners, approvals, UAT, and administrative risks |
+| 1.0.0 | 2026-07-15 | Original multi-wave plan |

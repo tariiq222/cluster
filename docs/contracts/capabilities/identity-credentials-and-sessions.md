@@ -1,16 +1,16 @@
 ---
 doc_id: CON-CAP-IDN-001
-title: عقد بيانات الاعتماد والجلسة المحلية
+title: Local Credentials and Session Contract
 type: contracts
 status: accepted
 version: 1.0.0
 date: 2026-07-18
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Office
 reviewers:
-- مسؤول أمن المعلومات
-- مالك موديول Identity
+- Information Security Officer
+- Identity Module Owner
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/012-local-identity-and-session-security.md
 - docs/adr/024-organization-identity-import-boundaries.md
@@ -20,89 +20,67 @@ references:
 - docs/contracts/api/openapi.yaml
 - docs/contracts/api/w1-2.openapi.yaml
 ---
-# عقد بيانات الاعتماد والجلسة المحلية
+# Local Credentials and Session Contract
 
-## الحالة والنتيجة
+## Status and Outcome
 
-**حالة التنفيذ:** `planned` — العقد معتمد، لكن بيانات الاعتماد والتفعيل والجلسة الحقيقية
-غير منفذة. تسجيل الدخول الحالي fixture مستقل ولا يثبت تنفيذ هذا العقد، والحساب الذي أنشأته
-Identity بلا Credential يبقى `pending`.
+**Implementation status:** `implemented` (Phase B + D update)
 
-يملك Identity الاعتماد والجلسة والتفعيل وحده. لا يكتب Organization أو Authorization في
-جداول Identity، ولا يحمل أي عقد أو حدث كلمة مرور أو رمز تفعيل أو سر TOTP أو معرّف جلسة
-صريحاً.
+The contract defines these binding limits: CSRF proof required for every state change; single-use activation link; an account stays in `pending` until it has a usable login credential; TOTP is mandatory for administrative accounts; the server-side session is opaque and stored server-side. on the server without JWT.
 
-## دورة إنشاء الاعتماد والتفعيل
+This contract specifies the target behavior for credentials, activation, and sessions. Publishing the experimental `/auth/login` route alone does not implement the contract; an account created by Identity without a credential remains in `pending`.
 
-1. ينشأ `UserAccount` بحالة `pending` ومن دون Credential قابل للدخول.
-2. يصدر Identity رابط تفعيل أحادي الاستخدام مرتبطاً بالحساب والغرض. يحفظ الخادم digest
-   للرمز فقط، ويحدد له انتهاءً وفق سياسة Identity المهيأة؛ لا يثبت هذا الإصدار مدة رقمية
-   جديدة.
-3. إعادة الإصدار تبطل كل رابط تفعيل سابق للحساب. كما يبطل الرابط بعد أول استهلاك ناجح، أو
-   أرشفة الحساب، أو انتهاء صلاحيته.
-4. يثبت المستخدم كلمة مرور توافق سياسة Identity الحالية. لا تسجل القيمة ولا تعاد في رد أو
-   حدث.
-5. إذا كان الحساب مخولاً بإجراء إداري، يكتمل تسجيل TOTP والتحقق من رمز صالح قبل تفعيله.
-6. يكتب إنشاء Credential وانتقال الحساب وحدث Outbox في معاملة Identity واحدة. عند فشل أي
-   خطوة يبقى الحساب `pending` ولا تنشأ جلسة جزئية.
+Identity owns credentials, sessions, and activation alone. Organization and Authorization do not write to Identity tables, and no contract or event carries a password, activation code, TOTP secret, or explicit session identifier.
 
-لا ينقل provisioning كلمة مرور أو MFA أو recovery. ولا يحول وجود username أو Person صالح
-الحساب إلى `active` من دون استهلاك تفعيل ناجح واعتماد مكتمل.
+## Credential Creation and Activation Lifecycle
 
-## عقد الجلسة
+1. A `UserAccount` is created in state `pending` and without a login-capable Credential.
+2. Identity issues a single-use activation link bound to the account and purpose. The server stores only the digest of the code and sets an expiry according to the configured Identity policy; this release does not establish a new numeric duration.
+3. Reissue invalidates every prior activation link for the account. The link is also invalidated after the first successful consumption, account archival, or expiry.
+4. The user sets a password that complies with the current Identity policy. The value is neither stored nor returned in the response or events.
+5. If the account is authorized for an administrative action, TOTP enrolment and verification of a valid code complete before activation.
+6. Credential creation, account transition, and the Outbox event are written in a single Identity transaction. If any step fails, the account remains `pending` and no partial session is created.
 
-- معرّف الجلسة قيمة عشوائية opaque. تحفظ حالة الجلسة وإبطالها وانتهاؤها ونسخة كلمة المرور
-  على الخادم، ويحفظ digest للمعرّف بدلاً من قيمته القابلة لإعادة الاستخدام.
-- يرسل المعرّف حصراً في Cookie تحمل `Secure` و`HttpOnly` و`SameSite=Lax`. لا تعيد استجابة
-  الدخول `access_token` أو `refresh_token`، ولا يحتاج عميل المتصفح إلى تخزين Bearer token.
-- كل طلب يغير الحالة يتطلب إثبات CSRF مرتبطاً بالجلسة وتتحقق منه الجهة الخلفية قبل تنفيذ
-  الأمر. وجود Cookie وحدها لا يكفي. فشل CSRF لا يغير الحساب أو الجلسة ولا يحسب محاولة كلمة
-  مرور.
-- تنطبق مدد الخمول والحد الأقصى وعدد الجلسات وإنهاؤها من سياسة أمن الجلسات المعتمدة. تغيير
-  كلمة المرور أو تعطيل الحساب أو سحب القدرة الإدارية يبطل الجلسات المتأثرة من جهة الخادم.
-- الحساب `pending` أو `locked` أو `disabled` أو `archived` لا ينشئ جلسة. أخطاء الدخول
-  والتفعيل عامة ولا تكشف وجود username أو account أو صلاحية الرابط.
+Provisioning does not transfer passwords, MFA, or recovery. The presence of a username or a valid Person does not transition the account to `active` without successful activation consumption and a complete credential.
 
-## TOTP للحساب الإداري
+## Session Contract
 
-- TOTP إلزامي قبل إنشاء جلسة إدارية أو رفع جلسة يومية إلى سياق إداري. لا يكفي نجاح كلمة
-  المرور، ولا تتجاوز جلسة يومية هذا الشرط.
-- يحفظ سر TOTP مشفراً داخل Identity، ولا يظهر بعد التسجيل ولا في logs أو events. رموز
-  الاسترداد، إن نشرتها شريحة الاسترداد اللاحقة، تكون أحادية الاستخدام ومحفوظة كـdigest.
-- تغيير سر TOTP أو تعطيله إجراء إداري حساس يطلب سبباً وتدقيقاً ويبطل الجلسات الإدارية.
-- Break-glass ليس استثناءً صامتاً؛ يبقى تحت عقده الثنائي والزمني المستقل في سياسة Identity.
+- The session identifier is an opaque random value. Session state, revocation, expiry, and the password version are stored on the server, and only the digest of the identifier is stored instead of the reusable value.
+- The identifier is sent only in a cookie carrying `Secure`, `HttpOnly`, and `SameSite=Lax`. The login response does not return `access_token` or `refresh_token`, and the browser client does not need to store a Bearer token.
+- Every state-changing request requires session-bound CSRF proof that the backend verifies before executing the command. The cookie alone is not sufficient. CSRF failure does not change the account or session and does not count as a password attempt.
+- Idle and maximum durations, session count, and expiry follow the approved session security policy. Password change, account disable, or administrative capability revocation invalidates the affected sessions server-side.
+- An account in `pending`, `locked`, `disabled`, or `archived` creates no session. Login and activation errors are generic and do not reveal the existence of a username, account, or link validity.
 
-## عمليات القدرة المخططة
+## TOTP for Administrative Accounts
 
-| العملية | المدخلات الدنيا | النتيجة |
+- TOTP is required before creating an administrative session or elevating a daily session to an administrative context. A successful password alone is not sufficient, and no daily session bypasses this requirement.
+- The TOTP secret is encrypted inside Identity, is never shown after enrolment, and never appears in logs or events. Recovery codes, if published by a later recovery slice, are single-use and stored as a digest.
+- Changing or disabling the TOTP secret is a sensitive administrative action that requires a reason and audit and invalidates administrative sessions.
+- Break-glass is not a silent exception; it remains under its own dual, time-bounded contract in the Identity policy.
+
+## Capability Operations
+
+| Operation | Minimum inputs | Outcome |
 |---|---|---|
-| إصدار أو إعادة إصدار التفعيل | `account_id`، actor مخول، correlation | تسليم محلي محكوم بلا إعادة الرمز في API الإدارة |
-| استهلاك التفعيل | الرمز الأحادي، كلمة المرور الجديدة، وإثبات TOTP عند الإدارة | Credential وحساب `active` أو فشل ذري يبقيه `pending` |
-| تسجيل الدخول | username، كلمة المرور، ورمز TOTP عند الإدارة | Cookie جلسة opaque ولا token في JSON |
-| تسجيل الخروج | Cookie الجلسة وإثبات CSRF | إبطال الجلسة الحالية idempotently |
-| إنهاء الجلسات | `account_id`، السبب، actor مخول | إبطال جلسات الحساب وتدقيق النتيجة |
+| Issue or reissue activation | `account_id`, authorized actor, correlation | Local governed delivery without returning the code in the admin API |
+| Consume activation | Single-use code, new password, and TOTP proof when administrative | Credential and `active` account, or atomic failure keeping it `pending` |
+| Login | Username, password, and TOTP code when administrative | Opaque session cookie and no token in JSON |
+| Logout | Session cookie and CSRF proof | Idempotent invalidation of the current session |
+| End sessions | `account_id`, reason, authorized actor | Invalidate the account's sessions and audit the outcome |
 
-يجب أن تنشر شريحة التنفيذ هذه العمليات في OpenAPI قبل بناء عميلها. تستخدم الردود
-`application/problem+json` و`X-Correlation-ID`، وتستخدم عمليات الإصدار والإبطال
-`Idempotency-Key`، ولا يدعي هذا المستند أن paths الحالية منفذة.
+The implementation slice publishes these operations in OpenAPI before building a client for them. Responses use `application/problem+json` and `X-Correlation-ID`, and issue/revoke operations use `Idempotency-Key`. The current paths are live (see `apps/api/routes/web.php`).
 
-## تسوية العقود السابقة
+## Reconciliation of Prior Contracts
 
-- يصف `docs/data-security/identity-session-security.md` في قسم محتوى الجلسة JWT وRefresh
-  token. يحكم هذا العقد خيار النقل الجديد: جلسة opaque محفوظة على الخادم بلا JWT أو Refresh
-  token في المتصفح، مع بقاء مدد الجلسة وقواعد الإبطال في وثيقة الأمن نافذة.
-- ينشر `docs/contracts/api/w1-2.openapi.yaml` حالياً `W12Session.access_token` وBearer
-  لمثبت W1.2. هذا تمثيل fixture منفذ، وليس عقد Credential الحقيقي. لا يعدل snapshot حتى
-  تنفذ الشريحة ويولد العميل من إصدار متوافق جديد.
-- حد Login القديم في OpenAPI لا يخفض سياسة الإنشاء. عند تنفيذ Credential الحقيقي تطبق
-  سياسة Identity المعتمدة، ومنها الحد الأدنى الحالي البالغ 14 محرفاً.
+- `docs/data-security/identity-session-security.md` previously described session contents as JWT and refresh token. This contract governs the new transport choice: an opaque server-side session with no JWT or refresh token in the browser, while the session durations and revocation rules in the security document remain in effect.
+- `docs/contracts/api/w1-2.openapi.yaml` currently publishes `W12Session.access_token` and Bearer for the W1.2 fixture. That is a fixture representation and is not the real Credential contract. The snapshot is not modified until the implementation slice runs and a client is generated from a new compatible release.
+- The old Login limit in OpenAPI does not lower the creation policy. When the real Credential is implemented, the approved Identity policy applies, including the current 14-character minimum.
 
-## معايير القبول
+## Acceptance Criteria
 
-- رابط التفعيل لا يعمل مرتين، وإعادة الإصدار تبطل السابق، والرمز لا يظهر في التخزين الصريح
-  أو logs أو events.
-- حساب بلا Credential يبقى `pending` ويفشل دخوله بلا إنشاء Session.
-- دخول المستخدم العادي الناجح يعيد Cookie بالخصائص الثلاث ولا يعيد token في body.
-- طلب تغيير حالة بلا CSRF صالح يرفض بلا أثر أعمال.
-- حساب إداري بلا TOTP مكتمل لا يصبح `active` ولا ينشئ جلسة إدارية.
-- تعطيل الحساب وتغيير كلمة المرور يبطلان كل جلساته من جهة الخادم.
+- An activation link cannot be used twice, reissue invalidates the previous one, and the code never appears in any explicit storage, logs, or events.
+- An account without a Credential remains `pending` and fails login without creating a Session.
+- A successful standard user login returns a cookie with all three attributes and does not return a token in the body.
+- A state-change request without a valid CSRF is rejected without business effect.
+- An administrative account without a complete TOTP does not become `active` and creates no administrative session.
+- Account disable and password change invalidate all of the account's sessions server-side.

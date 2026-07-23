@@ -1,34 +1,34 @@
 ---
 doc_id: GOV-DOC-001
-title: وثائق المنصة
+title: Platform Documentation
 type: governance
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول الحوكمة
-- مسؤول أمن المعلومات
+- Governance Lead
+- Information Security Lead
 classification: internal
-review_cycle: ربع سنوي
+review_cycle: quarterly
 sources: []
 references: []
 ---
-# وثائق المنصة
+# Platform Documentation
 
-هذه هي نقطة الدخول الوحيدة للوثائق المعتمدة. استخدم [الكتالوج](catalog.yaml) للبيانات الوصفية وحالة كل ملف.
+This is the single entry point for accepted documentation. Use the [catalog](catalog.yaml) for metadata and the status of every file.
 
-| القسم | الغرض |
+| Section | Purpose |
 |---|---|
-| [الحوكمة](governance/README.md) | الضبط والمصطلحات والتتبع والمسؤوليات |
-| [المنتج](product/README.md) | الرؤية والرحلات والإصدارات ومقاييس النجاح |
-| [الخطط](plans/README.md) | خارطة التنفيذ وخطط الإصدارات والجاهزية |
-| [البيانات والأمن](data-security/README.md) | البيانات والصلاحيات والخصوصية والتهديدات |
-| [المجال](domain/README.md) | مواصفات موديولات المنصة |
-| [المعمار](architecture/README.md) | الحدود والاعتمادات والرسومات والمتطلبات غير الوظيفية |
-| [التشغيل](operations/README.md) | المنصة المعزولة والتعافي والرصد والاستجابة |
-| [الهندسة](engineering/README.md) | قواعد التنفيذ والاختبار والإصدار |
-| [العقود](contracts/README.md) | عقود HTTP والأحداث والمخططات |
-| [قرارات المعمار](adr/README.md) | سجل ADR الرسمي |
+| [Governance](governance/README.md) | Controls, glossary, traceability, and responsibilities |
+| [Product](product/README.md) | Vision, journeys, releases, and success metrics |
+| [Plans](plans/README.md) | Implementation map, release plans, and readiness |
+| [Data & Security](data-security/README.md) | Data model, permissions, privacy, and threats |
+| [Domain](domain/README.md) | Platform module specifications |
+| [Architecture](architecture/README.md) | Boundaries, dependencies, diagrams, and non-functional requirements |
+| [Operations](operations/README.md) | Air-gapped platform, recovery, observability, and response |
+| [Engineering](engineering/README.md) | Implementation, testing, and release rules |
+| [Contracts](contracts/README.md) | HTTP, event, and schema contracts |
+| [Architecture Decisions](adr/README.md) | Official ADR log |
 
-الوثائق المتخصصة هي مصدر الحقيقة لموضوعها؛ عند التعارض يُرجع إلى ADR الأحدث المعتمد ثم إلى الوثيقة التي يحددها الكتالوج كمصدر حقيقة.
+Specialized documents are the source of truth for their subject. When documents conflict, defer to the most recent accepted ADR, then to the document the catalog marks as the source of truth.

@@ -1,34 +1,36 @@
 ---
 doc_id: PLN-IDX-001
-title: فهرس خطط التنفيذ
+title: Execution Plans Index
 type: plans
 status: accepted
 version: 4.2.0
 date: 2026-07-22
-owner: التنفيذ التقني
+owner: Technical Implementation
 reviewers: []
 classification: internal
-review_cycle: عند تغير السلوك أو النطاق
+review_cycle: when scope or execution order changes
 sources: []
 references: []
 ---
-# خطط التنفيذ
+# Execution Plans
 
-هذه المجلدات لخدمة بناء النظام، وليست مسار موافقات. مصدر الحالة الوحيد هو
-`active-delivery-status.md`، ومصدر ترتيب العمل هو `implementation-roadmap.md`.
+These folders serve system construction and are not an approval path. The single
+source of status is `active-delivery-status.md`, and the source of execution
+order is `implementation-roadmap.md`.
 
-| الوثيقة | استخدامها الآن |
+| Document | Current Use |
 |---|---|
-| [خارطة التنفيذ](implementation-roadmap.md) | اعتماديات الإقفال من W1.3 إلى دورة Strategy والمشاريع وR3 |
-| [حالة التسليم](active-delivery-status.md) | ما اكتمل فعلياً وما يُنفذ الآن |
-| [الطلبات والاعتمادات](approvals-and-requests.md) | مراحل فصل الاعتماد عن المهمة وبناء المحرّك ومسار الحوكمة |
-| [R1](release-1-platform.md) | بقية قدرات المنصة العامة واختبارها الآلي |
-| [إقفال W1.3](release-1/w1-3-frontend-slices.md) | بوابة قطع محرك Authorization الحقيقي وأثرها على موديولات R1 قبل R2 |
-| [R2](release-2-strategy-portfolio.md) | دورة الاستراتيجية الكاملة ثم المحافظ والمشاريع وربط الأثر |
-| [R3](release-3-risk.md) | الشريحة الرأسية للمخاطر والضوابط والمعالجة |
-| [جاهزية التشغيل](readiness-checklist.md) | أوامر آلية قبل النشر الفعلي، بلا توقيعات |
-| [سجل اكتمال W1.2](release-1/w1-2-frontend-slices.md) | عقد منجز للرجوع فقط، وليس عملاً قادماً |
-| [تشغيل W1.1 المؤجل](w1-1-remaining-delivery-tasks.md) | ثلاث عمليات آلية تنفذ عند النشر النهائي |
+| [Implementation Roadmap](implementation-roadmap.md) | Closure dependencies from W1.3 to the Strategy/Portfolio cycle and R3 |
+| [Active Delivery Status](active-delivery-status.md) | What has actually completed and what is being executed now |
+| [Approvals and Requests](approvals-and-requests.md) | Stages for separating approval from task, building the engine, and the governance path |
+| [R1](release-1-platform.md) | Rest of the general platform capabilities and their automated tests |
+| [W1.3 Closure](release-1/w1-3-frontend-slices.md) | Cutover gate for the real Authorization engine and its impact on R1 modules before R2 |
+| [R2](release-2-strategy-portfolio.md) | Full Strategy cycle then portfolios, projects, and impact linkage |
+| [R3](release-3-risk.md) | Vertical slice for risks, controls, and treatment |
+| [Operational Readiness](readiness-checklist.md) | Automated commands before actual deployment, no signatures |
+| [W1.2 Completion Record](release-1/w1-2-frontend-slices.md) | Reference-only delivered contract, not upcoming work |
+| [Deferred W1.1 Operations](w1-1-remaining-delivery-tasks.md) | Three automated operations executed at final deployment |
 
-لا تُنشأ خطة مستقلة لكل شاشة أو API. تضاف التفاصيل إلى اختبار أو عقد قريب من
-الكود، وتُحدّث هذه الوثائق فقط إذا تغير النطاق أو ترتيب التنفيذ.
+No separate plan is created for every screen or API. Detail is added to a test
+or contract close to the code, and these documents are updated only when scope
+or execution order changes.

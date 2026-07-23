@@ -1,26 +1,26 @@
 ---
 doc_id: GOV-IDX-001
-title: فهرس الحوكمة
+title: Governance Index
 type: governance
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول الحوكمة
-- مسؤول أمن المعلومات
+- Governance Lead
+- Information Security Lead
 classification: internal
-review_cycle: ربع سنوي
+review_cycle: quarterly
 sources: []
 references: []
 ---
-# الحوكمة
+# Governance
 
-| الوثيقة | الغرض |
+| Document | Purpose |
 |---|---|
-| [ضوابط الوثائق](document-control.md) | الملكية والحالات والمراجعة |
-| [الافتراضات والقيود](assumptions-constraints.md) | القيود والمخاطر الحاكمة |
-| [RACI](raci.md) | المساءلة بالأدوار |
-| [المسرد](glossary.md) | المصطلحات المعتمدة |
-| [تتبع المتطلبات](traceability-matrix.md) | ربط المتطلبات بالتحقق |
-| [مراجعة الاتساق](consistency-review.md) | التعارضات المفتوحة مع القرارات الملزمة |
+| [Document Control](document-control.md) | Ownership, status, and review |
+| [Assumptions and Constraints](assumptions-constraints.md) | Governing constraints and risks |
+| [RACI](raci.md) | Role accountability |
+| [Glossary](glossary.md) | Approved terminology |
+| [Requirements Traceability](traceability-matrix.md) | Linking requirements to verification |
+| [Consistency Review](consistency-review.md) | Open conflicts with binding decisions |

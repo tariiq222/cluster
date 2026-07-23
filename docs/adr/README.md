@@ -1,65 +1,65 @@
 ---
 doc_id: ADR-README
-title: فهرس قرارات المعمارية
+title: Architecture Decision Records Index
 type: adr
 status: accepted
-version: 1.2.0
-date: 2026-07-17
-owner: مجلس معمارية المنصة
+version: 1.3.0
+date: 2026-07-21
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
+- Platform Architecture Council
 scope: docs/adr
 supersedes: []
 superseded_by: []
 related_adrs: []
 review_by: 2027-01-15
 ---
-# قرارات المعمارية
+# Architecture Decision Records
 
-هذا هو السجل الرسمي للقرارات المعمارية. الحالات هي `proposed` و`accepted` و`superseded` و`rejected`. لا يعدل قرار معتمد لتغيير معناه؛ ينشأ قرار لاحق يحل محله.
+This is the official register of architecture decisions. Valid statuses are `proposed`, `accepted`, `superseded`, and `rejected`. Do not change an accepted decision's meaning; create a subsequent decision that supersedes it.
 
-| ADR | العنوان | الحالة |
+| ADR | Title | Status |
 |---|---|---|
 | [001](001-modular-monolith.md) | Modular Monolith | accepted |
 | [002](002-module-first-vertical-slices.md) | Module-First Vertical Slices | accepted |
-| [003](003-module-boundaries.md) | حدود الموديولات وملكية البيانات | accepted |
-| [004](004-authorization-and-isolation.md) | RBAC + ABAC والعزل التنظيمي | accepted |
-| [005](005-work-records-dynamic-data.md) | WorkRecords والبيانات الديناميكية | accepted |
-| [006](006-workflow-versioning.md) | إصدارات المسارات | accepted |
+| [003](003-module-boundaries.md) | Module Boundaries and Data Ownership | accepted |
+| [004](004-authorization-and-isolation.md) | RBAC + ABAC and Organizational Isolation | accepted |
+| [005](005-work-records-dynamic-data.md) | WorkRecords and Dynamic Data | accepted |
+| [006](006-workflow-versioning.md) | Workflow Versioning and Execution | accepted |
 | [007](007-transactional-outbox.md) | Transactional Outbox | accepted |
-| [008](008-shared-content-query-capabilities.md) | قدرات المحتوى والاستعلام المشتركة | superseded |
-| [009](009-unified-react-shell.md) | واجهة React موحدة | accepted |
-| [010](010-air-gapped-kubernetes.md) | Kubernetes معزول | superseded |
-| [011](011-lightweight-cqrs-and-transactions.md) | CQRS خفيف وحدود المعاملة | accepted |
-| [012](012-local-identity-and-session-security.md) | الهوية المحلية وأمن الجلسات | accepted |
-| [013](013-documents-and-file-security.md) | المستندات وأمن الملفات | accepted |
-| [014](014-authorized-search.md) | البحث المحكوم | accepted |
-| [015](015-authorized-reporting.md) | التقارير واللوحات المحكومة | accepted |
-| [016](016-audit-and-records-governance.md) | التدقيق وحوكمة السجلات | accepted |
-| [017](017-derived-workspace-and-notifications.md) | مساحة العمل والإشعارات المشتقة | accepted |
-| [018](018-air-gapped-supply-chain.md) | سلسلة التوريد المعزولة | superseded |
-| [019](019-kubernetes-resilience-and-recovery.md) | تشغيل Kubernetes والتعافي | superseded |
-| [020](020-organization-and-time-bounded-authority.md) | التنظيم والسلطة المحددة زمنياً | accepted |
-| [021](021-strategy-indicator-ownership.md) | ملكية الاستراتيجية والمؤشرات | accepted |
-| [022](022-portfolio-projects-and-risk-boundaries.md) | حدود المحافظ والمشاريع والمخاطر | accepted |
-| [023](023-single-host-dokploy-deployment.md) | تشغيل VPS مباشر عبر Docker Compose | accepted |
-| [024](024-organization-identity-import-boundaries.md) | ملكية Organization وIdentity وحدود الاستيراد | accepted |
-| [025](025-job-titles-reference-normalization.md) | تطبيع المسمى الوظيفي عبر مرجع job_titles | proposed |
+| [008](008-shared-content-query-capabilities.md) | Shared Content and Query Capabilities | superseded |
+| [009](009-unified-react-shell.md) | Unified React Shell | accepted |
+| [010](010-air-gapped-kubernetes.md) | Air-Gapped Kubernetes | superseded |
+| [011](011-lightweight-cqrs-and-transactions.md) | Lightweight CQRS and Transaction Boundaries | accepted |
+| [012](012-local-identity-and-session-security.md) | Local Identity and Session Security | accepted |
+| [013](013-documents-and-file-security.md) | Documents and File Security | accepted |
+| [014](014-authorized-search.md) | Authorized Search | accepted |
+| [015](015-authorized-reporting.md) | Authorized Reporting and Dashboards | accepted |
+| [016](016-audit-and-records-governance.md) | Audit and Records Governance | accepted |
+| [017](017-derived-workspace-and-notifications.md) | Derived Workspace and Notifications | accepted |
+| [018](018-air-gapped-supply-chain.md) | Air-Gapped Supply Chain | superseded |
+| [019](019-kubernetes-resilience-and-recovery.md) | Kubernetes Operations and Recovery | superseded |
+| [020](020-organization-and-time-bounded-authority.md) | Organization and Time-Bounded Authority | accepted |
+| [021](021-strategy-indicator-ownership.md) | Strategy and Indicator Ownership | accepted |
+| [022](022-portfolio-projects-and-risk-boundaries.md) | Portfolio, Project, and Risk Boundaries | accepted |
+| [023](023-single-host-dokploy-deployment.md) | Direct VPS Deployment with Docker Compose | accepted |
+| [024](024-organization-identity-import-boundaries.md) | Organization/Identity Ownership and Import Boundaries | accepted |
+| [025](025-job-titles-reference-normalization.md) | Job-Title Reference Normalization | accepted |
 
-القالب المعتمد: [template.md](template.md).
+Approved template: [template.md](template.md).
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.3.0 | 2026-07-21 | طارق | إضافة ADR-025 المقترح (تطبيع المسمى الوظيفي) |
-| 1.2.0 | 2026-07-18 | طارق | اعتماد ADR-024 بعد مواءمة عقود W1.2 |
-| 1.1.0 | 2026-07-17 | مجلس معمارية المنصة | إضافة ADR-024 المقترح |
-| 1.0.0 | 2026-07-15 | مجلس معمارية المنصة | إنشاء فهرس قرارات المعمارية |
+| 1.3.0 | 2026-07-21 | Engineering Office | Added ADR-025 and accepted job-title normalization |
+| 1.2.0 | 2026-07-18 | Engineering Office | Accepted ADR-024 after aligning W1.2 contracts |
+| 1.1.0 | 2026-07-17 | Platform Architecture Council | Added ADR-024 |
+| 1.0.0 | 2026-07-15 | Platform Architecture Council | Created the architecture decision index |

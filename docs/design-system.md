@@ -1,16 +1,16 @@
 ---
 doc_id: DS-001
-title: النظام التصميمي لمنصة التجمع الصحي الثالث
+title: Third Health Cluster Platform Design System
 type: engineering
 status: accepted
 version: 1.0.0
 date: 2026-08-01
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-  - مسؤول هندسة البرمجيات
-  - مسؤول المنتج
+  - Software Engineering Lead
+  - Product Lead
 classification: internal
-review_cycle: مع كل تغيير تصميمي رئيسي
+review_cycle: With every major design change
 sources:
   - docs/design-system.md
   - docs/README.md
@@ -20,37 +20,39 @@ references:
   - docs/engineering/README.md
 ---
 
-# النظام التصميمي لمنصة التجمع الصحي الثالث
+> **PARTIALLY IMPLEMENTED.** The active design surface includes shared and feature stylesheets omitted by the earlier document. Generic warning and dark-surface tokens and a global reduced-motion rule are not implemented; the specification below now describes the active CSS.
 
-> **المصدر المرجعي:** `DESIGN.md`
+# Third Health Cluster Platform Design System
+
+> **Reference source:** `DESIGN.md`
 >
-> **الأسطح التنفيذية الحالية:** `apps/web/src/index.css`، `apps/web/src/app/AppShell.css`، `apps/web/src/ui/ui.css`، `apps/web/src/main.tsx`
+> **Current implementation surfaces:** `apps/web/src/index.css`, `apps/web/src/styles/tokens.css`, `apps/web/src/styles/base.css`, `apps/web/src/styles/screens.css`, `apps/web/src/app/AppShell.css`, `apps/web/src/ui/ui.css`, feature stylesheets under `apps/web/src/features/**/*.css`, and `apps/web/src/main.tsx`
 
-## 1) الهدف
+## 1) Purpose
 
-النظام التصميمي هنا ليس مجرد ألوان؛ هو لغة تشغيل كاملة لواجهة عربية أولاً، كثيفة، هادئة، وقابلة للمسح السريع. المرجع البصري المعتمد هو صفحة HTML المحلية `access-management-dashboard.html`، وتمت مواءمتها إلى تطبيق React + TypeScript داخل المستودع.
+This design system is more than a color palette. It is a complete operating language for a dense, calm, quickly scannable interface designed Arabic-first while supporting both directions. The approved visual reference is the local `access-management-dashboard.html` page, adapted into the React and TypeScript application in this repository.
 
-### المبادئ
+### Principles
 
-- **غرفة عمليات هادئة:** البنية واضحة قبل الزخرفة.
-- **نظام واحد:** tokens ومكوّنات موحدة بدل primitives محلية داخل الموديولات.
-- **RTL/LTR متكافئ:** كل primitive يجب أن يعمل في الاتجاهين.
-- **محلي بالكامل وقت التشغيل:** لا CDN، لا خطوط خارجية، لا assets عامة.
-- **إشارات واضحة:** اللون وحده لا يحمل المعنى؛ النص/الأيقونة/النمط يكمله.
+- **Calm operations room:** Structure is clear before decoration.
+- **One system:** Shared tokens and components replace module-local primitives.
+- **Equal RTL/LTR support:** Every primitive must work in both directions.
+- **Fully local at runtime:** No CDN, external fonts, or public assets.
+- **Clear signals:** Color never carries meaning alone; text, an icon, or a pattern completes it.
 
-## 2) لوحة الألوان
+## 2) Color Palette
 
-### أساسية
+### Primary
 
 | Token | Value | Use |
 |---|---:|---|
-| `--color-primary` | `#293B85` | الإجراء الأساسي، التحديد الحالي، الروابط المهمة |
-| `--color-primary-hover` | `#253679` | hover / active |
-| `--color-accent` | `#3DAAE1` | فواصل، مؤشرات ثانوية، highlights |
-| `--color-ink` | `#1A2735` | النص والعناوين |
-| `--color-muted` | `#5A6875` | النص الثانوي |
+| `--color-primary` | `#293B85` | Primary action, current selection, and important links |
+| `--color-primary-hover` | `#253679` | Hover and active states |
+| `--color-accent` | `#3DAAE1` | Dividers, secondary indicators, and highlights |
+| `--color-ink` | `#1A2735` | Text and headings |
+| `--color-muted` | `#5A6875` | Secondary text |
 
-### محايدة
+### Neutral
 
 | Token | Value |
 |---|---:|
@@ -61,152 +63,150 @@ references:
 | `--color-selected` | `#E8ECF7` |
 | `--color-primary-soft` | `#EEF0F9` |
 
-### دلالية
+### Semantic
 
 | Token | Value |
 |---|---:|
 | `--color-success` | `#247A42` |
-| `--color-warning` | `#9A5B00` |
 | `--color-danger` | `#B42318` |
 
-### Dark surfaces
+The system does not currently expose generic `--color-warning` or `--color-dark-*` tokens in `apps/web/src/styles/tokens.css`. Dark login-theme values remain local to their implementation and are not public design-system tokens.
 
-| Token | Value |
-|---|---:|
-| `--color-dark-canvas` | `#000E22` |
-| `--color-dark-surface` | `#082036` |
-| `--color-dark-muted` | `#9EB0C3` |
+## 3) Typography and Hierarchy
 
-## 3) الخطوط والهرمية
-
-- **Font family:** `IBM Plex Sans Arabic`, ثم `Tahoma`, ثم `Arial`.
-- **Numbers:** `tabular-nums` حيث يلزم.
-- **Display:** 32px / 700.
+- **Font family:** `IBM Plex Sans Arabic`, then `Tahoma`, then `Arial`.
+- **Numbers:** Use `tabular-nums` where needed.
 - **Headline:** 24px / 700.
-- **Title:** 18px / 600.
+- **Title:** 20px / 600.
 - **Body:** 16px / 400.
-- **Label:** 14px / 600.
-- **Meta:** 12px أو أقل عندما يكون النص غير حرِج.
+- **Label:** 13px / 600.
+- **Meta:** 12px or less when the text is non-critical.
 
-## 4) المسافات والحواف والظلال
+There is no general 32px Display style in the active base stylesheet.
 
-- **Radii:** 12px للأدوات، 16px للأسطح، 999px للـpills.
-- **Spacing:** 8 / 12 / 16 / 24 / 32 / 48.
-- **Surfaces:** flat by default.
+## 4) Spacing, Radii, and Shadows
+
+- **Radii:** 12px for controls, 16px for surfaces, and 999px for pills.
+- **Spacing:** 4 / 8 / 12 / 16 / 24 / 32 / 48.
+- **Surfaces:** Flat by default.
 - **Shadows:**
-  - `--shadow-float` للقوائم المنبثقة.
-  - `--shadow-dialog` للـdialogs وdrawers.
-- **Motion:** 150–250ms ease-out، مع `prefers-reduced-motion`.
+  - `--shadow-float` for popovers.
+  - `--shadow-dialog` for dialogs and drawers.
+- **Motion:** Active tokens use 150–180ms ease-out timing. The cited stylesheets do not currently define a global `prefers-reduced-motion` rule.
 
-## 5) الهيكل العام للتطبيق
+## 5) General Application Structure
 
-### App shell
+### App Shell
 
-- Sidebar يسار/يمين بحسب اتجاه الصفحة، لكن بسلوك RTL/LTR صحيح.
-- Sidebar داكن بتدرج مؤسسي أزرق.
-- Topbar sticky فاتح، بسيط، بلا glassmorphism.
-- Content stage على canvas الرمادي.
-- Footer محايد، منخفض الارتفاع.
+- The Sidebar appears on the left or right according to page direction, with correct RTL/LTR behavior.
+- The Sidebar uses a dark institutional-blue gradient.
+- The Topbar is light, sticky, simple, and free of glassmorphism.
+- The content stage sits on the gray canvas.
+- The Footer is neutral and short.
 
 ### Mobile
 
-- Navigation تتحول إلى drawer حقيقي.
-- زر إغلاق ظاهر.
-- الإغلاق بـEscape وbackdrop click.
-- focus يعود للعنصر السابق.
+- Navigation becomes a real drawer.
+- A visible close button is provided.
+- Escape and backdrop click close the drawer.
+- Focus returns to the previous element.
 
-## 6) المكوّنات الموحدة
+## 6) Shared Components
 
 ### `Button`
 
-- الأنماط الحالية: `primary`, `secondary`, `quiet`.
-- ارتفاع 44px.
-- `primary` للأفعال الأساسية فقط.
-- `secondary` للأفعال الثانوية.
-- `quiet` لعمليات أقل بروزاً.
+- Current variants: `primary`, `secondary`, and `quiet`.
+- Height: 44px.
+- Use `primary` only for primary actions.
+- Use `secondary` for secondary actions.
+- Use `quiet` for lower-emphasis operations.
 
 ### `Field`
 
-- label مرئي دائماً.
-- help/error مربوطة دلالياً.
-- ارتفاع التحكم 44px.
-- لا تستخدم placeholder كبديل عن label.
+- The label is always visible.
+- Help and error text are linked semantically.
+- Control height: 44px.
+- Do not use a placeholder instead of a label.
 
 ### `Select`
 
-- search يظهر تلقائياً عند تجاوز العتبة المحددة.
-- trigger button حقيقي.
-- supports keyboard navigation and outside click close.
+- Search appears automatically when the configured threshold is exceeded.
+- The trigger is a real button.
+- Keyboard navigation and closing on outside click are supported.
 
 ### `Drawer`
 
-- Surface جانبي موحد.
-- focus management مدمج.
-- dismissable controlled.
+- Uses a shared side-surface pattern.
+- Includes focus management.
+- Supports controlled dismissal.
 
 ### `Page` / `Panel`
 
-- `Page` للغلاف العام للشاشات.
-- `PageHeader` للعناوين العليا.
-- `Panel` للأسطح التشغيلية.
-- `PanelGrid` لشبكتين قابلة للانهيار على الشاشات الصغيرة.
+- `Page` provides the general screen wrapper.
+- `PageHeader` provides top-level headings.
+- `Panel` provides operational surfaces.
+- `PanelGrid` provides a two-column grid that collapses on small screens.
 
 ### `Feedback`
 
-- `EmptyState` للحالة الفارغة.
-- `InlineError` للخطأ القابل للاستئناف.
-- `SkeletonList` للحمل.
-- `StatusBadge` للحالات المتكررة.
+- `EmptyState` represents an empty state.
+- `InlineError` represents a recoverable error.
+- `SkeletonList` represents loading.
+- `StatusBadge` represents repeated statuses.
 
-## 7) أنماط الشاشات
+## 7) Screen Patterns
 
 ### Dashboard
 
-- حتى 4 مؤشرات أساسية فوق الطية.
-- الحالة + المصدر + الفترة + freshness عند الحاجة.
+- Show no more than four primary indicators above the fold.
+- Include status, source, period, and freshness when needed.
 
 ### Tables
 
-- رأس واضح.
-- صفوف بخطوط هادئة.
-- scroll أفقي عند الضرورة فقط.
+- Use a clear header.
+- Use quiet row dividers.
+- Allow horizontal scrolling only when necessary.
 
 ### Trees / Boards
 
-- selection مميز بدون صخب.
-- hover وخطوط tree دقيقة.
-- لا بطاقات داخل بطاقات.
+- Make selection distinct without visual noise.
+- Use subtle hover states and tree lines.
+- Do not nest cards inside cards.
 
 ### Forms
 
-- labels فوق الحقول.
-- errors قرب الحقل.
-- layouts مستقرة على mobile.
+- Place labels above fields.
+- Place errors near their fields.
+- Keep layouts stable on mobile.
 
-## 8) الوصولية
+## 8) Accessibility
 
-- تباين AA على النصوص الأساسية.
-- focus visible واضح.
-- aria labels للأزرار الأيقونية.
-- لا تعتمد أي حالة على اللون فقط.
+- Meet AA contrast for primary text.
+- Provide a clear visible focus state.
+- Provide accessible names for icon-only buttons.
+- Do not make any state depend on color alone.
 
-## 9) الأصول والشبكة
+## 9) Assets and Network
 
-- الخطوط والأيقونات محلية داخل bundle.
-- `lucide-react` هو مصدر الأيقونات الوحيد.
-- لا CDN، لا fonts.googleapis.com، لا unpkg.
-- API الداخلي same-origin فقط.
+- Bundle fonts and icons locally.
+- `lucide-react` is the only icon source.
+- Do not use a CDN, `fonts.googleapis.com`, or `unpkg`.
+- Use same-origin internal APIs only.
 
-## 10) ملفات التعديل عند تغيير التصميم
+## 10) Files to Modify for Design Changes
 
 - `apps/web/src/index.css`
+- `apps/web/src/styles/tokens.css`
+- `apps/web/src/styles/base.css`
+- `apps/web/src/styles/screens.css`
 - `apps/web/src/app/AppShell.css`
 - `apps/web/src/ui/ui.css`
+- Relevant feature stylesheets under `apps/web/src/features/**/*.css`
 - `apps/web/src/main.tsx`
 - `DESIGN.md`
 
-## 11) ملاحظات تشغيلية
+## 11) Operational Notes
 
-- أي تعديل جديد يجب أن يمر على RTL وLTR.
-- يجب التحقق من صفحات login/dashboard/tables/drawers بعد كل تغيير تصميمي كبير.
-- أي primitive جديدة تبدأ من `apps/web/src/ui` قبل استخدامها في أي feature.
+- Every new change must be checked in both RTL and LTR.
+- Verify login, dashboard, table, and drawer pages after every major design change.
+- Add every new primitive to `apps/web/src/ui` before using it in a feature.

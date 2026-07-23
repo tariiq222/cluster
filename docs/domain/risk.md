@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-RSK-001
-title: المخاطر والضوابط والمعالجة
+title: Risks, Controls, and Treatment
 type: domain
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مالك موديول Risk
+owner: Risk module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/022-portfolio-projects-and-risk-boundaries.md
 - docs/architecture/dependency-rules.md
@@ -20,28 +20,42 @@ references:
 - docs/plans/release-3-risk.md
 - docs/architecture/context-map.md
 ---
-# المخاطر والضوابط والمعالجة
 
-## الغرض والنطاق
+> **Planned for R2/R3.** This module is documented but not yet implemented in the codebase.
 
-يمتلك `Risk` سجل المخاطر والضوابط والتقييمات الكامنة والمتبقية وخطط المعالجة، وروابط مؤشرات المخاطر وعتباتها وتنبيهاتها وتصعيدها. يملك `Strategy` وحده تعريف كل مؤشر وقياساته؛ يحتفظ `Risk` بـ`indicator_id` وتهيئة العتبة وحالة التنبيه فقط، ولا ينسخ التعريف أو القراءة. يربط الخطر أيضاً بمعرف هدف من Strategy ومشروع من PortfolioProjects. مصفوفة الاحتمالية والأثر، الشهية، الحدود، ودورية المراجعة بيانات versioned معتمدة قبل تفعيل السجل.
+# Risks, Controls, and Treatment
 
-خارج النطاق: تعريف أي مؤشر، أو إدخال قياسه أو اعتماده، أو امتلاك المشروع أو المهمة أو المستند أو محرك الموافقات. تستخدم خطة المعالجة `Tasks`، والأدلة `Documents`، والقبول والتصعيد `Workflow`، وتستهلك عتبات KRI القياسات المعتمدة من `Strategy` عبر العقد والأحداث.
+## Purpose and Scope
 
-## الكيانات والجداول
+The `Risk` module owns the risk register, controls, inherent and residual
+assessments, treatment plans, KRI links, thresholds, alerts, and escalation.
+`Strategy` alone owns every indicator definition and its measurements; `Risk`
+keeps `indicator_id` and the threshold configuration and alert state, and does
+NOT duplicate the definition or the reading. A risk is also linked by
+identifier to a Strategy objective and a PortfolioProjects project. The
+likelihood/impact matrix, appetite, limits, and review cadence are versioned
+data that is approved before the register is activated.
 
-| الجدول | الكيان | القيود والفهارس |
+Out of scope: defining any indicator, entering or approving its measurements,
+and owning the project, task, document, or approval engine. The treatment plan
+uses `Tasks`, evidence uses `Documents`, acceptance and escalation use
+`Workflow`, and KRI thresholds consume the approved measurements from
+`Strategy` via contracts and events.
+
+## Entities and Tables
+
+| Table | Entity | Constraints and indexes |
 |---|---|---|
-| `risk_registers` | سجل خطر لنطاق Organization | فريد `(owner_organization_unit_id, code)` |
-| `risk_policy_versions` | مصفوفة  الاحتمال/الأثر، الشهية، الحدود ودورية المراجعة | منشور immutable؛ إصدار واحد فعال للنطاق والفترة |
-| `risks` | الخطر، مالكه، الفئة، المصدر، التصنيف والحالة | `risk_number` فريد؛ فهارس المالك والحالة وموعد المراجعة |
-| `risk_assessments` | تقييم كامن أو متبق، snapshot للسياسة والنتيجة | فريد `(risk_id, assessment_kind, assessment_sequence)`؛ لا تعديل لتقييم معتمد |
-| `risk_controls`, `risk_control_links`, `control_effectiveness_reviews` | مكتبة الضوابط وربطها وفعاليتها | الضابط يمكن ربطه بأكثر من خطر؛ فعالية منتهية لا تدخل التقييم |
-| `risk_treatments`, `risk_treatment_tasks` | قبول/تخفيف/نقل/تجنب وخطط المهام | مهمة واحدة مرجعية لكل ربط؛ لا تغلق خطة تخفيف قبل حسم مهامها |
-| `risk_indicator_links`, `risk_indicator_thresholds`, `risk_indicator_alerts` | ربط `indicator_id` بالخطر أو الضابط، والعتبات وحالة التنبيه | لا تعريف أو قياس محلي؛ فريد للرابط وإصدار العتبة؛ فهرس حالة التنبيه |
-| `risk_links`, `risk_activities` | روابط Strategy/Portfolio والنشاط append-only | الرابط معرف فقط؛ سبب إلزامي لفك الرابط |
+| `risk_registers` | A risk register scoped to an Organization unit | unique `(owner_organization_unit_id, code)` |
+| `risk_policy_versions` | The likelihood/impact matrix, appetite, limits, and review cadence | published version is immutable; only one effective version per scope and period |
+| `risks` | The risk, its owner, category, source, classification, and status | `risk_number` unique; indexes on owner, status, and next-review date |
+| `risk_assessments` | Inherent or residual assessment with a snapshot of the policy and the result | unique `(risk_id, assessment_kind, assessment_sequence)`; an approved assessment MUST NOT be edited |
+| `risk_controls`, `risk_control_links`, `control_effectiveness_reviews` | The control library, its links, and effectiveness | a control may be linked to multiple risks; an expired effectiveness MUST NOT influence the assessment |
+| `risk_treatments`, `risk_treatment_tasks` | Accept/Mitigate/Transfer/Avoid and task plans | exactly one reference task per link; a mitigation plan MUST NOT close before its tasks are resolved |
+| `risk_indicator_links`, `risk_indicator_thresholds`, `risk_indicator_alerts` | Links a risk or control to `indicator_id`, plus thresholds and alert state | no local definition or measurement; unique on link and threshold version; index on alert state |
+| `risk_links`, `risk_activities` | Strategy/Portfolio links and append-only activity | the link is identifier-only; a reason is required to unlink |
 
-## الأوامر والاستعلامات والأحداث
+## Commands, Queries, and Events
 
 **Commands:** `PublishRiskPolicyVersion`, `CreateRiskRegister`, `CreateRisk`, `AssessRisk`, `RegisterControl`, `LinkControlToRisk`, `ReviewControlEffectiveness`, `PlanRiskTreatment`, `LinkTreatmentTask`, `AcceptRisk`, `LinkRiskIndicator`, `ConfigureRiskIndicatorThreshold`, `EscalateCriticalRisk`, `LinkRiskReference`, `CloseRisk`.
 
@@ -49,9 +63,10 @@ references:
 
 **Events:** `RiskPolicyVersionPublished`, `RiskCreated`, `RiskAssessed`, `ControlRegistered`, `ControlEffectivenessReviewed`, `RiskTreatmentPlanned`, `RiskIndicatorThresholdBreached`, `CriticalRiskEscalated`, `RiskAccepted`, `RiskClosed`.
 
-كل تغيير يكتب النشاط وOutbox في معاملة Risk؛ الأحداث لا تتضمن وصف الخطر أو دليلًا أو قيمة محجوبة.
+Every change writes activity and Outbox in one Risk transaction; events MUST
+NOT include the risk description, evidence, or any restricted value.
 
-## الحالات
+## State Machines
 
 ```text
 Risk: Draft -> Active -> UnderReview -> Closed
@@ -60,38 +75,51 @@ Assessment: Draft -> Submitted -> Approved | Returned
 ControlReview: Scheduled -> Submitted -> Approved | Expired
 ```
 
-## الثوابت
+## Invariants
 
-- الخطر يملك نطاقاً تنظيمياً ومالكاً ومراجعة تالية، ويستخدم نسخة سياسة منشورة مثبتة عند التقييم.
-- التقييم الكامن يسبق المتبقي؛ المتبقي لا يعتمد ضابطاً منتهياً أو غير فعال بلا استثناء موثق.
-- درجة ومستوى الخطر يحسبان في الخادم من مصفوفة السياسة، ولا يقبلان من العميل.
-- قبول خطر فوق الشهية يحتاج مسار قبول منشور وصاحب قرار محلول؛ لا override إداري.
-- علاج `mitigate` لا يكتمل قبل حسم المهام والأدلة المطلوبة، ثم يطلب إعادة تقييم صريحة.
-- الخطر يربط هدفاً أو مؤشراً أو مشروعاً بمعرف فقط؛ لا ينسخ اسماً أو حالة أو قياساً.
-- يتلقى Risk قياس KRI المعتمد من Strategy بمرجع `indicator_id` و`measurement_id`، ويقيّم عتبته دون تخزين نسخة من القياس أو دليله.
-- تجاوز حد KRI أو خطر حرج يصدر حدث تصعيد؛ الإشعار داخل التطبيق فقط ولا يغير مستوى الخطر تلقائياً.
+- A risk has an organizational scope, an owner, and a next review, and uses a pinned published policy version when assessed.
+- The inherent assessment precedes the residual one; the residual assessment MUST NOT rely on an expired or non-effective control without a documented exception.
+- Score and risk level are computed server-side from the policy matrix and MUST NOT be accepted from the client.
+- Accepting a risk above appetite requires a published acceptance path and a resolved decision owner; no admin override.
+- A `mitigate` treatment MUST NOT complete before the required tasks and evidence are resolved, then a fresh assessment is requested.
+- A risk links an objective, indicator, or project by identifier only; it MUST NOT copy a name, status, or measurement.
+- Risk receives the approved KRI measurement from Strategy via `indicator_id` and `measurement_id`, and evaluates its threshold without storing a copy of the measurement or its evidence.
+- A KRI threshold breach or a critical risk emits an escalation event; the in-app notification alone MUST NOT auto-change the risk level.
 
-## الأمن والفشل
+## Security and Failure
 
-ينشئ Risk `AuthorizationRecordFacts` ويقدمها دون قرار محلي، ثم يطلب قرار Authorization لكل قراءة أو كتابة. رؤية heatmap أو قيمة مجمعة لا تكشف وصف خطر أو تقييم منشأة دون `view_details`. المستندات وروابطها مقيدة بأشد القيود التي يطبقها Authorization، والبحث والتقرير يعيدان التفويض قبل العرض أو التصدير.
+Risk builds `AuthorizationRecordFacts` and submits them without a local
+decision, then asks Authorization for a decision on every read or write.
+Viewing a heatmap or aggregate value MUST NOT disclose a risk's description
+or a facility's assessment without `view_details`. Documents and their links
+are constrained by the strictest Authorization rule, and search and reporting
+re-run authorization before display or export.
 
-غياب سياسة منشورة، مرجع خارجي غير صالح، تعذر حل المعتمد، أو تعارض `lock_version` يمنع الأمر. لا يستبدل السوبر أدمن مالك الخطر أو معتمد القبول. فشل Outbox يلف تغيير الخطر؛ فشل إشعار أو إسقاط بعد commit يعاد بطريقة idempotent.
+Missing published policy, invalid external reference, unresolvable approver,
+or `lock_version` conflict blocks the command. The Super Admin MUST NOT
+replace the risk owner or acceptance approver. Outbox failure rolls back the
+risk change; notification failure or post-commit drop is retried
+idempotently.
 
-## الاختبارات
+## Tests
 
-- حساب مصفوفة السياسة والشهية والتقييم الكامن/المتبقي من نسخة ثابتة.
-- ضابط منتهٍ أو ضعيف لا يخفض الخطر المتبقي بلا مراجعة معتمدة.
-- خطة تخفيف لا تغلق قبل المهام، وقبول فوق الشهية يفشل لفاعل غير محلول أو أدمن override.
-- عزل منشأة عن أخرى، وعدم كشف تفاصيل من قراءة مجمعة أو نتيجة بحث/تقرير.
-- عقد روابط Strategy وPortfolioProjects يستخدم المعرفات فقط، والأحداث والتصعيد idempotent.
-- اختبار حدود يثبت غياب تعريفات المؤشرات وقياساتها وقراءاتها من جداول وأوامر Risk.
+- Compute the policy matrix, appetite, and inherent/residual assessment from a fixed version.
+- An expired or weak control MUST NOT lower the residual risk without an approved review.
+- A mitigation plan MUST NOT close before its tasks are resolved, and an above-appetite acceptance fails for an unresolved actor or admin override.
+- Facility isolation: one facility MUST NOT see another's data, and an aggregate read or search/report result MUST NOT expose details.
+- Strategy and PortfolioProjects contract links use identifiers only; events and escalation are idempotent.
+- A boundary test confirms the absence of indicator definitions, measurements, and readings from Risk tables and commands.
 
-## الاعتماديات
+## Dependencies
 
-يعتمد على Organization وStrategy وPortfolioProjects وWorkflow وTasks وCollaboration وDocuments وRecordsGovernance وAuthorization وAudit و`PlatformSettings` للتقويم التشغيلي. لا يعتمد على الموديولات المشتقة؛ Notifications وSearch وReporting وWorkspace تستهلك أحداثه فقط.
+Depends on `Organization`, `Strategy`, `PortfolioProjects`, `Workflow`,
+`Tasks`, `Collaboration`, `Documents`, `RecordsGovernance`, `Authorization`,
+`Audit`, and `PlatformSettings` for operating cadence. Does NOT depend on the
+derived modules; `Notifications`, `Search`, `Reporting`, and `Workspace` only
+consume its events.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول Risk | إنشاء المواصفة المعتمدة |
+| 1.0.0 | 2026-07-15 | Risk module owner | Create the accepted specification |

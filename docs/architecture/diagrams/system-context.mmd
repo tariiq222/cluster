@@ -1,18 +1,18 @@
 flowchart LR
-    EMP(["الموظف"])
-    MAN(["المدير"])
-    CLU(["مسؤول التجمع"])
-    ADM(["السوبر أدمن"])
+    EMP(["Employee"])
+    MAN(["Manager"])
+    CLU(["Cluster Officer"])
+    ADM(["Super Admin"])
 
-    PLATFORM["منصة التجمع الصحي الثالث المؤسسية"]
+    PLATFORM["Third Health Cluster Enterprise Platform"]
 
-    MAWARED["موارد<br/>خارج النطاق في المرحلة الأولى"]
-    FUTURE["أنظمة مالية وصحية مستقبلية<br/>لا تكاملات في المرحلة الأولى"]
+    MAWARED["Mawared<br/>Out of scope in phase one"]
+    FUTURE["Future financial and clinical systems<br/>No integrations in phase one"]
 
-    EMP -->|"سجلات عمل، مهام، مستندات"| PLATFORM
-    MAN -->|"متابعة، موافقات، إسناد"| PLATFORM
-    CLU -->|"متابعة التجمع والمنشآت المصرح بها"| PLATFORM
-    ADM -->|"هيكل، صلاحيات، نماذج، مسارات"| PLATFORM
+    EMP -->|"work records, tasks, documents"| PLATFORM
+    MAN -->|"follow-up, approvals, assignments"| PLATFORM
+    CLU -->|"oversight of the cluster and authorized facilities"| PLATFORM
+    ADM -->|"structure, permissions, forms, routes"| PLATFORM
 
-    PLATFORM -.->|"تكامل مستقبلي فقط"| MAWARED
-    PLATFORM -.->|"تكامل مستقبلي فقط"| FUTURE
+    PLATFORM -.->|"future integration only"| MAWARED
+    PLATFORM -.->|"future integration only"| FUTURE

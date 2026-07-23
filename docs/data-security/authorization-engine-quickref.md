@@ -1,15 +1,15 @@
 ---
 doc_id: SEC-AUTHZ-002
-title: محرك الصلاحيات — المرجع التشغيلي السريع
+title: Authorization Engine — Operational Quick Reference
 type: data-security
 status: draft
 version: 1.0.0
 date: 2026-07-21
-owner: مسؤول أمن المعلومات
+owner: Information Security Officer
 reviewers:
-- مكتب هندسة المنصة
+- Platform Engineering Office
 classification: internal
-review_cycle: مع كل تغيير في محرك القرار
+review_cycle: with every change in the decision engine
 sources:
 - docs/data-security/authorization-model.md
 - docs/domain/organization-and-people.md
@@ -43,9 +43,24 @@ pure consumer of the engine's verdict.
 
 | Layer | Binding | Behaviour |
 |---|---|---|
-| `DecideAccess` (contract) | `BootstrapGatedDecideAccess` | While `authorization_bootstrap.state='pending'`, denies every capability except `organization.bootstrap`, `identity.bootstrap`, `authorization.bootstrap.complete` with reason `authorization_bootstrap_pending` |
-| Inner engine | `RbacAbacDecideAccess` | The real RBAC+ABAC evaluator (`policy_version = rbac-abac-v2`) |
-| Tests | `FixtureFacilityDecision` (default in `Tests\TestCase`) | Deterministic fixture engine; `bindRealAccessDecision()` rebinds the real one |
+| `DecideAccess` (contract) | `BootstrapGatedDecideAccess` | While `authorization_bootstrap.state='pending'`, denies every capability except `organization.bootstrap`, `identity.bootstrap`, `authorization.bootstrap.complete` with reason `authorization_bootstrap_pending`. When bootstrap is `complete`, forwards the call to the inner engine unchanged. |
+| Inner engine | `RbacAbacDecideAccess` | The real RBAC+ABAC evaluator (`policy_version = rbac-abac-v2`). |
+| Tests | `FixtureFacilityDecision` (default in `Tests\TestCase`) | Deterministic fixture engine; `bindRealAccessDecision()` rebinds the real one. |
+
+The actual bootstrap-gate flow is:
+
+```
+BootstrapGatedDecideAccess::decide(actor, capability, facts)
+  if (AuthorizationBootstrapState::isPending()
+      && ! in_array($capability, SETUP_CAPABILITIES, true)):
+      return pendingDecision(capability, facts)        // reason: authorization_bootstrap_pending
+  return RbacAbacDecideAccess::decide(actor, capability, facts)
+```
+
+`SETUP_CAPABILITIES` is the fixed list `organization.bootstrap`,
+`identity.bootstrap`, `authorization.bootstrap.complete`. Every other
+capability is denied with `authorization_bootstrap_pending` while bootstrap
+is still `pending`, regardless of role, delegation, or relationship.
 
 The bootstrap window is closed exactly once via
 `POST /api/v1/authorization/bootstrap/complete`, which requires an active
@@ -54,20 +69,29 @@ completer is recorded in `authorization_bootstrap.completed_by_user_id`.
 
 ## 3. Evaluation Order (first failure wins)
 
+The order implemented by `RbacAbacDecideAccess::evaluate` is:
+
 | # | Check | Deny reason code |
 |---|---|---|
-| 1 | `actor.user_id` present | `actor_user_id_missing` |
-| 2 | Capability exists in `CapabilityCatalog` | `capability_not_supported` |
-| 3 | No active explicit deny covering actor+capability+facts | `explicit_deny` |
-| 4 | `facts.classification` is a known `ClassificationLevel` | `classification_insufficient` |
-| 5 | No role grant with `effect=deny` | `role_capability_denied` |
-| 6 | Active grant via `role_assignments` (status active, within `start_at`/`end_at`) + `role_capabilities` with `effect=allow` | falls through to alternatives |
-| 7 | Grant scope covers the facts (`AuthorizationScope::covers`) | `organization_unit_scope_mismatch` |
-| 8 | Grant clearance ≥ record classification | `classification_insufficient` |
-| 9 | Delegation grants (same scope+clearance logic) | `organization_unit_scope_mismatch` |
-| 10 | Supervisory relationships (active window, capability in `relationship_capabilities`, target unit matches `facts.organizationUnitId`) | `supervisory_relationship_scope_mismatch` |
-| 11 | Expired variants detected | `role_assignment_expired` / `delegation_expired` / `supervisory_relationship_expired` |
-| 12 | Nothing matched | `active_role_assignment_not_found` |
+| 1 | `RecordFacts` payload present | `record_facts_unavailable` |
+| 2 | `actor.user_id` present | `actor_user_id_missing` |
+| 3 | Capability exists in `CapabilityCatalog` | `capability_not_supported` |
+| 4 | No active explicit deny covering actor + capability + facts | `explicit_deny` |
+| 5 | `facts.classification` is a known `ClassificationLevel` | `classification_insufficient` |
+| 6 | No role grant with `effect=deny` | `role_capability_denied` |
+| 7 | Active grant via `role_assignments` (status active, within `start_at`/`end_at`) + `role_capabilities` with `effect=allow`; grant scope must cover the facts (`AuthorizationScope::covers`) and grant clearance must be ≥ record classification | `organization_unit_scope_mismatch` / `classification_insufficient` |
+| 8 | Delegation grants (same scope + clearance logic) | `organization_unit_scope_mismatch` / `classification_insufficient` |
+| 9 | Supervisory relationships (active window, capability in `relationship_capabilities`, target unit matches `facts.organizationUnitId`) | `supervisory_relationship_scope_mismatch` / `actor_organization_unit_scope_unavailable` / `supervisory_relationship_capability_not_listed` |
+| 10 | Expired variants detected | `role_assignment_expired` / `delegation_expired` / `supervisory_relationship_expired` |
+| 11 | Nothing matched | `active_role_assignment_not_found` |
+
+The runtime evaluation rejects on missing facts, missing actor user id, and
+unsupported capability before any policy lookup, then walks explicit deny,
+classification validity, role deny, grants / delegations / supervisory
+relationships, expiry signals, and the fallback no-match. The engine does
+not currently run account-state, share, record-state, or field-policy
+checks as runtime stages; those are part of the target contract in
+`authorization-model.md`.
 
 ## 4. The Clearance Model
 
@@ -94,10 +118,16 @@ Sensitivity is seeded by `AuthorizationCatalogSeeder`:
 A `classification_policies` row may only *raise* the floor via
 `minimum_capability`; it can never lower it.
 
-**Structural rule (now enforced by test):** every controller that declares
-`classification: 'confidential'` in its `RecordFacts` must use a capability
-seeded as `sensitive`. See
-`apps/api/tests/Feature/OrganizationPersonReadClearanceTest.php`.
+**Test/seed invariant (not a universal engine guarantee).** The conformance
+rule that "every controller which declares `classification: 'confidential'`
+in its `RecordFacts` must use a capability seeded as `sensitive`" is a
+property of `AuthorizationCatalogSeeder` plus the structural test
+`apps/api/tests/Feature/OrganizationPersonReadClearanceTest.php`. It is not
+a runtime contract of `RbacAbacDecideAccess` itself: the engine only reads
+`capabilities.sensitivity` at evaluation time and never inspects a
+controller's `RecordFacts` declaration. New controllers or new
+confidential-classified resources can violate this rule unless the seeder
+and the test keep them in sync.
 
 ## 5. Roles, Grants, and Scopes
 
@@ -161,8 +191,8 @@ themselves.
   `classification_insufficient` deny and the post-fix
   `classification_sufficient` allows for both accounts.
 
-## سجل التغيير
+## Changelog
 
-| الإصدار | التاريخ | المؤلف | ملخص التغيير |
+| Version | Date | Author | Change Summary |
 |---|---|---|---|
-| 1.0.0 | 2026-07-21 | مسؤول أمن المعلومات | توثيق تشغيلي لمحرك القرار بعد إصلاح فجوة الـclearance |
+| 1.0.0 | 2026-07-21 | Information Security Officer | Operational documentation of the decision engine after the clearance gap fix |

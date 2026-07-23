@@ -1,16 +1,16 @@
 ---
 doc_id: ARC-EN-001
-title: دليل الهندسة التنفيذي
+title: Executive Engineering Guide
 type: engineering
 status: draft
 version: 1.1.0
 date: 2026-07-17
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: With every change
 sources:
 - docs/adr/001-modular-monolith.md
 - docs/adr/002-module-first-vertical-slices.md
@@ -19,38 +19,38 @@ references:
 - docs/architecture/overview.md
 - docs/governance/document-control.md
 ---
-# دليل الهندسة التنفيذي
+# Executive Engineering Guide
 
-## الغرض
+## Purpose
 
-هذه الحزمة هي قواعد التنفيذ الملزمة للكود وقاعدة البيانات وخط النشر. تطبق على كل موديول وميزة وتغيير تشغيلي في المنصة.
+This documentation set defines the mandatory implementation rules for code, databases, and the delivery pipeline. It applies to every module, feature, and operational change in the platform.
 
-## الوثائق
+## Documents
 
-| الوثيقة | القرار التنفيذي |
+| Document | Implementation decision |
 |---|---|
-| [تدفق التسليم](delivery-workflow.md) | حلقة مطور واحد محلية، ثم تشغيل نهائي مستقل بعد اكتمال المنتج |
-| [الشرائح الرأسية](vertical-slices.md) | الموديول أولاً، ثم حالة استخدام كاملة قابلة للمراجعة والنشر |
-| [حدود الكود والموديولات](coding-and-module-boundaries.md) | ملكية واحدة للبيانات، ولا استيراد أو `JOIN` عابر للموديولات |
-| [استراتيجية الاختبار](testing-strategy.md) | جودة مبنية على المخاطر، وتغطية 80% من الأسطر المتغيرة |
-| [CI/CD والإصدار](ci-cd-and-release.md) | CI مستضاف ونشر Docker Compose مباشر ورجوع قابل للتحقق |
-| [ترحيلات قاعدة البيانات](database-migrations.md) | توسعة ثم تعاقد، مع توافق الإصدارين أثناء النشر |
-| [لغة تعريف العمل](definition-dsl.md) | DSL مقيدة ومؤصدة بلا SQL أو شبكة أو ملفات أو كود حر |
+| [Delivery Workflow](delivery-workflow.md) | A local single-developer loop followed by a separate final operational run after the product is complete |
+| [Vertical Slices](vertical-slices.md) | Start with the module, then deliver a complete, reviewable, deployable use case |
+| [Coding and Module Boundaries](coding-and-module-boundaries.md) | One owner per data set, with no cross-module imports or `JOIN`s |
+| [Testing Strategy](testing-strategy.md) | Risk-based quality with a documented 80% changed-line coverage target and explicit implementation gaps |
+| [CI/CD and Release](ci-cd-and-release.md) | Hosted CI, direct Docker Compose deployment, and a verifiable rollback procedure |
+| [Database Migrations](database-migrations.md) | Expand then contract, with both application versions remaining compatible during deployment |
+| [Work Definition DSL](definition-dsl.md) | A constrained, sandboxed DSL with no SQL, network, file, or arbitrary-code access |
 
-## ترتيب السلطة
+## Order of Authority
 
-1. `../architecture/overview.md` يحكم القرارات المعمارية العامة.
-2. هذه الحزمة تحول القرار إلى ضوابط تنفيذية.
-3. مواصفات المجال تحدد قواعد الموديول ولا تتجاوز هذه الضوابط.
-4. عند التعارض، يوقف التغيير ويصدر ADR أو تعديل صريح قبل الدمج.
+1. `../architecture/overview.md` governs general architectural decisions.
+2. This documentation set converts those decisions into implementation controls.
+3. Domain specifications define module rules but may not override these controls.
+4. If documents conflict, stop the change and issue an ADR or explicit amendment before merging.
 
-## شرط الدمج
+## Merge Condition
 
-لا يدمج تغيير ما لم يثبت مالك الموديول: حدود الملكية، اختبارات الطبقات المطلوبة، توافق العقود والترحيلات، ونجاح خط CI المعزول.
+A change may be merged only after the module owner demonstrates ownership boundaries, the required test layers, contract and migration compatibility, and a successful isolated CI pipeline.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.1.0 | 2026-07-17 | مسؤول هندسة البرمجيات | إضافة تدفق التسليم التنفيذي الموحد |
-| 1.0.0 | 2026-07-15 | مسؤول هندسة البرمجيات | إنشاء حزمة التنفيذ الهندسية |
+| 1.1.0 | 2026-07-17 | Software Engineering Lead | Added the unified implementation delivery workflow |
+| 1.0.0 | 2026-07-15 | Software Engineering Lead | Created the engineering implementation documentation set |

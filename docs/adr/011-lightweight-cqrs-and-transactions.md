@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-011
-title: CQRS خفيف وحدود المعاملة
+title: CQRS   
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: حالات الاستخدام والمعاملات
+- Platform Architecture Council
+scope:   
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -24,28 +24,28 @@ related_adrs:
 - ADR-007
 review_by: 2027-01-15
 ---
-# ADR-011: CQRS خفيف وحدود المعاملة
+# ADR-011: CQRS   
 ## Context
-تحتاج الكتابة اتساقاً محلياً والقراءة إسقاطات قابلة للتوسع دون Event Sourcing.
+         Event Sourcing.
 ## Drivers
-وضوح مسؤولية Handler، معاملات موثوقة، وفصل القراءة الثقيلة.
+  Handler     .
 ## Decision
-نستخدم Commands للكتابة وQueries/Read Models للقراءة؛ Handler المستدعي يملك المعاملة والعقود المتزامنة تنضم إليها بلا commit مستقل.
+ Commands  Queries/Read Models  Handler         commit .
 ## Scope
-لا تمتد المعاملة إلى Queue أو Search أو Object Storage أو شبكة خارجية.
+    Queue  Search  Object Storage   .
 ## Alternatives
-رُفض Event Sourcing وdistributed transactions وطبقة CQRS ثقيلة.
+ Event Sourcing distributed transactions  CQRS .
 ## Consequences
-تكون القراءات المشتقة متسقة نهائياً وتبقى حقائق الأعمال محلية.
+        .
 ## Security
-يفوض الأمر قبل التغيير وتبنى القراءة من بيانات مسموح بها.
+         .
 ## Operations
-تراقب مدة المعاملة وفشل الإسقاطات وتعيد بناء Read Models.
+       Read Models.
 ## Rollback
-تعكس الكتابة داخل المعاملة؛ تعالج الآثار المشتقة عبر Outbox وإعادة البناء.
+        Outbox  .
 ## Enforcement
-فحوص تمنع commit في العقود المستدعاة واختبارات المعاملة وRead Model.
+  commit      Read Model.
 ## Review
-عند ظهور حاجة مثبتة لدفتر أحداث أو معاملة موزعة.
+        .
 ## References
-`docs/architecture/overview.md`، `docs/architecture/context-map.md`.
+`docs/architecture/overview.md` `docs/architecture/context-map.md`.

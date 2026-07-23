@@ -1,18 +1,18 @@
 ---
 doc_id: PRD-VS-001
-title: الرؤية والنطاق
+title: Vision and Scope
 type: product
 status: accepted
 version: 1.1.0
 date: 2026-07-16
-owner: مسؤول المنتج
+owner: Product Owner
 reviewers:
-- راعي المنصة
-- مكتب هندسة المنصة
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Platform Sponsor
+- Platform Engineering Office
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: ربع سنوي
+review_cycle: Quarterly
 sources: []
 references:
 - docs/architecture/overview.md
@@ -30,142 +30,145 @@ references:
 - docs/product/releases-and-roadmap.md
 - docs/product/success-metrics.md
 ---
-# الرؤية والنطاق
 
-## 1. الغرض
+> **R2/R3 modules (Strategy, Indicators, PortfolioProjects, Risk) are PLANNED for R2/R3 and are not yet implemented in the codebase.** Only R1 modules are currently in code: Authorization, Documents, Identity, Notifications, Organization, PlatformSettings, Reporting, Search, Tasks, WorkDefinitions, WorkRecords, Workflow.
 
-تحدد هذه الوثيقة الرؤية المؤسسية للمنصة وما تشمله وما لا تشمله خلال الإصدارات الثلاثة المقررة. تمنع توسعة النطاق دون قرار صريح، وتوفر مرجعاً يُقاس عليه نجاح الإصدار. تُحيل الوثيقة إلى قرارات المعمار في `docs/adr/` وإلى وثائق الأمن والبيانات بدل تكرار تفاصيلها.
+# Vision and Scope
 
-## 2. الرؤية
+## 1. Purpose
 
-أن تمتلك منصة التجمع الصحي الثالث منظومة رقمية موحّدة تُدير العمليات الإدارية بين التجمع ومنشآته التابعة بقدرات مشتركة قابلة لإعادة الاستخدام، وصلاحيات دقيقة قابلة للتفسير، وموديولات أعمال تُضاف دون إعادة بناء النواة، مع تشغيل ذاتي على خادم داخلي محمي.
+This document defines the platform's enterprise vision and what is and is not included across the three planned releases. It prevents scope expansion without an explicit decision and provides a reference against which release success is measured. It refers to the architecture decisions in `docs/adr/` and to the security and data documents rather than duplicating their details.
 
-## 3. الجملة المؤسسية الواحدة
+## 2. Vision
 
-> منصة مؤسسية موحّدة للتجمع الصحي الثالث تدير العمليات الإدارية بين التجمع ومنشآته بحوكمة مركزية وصلاحيات دقيقة وقرارات قابلة للتفسير، وتعمل على خادم داخلي محدود الوصول.
+The Third Health Cluster will have a unified digital platform that manages administrative operations between the Cluster and its affiliated facilities through reusable shared capabilities, fine-grained and explainable authorization, and business modules that can be added without rebuilding the core, while remaining self-hosted on a protected internal server.
 
-## 4. المبادئ المؤسسية المعتمدة
+## 3. Single Enterprise Statement
 
-| المبدأ | التطبيق التشغيلي | المرجع |
+> A unified enterprise platform for the Third Health Cluster that manages administrative operations between the Cluster and its facilities with centralized governance, fine-grained authorization, and explainable decisions, hosted on a restricted-access internal server.
+
+## 4. Approved Enterprise Principles
+
+| Principle | Operational application | Reference |
 |---|---|---|
-| البساطة أمام المستخدم | الواجهة تجيب عن أربعة أسئلة فقط: ما الذي عليّ، متى، من ينتظرني، أين وصلت | وثيقة الرؤية §4.1 |
-| نواة صغيرة ومستقرة | النواة تعرف المؤسسة والوصول فقط ولا تعرف المشاريع أو المخاطر | وثيقة الرؤية §4.2 |
-| مالك واحد لكل معلومة | كل معلومة لها موديول مالك يُشار إليه بمعرف ثابت | وثيقة الرؤية §4.3 ووثيقة تتبع المتطلبات |
-| حوكمة مركزية وتشغيل موزع | التجمع يحدد السياسات والمنشآت تنفذ وفق الصلاحيات | وثيقة الرؤية §4.4 |
-| التوسع المرحلي | ثلاث إصدارات فقط في النطاق الحالي | وثيقة الإصدارات |
-| لا تعقيد تقني بلا سبب | Modular Monolith حتى يتحقق معيار الفصل | ADR-001 |
-| تشغيل ذاتي بسيط | Docker Compose وCaddy على VPS واحد محدود المنافذ | ADR-023 |
-| ملاءمة قدرة الفريق | تصميم يفهمه فريق من 2 إلى 4 مطوّرين | وثيقة الافتراضات A2 |
+| Simplicity for the user | The interface answers only four questions: What do I need to do? By when? Who is waiting on me? How far has it progressed? | Vision document §4.1 |
+| Small, stable core | The core knows only the organization and access model; it does not know about projects or risks | Vision document §4.2 |
+| One owner for each piece of information | Every piece of information has an owning module referenced by a stable identifier | Vision document §4.3 and the requirements traceability document |
+| Centralized governance and distributed execution | The Cluster defines policies, and facilities execute according to their permissions | Vision document §4.4 |
+| Phased expansion | Only three releases are within the current scope | Releases document |
+| No technical complexity without cause | Use a Modular Monolith until the separation criterion is met | ADR-001 |
+| Simple self-hosting | Docker Compose and Caddy on a single VPS with limited open ports | ADR-023 |
+| Fit to team capacity | A design understandable by a team of 2 to 4 developers | Assumptions document A2 |
 
-## 5. ما تديره المنصة In-Scope
+## 5. What the Platform Manages (In Scope)
 
-| الفئة | البنود | الإصدار |
+| Category | Items | Release |
 |---|---|---|
-| النواة المؤسسية | الهيكل التنظيمي، الحسابات، الأدوار، العلاقات الإشرافية، التصنيف | R1 |
-| قدرات مشتركة | منشئ أنواع الأعمال، المسارات، المهام، المستندات، البحث، الإشعارات، التقارير، التدقيق | R1 |
-| نوع عمل داخل `WorkRecords` | الطلب الداخلي العام | R1 |
-| موديول أعمال | الاستراتيجية والمؤشرات | R2 |
-| موديول أعمال | المحافظ والبرامج والمشاريع | R2 |
-| موديول أعمال | المخاطر المؤسسية | R3 |
-| البنية | Laravel Modular Monolith + React موحّد + MySQL وRedis | R1 |
-| التشغيل | VPS واحد عبر Docker Compose وCaddy، مع جدار ناري ونسخ خارج الخادم | R1 |
-| اللغات | العربية افتراضية والإنجليزية كاملة مع RTL/LTR | R1 |
-| الاستهداف السعري | حتى 20,000 حساب و2,000 مستخدم متزامن | R1 |
+| Enterprise core | Organizational structure, accounts, roles, supervisory relationships, classification | R1 |
+| Shared capabilities | Work type builder, workflows, tasks, documents, search, notifications, reporting, and auditing | R1 |
+| Work type within `WorkRecords` | General internal request | R1 |
+| Business module | Strategy and indicators | R2 |
+| Business module | Portfolios, programs, and projects | R2 |
+| Business module | Enterprise risk | R3 |
+| Architecture | Laravel Modular Monolith + unified React application + MySQL and Redis | R1 |
+| Operations | One VPS using Docker Compose and Caddy, with a firewall and off-host backups | R1 |
+| Languages | Arabic by default and full English support, with RTL/LTR | R1 |
+| Capacity target | Up to 20,000 accounts and 2,000 concurrent users | R1 |
 
-## 6. ما لا تديره المنصة Out-of-Scope
+## 6. What the Platform Does Not Manage (Out of Scope)
 
-| البند | السبب | البديل |
+| Item | Reason | Alternative |
 |---|---|---|
-| السجل الطبي الإلكتروني وبيانات المرضى | المنصة إدارية لا سريرية | نظام HIS أو EMR منفصل |
-| الرواتب والإجازات والترقيات الرسمية | مسؤولية نظام «موارد» | نظام «موارد» |
-| النظام المالي والمحاسبي الكامل | خارج اختصاص المنصة | النظام المالي |
-| المشتريات وأوامر الصرف كمنظومة مالية | خارج اختصاص المنصة | النظام المالي |
-| تطبيق جوال أصلي | الواجهة متجاوبة | إصدار مستقبلي عند الحاجة |
-| تكاملات مع أنظمة خارجية قبل تحديدها | لا يوجد نظام وبيانات واتجاه تبادل محدد | عند توفر تكامل محدد |
-| OCR وتوقيع إلكتروني معتمد وأرشفة رسمية كاملة | تحتاج بنية متخصصة | الإصدارات اللاحقة |
-| بريد إلكتروني وSMS وWhatsApp للإشعارات | لا توجد بوابة تكامل معتمدة | عند توفر بوابة معتمدة |
-| بحث دلالي وذكاء اصطناعي | غير ضروري في النطاق الحالي | الإصدارات اللاحقة |
+| Electronic medical records and patient data | The platform is administrative, not clinical | A separate HIS or EMR system |
+| Payroll, leave, and formal promotions | Responsibility of the Mawared system | Mawared system |
+| Full financial and accounting system | Outside the platform's remit | Financial system |
+| Procurement and disbursement orders as a financial system | Outside the platform's remit | Financial system |
+| Native mobile application | The interface is responsive | A future release if needed |
+| Integrations with external systems before they are defined | No specific system, data, or exchange direction has been defined | When a specific integration is available |
+| OCR, accredited electronic signatures, and complete formal archiving | These require specialized infrastructure | Later releases |
+| Email, SMS, and WhatsApp notifications | No approved integration gateway is available | When an approved gateway is available |
+| Semantic search and artificial intelligence | Not required in the current scope | Later releases |
 
-## 7. حدود المرحلة لكل إصدار
+## 7. Phase Boundaries by Release
 
-### 7.1 الإصدار الأول R1 — منصة عامة كاملة
+### 7.1 Release One R1 — Complete General Platform
 
-- النواة المؤسسية وقدرات المنصة المشتركة ونوع «الطلب الداخلي العام» المنشور، وتملك `WorkRecords` سجلاته.
-- الواجهة الموحّدة بالعربية والإنجليزية.
-- 5,000 حساب مبدئياً وقابلية توسع إلى 20,000.
-- حتى 2,000 مستخدم متزامن.
-- تشغيل مباشر على VPS مع منافذ مقيدة، وقبول خطر توقف الخدمة عند تعطل الخادم الواحد.
-- تجربة قبول على إدارة في التجمع ونظيرتها في مستشفى واحد.
+- The enterprise core, shared platform capabilities, and a published "General Internal Request" work type, whose records are owned by `WorkRecords`.
+- The unified interface in Arabic and English.
+- 5,000 accounts initially, scalable to 20,000.
+- Up to 2,000 concurrent users.
+- Direct deployment to a VPS with restricted ports, accepting the risk of service outage if the single host fails.
+- An acceptance pilot with one Cluster department and its counterpart at one hospital.
 
-### 7.2 الإصدار الثاني R2 — الاستراتيجية والمحافظ
+### 7.2 Release Two R2 — Strategy and Portfolios
 
-- موديول الاستراتيجية: خطط ومحاور وأهداف ومبادرات ومؤشرات وقراءات.
-- موديول المحافظ والبرامج والمشاريع: تسلسل وقوالب ومشاريع عادية ومشاريع تحسين وأثر.
-- يعتمد على R1 في المستندات والمهام والمسارات والصلاحيات.
-- تجربة قبول على برنامج في التجمع وبرنامج في مستشفى واحد.
+- Strategy module: plans, themes, objectives, initiatives, indicators, and readings.
+- Portfolios, programs, and projects module: hierarchy, templates, standard projects, improvement projects, and impact.
+- Depends on R1 for documents, tasks, workflows, and authorization.
+- An acceptance pilot with one Cluster program and one program at a hospital.
 
-### 7.3 الإصدار الثالث R3 — المخاطر المؤسسية
+### 7.3 Release Three R3 — Enterprise Risk
 
-- موديول المخاطر: سجلات المخاطر والضوابط وخطط المعالجة ومؤشرات المخاطر.
-- يعتمد على R1 وR2 في المهام والمسارات والمستندات والمؤشرات.
-- تجربة قبول على إدارة مخاطر في التجمع وإدارة مخاطر في مستشفى واحد.
+- Risk module: risk registers, controls, treatment plans, and risk indicators.
+- Depends on R1 and R2 for tasks, workflows, documents, and indicators.
+- An acceptance pilot with one Cluster risk department and one risk department at a hospital.
 
-## 8. معايير نجاح الرؤية
+## 8. Vision Success Criteria
 
-تعتمد المنصة على خمسة معايير نجاح عامة تُقاس عبر الإصدارات الثلاثة:
+The platform uses five general success criteria measured across the three releases:
 
-| المعيار | القياس | الهدف | الإصدار |
+| Criterion | Measurement | Target | Release |
 |---|---|---|---|
-| وضوح المسؤولية والحالة | نسبة السجلات التي لها مالك وحالة قابلة للقراءة | ≥ 95% | R1 |
-| زمن إنجاز العملية الإدارية | زمن دورة الطلب المرجعي من المسودة إلى الإغلاق | ≤ 5 أيام عمل | R1 |
-| توحيد قياس الأداء | نسبة المؤشرات التي تُقرأ من المنصة بدل Excel | ≥ 80% | R2 |
-| ربط المشروع بالأثر | نسبة مشاريع التحسين التي لها أثر فعلي معتمد | ≥ 70% | R2 |
-| وعي المخاطر المؤسسية | نسبة المخاطر التي لها خطة معالجة نشطة | ≥ 90% | R3 |
+| Clear responsibility and status | Percentage of records with an owner and a readable status | ≥ 95% | R1 |
+| Administrative process completion time | Cycle time of the reference request from draft to closure | ≤ 5 business days | R1 |
+| Standardized performance measurement | Percentage of indicators recorded in the platform instead of Excel | ≥ 80% | R2 |
+| Connecting projects to impact | Percentage of improvement projects with approved actual impact | ≥ 70% | R2 |
+| Enterprise risk awareness | Percentage of risks with an active treatment plan | ≥ 90% | R3 |
 
-## 9. معايير الفشل التي تستوجب التوقف
+## 9. Failure Criteria Requiring a Stop
 
-| الحالة | الإجراء |
+| Condition | Action |
 |---|---|
-| تجاوز RTO المحدد في حادث إنتاجي حرج دون استعادة خلال المهلة | تجميد النشر حتى مراجعة المكتب الهندسي |
-| تكرار حادث أمني مصنّف `عالٍ` خلال 30 يوماً | تجميد الميزات الجديدة حتى خطة علاج معتمدة |
-| رفض ≥ 30% من المستخدمين تجربة الإصدار في اختبار ميداني | مراجعة النطاق قبل أي توسع |
-| عدم تحقق معيار `SEC-R1-003` لتطبيق الصلاحيات في Laravel | عدم النشر في الإنتاج |
+| The specified RTO is exceeded during a critical production incident without recovery within the deadline | Freeze deployment until the Platform Engineering Office completes its review |
+| A security incident classified as `high` recurs within 30 days | Freeze new features until an approved remediation plan exists |
+| At least 30% of users reject the release experience in a field test | Review the scope before any expansion |
+| The `SEC-R1-003` criterion for applying authorization in Laravel is not met | Do not deploy to production |
 
-## 10. الافتراضات الحرجة المؤثرة في النطاق
+## 10. Critical Assumptions Affecting Scope
 
-| الافتراض | البند المعتمد عليه | المرجع |
+| Assumption | Dependent item | Reference |
 |---|---|---|
-| التجمع جهة تشغيلية لها عملياتها الداخلية | وجود موديولات أعمال خاصة بالتجمع وليس فقط إشراف | وثيقة الافتراضات A1 |
-| فريق 2 إلى 4 مطوّرين | اعتماد Modular Monolith | وثيقة الافتراضات A2 |
-| المستخدمون يدخلون من داخل الشبكة | اعتماد اسم المستخدم وكلمة المرور فقط | وثيقة الافتراضات A3 |
-| التشغيل معزول | عدم وجود تكامل سحابي أو CDN | وثيقة الافتراضات T1 |
-| الحسابات محلية | عدم الحاجة لهوية خارجية | وثيقة الافتراضات T9 |
+| The Cluster is an operating entity with its own internal processes | Business modules specific to the Cluster, rather than oversight only | Assumptions document A1 |
+| A team of 2 to 4 developers | Adoption of a Modular Monolith | Assumptions document A2 |
+| Users connect from inside the network | Username and password authentication only | Assumptions document A3 |
+| Operations are isolated | No cloud integration or CDN | Assumptions document T1 |
+| Accounts are local | No need for an external identity provider | Assumptions document T9 |
 
-## 11. المخاطر المؤثرة في النطاق
+## 11. Risks Affecting Scope
 
-| الخطر | الأثر على النطاق | الإجراء |
+| Risk | Effect on scope | Action |
 |---|---|---|
-| فشل تجربة المستخدم الأولى | إعادة تصميم الواجهة | تجربة ميدانية مبكرة |
-| مقاومة التبني والعودة للبريد | تأخر التعميم | خطة تبني مع تدريب |
-| ضعف اختبارات الحدود بين الموديولات | تشابك المنصة | اختبار معماري في CI |
-| تأخر ترقية الحزم بسبب الوضع المعزول | ثغرات أمنية محتملة | جدول ترقية ربع سنوي |
-| اعتماد تكامل خارجي قبل النضج | تعقيد المنصة | بوابة حاسم قبل أي تكامل |
+| Failure of the initial user experience | Redesign the interface | Conduct an early field test |
+| Resistance to adoption and a return to email | Delayed rollout | Adoption plan with training |
+| Weak module-boundary tests | Platform coupling | Architecture test in CI |
+| Delayed package upgrades because of the isolated environment | Potential security vulnerabilities | Quarterly upgrade schedule |
+| Adoption of an external integration before it matures | Increased platform complexity | Hard gate before any integration |
 
-## 12. الإحالات المرجعية
+## 12. References
 
-| الموضوع | الوثيقة |
+| Topic | Document |
 |---|---|
-| قرارات المعمار | `docs/adr/README.md` |
-| حدود الموديولات | `docs/architecture/module-catalog.md` |
-| بنية التشغيل | `docs/architecture/overview.md` و`docs/operations/physical-topology.md` |
-| متطلبات قابلة للقياس | `docs/governance/traceability-matrix.md` |
-| أدوار الحوكمة | `docs/governance/raci.md` |
-| شخصيات المستخدم ورحلاته | `docs/product/personas-and-journeys.md` |
-| تفاصيل الإصدارات والمخرجات | `docs/product/releases-and-roadmap.md` |
-| مؤشرات نجاح تفصيلية | `docs/product/success-metrics.md` |
+| Architecture decisions | `docs/adr/README.md` |
+| Module boundaries | `docs/architecture/module-catalog.md` |
+| Deployment architecture | `docs/architecture/overview.md` and `docs/operations/physical-topology.md` |
+| Measurable requirements | `docs/governance/traceability-matrix.md` |
+| Governance roles | `docs/governance/raci.md` |
+| User personas and journeys | `docs/product/personas-and-journeys.md` |
+| Release details and deliverables | `docs/product/releases-and-roadmap.md` |
+| Detailed success metrics | `docs/product/success-metrics.md` |
 
-## 13. سجل التغيير
+## 13. Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول المنتج | إنشاء أولي للرؤية والنطاق عبر الإصدارات الثلاثة |
+| 1.0.0 | 2026-07-15 | Product Owner | Initial definition of the vision and scope across the three releases |

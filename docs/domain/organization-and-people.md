@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-ORG-001
-title: المؤسسة والهيكل التنظيمي
+title: Organization and People
 type: domain
 status: accepted
 version: 1.2.0
 date: 2026-07-18
-owner: مالك موديول Organization
+owner: Organization Module Owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/architecture/dependency-rules.md
 - docs/adr/004-authorization-and-isolation.md
@@ -20,177 +20,173 @@ references:
 ---
 # Organization and People
 
-## 1. الغرض
+## 1. Purpose
 
-يمثل هذا المجال حقيقة المؤسسة الإدارية: التجمع ومنشآته ووحداته التنظيمية، ومنصبه وعلاقاته الإشرافية، وملاك الحسابات البشرية. لا يعرف الطلب ولا المشروع ولا المهمة، لكنه يقدم المعرّفات المستقرة وحقائق التنظيم التي يحتاجها المالك لبناء `AuthorizationRecordFacts`، أو لتعيين مسؤولية أو ربط سجل بجهة. إصدار قرار الوصول يبقى حصراً في Authorization.
+This domain represents the administrative reality of the organization: the cluster, its facilities and organizational units, its positions and supervisory relationships, and its human account holders. It does not know request, project, or task; it provides the stable identifiers and organizational facts that an owner needs to build `AuthorizationRecordFacts`, to assign responsibility, or to attach a record to an organizational side. The access decision itself remains exclusively in Authorization.
 
-## 2. النطاق
+## 2. Scope
 
-- تمثيل التجمع كجهة تشغيلية ذات إدارات داخلية، وفق التسلسل الملزم `Cluster > Facility > Unit`.
-- تمثيل المنشآت بمختلف أنواعها (مستشفى، مركز صحي، مركز متخصص، مختبر مركزي، خدمات مشتركة، نوع جديد يعرّفه السوبر أدمن) كأبناء للتجمع.
-- تمثيل الوحدات الإدارية والقطاعات والأقسام داخل التجمع أو المنشأة، ولا تكون الوحدة التنظيمية خارج هذا التسلسل.
-- تمثيل المناصب وعلاقتها بالوحدات.
-- تمثيل التكليفات المؤقتة والعضويات في فرق أو لجان.
-- تمثيل العلاقات الإشرافية بمختلف أنواعها وقدراتها.
-- استيراد الهيكل من CSV/XLSX بطريقة محكومة ومراجعة.
-- التقويم المرجعي للنظام: Asia/Riyadh، مع تخزين جميع الطوابع الزمنية بـ UTC في قاعدة البيانات.
+- Representing the cluster as an operating entity with internal administrations, per the mandatory sequence `Cluster > Facility > Unit`.
+- Representing facilities of various types (hospital, health center, specialized center, central lab, shared services, a new type defined by super admin) as children of the cluster.
+- Representing administrative units, sectors, and departments within the cluster or facility; an organizational unit does not exist outside this sequence.
+- Representing positions and their relationship to units.
+- Representing temporary assignments and memberships in teams or committees.
+- Representing supervisory relationships of various types and their capabilities.
+- Importing the structure from CSV/XLSX in a governed, reviewable way.
+- Reference calendar for the system: Asia/Riyadh, with all timestamps stored as UTC in the database.
 
-ما لا يدخل في هذا المجال:
+What is out of scope for this domain:
 
-- الحسابات وكلمات المرور.
-- الجلسات ودورة حياة الدخول.
-- الأدوار والصلاحيات كسياسات وصول (تعيش في Authorization).
-- أي سجل أعمال مثل طلب أو مشروع أو مؤشر.
+- Accounts and passwords.
+- Sessions and the login lifecycle.
+- Roles and permissions as access policies (they live in Authorization).
+- Any work record such as request, project, or indicator.
 
-## 3. المصطلحات
+## 3. Terminology
 
-| المصطلح | التعريف |
+| Term | Definition |
 |---|---|
-| التجمع (Cluster) | الكيان الجذري الوحيد للنظام، ويمثل تجمعاً صحياً واحداً. |
-| المنشأة (Facility) | كيان تابع مباشرة للتجمع، وله نوع منشأة محكوم. |
-| الوحدة (Unit) | كيان تنظيمي تابع للتجمع أو لمنشأة ضمن التسلسل `Cluster > Facility > Unit`، وقد يكون قطاعاً أو إدارة أو قسماً أو وحدة. |
-| نوع الوحدة (Unit Type) | تصنيف محكوم يميز Cluster وFacility وSector وDepartment وSection وUnit. |
-| المنصب (Position) | وظيفة رسمية داخل وحدة، قابلة للشغل من قبل شخص أو أكثر. |
-| التكليف (Assignment) | ربط شخص بوحدة بمنصب، له تاريخ بداية ونهاية. |
-| العلاقة الإشرافية (Supervisory Relationship) | رابط بين وحدتين أو شخصين، له نوع وقدرات ومدى زمني. |
-| نوع العلاقة (Relationship Type) | إشراف مباشر، إشراف وظيفي، تنسيق، اطلاع فقط. |
-| القدرة الممنوحة (Granted Capability) | قدرة وصول تمنحها علاقة بعينها لمجموعة موديولات. |
+| Cluster | The sole root entity of the system, representing a single health cluster. |
+| Facility | An entity that belongs directly to the cluster, with a governed facility type. |
+| Unit | An organizational entity belonging to the cluster or to a facility within the sequence `Cluster > Facility > Unit`; it may be a sector, administration, department, or unit. |
+| Unit Type | A governed classification that distinguishes Cluster, Facility, Sector, Department, Section, and Unit. |
+| Position | An official role inside a unit, occupiable by one or more persons. |
+| Assignment | A link of a person to a position in a unit with a start and end date. |
+| Supervisory Relationship | A link between two units or two persons, with a type, capabilities, and a temporal range. |
+| Relationship Type | Direct supervision, functional supervision, coordination, view-only. |
+| Granted Capability | An access capability that a specific relationship grants to a set of modules. |
 
-## 4. الـAggregates والـEntities والـValue Objects
+## 4. Aggregates, Entities, and Value Objects
 
 ### 4.1 ClusterAggregate
 
-- `Cluster` (Entity جذر).
-- `ClusterProfile` (Value Object: الاسم، الرمز، الإعدادات، التقويم المرجعي Asia/Riyadh).
+- `Cluster` (root Entity).
+- `ClusterProfile` (Value Object: name, code, settings, reference calendar Asia/Riyadh).
 
 ### 4.2 FacilityAggregate
 
-- `Facility` (Entity جذر).
-- `FacilityType` (Value Object معرّف بنوع منشأة محكوم).
-- `FacilityProfile` (Value Object: الاسم، الرمز، الإعدادات المحلية).
+- `Facility` (root Entity).
+- `FacilityType` (Value Object identified by a governed facility type).
+- `FacilityProfile` (Value Object: name, code, local settings).
 
 ### 4.3 OrganizationUnitAggregate
 
-- `OrganizationUnit` (Entity جذر).
-- `UnitType` (Value Object: تجمع، منشأة، قطاع، إدارة، قسم، وحدة).
-- `UnitPath` (Value Object: سلسلة المسار المحسوبة عبر الأبوين لتقييم النطاق بكفاءة).
-- `UnitStatus` (Value Object: Active، Inactive، Archived).
+- `OrganizationUnit` (root Entity).
+- `UnitType` (Value Object: cluster, facility, sector, administration, department, unit).
+- `UnitPath` (Value Object: the path string computed across parents to evaluate scope efficiently).
+- `UnitStatus` (Value Object: Active, Inactive, Archived).
 
 ### 4.4 PositionAggregate
 
-- `Position` (Entity جذر).
+- `Position` (root Entity).
 - `PositionTitle` (Value Object).
-- `PositionLevel` (Value Object اختياري للترتيب الإداري).
+- `PositionLevel` (optional Value Object for administrative ordering).
 
 ### 4.5 PersonAggregate
 
-- `Person` (Entity جذر، منفصل عن الحساب).
-- `PersonProfile` (Value Object: الاسم، الجوال، البريد، بيانات العرض).
-- `PersonStatus` (Value Object: Active، Suspended، Left).
+- `Person` (root Entity, separate from the account).
+- `PersonProfile` (Value Object: name, mobile, email, display data).
+- `PersonStatus` (Value Object: Active, Suspended, Left).
 
 ### 4.6 AssignmentAggregate
 
-- `Assignment` (Entity جذر): ربط Person بـ Position بـ OrganizationUnit بمدى زمني.
-- `AssignmentRole` (Value Object اختياري لتحديد طبيعة التكليف: أساسي، مناوب، تكليف مؤقت).
-- `AssignmentPeriod` (Value Object: start_at، end_at).
-- عند انتهاء end_at يدوياً أو آلياً، يفقد التكليف أثره فوراً دون حذف السجل.
+- `Assignment` (root Entity): linking a Person to a Position in an OrganizationUnit with a temporal range.
+- `AssignmentRole` (optional Value Object to specify the nature of the assignment: primary, alternate, temporary).
+- `AssignmentPeriod` (Value Object: start_at, end_at).
+- When `end_at` elapses manually or automatically, the assignment loses its effect immediately without deleting the record.
 
 ### 4.7 SupervisoryRelationshipAggregate
 
-- `SupervisoryRelationship` (Entity جذر).
-- `RelationshipType` (Value Object: direct، functional، coordination، view_only).
-- `RelationshipScope` (Value Object: قائمة الموديولات المشمولة).
-- `RelationshipCapability` (Value Object: القدرة الممنوحة).
-- `RelationshipPeriod` (Value Object: start_at، end_at).
-- عند انتهاء end_at تسحب العلاقة وقدراتها تلقائياً.
+- `SupervisoryRelationship` (root Entity).
+- `RelationshipType` (Value Object: direct, functional, coordination, view_only).
+- `RelationshipScope` (Value Object: list of included modules).
+- `RelationshipCapability` (Value Object: the granted capability).
+- `RelationshipPeriod` (Value Object: start_at, end_at).
+- When `end_at` elapses, the relationship and its capabilities are automatically withdrawn.
 
-### 4.8 ImportJobAggregate (للاستيراد المحكوم)
+### 4.8 ImportJobAggregate (for governed import)
 
-- `ImportJob` (Entity جذر).
-- `ImportTemplate` (Value Object: اسم القالب، الأعمدة المتوقعة، قواعد التحقق).
-- `ImportRow` (Entity تابعة): صف خام + نتيجة تحليل + أخطاء.
-- `ImportDiff` (Value Object: مقارنة بين القيم الحالية والمقترحة).
-- `ImportDecision` (Value Object لكل صف: Create، Update، Skip، Fail).
+- `ImportJob` (root Entity).
+- `ImportTemplate` (Value Object: template name, expected columns, validation rules).
+- `ImportRow` (child Entity): raw row + parsing result + errors.
+- `ImportDiff` (Value Object: comparison between current and proposed values).
+- `ImportDecision` (Value Object per row: Create, Update, Skip, Fail).
 
-## 5. الجداول والقيود والفهارس
+## 5. Tables, Constraints, and Indexes
 
 ### 5.1 `clusters`
 
-- `id` CHAR(36) UUIDv7 PK.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
 - `code` VARCHAR(64) UNIQUE NOT NULL.
 - `name_ar` VARCHAR(255) NOT NULL.
 - `name_en` VARCHAR(255) NULL.
-- `settings` JSON NOT NULL.
-- `created_at`، `updated_at` DATETIME.
-- فهرس: `(code)`.
+- `created_at`, `updated_at` DATETIME.
+- Index: `(code)`.
 
-اللغة والـlocale والمنطقة الزمنية إعدادات عامة يملكها `PlatformSettings` ولا تخزنها Organization.
+Language, locale, and timezone are general settings owned by `PlatformSettings` and are not stored by Organization.
 
 ### 5.2 `facilities`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `cluster_id` CHAR(36) UUIDv7 NOT NULL FK -> `clusters.id`.
-- `facility_type_id` CHAR(36) UUIDv7 NOT NULL FK -> `facility_types.id`.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `cluster_id` CHAR(36) UUID NOT NULL FK -> `clusters.id`.
+- `facility_type_id` CHAR(36) UUID NOT NULL FK -> `facility_types.id`.
 - `code` VARCHAR(64) NOT NULL.
 - `name_ar` VARCHAR(255) NOT NULL.
 - `name_en` VARCHAR(255) NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT 'active'.
-- `settings` JSON NOT NULL.
-- `created_at`، `updated_at` DATETIME.
-- قيد فريد: `(cluster_id, code)`.
-- فهارس: `(cluster_id, status)`، `(facility_type_id)`.
+- `created_at`, `updated_at` DATETIME.
+- Unique constraint: `(cluster_id, code)`.
+- Indexes: `(cluster_id, status)`, `(facility_type_id)`.
 
 ### 5.3 `facility_types`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `code` VARCHAR(64) UNIQUE NOT NULL (مثال: `hospital`، `center`، `lab`، `shared_services`).
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `code` VARCHAR(64) UNIQUE NOT NULL (example: `hospital`, `center`, `lab`, `shared_services`).
 - `name_ar` VARCHAR(255) NOT NULL.
 - `is_active` BOOLEAN NOT NULL DEFAULT TRUE.
 
 ### 5.4 `organization_units`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `cluster_id` CHAR(36) UUIDv7 NOT NULL FK.
-- `parent_id` CHAR(36) UUIDv7 NOT NULL؛ يشير إلى Cluster أو Facility أو OrganizationUnit داخل الموديول بحسب `parent_type`.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `cluster_id` CHAR(36) UUID NOT NULL FK.
+- `parent_id` CHAR(36) UUID NOT NULL; refers to a Cluster, Facility, or OrganizationUnit inside the module per `parent_type`.
 - `parent_type` VARCHAR(16) NOT NULL: `cluster|facility|unit`.
-- `unit_type_id` CHAR(36) UUIDv7 NOT NULL FK -> `unit_types.id`.
+- `unit_type_id` CHAR(36) UUID NOT NULL FK -> `unit_types.id`.
 - `code` VARCHAR(64) NOT NULL.
 - `name_ar` VARCHAR(255) NOT NULL.
 - `name_en` VARCHAR(255) NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT 'active'.
-- `path_cache` VARCHAR(512) NOT NULL (مسار مُسبق للحساب السريع للنطاق).
+- `path_cache` VARCHAR(512) NOT NULL (precomputed path for fast scope lookup).
 - `depth` SMALLINT NOT NULL.
 - `lock_version` INT UNSIGNED NOT NULL DEFAULT 1.
-- `created_at`، `updated_at` DATETIME.
-- قيد فريد: `(parent_type, parent_id, code)`.
-- فهارس: `(cluster_id, status)`، `(parent_id)`، `(unit_type_id)`، `(path_cache)` كـ prefix index.
+- `created_at`, `updated_at` DATETIME.
+- Unique constraint: `(parent_type, parent_id, code)`.
+- Indexes: `(cluster_id, status)`, `(parent_id)`, `(unit_type_id)`, `(path_cache)` as a prefix index.
 
 ### 5.5 `unit_types`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `code` VARCHAR(64) UNIQUE NOT NULL (مثال: `cluster`، `facility`، `sector`، `department`، `section`، `unit`).
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `code` VARCHAR(64) UNIQUE NOT NULL (example: `cluster`, `facility`, `sector`, `department`, `section`, `unit`).
 - `name_ar` VARCHAR(255) NOT NULL.
 - `is_active` BOOLEAN NOT NULL DEFAULT TRUE.
 
 ### 5.6 `positions`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `organization_unit_id` CHAR(36) UUIDv7 NOT NULL FK.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `organization_unit_id` CHAR(36) UUID NOT NULL FK.
 - `code` VARCHAR(64) NOT NULL.
 - `title_ar` VARCHAR(255) NOT NULL.
-- `title_en` VARCHAR(255) NULL.
-- `level` SMALLINT NULL.
-- `manager_position_id` CHAR(36) UUIDv7 NULL FK -> `positions.id`، ولا يسمح بدورة إدارية.
+- `manager_position_id` CHAR(36) UUID NULL FK -> `positions.id`, with no administrative cycle allowed.
 - `is_active` BOOLEAN NOT NULL DEFAULT TRUE.
 - `lock_version` INT UNSIGNED NOT NULL DEFAULT 1.
-- قيد فريد: `(organization_unit_id, code)`.
-- فهرس: `(organization_unit_id, is_active)`.
+- Unique constraint: `(organization_unit_id, code)`.
+- Index: `(organization_unit_id, is_active)`.
 
 ### 5.7 `people`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `national_id_ciphertext` VARBINARY NULL، مشفر على مستوى العمود.
-- `national_id_lookup_hash` CHAR(64) NULL UNIQUE، HMAC للبحث ومنع التكرار بلا كشف القيمة.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `national_id_ciphertext` VARBINARY NULL, encrypted at the column level.
+- `national_id_lookup_hash` CHAR(64) NULL UNIQUE, HMAC for lookup and to prevent duplicates without revealing the value.
 - `employee_number` VARCHAR(64) NOT NULL UNIQUE.
 - `display_name_ar` VARCHAR(255) NOT NULL.
 - `display_name_en` VARCHAR(255) NULL.
@@ -198,79 +194,74 @@ references:
 - `primary_phone_ciphertext` VARBINARY NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT 'active'.
 - `person_version` BIGINT NOT NULL DEFAULT 1.
-- `created_at`، `updated_at` DATETIME.
-- فهارس: `(status)`، `(national_id_lookup_hash)`، `(employee_number)`.
+- `created_at`, `updated_at` DATETIME.
+- Indexes: `(status)`, `(national_id_lookup_hash)`, `(employee_number)`.
 
 ### 5.8 `assignments`
 
-- `id` CHAR(36) UUIDv7 PK.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
 - `person_id` CHAR(36) UUIDv7 NOT NULL FK.
-- `position_id` CHAR(36) UUIDv7 NOT NULL FK.
-- `is_primary` BOOLEAN NOT NULL DEFAULT TRUE؛ التكليف المؤقت التفصيلي يبقى خارج هذه الشريحة.
-- `start_at` DATETIME(3) UTC NOT NULL.
-- `end_at` DATETIME(3) UTC NULL.
+- `position_id` CHAR(36) UUID NOT NULL FK.
+- `is_primary` BOOLEAN NOT NULL DEFAULT TRUE; detailed temporary assignments remain outside this slice.
+- `start_at` DATETIME(3) NOT NULL (UTC is configured at the application layer via `app.timezone`; the migration itself does not enforce UTC at the DB level).
+- `end_at` DATETIME(3) NULL.
 - `end_reason` TEXT NULL.
-- `ended_by_user_id` CHAR(36) UUIDv7 NULL، معرف actor بلا FK عابر إلى Identity.
+- `ended_by_user_id` CHAR(36) UUID NULL, actor identifier without a cross-module FK to Identity.
 - `lock_version` INT NOT NULL DEFAULT 1.
-- `created_at`، `updated_at` DATETIME.
-- قيد: `start_at < end_at` و`end_at` مستقبلي عند الإنشاء، أو `end_at IS NULL`.
-- فهارس: `(person_id, is_primary, start_at, end_at)`، `(position_id, start_at, end_at)`.
+- `created_at`, `updated_at` DATETIME.
+- Constraint: `start_at < end_at` and `end_at` must be in the future at creation, or `end_at IS NULL` (enforced at the domain layer; the migration does not declare a DB-level `start_at < end_at` check).
+- Indexes: `(person_id, is_primary, start_at, end_at)`, `(position_id, start_at, end_at)`.
 
 ### 5.9 `supervisory_relationships`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `source_unit_id` CHAR(36) UUIDv7 NULL FK (الجهة المصدر على مستوى الوحدة).
-- `source_person_id` CHAR(36) UUIDv7 NULL FK (الجهة المصدر على مستوى الشخص).
-- `target_unit_id` CHAR(36) UUIDv7 NULL FK.
-- `target_person_id` CHAR(36) UUIDv7 NULL FK.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `source_organization_unit_id` CHAR(36) UUID NULL FK (the source side at the unit level).
+- `target_organization_unit_id` CHAR(36) UUID NULL FK.
 - `relationship_type` VARCHAR(32) NOT NULL.
-- `start_at` DATE NOT NULL.
-- `end_at` DATE NULL.
-- `created_by_user_id` CHAR(36) UUIDv7 NOT NULL، معرف actor من سياق المصادقة بلا FK أو join إلى Identity.
+- `valid_from` DATE NOT NULL.
+- `valid_until` DATE NULL.
 - `created_at` DATETIME NOT NULL.
-- قيد: واحد على الأقل من source_unit_id أو source_person_id، وواحد على الأقل من target_unit_id أو target_person_id.
-- فهارس: `(source_unit_id, start_at, end_at)`، `(source_person_id, start_at, end_at)`، `(target_unit_id, start_at, end_at)`، `(target_person_id, start_at, end_at)`، `(relationship_type)`.
+- Constraint: both `source_organization_unit_id` and `target_organization_unit_id` must be non-null (the relationship is unit-to-unit only).
+- Indexes: `(source_organization_unit_id, valid_from, valid_until)`, `(target_organization_unit_id, valid_from, valid_until)`, `(relationship_type)`.
 
 ### 5.10 `relationship_capabilities`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `supervisory_relationship_id` CHAR(36) UUIDv7 NOT NULL FK -> `supervisory_relationships.id` ON DELETE CASCADE.
-- `module_code` VARCHAR(64) NOT NULL (مثال: `work-records`، `strategy`، `portfolio-projects`).
-- `capability_code` VARCHAR(64) NOT NULL (مثال: `view_aggregate`، `view_details`، `assign_task`، `participate_approval`).
-- `field_policy_key` VARCHAR(128) NULL (مرجع لقالب سياسة حقول).
-- قيد فريد: `(supervisory_relationship_id, module_code, capability_code)`.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `supervisory_relationship_id` CHAR(36) UUID NOT NULL FK -> `supervisory_relationships.id` ON DELETE CASCADE.
+- `module_code` VARCHAR(64) NOT NULL (example: `work-records`, `strategy`, `portfolio-projects`).
+- `capability_code` VARCHAR(64) NOT NULL (example: `view_aggregate`, `view_details`, `assign_task`, `participate_approval`).
+- `field_policy_key` VARCHAR(128) NULL (reference to a field policy template).
+- Unique constraint: `(supervisory_relationship_id, module_code, capability_code)`.
 
 ### 5.11 `import_jobs`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `template_code` VARCHAR(64) NOT NULL (`facilities`، `organization_units`، `positions`، `people_assignments`).
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `template_code` VARCHAR(64) NOT NULL (`facilities`, `organization_units`, `positions`, `people_assignments`).
 - `source_filename` VARCHAR(255) NOT NULL.
-- `source_format` VARCHAR(8) NOT NULL (`csv`، `xlsx`).
-- `status` VARCHAR(32) NOT NULL (`received`، `validated`، `approved`، `applied`، `failed`، `rejected`، `cancelled`).
-- `quarantine_object_id` CHAR(36) NOT NULL، مرجع ملف خام مشفر ومحجور بلا FK عابر.
-- `submitted_by_user_id` CHAR(36) UUIDv7 NOT NULL، معرف actor بلا FK عابر.
-- `approved_by_user_id` CHAR(36) UUIDv7 NULL، معرف actor بلا FK عابر.
+- `source_format` VARCHAR(8) NOT NULL (`csv`, `xlsx`).
+- `status` VARCHAR(32) NOT NULL (`received`, `validated`, `approved`, `applied`, `failed`, `rejected`, `cancelled`).
+- `quarantine_object_id` CHAR(36) NOT NULL, reference to an encrypted raw file held in quarantine without a cross-module FK.
+- `submitted_by_user_id` CHAR(36) UUID NOT NULL, actor identifier without a cross-module FK.
+- `approved_by_user_id` CHAR(36) UUID NULL, actor identifier without a cross-module FK.
 - `total_rows` INT NOT NULL DEFAULT 0.
 - `valid_rows` INT NOT NULL DEFAULT 0.
 - `error_rows` INT NOT NULL DEFAULT 0.
 - `applied_at` DATETIME NULL.
 - `created_at` DATETIME NOT NULL.
-- فهارس: `(status)`، `(template_code)`، `(submitted_by_user_id)`.
+- Indexes: `(status)`, `(template_code)`, `(submitted_by_user_id)`.
 
 ### 5.12 `import_rows`
 
-- `id` CHAR(36) UUIDv7 PK.
-- `import_job_id` CHAR(36) UUIDv7 NOT NULL FK -> `import_jobs.id` ON DELETE CASCADE.
+- `id` CHAR(36) UUID PK (UUIDv7 is not enforced at the migration level).
+- `import_job_id` CHAR(36) UUID NOT NULL FK -> `import_jobs.id` ON DELETE CASCADE.
 - `row_number` INT NOT NULL.
-- `encrypted_payload` JSON NOT NULL، حقول الصف الحساسة مشفرة ولا تظهر في الأخطاء أو Logs.
-- `proposed_action` VARCHAR(16) NULL (`create`، `update`، `skip`).
-- `proposed_target_id` CHAR(36) UUIDv7 NULL.
-- `validation_errors` JSON NULL.
-- `decision` VARCHAR(16) NULL (`accepted`، `rejected`).
+- `encrypted_payload` JSON NOT NULL; sensitive row fields are encrypted and never appear in errors or logs.
+- `proposed_action` VARCHAR(16) NULL (`create`, `update`, `skip`).
+- `decision` VARCHAR(16) NULL (`accepted`, `rejected`).
 - `applied_at` DATETIME NULL.
-- فهرس: `(import_job_id, row_number)`.
+- Index: `(import_job_id, row_number)`.
 
-## 6. الأوامر والاستعلامات والأحداث
+## 6. Commands, Queries, and Events
 
 ### 6.1 Commands
 
@@ -308,11 +299,11 @@ references:
 - `ResolveUnitPath`
 - `GetPosition`
 - `ListPositionAssignments`
-- `ResolveDirectManager` (يُرجع Person الحالي لمنصب مدير محدد ضمن مدى زمني).
-- `GetActiveAssignmentsForPerson` (يستخدم Asia/Riyadh لتحديد "اليوم").
-- `GetActiveSupervisoryRelationships` (تستخدمها Authorization وWorkflow).
-- `GetRelationshipCapabilities` (تستخدمها Authorization).
-- `ExplainOrganizationalScope` (يقرأ نطاق المستخدم بكفاءة).
+- `ResolveDirectManager` (returns the current Person for a given manager position within a time range).
+- `GetActiveAssignmentsForPerson` (uses Asia/Riyadh to determine "today").
+- `GetActiveSupervisoryRelationships` (used by Authorization and Workflow).
+- `GetRelationshipCapabilities` (used by Authorization).
+- `ExplainOrganizationalScope` (reads the user's scope efficiently).
 - `GetImportJob`
 - `ListImportJobRows`
 
@@ -344,27 +335,27 @@ references:
 - `ImportJobApplied`
 - `ImportJobCancelled`
 - `ImportJobFailed`
-- `IdentityProvisioningRequested` بعد تطبيق Person فعلياً، ويحمل `person_id` و`person_version` بلا PII.
-- `PersonAccessStatusChanged` عند تغير Active أو Suspended أو Left، ويحمل النسخة نفسها.
+- `IdentityProvisioningRequested` after a Person has actually been applied; carries `person_id` and `person_version` without PII.
+- `PersonAccessStatusChanged` when Active/Suspended/Left changes, carrying the same version.
 
 ## 7. State Machines
 
 ### 7.1 OrganizationUnit
 
 - `Active` --(archive)--> `Inactive` --(restore)--> `Active`.
-- `Inactive` --(archive permanent)--> `Archived` (نهاية، يحتفظ به للقراءة).
+- `Inactive` --(archive permanent)--> `Archived` (terminal, retained read-only).
 
 ### 7.2 Assignment
 
-- `Pending` (تاريخ بداية قادم) --(reaches start_at)--> `Active`.
+- `Pending` (future start date) --(reaches start_at)--> `Active`.
 - `Active` --(end_at reached or EndAssignment)--> `Ended`.
-- لا يمكن إعادة تفعيل تكليف منتهي؛ ينشأ تكليف جديد.
+- An ended assignment cannot be reactivated; a new assignment is created.
 
 ### 7.3 SupervisoryRelationship
 
 - `Pending` --(start_at reached)--> `Active`.
 - `Active` --(end_at reached or EndSupervisoryRelationship)--> `Ended`.
-- `Ended` نهائي؛ التعديل ينشئ علاقة جديدة.
+- `Ended` is terminal; modifications create a new relationship.
 
 ### 7.4 ImportJob
 
@@ -375,91 +366,91 @@ references:
 - `Approved` --(cancel)--> `Cancelled`.
 - `Received`/`Validated` --(system validation failure)--> `Failed`.
 
-## 8. الـInvariants
+## 8. Invariants
 
-- لكل `OrganizationUnit` غير الجذر، `parent_id` ليس NULL، والجذر الوحيد هو `Cluster`؛ تكون `Facility` ابناً للتجمع وتكون الوحدات الإدارية داخل التجمع أو المنشأة وفق `Cluster > Facility > Unit`.
-- لا يمكن إنشاء Facility تحت Facility أخرى، ولا Unit خارج Cluster أو Facility إلا إذا سمح نوع الوحدة المحكوم بذلك صراحة.
-- لا يمكن نقل وحدة إلى نسلها (يمنع الدوران).
-- `assignment.start_at < assignment.end_at` إن وُجد، ولا ينشئ API تكليفاً منتهياً تاريخياً بلا مسار إنهاء وتدقيق.
-- لا يتداخل شاغلان على Position نفسها، ولا يتداخل تكليفان primary للشخص نفسه؛ يسمح بالتكليف غير الأساسي المتوازي على Position أخرى.
-- العلاقة الإشرافية يجب أن يكون لها طرفيها محددان، ولا يجوز إنشاء علاقة من شخص لآخر إذا لم تكن سياسات النوع تسمح.
-- العلاقة الإشرافية لا تمنح قدرات ضمنية خارج `relationship_capabilities` المعرّفة.
-- استيراد CSV/XLSX لا يطبق مباشرة: يمر عبر حالات Received → Validated → Approved → Applied.
-- لا تُطبّق صفحات الاستيراد التي تحوي أخطاء حرجة (Critical)؛ يطلب إعادة رفع.
-- كل استيراد يحتاج `approved_by_user_id` مختلف عن `submitted_by_user_id` (مبدأ الموافقة المزدوجة).
-- معرفات actor حقائق تدقيق من سياق المصادقة وليست FKs أو ORM relations إلى Identity.
-- لكل Person رقم `person_version` أحادي الزيادة يرافق أحداث provisioning وحالة الوصول.
-- التقويم المرجعي Asia/Riyadh، لكن طوابع `created_at`/`updated_at` تُخزن UTC.
+- For every non-root `OrganizationUnit`, `parent_id` is not NULL, and the only root is the `Cluster`; a `Facility` is a child of the cluster and administrative units sit inside the cluster or facility per `Cluster > Facility > Unit`.
+- A Facility cannot be created under another Facility, and a Unit cannot exist outside a Cluster or Facility unless the governed unit type explicitly allows it.
+- A unit cannot be moved into its own descendant (cycles are prevented).
+- `assignment.start_at < assignment.end_at` if `end_at` exists, and the API does not create a historically ended assignment without an end and audit path.
+- Two occupants cannot overlap on the same Position, and two primary assignments cannot overlap for the same person; parallel non-primary assignments on another Position are allowed.
+- A supervisory relationship must have both sides specified, and creating a relationship from a person to another person is not allowed unless the type's policy permits it.
+- A supervisory relationship does not grant implicit capabilities outside the defined `relationship_capabilities`.
+- CSV/XLSX import does not apply directly: it passes through Received -> Validated -> Approved -> Applied.
+- Import rows containing Critical errors are not applied; a re-upload is required.
+- Every import requires `approved_by_user_id` to differ from `submitted_by_user_id` (dual-approval principle).
+- Actor identifiers are audit facts from the authentication context and are not FKs or ORM relations to Identity.
+- Every Person has a monotonically increasing `person_version` that accompanies provisioning and access-status events.
+- Reference calendar is Asia/Riyadh, but `created_at`/`updated_at` timestamps are stored as UTC.
 
-## 9. معاملات المجال وملكية القرار
+## 9. Domain Transactions and Decision Ownership
 
-- كل Command يقوده Aggregate المالك داخل Organization؛ Handler الخاص بالـSlice يملك Transaction وcommit أو rollback.
-- إنشاء أو نقل Cluster أو Facility أو Unit يحفظ الشجرة و`path_cache` والأحداث في Transaction واحدة.
-- استيراد CSV/XLSX يملك ImportJob Transaction الخاصة به، ولا يكتب صفوف الهيكل عند الرفع أو التحقق؛ التطبيق فقط يحدث بعد Approved.
-- تطبيق الاستيراد يحفظ تغييرات Organization و`IdentityProvisioningRequested` في Outbox داخل المعاملة نفسها، ولا يكتب جداول Identity.
-- لا يستخدم Organization Transaction عامة لتنسيق جداول Identity أو Authorization أو WorkRecords.
-- الأحداث المهمة وOutbox تحفظ داخل Transaction المالك، وتنفذ الفهرسة أو الإشعار بعد Commit.
-- يقدم Organization حقائق النطاق والعلاقات إلى Authorization، لكنه لا يصدر قرار Allow أو Deny لسجل أعمال.
+- Every Command is driven by the owning Aggregate inside Organization; the Slice's Handler owns the Transaction and commits or rolls back.
+- Creating or moving a Cluster, Facility, or Unit persists the tree and `path_cache` and events in a single Transaction.
+- CSV/XLSX import owns its own ImportJob Transaction and does not write structure rows during upload or validation; application happens only after Approved.
+- Applying an import persists Organization changes and the `IdentityProvisioningRequested` event in the Outbox inside the same transaction, and does not write Identity tables.
+- Organization does not use a general Transaction to coordinate Identity, Authorization, or WorkRecords tables.
+- Important events and Outbox writes are saved inside the owning Transaction; indexing or notification happens after Commit.
+- Organization provides scope and relationship facts to Authorization, but it does not issue an Allow or Deny decision on a work record.
 
-## 10. الصلاحيات
+## 10. Permissions
 
-- السوبر أدمن فقط ينشئ `Cluster` ويعدل إعداداته العامة.
-- السوبر أدمن فقط ينشئ `Facility` و`OrganizationUnit` ويعدلها ويؤرشفها.
-- السوبر أدمن فقط ينشئ `SupervisoryRelationship` ويمنح القدرات.
-- السوبر أدمن فقط يعتمد `ImportJob`.
-- السوبر أدمن فقط ينشئ `Position`.
-- السوبر أدمن فقط ينشئ `Assignment` وينهيه.
-- لا يستطيع الموظف تعديل جهته أو منصبه أو مديره أو صلاحياته بنفسه.
-- السوبر أدمن يطّلع على سجل التدقيق لأي عملية حساسة، وكل عملية حساسة تسجل مع اسم المنفّذ والوقت Asia/Riyadh وسبب اختياري.
-- يقدم Organization إلى Authorization عقود `ResolveOrganizationScope` و`GetActiveSupervisoryRelationships` وحقائق التنظيم اللازمة لبناء `AuthorizationRecordFacts`.
-- لا يقرر Organization صلاحية سجل أعمال ولا يقرأ payload؛ قرار Allow أو Deny وFieldAccess مركزي في Authorization.
+- Only super admin creates a `Cluster` and edits its general settings.
+- Only super admin creates, edits, and archives `Facility` and `OrganizationUnit`.
+- Only super admin creates a `SupervisoryRelationship` and grants its capabilities.
+- Only super admin approves an `ImportJob`.
+- Only super admin creates a `Position`.
+- Only super admin creates an `Assignment` and ends it.
+- An employee cannot modify their own organizational side, position, manager, or permissions.
+- Super admin can read the audit trail of any sensitive operation; every sensitive operation is recorded with the actor's name, Asia/Riyadh time, and an optional reason.
+- Organization provides Authorization with the `ResolveOrganizationScope` and `GetActiveSupervisoryRelationships` contracts, plus the organizational facts needed to build `AuthorizationRecordFacts`.
+- Organization does not decide access for a work record and does not read payloads; the Allow/Deny decision and FieldAccess are centralized in Authorization.
 
-## 11. الفشل
+## 11. Failure
 
-- استيراد CSV/XLSX فيه حقول مطلوبة ناقصة: الصف يُعلّم كـ Critical ولا يُطبّق، ويُسمح بإعادة الرفع.
-- استيراد فيه قيم لا تطابق أنواع محكومة (مثل `facility_type_code` غير معروف): الصف يُرفَض ولا يؤثر على غيره.
-- محاولة نقل وحدة إلى نسلها: العملية تُمنع مع رسالة قابلة للتفسير.
-- محاولة حفظ تكليف بتاريخ نهاية قبل البداية: تُمنع في طبقة المجال.
-- انتهاء علاقة إشرافية قبل أي قرار وصول: يفقد القرار قدرات العلاقة، ويسجّل النظام الحدث في Outbox.
-- فشل إنشاء Outbox event: المعاملة تُلفّ، وتُسجّل في قائمة أخطاء المراجعة.
-- أي فشل في تخزين UTC يحول دون أي تحويل Asia/Riyadh محتمل في طبقة العرض: يمنع بأداة CI تختبر أن الطوابع لا تُعدّل في طبقة الـRead.
+- CSV/XLSX import with missing required fields: the row is flagged Critical and not applied; a re-upload is allowed.
+- Import with values that do not match governed types (such as unknown `facility_type_code`): the row is rejected and does not affect the rest.
+- Attempt to move a unit into its descendant: the operation is rejected with an interpretable message.
+- Attempt to save an assignment whose end date precedes its start date: rejected at the domain layer.
+- A supervisory relationship expiring before any access decision: the decision loses the relationship's capabilities, and the system records the event in the Outbox.
+- Outbox event creation failure: the transaction is rolled back and the failure is recorded in the review errors list.
+- Any failure to store UTC prevents any Asia/Riyadh conversion at the presentation layer: enforced via a CI tool that verifies timestamps are not mutated in the Read layer.
 
-## 12. الاختبارات والقبول
+## 12. Tests and Acceptance
 
-### 12.1 معايير القبول
+### 12.1 Acceptance Criteria
 
-- السوبر أدمن ينشئ تجمعاً واحداً فقط في النظام.
-- السوبر أدمن ينشئ منشأة جديدة ويحدد نوعها ويصبح لها شجرة وحدات.
-- السوبر أدمن ينقل وحدة من إدارة إلى إدارة أخرى، ويتغير `path_cache`.
-- السوبر أدمن ينشئ علاقة إشراف وظيفي بين وحدتين بمنحنى زمني وقدرات محددة.
-- السوبر أدمن يرفع ملف CSV/XLSX، تظهر الأخطاء قبل الاعتماد، يوافق، تطبّق التغييرات.
-- انتهاء تكليف بتاريخ محدد يسحب أثره تلقائياً.
-- انتهاء علاقة إشرافية يسحب قدراتها تلقائياً.
-- جميع الطوابع الزمنية تُعرض Asia/Riyadh للواجهة وUTC لقاعدة البيانات.
+- Super admin creates exactly one cluster in the system.
+- Super admin creates a new facility, specifies its type, and it acquires a unit tree.
+- Super admin moves a unit from one administration to another, and `path_cache` changes.
+- Super admin creates a functional-supervision relationship between two units with a time curve and defined capabilities.
+- Super admin uploads a CSV/XLSX file, errors appear before approval, super admin approves, and the changes are applied.
+- An assignment ending on a specific date automatically loses its effect.
+- A supervisory relationship ending automatically loses its capabilities.
+- All timestamps are presented as Asia/Riyadh for the UI and UTC in the database.
 
-### 12.2 الاختبارات
+### 12.2 Tests
 
-- اختبار معماري: يمنع Namespace الأعمال من استيراد Infrastructure من Organization.
-- اختبار وحدة: قواعد `path_cache` عند النقل، ومنع الدوران.
-- اختبار حالة استخدام: إنشاء منشأة جديدة ينعكس على شجرة الوحدات.
-- اختبار حالة استخدام: استيراد CSV يحوي أخطاء حرجة → حالة Failed وعدم تطبيق.
-- اختبار حالة استخدام: استيراد ناجح ينشئ عدد الصفوف الصحيح.
-- اختبار Authorization: موظف في منشأة لا يستطيع قراءة تكليفات منشأة أخرى.
-- اختبار عبر-موديول عقد: `ResolveDirectManager` يعيد النتيجة الصحيحة بحسب Asia/Riyadh.
-- اختبار UTC: لا يوجد تحويل Asia/Riyadh في طبقة Persistence.
-- اختبار Integration: علاقة إشرافية منتهية لا تظهر في `GetActiveSupervisoryRelationships`.
+- Architecture test: prevents the business Namespace from importing Infrastructure from Organization.
+- Unit test: `path_cache` rules on move, and cycle prevention.
+- Use-case test: creating a new facility is reflected in the unit tree.
+- Use-case test: CSV import containing Critical errors -> Failed state and no application.
+- Use-case test: a successful import creates the correct number of rows.
+- Authorization test: an employee in one facility cannot read assignments of another facility.
+- Cross-module contract test: `ResolveDirectManager` returns the correct result per Asia/Riyadh.
+- UTC test: no Asia/Riyadh conversion happens in the Persistence layer.
+- Integration test: an ended supervisory relationship does not appear in `GetActiveSupervisoryRelationships`.
 
-## 13. الاعتماديات
+## 13. Dependencies
 
-- يعتمد على: Shared/Clock (Asia/Riyadh)، Shared/Identifiers.
-- يستقبل معرفات actor من سياق المصادقة كتدقيق فقط، بلا اعتماد متزامن أو FK إلى Identity.
-- لا يعتمد على Authorization، WorkDefinitions، WorkRecords، Workflow، Documents.
-- يعتمد عليه: Identity (لربط Person بحساب)، Authorization (لحل النطاق والعلاقات)، WorkDefinitions (للإشارة إلى `owner_organization_unit_id`)، WorkRecords (نفس المرجع)، Workflow (لحل المعتمدين)، Documents (نفس المرجع)، Strategy (للإشارة إلى الجهة المالكة للمؤشر)، PortfolioProjects (نفس المرجع)، Risk (نفس المرجع)، Collaboration (للإشارة إلى الجهة المالكة للمهمة).
+- Depends on: Shared/Clock (Asia/Riyadh), Shared/Identifiers.
+- Receives actor identifiers from the authentication context as audit only, without a synchronous dependency or FK to Identity.
+- Does not depend on Authorization, WorkDefinitions, WorkRecords, Workflow, or Documents.
+- Depended on by: Identity (to link a Person to an account), Authorization (to resolve scope and relationships), WorkDefinitions (to reference `owner_organization_unit_id`), WorkRecords (same reference), Workflow (to resolve approvers), Documents (same reference), Strategy (to reference the owning side of an indicator), PortfolioProjects (same reference), Risk (same reference), Collaboration (to reference the owning side of a task).
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.2.0 | 2026-07-18 | مالك موديول Organization | نشر حالات الرفض والإلغاء ضمن دورة الاستيراد المحكومة |
-| 1.1.0 | 2026-07-18 | مالك موديول Organization | تثبيت ملكية Person وحدود actor والاستيراد وprovisioning وفق ADR-024 |
-| 1.0.0 | 2026-07-15 | مالك موديول Organization | توحيد الواجهة الأمامية وحدود الموديول |
+| 1.2.0 | 2026-07-18 | Organization Module Owner | Publish rejection and cancellation states within the governed import cycle |
+| 1.1.0 | 2026-07-18 | Organization Module Owner | Fix Person ownership, actor boundary, import, and provisioning per ADR-024 |
+| 1.0.0 | 2026-07-15 | Organization Module Owner | Unify the front end and module boundaries |

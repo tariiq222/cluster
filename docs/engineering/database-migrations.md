@@ -1,51 +1,53 @@
 ---
 doc_id: ARC-EN-006
-title: ترحيلات قاعدة البيانات
+title: Database Migrations
 type: engineering
 status: draft
 version: 1.0.0
 date: 2026-07-15
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Lead
 reviewers:
-- مسؤول العمليات
-- مسؤول أمن المعلومات
+- Operations Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: With every change
 sources:
 - docs/adr/003-module-boundaries.md
 - docs/architecture/overview.md
 references:
 - docs/data-security/logical-data-model.md
 ---
-# ترحيلات قاعدة البيانات
 
-## الملكية
+> **NOT IMPLEMENTED.** CI does not run the MySQL integration suite in `apps/api/phpunit.mysql.xml`, test a representative previous-version upgrade, or automate idempotent migration reruns. The deployment chain also has no automated pre-migration backup or restore drill.
+# Database Migrations
 
-كل migration وجدول وفهرس وconstraint يتبع موديولاً واحداً. لا تنشئ ترحيلة موديول FK أو `JOIN` أو تعديل DDL على جدول يملكه موديول آخر. تملك قراءة مشتقة جدولها وإعادة بنائها، ولا تغير حقيقة الأعمال.
+## Ownership
 
-## نمط Expand-Contract
+Every migration, table, index, and constraint belongs to one module. A module migration must not create a foreign key, `JOIN`, or DDL modification against a table owned by another module. A derived-read owner owns and can rebuild its own table; it does not modify the business fact.
 
-1. **Expand:** أضف جدولاً أو عموداً أو فهرساً أو عقداً اختيارياً متوافقاً مع الإصدارين.
-2. **Migrate:** انشر التطبيق القادر على القراءة من الشكلين والكتابة المزدوجة عند الحاجة، ثم رحل البيانات على دفعات قابلة للاستئناف ومراقبة.
-3. **Verify:** طابق العدّ والقيم والقيود والأداء، وسجل نتيجة الترحيل.
-4. **Contract:** بعد زوال كل مستهلك للإصدار السابق وانتهاء فترة التوافق، أزل المسار القديم بترحيلة لاحقة مستقلة.
+## Expand-Contract Pattern
 
-يحظر في إصدار واحد: حذف عمود مستخدم، إعادة تسمية بلا alias، تغيير نوع غير متوافق، إضافة `NOT NULL` بلا backfill، أو ترحيل يحجب جدولاً كبيراً دون خطة online migration معتمدة.
+1. **Expand:** Add a table, column, index, or optional contract compatible with both application versions.
+2. **Migrate:** Deploy the application that can read both shapes and dual-write when needed, then migrate data in observable, resumable batches.
+3. **Verify:** Reconcile counts, values, constraints, and performance, and record the migration result.
+4. **Contract:** After all consumers of the previous version are gone and the compatibility period has ended, remove the old path in a separate later migration.
 
-## ضوابط التنفيذ
+A single release must not drop an in-use column, rename without an alias, make an incompatible type change, add `NOT NULL` without a backfill, or run a migration that blocks a large table without an approved online-migration plan.
 
-- migration حتمية، مرقمة، قابلة للتتبع، وتنفذ مرة واحدة تحت قفل مناسب.
-- تفحص CI ترحيلات قاعدة فارغة وترقية نسخة سابقة ممثلة وإعادة تشغيل idempotent حيث يلزم.
-- تفصل backfill عن DDL، تحدد حجم الدفعة ومعدلها وcheckpoint وخطة إيقاف واستئناف.
-- تؤخذ نسخة صالحة قبل DDL عالي الأثر، ويختبر restore في بيئة منفصلة قبل نافذة الإنتاج.
-- يراجع مسؤول العمليات خطة التنفيذ ومدة القفل وقياس الصحة لكل migration عالي الأثر.
+## Implementation Controls
 
-## الرجوع
+- A migration is deterministic, numbered, traceable, and executed once under an appropriate lock.
+- The repository defines a MySQL integration suite in `apps/api/phpunit.mysql.xml`, but no Makefile target or CI job runs it. Empty-database migration, representative previous-version upgrade, and idempotent-rerun verification are therefore not complete CI gates.
+- Separate backfills from DDL. Specify batch size and rate, a checkpoint, and stop and resume plans.
+- Take a valid backup before high-impact DDL and test restoration in a separate environment before the production window. These are manual requirements because the deployment chain provides no backup or restore automation.
+- The Operations Lead reviews the execution plan, lock duration, and health measurement for every high-impact migration.
 
-rollback التطبيق يعيد binary أو image متوافقاً فقط. لا ينفذ down migration هدمي في الإنتاج. تصحح البيانات أو البنية بترحيلة أمامية، أو يستعاد backup وفق RPO/RTO عند فشل كارثي.
+## Rollback
 
-## سجل التغيير
+Application rollback redeploys only a compatible binary or image. It does not run a destructive down migration in production. Correct data or structure with a forward migration, or restore a backup according to RPO/RTO after a catastrophic failure. No dedicated rollback target is present in the Makefile.
 
-| الإصدار | التاريخ | الدور | التغيير |
+## Change Log
+
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول هندسة البرمجيات | اعتماد ترحيلات توسعة ثم تعاقد |
+| 1.0.0 | 2026-07-15 | Software Engineering Lead | Adopted expand-then-contract migrations and documented automation gaps |

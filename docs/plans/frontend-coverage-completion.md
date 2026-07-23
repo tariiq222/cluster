@@ -1,14 +1,14 @@
 ---
 doc_id: PLN-FE-COV-001
-title: خطة إغلاق تغطية الواجهة للعقود
+title: Plan to Close Frontend Coverage of the Contracts
 type: plans
 status: draft
 version: 1.0.0
 date: 2026-07-22
-owner: التنفيذ التقني
+owner: Software Engineering Lead
 reviewers: []
 classification: internal
-review_cycle: بعد إنجاز كل موجة
+review_cycle: After completing each wave
 sources:
   - docs/contracts/api/openapi.yaml
 references:
@@ -16,51 +16,55 @@ references:
   - docs/plans/active-delivery-status.md
 ---
 
-# خطة إغلاق تغطية الواجهة للعقود
+# Plan to Close Frontend Coverage of the Contracts
 
-## 1. الحالة المقيسة
+## 1. Measured State
 
-القياس أُجري آليًا على عقد العميل الموحّد مقابل ما تستهلكه الشاشات فعليًا
-(عملية تُعدّ «مغطّاة» إذا كان لها غلاف في `src/api/` **و** كان ذلك الغلاف
-مستوردًا من كود خارج `src/api/`).
+The measurement was run automatically on the unified client contract against
+what the screens actually consume (an operation is "covered" when it has a
+wrapper in `src/api/` **and** that wrapper is imported by code outside
+`src/api/`).
 
-| المؤشر | العدد | النسبة |
+| Indicator | Count | Percent |
 |---|---:|---:|
-| عمليات عقد العميل الموحّد | 183 | 100% |
-| تصل إليها شاشة فعليًا | 94 | 51% |
-| لها غلاف بلا مستهلك | 2 | 1% |
-| بلا غلاف إطلاقًا | 87 | 48% |
+| Operations in the unified client contract | 183 | 100% |
+| Actually reached by a screen | 94 | 51% |
+| Has a wrapper with no consumer | 2 | 1% |
+| Has no wrapper at all | 87 | 48% |
 
-تفكيك الـ87 غير المغطّاة:
+Breakdown of the 87 uncovered:
 
-| التصنيف | العدد | القرار |
+| Classification | Count | Decision |
 |---|---:|---|
-| بنية تحتية لا تحتاج شاشة | 8 | تُستثنى نهائيًا |
-| مسارات زائدة في العقد | 4 | تُحذف من العقد |
-| فجوات منتج حقيقية متبقية | 75 | نطاق الموجات التالية |
+| Infrastructure that needs no screen | 8 | Excluded permanently |
+| Redundant contract paths | 4 | To be deleted from the contract |
+| Real remaining product gaps | 75 | Scope of the following waves |
 
-### 1.1 ما يُستثنى نهائيًا (8)
+### 1.1 What Is Excluded Permanently (8)
 
-هذه عمليات بين الخدمات أو فحوص تشغيلية، ووجود شاشة لها خطأ تصميمي لا نقص:
+These are inter-service operations or operational probes; having a screen for them
+is a design error, not a gap:
 
-| العملية | المسار | السبب |
+| Operation | Path | Reason |
 |---|---|---|
-| `getBootstrapHealth` | `GET /up` | فحص تشغيلي للبنية |
-| `scanDocumentVersion` | `POST /internal/documents/versions/{versionId}/scan` | استدعاء داخلي من خدمة الفحص |
-| `reconcileDocumentPromotion` | `POST /internal/documents/versions/{versionId}/reconcile-promotion` | تسوية داخلية |
-| `validatePersonReference` | `GET /organization/people/{personId}/reference` | عقد داخلي بين الموديولات |
-| `loginW12` | `POST /auth/login` | مسار تطوير؛ الإنتاج يستخدم `/identity/login` |
-| `getAuthorizationBootstrap` | `GET /authorization/bootstrap` | تهيئة أولية لمرة واحدة |
-| `completeAuthorizationBootstrap` | `POST /authorization/bootstrap` | تهيئة أولية لمرة واحدة |
-| `bootstrapComplete` | `POST /authorization/bootstrap/complete` | تهيئة أولية لمرة واحدة |
+| `getBootstrapHealth` | `GET /up` | Operational infrastructure probe |
+| `scanDocumentVersion` | `POST /internal/documents/versions/{versionId}/scan` | Internal call from the scanning service |
+| `reconcileDocumentPromotion` | `POST /internal/documents/versions/{versionId}/reconcile-promotion` | Internal reconciliation |
+| `validatePersonReference` | `GET /organization/people/{personId}/reference` | Internal contract between modules |
+| `loginW12` | `POST /auth/login` | Development path; production uses `/identity/login` |
+| `getAuthorizationBootstrap` | `GET /authorization/bootstrap` | One-time bootstrap |
+| `completeAuthorizationBootstrap` | `POST /authorization/bootstrap` | One-time bootstrap |
+| `bootstrapComplete` | `POST /authorization/bootstrap/complete` | One-time bootstrap |
 
-### 1.2 ما يجب حذفه من العقد (4)
+### 1.2 What Must Be Removed from the Contract (4)
 
-الباك-إند يخدم مسارًا واحدًا مُقولبًا `POST /work-records/{recordId}/{recordAction}`
-(انظر `apps/api/routes/web.php`)، بينما العقد يعلن أربعة مسارات مفردة موسومة
-`x-implementation-status: planned`. هذا انحراف توثيقي يجب إغلاقه لا بناء شاشة له:
+The backend serves a single templated path
+`POST /work-records/{recordId}/{recordAction}` (see
+`apps/api/routes/web.php`), while the contract declares four single paths tagged
+`x-implementation-status: planned`. This is a documentation drift that must be
+closed, not a screen to be built:
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `submitWorkRecord` | `POST /work-records/{recordId}/submit` |
 | `transitionWorkRecordReturn` | `POST /work-records/{recordId}/return` |
@@ -69,24 +73,25 @@ references:
 
 ---
 
-## 2. مبدأ الترتيب
+## 2. Ordering Principle
 
-الموجات مرتّبة بحاصل **(الأثر ÷ الكلفة)**، لا بترتيب الموديولات في العقد.
-القاعدة العملية: الفجوة داخل موديول له شاشة تعمل أرخص بكثير من موديول بلا
-سطح استخدام أصلًا، لأن التنقّل والحالات والنصوص جاهزة.
+Waves are ordered by **(impact ÷ cost)**, not by the module order in the contract.
+The practical rule: a gap inside a module that already has a working screen is
+much cheaper than a module that has no surface area at all, because navigation,
+states, and copy are already there.
 
-- **الموجات 1–5**: نواقص داخل موديولات قائمة (38 عملية) — توصيل لا تصميم.
-- **الموجات 6–10**: موديولات غائبة بالكامل (47 عملية) — تحتاج تصميم رحلات.
+- **Waves 1–5**: gaps inside existing modules (38 operations) — wiring, not design.
+- **Waves 6–10**: entirely missing modules (47 operations) — need journey design.
 
 ---
 
-## 3. الموجة 1 — مركز المستندات (10 عمليات)
+## 3. Wave 1 — Document Center (10 operations)
 
-**لماذا أولًا:** رفع المستند يعمل بالفعل عبر `ImportReview`، لكن لا توجد أي
-شاشة لعرض المستندات أو إدارتها. المستخدم يرفع ملفًا ولا يستطيع رؤيته بعدها.
-هذه أكبر فجوة وظيفية مفردة في المنتج.
+**Why first:** document upload already works through `ImportReview`, but no screen
+exists to list or manage documents. The user uploads a file and cannot see it
+afterwards. This is the single largest functional gap in the product.
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `listDocuments` | `GET /documents` |
 | `getDocument` | `GET /documents/{documentId}` |
@@ -99,64 +104,71 @@ references:
 | `linkDocument` | `POST /documents/{documentId}/links` |
 | `createDocumentAccessGrant` | `POST /documents/{documentId}/{grantType}-grant` |
 
-**المخرجات:**
-1. مسار `/documents` وشاشة قائمة مع تصفية بالحالة والتصنيف و`cursor` للترقيم.
-2. شاشة تفصيل: البيانات، النسخ، الروابط، ومنح الوصول.
-3. رفع نسخة جديدة يعيد استخدام تدفق الحجر الموجود في `ImportReview`.
-4. استبدال حقل «الصق معرّف المستند» في `RequestDetail` بمنتقي حقيقي.
+**Outputs:**
+1. `/documents` route and a list screen with status and classification filtering
+   and `cursor` pagination.
+2. A detail screen: data, versions, links, and access grants.
+3. New version upload reuses the existing quarantine flow in `ImportReview`.
+4. Replace the "paste document id" field in `RequestDetail` with a real picker.
 
-**تبعية:** لا شيء. `initiateDocumentUpload`/`completeDocumentUpload` مغطّاة أصلًا.
+**Dependency:** none. `initiateDocumentUpload`/`completeDocumentUpload` are
+already covered.
 
-**فجوة عقد مرصودة:** لا يوجد endpoint لعرض المنح أو إلغائها — الإنشاء فقط.
-يجب رفعها لمالك العقد قبل تصميم شاشة المنح.
+**Observed contract gap:** there is no endpoint for listing or revoking grants —
+only creation. This must be raised to the contract owner before designing the
+grants screen.
 
 ---
 
-## 4. الموجة 2 — سجل التدقيق (1 عملية)
+## 4. Wave 2 — Audit Log (1 operation)
 
-**لماذا:** بند P0 مسجّل في شاشة التغطية عندك. حاليًا «الجدول الزمني» في
-`RequestDetail` صفٌّ مُصطنع واحد مبني من `created_at`، وليس تاريخًا حقيقيًا.
+**Why:** a P0 item already logged in your coverage screen. Today the "Timeline"
+in `RequestDetail` is one synthetic row built from `created_at`, not a real
+history.
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `listAuditEvents` | `GET /audit` |
 
-**المخرجات:**
-1. مسار `/audit` وشاشة بحث مع تصفية بالمورد والفاعل والمدى الزمني.
-2. لوحة «سجل الأحداث» مضمّنة في شاشة تفصيل أي كيان، مُرشَّحة على معرّفه.
-3. حذف الجدول الزمني المُصطنع من `RequestDetail`.
+**Outputs:**
+1. `/audit` route and a search screen with resource, actor, and time-range filtering.
+2. An "Event log" panel embedded inside any entity detail screen, filtered by
+   its id.
+3. Remove the synthetic timeline from `RequestDetail`.
 
-**تبعية:** يُفضّل بعد الموجة 1 لإعادة استخدام نمط «لوحة مضمّنة في التفصيل».
+**Dependency:** preferred after Wave 1 to reuse the "panel embedded in detail"
+pattern.
 
 ---
 
-## 5. الموجة 3 — قرارات سير العمل مع السبب (3 عمليات)
+## 5. Wave 3 — Workflow Decisions with Reason (3 operations)
 
-**لماذا:** ثغرة حوكمة حقيقية لا مجرد نقص واجهة. الموافقات اليوم ثنائية بلا
-تسجيل سبب على مستوى الخطوة، رغم أن العقد يوجب `reason` في `Decision`.
+**Why:** a real governance gap, not just a UI gap. Today's approvals are binary
+with no reason logged at the step level, even though the contract mandates
+`reason` in `Decision`.
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `recordWorkflowDecision` | `POST /workflow/steps/{stepId}/decisions` |
 | `actOnWorkflowStep` | `POST /workflow/steps/{stepId}/{stepAction}` |
 | `cancelWorkflow` | `POST /workflow/instances/{instanceId}/cancel` |
 
-**المخرجات:**
-1. نموذج قرار على الخطوة: `approve` / `reject` / `return` / `accept` / `decline`
-   مع حقل سبب إلزامي وتحقق طول (1–2000).
-2. إعادة إسناد وتصعيد الخطوة عبر `actOnWorkflowStep`.
-3. إلغاء نسخة سير العمل من شاشة الإدارة.
+**Outputs:**
+1. A step decision form: `approve` / `reject` / `return` / `accept` / `decline`
+   with a mandatory reason and length validation (1–2000).
+2. Step reassignment and escalation through `actOnWorkflowStep`.
+3. Cancel a workflow instance from the administration screen.
 
-**ملاحظة مرتبطة:** يوجد نمط مشابه في `AuthorizationAdmin` — تغيير حالة
-role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
-`transitionAuthorizationAdminResource`. يجب إصلاحه ضمن هذه الموجة لأنه
-نفس ثغرة الحوكمة.
+**Related note:** the same pattern exists in `AuthorizationAdmin` — role-assignment
+status change happens through a direct PATCH without a reason, bypassing
+`transitionAuthorizationAdminResource`. It must be fixed within this wave
+because it is the same governance gap.
 
 ---
 
-## 6. الموجة 4 — تعليقات المهام والمشاركون (6 عمليات)
+## 6. Wave 4 — Task Comments and Participants (6 operations)
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `getTask` | `GET /tasks/{taskId}` |
 | `createTask` | `POST /tasks` |
@@ -165,20 +177,20 @@ role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
 | `addTaskComment` | `POST /tasks/{taskId}/comments` |
 | `addTaskParticipant` | `POST /tasks/{taskId}/participants` |
 
-**المخرجات:**
-1. شاشة تفصيل مهمة (`/tasks/{taskId}`) — غير موجودة اليوم، القائمة فقط.
-2. خيط تعليقات فعلي مع إضافة.
-3. إضافة مشارك إلى المهمة.
+**Outputs:**
+1. A task detail screen (`/tasks/{taskId}`) — does not exist today, list only.
+2. A real comment thread with add.
+3. Adding a participant to the task.
 
 ---
 
-## 7. الموجة 5 — دورة حياة التعريفات وصفحات التفصيل (18 عملية)
+## 7. Wave 5 — Definitions Lifecycle and Detail Pages (18 operations)
 
-### 7.1 دورة تعريفات العمل (9)
+### 7.1 Work-Definition Lifecycle (9)
 
-`publish` فقط يعمل اليوم؛ باقي الدورة الحوكمية غير موصول.
+Today only `publish` works; the rest of the governance lifecycle is unwired.
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `getWorkDefinition` | `GET /work-definitions/{definitionId}` |
 | `updateWorkDefinition` | `PATCH /work-definitions/{definitionId}` |
@@ -190,11 +202,12 @@ role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
 | `getWorkflowVersion` | `GET /workflow/versions/{versionId}` |
 | `updateWorkflowVersionDraft` | `PATCH /workflow/versions/{versionId}` |
 
-### 7.2 صفحات تفصيل الكيانات (9)
+### 7.2 Entity Detail Pages (9)
 
-لا توجد اليوم صفحة تفصيل لأي كيان تنظيمي — الشاشات تعتمد على القوائم فقط.
+There is no detail page for any organizational entity today — screens rely on
+lists only.
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `getOrganizationUnit` | `GET /organization/units/{unitId}` |
 | `getPosition` | `GET /organization/positions/{positionId}` |
@@ -206,19 +219,21 @@ role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
 | `updateWorkRecord` | `PATCH /work-records/{recordId}` |
 | `logout` | `POST /auth/logout` |
 
-**ملاحظة:** `logout` هو مسار التطوير؛ الإنتاج يستخدم `identityLogout` المغطّى.
-يُرجّح حذفه من العقد بدل بناء شيء له.
+**Note:** `logout` is a development path; production uses the covered
+`identityLogout`. It is likely to be removed from the contract instead of being
+built.
 
 ---
 
-## 8. الموجات 6–10 — الموديولات الغائبة (47 عملية)
+## 8. Waves 6–10 — Missing Modules (47 operations)
 
-هذه ليست ثغرات توصيل بل **منتج غير مبني**: لا شاشة ولا مسار ولا مدخل تنقّل.
-كل موجة تحتاج تصميم رحلة قبل الكود، ولذلك تُقدّر بمقياس مختلف عن الموجات 1–5.
+These are not wiring gaps but **unbuilt product**: no screen, no path, no
+navigation entry. Each wave needs journey design before code, and is therefore
+estimated on a different scale than Waves 1–5.
 
-### 8.1 الموجة 6 — حوكمة السجلات (12)
+### 8.1 Wave 6 — Records Governance (12)
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `listGovernedRecords` | `GET /records-governance/governed-records` |
 | `registerGovernedRecord` | `POST /records-governance/governed-records` |
@@ -233,11 +248,11 @@ role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
 | `decideDispositionEligibility` | `POST /records-governance/disposition-reviews` |
 | `confirmDispositionOutcome` | `POST /records-governance/disposition-reviews/{reviewId}/confirm` |
 
-**تبعية:** بعد الموجة 1، لأن حوكمة السجلات تعمل على المستندات.
+**Dependency:** after Wave 1, because records governance works on documents.
 
-### 8.2 الموجة 7 — المحافظ والمشاريع (10)
+### 8.2 Wave 7 — Portfolios and Projects (10)
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `listPortfolioResources` | `GET /portfolio/{portfolioResource}` |
 | `getPortfolioResource` | `GET /portfolio/{portfolioResource}/{resourceId}` |
@@ -250,11 +265,11 @@ role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
 | `createProjectIndicatorLink` | `POST /portfolio/projects/{projectId}/indicator-links` |
 | `recordProjectSnapshot` | `POST /portfolio/projects/{projectId}/{snapshotType}-snapshots` |
 
-**تبعية:** روابط المؤشرات تتطلب الموجة 9 (الاستراتيجية) لتكون ذات معنى.
+**Dependency:** indicator links require Wave 9 (Strategy) to be meaningful.
 
-### 8.3 الموجة 8 — إعدادات المنصة والتقاويم (9)
+### 8.3 Wave 8 — Platform Settings and Calendars (9)
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `getCurrentPlatformSettings` | `GET /platform-settings/current` |
 | `listPlatformSettingsVersions` | `GET /platform-settings/versions` |
@@ -266,12 +281,12 @@ role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
 | `setBusinessCalendarDay` | `PUT /business-calendars/{calendarId}/days/{date}` |
 | `publishBusinessCalendar` | `POST /business-calendars/{calendarId}/publish` |
 
-**ملاحظة:** التقاويم تؤثر على حساب مُهل سير العمل، لذا قيمتها التشغيلية أعلى
-من ترتيبها هنا إن كانت المُهل مفعّلة فعلًا.
+**Note:** calendars affect workflow deadline calculation, so their operational
+value is higher than their ordering here if deadlines are actually enabled.
 
-### 8.4 الموجة 9 — المخاطر (9)
+### 8.4 Wave 9 — Risks (9)
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `listRiskResources` | `GET /risk/{riskResource}` |
 | `getRisk` | `GET /risk/risks/{riskId}` |
@@ -283,9 +298,9 @@ role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
 | `getRiskHeatmap` | `GET /risk/heatmap` |
 | `listDueRiskReviews` | `GET /risk/reviews/due` |
 
-### 8.5 الموجة 10 — الاستراتيجية (7)
+### 8.5 Wave 10 — Strategy (7)
 
-| العملية | المسار |
+| Operation | Path |
 |---|---|
 | `listStrategyResources` | `GET /strategy/{strategyResource}` |
 | `getStrategyResource` | `GET /strategy/{strategyResource}/{resourceId}` |
@@ -297,55 +312,60 @@ role-assignment يتم عبر PATCH مباشر بلا سبب، متجاوزًا
 
 ---
 
-## 9. أعمال عرضية لا ترتبط بموجة
+## 9. Collateral Work Not Tied to a Wave
 
-هذه بنود مرصودة أثناء التدقيق يجب إنجازها بالتوازي:
+These items were observed during the audit and must be done in parallel:
 
-| # | البند | الموقع | الأثر |
+| # | Item | Location | Impact |
 |---|---|---|---|
-| ع-1 | إخفاء استباقي للتنقّل والأزرار بحسب `allowed_actions` بدل الاعتماد على 403 بعد المحاولة | كل الشاشات | تجربة + أمان ظاهري |
-| ع-2 | ترقيم `cursor` في القوائم التي ما زالت بحد ثابت | `listPositions`, `listPeople`, `listAssignments`, `listUserAccounts`, `listImportJobRows` | فقدان بيانات صامت |
-| ع-3 | تصحيح عقد `POST /organization/units/reorder`: يوجب `ordered_unit_ids` بينما الكونترولر يتجاهل الجسم | `docs/contracts/api/openapi.yaml` | انحراف عقد |
-| ع-4 | حذف المسارات الأربعة الزائدة لسجلات العمل من العقد | `docs/contracts/api/openapi.yaml` | انحراف عقد |
-| ع-5 | endpoints ناقصة يجب إضافتها للعقد: عرض/إلغاء منح المستند، إنشاء مقاعد دفعة واحدة، تفصيل وتعديل المسمى الوظيفي، إنهاء العلاقة الإشرافية، `unread-count` و`mark-all-read` للإشعارات | العقد | تحجب موجات لاحقة |
-| ع-6 | مراجعة بصرية لأربع شاشات بعد إصلاح سلاسل شرطية منهارة | `IdentityAccounts`, `ImportReview`, `OrganizationStructure`, `AuthorizationAdmin` | تحقق من انحسار |
-| ع-7 | التحقق من أثر إزالة ترويسة `X-Day3-Acceptance` من `createWorkRecord` على تدفقات القبول | `apps/web/src/api/work-records.ts` | اختبارات قبول |
+| C-1 | Proactive hiding of navigation and buttons by `allowed_actions` instead of relying on 403 after attempting | All screens | UX and visible security |
+| C-2 | `cursor` pagination in lists still on a fixed limit | `listPositions`, `listPeople`, `listAssignments`, `listUserAccounts`, `listImportJobRows` | Silent data loss |
+| C-3 | Fix the `POST /organization/units/reorder` contract: it requires `ordered_unit_ids` while the controller ignores the body | `docs/contracts/api/openapi.yaml` | Contract drift |
+| C-4 | Remove the four redundant work-record paths from the contract | `docs/contracts/api/openapi.yaml` | Contract drift |
+| C-5 | Missing endpoints to add to the contract: list/revoke document grants, bulk create positions, position detail and edit, end supervisory relation, `unread-count` and `mark-all-read` for notifications | Contract | Block later waves |
+| C-6 | Visual review of four screens after fixing broken conditional chains | `IdentityAccounts`, `ImportReview`, `OrganizationStructure`, `AuthorizationAdmin` | Verify regression is gone |
+| C-7 | Verify the effect of removing the `X-Day3-Acceptance` header from `createWorkRecord` on the acceptance flows | `apps/web/src/api/work-records.ts` | Acceptance tests |
 
 ---
 
-## 10. تعريف الإنجاز لكل موجة
+## 10. Definition of Done for Each Wave
 
-الموجة لا تُعدّ منجزة إلا باكتمال كل ما يلي:
+A wave is not complete until all the following are true:
 
-1. كل عملية في الموجة لها غلاف في `src/api/` يمر عبر العميل المولّد — لا `fetch` يدوي.
-2. كل غلاف مستهلَك من شاشة أو مكوّن خارج `src/api/`.
-3. الشاشة تغطي الحالات الست: `loading` / `ready` / `empty` / `forbidden` / `not-found` / `error`
-   عبر `stateFromError` المشترك، مع `conflict` و`stale` لكل مورد له `lock_version`.
-4. لا نصوص مضمّنة: كل سلسلة في قاموس الملف أو القاموس المركزي، عربي وإنجليزي.
-5. المسار مُصنَّف في `ROUTE_WORKSPACE` داخل `shell/routes.ts` وله مدخل تنقّل.
-6. اختبارات وحدة للمنطق النقي، واختبار رحلة واحد على الأقل للمسار السعيد.
-7. إعادة قياس التغطية وتحديث الجدول في القسم 1.
+1. Every operation in the wave has a wrapper in `src/api/` that goes through the
+   generated client — no manual `fetch`.
+2. Every wrapper is consumed by a screen or component outside `src/api/`.
+3. The screen covers the six states: `loading` / `ready` / `empty` / `forbidden` /
+   `not-found` / `error` through the shared `stateFromError`, with `conflict` and
+   `stale` for every resource that has `lock_version`.
+4. No inline copy: every string lives in the screen dictionary or the central
+   dictionary, in Arabic and English.
+5. The route is classified in `ROUTE_WORKSPACE` inside `shell/routes.ts` and has
+   a navigation entry.
+6. Unit tests for the pure logic and at least one happy-path journey test.
+7. The coverage is remeasured and the table in section 1 is updated.
 
-## 11. تتبّع التقدّم
+## 11. Progress Tracking
 
-| الموجة | العمليات | الحالة |
+| Wave | Operations | Status |
 |---|---:|---|
-| 1 — مركز المستندات | 10 | مكتملة — 10 / 10 |
-| 2 — سجل التدقيق | 1 | لم تبدأ |
-| 3 — قرارات سير العمل | 3 | لم تبدأ |
-| 4 — المهام والتعليقات | 6 | لم تبدأ |
-| 5 — التعريفات وصفحات التفصيل | 18 | لم تبدأ |
-| 6 — حوكمة السجلات | 12 | لم تبدأ |
-| 7 — المحافظ والمشاريع | 10 | لم تبدأ |
-| 8 — إعدادات المنصة والتقاويم | 9 | لم تبدأ |
-| 9 — المخاطر | 9 | لم تبدأ |
-| 10 — الاستراتيجية | 7 | لم تبدأ |
-| **الإجمالي** | **85** | **10 / 85** |
+| 1 — Document Center | 10 | Complete — 10 / 10 |
+| 2 — Audit Log | 1 | Not started |
+| 3 — Workflow Decisions | 3 | Not started |
+| 4 — Tasks and Comments | 6 | Not started |
+| 5 — Definitions and Detail Pages | 18 | Not started |
+| 6 — Records Governance | 12 | Not started |
+| 7 — Portfolios and Projects | 10 | Not started |
+| 8 — Platform Settings and Calendars | 9 | Not started |
+| 9 — Risks | 9 | Not started |
+| 10 — Strategy | 7 | Not started |
+| **Total** | **85** | **10 / 85** |
 
-عند اكتمال الموجات 1–5 تصبح التغطية **~67%**، وعند اكتمال الجميع **100%**
-من العمليات المخصّصة للواجهة (183 ناقص 12 مستثناة أو محذوفة = 171).
+When Waves 1–5 are complete, coverage becomes **~67%**, and when all are
+complete, **100%** of the operations dedicated to the frontend (183 minus 12
+excluded or removed = 171).
 
-## 12. كيفية إعادة القياس
+## 12. How to Remeasure
 
 ```bash
 cd apps/web && python3 - <<'PY'

@@ -1,16 +1,16 @@
 ---
 doc_id: OPS-OV-001
-title: فهرس وثائق التشغيل
+title: Operations Documentation Index
 type: operations
-status: proposed
+status: accepted
 version: 1.1.0
 date: 2026-07-16
-owner: مسؤول العمليات
+owner: Operations Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semi-annual
 sources:
 - docs/architecture/overview.md
 - docs/adr/018-air-gapped-supply-chain.md
@@ -20,38 +20,50 @@ references:
 - docs/governance/document-control.md
 - docs/governance/assumptions-constraints.md
 ---
-# فهرس وثائق التشغيل
+# Operations Documentation Index
 
-هذه الحزمة تصف التصميم التشغيلي لـVPS واحد محدود المنافذ. لا تحتوي أسماء مضيفين أو نطاقات أو عناوين أو أسرار فعلية؛ تحفظ تلك القيم في `.env.production` على الخادم.
+This bundle describes the operational design of a single, port-restricted VPS.
+It contains no real host names, domains, addresses, or secrets; those values
+are held in `.env.production` on the server.
 
-| الوثيقة | الغرض |
+| Document | Purpose |
 |---|---|
-| [الطوبولوجيا الفيزيائية](physical-topology.md) | طبقات المركز ومجالات العطل والسعة المرجعية |
-| [منصة Docker Compose](kubernetes-platform.md) | قرار الخادم الواحد، الحاويات، الوصول، والنشر |
-| [التوافر والتعافي والنسخ](ha-dr-backup.md) | HA وPITR وRPO/RTO وتمرين الاستعادة |
-| [الرصد وSLO](observability-and-slos.md) | القياسات والتنبيهات وأهداف الخدمة |
-| [سلسلة التوريد](air-gap-supply-chain.md) | تثبيت الصور والتحديث والمراجعة وSBOM |
-| [الاستجابة للحوادث](incident-response.md) | التصنيف والأدوار والاحتواء والتواصل |
-| [كتيبات التشغيل](runbooks.md) | إجراءات تنفيذية للحالات المتكررة والحرجة |
+| [Physical Topology](physical-topology.md) | Site layers, failure domains, and reference capacity |
+| [Docker Compose Platform](../architecture/docker-compose-platform.md) | Single-server decision, containers, access, and deployment |
+| [High Availability, Recovery, and Backup](ha-dr-backup.md) | Recovery, PITR, RPO/RTO targets, and restore exercises |
+| [Observability and SLOs](observability-and-slos.md) | Metrics, alerts, and service-level objectives |
+| [Supply Chain](air-gap-supply-chain.md) | Image pinning, updates, reviews, and SBOM |
+| [Incident Response](incident-response.md) | Severity levels, roles, containment, and communication |
+| [Runbooks](runbooks.md) | Executable procedures for recurring and critical cases |
 
-## القرارات الملزمة
+## Binding decisions
 
-- يعمل الإنتاج على VPS واحد عبر Docker Compose مباشر وCaddy، ولا يستخدم Kubernetes أو Dokploy.
-- يستخدم التطبيق MySQL وRedis الموجودين على الخادم، ولا تنشر منافذهما للعامة.
-- يكون HTTPS مسار المستخدم، ويقيد SSH بعناوين الإدارة.
-- تبنى الصور من lockfiles عند النشر ويمكن الرجوع إلى commit سليم.
-- تبقى Dev وTest خارج بيانات وأسرار Prod؛ ولا يعد مشروع Compose آخر على الخادم نفسه عزلاً أمنياً كاملاً.
-- تحفظ النسخ مشفرة خارج خادم الإنتاج وتختبر الاستعادة على هدف منفصل.
+- Production runs on a single VPS through Docker Compose and Caddy. There is
+  no Kubernetes and no Dokploy in production.
+- The application reuses the MySQL and Redis instances installed on the host;
+  their ports are not published to the public network.
+- HTTPS is the user-facing path. SSH is restricted to administrative addresses.
+- Images are built from lockfiles at deploy time, and any release can be
+  rolled back to a known-good commit.
+- Dev and Test must stay outside Prod data and secrets. A second Compose
+  project on the same host does not, on its own, constitute full security
+  isolation.
+- Backups are stored encrypted outside the production host, and recovery is
+  exercised against a separate target.
 
-## معايير القبول التشغيلية
+## Operational acceptance criteria
 
-- `RPO <= 15 دقيقة` و`RTO <= ساعتين`، ويثبتان بتمرين استعادة ربع سنوي.
-- لا يدعى HA عند فشل الخادم الواحد؛ تقاس الإتاحة الفعلية، وAPI `p95 <= 500ms`، والبحث `p95 <= 2s`، وتأخر الفهرسة `<= 60s`.
-- يثبت اختبار الحمل خدمة حتى `2,000` مستخدم متزامن قبل الإطلاق.
+- `RPO <= 15 minutes` and `RTO <= 2 hours`, demonstrated by a quarterly
+  restore exercise.
+- High availability is **not** claimed when the single host fails. Effective
+  availability is measured. API `p95 <= 500ms`, search `p95 <= 2s`, and
+  indexing lag `<= 60s`.
+- A load test must show the service supporting up to `2,000` concurrent users
+  before launch.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول العمليات | إنشاء فهرس حزمة التشغيل |
-| 2.0.0 | 2026-07-17 | طارق | اعتماد Docker Compose مباشر وCaddy وMySQL/Redis خارجيين على VPS واحد |
+| 1.0.0 | 2026-07-15 | Operations Lead | Initial operations bundle index |
+| 2.0.0 | 2026-07-17 | Platform Owner | Adopted direct Docker Compose + Caddy with host-resident MySQL/Redis on a single VPS |

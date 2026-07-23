@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-019
-title: تشغيل Kubernetes والتعافي
+title:  Kubernetes 
 type: adr
 status: superseded
 version: 1.1.0
 date: 2026-07-16
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: البنية والتوافر والنسخ الاحتياطي
+- Platform Architecture Council
+scope:    
 supersedes:
 - ADR-010
 superseded_by:
@@ -26,30 +26,30 @@ related_adrs:
 - ADR-018
 review_by: 2026-10-15
 ---
-# ADR-019: تشغيل Kubernetes والتعافي
+# ADR-019:  Kubernetes 
 
-> استبدل هذا القرار بـ[ADR-023](023-single-host-dokploy-deployment.md) لاعتماد Dokploy وDocker Compose على خادم داخلي واحد مع قبول خطر توقف الخدمة عند تعطل الخادم.
+>    [ADR-023](023-single-host-dokploy-deployment.md)  Dokploy Docker Compose            .
 ## Context
-المنصة تحتاج حتى 2,000 مستخدم متزامن وتبقى متاحة عند فشل عقدة داخل المركز.
+   2,000         .
 ## Drivers
-التوافر والتعافي القابل للقياس في تشغيل on-premises.
+      on-premises.
 ## Decision
-تشغل Web/API وWorkers بعدة replicas، وMySQL وCache/Queue وObject Storage وSearch داخلياً عالي التوافر؛ النسخ مشفرة ومستقلة عن نطاق عطل Kubernetes مع RPO ≤15 دقيقة وRTO ≤ ساعتين.
+ Web/API Workers  replicas MySQL Cache/Queue Object Storage Search          Kubernetes  RPO ≤15  RTO ≤ .
 ## Scope
-يشمل البيئات المنفصلة والمراقبة والسجلات وleader-elected scheduler والاستعادة.
+     leader-elected scheduler .
 ## Alternatives
-رُفضت عقدة وحيدة ونسخ داخل الكتلة فقط وخدمات سحابية عامة.
+         .
 ## Consequences
-يزيد التعقيد التشغيلي ويستلزم SRE وتمارين استعادة فعلية.
+    SRE   .
 ## Security
-فصل حساب النسخ ومفاتيحه وشبكته وتشفير النقل والتخزين.
+       .
 ## Operations
-مقاييس وتنبيهات وفشل عقدة وتمرين استعادة ربع سنوي موثق.
+      quarterly .
 ## Rollback
-تسترجع صورة وتكويناً وبيانات متوافقة ضمن نقطة التعافي؛ تختبر الاستعادة في شبكة معزولة.
+            .
 ## Enforcement
-اختبارات حمل وفشل عقدة واستعادة RPO/RTO وفحص استقلال مخزن النسخ.
+     RPO/RTO    .
 ## Review
-ربع سنوي وعند تغير توزيع Kubernetes أو أهداف التعافي.
+quarterly    Kubernetes   .
 ## References
-`docs/architecture/overview.md`، `docs/data-security/threat-model.md`.
+`docs/architecture/overview.md` `docs/data-security/threat-model.md`.

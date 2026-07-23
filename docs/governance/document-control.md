@@ -1,17 +1,17 @@
 ---
 doc_id: GOV-DC-001
-title: ضوابط الوثائق
+title: Document Control
 type: governance
 status: accepted
 version: 1.2.0
 date: 2026-07-15
-owner: مكتب هندسة المنصة
+owner: Platform Engineering Office
 reviewers:
-- مسؤول الحوكمة
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Governance Lead
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: ربع سنوي
+review_cycle: quarterly
 sources: []
 references:
 - docs/README.md
@@ -26,194 +26,198 @@ references:
 - docs/product/vision-and-scope.md
 - docs/product/releases-and-roadmap.md
 ---
-# ضوابط الوثائق
+# Document Control
 
-## 1. الغرض
+## 1. Purpose
 
-تحدد هذه الوثيقة نظاماً موحداً لإدارة وثائق المنصة على المستويين الإداري والتنفيذي. تكفل أن كل وثيقة تحمل هوية ثابتة، ومالكاً واضحاً بالدور، وحالة قابلة للتحقق، ودورة مراجعة معلومة، وأن قارئ أي وثيقة يستطيع الرجوع إلى مصدر القرار ومالكه ومن اعتمده دون غموض.
+This document defines a unified system for managing platform documentation at both governance and execution levels. It ensures that every document has a stable identity, a clear role owner, a verifiable status, and a known review cycle, and that a reader can trace the decision source, its owner, and its approver without ambiguity.
 
-تعمل هذه الضوابط على وثائق `docs/`، وهي المصدر الوحيد المعتمد لوثائق المنصة وقراراتها وخططها. يجب أن تشير جميع الإحالات الداخلية والحقول المرجعية إلى مسارات حالية تحت `docs/`.
+These controls apply to `docs/`, which is the sole approved source for platform documentation, decisions, and plans. All internal links and reference fields must point to current paths under `docs/`.
 
-## 2. مبادئ الضبط
+## 2. Control Principles
 
-- الوثيقة مسؤولية دور لا شخص؛ لا تُربط الوثائق بأسماء أفراد.
-- كل وثيقة لها مالك واحد بالدور، ومراجعون من أدوار محددة في `front matter`.
-- التغيير الجوهري يُسجَّل في سجل التغيير ويُعلن، ولا يُعدَّل النص التاريخي بصمت.
-- الوثائق المتقاربة يُمنع تكرار محتواها؛ يُحال إلى الوثيقة المرجعية.
-- تُحفظ النسخ المعتمدة في المستودع نفسه، ويُشار إلى الحالة عبر `git` كدليل قابل للتحقق.
+- A document is owned by a role, not a person; documents must not be tied to individual names.
+- Every document has one role owner and reviewers from specific roles in `front matter`.
+- A material change is recorded and announced in the change log; historical text must not be edited silently.
+- Similar documents must not duplicate content; they must refer to the canonical document.
+- Accepted versions are kept in the same repository, and status is indicated through `git` as verifiable evidence.
 
-## 3. التصنيف الهرمي للمجلدات
+## 3. Hierarchical Folder Classification
 
-| المجلد | النطاق | مالك المحتوى | حساسية التغيير |
+| Folder | Scope | Content Owner | Change Sensitivity |
 |---|---|---|---|
-| `docs/governance/` | حوكمة المنصة والوثائق ومتطلباتها | مكتب هندسة المنصة | مراجعة ربع سنوية |
-| `docs/product/` | الرؤية والنطاق والإصدارات والمقاييس | مسؤول المنتج | مراجعة ربع سنوية |
-| `docs/architecture/` | قرارات معمارية تنفيذية ورسومات | مسؤول هندسة البرمجيات | مراجعة نصف سنوية |
-| `docs/domain/` | مواصفات المجال لكل موديول | مالك الموديول | مع كل تغيير في الموديول |
-| `docs/data-security/` | نموذج البيانات والأمن والصلاحيات | مسؤول أمن المعلومات | مراجعة نصف سنوية |
-| `docs/operations/` | التشغيل والمراقبة والاستعادة | مسؤول العمليات | مراجعة نصف سنوية |
-| `docs/engineering/` | قواعد التنفيذ والاختبار والإصدار | مسؤول هندسة البرمجيات | مع كل تغيير |
-| `docs/contracts/` | عقود الواجهات والأحداث والمخططات | مسؤول هندسة البرمجيات | مع كل تغيير |
-| `docs/plans/` | خطط التنفيذ والإصدارات والجاهزية | مكتب هندسة المنصة | مراجعة ربع سنوية |
-| `docs/adr/` | سجل القرارات المعمارية | مجلس معمارية المنصة | مراجعة نصف سنوية |
+| `docs/governance/` | Platform and documentation governance and requirements | Platform Engineering Office | Quarterly review |
+| `docs/product/` | Vision, scope, releases, and metrics | Product Owner | Quarterly review |
+| `docs/architecture/` | Executable architecture decisions and diagrams | Software Engineering Lead | Semiannual review |
+| `docs/domain/` | Domain specifications for each module | Module Owner | On every module change |
+| `docs/data-security/` | Data model, security, and permissions | Information Security Lead | Semiannual review |
+| `docs/operations/` | Operations, monitoring, and recovery | Operations Lead | Semiannual review |
+| `docs/engineering/` | Implementation, testing, and release rules | Software Engineering Lead | On every change |
+| `docs/contracts/` | Interface, event, and schema contracts | Software Engineering Lead | On every change |
+| `docs/plans/` | Implementation, release, and readiness plans | Platform Engineering Office | Quarterly review |
+| `docs/adr/` | Architecture decision records | Platform Architecture Council | Semiannual review |
 
-## 4. معرف الوثيقة
+## 4. Document Identifier
 
-يُمنح كل ملف `doc_id` ثابت لا يتغير بتغيير الإصدار أو العنوان. الصيغة:
+Each file is assigned a stable `doc_id` that does not change when its version or title changes. The format is:
 
 ```text
-{عائلة}-{نوع}-{رقم تسلسلي}
+{family}-{type}-{serial-number}
 ```
 
-| العائلة | الأنواع المسموحة | أمثلة |
+| Family | Allowed Types | Examples |
 |---|---|---|
-| `GOV` Governance | `DC` ضوابط، `GL` مسرد، `AC` افتراضات وقيود، `RC` RACI، `TR` تتبّع | `GOV-DC-001` |
-| `PRD` Product | `VS` رؤية ونطاق، `PJ` شخصيات ورحلات، `RR` إصدارات وخارطة، `SM` مقاييس نجاح | `PRD-VS-001` |
-| `ARC` Architecture | `AD` ADR، `BB` مخطط، `MB` حدود، `VS` شرائح، `FL` تدفقات، `RM` خارطة تنفيذ | `ARC-AD-001` |
-| `DOM` Domain | `MN` موديول | `DOM-ORG-001` |
-| `SEC` Security | `DM` نموذج بيانات، `AM` نموذج صلاحيات، `CL` تصنيف، `AU` تدقيق، `RT` احتفاظ | `SEC-DM-001` |
-| `OPS` Operations | `DP` نشر، `MN` مراقبة، `DR` استعادة، `BC` نسخ احتياطي | `OPS-DP-001` |
+| `GOV` Governance | `IDX` index, `DC` controls, `GL` glossary, `AC` assumptions and constraints, `RC` RACI, `TR` traceability, `CR` consistency review | `GOV-DC-001` |
+| `PRD` Product | `VS` vision and scope, `PJ` personas and journeys, `RR` releases and roadmap, `SM` success metrics | `PRD-VS-001` |
+| `ARC` Architecture | `AD` ADR, `BB` blueprint, `MB` boundaries, `VS` vertical slices, `FL` flows, `RM` implementation roadmap | `ARC-AD-001` |
+| `DOM` Domain | `MN` module | `DOM-ORG-001` |
+| `SEC` Security | `DM` data model, `AM` authorization model, `CL` classification, `AU` audit, `RT` retention | `SEC-DM-001` |
+| `OPS` Operations | `DP` deployment, `MN` monitoring, `DR` recovery, `BC` backup | `OPS-DP-001` |
 
-عند حذف وثيقة يبقى `doc_id` محجوزاً ولا يُعاد استخدام رقمه.
+When a document is deleted, its `doc_id` remains reserved and its number is not reused.
 
-## 5. تسمية الملفات
+## 5. File Naming
 
-- `kebab-case` للحروف اللاتينية.
-- امتداد `.md` فقط.
-- لا مسافات ولا أحرف عربية في اسم الملف.
-- اسم الملف يعكس `doc_id` بصيغة مختصرة دون بادئة العائلة، مثل `document-control.md` لـ `GOV-DC-001`.
-- لا تُستخدم الأرقام في اسم الملف إلا إذا دلّت على تسلسل طبيعي، مثل `release-1.md`.
+- Use `kebab-case` for Latin letters.
+- Use the `.md` extension only.
+- Do not use spaces or Arabic characters in file names.
+- The file name reflects the `doc_id` in shortened form without the family prefix, such as `document-control.md` for `GOV-DC-001`.
+- Use numbers in a file name only when they indicate a natural sequence, such as `release-1.md`.
 
-## 6. حقول الواجهة الأمامية الموحدة Front Matter
+## 6. Standard Front Matter Fields
 
-تبدأ كل وثيقة Markdown تحت `docs/`، وكذلك `README.md` في جذر المستودع، بالحقول الاثني عشر التالية دون حذف أي منها:
+Every Markdown document under `docs/`, as well as the repository-root `README.md`, starts with the following twelve fields without removing any of them:
 
 ```yaml
 ---
-doc_id: {عائلة}-{نوع}-{رقم}
-title: {العنوان بالعربية}
+doc_id: {family}-{type}-{number}
+title: {document title}
 type: governance | product | architecture | domain | data-security | operations | engineering | contracts | plans | adr
 status: draft | proposed | accepted | rejected | superseded
 version: {SemVer}
 date: {YYYY-MM-DD}
-owner: {الدور المالك}
+owner: {owning role}
 reviewers:
-  - {دور}
+  - {role}
 classification: public | internal | confidential | top_secret
-review_cycle: ربع سنوي | نصف سنوي | سنوي | مع كل تغيير
+review_cycle: quarterly | semiannual | annual | on change
 sources:
-  - {مسار ملف مصدر داخل docs/، أو قائمة فارغة}
+  - {source file path inside docs/, or an empty list}
 references:
-  - {مسار ملف مرجعي داخل docs/، أو قائمة فارغة}
+  - {reference file path inside docs/, or an empty list}
 ---
 ```
 
-قواعد الإلزام:
+Required rules:
 
-- `doc_id` فريد ولا يتغير.
-- الحقول المعروضة في القالب مطلوبة في كل ملف، ويجوز أن تكون `sources` و`references` قائمتين فارغتين.
-- `title` هو عنوان الوثيقة المعروض.
-- `type` من القائمة المسموحة فقط.
-- لا يسمح بحقول إضافية إلا في وثائق `adr` لحفظ خصائص القرار مثل الاستبدال والنطاق.
-- `owner` بالدور لا باسم الفرد.
-- `reviewers` قائمة بأدوار لا تقل عن دورين مختلفين.
-- `classification` يستخدم رمزاً canonical من `public` أو `internal` أو `confidential` أو `top_secret`.
-- أسماء العرض العربية المقابلة هي: `عام`، `داخلي`، `سري`، `سري للغاية` بالترتيب.
-- `sources` و`references` تشيران حصراً إلى ملفات حالية تحت `docs/`، ولا يُقبل مسار خارج مصدر الوثائق المعتمد.
+- `doc_id` is unique and immutable.
+- Every field shown in the template is required in every file; `sources` and `references` may be empty lists.
+- `title` is the displayed document title.
+- `type` must come only from the allowed list.
+- Additional fields are prohibited except in `adr` documents for decision properties such as supersession and scope.
+- `owner` must be a role, not an individual.
+- `reviewers` must be a list of at least two distinct roles.
+- `classification` uses one canonical value: `public`, `internal`, `confidential`, or `top_secret`.
+- The corresponding display labels are Public, Internal, Confidential, and Top Secret, respectively.
+- `sources` and `references` must point exclusively to current files under `docs/`; paths outside the approved documentation source are not accepted.
 
-## 7. حالات الوثيقة
+## 7. Document Statuses
 
-| الحالة | المعنى | الانتقال المسموح |
+| Status | Meaning | Allowed Transition |
 |---|---|---|
-| `draft` | مسودة لم تعرض للاعتماد | إلى `proposed` |
-| `proposed` | مقترحة وقيد المراجعة | إلى `accepted` أو `rejected` أو `draft` |
-| `accepted` | معتمدة وسارية | إلى `superseded` عند وجود بديل |
-| `rejected` | رُفض المقترح مع حفظه للتتبع | لا رجوع؛ ينشأ مقترح جديد عند الحاجة |
-| `superseded` | حُلت محلها وثيقة أحدث | لا رجوع، تبقى للقراءة فقط |
+| `draft` | Draft not submitted for approval | To `proposed` |
+| `proposed` | Proposed and under review | To `accepted`, `rejected`, or `draft` |
+| `accepted` | Approved and in force | To `superseded` when a replacement exists |
+| `rejected` | Proposal rejected and retained for traceability | No return; create a new proposal when needed |
+| `superseded` | Replaced by a newer document | No return; remains read-only |
 
-الانتقال إلى `accepted` يتطلب موافقة مكتوبة من جميع الأدوار في `reviewers` أو تفويضها صراحةً.
+Transition to `accepted` requires written approval from all roles in `reviewers`, or their explicit delegation.
 
-## 8. الإصدار
+## 8. Versioning
 
-تُتبع صيغة `SemVer` `MAJOR.MINOR.PATCH`:
+Use `SemVer` in the form `MAJOR.MINOR.PATCH`:
 
-- `MAJOR`: تغيير في نطاق الوثيقة أو في قرار تنفيذي ملزم.
-- `MINOR`: إضافة محتوى جديد أو توسيع نطاق فرعي.
-- `PATCH`: تصحيح لغوي أو تحديث مرجع أو إعادة توضيح دون تغيير دلالة.
+- `MAJOR`: A change to the document scope or to a binding execution decision.
+- `MINOR`: New content or an expanded subordinate scope.
+- `PATCH`: An editorial correction, reference update, or clarification that does not change meaning.
 
-لا يُغيَّر رقم الإصدار إلا عبر `commit` مرفق بمذكرة في سجل التغيير.
+The version number may be changed only through a `commit` accompanied by a note in the change log.
 
-## 9. دورة المراجعة
+## 9. Review Cycle
 
-| نوع الوثيقة | دورة افتراضية | مشغل استثنائي |
+| Document Type | Default Cycle | Exceptional Trigger |
 |---|---|---|
-| حوكمة | ربع سنوي | تغيير تنظيمي أو تشريعي |
-| منتج | ربع سنوي | إعادة ترتيب الإصدارات أو النطاق |
-| معمارية تنفيذية | نصف سنوي | ظهور قيد جديد يهدد القرار |
-| مجال موديول | مع كل تغيير | أي تعديل على قواعد المجال |
-| أمن | نصف سنوي | ثغرة أو تحديث تشريعي |
-| تشغيل | نصف سنوي | تغيير في البنية أو الحوادث |
-| هندسة أو عقود | مع كل تغيير | تغيير في التنفيذ أو العقد |
-| خطط | ربع سنوي | تغير النطاق أو التبعيات |
-| ADR | نصف سنوي | تغير قيود القرار أو استبداله |
+| Governance | Quarterly | Organizational or legislative change |
+| Product | Quarterly | Release or scope reprioritization |
+| Executable architecture | Semiannual | A new constraint threatens the decision |
+| Module domain | On every change | Any change to domain rules |
+| Security | Semiannual | Vulnerability or legislative update |
+| Operations | Semiannual | Infrastructure change or incident |
+| Engineering or contracts | On every change | Implementation or contract change |
+| Plans | Quarterly | Scope or dependency change |
+| ADR | Semiannual | Decision constraints change or the decision is superseded |
 
-المسؤول عن المراجعة هو الدور صاحب `owner`، ويُسجَّل ناتج المراجعة في سجل التغيير بتاريخ ودور المراجع وقراره.
+The reviewer is the role named in `owner`. The review outcome is recorded in the change log with the date, reviewer role, and decision.
 
-## 10. سجل التغيير
+## 10. Change Log
 
-كل وثيقة تحوي قسماً `## سجل التغيير` في نهايتها وفق النموذج:
+Every document contains a `## Change Log` section at its end, using the following model:
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مكتب هندسة المنصة | إنشاء أولي |
+| 1.0.0 | 2026-07-15 | Platform Engineering Office | Initial creation |
 
-يُحظر حذف صفوف من السجل. الإضافة فقط.
+Rows must not be deleted. Additions only.
 
-## 11. الإحالة بين الوثائق
+## 11. Cross-Document References
 
-- يُمنع نسخ محتوى وثيقة في أخرى؛ يُشار إليها برابط ومرجع.
-- تستخدم الإحالة صيغة `path:section` عند الحاجة للتدقيق.
-- تُحدَّث الإحالات عند نقل أو إعادة تسمية الوثائق في نفس `commit` التغيير.
-- أي وثيقة تستشهد بقرار معماري تحمل رقم الـADR في حقل `references`.
+- Do not copy the content of one document into another; link to it and cite it.
+- Use the `path:section` form when needed for auditability.
+- Update references when documents are moved or renamed in the same change `commit`.
+- Any document that cites an architecture decision includes the ADR number in its `references` field.
 
-## 12. المالك والمراجع
+## 12. Owner and Reviewers
 
-| الوثيقة | المالك | المراجعون |
+| Document | Owner | Reviewers |
 |---|---|---|
-| `docs/governance/*` | مكتب هندسة المنصة | مسؤول الحوكمة، مسؤول أمن المعلومات |
-| `docs/product/*` | مسؤول المنتج | مكتب هندسة المنصة، مسؤول العمليات |
-| `docs/architecture/*` | مسؤول هندسة البرمجيات | مكتب هندسة المنصة، مسؤول أمن المعلومات |
-| `docs/domain/*` | مالك الموديول | مسؤول هندسة البرمجيات، مسؤول أمن المعلومات |
-| `docs/data-security/*` | مسؤول أمن المعلومات | مكتب هندسة المنصة، مسؤول العمليات |
-| `docs/operations/*` | مسؤول العمليات | مكتب هندسة المنصة، مسؤول أمن المعلومات |
-| `docs/engineering/*` | مسؤول هندسة البرمجيات | مكتب هندسة المنصة، مسؤول أمن المعلومات |
-| `docs/contracts/*` | مسؤول هندسة البرمجيات | مكتب هندسة المنصة، مسؤول أمن المعلومات |
-| `docs/plans/*` | مكتب هندسة المنصة | مسؤول المنتج، مسؤول العمليات |
-| `docs/adr/*` | مجلس معمارية المنصة | مسؤول هندسة البرمجيات، مسؤول أمن المعلومات |
+| `docs/governance/*` | Platform Engineering Office | Governance Lead, Information Security Lead |
+| `docs/product/*` | Product Owner | Platform Engineering Office, Operations Lead |
+| `docs/architecture/*` | Software Engineering Lead | Platform Engineering Office, Information Security Lead |
+| `docs/domain/*` | Module Owner | Software Engineering Lead, Information Security Lead |
+| `docs/data-security/*` | Information Security Lead | Platform Engineering Office, Operations Lead |
+| `docs/operations/*` | Operations Lead | Platform Engineering Office, Information Security Lead |
+| `docs/engineering/*` | Software Engineering Lead | Platform Engineering Office, Information Security Lead |
+| `docs/contracts/*` | Software Engineering Lead | Platform Engineering Office, Information Security Lead |
+| `docs/plans/*` | Platform Engineering Office | Product Owner, Operations Lead |
+| `docs/adr/*` | Platform Architecture Council | Software Engineering Lead, Information Security Lead |
 
-## 13. ضوابط المحتوى
+## 13. Content Controls
 
-- يُمنع وضع أسماء أفراد داخل الوثائق التنفيذية، ويُستعاض عنها بالأدوار.
-- تُكتب الوثائق بالعربية، وتُترجم المصطلحات الأساسية في `docs/governance/glossary.md`.
-- تُستخدم جداول وقوائم مرقّمة بدلاً من النثر عند عرض المتطلبات والقرارات.
-- كل متطلب يحمل معيار قبول قابلاً للقياس يظهر في نفس السطر أو في حقل منفصل.
-- تُحذف الفقرات الترويجية والتكرار، ويُحال إلى المرجع.
+- Individual names are prohibited in execution documents; use roles instead.
+- Documentation is written in English, and core terms are maintained in `docs/governance/glossary.md`.
+- Use tables and numbered lists rather than prose when presenting requirements and decisions.
+- Every requirement has a measurable acceptance criterion on the same line or in a separate field.
+- Remove promotional and repetitive paragraphs; refer to the canonical source instead.
 
-## 14. ضوابط الأدوات
+## 14. Tool Controls
 
-- تُكتب الوثائق بأدوات `write` و`edit` فقط، ويُمنع استخدام `heredoc` داخل الشل.
-- تُحفظ التغييرات في `git` كـ`commit` واحد لكل وثيقة أو مجموعة مترابطة منطقياً.
-- يُمنع إدراج بيانات شخصية أو تشغيلية داخل الأمثلة في الوثائق.
-- تُمنع المرفقات الثنائية داخل `git`؛ تُحفظ في مستودع منفصل ويُشار إليها برابط.
+- Write documentation using `write` and `edit` tools only; shell heredocs are prohibited.
+- Save changes in `git` as one `commit` per document or logically related group.
+- Do not include personal or operational data in document examples.
+- Binary attachments are prohibited in `git`; store them in a separate repository and link to them.
 
-## 15. التنفيذ الفوري
+## 15. Immediate Implementation
 
-تنطبق هذه الضوابط على جميع ملفات Markdown الحالية والجديدة تحت `docs/` وعلى `README.md` في الجذر. يسجل `docs/catalog.yaml` كل ملف تحت `docs/` مرة واحدة بالضبط، بما في ذلك الكتالوج نفسه، وتسجل `mkdocs.yml` كل ملف Markdown تحت `docs/` مرة واحدة بالضبط. يرفض التحقق الآلي الحقول الناقصة والقيم غير المعتمدة والإصدار غير المطابق لـSemVer والمراجع أو الروابط أو المقاطع المفقودة وعلامات عدم الاكتمال ومجلد الوثائق القديم المفرد والمجلدات الفارغة وأي نقص أو تكرار في الكتالوج أو التنقل.
+These controls apply to all current and new Markdown files under `docs/` and to the repository-root `README.md`. `docs/catalog.yaml` records every file under `docs/` exactly once, including the catalog itself, and `mkdocs.yml` records every Markdown file under `docs/` exactly once. Automated validation rejects missing fields, unapproved values, versions that do not match SemVer, missing references, links, or sections, incompleteness markers, a singular legacy documentation folder, empty folders, and any catalog or navigation omission or duplicate.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مكتب هندسة المنصة | إنشاء أولي يحدد معرف الوثيقة ودورة المراجعة والواجهة الأمامية الموحدة |
-| 1.1.0 | 2026-07-15 | مكتب هندسة المنصة | اعتماد `docs/` مصدراً وحيداً وتوحيد رموز التصنيف والمراجع |
-| 1.2.0 | 2026-07-15 | مكتب هندسة المنصة | توحيد الحقول والأنواع والحالات وفرض اكتمال الكتالوج والتنقل والتحقق الآلي |
+| 1.0.0 | 2026-07-15 | Platform Engineering Office | Initial creation defining the document identifier, review cycle, and standard front matter |
+| 1.1.0 | 2026-07-15 | Platform Engineering Office | Adopted `docs/` as the sole source and standardized classification codes and references |
+| 1.2.0 | 2026-07-15 | Platform Engineering Office | Standardized fields, types, and statuses and enforced catalog, navigation, and automated-validation completeness |
+
+## Known Drift
+
+- **DC-3 — unresolved in the governance audit:** The audit reported that Section 4 did not enumerate `IDX` (used by `GOV-IDX-001`) or `CR` (used by `GOV-CR-001`). The correction has been applied inline in Section 4 by adding both allowed GOV type codes. The audit item remains listed as unresolved until the audit record is refreshed.

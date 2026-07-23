@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-004
-title: RBAC + ABAC والعزل التنظيمي
+title: RBAC + ABAC  
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: كل قرارات الوصول
+- Platform Architecture Council
+scope:   
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -26,28 +26,28 @@ related_adrs:
 - ADR-015
 review_by: 2026-10-15
 ---
-# ADR-004: RBAC + ABAC والعزل التنظيمي
+# ADR-004: RBAC + ABAC  
 ## Context
-الأدوار وحدها لا تكفي للنطاق والعلاقة والتصنيف وحالة السجل.
+        .
 ## Drivers
-عزل المنشآت، تفسير القرار، ومنع الاعتماد على الواجهة.
+       .
 ## Decision
-`Authorization` يقرر في الخلفية باستخدام RBAC وABAC و`RecordFacts` من الموديول المالك، مع fail-closed.
+`Authorization`     RBAC ABAC `RecordFacts`     fail-closed.
 ## Scope
-يشمل API والبحث والتقارير والتصدير والتنزيل وصلاحيات الحقول.
+ API      .
 ## Alternatives
-رُفضت RBAC فقط، وفلاتر استعلام متفرقة، وحماية React.
+ RBAC      React.
 ## Consequences
-يزيد اختبار مصفوفة القرار لكنه يوحد السلوك ويمنع الدورات.
+        .
 ## Security
-المنع الصريح والتصنيف الأعلى يتقدمان على السماح؛ لا يعتمد Authorization على موديولات الأعمال.
+         Authorization   .
 ## Operations
-تسجل القرارات الحساسة وتبطل تغييرات الدور أو التفويض الجلسات المتأثرة.
+         .
 ## Rollback
-تعود سياسة منشورة إلى نسخة سابقة مع تدقيق وإعادة تقييم فوري.
+          .
 ## Enforcement
-اختبارات المراحل العشر، العزل، fail-closed، وFieldAccess.
+    fail-closed FieldAccess.
 ## Review
-ربع سنوي وعند تغير التصنيف أو حدود الثقة.
+quarterly      .
 ## References
-`docs/data-security/authorization-model.md`، `docs/architecture/context-map.md`.
+`docs/data-security/authorization-model.md` `docs/architecture/context-map.md`.

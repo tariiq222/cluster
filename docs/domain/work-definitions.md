@@ -1,16 +1,16 @@
 ---
 doc_id: DOM-WDF-001
-title: تعريفات العمل
+title: Work definitions
 type: domain
 status: accepted
-version: 1.0.0
+version: 1.1.0
 date: 2026-07-15
-owner: مالك موديول WorkDefinitions
+owner: WorkDefinitions module owner
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/005-work-records-dynamic-data.md
 - docs/adr/006-workflow-versioning.md
@@ -20,221 +20,162 @@ references:
 ---
 # Work Definitions
 
-## 1. الغرض
+## 1. Purpose
 
-يمثل هذا المجال تعريف أنواع الأعمال الديناميكية التي يمكن للسوبر أدمن بناؤها دون كود حر: الحقول، التحقق، الحالات، العلاقات، النماذج، القوائم، سياسات الحقول، وقواعد DSL. يملك WorkDefinitions تعريفاً وإصداراته فقط، ولا يملك السجل التشغيلي أو payload السجل أو تنفيذ الموافقة. كل إصدار منشور ثابت ويصبح مرجعاً يمكن لـWorkRecords وWorkflow الاعتماد عليه.
+This domain represents the definitions of dynamic work types that the super admin can build without writing code: the fields, validation, states, relations, forms, lists, field policies, and DSL rules. WorkDefinitions owns the definition and its versions only; it does not own the operational record, the record payload, or the execution of approvals. Every published version is immutable and becomes the reference that WorkRecords and Workflow rely on.
 
-## 2. النطاق
+## 2. Scope
 
-- إنشاء عائلة نوع عمل ومسودات إصداراتها.
-- تعريف الحقول typed وقواعد التحقق والعلاقات والواجهات.
-- تعريف مخطط الحالات والانتقالات المسموح بها للسجل.
-- تعريف سياسات الحقول المرتبطة بإصدار النوع.
-- تعريف القوائم والفلاتر والتقارير الأساسية دون تنفيذ بيانات التشغيل.
-- اختبار التعريف بعينات وحالات رفض وقبول قبل الاعتماد.
-- توقيع حزمة تعريف خالية من البيانات والأسرار ونشر إصدار ثابت.
-- توفير Schema contract وField Policy contract إلى WorkRecords وAuthorization.
+- Create a work type family and the drafts of its versions.
+- Define typed fields, validation rules, relations, and interfaces.
+- Define the state schema and the allowed transitions for the record.
+- Define field policies bound to a type version.
+- Define lists, filters, and base reports without executing operational data.
+- Test the definition with samples and accept/reject cases before approval.
+- Sign a definition package free of data and secrets and publish an immutable version.
+- Provide the schema contract and field policy contract to WorkRecords and Authorization.
 
-ما لا يدخل في هذا المجال:
+What this domain does not do:
 
-- إنشاء أو تعديل WorkRecord فعلي.
-- تخزين كلمة مرور أو دور أو قرار وصول فعلي.
-- تنفيذ Workflow instance أو قرار معتمد.
-- كتابة كود PHP أو JavaScript أو SQL داخل تعريف.
-- تعريف قواعد مالية أو سريرية خاصة خارج DSL المحكوم.
+- Create or modify a real WorkRecord.
+- Store passwords, roles, or real access decisions.
+- Execute a workflow instance or an approval decision.
+- Embed PHP, JavaScript, or SQL inside a definition.
+- Define financial or clinical rules that fall outside the governed DSL.
 
-## 3. المصطلحات
+## 3. Terminology
 
-| المصطلح | التعريف |
+| Term | Definition |
 |---|---|
-| نوع العمل (Work Type) | عائلة تعريفية مثل طلب داخلي أو سجل متابعة، لها إصدارات متعددة. |
-| إصدار التعريف (Work Type Version) | نسخة كاملة وثابتة من schema وقواعد النوع، تستخدمها السجلات الجديدة. |
-| المسودة (Draft) | إصدار قابل للتعديل قبل اختباره. |
-| DSL | لغة تعبير مقيدة تمثل شروطاً وقواعد typed على شكل AST، لا تنفذ كوداً حراً. |
-| الحقل (Field Definition) | تعريف typed لحقل اسمه ومطلوبه وقيمته وسياسة عرضه والتحقق منه. |
-| سياسة الحقل (Field Policy) | خريطة حالات Hidden وReadOnly وEditable وMasked حسب السياق. |
-| حزمة التعريف (Definition Package) | تمثيل قابل للنقل للإصدار دون سجلات تشغيلية أو أسرار. |
-| الاختبار (Definition Test) | حالة إدخال ونتيجة متوقعة للتحقق من schema أو DSL أو انتقال. |
-| التوقيع (Signature) | إثبات أن الحزمة المعتمدة لم تتغير بعد اعتمادها وقبل نشرها. |
+| Work Type | A definition family such as an internal request or follow-up record, with multiple versions. |
+| Work Type Version | A complete, immutable snapshot of a type's schema and rules, used by new records. |
+| Draft | A version editable before it is tested. |
+| DSL | A constrained expression language that represents typed conditions and rules as an AST and never executes free-form code. |
+| Field Definition | A typed definition for a field: name, requirement, value, display policy, and validation. |
+| Field Policy | A map of Hidden, ReadOnly, Editable, and Masked states by context. |
+| Definition Package | A transport representation of the version without operational records or secrets. |
+| Definition Test | An input case with an expected result to validate the schema, DSL, or transition. |
+| Signature | Proof that the approved package was not modified between approval and publication. |
 
-## 4. الـAggregates والـEntities والـValue Objects
+## 4. Aggregates, entities, and value objects
 
 ### 4.1 WorkTypeAggregate
 
-- `WorkTypeDefinition` (Entity جذر): work_type_id، code، names، owner scope، status.
-- `WorkTypeVersion` (Entity تابعة): version_id، version_number، definition_state، schema_hash.
-- `DefinitionMetadata` (Value Object): الاسم والوصف والتصنيف والاحتفاظ الافتراضي.
+- `WorkTypeDefinition` (root entity): work_type_id, code, names, owner scope, status.
+- `WorkTypeVersion` (child entity): version_id, version_number, status, schema_hash.
+- `DefinitionMetadata` (value object): name, description, classification, default retention.
 
 ### 4.2 SchemaAggregate
 
-- `FieldDefinition` (Entity تابعة): field_key، type، required، default، validation_rules.
-- `RelationDefinition` (Entity تابعة): relation_key، target_type، cardinality، visibility.
-- `StateDefinition` (Entity تابعة): state_key، terminal، display metadata.
-- `TransitionDefinition` (Entity تابعة): from_state، to_state، guard DSL، required capability.
+- `FieldDefinition` (child entity): field_key, type, required, default, validation rules.
+- `RelationDefinition` (child entity): relation_key, target_type, cardinality, visibility.
+- `StateDefinition` (child entity): state_key, terminal, display metadata.
+- `TransitionDefinition` (child entity): from_state, to_state, guard DSL, required capability.
 
 ### 4.3 PresentationAggregate
 
-- `FormLayout` (Entity تابعة).
-- `ListViewDefinition` (Entity تابعة).
-- `ReportViewDefinition` (Entity تابعة).
-- `FieldAccessPolicy` (Value Object) مرتبط بـfield_policy_key وإصدار التعريف.
+- `FormLayout` (child entity).
+- `ListViewDefinition` (child entity).
+- `ReportViewDefinition` (child entity).
+- `FieldAccessPolicy` (value object) keyed by field_policy_key for the type version.
 
 ### 4.4 DefinitionGovernanceAggregate
 
-- `DefinitionTestCase` (Entity تابعة).
-- `DefinitionApproval` (Entity تابعة): المعتمد والسبب والوقت.
-- `DefinitionSignature` (Entity تابعة): fingerprint، signer، key_id، signed_at.
-- `DefinitionPackage` (Entity جذر): package_hash، source، manifest، import result.
+- `DefinitionTestCase` (child entity).
+- `DefinitionApproval` (child entity): approver, reason, timestamp.
+- `DefinitionSignature` (child entity): fingerprint, signer, key_id, signed_at.
+- `DefinitionPackage` (root entity): package_hash, source, manifest, import result.
 
-## 5. DSL المقيد
+## 5. Constrained DSL
 
-### 5.1 الشكل
+### 5.1 Shape
 
-- تخزن القاعدة كـAST JSON بعبارة `dsl_version`، ولا تخزن expression نصياً قابلاً للتنفيذ.
-- كل عقدة تحمل نوعاً ثابتاً، مثل `and`، `or`، `not`، `equals`، `in`، `greater_than`، `is_present`، `date_before`.
-- المراجع المسموحة هي field keys في الإصدار نفسه وقيم سياق معلنة مثل current_user وrecord_state.
-- لا يسمح بالـloop أو recursion أو reflection أو استدعاء HTTP أو filesystem أو database أو function غير مسجل.
+- The rule is stored as a JSON AST with a `dsl_version` field and is never stored as a runnable text expression.
+- Every node carries a fixed type such as `and`, `or`, `not`, `equals`, `in`, `greater_than`, `is_present`, `date_before`.
+- The only references allowed are field keys in the same version and declared context values such as current_user and record_state.
+- No loop, recursion, reflection, HTTP call, filesystem call, database call, or non-allow-listed function is permitted.
 
-### 5.2 بوابة DSL
+### 5.2 DSL gate
 
-- Parser يحول الإدخال إلى AST canonical.
-- Validator يتحقق من الأنواع والمراجع والعمق وعدد العقد والحجم.
-- Compiler داخلي يحول AST إلى evaluator محدود allow-listed.
-- Executor يطبق time budget وnode budget ويرفض أي شكل غير معروف.
-- أي تغيير في DSL version أو allow-list يحتاج اختباراً وتوقيعاً جديداً.
+- The parser converts the input into a canonical AST.
+- The validator checks types, references, depth, node count, and size.
+- The internal compiler turns the AST into an evaluator over an allow-listed set.
+- The executor enforces a time budget and a node budget and rejects any unknown shape.
+- Any change to DSL version or allow-list requires a new test run and a new signature.
 
-### 5.3 الحدود الافتراضية
+### 5.3 Default limits
 
-- عمق أقصى 12 مستوى.
-- عدد عقد أقصى 200.
-- لا أكثر من 50 قيمة في عامل `in`.
-- لا يقرأ DSL payload مخفياً أو حقلاً غير معرف في الإصدار.
-- لا يعتبر الوقت أو المستخدم أو العشوائية مصدراً غير ثابت إلا عبر context snapshot معلن.
+- Maximum depth: 12 levels.
+- Maximum node count: 200.
+- No more than 50 values in the `in` operator.
+- The DSL never reads hidden payload or any field not defined in the version.
+- Time, user, and randomness are not treated as non-deterministic inputs except through a declared context snapshot.
 
-## 6. الجداول والقيود والفهارس
+## 6. Tables, constraints, and indexes
 
-### 6.1 `work_type_definitions`
+> **Drift correction:** The previous revision described eight tables (`work_type_definitions`, `work_type_versions`, `field_definitions`, `definition_rules`, `relation_definitions`, `form_layouts`, `definition_test_cases`, `definition_signatures`) plus a `DefinitionPackage`. The implementation (`apps/api/Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateWorkDefinitionTables.php:11-48` and `CreateDevelopmentWorkTypeFixturesTable.php:15-22`) ships exactly **four** tables: `work_definitions`, `work_definition_versions`, `work_definition_idempotency_keys`, and the dev-only `work_definition_development_work_type_versions`. Field/rule/relation/layout/test/signature sub-tables are not present in the schema; they remain future work. The `WorkTypeVersion` state machine is a single `status VARCHAR(16) DEFAULT 'draft'` column with no `definition_state`, `tested`, `approved`, or `signed` status, and no `approved_at`, `signed_at`, `signed_by_user_id`, `key_id`, or `signature` columns. `dsl_version` is not present on the version row.
 
-- `id` BIGINT PK.
+### 6.1 `work_definitions`
+
+- `id` UUID PK (Laravel `uuid`).
 - `code` VARCHAR(96) UNIQUE NOT NULL.
-- `name_ar` VARCHAR(255) NOT NULL.
-- `name_en` VARCHAR(255) NULL.
-- `description` TEXT NULL.
-- `owner_scope_type` VARCHAR(16) NOT NULL.
-- `owner_scope_id` BIGINT NOT NULL.
+- `name` VARCHAR(255) NOT NULL.
+- `description` VARCHAR(2000) NULL.
+- `default_classification` VARCHAR(24) NOT NULL DEFAULT `internal`.
+- `created_by_user_id` UUID NOT NULL.
 - `status` VARCHAR(16) NOT NULL DEFAULT `active`.
-- `created_by_user_id` BIGINT NOT NULL.
-- `created_at` DATETIME NOT NULL، `updated_at` DATETIME NOT NULL.
-- فهارس: `(owner_scope_type, owner_scope_id, status)`، `(code)`.
+- `lock_version` UNSIGNED INT NOT NULL DEFAULT 1.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
 
-### 6.2 `work_type_versions`
+### 6.2 `work_definition_versions`
 
-- `id` BIGINT PK.
-- `work_type_id` BIGINT NOT NULL FK -> `work_type_definitions.id` ON DELETE RESTRICT.
-- `version_number` INT NOT NULL.
-- `definition_state` VARCHAR(16) NOT NULL (`draft`، `tested`، `approved`، `signed`، `published`).
+- `id` UUID PK.
+- `work_definition_id` UUID NOT NULL FK -> `work_definitions.id` ON DELETE RESTRICT.
+- `version_number` UNSIGNED INT NOT NULL.
+- `status` VARCHAR(16) NOT NULL DEFAULT `draft`.
 - `schema_document` JSON NOT NULL.
-- `schema_hash` CHAR(64) NOT NULL.
-- `dsl_version` VARCHAR(16) NOT NULL.
-- `published_at` DATETIME NULL.
-- `created_by_user_id` BIGINT NOT NULL.
-- `created_at` DATETIME NOT NULL، `updated_at` DATETIME NOT NULL.
-- قيد فريد على `(work_type_id, version_number)`.
-- قيد فريد جزئي أو سياسة تطبيقية تمنع أكثر من Published فعال لنوع واحد.
-- فهارس: `(work_type_id, definition_state)`، `(definition_state, published_at)`، `(schema_hash)`.
-
-### 6.3 `field_definitions`
-
-- `id` BIGINT PK.
-- `work_type_version_id` BIGINT NOT NULL FK -> `work_type_versions.id` ON DELETE CASCADE.
-- `field_key` VARCHAR(96) NOT NULL.
-- `field_type` VARCHAR(32) NOT NULL.
-- `required` BOOLEAN NOT NULL DEFAULT FALSE.
-- `is_searchable` BOOLEAN NOT NULL DEFAULT FALSE.
-- `is_reportable` BOOLEAN NOT NULL DEFAULT FALSE.
 - `field_policy_key` VARCHAR(128) NOT NULL.
-- `validation_ast` JSON NULL.
-- `retired_at` DATETIME NULL.
-- قيد فريد على `(work_type_version_id, field_key)`.
-- فهارس: `(work_type_version_id, field_type)`، `(work_type_version_id, is_searchable)`، `(field_policy_key)`.
+- `schema_hash` CHAR(64) NOT NULL.
+- `change_summary` VARCHAR(2000) NULL.
+- `created_by_user_id` UUID NOT NULL.
+- `lock_version` UNSIGNED INT NOT NULL DEFAULT 1.
+- `published_at` DATETIME NULL.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Unique on `(work_definition_id, version_number)`.
+- Index on `(work_definition_id, status)`.
 
-### 6.4 `definition_rules`
+### 6.3 `work_definition_idempotency_keys`
 
-- `id` BIGINT PK.
-- `work_type_version_id` BIGINT NOT NULL FK -> `work_type_versions.id` ON DELETE CASCADE.
-- `rule_key` VARCHAR(96) NOT NULL.
-- `rule_type` VARCHAR(32) NOT NULL (`validation`، `guard`، `visibility`، `calculation`).
-- `ast` JSON NOT NULL.
-- `dsl_version` VARCHAR(16) NOT NULL.
-- `severity` VARCHAR(16) NOT NULL (`error`، `warning`).
-- قيد فريد على `(work_type_version_id, rule_key)`.
-- فهارس: `(work_type_version_id, rule_type)`، `(severity)`.
+- `id` BIGINT PK (Laravel auto-increment).
+- `principal_id` UUID NOT NULL.
+- `operation` VARCHAR(96) NOT NULL.
+- `key_hash` CHAR(64) NOT NULL.
+- `request_hash` CHAR(64) NOT NULL.
+- `resource_id` UUID NOT NULL.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
+- Unique on `(principal_id, operation, key_hash)`.
 
-### 6.5 `relation_definitions`
+### 6.4 `work_definition_development_work_type_versions` (development fixtures, local/testing only)
 
-- `id` BIGINT PK.
-- `work_type_version_id` BIGINT NOT NULL FK -> `work_type_versions.id` ON DELETE CASCADE.
-- `relation_key` VARCHAR(96) NOT NULL.
-- `target_kind` VARCHAR(64) NOT NULL.
-- `cardinality` VARCHAR(16) NOT NULL.
-- `required` BOOLEAN NOT NULL DEFAULT FALSE.
-- `authorization_policy_key` VARCHAR(128) NOT NULL.
-- قيد فريد على `(work_type_version_id, relation_key)`.
-- فهارس: `(target_kind)`، `(work_type_version_id, required)`.
+- `id` UUID PK.
+- `code` VARCHAR(64) UNIQUE NOT NULL.
+- `version` UNSIGNED SMALLINT NOT NULL.
+- `status` VARCHAR(32) NOT NULL.
+- `input_schema` JSON NOT NULL.
+- `created_at` DATETIME NOT NULL, `updated_at` DATETIME NOT NULL.
 
-### 6.6 `form_layouts`
-
-- `id` BIGINT PK.
-- `work_type_version_id` BIGINT NOT NULL FK -> `work_type_versions.id` ON DELETE CASCADE.
-- `layout_key` VARCHAR(96) NOT NULL.
-- `layout_document` JSON NOT NULL.
-- قيد فريد على `(work_type_version_id, layout_key)`.
-
-### 6.7 `definition_test_cases`
-
-- `id` BIGINT PK.
-- `work_type_version_id` BIGINT NOT NULL FK -> `work_type_versions.id` ON DELETE CASCADE.
-- `case_key` VARCHAR(96) NOT NULL.
-- `input_document` JSON NOT NULL.
-- `expected_document` JSON NOT NULL.
-- `result` VARCHAR(16) NULL (`passed`، `failed`).
-- `executed_at` DATETIME NULL.
-- قيد فريد على `(work_type_version_id, case_key)`.
-- فهارس: `(work_type_version_id, result)`.
-
-### 6.8 `definition_signatures`
-
-- `id` BIGINT PK.
-- `work_type_version_id` BIGINT NOT NULL FK -> `work_type_versions.id` ON DELETE RESTRICT.
-- `package_hash` CHAR(64) NOT NULL.
-- `signature` TEXT NOT NULL.
-- `key_id` VARCHAR(128) NOT NULL.
-- `signed_by_user_id` BIGINT NOT NULL.
-- `signed_at` DATETIME NOT NULL.
-- قيد فريد على `(work_type_version_id, package_hash)`.
-- فهارس: `(key_id, signed_at)`.
-
-## 7. الأوامر والاستعلامات والأحداث
+## 7. Commands, queries, and events
 
 ### 7.1 Commands
 
 - `CreateWorkTypeDraft`
 - `CreateWorkTypeVersionDraft`
-- `AddFieldDefinition`
-- `UpdateDraftFieldDefinition`
-- `AddRelationDefinition`
-- `ConfigureFieldAccessPolicy`
-- `DefineStateTransition`
-- `DefineRestrictedDslRule`
-- `ConfigureFormLayout`
-- `AddDefinitionTestCase`
-- `TestWorkTypeVersion`
-- `ApproveWorkTypeVersion`
-- `SignWorkTypeVersion`
 - `PublishWorkTypeVersion`
 - `RetirePublishedWorkType`
 - `ExportDefinitionPackage`
 - `ImportDefinitionPackage`
+
+> **Drift correction:** The previous revision listed many draft/test/approve/sign commands (`AddFieldDefinition`, `UpdateDraftFieldDefinition`, `AddRelationDefinition`, `ConfigureFieldAccessPolicy`, `DefineStateTransition`, `DefineRestrictedDslRule`, `ConfigureFormLayout`, `AddDefinitionTestCase`, `TestWorkTypeVersion`, `ApproveWorkTypeVersion`, `SignWorkTypeVersion`). The schema's single `status VARCHAR(16)` column does not implement the `Draft -> Tested -> Approved -> Signed -> Published` lifecycle, and no handler ships for those commands. They remain future work tied to the missing sub-tables.
 
 ### 7.2 Queries
 
@@ -248,7 +189,7 @@ references:
 - `ListPublishedWorkTypes`
 - `ValidateDefinitionCompatibility`
 
-### 7.3 Domain وApplication Events
+### 7.3 Domain and application events
 
 - `WorkTypeCreated`
 - `WorkTypeVersionDraftCreated`
@@ -262,91 +203,86 @@ references:
 - `DefinitionPackageImported`
 - `DefinitionCompatibilityFailed`
 
-## 8. State Machines
+## 8. State machines
 
-### 8.1 WorkTypeVersion
+### 8.1 WorkTypeVersion (implemented)
 
-- `Draft` --(TestWorkTypeVersion and all blocking tests pass)--> `Tested`.
-- `Tested` --(ApproveWorkTypeVersion)--> `Approved`.
-- `Approved` --(SignWorkTypeVersion and package hash matches)--> `Signed`.
-- `Signed` --(PublishWorkTypeVersion and signature verifies)--> `Published`.
-- `Draft` يمكن تعديله، وأي تعديل جوهري بعد `Tested` يعيده إلى `Draft`.
-- `Tested` أو `Approved` عند فشل التحقق يعاد إلى `Draft` مع سبب.
-- `Signed` و`Published` غير قابلتين للتعديل؛ التغيير ينشئ version جديداً.
+- The version row carries `status VARCHAR(16) DEFAULT 'draft'` and `published_at`. The richer `Draft -> Tested -> Approved -> Signed -> Published` lifecycle from the previous revision is **not** enforced by the migration; it remains a future work target once the missing sub-tables land.
 
-### 8.2 DefinitionPackage
+### 8.2 DefinitionPackage (future)
 
 - `Built` --(signature created)--> `Signed`.
-- `Signed` --(import verification)--> `Verified` أو `Rejected`.
+- `Signed` --(import verification)--> `Verified` or `Rejected`.
 - `Verified` --(publish in target environment)--> `Applied`.
-- الحزمة لا تحمل سجلات تشغيلية أو أسراراً.
+- The package carries no operational records or secrets.
 
-## 9. الـInvariants
+## 9. Invariants
 
-- ترتيب حالة الإصدار إلزامي: `Draft -> Tested -> Approved -> Signed -> Published`.
-- لا ينشر إصدار بلا اختبارات blocking ناجحة، واعتماد منفصل، وتوقيع يطابق `schema_hash`.
-- لا يوجد أكثر من إصدار Published فعال للعائلة نفسها دون سياسة ترحيل صريحة.
-- الإصدار Published immutable، والسجلات الجديدة تشير إلى `work_type_version_id` محدد.
-- حذف حقل مستخدم يعني retired أو hidden ولا يتلف القيم التاريخية.
-- كل field_key وrelation_key وrule_key فريد داخل الإصدار.
-- كل نوع field وoperator وrelation مطابق لقائمة schema المعتمدة.
-- كل DSL AST يمر عبر parser وtype checker وlimits، ولا ينفذ code حر.
-- لا تشير قاعدة إلى field مخفي أو غير موجود أو إلى إصدار آخر.
-- لا يتضمن package بيانات WorkRecords أو credentials أو مفاتيح سرية؛ مفتاح التوقيع يبقى خارج الحزمة.
-- لا يغير نشر تعريف حالة أو payload لسجل جارٍ بصمت.
-- كل تغيير في Draft يمر عبر Transaction يقودها WorkDefinitions ويكتب Outbox event عند الحاجة.
-- لا يملك WorkDefinitions أي جدول من WorkRecords أو Workflow instances.
+- The implemented version table has no `definition_state`, so the previous ordering rule (`Draft -> Tested -> Approved -> Signed -> Published`) is not enforced at the schema level. A future migration is required before this invariant can hold.
+- No version is published without successful blocking tests, a separate approval, and a signature that matches `schema_hash`.
+- No more than one effective `Published` version per family without an explicit migration policy.
+- The `Published` version is immutable; new records reference a specific `work_definition_version_id`.
+- Deleting a field that is in use means retired or hidden and never destroys historical values.
+- Every `field_key`, `relation_key`, and `rule_key` is unique inside a version.
+- Every field type, operator, and relation matches an approved schema allow-list.
+- Every DSL AST passes the parser, type checker, and limits; free-form code never runs.
+- No rule references a hidden, undefined, or cross-version field.
+- The package contains no WorkRecord data, credentials, or secret keys; the signing key stays outside the package.
+- Publishing a definition never silently changes the state or payload of a live record.
+- Every change in Draft passes through a WorkDefinitions-led transaction and writes an outbox event when needed.
+- WorkDefinitions owns no WorkRecord or workflow-instance table.
 
-## 10. الصلاحيات
+## 10. Permissions
 
-- السوبر أدمن ينشئ نوع العمل ويعدل المسودة ويحدد الحقول والسياسات.
-- اختبار الإصدار واعتماده وتوقيعه أدوار منفصلة حسب سياسة المؤسسة، ولا يعتمد الشخص إصداراً أنشأه إذا كانت سياسة الفصل تمنع ذلك.
-- النشر يحتاج قدرة `publish_work_definition` وقراراً مركزياً من Authorization على نطاق Cluster أو Facility المسموح.
-- استيراد package يحتاج تحقق hash والتوقيع والبيئة والإصدار، ولا يملك package صلاحيات بذاته.
-- WorkRecords يطلب schema وfield policy عبر العقود؛ لا يتجاوز تعريفاً Published بقرار محلي.
-- تعريف field policy لا يمنح المستخدم وصولاً إلى البيانات؛ Authorization هو صاحب القرار النهائي من `AuthorizationRecordFacts`.
+- The super admin creates the work type, edits the draft, and sets the fields and policies.
+- Testing, approval, and signing are separate roles per the organization's policy; a person does not approve a version they created if the separation-of-duties policy forbids it.
+- Publication requires the `publish_work_definition` capability and a centralized Authorization decision over the allowed Cluster or Facility scope.
+- Importing a package requires hash, signature, environment, and version verification; the package has no permissions of its own.
+- WorkRecords requests the schema and field policy through contracts; it never bypasses a Published definition with a local decision.
+- A field-policy definition does not grant the user access to data; Authorization is the final decision point via `AuthorizationRecordFacts`.
 
-## 11. الفشل
+## 11. Failure modes
 
-- حقل مكرر أو field_key غير صالح: يرفض التغيير في Draft.
-- AST غير معروف أو يتجاوز limits: يفشل الاختبار ولا ينتقل الإصدار إلى Tested.
-- اختبار blocking فاشل: يبقى الإصدار Draft مع نتائج قابلة للمراجعة.
-- محاولة Approved بلا Tested أو Signed بلا Approval: ترفض بقاعدة الحالة.
-- توقيع لا يطابق schema_hash أو key غير موثوق: يرفض النشر.
-- package يحتوي سجلاً أو سراً أو نوعاً غير مسموح: يرفض قبل الاستيراد.
-- محاولة تعديل Published: يرفض وينشئ مسودة version جديدة فقط عند طلب صحيح.
-- حذف field مستخدم: يحول إلى retired أو يفشل إن كان حذفاً مدمراً.
-- تعارض version_number: Rollback مع رقم جديد يختاره النظام.
-- فشل Outbox: Rollback للتغيير المالك وعدم إرجاع نشر ناجح.
-- فشل Compatibility مع WorkRecords: يمنع النشر أو يطلب migration plan صريحاً.
+- Duplicate field or invalid `field_key`: the change is rejected in Draft.
+- Unknown AST or limits exceeded: the test fails and the version does not move to Tested.
+- A blocking test fails: the version stays Draft with reviewable results.
+- An attempt to move to Approved without Tested or to Signed without Approval: rejected by the state rule.
+- A signature does not match `schema_hash` or the key is untrusted: publication is rejected.
+- A package contains records, secrets, or a disallowed type: rejected before import.
+- An attempt to modify a Published version: rejected; a new draft version is created only on a valid request.
+- Deleting a field that is in use: converts to retired or fails if the deletion is destructive.
+- `version_number` conflict: rollback with a new number chosen by the system.
+- Outbox failure: rollback for the owning change and no successful publication.
+- Compatibility failure with WorkRecords: blocks publication or requires an explicit migration plan.
 
-## 12. الاختبارات
+## 12. Tests
 
-- Unit: انتقالات Draft وTested وApproved وSigned وPublished.
-- Unit: canonical AST وtype checking وlimits للـDSL.
-- Unit: منع loop وHTTP وdatabase وfunction غير allow-listed.
-- Feature: إنشاء schema ثم اختبار حالة صحيحة وحالة فاشلة.
-- Feature: التوقيع لا ينجح بعد تغيير schema_hash.
-- Feature: الإصدار Published لا يقبل update ويولد version جديداً.
-- Contract: `GetPublishedWorkTypeSchema` يعيد إصداراً ثابتاً إلى WorkRecords.
-- Contract: `GetFieldAccessPolicy` متسق مع Authorization policy key.
-- Security: package لا يحتوي payload أو credentials أو أسراراً.
-- Integration: لا يطبق تعريف مستورد دون تحقق التوقيع والبيئة.
-- Compatibility: schema الجديد لا يكسر سجلاً جارياً أو يطلب ترحيلاً غير معلن.
-- Boundary: WorkDefinitions لا يقرأ جداول WorkRecords ولا Workflow instances.
-- Outbox: نشر واحد يصدر event واحداً قابلًا لإعادة المحاولة دون تكرار.
+- Unit: transitions across the implemented `status` value; the full Draft/Tested/Approved/Signed/Published chain remains a future test target.
+- Unit: canonical AST, type checking, and limits for the DSL.
+- Unit: blocking loops, HTTP, database, and non-allow-listed functions.
+- Feature: create a schema and run an accept case and a reject case.
+- Feature: the signature does not succeed after `schema_hash` changes.
+- Feature: a Published version rejects update and yields a new version.
+- Contract: `GetPublishedWorkTypeSchema` returns a stable version to WorkRecords.
+- Contract: `GetFieldAccessPolicy` matches the Authorization policy key.
+- Security: the package contains no payload, credentials, or secrets.
+- Integration: an imported definition does not apply without signature and environment verification.
+- Compatibility: the new schema does not break a live record or require an undeclared migration.
+- Boundary: WorkDefinitions reads no WorkRecords or workflow-instance tables.
+- Outbox: a single publication produces a single retryable event without duplication.
 
-## 13. الاعتماديات
+## 13. Dependencies
 
-- يعتمد على `Shared/Clock` و`Shared/Identifiers`.
-- يعتمد على Authorization لحماية أوامر الإدارة وقوالب الحقول، وعلى Audit/Outbox عبر العقود.
-- يقدم إلى WorkRecords schema وpublished version وvalidation contract.
-- يقدم إلى Workflow تعريف nodes وtransitions وDSL المقيد عند ربط مسار بنوع عمل.
-- لا يعتمد على WorkRecords ولا يملك بيانات التشغيل.
-- لا ينفذ Authorization من داخل DSL؛ DSL يقدم facts context، وAuthorization يظل نقطة قرار الوصول.
+- Depends on `Shared/Clock` and `Shared/Identifiers`.
+- Depends on Authorization for administrative command protection and field templates, and on the Audit/Outbox contracts.
+- Provides WorkRecords with the schema, published version, and validation contract.
+- Provides Workflow with the node and transition definitions and the constrained DSL when binding a path to a work type.
+- Does not depend on WorkRecords and owns no operational data.
+- Does not run Authorization from inside the DSL; the DSL provides context facts and Authorization remains the access-decision point.
 
-## سجل التغيير
+## Change log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مالك موديول WorkDefinitions | توحيد الواجهة الأمامية وحدود الموديول |
+| 1.0.0 | 2026-07-15 | WorkDefinitions module owner | Unified the front-end and module boundary |
+| 1.1.0 | 2026-07-23 | Domain audit pass | Translated to English; reduced the schema to the four actual tables; dropped the BIGINT PK and `dsl_version` claims; replaced the `Draft -> Tested -> Approved -> Signed -> Published` lifecycle with the implemented `status` column |

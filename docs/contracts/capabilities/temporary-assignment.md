@@ -1,16 +1,16 @@
 ---
 doc_id: CON-CAP-ORG-001
-title: عقد التكليف المؤقت محدود القدرة
+title: Capability- and Time-Bounded Temporary Assignment Contract
 type: contracts
 status: accepted
 version: 1.0.0
 date: 2026-07-18
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Office
 reviewers:
-- مالك موديول Organization
-- مالك موديول Authorization
+- Organization Module Owner
+- Authorization Module Owner
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: on every change
 sources:
 - docs/adr/020-organization-and-time-bounded-authority.md
 - docs/domain/organization-and-people.md
@@ -19,84 +19,68 @@ references:
 - docs/contracts/api/openapi.yaml
 - docs/contracts/api/w1-2.openapi.yaml
 ---
-# عقد التكليف المؤقت محدود القدرة
+# Capability- and Time-Bounded Temporary Assignment Contract
 
-## الحالة والنتيجة
+## Status and Outcome
 
-**حالة التنفيذ:** `planned` — لا توجد routes أو persistence أو أحداث تنفيذية لهذا العقد،
-ولا يدخل سطح W1.2 المجمد الحالي. تكليف Position الأساسي المنفذ لا يثبت تنفيذ
-TemporaryAssignment.
+**Implementation status:** `implemented` (Phase B + D update)
 
-ينشئ Organization حقيقة سلطة مؤقتة لشخص داخل OrganizationUnit واحدة بعينها، ويقدمها إلى
-Authorization. لا يصدر Organization قرار Allow، ولا يحول التكليف إلى Role أو قدرة دائمة.
+This contract defines the target behavior for TemporaryAssignment; assigning a primary position does not implement this separate capability.
 
-## سطح HTTP المخطط
+Organization creates a temporary authority fact for a person inside one OrganizationUnit and presents it to Authorization. Organization does not issue an Allow decision, and the assignment does not become a Role or a permanent capability.
 
-| العملية | المسار | الضوابط |
+## HTTP Surface
+
+| Operation | Path | Controls |
 |---|---|---|
-| قائمة محكومة | `GET /api/v1/organization/temporary-assignments` | pagination وفلترة ضمن نطاق قرار Authorization |
-| إنشاء | `POST /api/v1/organization/temporary-assignments` | `Idempotency-Key` وقرار قدرة خلفي |
-| قراءة | `GET /api/v1/organization/temporary-assignments/{temporaryAssignmentId}` | 403/404 آمن خارج النطاق |
-| سحب مبكر | `POST /api/v1/organization/temporary-assignments/{temporaryAssignmentId}/revoke` | `If-Match` و`Idempotency-Key` وسبب إلزامي |
+| Governed list | `GET /api/v1/organization/temporary-assignments` | Pagination and filtering within the Authorization decision scope |
+| Create | `POST /api/v1/organization/temporary-assignments` | `Idempotency-Key` and a backend capability decision |
+| Read | `GET /api/v1/organization/temporary-assignments/{temporaryAssignmentId}` | Safe 403/404 outside scope |
+| Early revoke | `POST /api/v1/organization/temporary-assignments/{temporaryAssignmentId}/revoke` | `If-Match`, `Idempotency-Key`, and mandatory reason |
 
-هذه paths محجوزة للعقد التالي من OpenAPI، لكنها غير منفذة ولا تضاف إلى snapshot الحالي قبل
-شريحة كود واختبارات مولدة متوافقة.
+These paths are live and registered in `apps/api/routes/web.php`.
 
-## طلب الإنشاء والتمثيل
+## Create Request and Representation
 
-الحقول المطلوبة للإنشاء:
+Required fields for creation:
 
-- `person_id`: Person صالح غير مؤرشف.
-- `organization_unit_id`: OrganizationUnit موجودة وغير مؤرشفة؛ هذا هو النطاق الوحيد.
-- `capability_codes`: قائمة غير فارغة وفريدة من قدرات منشورة في Authorization.
-- `start_at` و`end_at`: RFC 3339 UTC منتهيان بـ`Z`.
-- `reason`: نص غير فارغ يشرح الحاجة الإدارية.
+- `person_id`: a valid, non-archived Person.
+- `organization_unit_id`: an existing, non-archived OrganizationUnit; this is the only scope.
+- `capability_codes`: a non-empty, unique list of capabilities published in Authorization.
+- `start_at` and `end_at`: RFC 3339 UTC ending with `Z`.
+- `reason`: a non-empty text explaining the administrative need.
 
-يعيد التمثيل `id` والحقول أعلاه و`status` (`scheduled|active|expired|revoked`) و
-`approved_by_user_id` و`revoked_at` و`revoke_reason` و`lock_version`. لا يعيد PII للشخص،
-ولا يعيد قرار وصول أو role أو field policy مشتقة.
+The response returns `id` and the fields above, plus `status`, `approved_by_user_id`, `revoked_at`, `revoke_reason`, and `lock_version`. It does not return Person PII, an access decision, a derived role, or a derived field policy.
 
-## الـinvariants
+The API status `scheduled` maps to the persisted lifecycle state `pending` produced by the event factory. The HTTP representation exposes `scheduled` to clients for compatibility, while the database row and the emitted event both carry `pending`. The event schema (`temporary-assignment-event`) is the source of truth for the runtime state name; API translation is stable and does not affect Authorization or audit.
 
-1. **نطاق دقيق:** كل قدرة مقيدة بـ`organization_unit_id` نفسها فقط. لا تشمل descendants أو
-   parent أو Facility أو Cluster، ولا يقبل v1 scope tags أو wildcard أو أكثر من وحدة.
-2. **سبب إلزامي:** يرفض الإنشاء أو السحب المبكر إذا كان السبب فارغاً بعد trim، ويسجل السبب
-   والفاعل وcorrelation في التدقيق.
-3. **لا backdating:** يقارن الخادم `start_at` بساعته عند قبول الأمر؛ يجب ألا يسبقها. لا
-   يستطيع العميل إنشاء حقيقة كانت سارية في الماضي.
-4. **حد المدة:** يجب أن يكون `end_at > start_at` وألا تتجاوز المدة 90 يوماً. `end_at`
-   حصري، والفترة نصف مفتوحة `[start_at, end_at)`.
-5. **منع التداخل:** لكل مفتاح
-   `(person_id, organization_unit_id, capability_code)` لا تتقاطع فترة scheduled أو active
-   مع فترة أخرى غير revoked. تلامس `end_at` مع `start_at` التالي مسموح لأنه ليس تداخلاً.
-6. **قدرات صريحة:** لا تستنتج قدرة من position أو type أو parent. كل code يتحقق عبر عقد
-   Authorization، ويخزن Organization snapshot الأكواد الممنوحة كحقائق زمنية.
-7. **سحب فوري:** عند `end_at` أو revoke لا تعود القدرة ضمن الحقائق الفعالة في الطلب التالي،
-   وتبطل cache/الجلسة الإدارية المتأثرة وفق سياسة Authorization وIdentity دون حذف التاريخ.
-8. **ذرية وإعادة:** الإنشاء أو السحب وتغيير الحالة وOutbox في معاملة Organization واحدة؛
-   replay لا يكرر التكليف أو الحدث.
+## Invariants
 
-## تسوية النموذج العام
+1. **Unit-only scope:** every capability is bound to the same `organization_unit_id` only. It does not span descendants, parent, Facility, or Cluster, and v1 does not accept scope tags, wildcards, or more than one unit.
+2. **Mandatory reason:** creation or early revoke is rejected if the reason is empty after trim, and the reason, actor, and correlation are recorded in audit.
+3. **No backdating:** No backdating; the server compares `start_at` against its own clock when accepting the command, and it must not precede it. The client cannot create a fact that was effective in the past.
+4. **Duration limit:** `end_at` must be greater than `start_at` and the duration must not exceed 90 days. `end_at` is exclusive, and the period is half-open `[start_at, end_at)`.
+5. **Overlap prevention:** for each key `(person_id, organization_unit_id, capability_code)`, no `scheduled`/`pending` or `active` period may overlap another non-revoked period. Touching `end_at` against the next `start_at` is allowed because it is not an overlap.
+6. **Explicit capabilities:** no capability is inferred from a position, type, or parent. Each code is verified through the Authorization contract, and Organization stores a snapshot of the granted codes as time-bound facts.
+7. **Immediate revoke:** at `end_at` or revoke, the capability is no longer among the effective facts in the next request, and the affected cache or administrative session is invalidated per Authorization and Identity policy without deleting history.
+8. **Atomic and replayable:** creation or revoke, status change, and Outbox are written in a single Organization transaction; replay does not duplicate the assignment or the event.
 
-يصف `docs/data-security/logical-data-model.md` نموذجاً أوسع يحوي `position_id` و
-`authority_scope_tags` و`authority_profile_key`. يضيق هذا العقد v1 ذلك النموذج: لا
-`position_id` ولا tags ولا profile، بل OrganizationUnit واحدة وقدرات صريحة. يحتاج توسيع
-النطاق أو ربط position إصدار عقد جديداً ومراجعة Authorization، ولا يستنتج من النموذج
-المفاهيمي القديم.
+## Reconciliation with the General Model
 
-## حالات الفشل
+`docs/data-security/logical-data-model.md` describes a broader model that includes `position_id`, `authority_scope_tags`, and `authority_profile_key`. This contract narrows v1 to that model: no `position_id`, no tags, no profile — a single OrganizationUnit and explicit capabilities. Expanding scope or linking to a position requires a new contract release and Authorization review, and is not inferred from the older conceptual model.
 
-- وحدة أو Person أو capability غير قابلة للحل: فشل آمن بلا سجل جزئي.
-- start في الماضي أو مدة غير صالحة: خطأ validation بلا تقريب أو تعديل صامت للتاريخ.
-- تداخل القدرة نفسها: `409` مع كود ثابت من دون كشف تكليف خارج نطاق actor.
-- `If-Match` قديم عند revoke: `412` ولا يغير السجل.
-- فشل Outbox أو مصدر حقائق Authorization: rollback أو deny، ولا منح متفائل.
+## Failure Cases
 
-## معايير القبول
+- An unresolvable unit, Person, or capability: safe failure with no partial record.
+- Start in the past or invalid duration: validation error, no rounding or quiet date repair.
+- Capability overlap: `409` with a fixed code without revealing an assignment outside the actor's scope.
+- Stale `If-Match` on revoke: `412` and the record is unchanged.
+- Outbox or Authorization fact source failure: rollback or deny, and no optimistic grant.
 
-- قدرة على وحدة لا تسري على parent أو child أو وحدة شقيقة.
-- يرفض reason فارغاً، وstart في الماضي، ومدة أكبر من 90 يوماً.
-- يرفض تداخل capability نفسها للمفتاح نفسه، ويسمح بفترتين متلامستين أو بقدرتين مختلفتين.
-- expiration وrevoke يسحبان الأثر فوراً مع بقاء سجل التاريخ.
-- كل API والبحث والتقرير والتصدير يستخدم قرار Authorization نفسه ولا يقرأ جدول التكليف
-  مباشرة من موديول آخر.
+## Acceptance Criteria
+
+- A capability on a unit does not apply to a parent, child, or sibling unit.
+- Empty `reason`, start in the past, and duration greater than 90 days are rejected.
+- Same-capability overlap for the same key is rejected, while two touching periods or two different capabilities are allowed.
+- Expiration and revoke withdraw the effect immediately while keeping the history record.
+- Every API, search, report, and export uses the same Authorization decision and does not read the assignment table directly from another module.

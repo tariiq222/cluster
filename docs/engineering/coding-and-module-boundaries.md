@@ -1,16 +1,16 @@
 ---
 doc_id: ARC-EN-003
-title: حدود الكود والموديولات
+title: Coding and Module Boundaries
 type: engineering
 status: draft
 version: 1.0.0
 date: 2026-07-15
-owner: مسؤول هندسة البرمجيات
+owner: Software Engineering Lead
 reviewers:
-- مكتب هندسة المنصة
-- مسؤول أمن المعلومات
+- Platform Engineering Office
+- Information Security Lead
 classification: internal
-review_cycle: مع كل تغيير
+review_cycle: With every change
 sources:
 - docs/architecture/dependency-rules.md
 - docs/adr/003-module-boundaries.md
@@ -18,41 +18,44 @@ references:
 - docs/architecture/overview.md
 - docs/data-security/logical-data-model.md
 ---
-# حدود الكود والموديولات
 
-## ملكية البيانات
+> **Three of the six claimed CI guards are not implemented.** Only `forbidden imports`, `dependency cycle`, and `cross-owner SQL` are enforced by `apps/api/tests/Architecture/ModuleBoundariesTest.php`. `derived write to business tables`, `contract-without-contract-test`, and `event-without-schema-test` are NOT enforced.
 
-لكل حقيقة وجدول وترحيل ومخطط حدث مالك واحد. يحتفظ المستهلك الخارجي بالمعرف أو نسخة مشتقة قابلة لإعادة البناء فقط. لا يملك `shared` بيانات أعمال أو قواعد مجال؛ يقتصر على primitives تقنية محايدة.
+# Coding and Module Boundaries
 
-## اتجاه الاعتماد
+## Data Ownership
+
+Every fact, table, migration, and event schema has one owner. An external consumer stores only the identifier or a rebuildable derived copy. `Shared` owns no business data or domain rules; it is limited to neutral technical primitives.
+
+## Dependency Direction
 
 ```text
 Business Modules -> Platform Contracts -> Core Contracts
 ```
 
-الاعتماد DAG بلا دورات. الاستيراد الخارجي مسموح من `Contracts` و`Events` المنشورة فقط. يمنع استيراد `Domain` أو `Infrastructure` أو ORM model أو migration من موديول آخر.
+Dependencies form an acyclic DAG. Cross-module imports are allowed only from published `Contracts` and `Events`. Importing another module's `Domain`, `Infrastructure`, ORM model, or migration is prohibited.
 
-## قاعدة الاستعلام
+## Query Rule
 
-1. يسمح بـ`JOIN` بين جداول الموديول نفسه فقط.
-2. يمنع أي `JOIN` أو subquery أو FK عابر لموديولي أعمال.
-3. القراءة العابرة تمر بعقد متزامن محدود، أو event وإسقاط محلي، أو Reporting Read Model مملوك لـ`Reporting`.
-4. `Search` و`Reporting` و`Notifications` تخزن مشتقات ولا تكتب في جداول الأعمال.
-5. لا يعالج contract DTO ككيان قابل للحفظ في الموديول المستهلك.
+1. A `JOIN` is allowed only between tables owned by the same module.
+2. Any `JOIN`, subquery, or foreign key across two business modules is prohibited.
+3. Cross-module reads use a narrow synchronous contract, an event and local projection, or a Reporting Read Model owned by `Reporting`.
+4. `Search`, `Reporting`, and `Notifications` store derivatives and do not write to business tables.
+5. A contract DTO must not be treated as a persistable entity in the consuming module.
 
-## العقود والأحداث
+## Contracts and Events
 
-- العقد: مدخلات ومخرجات DTOs ثابتة، أخطاء معلنة، ومالك وإصدار.
-- الحدث: حقيقة ماضية، يحمل `event_id` و`occurred_at` ونسخة schema ومرجع المصدر.
-- Outbox يحفظ مع الحقيقة في المعاملة نفسها؛ المستهلك idempotent ويسجل `event_id` قبل الأثر.
-- تغيير عقد أو حدث غير متوافق يتطلب إصداراً جديداً وفترة توافق موثقة.
+- A contract has stable input and output DTOs, declared errors, an owner, and a version.
+- An event describes a past fact and carries `event_id`, `occurred_at`, a schema version, and a source reference.
+- The Outbox is saved with the business fact in the same transaction. The consumer is idempotent and records `event_id` before applying the effect.
+- An incompatible contract or event change requires a new version and a documented compatibility period.
 
-## اختبارات الحراسة المعمارية
+## Architectural Guard Tests
 
-ينفذ CI اختبارات آلية تفشل عند: استيراد محظور، دورة اعتماد، SQL عابر للمالك، كتابة مشتق في جدول أعمال، عقد بلا اختبار contract، أو event بلا اختبار schema/compatibility. لا تقبل استثناءات دائمة؛ الاستثناء المؤقت موثق بمالك وتاريخ انتهاء وتذكرة إزالة.
+CI currently enforces forbidden imports, dependency direction/cycle constraints, and cross-owner SQL through `apps/api/tests/Architecture/ModuleBoundariesTest.php`. The intended checks for derived writes to business tables, contracts without contract tests, and events without schema/compatibility tests remain documented requirements but are not automated. Permanent exceptions are not allowed; a temporary exception must document its owner, expiry date, and removal ticket.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | الدور | التغيير |
+| Version | Date | Role | Change |
 |---|---|---|---|
-| 1.0.0 | 2026-07-15 | مسؤول هندسة البرمجيات | تثبيت قواعد الملكية والحدود واختبارات الحراسة |
+| 1.0.0 | 2026-07-15 | Software Engineering Lead | Established ownership and boundary rules and documented guard-test status |

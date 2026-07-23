@@ -1,21 +1,21 @@
 ---
 doc_id: ADR-001
-title: اعتماد Laravel Modular Monolith
+title:  Laravel Modular Monolith
 type: adr
 status: accepted
 version: 1.0.0
 date: 2026-07-15
-owner: مجلس معمارية المنصة
+owner: Platform Architecture Council
 reviewers:
-- مسؤول هندسة البرمجيات
-- مسؤول أمن المعلومات
+- Software Engineering Lead
+- Information Security Lead
 classification: internal
-review_cycle: نصف سنوي
+review_cycle: semiannual
 sources: []
 references: []
 deciders:
-- مجلس معمارية المنصة
-scope: التطبيق الخلفي
+- Platform Architecture Council
+scope: backend application
 supersedes: []
 superseded_by: []
 related_adrs:
@@ -24,28 +24,28 @@ related_adrs:
 - ADR-011
 review_by: 2027-01-15
 ---
-# ADR-001: اعتماد Laravel Modular Monolith
+# ADR-001:  Laravel Modular Monolith
 ## Context
-المنصة كبيرة لكن فريقها صغير والتشغيل محلي معزول.
+       .
 ## Drivers
-سرعة التسليم، معاملات MySQL محلية، وبساطة النشر.
+   MySQL   .
 ## Decision
-نبني تطبيق Laravel واحداً منظماً إلى موديولات مستقلة ونوسعه أفقياً.
+  Laravel       .
 ## Scope
-ينطبق على جميع موديولات الخلفية ولا يمنع فصل موديول لاحقاً بدليل تشغيلي.
+           .
 ## Alternatives
-رُفضت microservices المبكرة والتطبيق غير المقسم إلى موديولات.
+ microservices      .
 ## Consequences
-يقل عبء التشغيل، لكن الحدود والاختبارات تصبح إلزامية.
+       .
 ## Security
-عزل الصلاحيات والبيانات يطبق داخل التطبيق وفي قاعدة البيانات.
+        .
 ## Operations
-ينشر التطبيق بعدة replicas ضمن Kubernetes.
+   replicas  Kubernetes.
 ## Rollback
-يسترجع إصدار الصورة وقاعدة البيانات وفق خطة الإصدار؛ لا فصل تشغيلي تلقائي.
+           .
 ## Enforcement
-اختبارات حدود الموديولات ومراجعة معمارية في CI.
+      CI.
 ## Review
-يراجع عند الحاجة المستمرة لتوسع أو فريق أو دورة نشر مستقلة لموديول.
+ as needed         .
 ## References
-`docs/architecture/overview.md`، `docs/architecture/module-catalog.md`.
+`docs/architecture/overview.md` `docs/architecture/module-catalog.md`.

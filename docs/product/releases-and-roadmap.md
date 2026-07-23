@@ -1,14 +1,14 @@
 ---
 doc_id: PRD-RR-001
-title: الإصدارات وخارطة الطريق
+title: Releases and Roadmap
 type: product
 status: accepted
 version: 3.0.0
 date: 2026-07-19
-owner: التنفيذ التقني
+owner: Technical Delivery
 reviewers: []
 classification: internal
-review_cycle: عند الحاجة
+review_cycle: As needed
 sources:
 - docs/architecture/overview.md
 - docs/architecture/module-catalog.md
@@ -18,54 +18,47 @@ references:
 - docs/plans/readiness-checklist.md
 - docs/plans/w1-1-remaining-delivery-tasks.md
 ---
-# الإصدارات وخارطة الطريق
 
-تصف هذه الوثيقة برنامجاً تقنياً مضغوطاً من خمسة أيام يبدأ بعد اكتمال W1.1
-وW1.2. لا توجد بوابات بشرية بين الموجات؛ الانتقال يعتمد على اختبارات آلية
-خضراء، وعزل الموديولات، وضوابط الأمن والنسخ والاستعادة.
+> **R2/R3 entries are aspirational; only R1 is implemented.** The 5-day program and Day-4/Day-5 entries are forward-looking, not yet built.
 
-## المخرجات
+# Releases and Roadmap
 
-| الإصدار | النطاق | المخرج الآلي |
+This document describes a compressed five-day technical program that begins after W1.1 and W1.2 are complete. There are no human gates between waves; progression depends on green automated tests, module isolation, and security, backup, and recovery controls.
+
+## Deliverables
+
+| Release | Scope | Automated outcome |
 |---|---|---|
-| R1 | النواة، الهوية والصلاحيات، WorkRecords، أنواع الأعمال والمسارات، المهام والمستندات والبحث والإشعارات والتدقيق والواجهة الموحدة | رحلة الطلب المرجعي، عزل منشأتين، وقرارات الصلاحية في الخلفية |
-| R2 | الاستراتيجية، المؤشرات، المحافظ والبرامج والمشاريع وقوالب التحسين | ربط مشروع بمؤشر، تحقق التوزيع والأثر، وإعادة بناء اللوحات |
-| R3 | سجل المخاطر، المصفوفة والضوابط، خطط المعالجة، KRI والتنبيهات والربط بـR1/R2 | تقييم خطر، حساب المتبقي، وخروج تنبيه آلي ضمن المهلة |
+| R1 | Core, identity and authorization, WorkRecords, work types and workflows, tasks, documents, search, notifications, auditing, and the unified interface | Reference request journey, two-facility isolation, and backend authorization decisions |
+| R2 | Strategy, indicators, portfolios, programs, projects, and improvement templates | Link a project to an indicator, validate allocation and impact, and rebuild dashboards |
+| R3 | Risk register, matrix and controls, treatment plans, KRI, alerts, and links to R1/R2 | Assess a risk, calculate residual risk, and issue an automated alert within the deadline |
 
-## برنامج الأيام الخمسة
+## Five-Day Program
 
-| اليوم | العمل | دليل الإغلاق الآلي |
+| Day | Work | Automated completion evidence |
 |---|---|---|
-| 1 | دمج W1.3 وإغلاق Authorization والعلاقات الإشرافية | اختبارات Authorization المستهدفة و`make verify-boundaries` وبناء Web |
-| 2 | WorkDefinitions وWorkflow وWorkRecords وTasks | `make test-api` ورحلة الطلب والمهمة في المتصفح |
-| 3 | Documents وNotifications وSearch وReporting وإغلاق R1 | `make test-api` و`make test-web` ورحلة R1 المتكاملة |
-| 4 | تنفيذ R2: Strategy وIndicators وPortfolioProjects وربط الأثر | اختبارات R2 الحسابية والحدود ورحلة R2 المتكاملة |
-| 5 | تنفيذ R3 ثم دمج رحلات R1–R3 | `make test-api` و`make test-web` و`make verify-boundaries` وفحص الوثائق |
+| 1 | Merge W1.3 and complete Authorization and supervisory relationships | Targeted Authorization tests, `make verify-boundaries`, and the Web build |
+| 2 | WorkDefinitions, Workflow, WorkRecords, and Tasks | `make test-api` and the request and task journey in the browser |
+| 3 | Documents, Notifications, Search, Reporting, and completion of R1 | `make test-api`, `make test-web`, and the integrated R1 journey |
+| 4 | Implement R2: Strategy, Indicators, PortfolioProjects, and impact linkage | R2 calculation and boundary tests and the integrated R2 journey |
+| 5 | Implement R3, then integrate the R1-R3 journeys | `make test-api`, `make test-web`, `make verify-boundaries`, and a documentation check |
 
-## قواعد التنفيذ والخروج
+## Execution and Exit Rules
 
-- تبقى عقود الموديولات وIDs والأحداث وread models هي حدود التعاون؛ لا joins
-  مباشرة بين جداول الأعمال.
-- يطبق RBAC + ABAC نفسه على API والبحث والتقارير والتصدير والتنزيل، ويحفظ
-  تغيير الأعمال وOutbox event في معاملة واحدة مع مستهلك idempotent.
-- لا نشر على الخادم ولا بيانات حقيقية أثناء الأيام الخمسة. التشغيل النهائي
-  مستقل بعد اليوم الخامس عبر [قائمة الجاهزية الآلية](../plans/readiness-checklist.md).
-- إغلاق كل يوم هو نتيجة أوامر موجودة واختبارات قابلة لإعادة التشغيل. الفشل يعيد
-  العمل إلى التنفيذ؛ لا مراجعين أو لجان أو توقيعات أو UAT أو تدريب أو قبول يدوي.
-- تبقى النسخ الاحتياطية، اختبار الاستعادة، healthchecks، فحوص الأسرار، العزل،
-  وتثبيت صور الإنتاج بالـdigest ضوابط إلزامية.
+- Module contracts, IDs, events, and read models remain the collaboration boundaries; there are no direct joins between business tables.
+- The same RBAC + ABAC applies to the API, search, reports, exports, and downloads. A business change and its Outbox event are stored in one transaction, with an idempotent consumer.
+- There is no server deployment or real data during the five days. Final operations are handled separately after Day 5 through the [automated readiness checklist](../plans/readiness-checklist.md).
+- Each day's completion is determined by existing commands and rerunnable tests. Failure returns the work to implementation; there are no reviewers, committees, signatures, UAT, training, or manual acceptance.
+- Backups, recovery testing, health checks, secret scans, isolation, and digest-pinned production images remain mandatory controls.
 
-## ما بعد الأيام الخمسة
+## After the Five Days
 
-بعد نجاح بوابة اليوم الخامس فقط تُنفذ العمليات التشغيلية المؤجلة من W1.1:
-CI النهائي، نشر VPS والرجوع، والنسخ والاستعادة. أي ميزات خارج نطاق R1 أو R2 أو
-R3 (التكاملات الخارجية، OCR، التوقيع الإلكتروني، البحث الدلالي) تبقى في قائمة
-مرشحين لاحقة ولا تغيّر برنامج الأيام الخمسة.
+Only after the Day 5 gate passes are the operational activities deferred from W1.1 performed: final CI, VPS deployment and rollback, and backup and recovery. Any features outside R1, R2, or R3 (external integrations, OCR, electronic signatures, and semantic search) remain on a later candidate list and do not change the five-day program.
 
-## سجل التغيير
+## Change Log
 
-| الإصدار | التاريخ | التغيير |
+| Version | Date | Change |
 |---|---|---|
-| 3.0.0 | 2026-07-19 | توحيد خارطة الطريق في برنامج خمسة أيام يبدأ W1.3، وإزالة الحوكمة البشرية وبوابات القبول اليدوي |
-| 2.0.0 | 2026-07-17 | فصل بوابات التطوير المحلية عن التشغيل النهائي |
-| 1.0.0 | 2026-07-15 | إنشاء خارطة الإصدارات الثلاثة |
+| 3.0.0 | 2026-07-19 | Consolidated the roadmap into a five-day program beginning with W1.3, and removed human governance and manual acceptance gates |
+| 2.0.0 | 2026-07-17 | Separated local development gates from final operations |
+| 1.0.0 | 2026-07-15 | Created the three-release roadmap |
