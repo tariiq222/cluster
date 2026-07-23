@@ -75,6 +75,7 @@ const copy = {
     activationExpiry: 'ينتهي في',
     activationDelivery: 'طريقة الإرسال',
     activationError: 'تعذر إرسال رابط التفعيل.',
+    activationDeliveryControlled: 'تسليم منضبط',
     reason: 'سبب الإجراء (اختياري)',
     reasonHint: 'يُحفظ في سجل التدقيق ليُعرف لاحقاً سبب التغيير.',
     activate: 'تفعيل الحساب',
@@ -91,6 +92,7 @@ const copy = {
     forcePasswordHint: 'يطلب منه كلمة مرور جديدة عند الدخول القادم.',
     noActions: 'لا توجد إجراءات متاحة على هذا الحساب.',
     done: 'تم تنفيذ الإجراء.',
+    cancel: 'إلغاء',
   },
   en: {
     title: 'Sign-in accounts',
@@ -134,6 +136,7 @@ const copy = {
     activationExpiry: 'Expires',
     activationDelivery: 'Delivery',
     activationError: 'The activation link could not be sent.',
+    activationDeliveryControlled: 'Controlled delivery',
     reason: 'Reason (optional)',
     reasonHint: 'Stored in the audit trail so the change can be explained later.',
     activate: 'Activate account',
@@ -150,6 +153,7 @@ const copy = {
     forcePasswordHint: 'Asks for a new password at their next sign-in.',
     noActions: 'No actions are available on this account.',
     done: 'Action completed.',
+    cancel: 'Cancel',
   },
 } as const
 
@@ -335,8 +339,8 @@ function AddAccountDrawer({ open, locale, token, people, onClose, onCreated }: {
     <p className="ui-drawer-intro">{text.addAccountIntro}</p>
     <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>
       {error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}
-      <Select id="account-person" label={text.employee} value={personId} onChange={setPersonId} options={people.map((person) => ({ value: person.id, label: person.display_name_ar }))} />
-      <Field id="account-username" label={text.username} value={username} onChange={setUsername} required hint={text.usernameHint} invalid={error && !USERNAME_PATTERN.test(username)} />
+      <UiField id="account-person" label={text.employee}><UiSelect id="account-person" value={personId} onChange={setPersonId} options={people.map((person) => ({ value: person.id, label: locale === 'en' && person.display_name_en ? person.display_name_en : person.display_name_ar }))} /></UiField>
+      <UiField id="account-username" label={text.username} required help={text.usernameHint} error={error && !USERNAME_PATTERN.test(username) ? text.validation : undefined}><input id="account-username" value={username} required aria-required="true" aria-invalid={error && !USERNAME_PATTERN.test(username)} onChange={(event) => setUsername(event.target.value)} /></UiField>
       <div className="table-actions">
         <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.create}</Button>
         <Button variant="secondary" type="button" onClick={onClose} disabled={submitting}>{text.close}</Button>
@@ -409,7 +413,7 @@ function ManageAccountDrawer({ account, locale, token, onClose, onChanged }: {
     </p>}
     {done && <p className="status-message" role="status">{text.done}</p>}
     {activation && <p className="status-message" role="status">
-      {text.activationIssued} {text.activationExpiry}: <span dir="ltr">{activation.expires_at}</span> — {text.activationDelivery}: {activation.delivery}
+      {text.activationIssued} {text.activationExpiry}: <span dir="ltr">{activation.expires_at}</span> — {text.activationDelivery}: {text.activationDeliveryControlled}
     </p>}
 
     {/* The activation link is the only thing worth doing to an unused account,
@@ -419,7 +423,7 @@ function ManageAccountDrawer({ account, locale, token, onClose, onChanged }: {
     </div>}
 
     {available.length > 0 && <>
-      <Field id="account-reason" label={text.reason} value={reason} onChange={setReason} hint={text.reasonHint} />
+      <UiField id="account-reason" label={text.reason} help={text.reasonHint}><input id="account-reason" value={reason} onChange={(event) => setReason(event.target.value)} /></UiField>
       {available.map((item) => <div className="account-action" key={item.action}>
         <Button variant={item.danger ? 'secondary' : 'primary'} onClick={() => void run(item.action)} disabled={busy}>
           {pending === item.action ? text.saving : text[item.label]}
@@ -433,13 +437,3 @@ function ManageAccountDrawer({ account, locale, token, onClose, onChanged }: {
 }
 
 type IdentityActivationResult = Awaited<ReturnType<typeof issueIdentityActivation>>
-
-function Field({ id, label, value, onChange, type = 'text', required = false, invalid = false, hint }: { id: string; label: string; value: string; onChange: (value: string) => void; type?: 'text' | 'password'; required?: boolean; invalid?: boolean; hint?: string }) {
-  return <UiField id={id} label={label} required={required} help={hint}>
-    <input id={id} type={type} value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} />
-  </UiField>
-}
-
-function Select({ id, label, value, onChange, options }: { id: string; label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
-  return <UiField id={id} label={label}><UiSelect id={id} value={value} onChange={onChange} options={options} /></UiField>
-}

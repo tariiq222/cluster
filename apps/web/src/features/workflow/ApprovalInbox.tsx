@@ -158,7 +158,7 @@ export function ApprovalInbox({ locale, session, scopeReady, scopeEpoch }: { loc
               const currentOwner = step.assignee_user_id ?? '—'
               const reason = reasons[stepId] ?? ''
               const targetUserId = reassignmentTargets[stepId] ?? ''
-              const needsReason = step.allowed_actions.some((action) => action === 'reject' || action === 'return' || action === 'reassign' || action === 'escalate')
+              const needsReason = (step.allowed_actions ?? []).some((action) => action === 'reject' || action === 'return' || action === 'reassign' || action === 'escalate')
               return (
                 <Panel key={stepId} id={`approval-${stepId}`} title={<a href={`/approvals/${stepId}`}>{subject}</a>} level={2} actions={<StatusBadge>{copy.workflowState(step.state ?? '')}</StatusBadge>}>
                   <dl className="definition-grid">
@@ -171,17 +171,17 @@ export function ApprovalInbox({ locale, session, scopeReady, scopeEpoch }: { loc
                       <textarea id={`${stepId}-reason`} value={reason} onChange={(event) => setReasons((current) => ({ ...current, [stepId]: event.target.value }))} aria-describedby={`${stepId}-reason-help`} />
                     </Field>
                   ) : null}
-                  {step.allowed_actions.includes('reassign') ? (
+                  {(step.allowed_actions ?? []).includes('reassign') ? (
                     <Field id={`${stepId}-reassign-target`} label={copy.reassignmentTarget} help={copy.reassignmentTargetHelp}>
                       <input id={`${stepId}-reassign-target`} value={targetUserId} onChange={(event) => setReassignmentTargets((current) => ({ ...current, [stepId]: event.target.value }))} />
                     </Field>
                   ) : null}
                   <div className="table-actions">
-                     {step.allowed_actions.includes('approve') ? <Button type="button" disabled={busy === stepId} onClick={() => void decide(step, 'approve')}><CheckCircle2 aria-hidden="true" /> {busy === stepId ? copy.reqDecisionPending : copy.approve}</Button> : null}
-                     {step.allowed_actions.includes('reject') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void decide(step, 'reject')}><XCircle aria-hidden="true" /> {busy === stepId ? copy.reqDecisionPending : copy.reject}</Button> : null}
-                     {step.allowed_actions.includes('return') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void decide(step, 'return')}><RotateCcw aria-hidden="true" /> {busy === stepId ? copy.returning : copy.returnForCorrection}</Button> : null}
-                     {step.allowed_actions.includes('reassign') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void act(step, 'reassign')}><UserRoundPen aria-hidden="true" /> {busy === stepId ? copy.reassigning : copy.reassign}</Button> : null}
-                     {step.allowed_actions.includes('escalate') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void act(step, 'escalate')}><ArrowUpRight aria-hidden="true" /> {busy === stepId ? copy.escalating : copy.escalate}</Button> : null}
+                    {(step.allowed_actions ?? []).includes('approve') ? <Button type="button" disabled={busy === stepId} onClick={() => void decide(step, 'approve')}><CheckCircle2 aria-hidden="true" /> {busy === stepId ? copy.reqDecisionPending : copy.approve}</Button> : null}
+                    {(step.allowed_actions ?? []).includes('reject') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void decide(step, 'reject')}><XCircle aria-hidden="true" /> {busy === stepId ? copy.reqDecisionPending : copy.reject}</Button> : null}
+                    {(step.allowed_actions ?? []).includes('return') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void decide(step, 'return')}><RotateCcw aria-hidden="true" /> {busy === stepId ? copy.returning : copy.returnForCorrection}</Button> : null}
+                    {(step.allowed_actions ?? []).includes('reassign') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void act(step, 'reassign')}><UserRoundPen aria-hidden="true" /> {busy === stepId ? copy.reassigning : copy.reassign}</Button> : null}
+                    {(step.allowed_actions ?? []).includes('escalate') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void act(step, 'escalate')}><ArrowUpRight aria-hidden="true" /> {busy === stepId ? copy.escalating : copy.escalate}</Button> : null}
                   </div>
                 </Panel>
               )

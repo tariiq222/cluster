@@ -47,6 +47,7 @@ const copy = {
     saveError: 'لم يُحفظ التغيير. راجع البيانات ثم أعد المحاولة.', revokeValidation: 'أدخل سبباً واضحاً لإلغاء التكليف.',
     searchUnits: 'ابحث عن وحدة…',
     noMatchingResults: 'لا توجد نتائج مطابقة',
+    cancel: 'إلغاء',
   },
   en: {
     title: 'Temporary assignments', intro: 'Manage time-bound permissions for one organization unit at a time.',
@@ -62,6 +63,7 @@ const copy = {
     saveError: 'The change was not saved. Review the data and try again.', revokeValidation: 'Enter a clear reason for revoking the assignment.',
     searchUnits: 'Search units…',
     noMatchingResults: 'No matching results',
+    cancel: 'Cancel',
   },
 } as const
 
@@ -235,11 +237,11 @@ function TemporaryAssignmentForm({ locale, token, organizationUnitId, people, on
     <div className="field-row">
       <UiField id="temporary-person-id" label={text.personId} required><Select id="temporary-person-id" value={personId} onChange={setPersonId} options={people.filter((person) => person.status === 'active').map((person) => ({ value: person.id, label: locale === 'en' && person.display_name_en ? person.display_name_en : person.display_name_ar }))} /></UiField>
       <div className="field"><label htmlFor="temporary-capability-codes">{text.capabilities}<span aria-hidden="true"> *</span></label><textarea id="temporary-capability-codes" value={capabilityCodes} required aria-required="true" aria-invalid={Boolean(error)} aria-describedby="temporary-capability-codes-help" onChange={(event) => setCapabilityCodes(event.target.value)} dir="ltr" /><p id="temporary-capability-codes-help" className="field-help">{text.capabilitiesHelp}</p></div>
-      <Field id="temporary-reason" label={text.reason} value={reason} onChange={setReason} required invalid={Boolean(error && !reason.trim())} />
-      <Field id="temporary-start" label={text.startAt} type="datetime-local" value={startAt} onChange={setStartAt} required invalid={Boolean(error)} direction="ltr" />
-      <Field id="temporary-end" label={text.endAt} type="datetime-local" value={endAt} onChange={setEndAt} required invalid={Boolean(error)} direction="ltr" />
+      <UiField id="temporary-reason" label={text.reason} required><input id="temporary-reason" value={reason} required aria-required="true" aria-invalid={Boolean(error && !reason.trim())} onChange={(event) => setReason(event.target.value)} /></UiField>
+      <UiField id="temporary-start" label={text.startAt} required><input id="temporary-start" type="datetime-local" value={startAt} required aria-required="true" aria-invalid={Boolean(error)} onChange={(event) => setStartAt(event.target.value)} dir="ltr" /></UiField>
+      <UiField id="temporary-end" label={text.endAt} required><input id="temporary-end" type="datetime-local" value={endAt} required aria-required="true" aria-invalid={Boolean(error)} onChange={(event) => setEndAt(event.target.value)} dir="ltr" /></UiField>
     </div>
-    <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.create}</Button><Button type="button" variant="quiet" onClick={onCancel} disabled={submitting}>{locale === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+    <Button type="submit" disabled={submitting}>{submitting ? text.saving : text.create}</Button><Button type="button" variant="quiet" onClick={onCancel} disabled={submitting}>{text.cancel}</Button>
   </form>
 }
 
@@ -280,14 +282,8 @@ function RevokeForm({ assignment, locale, token, onFailure, onRefresh, onRevoked
     {error && <div className="field-error" role="alert" tabIndex={-1} ref={errorRef}><p>{text[error === 'validation' ? 'revokeValidation' : error === 'conflict' ? 'conflict' : error === 'refresh' ? 'refresh' : 'saveError']}</p>{error === 'refresh' && <Button variant="secondary" onClick={onRefresh}>{text.retry}</Button>}</div>}
     <label htmlFor={fieldId}>{text.revokeReason}</label>
     <input id={fieldId} value={reason} required aria-required="true" aria-invalid={Boolean(error)} onChange={(event) => setReason(event.target.value)} />
-    <Button variant="secondary" type="submit" disabled={submitting}>{submitting ? text.revoking : text.revoke}</Button><Button variant="quiet" type="button" onClick={() => setOpen(false)} disabled={submitting}>{locale === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+    <Button variant="secondary" type="submit" disabled={submitting}>{submitting ? text.revoking : text.revoke}</Button><Button variant="quiet" type="button" onClick={() => setOpen(false)} disabled={submitting}>{text.cancel}</Button>
   </form>
-}
-
-function Field({ id, label, value, onChange, type = 'text', required = false, invalid = false, direction }: {
-  id: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; invalid?: boolean; direction?: 'ltr'
-}) {
-  return <UiField id={id} label={label} required={required}><input id={id} type={type} value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} dir={direction} /></UiField>
 }
 
 function toUtcTimestamp(value: string): Date | null {

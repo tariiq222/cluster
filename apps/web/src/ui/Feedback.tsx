@@ -56,7 +56,38 @@ export function SkeletonList({ label, rows = 3 }: { label: string; rows?: number
   )
 }
 
-/** Status pill shared by every list and detail surface. */
-export function StatusBadge({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={cx('status-badge', className)}>{children}</span>
+export type StatusBadgeVariant =
+  | 'neutral'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info'
+
+const STATUS_BADGE_CLASS: Record<StatusBadgeVariant, string> = {
+  neutral: 'status-badge--neutral',
+  success: 'status-badge--success',
+  warning: 'status-badge--warning',
+  danger: 'status-badge--danger',
+  info: 'status-badge--info',
+}
+
+/**
+ * Status pill shared by every list and detail surface. Variant drives semantic
+ * color so draft/pending/returned/cancelled states do not all share the default
+ * success-green treatment.
+ */
+export function StatusBadge({
+  children,
+  variant = 'neutral',
+  className,
+}: {
+  children: ReactNode
+  variant?: StatusBadgeVariant
+  className?: string
+}) {
+  return (
+    <span className={cx('status-badge', STATUS_BADGE_CLASS[variant], className)}>
+      {children}
+    </span>
+  )
 }

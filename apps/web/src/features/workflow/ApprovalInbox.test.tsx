@@ -109,4 +109,57 @@ describe('ApprovalInbox screen', () => {
       7,
     ))
   })
+
+  it('only renders the reason input when at least one allowed action requires a reason', async () => {
+    listActionableWorkflowStepsInboxMock.mockResolvedValueOnce([inboxItem(['approve'])])
+
+    render(<ApprovalInbox locale="en" session={session} scopeReady scopeEpoch={0} />)
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeTruthy()
+    expect(screen.queryByLabelText('Decision reason')).toBeNull()
+  })
+
+  it('renders no decision buttons when allowed_actions is missing from the inbox item', async () => {
+    listActionableWorkflowStepsInboxMock.mockResolvedValueOnce([{ ...inboxItem([]), allowed_actions: undefined } as never])
+
+    render(<ApprovalInbox locale="en" session={session} scopeReady scopeEpoch={0} />)
+    expect(await screen.findByRole('heading', { name: 'My approvals' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reassign' })).toBeNull()
+    expect(screen.queryByLabelText('Decision reason')).toBeNull()
+  })
+
+  it('renders the reason input for a reassign-only item and the reassign target input', async () => {
+    listActionableWorkflowStepsInboxMock.mockResolvedValueOnce([inboxItem(['reassign'])])
+
+    render(<ApprovalInbox locale="en" session={session} scopeReady scopeEpoch={0} />)
+    expect(await screen.findByLabelText('Decision reason')).toBeTruthy()
+    expect(screen.getByLabelText('Reassign to user ID')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Reassign' })).toBeTruthy()
+  })
+
+  it('renders the reason input when the allowed actions include "return"', async () => {
+    listActionableWorkflowStepsInboxMock.mockResolvedValueOnce([inboxItem(['approve', 'return'])])
+
+    render(<ApprovalInbox locale="en" session={session} scopeReady scopeEpoch={0} />)
+    expect(await screen.findByLabelText('Decision reason')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Return for correction' })).toBeTruthy()
+  })
+
+  it('submits a return-for-correction decision with the provided reason and step lock', async () => {
+    listActionableWorkflowStepsInboxMock.mockResolvedValueOnce([inboxItem(['return'])])
+    recordWorkflowDecisionMock.mockResolvedValue({ id: 'decision' })
+
+    render(<ApprovalInbox locale="en" session={session} scopeReady scopeEpoch={0} />)
+    fireEvent.change(await screen.findByLabelText('Decision reason'), { target: { value: 'Need to clarify the financial attachment.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Return for correction' }))
+
+    await waitFor(() => expect(recordWorkflowDecisionMock).toHaveBeenCalledWith(
+      'test-token',
+      'step-1',
+      { decision: 'return', reason: 'Need to clarify the financial attachment.' },
+      7,
+    ))
+  })
 })

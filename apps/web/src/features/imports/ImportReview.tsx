@@ -171,7 +171,7 @@ function SubmitForm({ locale, token, quarantineId, onQuarantineIdChange, onSubmi
     catch { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()) }
     finally { setSubmitting(false) }
   }
-  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<Field id="quarantine-id" label={text.quarantineId} value={quarantineId} onChange={onQuarantineIdChange} required invalid={error} /><Button type="submit" disabled={submitting}>{submitting ? text.saving : text.submit}</Button></form>
+  return <form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<UiField id="quarantine-id" label={text.quarantineId} required><input id="quarantine-id" dir="ltr" value={quarantineId} required aria-required="true" aria-invalid={error} onChange={(event) => onQuarantineIdChange(event.target.value)} /></UiField><Button type="submit" disabled={submitting}>{submitting ? text.saving : text.submit}</Button></form>
 }
 
 function OpenForm({ locale, initialValue, onOpen }: { locale: Locale; initialValue: string; onOpen: (jobId: string) => void }) {
@@ -180,7 +180,7 @@ function OpenForm({ locale, initialValue, onOpen }: { locale: Locale; initialVal
   const [error, setError] = useState(false)
   const errorRef = useRef<HTMLParagraphElement>(null)
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!UUID_V7.test(value)) { setError(true); window.requestAnimationFrame(() => errorRef.current?.focus()); return } setError(false); onOpen(value) }
-  return <form className="resource-form" onSubmit={submit} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<Field id="import-job-id" label={text.jobId} value={value} onChange={setValue} required invalid={error} /><Button type="submit" variant="secondary">{text.open}</Button></form>
+  return <form className="resource-form" onSubmit={submit} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{text.validation}</p>}<UiField id="import-job-id" label={text.jobId} required><input id="import-job-id" dir="ltr" value={value} required aria-required="true" aria-invalid={error} onChange={(event) => setValue(event.target.value)} /></UiField><Button type="submit" variant="secondary">{text.open}</Button></form>
 }
 
 function TransitionForm({ locale, token, job, onChanged }: { locale: Locale; token: string; job: ImportJob; onChanged: (job: ImportJob) => void; }) {
@@ -200,9 +200,8 @@ function TransitionForm({ locale, token, job, onChanged }: { locale: Locale; tok
     catch (failure) { setError(failure instanceof ApiError && failure.status === 412 ? 'stale' : 'transition'); window.requestAnimationFrame(() => errorRef.current?.focus()) }
     finally { setSubmitting(false) }
   }
-  return <Panel id="transition-heading" title={text.action} level={2}><form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{error === 'validation' ? text.validation : error === 'stale' ? text.stale : text.transitionError}</p>}<div className="field-row"><UiField id="import-action" label={text.action}><UiSelect id="import-action" value={action} onChange={(next) => setAction(next as ImportJobAction)} options={available.map((item) => ({ value: item, label: text[item] }))} /></UiField><Field id="import-reason" label={text.reason} value={reason} onChange={setReason} /></div><Button type="submit" disabled={submitting}>{submitting ? text.saving : text.execute}</Button></form></Panel>
+  return <Panel id="transition-heading" title={text.action} level={2}><form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{error === 'validation' ? text.validation : error === 'stale' ? text.stale : text.transitionError}</p>}<div className="field-row"><UiField id="import-action" label={text.action}><UiSelect id="import-action" value={action} onChange={(next) => setAction(next as ImportJobAction)} options={available.map((item) => ({ value: item, label: text[item] }))} /></UiField><UiField id="import-reason" label={text.reason}><input id="import-reason" dir="ltr" value={reason} onChange={(event) => setReason(event.target.value)} /></UiField></div><Button type="submit" disabled={submitting}>{submitting ? text.saving : text.execute}</Button></form></Panel>
 }
 
 function availableActions(status: ImportJob['status']): ImportJobAction[] { if (status === 'received') return ['validate']; if (status === 'validated') return ['approve', 'reject']; if (status === 'approved') return ['apply', 'cancel']; return [] }
-function Field({ id, label, value, onChange, required = false, invalid = false }: { id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean; invalid?: boolean }) { return <UiField id={id} label={label} required={required}><input id={id} dir="ltr" value={value} required={required} aria-required={required || undefined} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} /></UiField> }
 function number(value: number, locale: Locale) { return new Intl.NumberFormat(formattingLocale(locale)).format(value) }
