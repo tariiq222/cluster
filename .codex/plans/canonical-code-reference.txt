@@ -1,0 +1,162 @@
+=== MODULE TABLE COUNTS (Schema::create calls) ===
+Authorization             13
+Documents                 10
+Identity                  13
+Notifications             4
+Organization              17
+PlatformSettings          13
+Reporting                 6
+Search                    3
+Tasks                     4
+WorkDefinitions           4
+WorkRecords               2
+Workflow                  7
+TOTAL                     96
+
+=== MIGRATION FILES (counted) ===
+TOTAL: 47
+
+=== ROUTES (under /api/v1) ===
+TOTAL: 119
+HTTP verbs:
+  54 GET
+  56 POST
+   8 PATCH
+   1 PUT
+   0 DELETE
+
+=== ROUTE PREFIXES (top 20) ===
+17 GET   organization
+14 POST  organization
+ 8 POST  identity
+ 7 POST  workflow
+ 7 POST  documents
+ 6 GET   workflow
+ 6 GET   documents
+ 5 POST  tasks
+ 5 PATCH organization
+ 4 POST  authorization
+ 4 GET   authorization
+ 3 POST  work-records
+ 3 GET   work-definitions
+ 3 GET   tasks
+ 3 GET   identity
+ 2 POST  work-definitions
+ 2 POST  internal
+ 2 GET   work-records
+ 2 GET   reports
+ 2 GET   me
+
+=== CONTRACTS (PHP files under Modules/*/Contracts) ===
+Authorization             10
+Documents                 10
+Identity                   5
+Notifications              1
+Organization               6
+PlatformSettings           9
+Reporting                  0
+Search                     0
+Tasks                      0
+WorkDefinitions            2
+WorkRecords                0
+Workflow                   6
+TOTAL MODULE CONTRACTS    49
+
+=== SHARED INFRASTRUCTURE ===
+Shared/Contracts/                  1 file
+Shared/Infrastructure/Outbox/      1 file (DatabaseTransactionalOutbox.php)
+Shared/Infrastructure/Streams/    (some)
+Shared/Infrastructure total:      4 .php files
+
+=== FRONTEND FEATURES (apps/web/src/features) ===
+authorization
+dashboard
+docs
+documents
+identity
+imports
+organization
+portal
+r1
+reporting
+requests
+tasks
+work-records
+workflow
+TOTAL: 14 features
+
+NOTE: features/imports and features/r1 and features/requests are aggregators,
+not modules. They do NOT map 1:1 to backend modules.
+
+=== ARCHITECTURE TESTS ===
+tests/Architecture/ModuleBoundariesTest.php
+  (module boundaries test — claims 4 tests, 6 assertions)
+
+=== TEST FILES TOTAL ===
+30 Test.php files (excluding WalkingSkeletonMySqlE2E)
+
+=== DEPLOYMENT (infra/) ===
+infra/platform/production/    (target hosting compose)
+infra/dev/                    (local dev)
+
+=== KEY GAPS vs docs/architectural-claims ===
+- docs/architecture/module-catalog.md claims 19 modules (canonical).
+- Code has 12 modules implemented.
+- Planned for R2/R3 (in docs, not yet in code):
+    Strategy, PortfolioProjects, Risk, Audit, RecordsGovernance,
+    Workspace, Collaboration
+  These have docs entries but no Laravel Modules/ directory.
+
+=== LAYOUT OF EACH MODULE ===
+Modules/<Name>/
+  Contracts/      (PHP interfaces — module boundaries)
+  Domain/         (entities, policies, domain services)
+  Features/       (use-case handlers)
+  Http/ or Application/ (controllers if HTTP-exposed)
+  Infrastructure/
+    Persistence/Migrations/   (Schema::create files)
+  Tests/         (feature + unit tests)
+
+=== KEY ROUTE PATTERNS ===
+- All routes under /api/v1 prefix
+- All require identity session middleware
+- POST/PATCH require IdentityCsrfMiddleware
+- Internal routes (no session, throttled):
+  /internal/documents/versions/{id}/scan
+  /internal/documents/versions/{id}/reconcile-promotion
+- Auth via DecideAccessController at /authorization/access-decisions
+- Bootstrap: /authorization/bootstrap, /authorization/bootstrap/complete
+- Dev login: /api/v1/auth/login (DevelopmentFixtureLoginController)
+
+=== ACTIONS ENDPOINTS ===
+work-records/{recordId}/{recordAction}     submit, return, complete, complete-submission, cancel, archive
+work-definition-versions/{versionId}/{versionAction}  test, approve, sign, publish
+workflow/versions/{versionId}/{workflowLifecycleAction}  publish, test, approve, sign
+workflow/steps/{stepId}/decisions
+workflow/steps/{stepId}/{stepAction}       reassign, escalate
+workflow/instances/{instanceId}/cancel
+documents/{documentId}/{documentAction}    archive, place-hold, release-hold
+documents/{documentId}/{documentGrantType}-grant  preview, download
+identity/accounts/{accountId}/{accountAction}     (transitions)
+organization/import-jobs/{jobId}/{jobAction}      (transitions)
+
+=== EVENTS / OUTBOX ===
+Shared/Infrastructure/Outbox/DatabaseTransactionalOutbox.php
+Modules/*/Domain and Features publish events through this outbox.
+AsyncAPI schema at contracts/events/asyncapi.yaml.
+
+=== ACCESS DECISION FLOW ===
+DecideAccessController → Authorization domain service
+BootstrapGatedDecideAccess wraps the bootstrap state.
+ExplainAccessDecisionController → /authorization/access-decisions/{id}/explanation
+
+=== ADMIN SURFACE ===
+AuthorizationAdminController handles all /authorization/{adminResource}
+Resources: roles, capabilities, delegations, classification-policies,
+field-policies, scopes, scope-types, assignments
+
+=== ROLE/IDENTITY FLOW ===
+IdentitySessionMiddleware → RequireIdentitySessionPrincipal →
+IdentityCsrfMiddleware (for state-changing) → Controller
+Principal (user) vs Person (organizational) separation
+Scopes: cluster, facility, unit, record_set
