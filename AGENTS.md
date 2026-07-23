@@ -2,86 +2,71 @@
 
 ## Product
 
-هذا المستودع يبني منصة التجمع الصحي الثالث كتطبيق Laravel modular monolith مع واجهة
-React + TypeScript موحدة، عربية افتراضياً وتدعم الإنجليزية وRTL/LTR.
+This repository builds the Third Health Cluster platform as a Laravel modular monolith application with a unified React + TypeScript interface, Arabic by default with English and RTL/LTR support.
 
 ## Live Code Agent Operating Model
 
-- هذا المشروع يستثني الجلسة الرئيسية صراحة لتعمل على `gpt-5.6-sol` بجهد `low`؛
-  يثبت ذلك إعداد المشروع في `.codex/config.toml` عند بدء جلسة جديدة موثوقة.
-- المدير Sol يملك تفكيك مهمة الكود، توزيع ملكية الملفات، متابعة التنفيذ، حل تعارضات
-  التكامل، والتحقق النهائي. ينفذ التغيير الصغير محلياً إذا كان التفويض أغلى منه.
-- المخرج الافتراضي هو كود عامل، فحص مستهدف مناسب، ونتيجة تشغيل مختصرة. لا تنشئ
-  مسارات مستقلة للحوكمة أو العقود أو الحدود أو المعمارية أو التقارير أو تحديث الوثائق
-  إلا إذا طلبها المستخدم صراحة؛ تبقى قيود المشروع شروطاً صامتة على التنفيذ البرمجي.
-- لا تستخدم الوكلاء للأسئلة والتوضيحات وتقارير الحالة. في العمل البرمجي غير البسيط،
-  فوّض فقط حزم كود مستقلة قابلة للتحقق وذات ملكية ملفات غير متعارضة.
-- استخدم `explorer` للاستكشاف الضيق الذي يمنع بدء البرمجة، و`spark-medium` للتعديلات
-  الميكانيكية الواضحة والاختبارات الصغيرة، و`worker` للتنفيذ البرمجي المعتاد، و
-  `luna-high` للتنفيذ أو التصحيح المعقد محدود النطاق.
-- لا تستخدم Terra إلا بعد ظهور مخاطرة أو غموض تقني حقيقي لا يحله مسار Luna، ولا
-  تشغّل `sol-high` كعامل افتراضي لأن المدير نفسه Sol.
-- استخدم `arabic-content-gemini` لكتابة المحتوى العربي والترجمة والتعريب والمصطلحات وUX writing عندما تكون جودة اللغة مؤثرة في المنتج.
-- يحق للمدير استخدام أي وكيل مباشر مهيأ يناسب الحزمة، وإنشاء agent أو command أو prompt أو skill محلي تحت `.kilo/` عند ثبوت فجوة متكررة لا تغطيها الأدوات الحالية. يلتزم الإنشاء بأقل الصلاحيات، ومنع nested delegation، ونموذج متاح فعلياً، وتعليمات داخلية بالإنجليزية، وفحص الإعداد؛ ولا يشمل الإعدادات العامة أو الخارجية أو تثبيت dependencies دون تفويض صريح.
-- الحد التشغيلي هو المدير وتسعة وكلاء مباشرين في الموجة الواحدة، بعمق تفويض واحد.
-  جدولة بقية الحزم تكون على موجات، مع إعادة استخدام الوكيل نفسه للمتابعات المرتبطة.
-- استخدم `fork_turns="none"` افتراضياً، وأرسل لكل وكيل الهدف والملفات المملوكة وشرط
-  الإنجاز والفحص المطلوب فقط. يعيد الوكيل ملخصاً قصيراً: الملفات المعدلة، الفحص،
-  والمانع إن وجد؛ المدير يفحص الفروقات والنتيجة المدمجة.
+- This project explicitly excludes the main session from running on `gpt-5.6-sol` at `low` effort; the project setup in `.codex/config.toml` records this at the start of any new trusted session.
+- The Sol manager owns code-task decomposition, file ownership distribution, execution follow-up, integration-conflict resolution, and final verification. It performs the small change locally when delegation would be more expensive than the change itself.
+- The default output is working code, appropriate targeted checks, and a brief run result. Do NOT create separate tracks for governance, contracts, boundaries, architecture, reports, or doc updates unless the user explicitly asks; project constraints remain silent conditions on code execution.
+- Do NOT use agents for questions, clarifications, or status reports. For non-trivial code work, delegate only independent code bundles that are verifiable and own non-overlapping files.
+- Use `explorer` for narrow exploration that prevents coding from starting, `spark-medium` for clearly mechanical edits and small tests, `worker` for routine code execution, and `luna-high` for complex, narrowly-scoped execution or debugging.
+- Do NOT use Terra until a real technical risk or ambiguity emerges that the Luna path cannot resolve, and do NOT run `sol-high` as a default agent because the manager itself is Sol.
+- Use `arabic-content-gemini` for Arabic content writing, translation, localization, terminology, and UX writing when language quality affects the product.
+- The manager MAY use any configured direct agent that fits the bundle, and create local agent, command, prompt, or skill under `.kilo/` when a recurring gap is proven that current tools do not cover. Creation must follow least-privilege, no nested delegation, an actually available model, internal English instructions, and a setup check; it does NOT include global or external settings or installing dependencies without explicit delegation.
+- The operational cap is the manager and nine direct agents in a single wave, with one delegation depth. Scheduling the rest of the bundles happens in waves, reusing the same agent for related follow-ups.
+- Use `fork_turns="none"` by default, and send each agent only the goal, owned files, completion condition, and required check. The agent returns a short summary: files changed, check, and any blocker; the manager inspects the diffs and the merged result.
 
 ## Sources of Truth
 
-- `docs/` هو مصدر القرارات والعقود والخطط المحكومة.
-- الكود والاختبارات والـlockfiles هي دليل الحالة التنفيذية الفعلية.
-- `docs/plans/active-delivery-status.md` يسجل العمل النشط والأدلة والخطوة التالية.
-- لا تُعامل وثيقة هدف أو خطة على أنها تنفيذ مكتمل من دون دليل قابل للتشغيل.
+- `docs/` is the source for governed decisions, contracts, and plans.
+- Code, tests, and lockfiles are the proof of the actual implementation state.
+- `docs/plans/active-delivery-status.md` records active work, evidence, and the next step.
+- Do NOT treat a target document or plan as completed implementation without runnable proof.
 
 ## Delivery Flow
 
-- كل مهمة تنفيذ غير بسيطة تمر إلزامياً عبر: تخطيط الهدف ومعايير القبول والمخاطر وLane Matrix حسب الموديولات، ثم تنفيذ vertical slice مكتمل، ثم مزامنة OpenAPI وOrval عند تغير API، ثم تحقق متدرج، ثم E2E للرحلات المرئية المتأثرة، ثم مراجعة مستقلة، ثم إغلاق بالأدلة الفعلية.
-- التنفيذ المكتمل يشمل كل سطح منطبق: Backend وFrontend والعقود والبيانات والتفويض وحالات loading وempty وdenied وerror وsuccess وإمكانية الوصول والتعريب والاختبارات؛ لا تعد scaffolding أو TODO أو mock دائم أو happy path فقط إنجازاً.
-- تبدأ الأوركستريشن بـSol كطبقة التحكم الوحيدة، وتُفَوَّض الحزم إلى الوكلاء تحتها بحسب الحاجة؛ تُفضّل MiniMax لحزم الموديولات الحتمية والاختبارات، ثم Luna للتعقيد وفشل التكامل، ولا تستخدم Terra إلا لمخاطرة عالية مثبتة.
-- يغطي E2E كل رحلة مستخدم تغيرت مادياً بالحالات المنطبقة مثل النجاح والتحقق والمنع والخطأ وإعادة التحميل والرابط المباشر والجلسة والاستجابة وRTL/LTR، مع artifacts عند الفشل، من دون تكرار غير مفيد لتغطية component أو integration.
-
-- مطور واحد (طارق) يبرمج ويختبر محلياً؛ `docs/engineering/delivery-workflow.md` يعرّف
-  الحلقة: خطط، نفّذ، اختبر، ادمج.
-- إذا فشل اختبار يعود العمل إلى التنفيذ حتى يخضر؛ لا مراحل إضافية ولا منسقين ولا لجان.
-- الإنجاز يثبت بكود عامل واختبار أخضر وCI عند توفره، لا بوثيقة. لا يصبح تحديث
-  `docs/plans/active-delivery-status.md` مهمة مستقلة إلا بطلب المستخدم.
-- تشغيل الخادم مرحلة مستقلة ونهائية بعد اكتمال تطوير R1 وR2 وR3، وليس بوابة بين الموجات.
+- Every non-trivial execution task MUST pass through: goal and acceptance-criteria planning with risks and Lane Matrix per modules, then implement a complete vertical slice, then sync OpenAPI and Orval when the API changes, then progressive verification, then E2E for affected visual journeys, then independent review, then close with actual evidence.
+- Completed implementation covers every applicable surface: Backend, Frontend, contracts, data, authorization, loading/empty/denied/error/success states, accessibility, localization, and tests; scaffolding, TODO, permanent mocks, or happy-path-only are NOT completion.
+- Orchestration starts with Sol as the only control layer, and bundles are delegated to agents underneath as needed; prefer MiniMax for deterministic module bundles and tests, then Luna for complexity and integration failures, and use Terra only for proven high risk.
+- E2E covers every materially-changed user journey with applicable states such as success, validation, denial, error, reload, deep link, session, responsiveness, and RTL/LTR, with artifacts on failure, without redundant duplication of component or integration coverage.
+- A single developer (the Engineering Office) programs and tests locally; `docs/engineering/delivery-workflow.md` defines the loop: plan, execute, test, integrate.
+- If a test fails, work returns to implementation until it passes; no extra phases, coordinators, or committees.
+- Completion is proven by working code, a green test, and CI when available — not by a document. Updating `docs/plans/active-delivery-status.md` does NOT become an independent task unless the user requests it.
+- Server provisioning is a separate, final phase after R1, R2, and R3 development is complete, NOT a gate between waves.
 
 ## Architecture Boundaries
 
-- يحظر الاستعلام أو join المباشر بين جداول موديولات الأعمال.
-- التعاون بين الموديولات يكون عبر contracts وevents وIDs وread models محكومة.
-- يطبق الخلف قرار RBAC + ABAC نفسه على API والبحث والتقارير والتصدير والتنزيل.
-- يحفظ تغيير الأعمال وOutbox event في معاملة واحدة، ويكون المستهلك idempotent.
-- تبقى السجلات الجارية مثبتة على إصدارات أنواع العمل والمسارات المنشورة.
-- النشر المستهدف VPS واحد عبر Docker Compose مباشر وCaddy، مع MySQL وRedis الموجودين على الخادم.
+- Direct queries or joins across business-module tables are forbidden.
+- Cross-module collaboration happens through contracts, events, IDs, and governed read models.
+- The backend applies the same RBAC + ABAC decision to API, search, reports, export, and download.
+- Business change and Outbox event are persisted in a single transaction, and consumers are idempotent.
+- Live registries are pinned to the deployed work-type versions and routes.
+- The deployment target is a single VPS via direct Docker Compose and Caddy, with the existing MySQL and Redis on the server.
 
 ## Work Safety
 
-- افحص `git status` قبل التعديل واحفظ تغييرات المستخدم غير ذات الصلة.
-- استخدم `apply_patch` للتعديلات النصية ولا تستخدم أوامر Git مدمرة.
-- لا توسع النطاق خارج طلب المستخدم، ولا تلتزم أو تدفع تغييراته دون تفويض.
-- استخدم `rg` و`rg --files` للبحث أولاً.
+- Check `git status` before edits and preserve the user's unrelated changes.
+- Use `apply_patch` for text edits and do NOT use destructive Git commands.
+- Do NOT expand scope beyond the user's request, and do NOT commit or push their changes without delegation.
+- Use `rg` and `rg --files` for search first.
 
 ## Stage Checks
 
-- يختار التحقق الفحوص وأفضل الممارسات الواجبة حسب نوع التغيير ومخاطره، ويسجل سبب أي `N/A`.
-- تغييرات الوثائق: `./scripts/validate-docs.sh`.
-- حدود الموديولات: `make verify-boundaries`.
-- API: ابدأ بأضيق اختبار Artisan متأثر ثم وسع عند الحاجة.
-- الويب: `npm --prefix apps/web run build` ثم الاختبار المستهدف.
-- لا تشغل suites واسعة لتغيير غير سلوكي ما لم يبرر الخطر ذلك.
+- Verification chooses the required checks and best practices by change type and risk, and records the reason for any `N/A`.
+- Doc changes: `./scripts/validate-docs.sh`.
+- Module boundaries: `make verify-boundaries`.
+- API: start with the narrowest affected Artisan test then broaden if needed.
+- Web: `npm --prefix apps/web run build` then the targeted test.
+- Do NOT run broad suites for non-behavioral changes unless the risk justifies it.
 
 ## Local OpenCode Tooling
 
-- `.opencode/plugins/model-swarm.ts` و`.opencode/instructions/model-swarm.md` أدوات تطوير محلية وليست جزءاً من المنتج.
-- لا تجعل بناء المنتج أو تشغيله يعتمد على `.opencode/`.
+- `.opencode/plugins/model-swarm.ts` and `.opencode/instructions/model-swarm.md` are local development tools and NOT part of the product.
+- Do NOT make product build or runtime depend on `.opencode/`.
 
 ## Unified UI Components (mandatory)
 
-- استخدم دائماً مكونات `apps/web/src/ui/` الموحدة (`Button`, `Field`, `Select`, `Drawer`, `Panel`, `Feedback`...) في كل واجهات الموديولات، ويُحظر إنشاء `<select>` خام أو أزرار أو حقول أو قوائم منسدلة محلية مكررة داخل `features/`.
-- إذا نقص مكوّن أو سلوك، فأضفه للمكتبة الموحدة أولاً (مع اختبار وحدة وأنماط في `ui/ui.css`) ثم استخدمه؛ لا تبنِ نسخة خاصة بالموديول.
-- القائمة المنسدلة الموحدة `Select` تعرض بحثاً تلقائياً عندما تتجاوز خياراتها 10 عناصر (`SELECT_SEARCH_THRESHOLD`)؛ أي قائمة أطول يجب أن تمر عبرها وليس عبر بديل مخصص.
+- Always use the unified `apps/web/src/ui/` components (`Button`, `Field`, `Select`, `Drawer`, `Panel`, `Feedback`, ...) across every module interface, and creating raw `<select>`, buttons, fields, or local dropdowns duplicated inside `features/` is forbidden.
+- If a component or behavior is missing, add it to the unified library first (with a unit test and patterns in `ui/ui.css`) then use it; do NOT build a module-specific version.
+- The unified `Select` dropdown shows an automatic search when its options exceed 10 items (`SELECT_SEARCH_THRESHOLD`); any longer list must go through it, not a custom alternative.

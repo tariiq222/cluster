@@ -1,20 +1,20 @@
-# المساهمة في الوثائق
+# Contributing to the Documentation
 
-## النطاق
+## Scope
 
-- عدّل المصدر الجاري داخل `docs/` فقط ما لم يكن التغيير المقصود في مادة تاريخية.
-- لا تعدّل `doc/` لتغيير قرار قائم؛ أضف أو حدّث وثيقة جارية مع إحالة واضحة إلى المصدر التاريخي.
-- لا تضف ملفات SVG أو PNG يدوية. احتفظ بمصدر Mermaid النصي في `docs/architecture/diagrams/` وشغّل `scripts/render-diagrams.sh` عند الحاجة إلى مخرجات محلية.
+- Edit only the current source under `docs/`, unless the intended change concerns historical material.
+- Do not edit `doc/` to change an existing decision; add or update a current document with a clear reference to the historical source.
+- Do not add hand-authored SVG or PNG files. Keep the textual Mermaid source in `docs/architecture/diagrams/`, and run `scripts/render-diagrams.sh` when local output is needed.
 
-## قبل فتح طلب الدمج
+## Before Opening a Merge Request
 
-1. استخدم أسماء ملفات `kebab-case` وامتداد `.md`.
-2. اتبع حقول front matter وضوابط المراجعة في `docs/governance/document-control.md`.
-3. استخدم روابط نسبية تعمل من الملف الذي يحتويها.
-4. لا تنشئ موديول `Requests`: الطلب العام هو `WorkRecord` من نوع `request`.
-5. لا تضف أسراراً أو بيانات شخصية أو بيانات تشغيلية حقيقية.
-6. شغّل `./scripts/validate-docs.sh` وأصلح المخالفات التي يبلغ عنها قبل طلب المراجعة.
+1. Use `kebab-case` filenames with the `.md` extension.
+2. Follow the front matter fields and review controls in `docs/governance/document-control.md`.
+3. Use relative links that work from the file containing them.
+4. Do not create a `Requests` module: a general request is a `WorkRecord` of type `request`.
+5. Do not add secrets, personal data, or real operational data.
+6. Run `./scripts/validate-docs.sh` and fix any violations it reports before requesting a review.
 
-## المراجعة
+## Review
 
-يلزم أن يراجع التغيير مالك الوثيقة والأدوار المطلوبة في front matter. يحدد `docs/governance/document-control.md` دورة المراجعة وسجل التغيير للوثائق المعتمدة.
+The change must be reviewed by the document owner and the roles required in the front matter. `docs/governance/document-control.md` defines the review cycle and change log for approved documents.
