@@ -24,6 +24,7 @@ export type PrincipalView = {
   subjectId: string
   tenantId: string
   roles: string[]
+  capabilities: string[]
   clearance: string
   breakGlass: boolean
   organizationUnitCount: number
@@ -84,6 +85,8 @@ export const accessContextLabels = {
     scopeUpdating: 'جارٍ تحديث النطاق…',
     roles: 'الأدوار الفعلية',
     noRoles: 'لم يرجع الخادم أدواراً فعلية.',
+    capabilities: 'الصلاحيات الفعلية',
+    noCapabilities: 'لم يرجع الخادم صلاحيات فعلية.',
     delegations: 'التفويضات المرئية',
     noDelegations: 'لا توجد تفويضات مرئية.',
     delegationsForbidden: 'لا تملك صلاحية عرض التفويضات.',
@@ -127,6 +130,8 @@ export const accessContextLabels = {
     scopeUpdating: 'Updating scope…',
     roles: 'Effective roles',
     noRoles: 'The server returned no effective roles.',
+    capabilities: 'Effective capabilities',
+    noCapabilities: 'The server returned no effective capabilities.',
     delegations: 'Visible delegations',
     noDelegations: 'There are no visible delegations.',
     delegationsForbidden: 'You do not have permission to view delegations.',
@@ -161,11 +166,13 @@ export function stateFromError(error: unknown): ErrorResolution {
 
 export function normalizePrincipal(input: unknown): PrincipalView {
   const source = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
+  const capabilities = Array.isArray(source.capabilities) ? source.capabilities.filter((capability): capability is string => typeof capability === 'string') : []
   const roles = Array.isArray(source.roles) ? source.roles.filter((role): role is string => typeof role === 'string') : []
   return {
     subjectId: typeof source.subject_id === 'string' ? source.subject_id : '',
     tenantId: typeof source.tenant_id === 'string' ? source.tenant_id : '',
     roles,
+    capabilities,
     clearance: typeof source.clearance === 'string' ? source.clearance : 'public',
     breakGlass: source.break_glass === true,
     organizationUnitCount: Array.isArray(source.organization_unit_ids) ? source.organization_unit_ids.length : 0,
@@ -247,7 +254,7 @@ export function projectionSummary(projection: AccessProjection | null | undefine
 }
 
 export function isContextEmpty(principal: PrincipalView, scopes: ScopeSelectionView): boolean {
-  return principal.roles.length === 0 && scopes.options.length === 0
+  return principal.roles.length === 0 && principal.capabilities.length === 0 && scopes.options.length === 0
 }
 
 export function scopeTypeLabel(scopeType: string, locale: Locale): string {
@@ -463,6 +470,11 @@ export function AccessContext({ projection }: {
             {principal.roles.length
               ? <ul>{principal.roles.map((role) => <li key={role} dir="ltr">{role}</li>)}</ul>
               : <p>{text.noRoles}</p>}
+          </Panel>
+          <Panel id="access-context-capabilities-heading" title={text.capabilities} level={2}>
+            {principal.capabilities.length
+              ? <ul>{principal.capabilities.map((capability) => <li key={capability} dir="ltr">{capability}</li>)}</ul>
+              : <p>{text.noCapabilities}</p>}
           </Panel>
           <DelegationSection state={delegationState} rows={delegations} locale={locale} />
           {summary && <ProjectionSection summary={summary} locale={locale} />}

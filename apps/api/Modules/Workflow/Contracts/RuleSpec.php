@@ -20,6 +20,7 @@ final readonly class RuleSpec
             if (str_starts_with($rule, 'supervisor_of_step:')) {
                 return new self('supervisor_of_step', ['step_index' => (int) substr($rule, 19)]);
             }
+
             return new self($rule);
         }
         if (! is_array($rule) || ! is_string($rule['type'] ?? $rule['rule'] ?? null)) {

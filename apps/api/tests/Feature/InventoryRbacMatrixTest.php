@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 
-require_once __DIR__ . '/../../../../scripts/rbac_helpers.php';
+require_once __DIR__.'/../../../../scripts/rbac_helpers.php';
 
 class InventoryRbacMatrixTest extends TestCase
 {
@@ -18,12 +18,12 @@ class InventoryRbacMatrixTest extends TestCase
         );
 
         $this->assertSame(0, $exitCode, $output);
-        $this->assertFileExists($tmp . '/rbac-matrix.json');
-        $payload = json_decode(file_get_contents($tmp . '/rbac-matrix.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertFileExists($tmp.'/rbac-matrix.json');
+        $payload = json_decode(file_get_contents($tmp.'/rbac-matrix.json'), true, flags: JSON_THROW_ON_ERROR);
 
         $this->assertArrayHasKey('rows', $payload);
         $this->assertArrayHasKey('middleware_tuples', $payload);
-        $this->assertCount(117, $payload['rows']);
+        $this->assertCount(119, $payload['rows']);
         $this->assertGreaterThanOrEqual(5, count($payload['middleware_tuples']));
         $this->assertLessThanOrEqual(8, count($payload['middleware_tuples']));
     }
@@ -98,7 +98,7 @@ class InventoryRbacMatrixTest extends TestCase
 
         $exitCode = proc_close($process);
 
-        return [$exitCode, trim($stdout . "\n" . $stderr)];
+        return [$exitCode, trim($stdout."\n".$stderr)];
     }
 
     private function deleteMatrixFile(): void
@@ -132,15 +132,15 @@ class InventoryRbacMatrixTest extends TestCase
 
     private function inventoryDir(string $slug): string
     {
-        return '/tmp/inventory-' . $slug;
+        return '/tmp/inventory-'.$slug;
     }
 }
 
 /**
- * @param array<int, array<string, mixed>> $rows
+ * @param  array<int, array<string, mixed>>  $rows
  * @return array<int, array<string, mixed>>
  */
 function collect_rows(array $rows, string $tag): array
 {
-    return array_values(array_filter($rows, fn($row) => ($row['endpoint_tag'] ?? null) === $tag));
+    return array_values(array_filter($rows, fn ($row) => ($row['endpoint_tag'] ?? null) === $tag));
 }

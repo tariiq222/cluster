@@ -3,12 +3,13 @@
 namespace Modules\Authorization\Infrastructure\Persistence;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Authorization\Contracts\DecideAccess;
 
 /**
  * Read-side query for the capability codes a user currently holds, through an
  * active role assignment or an active delegation.
  *
- * This is deliberately coarser than {@see \Modules\Authorization\Contracts\DecideAccess}:
+ * This is deliberately coarser than {@see DecideAccess}:
  * it answers "does this principal hold this capability at all", not "may this
  * principal act on this record". The shell uses it to decide which navigation
  * entries to render, so a user is not offered a screen that answers 403 on

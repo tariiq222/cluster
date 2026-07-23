@@ -1,0 +1,75 @@
+// @vitest-environment node
+export type Loadable<T> =
+  | { state: 'loading' }
+  | { state: 'ready'; data: T }
+  | { state: 'denied' }
+  | { state: 'error' }
+
+export type DashboardKpis = {
+  awaitingDecision: number | null
+  dueToday: number | null
+  overdue: number | null
+  activeRequests: number | null
+}
+
+export type DashboardSources = {
+  inbox: Loadable<Array<{ id: string; due_at?: string | null; updated_at?: string | null }>>
+  tasks: Loadable<Array<{ id: string; due_at?: string | null; updated_at?: string | null; state?: string }>>
+  requests: Loadable<Array<{ id: string; updated_at?: string | null; state?: string }>>
+}
+
+export function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+export function metricValue<T>(loadable: Loadable<T[]>): number | null {
+  if (loadable.state === 'ready') return loadable.data.length
+  return null
+}
+
+const ACTIVE_REQUEST_STATES = new Set([
+  'active',
+  'running',
+  'waiting',
+  'submitted',
+  'pending',
+  'pending_review',
+  'in_progress',
+])
+
+export function isActiveRequest(request: { state?: string }): boolean {
+  return typeof request.state === 'string' && ACTIVE_REQUEST_STATES.has(request.state)
+}
+
+export function filterTasksDueToday<T extends { due_at?: string | null }>(tasks: T[], now: Date): T[] {
+  return tasks.filter((task) => {
+    if (!task.due_at) return false
+    const dueAt = new Date(task.due_at)
+    return !Number.isNaN(dueAt.getTime()) && isSameDay(dueAt, now)
+  })
+}
+
+export function buildDashboardKpis(sources: DashboardSources, now: Date): DashboardKpis {
+  const inboxCount = metricValue(sources.inbox)
+  const requestsCount = sources.requests.state === 'ready'
+    ? sources.requests.data.filter(isActiveRequest).length
+    : null
+  let dueTodayCount: number | null = null
+  let overdueCount: number | null = null
+  if (sources.tasks.state === 'ready') {
+    dueTodayCount = 0
+    overdueCount = 0
+    for (const task of sources.tasks.data) {
+      const dueAt = task.due_at ? new Date(task.due_at) : null
+      if (!dueAt || Number.isNaN(dueAt.getTime())) continue
+      if (isSameDay(dueAt, now)) dueTodayCount += 1
+      else if (dueAt.getTime() < now.getTime()) overdueCount += 1
+    }
+  }
+  return {
+    awaitingDecision: inboxCount,
+    dueToday: dueTodayCount,
+    overdue: overdueCount,
+    activeRequests: requestsCount,
+  }
+}

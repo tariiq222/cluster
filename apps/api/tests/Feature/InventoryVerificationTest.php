@@ -13,7 +13,7 @@ class InventoryVerificationTest extends TestCase
     public function test_s7_verify_inventory_script_exists_and_is_executable(): void
     {
         $cwd = $this->repoRoot();
-        $script = $cwd . '/' . self::SCRIPT_PATH;
+        $script = $cwd.'/'.self::SCRIPT_PATH;
 
         $this->assertFileExists($script, 'verify-inventory.sh must exist under scripts/');
         $this->assertFileIsReadable($script);
@@ -31,7 +31,7 @@ class InventoryVerificationTest extends TestCase
     {
         $report = $this->runScriptAndCaptureReport();
 
-        $this->assertFileExists($report, 'verify-inventory.sh must produce ' . self::REPORT_PATH);
+        $this->assertFileExists($report, 'verify-inventory.sh must produce '.self::REPORT_PATH);
 
         $content = file_get_contents($report);
         $this->assertIsString($content);
@@ -43,7 +43,7 @@ class InventoryVerificationTest extends TestCase
             $this->assertStringContainsString(
                 $needle,
                 $content,
-                'verification report must mention check: ' . $needle,
+                'verification report must mention check: '.$needle,
             );
         }
 
@@ -72,7 +72,7 @@ class InventoryVerificationTest extends TestCase
     {
         [$exitCode, $output] = $this->runCommand(self::SCRIPT_PATH);
 
-        $report = $this->repoRoot() . '/' . self::REPORT_PATH;
+        $report = $this->repoRoot().'/'.self::REPORT_PATH;
         $this->assertFileExists($report);
 
         if ($exitCode === 0) {
@@ -111,14 +111,14 @@ class InventoryVerificationTest extends TestCase
     private function runScriptAndCaptureReport(): string
     {
         $cwd = $this->repoRoot();
-        $report = $cwd . '/' . self::REPORT_PATH;
+        $report = $cwd.'/'.self::REPORT_PATH;
 
         if (is_file($report)) {
             unlink($report);
         }
 
         [$exitCode] = $this->runCommand(self::SCRIPT_PATH);
-        $this->assertFileExists($report, 'verify-inventory.sh must produce ' . self::REPORT_PATH);
+        $this->assertFileExists($report, 'verify-inventory.sh must produce '.self::REPORT_PATH);
 
         return $report;
     }
@@ -134,7 +134,7 @@ class InventoryVerificationTest extends TestCase
             2 => ['pipe', 'w'],
         ];
 
-        $process = proc_open('bash ' . escapeshellarg($cwd . '/' . $relative), $descriptors, $pipes, $cwd);
+        $process = proc_open('bash '.escapeshellarg($cwd.'/'.$relative), $descriptors, $pipes, $cwd);
         if (! is_resource($process)) {
             $this->fail("Unable to start command: {$relative}");
         }
@@ -146,7 +146,7 @@ class InventoryVerificationTest extends TestCase
 
         $exitCode = proc_close($process);
 
-        return [$exitCode, trim($stdout . "\n" . $stderr)];
+        return [$exitCode, trim($stdout."\n".$stderr)];
     }
 
     private function repoRoot(): string
@@ -176,14 +176,14 @@ class InventoryVerificationTest extends TestCase
             if ($cells[0] === 'Check') {
                 continue;
             }
-            if (preg_match('/^-+$/', $cells[0] ?? '')) {
+            if (preg_match('/^-+$/', $cells[0])) {
                 continue;
             }
             $rows[] = [
                 'check' => $cells[0],
-                'expected' => $cells[1] ?? '',
-                'actual' => $cells[2] ?? '',
-                'status' => $cells[3] ?? '',
+                'expected' => $cells[1],
+                'actual' => $cells[2],
+                'status' => $cells[3],
                 'evidence' => $cells[4] ?? '',
             ];
         }
@@ -192,7 +192,7 @@ class InventoryVerificationTest extends TestCase
     }
 
     /**
-     * @param list<array{check:string,status:string}> $rows
+     * @param  list<array{check:string,status:string}>  $rows
      * @return array<string, array{check:string,status:string}>
      */
     private function indexByCheck(array $rows): array

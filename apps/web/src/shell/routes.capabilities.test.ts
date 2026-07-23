@@ -7,8 +7,6 @@ describe('navigation capability gating', () => {
     const open: AppRoute[] = [
       { name: 'list' },
       { name: 'access-context' },
-      { name: 'coverage' },
-      { name: 'api-docs' },
       { name: 'notifications' },
     ]
     for (const route of open) {
@@ -16,6 +14,21 @@ describe('navigation capability gating', () => {
       expect(isRouteVisible(route, [])).toBe(true)
       expect(isRouteVisible(route, null)).toBe(true)
     }
+  })
+
+  it('fails closed for direct internal and dashboard URLs until their own capability is resolved', () => {
+    expect(capabilityForRoute({ name: 'coverage' })).toBe('authorization.audit.read')
+    expect(capabilityForRoute({ name: 'api-docs' })).toBe('authorization.audit.read')
+    expect(capabilityForRoute({ name: 'dashboards' })).toBe('reporting.dashboard')
+    expect(capabilityForRoute({ name: 'access-explanation' })).toBe('authorization.decision.read')
+
+    for (const route of [{ name: 'coverage' }, { name: 'api-docs' }, { name: 'dashboards' }, { name: 'access-explanation' }] as const) {
+      expect(isRouteVisible(route, null)).toBe(false)
+      expect(isRouteVisible(route, [])).toBe(false)
+    }
+    expect(isRouteVisible({ name: 'coverage' }, ['authorization.audit.read'])).toBe(true)
+    expect(isRouteVisible({ name: 'dashboards' }, ['reporting.dashboard'])).toBe(true)
+    expect(isRouteVisible({ name: 'access-explanation' }, ['authorization.decision.read'])).toBe(true)
   })
 
   it('withholds a gated screen from a principal that does not hold its capability', () => {
@@ -30,37 +43,52 @@ describe('navigation capability gating', () => {
     expect(isRouteVisible({ name: 'reports' }, ['reporting.list'])).toBe(true)
   })
 
-  it('gates the procedure authoring and office review routes on workflow capabilities and leaves the guide open', () => {
+  it('gates the procedure routes on their navigation-target capabilities', () => {
     expect(capabilityForRoute({ name: 'procedure-authoring' })).toBe('workflow.author')
     expect(capabilityForRoute({ name: 'procedure-office-review' })).toBe('workflow.approve')
-    expect(capabilityForRoute({ name: 'procedure-guide' })).toBeNull()
+    expect(capabilityForRoute({ name: 'procedure-guide' })).toBe('work_definition.read')
 
     expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.author'])).toBe(true)
     expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.approve'])).toBe(false)
     expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.approve'])).toBe(true)
     expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.author'])).toBe(false)
-    expect(isRouteVisible({ name: 'procedure-guide' }, [])).toBe(true)
-    expect(isRouteVisible({ name: 'procedure-guide' }, null)).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-guide' }, [])).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-guide' }, null)).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-guide' }, ['work_definition.list'])).toBe(true)
   })
 
   it('gates Stage 4 request routes on workflow capabilities', () => {
-    expect(capabilityForRoute({ name: 'approval-inbox' })).toBe('workflow.read')
+    expect(capabilityForRoute({ name: 'approval-inbox' })).toBe('workflow.decide')
+    expect(capabilityForRoute({ name: 'approval-detail', stepId: '01980f50-5f0d-7000-8000-000000000101' })).toBe('workflow.decide')
     expect(capabilityForRoute({ name: 'my-requests' })).toBe('workflow.read')
+    expect(capabilityForRoute({ name: 'my-request-detail', instanceId: '01980f50-5f0d-7000-8000-000000000102' })).toBe('workflow.read')
     expect(capabilityForRoute({ name: 'new-procedure-request' })).toBe('workflow.author')
 
-    expect(isRouteVisible({ name: 'approval-inbox' }, ['workflow.read'])).toBe(true)
+    expect(isRouteVisible({ name: 'approval-inbox' }, ['workflow.decide'])).toBe(true)
+    expect(isRouteVisible({ name: 'approval-inbox' }, ['workflow.read'])).toBe(false)
+    expect(isRouteVisible({ name: 'approval-detail', stepId: '01980f50-5f0d-7000-8000-000000000101' }, ['workflow.decide'])).toBe(true)
     expect(isRouteVisible({ name: 'my-requests' }, ['workflow.read'])).toBe(true)
+    expect(isRouteVisible({ name: 'my-request-detail', instanceId: '01980f50-5f0d-7000-8000-000000000102' }, ['workflow.read'])).toBe(true)
     expect(isRouteVisible({ name: 'new-procedure-request' }, ['workflow.author'])).toBe(true)
     expect(isRouteVisible({ name: 'new-procedure-request' }, ['workflow.read'])).toBe(false)
   })
 
+  it('keeps the legacy day-two workflow screen behind workflow management', () => {
+    expect(capabilityForRoute({ name: 'workflow-day2' })).toBe('workflow.manage')
+    expect(isRouteVisible({ name: 'workflow-day2' }, ['work_definition.read'])).toBe(false)
+    expect(isRouteVisible({ name: 'workflow-day2' }, ['workflow.manage'])).toBe(true)
+  })
+
   it('gates each authorization tab on its own resource capability', () => {
     expect(capabilityForRoute({ name: 'authorization', resource: 'roles' })).toBe('authorization.role.read')
+    expect(capabilityForRoute({ name: 'authorization', resource: 'capabilities' })).toBe('authorization.capability.read')
     expect(capabilityForRoute({ name: 'authorization', resource: 'delegations' })).toBe('authorization.delegation.read')
     expect(capabilityForRoute({ name: 'authorization', resource: 'field-access-templates' })).toBe('authorization.policy.read')
 
     const holdsRolesOnly = ['authorization.role.read']
     expect(isRouteVisible({ name: 'authorization', resource: 'roles' }, holdsRolesOnly)).toBe(true)
+    expect(isRouteVisible({ name: 'authorization', resource: 'capabilities' }, holdsRolesOnly)).toBe(false)
+    expect(isRouteVisible({ name: 'authorization', resource: 'capabilities' }, ['authorization.capability.read'])).toBe(true)
     expect(isRouteVisible({ name: 'authorization', resource: 'delegations' }, holdsRolesOnly)).toBe(false)
   })
 

@@ -14,6 +14,8 @@ esac
 trap 'exit 0' INT TERM
 
 while :; do
+  php artisan organization:relay-person-events --once --no-interaction
+  php artisan identity:consume-person-events --once --consumer="$consumer" --no-interaction
   php artisan work-records:relay-pending --once --no-interaction
   php artisan notifications:consume-work-record-submitted --once --consumer="$consumer" --no-interaction
   touch /tmp/worker.ready

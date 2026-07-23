@@ -28,7 +28,7 @@ await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
 await page.getByRole('heading', { name: /صباح الخير|مساء الخير/ }).waitFor({ timeout: 15_000 })
 
 console.log('Navigating to org structure…')
-await page.getByRole('button', { name: 'الإدارة والتشغيل' }).click()
+await page.getByRole('button', { name: 'إدارة المنشآت والموظفين' }).click()
 await page.getByRole('link', { name: 'الهيكل التنظيمي' }).click()
 await page.getByRole('link', { name: 'شجرة الهيكل' }).click()
 await page.waitForTimeout(2_500)

@@ -177,6 +177,27 @@ export type WorkflowCopy = {
   reqRequestPrepared: string
   reqApiUpdating: string
   reqApiUpdatingBody: string
+  detail: string
+  backToList: string
+  deepLink: string
+  copyLink: string
+  linkCopied: string
+  noDetails: string
+  noComments: string
+  comments: string
+  taskDetails: string
+  taskDescription: string
+  taskActions: string
+  reassign: string
+  escalate: string
+  returnForCorrection: string
+  returning: string
+  escalating: string
+  reassigning: string
+  actionReasonRequired: string
+  reassignmentTarget: string
+  reassignmentTargetHelp: string
+  reassignmentTargetRequired: string
 }
 
 export const workflowCopy: Record<Locale, WorkflowCopy> = {
@@ -367,7 +388,8 @@ export const workflowCopy: Record<Locale, WorkflowCopy> = {
      reqDecisionPending: 'جارٍ التنفيذ…',
      reqRequestPrepared: 'أُعدت مسودة الإجراء.',
      reqApiUpdating: 'عقد الطلب قيد التحديث',
-     reqApiUpdatingBody: 'واجهة الإرسال إلى مكتب إدارة العمليات غير متاحة بعد. بقيت البيانات في الشاشة ولم يُعلن نجاح الإرسال.',
+      reqApiUpdatingBody: 'واجهة الإرسال إلى مكتب إدارة العمليات غير متاحة بعد. بقيت البيانات في الشاشة ولم يُعلن نجاح الإرسال.',
+      detail: 'التفاصيل', backToList: 'العودة إلى القائمة', deepLink: 'الرابط المباشر', copyLink: 'نسخ الرابط', linkCopied: 'تم نسخ الرابط.', noDetails: 'لا تتوفر تفاصيل لهذا السجل.', noComments: 'لا توجد تعليقات بعد.', comments: 'التعليقات', taskDetails: 'تفاصيل المهمة', taskDescription: 'الوصف', taskActions: 'الإجراءات المسموحة', reassign: 'إعادة الإسناد', escalate: 'تصعيد', returnForCorrection: 'إعادة للتصحيح', returning: 'جارٍ الإرجاع…', escalating: 'جارٍ التصعيد…', reassigning: 'جارٍ إعادة الإسناد…', actionReasonRequired: 'سبب هذا الإجراء مطلوب.', reassignmentTarget: 'معرّف المستخدم الجديد', reassignmentTargetHelp: 'أدخل معرّف المستخدم الذي ستُسند إليه الخطوة.', reassignmentTargetRequired: 'معرّف المستخدم الجديد مطلوب.',
    },
   en: {
     approvalInbox: 'My approvals',
@@ -556,7 +578,8 @@ export const workflowCopy: Record<Locale, WorkflowCopy> = {
      reqDecisionPending: 'Working…',
      reqRequestPrepared: 'The procedure draft was prepared.',
      reqApiUpdating: 'Request contract is updating',
-     reqApiUpdatingBody: 'The Operations Office submission endpoint is not available yet. The form remains on screen and submission success was not reported.',
+      reqApiUpdatingBody: 'The Operations Office submission endpoint is not available yet. The form remains on screen and submission success was not reported.',
+      detail: 'Details', backToList: 'Back to list', deepLink: 'Direct link', copyLink: 'Copy link', linkCopied: 'Link copied.', noDetails: 'No details are available for this record.', noComments: 'No comments yet.', comments: 'Comments', taskDetails: 'Task details', taskDescription: 'Description', taskActions: 'Allowed actions', reassign: 'Reassign', escalate: 'Escalate', returnForCorrection: 'Return for correction', returning: 'Returning…', escalating: 'Escalating…', reassigning: 'Reassigning…', actionReasonRequired: 'A reason is required for this action.', reassignmentTarget: 'Reassign to user ID', reassignmentTargetHelp: 'Enter the user ID that should receive this step.', reassignmentTargetRequired: 'A target user ID is required for reassignment.',
    },
 }
 

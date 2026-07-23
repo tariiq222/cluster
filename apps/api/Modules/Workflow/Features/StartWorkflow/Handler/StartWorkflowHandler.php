@@ -64,7 +64,7 @@ final class StartWorkflowHandler
                         'id' => Str::uuid7()->toString(),
                         'workflow_instance_id' => $instanceId,
                         'node_key' => (string) ($taskNode['key'] ?? 'task'),
-                        'node_type' => (string) ($taskNode['type'] ?? 'task'),
+                        'node_type' => (string) $taskNode['type'],
                         'state' => 'waiting',
                         'activation_sequence' => 1,
                         'assignee_user_id' => $this->assignee($taskNode, $actorUserId),

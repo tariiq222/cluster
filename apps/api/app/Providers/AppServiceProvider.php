@@ -14,6 +14,7 @@ use App\Http\Controllers\Organization\GetTemporaryAssignmentController;
 use App\Http\Controllers\Organization\ListTemporaryAssignmentsController;
 use App\Http\Controllers\Organization\RevokeTemporaryAssignmentController;
 use App\Integrations\WorkRecordAuthorizationFacts;
+use App\Integrations\WorkRecordWorkflowSourceAuthorizationFacts;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\CountOperationsOfficeMembers;
@@ -70,9 +71,9 @@ use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\Developmen
 use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
+use Modules\Identity\Infrastructure\Persistence\ResolveUserForPerson as DatabaseResolveUserForPerson;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
 use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
-use Modules\Identity\Infrastructure\Persistence\ResolveUserForPerson as DatabaseResolveUserForPerson;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
@@ -98,6 +99,7 @@ use Modules\WorkDefinitions\Infrastructure\ResolvePublishedRequestFixtureFromPer
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedWorkDefinitionFromPersistence;
 use Modules\Workflow\Contracts\AdvanceWorkflowStep;
 use Modules\Workflow\Contracts\ResolveStepAssignee;
+use Modules\Workflow\Contracts\ResolveWorkflowSourceAuthorizationFacts;
 use Modules\Workflow\Domain\AssignmentRules;
 use Modules\Workflow\Infrastructure\Persistence\WorkflowStepAdvancer;
 use Predis\Client;
@@ -127,6 +129,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
         $this->app->bind(AdvanceWorkflowStep::class, WorkflowStepAdvancer::class);
         $this->app->bind(ResolveStepAssignee::class, AssignmentRules::class);
+        $this->app->bind(ResolveWorkflowSourceAuthorizationFacts::class, WorkRecordWorkflowSourceAuthorizationFacts::class);
         $this->app->bind(ResolveQuarantinedImport::class, UnavailableQuarantinedImport::class);
         $this->app->bind(ValidatePersonReference::class, ValidatePersonReferenceFromPersistence::class);
         $this->app->bind(GetActiveSupervisoryRelationships::class, DatabaseGetActiveSupervisoryRelationships::class);
@@ -285,9 +288,9 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/WorkRecords/Infrastructure/Outbox/Migrations/CreateOutboxTable.php'),
             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/CreateWorkflowTables.php'),
             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W14AddWorkflowStepAssignee.php'),
-             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php'),
-             base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W17AddApprovalColumnsToWorkflowVersions.php'),
-             base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
+            base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php'),
+            base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W17AddApprovalColumnsToWorkflowVersions.php'),
+            base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
             base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/W13CreateTaskEngagementTables.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationInboxTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationsTable.php'),

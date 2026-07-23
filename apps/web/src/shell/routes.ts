@@ -12,21 +12,26 @@ export type AppRoute =
   | { name: 'organization-import'; jobId?: string }
   | { name: 'authorization'; resource: 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'supervisory' }
   | { name: 'authorization'; resource: 'classification-policies' | 'field-access-templates' }
+  | { name: 'access-scopes' }
   | { name: 'access-context' }
   | { name: 'personal-security' }
   | { name: 'access-explanation'; decisionId?: string }
   | { name: 'workflow-day2' }
   | { name: 'tasks' }
+  | { name: 'task-detail'; taskId: string }
   | { name: 'work-definitions' }
   | { name: 'workflow-admin' }
   | { name: 'procedure-authoring' }
   | { name: 'procedure-office-review' }
   | { name: 'procedure-guide'; procedureId?: string }
   | { name: 'approval-inbox' }
+  | { name: 'approval-detail'; stepId: string }
   | { name: 'my-requests' }
+  | { name: 'my-request-detail'; instanceId: string }
   | { name: 'new-procedure-request' }
   | { name: 'search' }
   | { name: 'reports' }
+  | { name: 'dashboards'; dashboardId?: string }
   | { name: 'coverage' }
   | { name: 'api-docs' }
   | { name: 'notifications' }
@@ -38,39 +43,49 @@ const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}
  * Workspaces group the routes that share one tabbed screen, so the sidebar keeps the
  * group highlighted while the user moves between its tabs.
  *
+ * Per the dashboard/navigation redesign, only two screens still own tabs:
+ * `/admin/organization` (facilities + structure) and `/admin/authorization/roles`
+ * (roles + capabilities). Everything else is a standalone page so the navigation
+ * never advertises a tab hierarchy that is not actually rendered.
+ *
  * The map is a total `Record` over every route name on purpose: adding a route to
  * `AppRoute` without classifying it here is a compile error rather than a silently
  * broken active-state in the navigation.
  */
-export type RouteWorkspace = 'organization' | 'access' | 'workflow'
+export type RouteWorkspace = 'organization' | 'roles-capabilities'
 
 const ROUTE_WORKSPACE: Record<AppRoute['name'], RouteWorkspace | null> = {
   'organization': 'organization',
   'organization-structure': 'organization',
-  'people-assignments': 'organization',
-  'temporary-assignments': 'organization',
-  'organization-import': 'organization',
-  'identity-accounts': 'access',
-  'authorization': 'access',
-  'access-context': 'access',
-  'access-explanation': 'access',
-  'workflow-day2': 'workflow',
-  'work-definitions': 'workflow',
-  'workflow-admin': 'workflow',
-  'procedure-authoring': 'workflow',
-  'procedure-office-review': 'workflow',
-  'procedure-guide': 'workflow',
-  'approval-inbox': 'workflow',
-  'my-requests': 'workflow',
-  'new-procedure-request': 'workflow',
+  'people-assignments': null,
+  'temporary-assignments': null,
+  'organization-import': null,
+  'identity-accounts': null,
+  'authorization': null,
+  'access-scopes': null,
+  'access-context': null,
+  'access-explanation': null,
+  'workflow-day2': null,
+  'work-definitions': null,
+  'workflow-admin': null,
+  'procedure-authoring': null,
+  'procedure-office-review': null,
+  'procedure-guide': null,
+  'approval-inbox': null,
+  'approval-detail': null,
+  'my-requests': null,
+  'my-request-detail': null,
+  'new-procedure-request': null,
   'list': null,
   'documents': null,
   'document-detail': null,
   'create': null,
   'detail': null,
   'tasks': null,
+  'task-detail': null,
   'search': null,
   'reports': null,
+  'dashboards': null,
   'coverage': null,
   'api-docs': null,
   'notifications': null,
@@ -79,6 +94,9 @@ const ROUTE_WORKSPACE: Record<AppRoute['name'], RouteWorkspace | null> = {
 }
 
 export function workspaceOfRoute(route: AppRoute): RouteWorkspace | null {
+  if (route.name === 'authorization' && (route.resource === 'roles' || route.resource === 'capabilities')) {
+    return 'roles-capabilities'
+  }
   return ROUTE_WORKSPACE[route.name]
 }
 
@@ -86,7 +104,10 @@ export function workspaceOfRoute(route: AppRoute): RouteWorkspace | null {
 export function isRouteActive(current: AppRoute, target: AppRoute): boolean {
   const currentWorkspace = workspaceOfRoute(current)
   const targetWorkspace = workspaceOfRoute(target)
-  if (currentWorkspace && targetWorkspace) return currentWorkspace === targetWorkspace
+  if (currentWorkspace && targetWorkspace) {
+    if (currentWorkspace !== targetWorkspace) return false
+    return true
+  }
   if (current.name !== target.name) return false
   if (current.name === 'authorization' && target.name === 'authorization') {
     return current.resource === target.resource
@@ -96,39 +117,41 @@ export function isRouteActive(current: AppRoute, target: AppRoute): boolean {
 
 export const primaryRoutes = [
   { route: { name: 'list' } as const, path: '/' },
+  { route: { name: 'approval-inbox' } as const, path: '/approvals' },
+  { route: { name: 'my-requests' } as const, path: '/my-requests' },
+  { route: { name: 'tasks' } as const, path: '/tasks' },
+  { route: { name: 'procedure-guide' } as const, path: '/procedures' },
   { route: { name: 'documents' } as const, path: '/documents' },
-  { route: { name: 'create' } as const, path: '/work-records/new' },
   { route: { name: 'organization' } as const, path: '/admin/organization' },
   { route: { name: 'organization-structure' } as const, path: '/admin/organization/structure' },
   { route: { name: 'people-assignments' } as const, path: '/admin/organization/people' },
   { route: { name: 'temporary-assignments' } as const, path: '/admin/organization/temporary-assignments' },
-  { route: { name: 'identity-accounts' } as const, path: '/admin/identity/accounts' },
   { route: { name: 'organization-import' } as const, path: '/admin/imports/organization' },
+  { route: { name: 'work-definitions' } as const, path: '/admin/work-definitions' },
+  { route: { name: 'workflow-admin' } as const, path: '/admin/workflow' },
+  { route: { name: 'procedure-office-review' } as const, path: '/admin/procedures/review' },
+  { route: { name: 'identity-accounts' } as const, path: '/admin/identity/accounts' },
   { route: { name: 'authorization', resource: 'roles' } as const, path: '/admin/authorization/roles' },
   { route: { name: 'authorization', resource: 'capabilities' } as const, path: '/admin/authorization/capabilities' },
   { route: { name: 'authorization', resource: 'role-assignments' } as const, path: '/admin/authorization/role-assignments' },
+  { route: { name: 'access-scopes' } as const, path: '/admin/authorization/access-scopes' },
   { route: { name: 'authorization', resource: 'delegations' } as const, path: '/admin/authorization/delegations' },
   { route: { name: 'authorization', resource: 'classification-policies' } as const, path: '/admin/authorization/classification-policies' },
   { route: { name: 'authorization', resource: 'field-access-templates' } as const, path: '/admin/authorization/field-access-templates' },
   { route: { name: 'authorization', resource: 'supervisory' } as const, path: '/admin/relationships/supervisory' },
   { route: { name: 'access-explanation' } as const, path: '/admin/authorization/explain' },
+  { route: { name: 'reports' } as const, path: '/reports' },
+  { route: { name: 'dashboards' } as const, path: '/dashboards' },
+  { route: { name: 'coverage' } as const, path: '/coverage' },
+  { route: { name: 'api-docs' } as const, path: '/api-docs' },
   { route: { name: 'access-context' } as const, path: '/me/access' },
   { route: { name: 'personal-security' } as const, path: '/me/security' },
+  { route: { name: 'create' } as const, path: '/work-records/new' },
   { route: { name: 'workflow-day2' } as const, path: '/admin/workflow/day2' },
-  { route: { name: 'tasks' } as const, path: '/tasks' },
-  { route: { name: 'work-definitions' } as const, path: '/admin/work-definitions' },
-  { route: { name: 'workflow-admin' } as const, path: '/admin/workflow' },
   { route: { name: 'procedure-authoring' } as const, path: '/admin/procedures/authoring' },
-  { route: { name: 'procedure-office-review' } as const, path: '/admin/procedures/review' },
-  { route: { name: 'procedure-guide' } as const, path: '/procedures' },
-  { route: { name: 'approval-inbox' } as const, path: '/approvals' },
-  { route: { name: 'my-requests' } as const, path: '/my-requests' },
   { route: { name: 'new-procedure-request' } as const, path: '/procedures/new' },
   { route: { name: 'search' } as const, path: '/search' },
-  { route: { name: 'reports' } as const, path: '/reports' },
-  { route: { name: 'coverage' } as const, path: '/coverage' },
   { route: { name: 'notifications' } as const, path: '/notifications' },
-  { route: { name: 'api-docs' } as const, path: '/api-docs' },
 ] as const
 
 export function pathFromRoute(route: AppRoute): string {
@@ -148,11 +171,13 @@ export function pathFromRoute(route: AppRoute): string {
       return route.resource === 'supervisory'
         ? '/admin/relationships/supervisory'
         : `/admin/authorization/${route.resource}`
+    case 'access-scopes': return '/admin/authorization/access-scopes'
     case 'access-context': return '/me/access'
     case 'personal-security': return '/me/security'
     case 'access-explanation': return route.decisionId ? `/admin/authorization/explain/${route.decisionId}` : '/admin/authorization/explain'
     case 'workflow-day2': return '/admin/workflow/day2'
     case 'tasks': return '/tasks'
+    case 'task-detail': return `/tasks/${route.taskId}`
     case 'work-definitions': return '/admin/work-definitions'
     case 'workflow-admin': return '/admin/workflow'
     case 'procedure-authoring': return '/admin/procedures/authoring'
@@ -160,10 +185,13 @@ export function pathFromRoute(route: AppRoute): string {
     case 'procedure-guide':
       return route.procedureId ? `/procedures/${route.procedureId}` : '/procedures'
     case 'approval-inbox': return '/approvals'
+    case 'approval-detail': return `/approvals/${route.stepId}`
     case 'my-requests': return '/my-requests'
+    case 'my-request-detail': return `/my-requests/${route.instanceId}`
     case 'new-procedure-request': return '/procedures/new'
     case 'search': return '/search'
     case 'reports': return '/reports'
+    case 'dashboards': return route.dashboardId ? `/dashboards/${route.dashboardId}` : '/dashboards'
     case 'coverage': return '/coverage'
     case 'api-docs': return '/api-docs'
     case 'notifications': return '/notifications'
@@ -199,8 +227,12 @@ export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/admin/imports/organization') {
     return { name: 'organization-import' }
   }
-  const authorizationMatch = pathname.match(/^\/admin\/authorization\/(roles|capabilities|role-assignments|delegations|classification-policies|field-access-templates)$/)
-  if (authorizationMatch) return { name: 'authorization', resource: authorizationMatch[1] as 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'classification-policies' | 'field-access-templates' }
+  const authorizationMatch = pathname.match(/^\/admin\/authorization\/(roles|capabilities|role-assignments|delegations|classification-policies|field-access-templates|access-scopes)$/)
+  if (authorizationMatch) {
+    const resource = authorizationMatch[1]
+    if (resource === 'access-scopes') return { name: 'access-scopes' }
+    return { name: 'authorization', resource: resource as 'roles' | 'capabilities' | 'role-assignments' | 'delegations' | 'classification-policies' | 'field-access-templates' }
+  }
   if (pathname === '/admin/relationships/supervisory') return { name: 'authorization', resource: 'supervisory' }
   if (pathname === '/me/access') return { name: 'access-context' }
   if (pathname === '/me/security') return { name: 'personal-security' }
@@ -221,6 +253,7 @@ export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/my-requests') return { name: 'my-requests' }
   if (pathname === '/search') return { name: 'search' }
   if (pathname === '/reports') return { name: 'reports' }
+  if (pathname === '/dashboards') return { name: 'dashboards' }
   if (pathname === '/coverage') return { name: 'coverage' }
   if (pathname === '/api-docs') return { name: 'api-docs' }
   if (pathname === '/notifications') return { name: 'notifications' }
@@ -230,6 +263,20 @@ export function routeFromPath(pathname: string): AppRoute {
   if (importMatch && UUID_V7_PATTERN.test(importMatch[1])) {
     return { name: 'organization-import', jobId: importMatch[1] }
   }
+  const approvalDetailMatch = pathname.match(/^\/approvals\/([^/]+)$/)
+  if (approvalDetailMatch && UUID_V7_PATTERN.test(approvalDetailMatch[1])) {
+    return { name: 'approval-detail', stepId: approvalDetailMatch[1] }
+  }
+  const myRequestDetailMatch = pathname.match(/^\/my-requests\/([^/]+)$/)
+  if (myRequestDetailMatch && UUID_V7_PATTERN.test(myRequestDetailMatch[1])) {
+    return { name: 'my-request-detail', instanceId: myRequestDetailMatch[1] }
+  }
+  const taskDetailMatch = pathname.match(/^\/tasks\/([^/]+)$/)
+  if (taskDetailMatch && UUID_V7_PATTERN.test(taskDetailMatch[1])) {
+    return { name: 'task-detail', taskId: taskDetailMatch[1] }
+  }
+  const dashboardDetailMatch = pathname.match(/^\/dashboards\/([^/]+)$/)
+  if (dashboardDetailMatch) return { name: 'dashboards', dashboardId: dashboardDetailMatch[1] }
 
   const match = pathname.match(/^\/work-records\/([^/]+)$/)
   if (match && UUID_V7_PATTERN.test(match[1])) {
@@ -246,66 +293,91 @@ export function routeFromPath(pathname: string): AppRoute {
  * `AppRoute` without classifying it here is a compile error rather than a
  * silently unclassified sidebar entry.
  */
-export function capabilityForRoute(route: AppRoute): string | null {
+export function capabilitiesForRoute(route: AppRoute): readonly string[] | null {
   switch (route.name) {
     case 'list':
-    case 'documents':
-    case 'document-detail':
-    case 'create':
-    case 'detail':
     case 'access-context':
     case 'personal-security':
-    case 'coverage':
-    case 'api-docs':
     case 'notifications':
     case 'search':
     case 'not-found':
-    case 'procedure-guide':
       return null
+    case 'documents':
+    case 'document-detail':
+      return ['documents.read', 'documents.list']
+    case 'create':
+      return ['work_record.create']
+    case 'detail':
+      return ['work_record.read']
     case 'organization':
+      return ['organization.facility.read', 'organization.unit.read']
     case 'organization-structure':
+      return ['organization.unit.read']
     case 'people-assignments':
+      return ['organization.person.read']
     case 'temporary-assignments':
+      return ['organization.temporary-assignment.read']
     case 'organization-import':
-      return 'organization.unit.read'
+      return ['organization.import.read']
     case 'identity-accounts':
-      return 'identity.account.read'
+      return ['identity.account.read']
     case 'authorization':
       switch (route.resource) {
         case 'roles':
+          return ['authorization.role.read', 'authorization.capability.read']
         case 'capabilities':
-          return 'authorization.role.read'
+          return ['authorization.capability.read']
         case 'role-assignments':
-          return 'authorization.assignment.read'
+          return ['authorization.assignment.read']
+        case 'supervisory':
+          return ['organization.unit.read']
         case 'delegations':
-          return 'authorization.delegation.read'
+          return ['authorization.delegation.read']
         case 'classification-policies':
         case 'field-access-templates':
-          return 'authorization.policy.read'
-        case 'supervisory':
-          return 'authorization.assignment.read'
+          return ['authorization.policy.read']
       }
       return null
+    case 'access-scopes':
+      return ['authorization.assignment.read']
     case 'access-explanation':
-      return 'authorization.decision.read'
+      return ['authorization.decision.read']
     case 'workflow-day2':
+      return ['workflow.manage']
     case 'work-definitions':
+      return ['work_definition.read', 'work_definition.list']
     case 'workflow-admin':
-      return 'work_definition.read'
+      return ['workflow.read', 'workflow.list', 'workflow.manage']
     case 'procedure-authoring':
-      return 'workflow.author'
+      return ['workflow.author']
     case 'procedure-office-review':
-      return 'workflow.approve'
+      return ['workflow.approve', 'work_definition.publish']
+    case 'procedure-guide':
+      return ['work_definition.read', 'work_definition.list']
     case 'approval-inbox':
+    case 'approval-detail':
+      return ['workflow.decide', 'workflow.reassign', 'workflow.escalate']
     case 'my-requests':
-      return 'workflow.read'
+    case 'my-request-detail':
+      return ['workflow.read', 'workflow.list']
     case 'new-procedure-request':
-      return 'workflow.author'
+      return ['workflow.author']
     case 'tasks':
-      return 'tasks.read'
+    case 'task-detail':
+      return ['tasks.read', 'tasks.list']
     case 'reports':
-      return 'reporting.list'
+      return ['reporting.list']
+    case 'dashboards':
+      return ['reporting.dashboard']
+    case 'coverage':
+    case 'api-docs':
+      return ['authorization.audit.read']
   }
+}
+
+/** The first route capability, retained for concise focused assertions. */
+export function capabilityForRoute(route: AppRoute): string | null {
+  return capabilitiesForRoute(route)?.[0] ?? null
 }
 
 /**
@@ -321,8 +393,8 @@ export function isRouteVisible(
   route: AppRoute,
   capabilities: readonly string[] | null,
 ): boolean {
-  const required = capabilityForRoute(route)
+  const required = capabilitiesForRoute(route)
   if (required === null) return true
   if (capabilities === null) return false
-  return capabilities.includes(required)
+  return required.some((capability) => capabilities.includes(capability))
 }

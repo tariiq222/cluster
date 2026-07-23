@@ -39,6 +39,7 @@ final class AdvanceAfterDecision
         }
         if ($nextKey === null || (($nodes[$nextKey]['type'] ?? null) === 'end')) {
             DB::table('workflow_instances')->where('id', $instanceId)->update(['state' => 'completed', 'completed_at' => now(), 'updated_at' => now()]);
+
             return null;
         }
         $node = $nodes[$nextKey];

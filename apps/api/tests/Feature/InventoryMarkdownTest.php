@@ -9,8 +9,8 @@ class InventoryMarkdownTest extends TestCase
     public function test_s3_inventory_script_renders_the_markdown_skeleton(): void
     {
         $tmp = '/tmp/inventory-s3';
-        if (is_file($tmp . '/endpoints.md')) {
-            unlink($tmp . '/endpoints.md');
+        if (is_file($tmp.'/endpoints.md')) {
+            unlink($tmp.'/endpoints.md');
         }
 
         [$exitCode, $output] = $this->runCommand(
@@ -18,9 +18,9 @@ class InventoryMarkdownTest extends TestCase
         );
 
         $this->assertSame(0, $exitCode, $output);
-        $this->assertFileExists($tmp . '/endpoints.md');
+        $this->assertFileExists($tmp.'/endpoints.md');
 
-        $markdown = file_get_contents($tmp . '/endpoints.md');
+        $markdown = file_get_contents($tmp.'/endpoints.md');
         $this->assertIsString($markdown);
         $this->assertGreaterThanOrEqual(112, preg_match_all('/^### /m', $markdown));
         $this->assertSame(1, preg_match_all('/^## Error Catalog$/m', $markdown));
@@ -52,6 +52,6 @@ class InventoryMarkdownTest extends TestCase
 
         $exitCode = proc_close($process);
 
-        return [$exitCode, trim($stdout . "\n" . $stderr)];
+        return [$exitCode, trim($stdout."\n".$stderr)];
     }
 }

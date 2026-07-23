@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Authorization;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Modules\Authorization\Features\OperationsOffice\BootstrapOperationsOffice;
 use Modules\Authorization\Http\AuthorizationApi;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationBootstrapState;
 use Modules\Identity\Contracts\ResolveAccountEntitlement;
@@ -20,6 +22,7 @@ final class CompleteAuthorizationBootstrapController
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly ResolveAccountEntitlement $accountEntitlements,
         private readonly AuthorizationBootstrapState $bootstrap,
+        private readonly BootstrapOperationsOffice $operationsOffice,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -61,6 +64,15 @@ final class CompleteAuthorizationBootstrapController
 
         if ($result['status'] === 'conflict') {
             return AuthorizationApi::problem(409, 'authorization-conflict', 'Conflict', 'The authorization bootstrap is already complete or the key was reused.', $correlationId);
+        }
+
+        // Closing the bootstrap window is the moment the platform gains an owner:
+        // the account that completed setup becomes the first operations-office
+        // member. Seeding this from a migration instead would put catalog data in
+        // the schema and leave the owner nameless.
+        $clusterId = DB::table('clusters')->orderBy('code')->value('id');
+        if (is_string($clusterId)) {
+            $this->operationsOffice->bootstrap($principal['user_id'], $clusterId);
         }
 
         return response()->json(['data' => $result['payload']], 200)

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ClipboardList } from 'lucide-react'
 
 import type { Locale } from '../../app/copy'
@@ -7,7 +7,6 @@ import type { Session } from '../../api'
 import { ApiError } from '../../api'
 import {
   Button,
-  Drawer,
   EmptyState,
   InlineError,
   Page,
@@ -17,55 +16,53 @@ import {
   SkeletonList,
   StatusBadge,
 } from '../../ui'
-import { directionForWorkflow, formatAge, stringValue, workflowCopy } from './workflow-copy'
-import { getWorkflowInstance, listWorkflowInstances, type WorkflowInstance, type WorkflowStep } from './workflow-api'
+import { directionForLocale } from '../../app/copy'
+import { formatAge, stringValue, workflowCopy } from './workflow-copy'
+import { listWorkflowInstances, type WorkflowInstance } from './workflow-api'
 
 function valueOf(record: Record<string, unknown>, key: string): string | null {
   const value = record[key]
   return typeof value === 'string' && value.trim() ? value : null
 }
 
-export function MyRequests({ locale, session }: { locale: Locale; session: Session }) {
+export function MyRequests({ locale, session, scopeReady, scopeEpoch }: { locale: Locale; session: Session; scopeReady: boolean; scopeEpoch: number }) {
   const copy = workflowCopy[locale]
   const [loading, setLoading] = useState(true)
   const [requests, setRequests] = useState<WorkflowInstance[]>([])
   const [loadError, setLoadError] = useState(false)
   const [denied, setDenied] = useState(false)
-  const [history, setHistory] = useState<{ instance: WorkflowInstance; steps: WorkflowStep[] } | null>(null)
-  const [historyLoading, setHistoryLoading] = useState(false)
+  const requestRef = useRef(0)
 
   const load = useCallback(async () => {
+    const request = ++requestRef.current
+    if (!scopeReady) {
+      setRequests([])
+      setLoadError(false)
+      setDenied(false)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setLoadError(false)
     setDenied(false)
     try {
       const collection = await listWorkflowInstances(session.access_token)
-      setRequests(collection.items.filter((instance) => instance.started_by_user_id === session.user_id))
+      if (request !== requestRef.current) return
+      setRequests(collection.items)
     } catch (error) {
+      if (request !== requestRef.current) return
       setRequests([])
       if (error instanceof ApiError && error.status === 403) setDenied(true)
       else setLoadError(true)
     } finally {
-      setLoading(false)
+      if (request === requestRef.current) setLoading(false)
     }
-  }, [session.access_token, session.user_id])
+  }, [scopeReady, session.access_token])
 
-  useEffect(() => { void load() }, [load])
-
-  async function openHistory(instance: WorkflowInstance) {
-    setHistoryLoading(true)
-    try {
-      const detail = await getWorkflowInstance(session.access_token, instance.id)
-      setHistory(detail)
-    } catch {
-      setHistory({ instance, steps: [] })
-    } finally {
-      setHistoryLoading(false)
-    }
-  }
+  useEffect(() => { void load() }, [load, scopeEpoch])
 
   return (
-    <div dir={directionForWorkflow(locale)}>
+    <div dir={directionForLocale(locale)}>
       <Page aria-labelledby="my-requests-heading">
         <PageHeader id="my-requests-heading" title={copy.reqMyRequests} description={copy.reqMyRequestsDescription} actions={<Button variant="secondary" onClick={() => void load()}>{copy.refresh}</Button>} />
         {loading ? <SkeletonList label={copy.reqLoading} /> : denied ? (
@@ -87,26 +84,13 @@ export function MyRequests({ locale, session }: { locale: Locale; session: Sessi
                     <div><dt>{copy.reqStartedAt}</dt><dd>{formatAge(instance.created_at, locale)}</dd></div>
                     <div><dt>{copy.status}</dt><dd>{copy.workflowState(state)}</dd></div>
                   </dl>
-                  <Button type="button" variant="secondary" onClick={() => void openHistory(instance)}>{copy.reqHistory}</Button>
+                   <Button type="button" variant="secondary" onClick={() => { window.location.href = `/my-requests/${instance.id}` }}>{copy.detail}</Button>
                 </Panel>
               )
             })}
           </PanelGrid>
         )}
       </Page>
-      <Drawer open={history !== null} onClose={() => setHistory(null)} title={copy.reqHistory} ariaLabelClose={copy.reqClose}>
-        {historyLoading ? <SkeletonList label={copy.reqLoading} rows={2} /> : history ? (
-          <ol aria-label={copy.reqHistory} className="workflow-step-history">
-            {history.steps.length === 0 ? <li>{copy.reqNoHistory}</li> : history.steps.map((step) => (
-              <li key={step.id}>
-                <strong>{valueOf(step, 'node_key') ?? step.id}</strong>
-                <span>{copy.workflowState(stringValue(step.state))}</span>
-                <small>{step.completed_at ?? step.created_at ?? '—'}</small>
-              </li>
-            ))}
-          </ol>
-        ) : null}
-      </Drawer>
     </div>
   )
 }

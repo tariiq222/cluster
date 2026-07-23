@@ -9,7 +9,6 @@ use Modules\Workflow\Features\Engine\Handler\AdvanceAfterDecision;
 use Modules\Workflow\Features\Engine\Handler\RecordDecisionHandler;
 use Modules\Workflow\Features\PublishWorkflowVersion\Handler\PublishWorkflowVersionHandler;
 use Modules\Workflow\Features\StartWorkflow\Handler\StartWorkflowHandler;
-use PHPUnit\Framework\AssertionFailedError;
 use Tests\TestCase;
 
 /**

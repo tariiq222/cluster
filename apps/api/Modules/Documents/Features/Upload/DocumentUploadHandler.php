@@ -88,8 +88,8 @@ final class DocumentUploadHandler
                 ? $this->retentionPolicy->resolve($request->metadata->classification, $now)
                 : null;
             $expiresAt = $now->modify('+'.$this->uploadIntentTtlSeconds().' seconds');
-            $documentId = $targetDocument?->id ?? UuidV7::generate();
-            $documentPublicId = $targetDocument?->public_id ?? UuidV7::generate();
+            $documentId = $targetDocument->id ?? UuidV7::generate();
+            $documentPublicId = $targetDocument->public_id ?? UuidV7::generate();
             $versionId = UuidV7::generate();
             $versionPublicId = UuidV7::generate();
             $storageObjectId = UuidV7::generate();

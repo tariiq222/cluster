@@ -17,8 +17,14 @@ function requiredEnvironment(name: 'W1_3_ACCOUNT_A_USERNAME' | 'W1_3_ACCOUNT_A_P
   return value
 }
 
-const ACCOUNT_A = { username: requiredEnvironment('W1_3_ACCOUNT_A_USERNAME'), password: requiredEnvironment('W1_3_ACCOUNT_A_PASSWORD') }
-const ACCOUNT_B = { username: requiredEnvironment('W1_3_ACCOUNT_B_USERNAME'), password: requiredEnvironment('W1_3_ACCOUNT_B_PASSWORD') }
+const ACCOUNTS = {
+  get ACCOUNT_A(): { username: string; password: string } {
+    return { username: requiredEnvironment('W1_3_ACCOUNT_A_USERNAME'), password: requiredEnvironment('W1_3_ACCOUNT_A_PASSWORD') }
+  },
+  get ACCOUNT_B(): { username: string; password: string } {
+    return { username: requiredEnvironment('W1_3_ACCOUNT_B_USERNAME'), password: requiredEnvironment('W1_3_ACCOUNT_B_PASSWORD') }
+  },
+}
 const ADMIN_ID = '018f6f7d-0c00-7000-8000-000000000021'
 const USER_B_ID = '018f6f7d-0c00-7000-8000-000000000022'
 const FACILITY_A = '018f6f7d-0c00-7000-8000-000000000011'
@@ -55,7 +61,7 @@ async function expectApi(page: Page, path: string, session: Session, init: Reque
   return result.body
 }
 
-async function signIn(page: Page, account: typeof ACCOUNT_A): Promise<Session> {
+async function signIn(page: Page, account: { username: string; password: string }): Promise<Session> {
   await page.goto('/')
   const login = await page.evaluate(async ({ account, correlation }) => {
     const response = await fetch('/api/v1/identity/login', {
@@ -77,7 +83,7 @@ async function signIn(page: Page, account: typeof ACCOUNT_A): Promise<Session> {
   const identityCookie = cookies.find((cookie) => cookie.name === 'cluster_identity_session' && cookie.value.length > 0)
   expect(identityCookie).toBeDefined()
   expect((await page.evaluate(() => Object.keys(localStorage).join(',')))).not.toContain('access_token')
-  const facility = account === ACCOUNT_A ? 'facility-a' : 'facility-b'
+  const facility = account.username === ACCOUNTS.ACCOUNT_A.username ? 'facility-a' : 'facility-b'
   return { userId, csrfToken, facility, authMode: 'identity-session', cookieName: identityCookie!.name }
 }
 
@@ -91,8 +97,8 @@ test('W1.3 real browser security journey uses server identity, scoped projection
   const pageA = await contextA.newPage()
   const pageB = await contextB.newPage()
   try {
-    const sessionA = await signIn(pageA, ACCOUNT_A)
-    const sessionB = await signIn(pageB, ACCOUNT_B)
+    const sessionA = await signIn(pageA, ACCOUNTS.ACCOUNT_A)
+    const sessionB = await signIn(pageB, ACCOUNTS.ACCOUNT_B)
     expect(sessionA.authMode).toBe('identity-session')
     expect(sessionB.authMode).toBe('identity-session')
     expect(sessionA.facility).toBe('facility-a')

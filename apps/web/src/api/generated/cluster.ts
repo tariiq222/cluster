@@ -618,6 +618,35 @@ export interface WorkflowStart {
   record_id: UUIDv7
 }
 
+export interface WorkflowStepHistoryEntry {
+  step_id: UUIDv7
+  workflow_instance_id?: UUIDv7
+  /** @minimum 1 */
+  lock_version?: number
+  node_key: string
+  node_type: string
+  state: string
+  assignee_user_id: UUIDv7 | null
+  activated_at: UtcDateTime | null
+  completed_at: UtcDateTime | null
+  actor_user_id: UUIDv7 | null
+  /** @nullable */
+  decision: string | null
+  /** @nullable */
+  reason: string | null
+}
+
+export type WorkflowInstanceTracking = DomainResource & {
+  workflow_version_id: UUIDv7
+  source_module: string
+  source_type: string
+  source_id: string
+  state: string
+  current_owner_user_id: UUIDv7 | null
+  age_seconds: number
+  step_history: WorkflowStepHistoryEntry[]
+}
+
 export type TaskCreatePriority =
   (typeof TaskCreatePriority)[keyof typeof TaskCreatePriority]
 
@@ -715,6 +744,11 @@ export interface Decision {
   decision: DecisionDecision
   /** @maxLength 2000 */
   reason?: string
+  /**
+   * @minLength 32
+   * @maxLength 128
+   */
+  graph_hash_observed?: string
 }
 
 export interface WorkflowStepAction {
@@ -1932,6 +1966,180 @@ export interface SessionResponse {
   data: Session
 }
 
+export interface OperationsOfficeSubmission {
+  workflow_version_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  idempotency_key?: string
+}
+
+export interface OperationsOfficeReturn {
+  /** @maxLength 2000 */
+  reason: string
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  idempotency_key?: string
+}
+
+export interface OperationsOfficeApproval {
+  /**
+   * @minLength 32
+   * @maxLength 128
+   */
+  graph_hash_observed?: string
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  idempotency_key?: string
+}
+
+export type AudienceScopeAudienceType =
+  (typeof AudienceScopeAudienceType)[keyof typeof AudienceScopeAudienceType]
+
+export const AudienceScopeAudienceType = {
+  all: 'all',
+  facility: 'facility',
+  roles: 'roles',
+} as const
+
+export interface AudienceScope {
+  audience_type: AudienceScopeAudienceType
+  audience_reference: UUIDv7[]
+}
+
+export interface OperationsOfficePublication {
+  scope: AudienceScope
+  /** @maxLength 1000 */
+  usage_description: string
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  idempotency_key?: string
+}
+
+export type OperationsOfficePublicationResultAudienceSummary = {
+  matched_users: number
+  audience_keys: string[]
+}
+
+export type OperationsOfficeVersionLifecycleState =
+  (typeof OperationsOfficeVersionLifecycleState)[keyof typeof OperationsOfficeVersionLifecycleState]
+
+export const OperationsOfficeVersionLifecycleState = {
+  draft: 'draft',
+  pending_review: 'pending_review',
+  published: 'published',
+  returned: 'returned',
+} as const
+
+export type OperationsOfficeVersion = DomainResource & {
+  workflow_definition_id: UUIDv7
+  version_number: number
+  lifecycle_state: OperationsOfficeVersionLifecycleState
+  author_user_id: UUIDv7 | null
+  current_owner_user_id: UUIDv7 | null
+  single_member_bootstrap_approval: boolean
+  last_transition_at: UtcDateTime | null
+  published_at: UtcDateTime | null
+}
+
+export interface OperationsOfficePublicationResult {
+  version: OperationsOfficeVersion
+  self_approval_override: boolean
+  audience_summary: OperationsOfficePublicationResultAudienceSummary
+}
+
+export interface OperationsOfficeAuditEntry {
+  id: UUIDv7
+  version_id: UUIDv7
+  actor_user_id: UUIDv7
+  decision: string
+  /** @nullable */
+  reason: string | null
+  correlation_id: UUIDv7 | null
+  recorded_at: UtcDateTime
+  single_member_bootstrap_approval: boolean
+}
+
+export interface OperationsOfficeAuditCollection {
+  items: OperationsOfficeAuditEntry[]
+  /** @nullable */
+  next_cursor: string | null
+}
+
+export type WorkflowStepInboxItemState =
+  (typeof WorkflowStepInboxItemState)[keyof typeof WorkflowStepInboxItemState]
+
+export const WorkflowStepInboxItemState = {
+  waiting: 'waiting',
+  active: 'active',
+  completed: 'completed',
+  rejected: 'rejected',
+  returned: 'returned',
+  cancelled: 'cancelled',
+} as const
+
+export type WorkflowStepInboxItemAllowedActionsItem =
+  (typeof WorkflowStepInboxItemAllowedActionsItem)[keyof typeof WorkflowStepInboxItemAllowedActionsItem]
+
+export const WorkflowStepInboxItemAllowedActionsItem = {
+  approve: 'approve',
+  reject: 'reject',
+  return: 'return',
+  reassign: 'reassign',
+  escalate: 'escalate',
+} as const
+
+export interface WorkflowStepInboxItem {
+  step_id: UUIDv7
+  workflow_instance_id: UUIDv7
+  source_type: string
+  source_id: string
+  state: WorkflowStepInboxItemState
+  assignee_user_id: UUIDv7
+  created_at: UtcDateTime
+  /** @minimum 1 */
+  lock_version: number
+  allowed_actions: WorkflowStepInboxItemAllowedActionsItem[]
+}
+
+export interface WorkflowStepCollection {
+  items: WorkflowStepInboxItem[]
+  /** @nullable */
+  next_cursor: string | null
+}
+
+export type WorkflowStepDetailWorkflowInstance = {
+  id: UUIDv7
+  workflow_version_id: UUIDv7
+  source_module: string
+  source_type: string
+  source_id: string
+  state: string
+  /** @minimum 1 */
+  lock_version: number
+}
+
+export interface WorkflowStepDetail {
+  step_id: UUIDv7
+  workflow_instance_id: UUIDv7
+  source_type: string
+  source_id: string
+  state: string
+  assignee_user_id: UUIDv7 | null
+  created_at: UtcDateTime
+  /** @minimum 1 */
+  lock_version: number
+  allowed_actions: string[]
+  workflow_instance: WorkflowStepDetailWorkflowInstance
+}
+
 export type AccessProjectionFieldAccess = {
   [key: string]: 'hidden' | 'masked' | 'readonly' | 'editable'
 }
@@ -2356,6 +2564,11 @@ export type EntityResponse = Entity
 export type AccessDecisionResponse = AccessDecisionSchema
 
 /**
+ * Workflow instance tracking projection with state, current owner, age, and step history
+ */
+export type WorkflowInstanceTrackingResponseResponse = WorkflowInstanceTracking
+
+/**
  * Cursor-paginated authorized work records
  */
 export type WorkRecordCollectionResponse = WorkRecordCollection
@@ -2526,6 +2739,33 @@ export type UserAccountCollectionResponse = UserAccountCollection
  */
 export type UserAccountEntityResponse = UserAccount
 
+/**
+ * Cursor-paginated workflow step instances assigned to the current principal
+ */
+export type WorkflowStepCollectionResponse = WorkflowStepCollection
+
+/**
+ * Authorized workflow approval-step projection.
+ */
+export type WorkflowStepDetailResponseResponse = WorkflowStepDetail
+
+/**
+ * Operations-office workflow version projection after lifecycle transition
+ */
+export type OperationsOfficeVersionResponseResponse = OperationsOfficeVersion
+
+/**
+ * Operations-office publication result, including self-approval override and notification outcome
+ */
+export type OperationsOfficePublicationResponseResponse =
+  OperationsOfficePublicationResult
+
+/**
+ * Cursor-paginated operations-office audit entries for a workflow version
+ */
+export type OperationsOfficeAuditCollectionResponse =
+  OperationsOfficeAuditCollection
+
 export type CorrelationIdParameter = UUIDv7
 
 export type IfMatchParameter = string
@@ -2661,8 +2901,118 @@ export type ListWorkflowInstancesParams = {
    * @maximum 100
    */
   limit?: LimitParameter
-  state?: string
+  state?: ListWorkflowInstancesState
 }
+
+export type ListWorkflowInstancesState =
+  (typeof ListWorkflowInstancesState)[keyof typeof ListWorkflowInstancesState]
+
+export const ListWorkflowInstancesState = {
+  running: 'running',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const
+
+export type SubmitWorkflowVersionForReview403 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:forbidden'
+}
+
+export type SubmitWorkflowVersionForReview409 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:lifecycle-conflict'
+}
+
+export type SubmitWorkflowVersionForReview422 = ProblemDetailsSchema & {
+  type: 'urn:cluster:operations-office:invalid-payload'
+}
+
+export type ReturnWorkflowVersionForRevision403 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:forbidden'
+}
+
+export type ReturnWorkflowVersionForRevision409 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:lifecycle-conflict'
+}
+
+export type ApproveWorkflowVersion403 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:forbidden'
+}
+
+export type ApproveWorkflowVersion409 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:lifecycle-conflict'
+}
+
+export type ApproveWorkflowVersion422 = ProblemDetailsSchema & {
+  type: 'urn:cluster:operations-office:invalid-payload'
+}
+
+export type PublishWorkflowVersion403 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:forbidden'
+}
+
+export type PublishWorkflowVersion409 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:lifecycle-conflict'
+}
+
+export type PublishWorkflowVersion422 = ProblemDetailsSchema & {
+  type: 'urn:cluster:operations-office:invalid-payload'
+}
+
+export type GetWorkflowVersionOfficeAuditParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
+export type GetWorkflowVersionOfficeAudit403 = ProblemDetailsSchema & {
+  type: 'urn:cluster:problem:operations-office:forbidden'
+}
+
+export type ListWorkflowStepsInboxParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+  state?: ListWorkflowStepsInboxState
+  /**
+   * When `me`, server filters to the current principal; principal leakage of steps owned by others is forbidden.
+   */
+  assignee?: ListWorkflowStepsInboxAssignee
+  /**
+   * Explicit assignee filter; ignored unless caller holds operations-office review authority.
+   */
+  assignee_user_id?: UUIDv7
+}
+
+export type ListWorkflowStepsInboxState =
+  (typeof ListWorkflowStepsInboxState)[keyof typeof ListWorkflowStepsInboxState]
+
+export const ListWorkflowStepsInboxState = {
+  waiting: 'waiting',
+  active: 'active',
+  completed: 'completed',
+  rejected: 'rejected',
+  returned: 'returned',
+  cancelled: 'cancelled',
+  all: 'all',
+} as const
+
+export type ListWorkflowStepsInboxAssignee =
+  (typeof ListWorkflowStepsInboxAssignee)[keyof typeof ListWorkflowStepsInboxAssignee]
+
+export const ListWorkflowStepsInboxAssignee = {
+  me: 'me',
+} as const
 
 export type ListTasksParams = {
   /**
@@ -5801,7 +6151,7 @@ export const startWorkflow = async (
 }
 
 export type getWorkflowInstanceResponse200 = {
-  data: EntityResponse
+  data: WorkflowInstanceTrackingResponseResponse
   status: 200
 }
 
@@ -5840,7 +6190,7 @@ export const getGetWorkflowInstanceUrl = (instanceId: UUIDv7) => {
 }
 
 /**
- * @summary Get workflow instance state and active steps
+ * @summary Get workflow instance state, current owner, age, and step history for request tracking,
  */
 export const getWorkflowInstance = async (
   instanceId: UUIDv7,
@@ -6078,6 +6428,464 @@ export const actOnWorkflowStep = async (
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(workflowStepAction),
+    },
+  )
+}
+
+export type submitWorkflowVersionForReviewResponse200 = {
+  data: OperationsOfficeVersionResponseResponse
+  status: 200
+}
+
+export type submitWorkflowVersionForReviewResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type submitWorkflowVersionForReviewResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type submitWorkflowVersionForReviewResponse403 = {
+  data: SubmitWorkflowVersionForReview403
+  status: 403
+}
+
+export type submitWorkflowVersionForReviewResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type submitWorkflowVersionForReviewResponse409 = {
+  data: SubmitWorkflowVersionForReview409
+  status: 409
+}
+
+export type submitWorkflowVersionForReviewResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type submitWorkflowVersionForReviewResponse422 = {
+  data: SubmitWorkflowVersionForReview422
+  status: 422
+}
+
+export type submitWorkflowVersionForReviewResponseSuccess =
+  submitWorkflowVersionForReviewResponse200 & {
+    headers: Headers
+  }
+export type submitWorkflowVersionForReviewResponseError = (
+  | submitWorkflowVersionForReviewResponse400
+  | submitWorkflowVersionForReviewResponse401
+  | submitWorkflowVersionForReviewResponse403
+  | submitWorkflowVersionForReviewResponse404
+  | submitWorkflowVersionForReviewResponse409
+  | submitWorkflowVersionForReviewResponse412
+  | submitWorkflowVersionForReviewResponse422
+) & {
+  headers: Headers
+}
+
+export type submitWorkflowVersionForReviewResponse =
+  | submitWorkflowVersionForReviewResponseSuccess
+  | submitWorkflowVersionForReviewResponseError
+
+export const getSubmitWorkflowVersionForReviewUrl = (versionId: string) => {
+  return `/api/v1/workflow/operations-office/versions/${encodeURIComponent(String(versionId))}/submit`
+}
+
+/**
+ * @summary Submit a Draft workflow version for office review (draft -> pending_review)
+ */
+export const submitWorkflowVersionForReview = async (
+  versionId: string,
+  operationsOfficeSubmission?: OperationsOfficeSubmission,
+  options?: RequestInit,
+): Promise<submitWorkflowVersionForReviewResponse> => {
+  return customFetch<submitWorkflowVersionForReviewResponse>(
+    getSubmitWorkflowVersionForReviewUrl(versionId),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(operationsOfficeSubmission),
+    },
+  )
+}
+
+export type returnWorkflowVersionForRevisionResponse200 = {
+  data: OperationsOfficeVersionResponseResponse
+  status: 200
+}
+
+export type returnWorkflowVersionForRevisionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type returnWorkflowVersionForRevisionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type returnWorkflowVersionForRevisionResponse403 = {
+  data: ReturnWorkflowVersionForRevision403
+  status: 403
+}
+
+export type returnWorkflowVersionForRevisionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type returnWorkflowVersionForRevisionResponse409 = {
+  data: ReturnWorkflowVersionForRevision409
+  status: 409
+}
+
+export type returnWorkflowVersionForRevisionResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type returnWorkflowVersionForRevisionResponseSuccess =
+  returnWorkflowVersionForRevisionResponse200 & {
+    headers: Headers
+  }
+export type returnWorkflowVersionForRevisionResponseError = (
+  | returnWorkflowVersionForRevisionResponse400
+  | returnWorkflowVersionForRevisionResponse401
+  | returnWorkflowVersionForRevisionResponse403
+  | returnWorkflowVersionForRevisionResponse404
+  | returnWorkflowVersionForRevisionResponse409
+  | returnWorkflowVersionForRevisionResponse412
+) & {
+  headers: Headers
+}
+
+export type returnWorkflowVersionForRevisionResponse =
+  | returnWorkflowVersionForRevisionResponseSuccess
+  | returnWorkflowVersionForRevisionResponseError
+
+export const getReturnWorkflowVersionForRevisionUrl = (versionId: string) => {
+  return `/api/v1/workflow/operations-office/versions/${encodeURIComponent(String(versionId))}/return`
+}
+
+/**
+ * @summary Return a pending_review version to the author with a reason (pending_review -> draft)
+ */
+export const returnWorkflowVersionForRevision = async (
+  versionId: string,
+  operationsOfficeReturn: OperationsOfficeReturn,
+  options?: RequestInit,
+): Promise<returnWorkflowVersionForRevisionResponse> => {
+  return customFetch<returnWorkflowVersionForRevisionResponse>(
+    getReturnWorkflowVersionForRevisionUrl(versionId),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(operationsOfficeReturn),
+    },
+  )
+}
+
+export type approveWorkflowVersionResponse200 = {
+  data: OperationsOfficeVersionResponseResponse
+  status: 200
+}
+
+export type approveWorkflowVersionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type approveWorkflowVersionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type approveWorkflowVersionResponse403 = {
+  data: ApproveWorkflowVersion403
+  status: 403
+}
+
+export type approveWorkflowVersionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type approveWorkflowVersionResponse409 = {
+  data: ApproveWorkflowVersion409
+  status: 409
+}
+
+export type approveWorkflowVersionResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type approveWorkflowVersionResponse422 = {
+  data: ApproveWorkflowVersion422
+  status: 422
+}
+
+export type approveWorkflowVersionResponseSuccess =
+  approveWorkflowVersionResponse200 & {
+    headers: Headers
+  }
+export type approveWorkflowVersionResponseError = (
+  | approveWorkflowVersionResponse400
+  | approveWorkflowVersionResponse401
+  | approveWorkflowVersionResponse403
+  | approveWorkflowVersionResponse404
+  | approveWorkflowVersionResponse409
+  | approveWorkflowVersionResponse412
+  | approveWorkflowVersionResponse422
+) & {
+  headers: Headers
+}
+
+export type approveWorkflowVersionResponse =
+  approveWorkflowVersionResponseSuccess | approveWorkflowVersionResponseError
+
+export const getApproveWorkflowVersionUrl = (versionId: string) => {
+  return `/api/v1/workflow/operations-office/versions/${encodeURIComponent(String(versionId))}/approve`
+}
+
+/**
+ * @summary Approve a pending_review workflow version (pending_review -> approved, ready to publish)
+ */
+export const approveWorkflowVersion = async (
+  versionId: string,
+  operationsOfficeApproval: OperationsOfficeApproval,
+  options?: RequestInit,
+): Promise<approveWorkflowVersionResponse> => {
+  return customFetch<approveWorkflowVersionResponse>(
+    getApproveWorkflowVersionUrl(versionId),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(operationsOfficeApproval),
+    },
+  )
+}
+
+export type publishWorkflowVersionResponse200 = {
+  data: OperationsOfficePublicationResponseResponse
+  status: 200
+}
+
+export type publishWorkflowVersionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type publishWorkflowVersionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type publishWorkflowVersionResponse403 = {
+  data: PublishWorkflowVersion403
+  status: 403
+}
+
+export type publishWorkflowVersionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type publishWorkflowVersionResponse409 = {
+  data: PublishWorkflowVersion409
+  status: 409
+}
+
+export type publishWorkflowVersionResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type publishWorkflowVersionResponse422 = {
+  data: PublishWorkflowVersion422
+  status: 422
+}
+
+export type publishWorkflowVersionResponseSuccess =
+  publishWorkflowVersionResponse200 & {
+    headers: Headers
+  }
+export type publishWorkflowVersionResponseError = (
+  | publishWorkflowVersionResponse400
+  | publishWorkflowVersionResponse401
+  | publishWorkflowVersionResponse403
+  | publishWorkflowVersionResponse404
+  | publishWorkflowVersionResponse409
+  | publishWorkflowVersionResponse412
+  | publishWorkflowVersionResponse422
+) & {
+  headers: Headers
+}
+
+export type publishWorkflowVersionResponse =
+  publishWorkflowVersionResponseSuccess | publishWorkflowVersionResponseError
+
+export const getPublishWorkflowVersionUrl = (versionId: string) => {
+  return `/api/v1/workflow/operations-office/versions/${encodeURIComponent(String(versionId))}/publish`
+}
+
+/**
+ * @summary Publish an approved workflow version with audience scope; atomic with its work-definition version
+ */
+export const publishWorkflowVersion = async (
+  versionId: string,
+  operationsOfficePublication: OperationsOfficePublication,
+  options?: RequestInit,
+): Promise<publishWorkflowVersionResponse> => {
+  return customFetch<publishWorkflowVersionResponse>(
+    getPublishWorkflowVersionUrl(versionId),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(operationsOfficePublication),
+    },
+  )
+}
+
+export type getWorkflowVersionOfficeAuditResponse200 = {
+  data: OperationsOfficeAuditCollectionResponse
+  status: 200
+}
+
+export type getWorkflowVersionOfficeAuditResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getWorkflowVersionOfficeAuditResponse403 = {
+  data: GetWorkflowVersionOfficeAudit403
+  status: 403
+}
+
+export type getWorkflowVersionOfficeAuditResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getWorkflowVersionOfficeAuditResponseSuccess =
+  getWorkflowVersionOfficeAuditResponse200 & {
+    headers: Headers
+  }
+export type getWorkflowVersionOfficeAuditResponseError = (
+  | getWorkflowVersionOfficeAuditResponse401
+  | getWorkflowVersionOfficeAuditResponse403
+  | getWorkflowVersionOfficeAuditResponse404
+) & {
+  headers: Headers
+}
+
+export type getWorkflowVersionOfficeAuditResponse =
+  | getWorkflowVersionOfficeAuditResponseSuccess
+  | getWorkflowVersionOfficeAuditResponseError
+
+export const getGetWorkflowVersionOfficeAuditUrl = (
+  versionId: string,
+  params?: GetWorkflowVersionOfficeAuditParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/workflow/operations-office/versions/${encodeURIComponent(String(versionId))}/audit?${stringifiedParams}`
+    : `/api/v1/workflow/operations-office/versions/${encodeURIComponent(String(versionId))}/audit`
+}
+
+/**
+ * @summary Read the operations-office audit trail for a workflow version
+ */
+export const getWorkflowVersionOfficeAudit = async (
+  versionId: string,
+  params?: GetWorkflowVersionOfficeAuditParams,
+  options?: RequestInit,
+): Promise<getWorkflowVersionOfficeAuditResponse> => {
+  return customFetch<getWorkflowVersionOfficeAuditResponse>(
+    getGetWorkflowVersionOfficeAuditUrl(versionId, params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
+export type listWorkflowStepsInboxResponse200 = {
+  data: WorkflowStepCollectionResponse
+  status: 200
+}
+
+export type listWorkflowStepsInboxResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listWorkflowStepsInboxResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listWorkflowStepsInboxResponseSuccess =
+  listWorkflowStepsInboxResponse200 & {
+    headers: Headers
+  }
+export type listWorkflowStepsInboxResponseError = (
+  listWorkflowStepsInboxResponse401 | listWorkflowStepsInboxResponse403
+) & {
+  headers: Headers
+}
+
+export type listWorkflowStepsInboxResponse =
+  listWorkflowStepsInboxResponseSuccess | listWorkflowStepsInboxResponseError
+
+export const getListWorkflowStepsInboxUrl = (
+  params?: ListWorkflowStepsInboxParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/workflow/steps?${stringifiedParams}`
+    : `/api/v1/workflow/steps`
+}
+
+/**
+ * @summary List approval inbox steps assigned to the current principal
+ */
+export const listWorkflowStepsInbox = async (
+  params?: ListWorkflowStepsInboxParams,
+  options?: RequestInit,
+): Promise<listWorkflowStepsInboxResponse> => {
+  return customFetch<listWorkflowStepsInboxResponse>(
+    getListWorkflowStepsInboxUrl(params),
+    {
+      ...options,
+      method: 'GET',
     },
   )
 }
@@ -6323,6 +7131,50 @@ export const updateTask = async (
       ...options?.headers,
     },
     body: JSON.stringify(taskPatch),
+  })
+}
+
+export type getWorkflowStepResponse200 = {
+  data: WorkflowStepDetailResponseResponse
+  status: 200
+}
+
+export type getWorkflowStepResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getWorkflowStepResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type getWorkflowStepResponseSuccess = getWorkflowStepResponse200 & {
+  headers: Headers
+}
+export type getWorkflowStepResponseError = (
+  getWorkflowStepResponse401 | getWorkflowStepResponse404
+) & {
+  headers: Headers
+}
+
+export type getWorkflowStepResponse =
+  getWorkflowStepResponseSuccess | getWorkflowStepResponseError
+
+export const getGetWorkflowStepUrl = (stepId: string) => {
+  return `/api/v1/workflow/steps/${encodeURIComponent(String(stepId))}`
+}
+
+/**
+ * @summary Get an authorized workflow approval step
+ */
+export const getWorkflowStep = async (
+  stepId: string,
+  options?: RequestInit,
+): Promise<getWorkflowStepResponse> => {
+  return customFetch<getWorkflowStepResponse>(getGetWorkflowStepUrl(stepId), {
+    ...options,
+    method: 'GET',
   })
 }
 

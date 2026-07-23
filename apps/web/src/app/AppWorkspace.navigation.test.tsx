@@ -1,5 +1,14 @@
+// @vitest-environment jsdom
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
+import { RouteAccessGuard } from './AppWorkspace'
+
+import {
+  buildNavigationGroups,
+  isNavigationEntryVisible,
+  NAVIGATION_ENTRIES,
+} from '../shell/navigation'
 import {
   capabilityForRoute,
   isRouteVisible,
@@ -7,68 +16,78 @@ import {
 } from '../shell/routes'
 
 /**
- * Mirrors the sidebar groups produced by `shellNavigation` inside `AppWorkspace`
- * without depending on its internal (non-exported) implementation. The grouping
- * is intentionally redundant with `AppWorkspace` so this test catches drift
- * between the sidebar structure and the route registry.
+ * Cross-checks the navigation registry against the route registry so both stay
+ * in sync. Anything visible per the navigation registry must also pass
+ * `isRouteVisible` for the same capability set, and vice-versa.
  */
-const SIDEBAR_GROUPS: ReadonlyArray<{ key: string; paths: readonly string[] }> = [
-  { key: 'work', paths: ['/', '/tasks'] },
-  {
-    key: 'operations',
-    paths: [
-      '/admin/work-definitions',
-      '/admin/organization',
-      '/admin/identity/accounts',
-      '/reports',
-    ],
-  },
-  { key: 'review', paths: ['/documents', '/coverage', '/api-docs'] },
-]
-
-function visiblePaths(capabilities: readonly string[] | null): string[] {
+function pathsFor(capabilities: readonly string[] | null): string[] {
   return primaryRoutes
     .filter(({ route }) => isRouteVisible(route, capabilities))
     .map(({ path }) => path)
 }
 
-function paths(capabilities: readonly string[] | null): string[] {
-  return visiblePaths(capabilities)
+function navigationPathsFor(capabilities: readonly string[] | null): string[] {
+  return buildNavigationGroups({ locale: 'ar', capabilities }).flatMap((group) => group.items.map((item) => item.path))
 }
 
 function groupKeys(capabilities: readonly string[] | null): string[] {
-  const visible = new Set(visiblePaths(capabilities))
-  return SIDEBAR_GROUPS.filter((group) =>
-    group.paths.some((path) => visible.has(path)),
-  ).map((group) => group.key)
+  return buildNavigationGroups({ locale: 'ar', capabilities }).map((group) => group.key)
 }
 
 describe('sidebar navigation by capability', () => {
+  it('blocks direct protected-route content with the unified denied state', () => {
+    const { rerender } = render(
+      <RouteAccessGuard locale="en" route={{ name: 'api-docs' }} capabilities={null}>
+        <span>API contract content</span>
+      </RouteAccessGuard>,
+    )
+
+    expect(screen.getByText('You do not have permission to open this page')).toBeTruthy()
+    expect(screen.queryByText('API contract content')).toBeNull()
+
+    rerender(
+      <RouteAccessGuard locale="en" route={{ name: 'api-docs' }} capabilities={['authorization.audit.read']}>
+        <span>API contract content</span>
+      </RouteAccessGuard>,
+    )
+    expect(screen.getByText('API contract content')).toBeTruthy()
+  })
+
+  it('withholds direct protected URLs when their capability is absent or unresolved', () => {
+    const protectedRoutes = [
+      { name: 'coverage' } as const,
+      { name: 'api-docs' } as const,
+      { name: 'dashboards' } as const,
+      { name: 'access-explanation' } as const,
+    ]
+    for (const route of protectedRoutes) {
+      expect(isRouteVisible(route, null)).toBe(false)
+      expect(isRouteVisible(route, [])).toBe(false)
+    }
+  })
   it('offers an employee their own work and nothing administrative', () => {
     const employee = ['work_record.create', 'work_record.read', 'tasks.read', 'documents.read']
 
-    expect(paths(employee)).toContain('/')
-    expect(paths(employee)).toContain('/tasks')
-    expect(paths(employee)).not.toContain('/admin/organization')
-    expect(paths(employee)).not.toContain('/admin/identity/accounts')
-    expect(paths(employee)).not.toContain('/reports')
+    expect(pathsFor(employee)).toContain('/')
+    expect(pathsFor(employee)).toContain('/tasks')
+    expect(pathsFor(employee)).not.toContain('/admin/organization')
+    expect(pathsFor(employee)).not.toContain('/admin/identity/accounts')
+    expect(pathsFor(employee)).not.toContain('/reports')
   })
 
   it('drops a group once every entry in it is withheld', () => {
     const employee = ['work_record.read', 'tasks.read']
 
-    // "Operations" holds only administrative entries, so it disappears with them
-    // rather than leaving an empty heading that advertises what is withheld.
-    expect(groupKeys(employee)).not.toContain('operations')
-    expect(groupKeys(employee)).toContain('work')
+    expect(groupKeys(employee)).toEqual(['my-work'])
+    expect(groupKeys(employee)).toContain('my-work')
   })
 
-  it('offers the operations group to a principal holding one of its capabilities', () => {
+  it('offers only the matching work-domain group to a principal holding one of its capabilities', () => {
     const officer = ['tasks.read', 'reporting.list']
 
-    expect(groupKeys(officer)).toContain('operations')
-    expect(paths(officer)).toContain('/reports')
-    expect(paths(officer)).not.toContain('/admin/organization')
+    expect(groupKeys(officer)).toEqual(['my-work', 'reports-insights'])
+    expect(pathsFor(officer)).toContain('/reports')
+    expect(pathsFor(officer)).not.toContain('/admin/organization')
   })
 
   it('offers the full surface to a principal holding every gating capability', () => {
@@ -81,7 +100,7 @@ describe('sidebar navigation by capability', () => {
       'reporting.list',
     ]
 
-    expect(paths(admin)).toEqual(
+    expect(pathsFor(admin)).toEqual(
       expect.arrayContaining([
         '/',
         '/tasks',
@@ -95,22 +114,69 @@ describe('sidebar navigation by capability', () => {
   })
 
   it('withholds gated entries while the principal context is still loading', () => {
-    expect(paths(null)).not.toContain('/admin/identity/accounts')
-    expect(paths(null)).not.toContain('/reports')
-    expect(paths(null)).toContain('/')
+    expect(pathsFor(null)).not.toContain('/admin/identity/accounts')
+    expect(pathsFor(null)).not.toContain('/reports')
+    expect(pathsFor(null)).toContain('/')
   })
 
-  it('classifies the Stage 3 procedure routes with the operations-office capabilities', () => {
+  it('classifies the procedure routes with their navigation-target capabilities', () => {
     expect(capabilityForRoute({ name: 'procedure-authoring' })).toBe('workflow.author')
     expect(capabilityForRoute({ name: 'procedure-office-review' })).toBe('workflow.approve')
-    expect(capabilityForRoute({ name: 'procedure-guide' })).toBeNull()
+    expect(capabilityForRoute({ name: 'procedure-guide' })).toBe('work_definition.read')
 
     expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.author'])).toBe(true)
     expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.approve'])).toBe(false)
     expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.approve'])).toBe(true)
     expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.author'])).toBe(false)
 
-    expect(isRouteVisible({ name: 'procedure-guide' }, null)).toBe(true)
-    expect(isRouteVisible({ name: 'procedure-guide' }, [])).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-guide' }, null)).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-guide' }, [])).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-guide' }, ['work_definition.read'])).toBe(true)
+  })
+
+  it('keeps the navigation registry and the route registry in sync', () => {
+    const allCaps = [
+      'reporting.list',
+      'reporting.dashboard',
+      'workflow.decide',
+      'workflow.read',
+      'workflow.list',
+      'workflow.author',
+      'workflow.approve',
+      'work_definition.read',
+      'work_definition.list',
+      'tasks.read',
+      'documents.read',
+      'organization.unit.read',
+      'organization.facility.read',
+      'organization.person.read',
+      'organization.temporary-assignment.read',
+      'organization.import.read',
+      'identity.account.read',
+      'authorization.role.read',
+      'authorization.assignment.read',
+      'authorization.delegation.read',
+      'authorization.policy.read',
+      'authorization.audit.read',
+    ]
+    // Every entry visible per the registry must also pass isRouteVisible.
+    for (const entry of NAVIGATION_ENTRIES) {
+      if (!isNavigationEntryVisible(entry, allCaps)) continue
+      expect(isRouteVisible(entry.route, allCaps)).toBe(true)
+    }
+    // And the navigation registry must show every gated entry the route
+    // registry would expose — otherwise the sidebar drops something the page
+    // would still render. `/me/*` entries live in the user menu rather than
+    // the sidebar; create/search/notifications live in the shell toolbar; the
+    // workflow-day2 / authoring / procedure-new authoring entry points live as
+    // legacy compatibility links reachable from elsewhere, so they are also
+    // excluded.
+    const sidebarExcludedPrefixes = ['/me/', '/work-records/new', '/search', '/notifications', '/admin/workflow/day2', '/admin/procedures/authoring', '/procedures/new', '/admin/organization/structure', '/admin/authorization/capabilities']
+    const routePaths = pathsFor(allCaps).filter((path) => !sidebarExcludedPrefixes.some((prefix) => path.startsWith(prefix)))
+    const navPaths = navigationPathsFor(allCaps)
+    for (const path of routePaths) {
+      if (path === '/') continue
+      expect(navPaths).toContain(path)
+    }
   })
 })

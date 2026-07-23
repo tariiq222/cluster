@@ -20,7 +20,7 @@ class InventoryRoutesScriptTest extends TestCase
         [$exitCode, $output] = $this->runCommand('python3 scripts/inventory-routes.py --check');
 
         $this->assertSame(0, $exitCode, $output);
-        $this->assertStringContainsString('parsed=117', $output);
+        $this->assertStringContainsString('parsed=119', $output);
     }
 
     /**
@@ -47,6 +47,6 @@ class InventoryRoutesScriptTest extends TestCase
 
         $exitCode = proc_close($process);
 
-        return [$exitCode, trim($stdout . "\n" . $stderr)];
+        return [$exitCode, trim($stdout."\n".$stderr)];
     }
 }

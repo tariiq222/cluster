@@ -15,15 +15,13 @@ final class DocumentsContractRoutesTest extends TestCase
     private function actionByMethodAndUri(): array
     {
         $routes = [];
-        foreach (Route::getRoutes() as $route) {
+        foreach (Route::getRoutes()->getRoutes() as $route) {
             $uri = $route->uri();
             if (! str_starts_with($uri, 'api/v1/documents')) {
                 continue;
             }
             foreach ($route->methods() as $method) {
-                $routes[$method.' '.$uri] = is_string($route->getActionName())
-                    ? $route->getActionName()
-                    : get_debug_type($route->getController());
+                $routes[$method.' '.$uri] = $route->getActionName();
             }
         }
 

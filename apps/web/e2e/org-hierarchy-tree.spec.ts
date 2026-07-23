@@ -14,7 +14,7 @@ test('Organization tree renders the seeded four-layer hierarchy', async ({ page 
   await signIn(page)
 
   // Open the organization menu and pick the structure view.
-  await page.getByRole('button', { name: 'الإدارة والتشغيل' }).click()
+  await page.getByRole('button', { name: 'إدارة المنشآت والموظفين' }).click()
   await page.getByRole('link', { name: 'الهيكل التنظيمي' }).click()
   await page.getByRole('link', { name: 'شجرة الهيكل' }).click()
 

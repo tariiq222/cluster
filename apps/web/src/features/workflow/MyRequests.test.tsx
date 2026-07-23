@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 
 import type { Session } from '../../api'
 import { listWorkflowInstances } from './workflow-api'
@@ -20,8 +20,21 @@ describe('MyRequests screen', () => {
 
   it('renders the Arabic heading and empty state for the current user', async () => {
     listWorkflowInstancesMock.mockResolvedValueOnce({ items: [], total: 0 })
-    render(<MyRequests locale="ar" session={session} />)
+    render(<MyRequests locale="ar" session={session} scopeReady scopeEpoch={0} />)
     expect(await screen.findByRole('heading', { name: 'طلباتي' })).toBeTruthy()
     expect(screen.getByText('لا توجد طلبات مرسلة بعد')).toBeTruthy()
+  })
+
+  it('clears old requests and ignores their late scoped response', async () => {
+    let resolveOld!: (value: { items: Array<{ id: string; subject: string }>; total: number }) => void
+    listWorkflowInstancesMock.mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve }))
+    const { rerender } = render(<MyRequests locale="ar" session={session} scopeReady scopeEpoch={1} />)
+
+    rerender(<MyRequests locale="ar" session={session} scopeReady={false} scopeEpoch={2} />)
+    resolveOld({ items: [{ id: 'old-request', subject: 'طلب قديم' }], total: 1 })
+
+    await act(async () => { await Promise.resolve() })
+    expect(screen.queryByText('طلب قديم')).toBeNull()
+    expect(listWorkflowInstancesMock).toHaveBeenCalledTimes(1)
   })
 })

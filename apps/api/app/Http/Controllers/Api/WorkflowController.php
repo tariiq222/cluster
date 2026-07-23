@@ -10,15 +10,19 @@ use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
-use Modules\Workflow\Features\StartWorkflow\Handler\StartWorkflowHandler;
+use Modules\Workflow\Contracts\ResolveWorkflowSourceAuthorizationFacts;
+use Modules\Workflow\Contracts\WorkflowSourceReference;
 use Modules\Workflow\Features\Engine\Handler\RecordDecisionHandler;
+use Modules\Workflow\Features\GetVisibleWorkflowInstance\Query\GetVisibleWorkflowInstance;
+use Modules\Workflow\Features\ListApprovalInbox\Query\ListApprovalInbox;
+use Modules\Workflow\Features\StartWorkflow\Handler\StartWorkflowHandler;
 use Shared\Contracts\TransactionalOutbox;
 
 final class WorkflowController
 {
     use HttpSupport;
 
-    public function __construct(private readonly ResolveDevelopmentFixturePrincipal $resolver, private readonly TransactionalOutbox $outbox, private readonly StartWorkflowHandler $starter, private readonly DecideAccess $access, private readonly ?RecordDecisionHandler $recordDecision = null) {}
+    public function __construct(private readonly ResolveDevelopmentFixturePrincipal $resolver, private readonly TransactionalOutbox $outbox, private readonly StartWorkflowHandler $starter, private readonly DecideAccess $access, private readonly GetVisibleWorkflowInstance $visibleInstances, private readonly ListApprovalInbox $approvalInbox, private readonly ResolveWorkflowSourceAuthorizationFacts $sourceFacts, private readonly ?RecordDecisionHandler $recordDecision = null) {}
 
     public function definitions(Request $request): mixed
     {
@@ -144,7 +148,21 @@ final class WorkflowController
             return $deny;
         }
         if ($request->isMethod('get')) {
-            return response()->json(['items' => DB::table('workflow_instances')->where('started_by_user_id', $p['user_id'])->orderBy('created_at')->get()->map(fn ($r) => (array) $r), 'next_cursor' => null])->header('X-Correlation-ID', $c);
+            $q = $request->query();
+            if (array_diff(array_keys($q), ['cursor', 'limit', 'state']) !== [] || ($request->query('state') !== null && (! is_string($request->query('state')) || ! in_array($request->query('state'), ['running', 'completed', 'cancelled'], true)))) {
+                return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
+            }
+            $limit = $request->query('limit', 50);
+            if (filter_var($limit, FILTER_VALIDATE_INT) === false || (int) $limit < 1 || (int) $limit > 100) {
+                return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
+            }
+            try {
+                $page = $this->visibleInstances->owned((string) $p['user_id'], $request->query('state'), is_string($request->query('cursor')) ? $request->query('cursor') : null, (int) $limit);
+            } catch (\InvalidArgumentException) {
+                return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
+            }
+
+            return response()->json($page)->header('X-Correlation-ID', $c);
         } $key = $this->commandHeaders($request);
         if ($key === '') {
             return $this->problem(400, 'invalid-idempotency-key', 'Idempotency-Key is required.', $c);
@@ -167,11 +185,126 @@ final class WorkflowController
         $c = $this->correlation($request);
         if ($c === null) {
             return $this->problem(400, 'invalid-correlation-id', 'X-Correlation-ID must be a lowercase UUIDv7.');
-        } if ($this->principal($request, $this->resolver) === null) {
+        } $p = $this->principal($request, $this->resolver);
+        if ($p === null) {
             return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
-        } $r = DB::table('workflow_instances')->where('id', $instanceId)->first();
+        }
+        $visible = $this->visibleInstances->fetch($instanceId, (string) $p['user_id']);
+        if ($visible !== null) {
+            return response()->json($visible)->header('X-Correlation-ID', $c)->header('ETag', '"'.$visible['lock_version'].'"');
+        }
 
-        return $r === null ? $this->problem(404, 'resource-not-found', 'The workflow instance is not available.', $c) : $this->response(['instance' => (array) $r, 'steps' => DB::table('workflow_step_instances')->where('workflow_instance_id', $instanceId)->get()->map(fn ($s) => (array) $s)], 200, $c, (int) $r->lock_version);
+        // Do not disclose whether a foreign id exists: only an explicitly scoped
+        // workflow.approve decision can widen the personal visible set.
+        $candidate = $this->visibleInstances->find($instanceId);
+        $approvalFacts = $candidate === null ? null : $this->workflowApprovalFacts($candidate);
+        if ($candidate === null || $approvalFacts === null || ! $this->isAllowed($p, 'workflow.approve', (string) $candidate->id, (string) $candidate->state, $c, $approvalFacts)) {
+            return $this->problem(404, 'resource-not-found', 'The workflow instance is not available.', $c);
+        }
+
+        $payload = $this->visibleInstances->fetchForOperations($candidate);
+
+        return response()->json($payload)->header('X-Correlation-ID', $c)->header('ETag', '"'.$payload['lock_version'].'"');
+    }
+
+    public function showStep(Request $request, string $stepId): mixed
+    {
+        $c = $this->correlation($request);
+        if ($c === null) {
+            return $this->problem(400, 'invalid-correlation-id', 'X-Correlation-ID must be a lowercase UUIDv7.');
+        } $p = $this->principal($request, $this->resolver);
+        if ($p === null) {
+            return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
+        }
+        $step = DB::table('workflow_step_instances')->where('id', $stepId)->first();
+        if ($step === null) {
+            return $this->problem(404, 'resource-not-found', 'The workflow step is not available.', $c);
+        } $instance = $this->visibleInstances->find((string) $step->workflow_instance_id);
+        if ($instance === null) {
+            return $this->problem(404, 'resource-not-found', 'The workflow step is not available.', $c);
+        }
+        $own = $step->assignee_user_id === $p['user_id'];
+        $facts = $own ? null : $this->workflowApprovalFacts($instance);
+        if (! $own && ($facts === null || ! $this->isAllowed($p, 'workflow.approve', (string) $instance->id, (string) $instance->state, $c, $facts))) {
+            return $this->problem(404, 'resource-not-found', 'The workflow step is not available.', $c);
+        }
+
+        return response()->json(['step_id' => (string) $step->id, 'workflow_instance_id' => (string) $instance->id, 'source_type' => (string) $instance->source_type, 'source_id' => (string) $instance->source_id, 'state' => (string) $step->state, 'assignee_user_id' => $step->assignee_user_id, 'created_at' => $this->utcDateTime((string) $step->created_at), 'lock_version' => (int) $step->lock_version, 'allowed_actions' => $this->inboxAllowedActions($step, $p, $c), 'workflow_instance' => ['id' => (string) $instance->id, 'workflow_version_id' => (string) $instance->workflow_version_id, 'source_module' => (string) $instance->source_module, 'source_type' => (string) $instance->source_type, 'source_id' => (string) $instance->source_id, 'state' => (string) $instance->state, 'lock_version' => (int) $instance->lock_version]])->header('X-Correlation-ID', $c)->header('ETag', '"'.$step->lock_version.'"');
+    }
+
+    public function listInbox(Request $request): mixed
+    {
+        $c = $this->correlation($request);
+        if ($c === null) {
+            return $this->problem(400, 'invalid-correlation-id', 'X-Correlation-ID must be a lowercase UUIDv7.');
+        }
+        $p = $this->principal($request, $this->resolver);
+        if ($p === null) {
+            return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
+        }
+        $query = $request->query();
+        if (array_diff(array_keys($query), ['assignee', 'assignee_user_id', 'state', 'limit', 'cursor']) !== []) {
+            return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
+        }
+        $assignee = $request->query('assignee');
+        $assigneeUserId = $request->query('assignee_user_id');
+        if ($assignee !== null && $assignee !== 'me') {
+            return $this->problem(400, 'invalid-assignee', 'The assignee filter is invalid.', $c);
+        }
+        if ($assigneeUserId !== null && (! is_string($assigneeUserId) || $assigneeUserId === '' || $assignee === 'me')) {
+            return $this->problem(400, 'invalid-assignee', 'The assignee filter is invalid.', $c);
+        }
+        $operationsInbox = is_string($assigneeUserId);
+        if ($operationsInbox) {
+            $filterAssignee = $assigneeUserId;
+        } else {
+            $filterAssignee = (string) $p['user_id'];
+        }
+
+        $state = $request->query('state');
+        if ($state !== null && (! is_string($state) || ! in_array($state, ['waiting', 'active', 'completed', 'rejected', 'returned', 'cancelled', 'all'], true))) {
+            return $this->problem(400, 'invalid-state', 'The state filter is invalid.', $c);
+        }
+        $limitValue = $request->query('limit', 50);
+        if (filter_var($limitValue, FILTER_VALIDATE_INT) === false || (int) $limitValue < 1 || (int) $limitValue > 100) {
+            return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
+        }
+        $cursor = $request->query('cursor');
+        if ($cursor !== null && (! is_string($cursor) || $cursor === '')) {
+            return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
+        }
+
+        try {
+            $page = $this->approvalInbox->execute(
+                $filterAssignee,
+                $state,
+                (int) $limitValue,
+                $cursor,
+                fn (object $step): array => $this->inboxAllowedActions($step, $p, $c),
+                $operationsInbox ? fn (array $steps): array => $this->visibleOperationsInboxStepIds($steps, $p, $c) : null,
+            );
+        } catch (\InvalidArgumentException) {
+            return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
+        }
+
+        return response()->json($page)->header('X-Correlation-ID', $c);
+    }
+
+    /** @return list<string> */
+    private function inboxAllowedActions(object $step, array $principal, string $correlationId): array
+    {
+        if (! in_array($step->state, ['waiting', 'active'], true) || $step->assignee_user_id !== $principal['user_id']) {
+            return [];
+        }
+
+        $actions = [];
+        foreach (['approve' => 'workflow.decide', 'reject' => 'workflow.decide', 'return' => 'workflow.decide', 'reassign' => 'workflow.reassign', 'escalate' => 'workflow.escalate'] as $action => $capability) {
+            if ($this->isAllowed($principal, $capability, (string) $step->id, (string) $step->state, $correlationId)) {
+                $actions[] = $action;
+            }
+        }
+
+        return $actions;
     }
 
     public function decideStep(Request $request, string $stepId): mixed
@@ -386,7 +519,14 @@ final class WorkflowController
 
     private function denyUnlessAllowed(array $principal, string $capability, ?string $recordId, ?string $state, string $correlationId): ?JsonResponse
     {
-        $decision = $this->access->decide(
+        return $this->isAllowed($principal, $capability, $recordId, $state, $correlationId)
+            ? null
+            : $this->problem(403, 'access-denied', 'Access denied.', $correlationId);
+    }
+
+    private function isAllowed(array $principal, string $capability, ?string $recordId, ?string $state, string $correlationId, ?RecordFacts $facts = null): bool
+    {
+        return $this->access->decide(
             [
                 'user_id' => $principal['user_id'],
                 'facility_id' => $principal['facility_id'] ?? null,
@@ -394,7 +534,7 @@ final class WorkflowController
                 'correlation_id' => $correlationId,
             ],
             $capability,
-            new RecordFacts(
+            $facts ?? new RecordFacts(
                 ownerFacilityId: $principal['facility_id'] ?? null,
                 resourceType: 'workflow_instance',
                 classification: 'internal',
@@ -402,9 +542,96 @@ final class WorkflowController
                 recordId: $recordId,
                 lifecycleState: $state,
             ),
-        );
+        )->isAllowed();
+    }
 
-        return $decision->isAllowed() ? null : $this->problem(403, 'access-denied', 'Access denied.', $correlationId);
+    private function workflowApprovalFacts(object $instance): ?RecordFacts
+    {
+        try {
+            $reference = new WorkflowSourceReference(
+                (string) $instance->source_module,
+                (string) $instance->source_type,
+                (string) $instance->source_id,
+            );
+            $sourceFacts = $this->sourceFacts->resolve($reference);
+        } catch (\Throwable) {
+            return null;
+        }
+        if ($sourceFacts === null) {
+            return null;
+        }
+
+        return $this->workflowApprovalFactsFromSource($sourceFacts, (string) $instance->source_module, (string) $instance->source_id, (string) $instance->state);
+    }
+
+    /** @param list<object> $steps @return array<string, true> */
+    private function visibleOperationsInboxStepIds(array $steps, array $principal, string $correlationId): array
+    {
+        $references = [];
+        foreach ($steps as $step) {
+            try {
+                $reference = new WorkflowSourceReference((string) $step->source_module, (string) $step->source_type, (string) $step->source_id);
+                $references[$reference->key()] = $reference;
+            } catch (\InvalidArgumentException) {
+                continue;
+            }
+        }
+        if ($references === []) {
+            return [];
+        }
+
+        // Resolve every source reference in one integration call. Authorization
+        // remains per record because its ABAC decision is intentionally scoped.
+        try {
+            $sourceFacts = $this->sourceFacts->resolveMany(array_values($references));
+        } catch (\Throwable) {
+            return [];
+        }
+        $visible = [];
+        foreach ($steps as $step) {
+            try {
+                $reference = new WorkflowSourceReference((string) $step->source_module, (string) $step->source_type, (string) $step->source_id);
+                $facts = $sourceFacts[$reference->key()] ?? null;
+            } catch (\InvalidArgumentException) {
+                continue;
+            }
+            if ($facts === null) {
+                continue;
+            }
+            $approvalFacts = $this->workflowApprovalFactsFromSource($facts, (string) $step->source_module, (string) $step->source_id, (string) $step->workflow_instance_state);
+            if ($this->isAllowed($principal, 'workflow.approve', (string) $step->workflow_instance_id, (string) $step->workflow_instance_state, $correlationId, $approvalFacts)) {
+                $visible[(string) $step->id] = true;
+            }
+        }
+
+        return $visible;
+    }
+
+    private function workflowApprovalFactsFromSource(RecordFacts $sourceFacts, string $sourceModule, string $sourceId, string $workflowState): RecordFacts
+    {
+
+        return new RecordFacts(
+            ownerFacilityId: $sourceFacts->ownerFacilityId,
+            resourceType: $sourceFacts->resourceType,
+            classification: $sourceFacts->classification,
+            factsVersion: $sourceFacts->factsVersion,
+            organizationUnitId: $sourceFacts->organizationUnitId,
+            recordId: $sourceFacts->recordId ?? $sourceId,
+            sourceModule: $sourceModule,
+            clusterId: $sourceFacts->clusterId,
+            createdByUserId: $sourceFacts->createdByUserId,
+            ownerUserId: $sourceFacts->ownerUserId,
+            responsibleUserId: $sourceFacts->responsibleUserId,
+            sharedUnitIds: $sourceFacts->sharedUnitIds,
+            sharedUserIds: $sourceFacts->sharedUserIds,
+            participantIds: $sourceFacts->participantIds,
+            lifecycleState: $sourceFacts->lifecycleState,
+            workflowState: $workflowState,
+            fieldPolicyKey: $sourceFacts->fieldPolicyKey,
+            workTypeVersionId: $sourceFacts->workTypeVersionId,
+            legalHold: $sourceFacts->legalHold,
+            lockVersion: $sourceFacts->lockVersion,
+        );
     }
 
     private function tenantClusterId(): ?string

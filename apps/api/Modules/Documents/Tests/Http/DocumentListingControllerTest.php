@@ -56,7 +56,7 @@ final class DocumentListingControllerTest extends TestCase
                     return ['access_token' => 'test-token', 'expires_at' => '2026-07-22T00:00:00Z'];
                 }
 
-                public function resolve(Request $request): ?array
+                public function resolve(Request $request): array
                 {
                     return ['user_id' => DocumentListingControllerTest::PRINCIPAL_ID, 'facility_id' => DocumentListingControllerTest::FACILITY_ID];
                 }

@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Authorization\Features\OperationsOffice\BootstrapOperationsOffice;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationBootstrapState;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
@@ -104,7 +105,12 @@ final class AuthorizationBootstrapStage00CTest extends TestCase
         };
         $state = $this->app->make(AuthorizationBootstrapState::class);
         $get = new GetAuthorizationBootstrapController($principalResolver, $state);
-        $complete = new CompleteAuthorizationBootstrapController($principalResolver, $entitlements, $state);
+        $complete = new CompleteAuthorizationBootstrapController(
+            $principalResolver,
+            $entitlements,
+            $state,
+            $this->app->make(BootstrapOperationsOffice::class),
+        );
         $headers = ['X-Correlation-ID' => '0190f5d2-7b9a-7000-8000-000000000001'];
 
         $first = $get(Request::create('/api/v1/authorization/bootstrap', 'GET', server: $this->server($headers)));

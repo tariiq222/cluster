@@ -440,8 +440,8 @@ def main(argv: Iterable[str] | None = None) -> int:
             print("wrote inventory snapshot to .minimax-flow/route-inventory.json")
         print_summary(summary)
         if args.check or args.dry_run:
-            if len(summary.routes) != 117:
-                print(f"route count mismatch: expected 117, got {len(summary.routes)}", file=sys.stderr)
+            if len(summary.routes) != 119:
+                print(f"route count mismatch: expected 119, got {len(summary.routes)}", file=sys.stderr)
                 return 1
             if summary.wherein_families != 7:
                 print(f"whereIn family mismatch: expected 7, got {summary.wherein_families}", file=sys.stderr)

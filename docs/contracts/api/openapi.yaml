@@ -894,7 +894,7 @@ paths:
           [
             { $ref: "#/components/parameters/Cursor" },
             { $ref: "#/components/parameters/Limit" },
-            { name: state, in: query, schema: { type: string } },
+            { name: state, in: query, schema: { type: string, enum: [running, completed, cancelled] } },
           ],
         responses:
           {
@@ -1195,7 +1195,6 @@ paths:
         }
   /workflow/steps:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
-    x-implementation-status: planned  # [planned: not yet wired]
     get:
       tags: [Approval Inbox, Workflow]
       summary: List approval inbox steps assigned to the current principal
@@ -1211,7 +1210,7 @@ paths:
             schema:
               {
                 type: string,
-                enum: [waiting, active, completed, rejected, cancelled, all],
+                enum: [waiting, active, completed, rejected, returned, cancelled, all],
               },
           },
           {
@@ -1315,6 +1314,19 @@ paths:
           "404": { $ref: "#/components/responses/NotFound" },
           "409": { $ref: "#/components/responses/Conflict" },
           "412": { $ref: "#/components/responses/PreconditionFailed" },
+        }
+  /workflow/steps/{stepId}:
+    parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
+    get:
+      tags: [Approval Inbox, Workflow]
+      summary: Get an authorized workflow approval step
+      operationId: getWorkflowStep
+      parameters: [{ $ref: "#/components/parameters/StepId" }]
+      responses:
+        {
+          "200": { $ref: "#/components/responses/WorkflowStepDetailResponse" },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "404": { $ref: "#/components/responses/NotFound" },
         }
   /tasks/{taskId}/participants:
     parameters: [{ $ref: "#/components/parameters/CorrelationId" }]
@@ -5702,6 +5714,10 @@ components:
               { schema: { $ref: "#/components/schemas/WorkflowStepCollection" } },
           },
       }
+    WorkflowStepDetailResponse:
+      description: Authorized workflow approval-step projection.
+      content:
+        { application/json: { schema: { $ref: "#/components/schemas/WorkflowStepDetail" } } }
     OperationsOfficeVersionResponse:
       {
         description: Operations-office workflow version projection after lifecycle transition,
@@ -5843,6 +5859,8 @@ components:
       required: [step_id, node_key, node_type, state, assignee_user_id, activated_at, completed_at, actor_user_id, decision, reason]
       properties:
         step_id: { $ref: "#/components/schemas/UUIDv7" }
+        workflow_instance_id: { $ref: "#/components/schemas/UUIDv7" }
+        lock_version: { type: integer, minimum: 1 }
         node_key: { type: string }
         node_type: { type: string }
         state: { type: string }
@@ -5905,8 +5923,63 @@ components:
       properties:
         items:
           type: array
-          items: { $ref: "#/components/schemas/WorkflowStepHistoryEntry" }
+          items: { $ref: "#/components/schemas/WorkflowStepInboxItem" }
         next_cursor: { type: [string, "null"] }
+    WorkflowStepInboxItem:
+      type: object
+      additionalProperties: false
+      required:
+        - step_id
+        - workflow_instance_id
+        - source_type
+        - source_id
+        - state
+        - assignee_user_id
+        - created_at
+        - lock_version
+        - allowed_actions
+      properties:
+        step_id: { $ref: "#/components/schemas/UUIDv7" }
+        workflow_instance_id: { $ref: "#/components/schemas/UUIDv7" }
+        source_type: { type: string }
+        source_id: { type: string }
+        state: { type: string, enum: [waiting, active, completed, rejected, returned, cancelled] }
+        assignee_user_id: { $ref: "#/components/schemas/UUIDv7" }
+        created_at: { $ref: "#/components/schemas/UtcDateTime" }
+        lock_version: { type: integer, minimum: 1 }
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: [approve, reject, return, reassign, escalate] }
+    WorkflowStepDetail:
+      type: object
+      additionalProperties: false
+      required: [step_id, workflow_instance_id, source_type, source_id, state, assignee_user_id, created_at, lock_version, allowed_actions, workflow_instance]
+      properties:
+        step_id: { $ref: "#/components/schemas/UUIDv7" }
+        workflow_instance_id: { $ref: "#/components/schemas/UUIDv7" }
+        source_type: { type: string }
+        source_id: { type: string }
+        state: { type: string }
+        assignee_user_id:
+          oneOf:
+            - { $ref: "#/components/schemas/UUIDv7" }
+            - { type: "null" }
+        created_at: { $ref: "#/components/schemas/UtcDateTime" }
+        lock_version: { type: integer, minimum: 1 }
+        allowed_actions: { type: array, items: { type: string } }
+        workflow_instance:
+          type: object
+          additionalProperties: false
+          required: [id, workflow_version_id, source_module, source_type, source_id, state, lock_version]
+          properties:
+            id: { $ref: "#/components/schemas/UUIDv7" }
+            workflow_version_id: { $ref: "#/components/schemas/UUIDv7" }
+            source_module: { type: string }
+            source_type: { type: string }
+            source_id: { type: string }
+            state: { type: string }
+            lock_version: { type: integer, minimum: 1 }
     AccessProjection:
       type: object
       description: Server-owned authorization metadata composed with an authorized resource projection.

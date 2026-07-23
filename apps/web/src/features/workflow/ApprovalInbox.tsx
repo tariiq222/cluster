@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Inbox, XCircle } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, Inbox, RotateCcw, UserRoundPen, XCircle } from 'lucide-react'
 
 import type { Locale } from '../../app/copy'
 import type { Session } from '../../api'
@@ -17,24 +17,18 @@ import {
   SkeletonList,
   StatusBadge,
 } from '../../ui'
-import { directionForWorkflow, formatAge, type WorkflowCopy, workflowCopy } from './workflow-copy'
+import { directionForLocale } from '../../app/copy'
+import { formatAge, type WorkflowCopy, workflowCopy } from './workflow-copy'
 import {
-  getWorkflowInstance,
-  listWorkflowInstances,
+  actOnWorkflowStep,
+  listActionableWorkflowStepsInbox,
   recordWorkflowDecision,
-  type WorkflowInstance,
-  type WorkflowStep,
+  type WorkflowInboxItem,
 } from './workflow-api'
 
-type ApprovalEntry = { instance: WorkflowInstance; step: WorkflowStep }
 type Feedback = { kind: 'success' | 'error' | 'denied'; message: string }
 
-function valueOf(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' && value.trim() ? value : null
-}
-
-function lockVersion(step: WorkflowStep): number {
+function lockVersion(step: WorkflowInboxItem): number {
   return typeof step.lock_version === 'number' && step.lock_version > 0 ? step.lock_version : 1
 }
 
@@ -45,63 +39,93 @@ function errorMessage(error: unknown, copy: WorkflowCopy): Feedback {
   return { kind: 'error', message: copy.reqError }
 }
 
-export function ApprovalInbox({ locale, session }: { locale: Locale; session: Session }) {
+export function ApprovalInbox({ locale, session, scopeReady, scopeEpoch }: { locale: Locale; session: Session; scopeReady: boolean; scopeEpoch: number }) {
   const copy = workflowCopy[locale]
   const [loading, setLoading] = useState(true)
-  const [entries, setEntries] = useState<ApprovalEntry[]>([])
+  const [entries, setEntries] = useState<WorkflowInboxItem[]>([])
   const [loadError, setLoadError] = useState(false)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [reasons, setReasons] = useState<Record<string, string>>({})
+  const [reassignmentTargets, setReassignmentTargets] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const feedbackRef = useRef<HTMLParagraphElement>(null)
+  const requestRef = useRef(0)
 
   const load = useCallback(async () => {
+    const request = ++requestRef.current
+    if (!scopeReady) {
+      setEntries([])
+      setLoadError(false)
+      setFeedback(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setLoadError(false)
     setFeedback(null)
     try {
-      const collection = await listWorkflowInstances(session.access_token)
-      const details = await Promise.all(
-        collection.items.map((instance) => getWorkflowInstance(session.access_token, instance.id)),
-      )
-      const next: ApprovalEntry[] = []
-      for (const detail of details) {
-        for (const step of detail.steps) {
-          if (
-            step.assignee_user_id === session.user_id
-            && (step.state === 'waiting' || step.state === 'active')
-          ) {
-            next.push({ instance: detail.instance, step })
-          }
-        }
-      }
-      setEntries(next)
+      const entries = await listActionableWorkflowStepsInbox(session.access_token)
+      if (request !== requestRef.current) return
+      setEntries(entries)
     } catch (error) {
+      if (request !== requestRef.current) return
       setEntries([])
       if (error instanceof ApiError && error.status === 403) setFeedback({ kind: 'denied', message: copy.reqDeniedBody })
       else setLoadError(true)
     } finally {
-      setLoading(false)
+      if (request === requestRef.current) setLoading(false)
     }
-  }, [copy.reqDeniedBody, session.access_token, session.user_id])
+  }, [copy.reqDeniedBody, scopeReady, session.access_token])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load() }, [load, scopeEpoch])
   useEffect(() => {
     if (feedback) window.requestAnimationFrame(() => feedbackRef.current?.focus())
   }, [feedback])
 
-  async function decide(entry: ApprovalEntry, decision: 'approve' | 'reject') {
-    const stepId = entry.step.id
+  async function decide(step: WorkflowInboxItem, decision: 'approve' | 'reject' | 'return') {
+    const stepId = step.id
     const reason = (reasons[stepId] ?? '').trim()
-    if (decision === 'reject' && reason.length < 10) {
+    if ((decision === 'reject' || decision === 'return') && reason.length < 10) {
       setFeedback({ kind: 'error', message: copy.reqReasonMin })
       return
     }
     setBusy(stepId)
     setFeedback(null)
     try {
-      await recordWorkflowDecision(session.access_token, stepId, { decision, ...(reason ? { reason } : {}) }, lockVersion(entry.step))
-      setEntries((current) => current.filter((item) => item.step.id !== stepId))
+      await recordWorkflowDecision(session.access_token, stepId, { decision, ...(reason ? { reason } : {}) }, lockVersion(step))
+      setEntries((current) => current.filter((item) => item.id !== stepId))
+      setFeedback({ kind: 'success', message: copy.success })
+    } catch (error) {
+      setFeedback(errorMessage(error, copy))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function act(step: WorkflowInboxItem, action: 'reassign' | 'escalate') {
+    const stepId = step.id
+    const reason = (reasons[stepId] ?? '').trim()
+    const targetUserId = (reassignmentTargets[stepId] ?? '').trim()
+    if (reason === '') {
+      setFeedback({ kind: 'error', message: copy.actionReasonRequired })
+      return
+    }
+    if (action === 'reassign' && targetUserId === '') {
+      setFeedback({ kind: 'error', message: copy.reassignmentTargetRequired })
+      return
+    }
+
+    setBusy(stepId)
+    setFeedback(null)
+    try {
+      await actOnWorkflowStep(
+        session.access_token,
+        stepId,
+        action,
+        { reason, ...(action === 'reassign' ? { target_user_id: targetUserId } : {}) },
+        lockVersion(step),
+      )
+      setEntries((current) => current.filter((item) => item.id !== stepId))
       setFeedback({ kind: 'success', message: copy.success })
     } catch (error) {
       setFeedback(errorMessage(error, copy))
@@ -111,7 +135,7 @@ export function ApprovalInbox({ locale, session }: { locale: Locale; session: Se
   }
 
   return (
-    <div dir={directionForWorkflow(locale)}>
+    <div dir={directionForLocale(locale)}>
       <Page aria-labelledby="approval-inbox-heading">
         <PageHeader
           id="approval-inbox-heading"
@@ -128,24 +152,36 @@ export function ApprovalInbox({ locale, session }: { locale: Locale; session: Se
           <EmptyState icon={<Inbox aria-hidden="true" />} title={copy.reqEmptyApprovals} body={copy.reqEmptyApprovalsBody} />
         ) : (
           <PanelGrid>
-            {entries.map(({ instance, step }) => {
+            {entries.map((step) => {
               const stepId = step.id
-              const subject = valueOf(instance, 'subject') ?? valueOf(instance, 'record_type') ?? instance.id
-              const currentOwner = valueOf(instance, 'current_owner_user_id') ?? step.assignee_user_id ?? '—'
+              const subject = step.source_type ?? step.source_id ?? stepId
+              const currentOwner = step.assignee_user_id ?? '—'
               const reason = reasons[stepId] ?? ''
+              const targetUserId = reassignmentTargets[stepId] ?? ''
+              const needsReason = step.allowed_actions.some((action) => action === 'reject' || action === 'return' || action === 'reassign' || action === 'escalate')
               return (
-                <Panel key={stepId} id={`approval-${stepId}`} title={subject} level={2} actions={<StatusBadge>{copy.workflowState(step.state ?? '')}</StatusBadge>}>
+                <Panel key={stepId} id={`approval-${stepId}`} title={<a href={`/approvals/${stepId}`}>{subject}</a>} level={2} actions={<StatusBadge>{copy.workflowState(step.state ?? '')}</StatusBadge>}>
                   <dl className="definition-grid">
                     <div><dt>{copy.reqCurrentOwner}</dt><dd dir="ltr">{currentOwner}</dd></div>
-                    <div><dt>{copy.age}</dt><dd>{formatAge(step.created_at ?? instance.created_at, locale)}</dd></div>
+                     <div><dt>{copy.age}</dt><dd>{formatAge(step.created_at, locale)}</dd></div>
                     <div><dt>{copy.status}</dt><dd>{copy.workflowState(step.state ?? '')}</dd></div>
                   </dl>
-                  <Field id={`${stepId}-reason`} label={copy.reason} help={copy.reasonHint}>
-                    <textarea id={`${stepId}-reason`} value={reason} onChange={(event) => setReasons((current) => ({ ...current, [stepId]: event.target.value }))} aria-describedby={`${stepId}-reason-help`} />
-                  </Field>
+                  {needsReason ? (
+                    <Field id={`${stepId}-reason`} label={copy.reason} help={copy.reasonHint}>
+                      <textarea id={`${stepId}-reason`} value={reason} onChange={(event) => setReasons((current) => ({ ...current, [stepId]: event.target.value }))} aria-describedby={`${stepId}-reason-help`} />
+                    </Field>
+                  ) : null}
+                  {step.allowed_actions.includes('reassign') ? (
+                    <Field id={`${stepId}-reassign-target`} label={copy.reassignmentTarget} help={copy.reassignmentTargetHelp}>
+                      <input id={`${stepId}-reassign-target`} value={targetUserId} onChange={(event) => setReassignmentTargets((current) => ({ ...current, [stepId]: event.target.value }))} />
+                    </Field>
+                  ) : null}
                   <div className="table-actions">
-                    <Button type="button" disabled={busy === stepId} onClick={() => void decide({ instance, step }, 'approve')}><CheckCircle2 aria-hidden="true" /> {busy === stepId ? copy.reqDecisionPending : copy.approve}</Button>
-                    <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void decide({ instance, step }, 'reject')}><XCircle aria-hidden="true" /> {busy === stepId ? copy.reqDecisionPending : copy.reject}</Button>
+                     {step.allowed_actions.includes('approve') ? <Button type="button" disabled={busy === stepId} onClick={() => void decide(step, 'approve')}><CheckCircle2 aria-hidden="true" /> {busy === stepId ? copy.reqDecisionPending : copy.approve}</Button> : null}
+                     {step.allowed_actions.includes('reject') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void decide(step, 'reject')}><XCircle aria-hidden="true" /> {busy === stepId ? copy.reqDecisionPending : copy.reject}</Button> : null}
+                     {step.allowed_actions.includes('return') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void decide(step, 'return')}><RotateCcw aria-hidden="true" /> {busy === stepId ? copy.returning : copy.returnForCorrection}</Button> : null}
+                     {step.allowed_actions.includes('reassign') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void act(step, 'reassign')}><UserRoundPen aria-hidden="true" /> {busy === stepId ? copy.reassigning : copy.reassign}</Button> : null}
+                     {step.allowed_actions.includes('escalate') ? <Button type="button" variant="secondary" disabled={busy === stepId} onClick={() => void act(step, 'escalate')}><ArrowUpRight aria-hidden="true" /> {busy === stepId ? copy.escalating : copy.escalate}</Button> : null}
                   </div>
                 </Panel>
               )

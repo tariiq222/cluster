@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 trait HttpSupport
@@ -61,5 +62,15 @@ trait HttpSupport
         }
 
         return (int) $matches[1];
+    }
+
+    /** Format a stored timestamp as an ISO-8601 UTC string in the same way the OpenAPI `UtcDateTime` contract expects. */
+    protected function utcDateTime(string $value): string
+    {
+        if ($value === '') {
+            return Carbon::now()->toIso8601String();
+        }
+
+        return Carbon::parse($value)->utc()->toIso8601String();
     }
 }

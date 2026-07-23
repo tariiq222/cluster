@@ -41,7 +41,8 @@ final class AssignmentRulesTest extends TestCase
     {
         $supervisorPerson = self::SUPERVISOR_PERSON;
         $supervisorUser = self::SUPERVISOR_USER;
-        $scope = new class implements ResolvePersonOrganizationScope {
+        $scope = new class implements ResolvePersonOrganizationScope
+        {
             public function forPerson(string $personId): array
             {
                 return [
@@ -52,7 +53,8 @@ final class AssignmentRulesTest extends TestCase
                 ];
             }
         };
-        $users = new class($supervisorPerson, $supervisorUser) implements ResolveUserForPerson {
+        $users = new class($supervisorPerson, $supervisorUser) implements ResolveUserForPerson
+        {
             public function __construct(
                 private readonly string $supervisorPerson,
                 private readonly string $supervisorUser,
@@ -76,8 +78,6 @@ final class AssignmentRulesTest extends TestCase
         // the resolution is null. The stub path proves the constructor wires
         // the right collaborators; the production join is covered separately.
         $this->assertNull($userId);
-        $this->assertNotNull($scope);
-        $this->assertNotNull($users);
     }
 
     public function test_supervisor_of_step_resolves_via_step_index_lookup(): void
@@ -85,7 +85,8 @@ final class AssignmentRulesTest extends TestCase
         $instanceId = self::INSTANCE_ID;
         $stepPerson = self::STEP_PERSON;
         $stepUser = self::STEP_USER;
-        $steps = new class($instanceId, $stepPerson) implements ResolveUserForAssignmentStep {
+        $steps = new class($instanceId, $stepPerson) implements ResolveUserForAssignmentStep
+        {
             public function __construct(
                 private readonly string $instanceId,
                 private readonly string $stepPerson,
@@ -96,7 +97,8 @@ final class AssignmentRulesTest extends TestCase
                 return $instanceId === $this->instanceId && $stepIndex === 1 ? $this->stepPerson : null;
             }
         };
-        $users = new class($stepPerson, $stepUser) implements ResolveUserForPerson {
+        $users = new class($stepPerson, $stepUser) implements ResolveUserForPerson
+        {
             public function __construct(
                 private readonly string $stepPerson,
                 private readonly string $stepUser,
@@ -121,7 +123,8 @@ final class AssignmentRulesTest extends TestCase
     public function test_role_rule_returns_the_first_listed_user(): void
     {
         $hrUser = self::HR_USER;
-        $roles = new class($hrUser) implements ListUsersInRole {
+        $roles = new class($hrUser) implements ListUsersInRole
+        {
             public function __construct(private readonly string $hrUser) {}
 
             public function users(string $roleCode): array
@@ -141,7 +144,8 @@ final class AssignmentRulesTest extends TestCase
 
     public function test_unknown_rule_type_returns_null_instead_of_throwing(): void
     {
-        $rules = AssignmentRules::role('hr_officer', new class implements ListUsersInRole {
+        $rules = AssignmentRules::role('hr_officer', new class implements ListUsersInRole
+        {
             public function users(string $roleCode): array
             {
                 return [];

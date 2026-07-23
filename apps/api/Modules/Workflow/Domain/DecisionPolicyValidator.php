@@ -71,7 +71,7 @@ final class DecisionPolicyValidator
     /**
      * Converts the persisted linear graph into its ordered approval-step list.
      *
-     * @param array<string, mixed> $graph
+     * @param  array<string, mixed>  $graph
      * @return list<array<string, mixed>>
      */
     public function orderedSteps(array $graph): array
@@ -153,7 +153,7 @@ final class DecisionPolicyValidator
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @param  array<string, mixed>  $node
      * @return array{type: string, step_key?: string, role_code?: string}|null
      */
     public function assignmentRule(array $node): ?array

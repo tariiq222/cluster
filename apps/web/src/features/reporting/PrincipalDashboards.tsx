@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useLocale, useToken } from '../../app/session-context'
 import { text } from '../../app/copy'
 import { getDashboard, listDashboards, type R1Collection, type R1Entity } from '../../api/r1'
-import { Button } from '../../ui'
+import { ApiError } from '../../api/http'
+import { Button, InlineError } from '../../ui'
 
 /**
  * The indicator band on the home screen.
@@ -37,43 +38,54 @@ function cardTotal(content: R1Collection): number {
   return typeof content.total === 'number' ? content.total : (content.items?.length ?? 0)
 }
 
-export function PrincipalDashboards({ onOpen }: { onOpen: () => void }) {
+export function PrincipalDashboards(props: { onOpen: () => void; onOpenDocuments?: () => void; scopeId?: string | null; revision?: number }) {
   const locale = useLocale()
   const token = useToken()
   const copy = text[locale]
   const [cards, setCards] = useState<DashboardCard[]>([])
+  const [state, setState] = useState<'loading' | 'ready' | 'denied' | 'error'>('loading')
+  const requestRevision = useRef(0)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (revision: number) => {
+    setCards([])
+    setState('loading')
     try {
       const definitions = (await listDashboards(token)).items ?? []
       const visible = definitions.filter((item) => typeof item.id === 'string').slice(0, HOME_DASHBOARD_LIMIT)
       // A dashboard the principal may list but not read is not an error worth
       // reporting: it just does not become a card.
-      const loaded = await Promise.all(
-        visible.map(async (definition): Promise<DashboardCard | null> => {
+      const loaded = await Promise.allSettled(
+        visible.map(async (definition): Promise<DashboardCard> => {
           const id = String(definition.id)
-          try {
-            const content = await getDashboard(token, id)
-            return { id, title: cardTitle(definition, id), total: cardTotal(content) }
-          } catch {
-            return null
-          }
+          const content = await getDashboard(token, id, props.scopeId ?? undefined)
+          return { id, title: cardTitle(definition, id), total: cardTotal(content) }
         }),
       )
-      setCards(loaded.filter((card): card is DashboardCard => card !== null))
-    } catch {
+      if (revision !== requestRevision.current) return
+      const cards = loaded.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
+      const hasRetryableFailure = loaded.some((result) => result.status === 'rejected' && !isAuthorizationError(result.reason))
+      setCards(cards)
+      setState(hasRetryableFailure ? 'error' : 'ready')
+    } catch (error) {
+      if (revision !== requestRevision.current) return
       // A principal with no reporting capability gets 403 here. That is the
       // normal employee case, not a failure worth announcing, and the band is
       // additive — so it simply does not render.
       setCards([])
+      setState(isAuthorizationError(error) ? 'denied' : 'error')
     }
-  }, [token])
+  }, [props.scopeId, token])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    const revision = ++requestRevision.current
+    void load(revision)
+  }, [load, props.revision])
 
-  if (cards.length === 0) return null
+  if (state === 'loading' || state === 'denied' || (state === 'ready' && cards.length === 0)) return null
+
+  if (state === 'error' && cards.length === 0) {
+    return <InlineError message={locale === 'ar' ? 'تعذر تحميل المؤشرات. أعد المحاولة.' : 'We could not load the indicators. Try again.'} retryLabel={locale === 'ar' ? 'إعادة المحاولة' : 'Try again'} onRetry={() => { void load(++requestRevision.current) }} />
+  }
 
   return (
     <section className="dashboard-indicators" aria-labelledby="home-indicators-heading">
@@ -87,9 +99,14 @@ export function PrincipalDashboards({ onOpen }: { onOpen: () => void }) {
           </article>
         ))}
       </div>
-      <Button variant="secondary" onClick={onOpen}>
+      <Button variant="secondary" onClick={props.onOpen}>
         {copy.openIndicator}
       </Button>
+      {state === 'error' ? <InlineError message={locale === 'ar' ? 'تعذر تحميل بعض المؤشرات. أعد المحاولة.' : 'Some indicators could not be loaded. Try again.'} retryLabel={locale === 'ar' ? 'إعادة المحاولة' : 'Try again'} onRetry={() => { void load(++requestRevision.current) }} /> : null}
     </section>
   )
+}
+
+function isAuthorizationError(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403)
 }

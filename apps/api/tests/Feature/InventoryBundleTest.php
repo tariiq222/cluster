@@ -15,7 +15,7 @@ class InventoryBundleTest extends TestCase
         parent::setUp();
 
         $this->repoRoot = realpath(base_path('../..')) ?: base_path('../..');
-        $this->summaryPath = $this->repoRoot . '/.minimax-flow/bundle-summary.json';
+        $this->summaryPath = $this->repoRoot.'/.minimax-flow/bundle-summary.json';
 
         if (is_file($this->summaryPath)) {
             unlink($this->summaryPath);
@@ -72,7 +72,7 @@ class InventoryBundleTest extends TestCase
 
     public function test_s5_cluster_openapi_bundle_sha_unchanged_after_reconcile(): void
     {
-        $current = sha256_of($this->repoRoot . '/apps/web/.orval/cluster.openapi.yaml');
+        $current = sha256_of($this->repoRoot.'/apps/web/.orval/cluster.openapi.yaml');
         $payload = $this->loadSummary();
         $pre = $payload['bundles']['cluster.openapi.yaml']['pre_sha256'];
         $post = $payload['bundles']['cluster.openapi.yaml']['post_sha256'];
@@ -130,15 +130,15 @@ class InventoryBundleTest extends TestCase
         $diff = $this->captureGitDiff($relPath);
 
         if (trim($diff) === '') {
-            $this->assertTrue(true);
+            $this->assertSame('', trim($diff));
 
             return;
         }
 
         $payload = $this->loadSummary()['split_source_diffs'][$relPath] ?? null;
         $this->assertNotNull($payload, "split_source_diffs missing entry for {$relPath}");
-        $this->assertTrue($payload['ok'] ?? false, "diff for {$relPath} not flagged ok: " . json_encode($payload));
-        $this->assertTrue($payload['all_ref_additions'] ?? false, "diff for {$relPath} contains non-ref additions: " . json_encode($payload));
+        $this->assertTrue($payload['ok'] ?? false, "diff for {$relPath} not flagged ok: ".json_encode($payload));
+        $this->assertTrue($payload['all_ref_additions'] ?? false, "diff for {$relPath} contains non-ref additions: ".json_encode($payload));
     }
 
     /**
@@ -164,7 +164,7 @@ class InventoryBundleTest extends TestCase
 
         $exitCode = proc_close($process);
 
-        return [$exitCode, trim($stdout . "\n" . $stderr)];
+        return [$exitCode, trim($stdout."\n".$stderr)];
     }
 }
 

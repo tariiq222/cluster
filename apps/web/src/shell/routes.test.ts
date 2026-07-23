@@ -84,13 +84,68 @@ describe('W1.2 shell route registry', () => {
   })
 
   it('groups workspace tabs so the sidebar entry stays active across them', () => {
-    expect(workspaceOfRoute({ name: 'people-assignments' })).toBe('organization')
-    expect(workspaceOfRoute({ name: 'access-context' })).toBe('access')
+    // Only the organization screen still owns tabs (facilities + structure).
+    expect(workspaceOfRoute({ name: 'organization' })).toBe('organization')
+    expect(workspaceOfRoute({ name: 'organization-structure' })).toBe('organization')
+    // Everything that previously shared a tab group is now a standalone page.
+    expect(workspaceOfRoute({ name: 'people-assignments' })).toBeNull()
+    expect(workspaceOfRoute({ name: 'temporary-assignments' })).toBeNull()
+    expect(workspaceOfRoute({ name: 'identity-accounts' })).toBeNull()
+    expect(workspaceOfRoute({ name: 'access-context' })).toBeNull()
     expect(workspaceOfRoute({ name: 'reports' })).toBeNull()
+    expect(workspaceOfRoute({ name: 'work-definitions' })).toBeNull()
 
-    expect(isRouteActive({ name: 'temporary-assignments' }, { name: 'organization' })).toBe(true)
-    expect(isRouteActive({ name: 'work-definitions' }, { name: 'workflow-day2' })).toBe(true)
+    expect(isRouteActive({ name: 'organization-structure' }, { name: 'organization' })).toBe(true)
+    expect(isRouteActive({ name: 'organization' }, { name: 'organization-structure' })).toBe(true)
+    expect(isRouteActive({ name: 'people-assignments' }, { name: 'organization' })).toBe(false)
+    expect(isRouteActive({ name: 'work-definitions' }, { name: 'workflow-day2' })).toBe(false)
     expect(isRouteActive({ name: 'people-assignments' }, { name: 'workflow-day2' })).toBe(false)
+  })
+
+  it('keeps the roles/capabilities tab highlight across its two resources only', () => {
+    expect(workspaceOfRoute({ name: 'authorization', resource: 'roles' })).toBe('roles-capabilities')
+    expect(workspaceOfRoute({ name: 'authorization', resource: 'capabilities' })).toBe('roles-capabilities')
+    expect(workspaceOfRoute({ name: 'authorization', resource: 'role-assignments' })).toBeNull()
+
+    expect(isRouteActive({ name: 'authorization', resource: 'capabilities' }, { name: 'authorization', resource: 'roles' })).toBe(true)
+    expect(isRouteActive({ name: 'authorization', resource: 'roles' }, { name: 'authorization', resource: 'capabilities' })).toBe(true)
+    expect(isRouteActive({ name: 'authorization', resource: 'role-assignments' }, { name: 'authorization', resource: 'roles' })).toBe(false)
+    expect(isRouteActive({ name: 'authorization', resource: 'delegations' }, { name: 'authorization', resource: 'roles' })).toBe(false)
+  })
+
+  it('round-trips the direct work, administration, and detail routes', () => {
+    const stepId = '01980f50-5f0d-7000-8000-000000000101'
+    const instanceId = '01980f50-5f0d-7000-8000-000000000102'
+    const taskId = '01980f50-5f0d-7000-8000-000000000103'
+    const dashboardId = '01980f50-5f0d-7000-8000-000000000104'
+
+    expect(routeFromPath('/approvals')).toEqual({ name: 'approval-inbox' })
+    expect(routeFromPath(`/approvals/${stepId}`)).toEqual({ name: 'approval-detail', stepId })
+    expect(pathFromRoute({ name: 'approval-detail', stepId })).toBe(`/approvals/${stepId}`)
+
+    expect(routeFromPath(`/my-requests/${instanceId}`)).toEqual({ name: 'my-request-detail', instanceId })
+    expect(pathFromRoute({ name: 'my-request-detail', instanceId })).toBe(`/my-requests/${instanceId}`)
+
+    expect(routeFromPath(`/tasks/${taskId}`)).toEqual({ name: 'task-detail', taskId })
+    expect(pathFromRoute({ name: 'task-detail', taskId })).toBe(`/tasks/${taskId}`)
+
+    expect(routeFromPath('/dashboards')).toEqual({ name: 'dashboards' })
+    expect(routeFromPath(`/dashboards/${dashboardId}`)).toEqual({ name: 'dashboards', dashboardId })
+    expect(pathFromRoute({ name: 'dashboards' })).toBe('/dashboards')
+    expect(pathFromRoute({ name: 'dashboards', dashboardId })).toBe(`/dashboards/${dashboardId}`)
+
+    expect(routeFromPath('/admin/authorization/access-scopes')).toEqual({ name: 'access-scopes' })
+    expect(pathFromRoute({ name: 'access-scopes' })).toBe('/admin/authorization/access-scopes')
+
+    expect(routeFromPath('/admin/workflow/day2')).toEqual({ name: 'workflow-day2' })
+    expect(routeFromPath('/admin/procedures/review')).toEqual({ name: 'procedure-office-review' })
+    expect(routeFromPath('/admin/procedures/authoring')).toEqual({ name: 'procedure-authoring' })
+  })
+
+  it('refuses malformed detail ids and keeps detail links inside the page', () => {
+    expect(routeFromPath('/approvals/not-a-uuid')).toEqual({ name: 'not-found' })
+    expect(routeFromPath('/my-requests/not-a-uuid')).toEqual({ name: 'not-found' })
+    expect(routeFromPath('/tasks/not-a-uuid')).toEqual({ name: 'not-found' })
   })
 
   it('keeps unrelated routes and sibling authorization resources distinct', () => {

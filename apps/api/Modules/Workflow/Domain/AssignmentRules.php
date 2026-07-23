@@ -23,6 +23,7 @@ interface ListUsersInRole
 final class AssignmentRules implements ResolveStepAssignee
 {
     private const INITIATOR_PERSON = 'initiator_person_id';
+
     private const INSTANCE_ID = 'workflow_instance_id';
 
     public function __construct(
@@ -34,7 +35,7 @@ final class AssignmentRules implements ResolveStepAssignee
 
     public static function supervisor_of_initiator(ResolvePersonOrganizationScope $scope, ResolveUserForPerson $user): static
     {
-        return new static($scope, $user);
+        return new self($scope, $user);
     }
 
     public static function supervisor_of_step(int $stepIndex, ResolveUserForAssignmentStep $steps, ResolveUserForPerson $user): static

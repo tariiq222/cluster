@@ -32,10 +32,10 @@ class InventoryReconcileTest extends TestCase
         parent::setUp();
 
         $this->repoRoot = realpath(base_path('../..')) ?: base_path('../..');
-        $this->summaryPath = $this->repoRoot . '/.minimax-flow/reconcile-summary.json';
-        $this->openapiPath = $this->repoRoot . '/docs/contracts/api/openapi.yaml';
-        $this->w12Path = $this->repoRoot . '/docs/contracts/api/w1-2.openapi.yaml';
-        $this->r1ScreensPath = $this->repoRoot . '/docs/contracts/api/r1-screens.openapi.yaml';
+        $this->summaryPath = $this->repoRoot.'/.minimax-flow/reconcile-summary.json';
+        $this->openapiPath = $this->repoRoot.'/docs/contracts/api/openapi.yaml';
+        $this->w12Path = $this->repoRoot.'/docs/contracts/api/w1-2.openapi.yaml';
+        $this->r1ScreensPath = $this->repoRoot.'/docs/contracts/api/r1-screens.openapi.yaml';
 
         if (is_file($this->summaryPath)) {
             unlink($this->summaryPath);
@@ -191,7 +191,7 @@ class InventoryReconcileTest extends TestCase
 
         foreach ($expected_paths as $path) {
             $this->assertStringContainsString(
-                $path . ':',
+                $path.':',
                 $openapi,
                 "openapi.yaml must contain the path key: {$path}",
             );
@@ -334,6 +334,6 @@ class InventoryReconcileTest extends TestCase
 
         $exitCode = proc_close($process);
 
-        return [$exitCode, trim($stdout . "\n" . $stderr)];
+        return [$exitCode, trim($stdout."\n".$stderr)];
     }
 }

@@ -47,6 +47,8 @@ describe('AccessContext pure view-model helpers', () => {
     expect(accessContextLabels.ar.title).toBe('سياق الوصول الشخصي')
     expect(accessContextLabels.ar.scopeSelector).toBeTruthy()
     expect(accessContextLabels.en.scopeSelector).toBeTruthy()
+    expect(accessContextLabels.ar.capabilities).toBe('الصلاحيات الفعلية')
+    expect(accessContextLabels.en.capabilities).toBe('Effective capabilities')
     expect(fieldStateLabel('masked', 'ar')).toBe('مقنّع')
     expect(fieldStateLabel('readonly', 'en')).toBe('Read only')
     expect(clearanceLabel('confidential', 'ar')).toBe('سري')
@@ -117,6 +119,7 @@ describe('AccessContext pure view-model helpers', () => {
       subject_id: '018f6f7d-0c00-7000-8000-000000000001',
       tenant_id: '018f6f7d-0c00-7000-8000-000000000002',
       roles: ['role.a', 42, 'role.b'],
+      capabilities: ['tasks.read', 42, 'documents.read'],
       clearance: 'internal',
       break_glass: true,
       organization_unit_ids: ['u1', 'u2'],
@@ -125,13 +128,14 @@ describe('AccessContext pure view-model helpers', () => {
       subjectId: '018f6f7d-0c00-7000-8000-000000000001',
       tenantId: '018f6f7d-0c00-7000-8000-000000000002',
       roles: ['role.a', 'role.b'],
+      capabilities: ['tasks.read', 'documents.read'],
       clearance: 'internal',
       breakGlass: true,
       organizationUnitCount: 2,
       correlationId: '018f6f7d-0c00-7000-8000-000000000003',
     })
     expect(normalizePrincipal(undefined)).toEqual({
-      subjectId: '', tenantId: '', roles: [], clearance: 'public', breakGlass: false, organizationUnitCount: 0, correlationId: '',
+      subjectId: '', tenantId: '', roles: [], capabilities: [], clearance: 'public', breakGlass: false, organizationUnitCount: 0, correlationId: '',
     })
   })
 
@@ -162,5 +166,6 @@ describe('AccessContext pure view-model helpers', () => {
     expect(isContextEmpty(principal, { options: [], effective: null, lockVersion: null })).toBe(true)
     expect(isContextEmpty(principal, { options: [{ scopeType: 'cluster', scopeId: 's1', label: 'S', effective: true }], effective: null, lockVersion: null })).toBe(false)
     expect(isContextEmpty({ ...principal, roles: ['role.a'] }, { options: [], effective: null, lockVersion: null })).toBe(false)
+    expect(isContextEmpty({ ...principal, capabilities: ['tasks.read'] }, { options: [], effective: null, lockVersion: null })).toBe(false)
   })
 })

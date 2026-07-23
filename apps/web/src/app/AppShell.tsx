@@ -1,4 +1,4 @@
-import { type MouseEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
+import { type MouseEvent, type ReactElement, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
 import { numberFormattingLocale } from './copy'
 import {
   Bell,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import './AppShell.css'
+import { Button, Field, Select } from '../ui'
 
 type Locale = 'ar' | 'en'
 
@@ -31,8 +32,20 @@ export type SidebarNavigationItem = {
 export type SidebarNavigationGroup = {
   key: string
   label: string
-  icon: ReactNode
+  icon: ReactElement
   items: SidebarNavigationItem[]
+}
+
+export type UserMenuEntryView = {
+  key: string
+  label: string
+  path: string
+  onSelect: () => void
+}
+
+export type ScopeSelectorOption = {
+  value: string
+  label: string
 }
 
 export type AppShellCopy = {
@@ -54,6 +67,14 @@ export type AppShellCopy = {
   internalSystem: string
   collapseNavigation: string
   expandNavigation: string
+  scopeSelectorLabel: string
+  scopeSelectorEmpty: string
+  scopeChangePending: string
+  scopeStale: string
+  scopeRetry: string
+  accessContextLabel?: string
+  personalSecurityLabel?: string
+  languageLabel?: string
 }
 
 type AppShellProps = {
@@ -67,12 +88,22 @@ type AppShellProps = {
   onLocaleChange: () => void
   onNotificationsToggle: () => void
   onLogout: () => void
-  /** Where the user-menu profile entry points. Omit to hide the entry. */
-  personalSecurity?: { path: string; onSelect: () => void }
+  userMenu?: UserMenuEntryView[]
   notificationPanel: ReactNode
   children: ReactNode
   globalSearchLabel?: string
   onGlobalSearch?: (query: string) => void
+  /** Optional scope selector rendered in the header. */
+  scopeSelector?: {
+    current: string | null
+    options: ScopeSelectorOption[]
+    disabled?: boolean
+    pending?: boolean
+    stale?: boolean
+    errorMessage?: string | null
+    onSelect: (value: string) => void
+    onRetry?: () => void
+  }
 }
 
 type SidebarContentProps = {
@@ -128,6 +159,7 @@ function SidebarContent({
               <button
                 type="button"
                 className="navigation-group-toggle"
+                aria-label={group.label}
                 aria-expanded={expanded}
                 aria-controls={listId}
                 onClick={() => onToggleGroup(group.key)}
@@ -176,11 +208,12 @@ export function AppShell({
   onLocaleChange,
   onLogout,
   onNotificationsToggle,
-  personalSecurity,
+  userMenu,
   notificationPanel,
   unreadNotifications,
   globalSearchLabel,
   onGlobalSearch,
+  scopeSelector,
 }: AppShellProps) {
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -364,6 +397,43 @@ export function AppShell({
             </span>
           </div>
 
+          {scopeSelector && (scopeSelector.options.length > 1 || scopeSelector.pending || scopeSelector.stale || Boolean(scopeSelector.errorMessage)) && (
+            <div className="scope-selector">
+              <Field
+                id="shell-scope-selector"
+                label={copy.scopeSelectorLabel}
+              >
+                <Select
+                  id="shell-scope-selector"
+                  ariaLabel={copy.scopeSelectorLabel}
+                  value={scopeSelector.current ?? ''}
+                  disabled={Boolean(scopeSelector.disabled) || Boolean(scopeSelector.pending)}
+                  onChange={scopeSelector.onSelect}
+                  options={scopeSelector.options}
+                  placeholder={copy.scopeSelectorEmpty}
+                />
+              </Field>
+              {scopeSelector.pending && (
+                <span role="status" className="scope-selector-pending">
+                  {copy.scopeChangePending}
+                </span>
+              )}
+              {scopeSelector.stale && (
+                <span role="alert" className="scope-selector-stale">
+                  {copy.scopeStale}
+                  {scopeSelector.onRetry && (
+                    <Button type="button" variant="quiet" onClick={scopeSelector.onRetry}>
+                      {copy.scopeRetry}
+                    </Button>
+                  )}
+                </span>
+              )}
+              {scopeSelector.errorMessage && (
+                <span role="alert" className="scope-selector-error">{scopeSelector.errorMessage}</span>
+              )}
+            </div>
+          )}
+
           {globalSearchLabel && onGlobalSearch && (
             <form
               className="global-search"
@@ -419,19 +489,24 @@ export function AppShell({
             </button>
             {userMenuOpen && (
               <div id="user-menu" className="header-user-dropdown" role="menu">
-                {personalSecurity && (
+                {userMenu?.map((entry) => (
                   <a
-                    href={personalSecurity.path}
+                    key={entry.key}
+                    href={entry.path}
                     role="menuitem"
                     onClick={(event) => {
                       event.preventDefault()
                       setUserMenuOpen(false)
-                      personalSecurity.onSelect()
+                      entry.onSelect()
                     }}
                   >
-                    {copy.profile}
+                    {entry.label}
                   </a>
-                )}
+                ))}
+                <button type="button" className="user-menu-language" role="menuitem" onClick={() => {
+                  setUserMenuOpen(false)
+                  onLocaleChange()
+                }}>{copy.switchLanguage}</button>
                 <button type="button" role="menuitem" onClick={onLogout}>{copy.logout}</button>
               </div>
             )}
