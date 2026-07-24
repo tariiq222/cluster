@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'lucide-react'
 
 import { capabilitiesForRoute, pathFromRoute, PLATFORM_SETTINGS_SECTIONS, type PlatformSettingsSection } from '../../shell/routes'
-import { Button, EmptyState, Page, PageHeader, Panel } from '../../ui'
+import { Button, EmptyState, Page, PageHeader } from '../../ui'
 import type { Locale } from '../../app/copy'
 import { platformSettingsCopy } from './copy'
 import './platform-settings.css'
@@ -64,7 +64,13 @@ export function PlatformSettingsLayout({
             })}
           </ul>
         </nav>
-        <div className="platform-settings-content">
+        <section
+          className="platform-settings-content"
+          aria-labelledby={`platform-settings-${section}`}
+        >
+          <div className="platform-settings-section-heading">
+            <h2 id={`platform-settings-${section}`}>{copy.sections[section]}</h2>
+          </div>
           {visibleSections.length === 0 ? (
             <EmptyState
               icon={<Link />}
@@ -72,10 +78,8 @@ export function PlatformSettingsLayout({
               body={capabilities === null ? undefined : copy.unavailableBody}
             />
           ) : null}
-          <Panel id={`platform-settings-${section}`} title={copy.sections[section]} level={2}>
-            {children}
-          </Panel>
-        </div>
+          {children}
+        </section>
       </div>
     </Page>
   )

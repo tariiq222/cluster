@@ -159,10 +159,9 @@
   min-inline-size: 0;
   padding: 24px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-surface);
-  background:
-    linear-gradient(180deg, var(--color-surface), var(--color-surface-subtle));
-  box-shadow: var(--shadow-rest);
+  border-radius: 6px;
+  background: var(--color-surface);
+  box-shadow: none;
   animation: ui-card-enter var(--motion-base, 180ms) var(--motion-ease, ease-out);
 }
 
@@ -170,7 +169,9 @@
   min-block-size: 32px;
   justify-content: space-between;
   gap: 16px;
-  margin-block-end: 12px;
+  margin-block-end: 16px;
+  padding-block-end: 12px;
+  border-block-end: 1px solid var(--color-border);
 }
 
 .ui-panel-heading h2,
@@ -178,6 +179,67 @@
   color: var(--color-heading-muted);
   font-size: 16px;
   font-weight: 600;
+}
+
+.ui-metric-tile {
+  min-inline-size: 0;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-inline-start: 3px solid var(--color-border-strong);
+  border-radius: 6px;
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.ui-metric-tile--ready {
+  border-inline-start-color: var(--color-success);
+}
+
+.ui-metric-tile--stale {
+  border-inline-start-color: var(--color-accent);
+}
+
+.ui-metric-tile--error {
+  border-inline-start-color: var(--color-danger);
+}
+
+.ui-metric-tile-head,
+.ui-metric-tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ui-metric-tile-label {
+  color: var(--color-heading-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ui-metric-tile-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.ui-metric-tile-number {
+  color: var(--color-ink);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ui-metric-tile-unit,
+.ui-metric-tile-foot,
+.ui-metric-tile-source {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.ui-metric-tile-source {
+  margin: 10px 0 0;
 }
 
 .ui-panel-link {

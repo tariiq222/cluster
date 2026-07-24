@@ -56,7 +56,7 @@ export default defineConfig({
   webServer: {
     command: `npm run dev -- --port ${webPort} --strictPort`,
     url: WEB_ORIGIN,
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 30_000,
     env: {
       W1_1_API_ORIGIN: apiOrigin,

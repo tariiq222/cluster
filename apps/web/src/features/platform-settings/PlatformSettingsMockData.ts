@@ -19,6 +19,9 @@ import {
   getPlatformBackups,
   getPlatformHealth,
   getPlatformOperationsOverview,
+  listBusinessCalendars,
+  listPlatformMaintenanceWindows,
+  listPlatformTechnicalLogs,
 } from '../../api/platform-settings'
 import type { PlatformScreenState } from './screen-support'
 
@@ -80,20 +83,20 @@ const bySection: Record<PlatformSettingsSection, PlatformSettingsFixture> = {
   maintenance: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd707', DomainResourceResourceType.platform_settings_version, ['platform_operations.maintenance.manage', 'platform_operations.maintenance.cancel']), serverActions: ['platform_operations.maintenance.manage', 'platform_operations.maintenance.cancel'] },
 }
 
-const logPageOne: CollectionResponse = {
+const logPageOne = {
   items: [
-    entity('019f8e3b-3368-7192-85a6-3da3949fd711', DomainResourceResourceType.audit_event, ['platform_operations.logs.restore'], { source: 'queue', severity: 'warning', message_ar: 'زمن الاستجابة تجاوز العتبة', message_en: 'Latency exceeded the threshold', occurred_at: '09:18' }),
-    entity('019f8e3b-3368-7192-85a6-3da3949fd712', DomainResourceResourceType.audit_event, ['platform_operations.logs.restore'], { source: 'backup', severity: 'info', message_ar: 'اكتمل التحقق من النسخة', message_en: 'Backup verification completed', occurred_at: '06:08' }),
+    { id: '019f8e3b-3368-7192-85a6-3da3949fd711', source: 'queue', severity: 'warning', message_ar: 'زمن الاستجابة تجاوز العتبة', message_en: 'Latency exceeded the threshold', occurred_at: '09:18' },
+    { id: '019f8e3b-3368-7192-85a6-3da3949fd712', source: 'backup', severity: 'info', message_ar: 'اكتمل التحقق من النسخة', message_en: 'Backup verification completed', occurred_at: '06:08' },
   ],
   next_cursor: 'platform-logs-2',
-}
+} as unknown as CollectionResponse
 
-const logPageTwo: CollectionResponse = {
+const logPageTwo = {
   items: [
-    entity('019f8e3b-3368-7192-85a6-3da3949fd713', DomainResourceResourceType.audit_event, ['platform_operations.logs.restore'], { source: 'storage', severity: 'critical', message_ar: 'فشل فحص السعة', message_en: 'Capacity check failed', occurred_at: '04:32' }),
+    { id: '019f8e3b-3368-7192-85a6-3da3949fd713', source: 'storage', severity: 'critical', message_ar: 'فشل فحص السعة', message_en: 'Capacity check failed', occurred_at: '04:32' },
   ],
   next_cursor: null,
-}
+} as unknown as CollectionResponse
 
 const actionCapability: Record<string, string> = {
   'platform_operations.health.read': 'platform_operations.health.read',
@@ -102,35 +105,44 @@ const actionCapability: Record<string, string> = {
   'platform_operations.logs.restore': 'platform_operations.logs.restore',
   'platform_operations.alerts.manage': 'platform_operations.alerts.manage',
   'platform_operations.maintenance.manage': 'platform_operations.maintenance.manage',
-  // Cancel is governed by the same maintenance-management capability in V1.
-  'platform_operations.maintenance.cancel': 'platform_operations.maintenance.manage',
+  'platform_operations.maintenance.cancel': 'platform_operations.maintenance.cancel',
   'platform_settings.manage': 'platform_settings.manage',
-  // Publish is part of the settings-management command surface in V1.
-  'platform_settings.publish': 'platform_settings.manage',
+  'platform_settings.publish': 'platform_settings.publish',
+  'platform_settings.calendar.manage': 'platform_settings.calendar.manage',
+  'platform_settings.calendar.read': 'platform_settings.calendar.read',
+  'platform_settings.calendar.publish': 'platform_settings.publish',
   'platform_settings.calendar.override_official_holiday': 'platform_settings.calendar.override_official_holiday',
 }
 
+function actionAliases(action: string): readonly string[] {
+  const aliases = [action]
+  const finalSeparator = action.lastIndexOf('.')
+  if (finalSeparator > 0) aliases.push(action.slice(finalSeparator + 1))
+  if (action.startsWith('platform_operations.')) aliases.push(action.slice('platform_operations.'.length))
+  if (action.startsWith('platform_settings.')) aliases.push(action.slice('platform_settings.'.length))
+  return aliases
+}
+
 function projectedActions(serverActions: readonly string[], capabilities: readonly string[]): string[] {
-  return serverActions.filter((action) => {
-    const requiredCapability = actionCapability[action]
-    return requiredCapability !== undefined && capabilities.includes(requiredCapability)
-  })
+  const server = new Set(serverActions)
+  const hasServerActions = serverActions.length > 0
+  return Object.entries(actionCapability)
+    .filter(([action, requiredCapability]) => {
+      if (!capabilities.includes(requiredCapability)) return false
+      if (!hasServerActions) return true
+      return actionAliases(action).some((alias) => server.has(alias))
+    })
+    .map(([action]) => action)
 }
 
 function actionsFromResource(resource: EntityResponse | CollectionResponse, capabilities: readonly string[]): string[] {
   const serverActions = 'items' in resource
     ? resource.items.flatMap((item) => item.allowed_actions ?? [])
     : resource.allowed_actions ?? []
-  // Authorization projections expose action suffixes (for example `read`),
-  // while the feature policy uses fully-qualified capabilities. Accept both
-  // representations at this boundary and always return the stable UI form.
-  const qualified = new Set(serverActions)
-  const suffixes = new Set(serverActions.map((action) => action.includes('.') ? action.slice(action.lastIndexOf('.') + 1) : action))
-  return Object.entries(actionCapability)
-    .filter(([, requiredCapability]) => capabilities.includes(requiredCapability))
-    .filter(([action]) => qualified.has(action) || suffixes.has(action.slice(action.lastIndexOf('.') + 1)))
-    .map(([action]) => action)
+  return projectedActions(serverActions, capabilities)
 }
+
+
 
 export function platformSettingsMockFor(
   section: PlatformSettingsSection,
@@ -138,8 +150,13 @@ export function platformSettingsMockFor(
   cursor: string | null = null,
 ): PlatformSettingsMockScreen {
   if (capabilities === null) return { state: 'loading', resource: bySection[section].resource, allowedActions: [] }
+  // The maintenance section exposes both manage and cancel as first-class
+  // actions; the route guard requires `manage`, but a delegated cancel-only
+  // principal must still be admitted to view the cancel control.
   const required = capabilitiesForRoute({ name: 'platform-settings', section }) ?? []
-  if (!required.some((capability) => capabilities.includes(capability))) {
+  const admitsSection = required.some((capability) => capabilities.includes(capability))
+    || (section === 'maintenance' && capabilities.includes('platform_operations.maintenance.cancel'))
+  if (!admitsSection) {
     return { state: 'denied', resource: bySection[section].resource, allowedActions: [] }
   }
   const fixture = bySection[section]
@@ -155,26 +172,36 @@ export const mockPlatformSettingsDataSource: PlatformSettingsDataSource = {
 
 export function createLivePlatformSettingsDataSource(token: string): PlatformSettingsDataSource {
   return {
-    async load({ section, capabilities, cursor = null }) {
-      if (capabilities === null) return platformSettingsMockFor(section, capabilities, cursor)
+    async load({ section, capabilities, cursor }) {
+      if (capabilities === null) return platformSettingsMockFor(section, capabilities, null)
       const required = capabilitiesForRoute({ name: 'platform-settings', section }) ?? []
       if (!required.some((capability) => capabilities.includes(capability))) {
-        return platformSettingsMockFor(section, capabilities, cursor)
+        return platformSettingsMockFor(section, capabilities, null)
       }
 
-      // Only wrappers already generated by Task9 are live today. The remaining
-      // screens deliberately retain deterministic mock data until their wrapper
-      // is added, rather than constructing a feature-local HTTP request.
-      const resource = await (async (): Promise<EntityResponse | null> => {
+      // Each supported section terminates in the live API; mock data is only
+      // used when the principal cannot authorize the section.
+      const resource: EntityResponse | CollectionResponse | null = await (async () => {
         switch (section) {
-          case 'overview': return getPlatformOperationsOverview(token)
-          case 'security': return getCurrentPlatformSettings(token)
-          case 'backups': return getPlatformBackups(token)
-          case 'health': return getPlatformHealth(token)
-          default: return null
+          case 'overview':
+            return await getPlatformOperationsOverview(token)
+          case 'security':
+            return await getCurrentPlatformSettings(token)
+          case 'calendars':
+            return await listBusinessCalendars(token)
+          case 'backups':
+            return await getPlatformBackups(token)
+          case 'health':
+            return await getPlatformHealth(token)
+          case 'logs':
+            return await listPlatformTechnicalLogs(token, cursor ? { cursor } : {})
+          case 'maintenance':
+            return await listPlatformMaintenanceWindows(token)
         }
       })()
-      if (resource === null) return platformSettingsMockFor(section, capabilities, cursor)
+      if (resource === null) {
+        throw new Error(`Live data source has no endpoint for section "${section}".`)
+      }
       return {
         state: 'success',
         resource,

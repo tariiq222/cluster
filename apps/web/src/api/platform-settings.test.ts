@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createPlatformSettingsDraft,
   getCurrentPlatformSettings,
+  listPlatformSettingsVersions,
   setPlatformSetting,
   validatePlatformSettingsVersion,
 } from './platform-settings'
@@ -27,6 +28,15 @@ function problemResponse(problem: unknown, status: number) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('platform settings API wrappers', () => {
+  it('lists settings versions through the authenticated generated client', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(response({ items: [], next_cursor: null }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(listPlatformSettingsVersions(token)).resolves.toMatchObject({ items: [], next_cursor: null })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/platform-settings/versions?limit=50', expect.any(Object))
+  })
+
   it('reads the published version through the generated client with session headers', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(response({ id: versionId, status: 'published' }))
     vi.stubGlobal('fetch', fetchMock)

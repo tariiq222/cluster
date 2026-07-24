@@ -18,15 +18,14 @@ import {
 beforeEach(() => vi.clearAllMocks())
 
 describe('platformSettings data sources', () => {
-  it('keeps actions in the generated resource projection and emits a deterministic second log page', () => {
+  it('returns denied for the deferred logs section even when the principal holds the deferred capability', () => {
     const first = platformSettingsMockFor('logs', ['platform_operations.logs.read'])
     const restoreAllowed = platformSettingsMockFor('logs', ['platform_operations.logs.read', 'platform_operations.logs.restore'])
     const second = platformSettingsMockFor('logs', ['platform_operations.logs.read', 'platform_operations.logs.restore'], 'platform-logs-2')
 
-    expect(first.allowedActions).toEqual([])
-    expect(restoreAllowed.allowedActions).toEqual(['platform_operations.logs.restore'])
-    expect('items' in first.resource && first.resource.next_cursor).toBe('platform-logs-2')
-    expect('items' in second.resource && second.resource.next_cursor).toBeNull()
+    expect(first.state).toBe('denied')
+    expect(restoreAllowed.state).toBe('denied')
+    expect(second.state).toBe('denied')
   })
 
   it('does not project backup.run for a health reader', () => {
@@ -38,8 +37,8 @@ describe('platformSettings data sources', () => {
 
   it('uses the mock source by default without invoking a network wrapper', async () => {
     const result = await mockPlatformSettingsDataSource.load({
-      section: 'logs',
-      capabilities: ['platform_operations.logs.read'],
+      section: 'health',
+      capabilities: ['platform_operations.health.read'],
     })
 
     expect(result.state).toBe('success')
@@ -64,5 +63,22 @@ describe('platformSettings data sources', () => {
     expect(platformWrappers.getPlatformOperationsOverview).toHaveBeenCalledWith('session-token')
     expect(result.resource).toBe(generatedResponse)
     expect(result.allowedActions).toEqual(['platform_operations.health.read', 'platform_operations.backup.run'])
+  })
+
+  // RED: audit claim — inconsistent policy projection across sections.
+  // Maintenance has a sub-gated `cancel` action that the mock maps to the
+  // broader `manage` capability. The cancel capability alone, however, is
+  // not in any action's "required capability" mapping, so a delegated
+  // principal holding only the cancel capability is projected NO actions
+  // and the cancel control never appears. The audit says the projection
+  // must hold consistently across sections: any capability that the
+  // resource exposes should reach the user.
+  it('projects the maintenance cancel action when only the cancel capability is granted', () => {
+    const cancelOnly = platformSettingsMockFor(
+      'maintenance',
+      ['platform_operations.maintenance.cancel'],
+    )
+
+    expect(cancelOnly.allowedActions).toContain('platform_operations.maintenance.cancel')
   })
 })

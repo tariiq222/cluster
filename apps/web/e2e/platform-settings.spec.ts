@@ -90,7 +90,7 @@ test('security draft validation and publication confirmation remain explicit in 
   await openPlatformSettings(page, FULL_PLATFORM_CAPABILITIES)
   await navigate(page, '/admin/platform/security')
 
-  await expect(page.getByText('الحدود الثابتة: 8–64')).toBeVisible()
+  await expect(page.getByText('الحدود الثابتة: 8–128')).toBeVisible()
   await expect(page.getByRole('button', { name: 'التحقق من المسودة' })).toBeVisible()
   await page.getByRole('button', { name: 'نشر الإعدادات' }).click()
   await expect(page.getByRole('dialog', { name: 'تأكيد نشر الإعدادات' })).toBeVisible()

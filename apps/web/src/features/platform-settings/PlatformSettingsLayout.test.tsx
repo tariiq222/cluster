@@ -24,6 +24,8 @@ describe('PlatformSettingsLayout', () => {
     expect(screen.getByRole('link', { name: 'تقويم العمل' }).getAttribute('aria-current')).toBe('page')
     expect(screen.queryByRole('link', { name: 'النسخ الاحتياطي والاستعادة' })).toBeNull()
     expect(screen.getByText('محتوى التقويم')).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'تقويم العمل' })).toBeTruthy()
+    expect(screen.queryByRole('article', { name: 'تقويم العمل' })).toBeNull()
   })
 
   it('fails closed while capabilities are unresolved', () => {

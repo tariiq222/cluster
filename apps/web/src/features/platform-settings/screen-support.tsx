@@ -16,6 +16,18 @@ export type PlatformScreenProps = {
   resource?: PlatformScreenResource
 }
 
+export type PlatformEntityResource = Extract<PlatformScreenResource, { updated_at: unknown }>
+
+export function platformEntity(resource: PlatformScreenResource | undefined): PlatformEntityResource | undefined {
+  return resource !== undefined && 'updated_at' in resource ? resource : undefined
+}
+
+export function platformValues(resource: PlatformScreenResource | undefined): Record<string, unknown> | undefined {
+  const entity = platformEntity(resource)
+  const values = entity !== undefined && 'values' in entity ? entity.values : undefined
+  return typeof values === 'object' && values !== null ? values : undefined
+}
+
 export type PlatformLogsScreenProps = PlatformScreenProps & {
   logs?: CollectionResponse
   onCursorChange?: (cursor: string | null) => void
