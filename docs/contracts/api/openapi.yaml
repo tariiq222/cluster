@@ -5112,6 +5112,175 @@ paths:
 
 
 
+  /platform-operations/alert-policies:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    get:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: List platform alert routing policies
+      operationId: listPlatformAlertPolicies
+      parameters:
+        [
+          { $ref: "#/components/parameters/Cursor" },
+          { $ref: "#/components/parameters/Limit" },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /platform-operations/alert-policies/{policyId}:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    patch:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: Update a platform alert routing policy
+      operationId: updatePlatformAlertPolicy
+      parameters:
+        [
+          { name: policyId, in: path, required: true, schema: { $ref: "#/components/schemas/UUIDv7" } },
+          { $ref: "#/components/parameters/IfMatch" },
+        ]
+      requestBody:
+        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { status: { type: string, maxLength: 64 }, severity: { type: string, maxLength: 64 }, channel: { type: string, maxLength: 64 } } } } } }
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /platform-operations/maintenance-windows:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    get:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: List scheduled platform maintenance windows
+      operationId: listPlatformMaintenanceWindows
+      parameters:
+        [
+          { $ref: "#/components/parameters/Cursor" },
+          { $ref: "#/components/parameters/Limit" },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: Schedule a platform maintenance window
+      operationId: schedulePlatformMaintenanceWindow
+      parameters:
+        [
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ starts_at, message_ar, message_en ], properties: { starts_at: { $ref: "#/components/schemas/UtcDateTime" }, ends_at: { type: [ string, "null" ], format: date-time }, message_ar: { type: string, minLength: 1, maxLength: 1024 }, message_en: { type: string, minLength: 1, maxLength: 1024 } } } } } }
+      responses:
+        "201": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /platform-operations/maintenance-windows/{windowId}/cancel:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: Cancel a scheduled platform maintenance window
+      operationId: cancelPlatformMaintenanceWindow
+      parameters:
+        [
+          { name: windowId, in: path, required: true, schema: { $ref: "#/components/schemas/UUIDv7" } },
+          { $ref: "#/components/parameters/IfMatch" },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /platform-operations/restore-requests:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: Request a platform restore operation
+      operationId: requestPlatformRestore
+      parameters:
+        [
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ backup_id, reason ], properties: { backup_id: { $ref: "#/components/schemas/UUIDv7" }, reason: { type: string, minLength: 1, maxLength: 2048 } } } } } }
+      responses:
+        "202": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /platform-operations/restore-requests/{requestId}/confirm:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: Confirm a previously requested platform restore
+      operationId: confirmPlatformRestore
+      parameters:
+        [
+          { name: requestId, in: path, required: true, schema: { $ref: "#/components/schemas/UUIDv7" } },
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Entity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /platform-operations/technical-logs:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    get:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: List platform technical log entries
+      operationId: listPlatformTechnicalLogs
+      parameters:
+        [
+          { $ref: "#/components/parameters/Cursor" },
+          { $ref: "#/components/parameters/Limit" },
+        ]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/InternalServerError" }
+
+  /platform-operations/technical-logs/restore:
+    parameters: [ { $ref: "#/components/parameters/CorrelationId" } ]
+    post:
+      tags: [ Platform Operations ]
+      x-implementation-status: implemented
+      summary: Request restoration of archived platform technical logs
+      operationId: requestPlatformTechnicalLogsRestore
+      parameters:
+        [
+          { $ref: "#/components/parameters/IdempotencyKey" },
+        ]
+      requestBody:
+        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ manifest_id, reason ], properties: { manifest_id: { $ref: "#/components/schemas/UUIDv7" }, reason: { type: string, minLength: 1, maxLength: 2048 } } } } } }
+      responses:
+        "202": { $ref: "#/components/responses/Entity" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/InternalServerError" }
+
+
+
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }

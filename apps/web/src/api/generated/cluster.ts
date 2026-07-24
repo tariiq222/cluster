@@ -2215,20 +2215,24 @@ export interface SettingValue {
   value: SettingValueValue
 }
 
+export type BusinessCalendarCreateScopeType =
+  (typeof BusinessCalendarCreateScopeType)[keyof typeof BusinessCalendarCreateScopeType]
+
+export const BusinessCalendarCreateScopeType = {
+  platform: 'platform',
+  cluster: 'cluster',
+  facility: 'facility',
+} as const
+
 export interface BusinessCalendarCreate {
-  /** @pattern ^[A-Z0-9_-]{2,64}$ */
-  code: string
+  scope_type: BusinessCalendarCreateScopeType
   /**
    * @minLength 1
-   * @maxLength 255
+   * @maxLength 128
    */
-  name: string
-  timezone: 'Asia/Riyadh'
-  /**
-   * @minimum 2000
-   * @maximum 2200
-   */
-  year: number
+  scope_id: string
+  /** @nullable */
+  parent_calendar_id?: string | null
 }
 
 export interface BusinessCalendarDay {
@@ -2240,6 +2244,39 @@ export interface BusinessCalendarDay {
   working_minutes?: number
   /** @maxLength 255 */
   label?: string
+}
+
+export interface BusinessCalendarWeekday {
+  is_working_day: boolean
+  /** Civil Riyadh clock time (HH:MM) when the day opens, only meaningful when is_working_day is true. */
+  starts_at: string
+  /** Civil Riyadh clock time (HH:MM) when the day closes. */
+  ends_at: string
+}
+
+/**
+ * Exception category. official_holiday_work_override requires the platform_settings.calendar.override_official_holiday capability.
+ */
+export type BusinessCalendarExceptionType =
+  (typeof BusinessCalendarExceptionType)[keyof typeof BusinessCalendarExceptionType]
+
+export const BusinessCalendarExceptionType = {
+  official_holiday: 'official_holiday',
+  ad_hoc_holiday: 'ad_hoc_holiday',
+  seasonal_period: 'seasonal_period',
+  official_holiday_work_override: 'official_holiday_work_override',
+} as const
+
+export interface BusinessCalendarException {
+  /** Exception category. official_holiday_work_override requires the platform_settings.calendar.override_official_holiday capability. */
+  type: BusinessCalendarExceptionType
+  is_working_day: boolean
+  starts_at: string
+  ends_at: string
+  /** Optional inclusive end date for multi-day exceptions; omit for single-day entries. */
+  ends_on?: string
+  /** @maxLength 1024 */
+  reason?: string
 }
 
 export type StrategyResourceCreateResourceType =
@@ -2518,6 +2555,49 @@ export interface DispositionConfirmation {
   detail?: string
 }
 
+export interface PlatformAlertPolicyUpdate {
+  /** @maxLength 64 */
+  status?: string
+  /** @maxLength 64 */
+  severity?: string
+  /** @maxLength 64 */
+  channel?: string
+}
+
+export interface PlatformMaintenanceWindowCreate {
+  starts_at: UtcDateTime
+  /** @nullable */
+  ends_at?: string | null
+  /**
+   * @minLength 1
+   * @maxLength 1024
+   */
+  message_ar: string
+  /**
+   * @minLength 1
+   * @maxLength 1024
+   */
+  message_en: string
+}
+
+export interface PlatformRestoreRequestCreate {
+  backup_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  reason: string
+}
+
+export interface PlatformTechnicalLogsRestoreRequest {
+  manifest_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  reason: string
+}
+
 /**
  * Invalid request (RFC 7807)
  */
@@ -2738,6 +2818,11 @@ export type UserAccountCollectionResponse = UserAccountCollection
  * User account summary without credentials or tokens
  */
 export type UserAccountEntityResponse = UserAccount
+
+/**
+ * The requested platform operation is not available in this environment (RFC 7807)
+ */
+export type ServiceUnavailableResponse = ProblemDetailsSchema
 
 /**
  * Cursor-paginated workflow step instances assigned to the current principal
@@ -3303,6 +3388,18 @@ export type ListPlatformSettingsVersionsParams = {
   limit?: LimitParameter
 }
 
+export type ListPlatformSettingsCalendarsParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
 export type ListBusinessCalendarsParams = {
   /**
    * @minLength 1
@@ -3539,6 +3636,42 @@ export type TransitionWorkRecordCompleteSubmissionBody = {
 
 export type GetBootstrapHealth200 = {
   status: 'ok'
+}
+
+export type ListPlatformAlertPoliciesParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
+export type ListPlatformMaintenanceWindowsParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
+export type ListPlatformTechnicalLogsParams = {
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
 }
 
 export type loginW12Response200 = {
@@ -12730,6 +12863,364 @@ export const getPlatformBackups = async (
   })
 }
 
+export type listPlatformSettingsCalendarsResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listPlatformSettingsCalendarsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listPlatformSettingsCalendarsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listPlatformSettingsCalendarsResponseSuccess =
+  listPlatformSettingsCalendarsResponse200 & {
+    headers: Headers
+  }
+export type listPlatformSettingsCalendarsResponseError = (
+  | listPlatformSettingsCalendarsResponse401
+  | listPlatformSettingsCalendarsResponse403
+) & {
+  headers: Headers
+}
+
+export type listPlatformSettingsCalendarsResponse =
+  | listPlatformSettingsCalendarsResponseSuccess
+  | listPlatformSettingsCalendarsResponseError
+
+export const getListPlatformSettingsCalendarsUrl = (
+  params?: ListPlatformSettingsCalendarsParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/platform-settings/calendars?${stringifiedParams}`
+    : `/api/v1/platform-settings/calendars`
+}
+
+/**
+ * @summary List business calendars
+ */
+export const listPlatformSettingsCalendars = async (
+  params?: ListPlatformSettingsCalendarsParams,
+  options?: RequestInit,
+): Promise<listPlatformSettingsCalendarsResponse> => {
+  return customFetch<listPlatformSettingsCalendarsResponse>(
+    getListPlatformSettingsCalendarsUrl(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
+export type createPlatformSettingsCalendarResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type createPlatformSettingsCalendarResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type createPlatformSettingsCalendarResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createPlatformSettingsCalendarResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type createPlatformSettingsCalendarResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type createPlatformSettingsCalendarResponseSuccess =
+  createPlatformSettingsCalendarResponse201 & {
+    headers: Headers
+  }
+export type createPlatformSettingsCalendarResponseError = (
+  | createPlatformSettingsCalendarResponse400
+  | createPlatformSettingsCalendarResponse401
+  | createPlatformSettingsCalendarResponse403
+  | createPlatformSettingsCalendarResponse409
+) & {
+  headers: Headers
+}
+
+export type createPlatformSettingsCalendarResponse =
+  | createPlatformSettingsCalendarResponseSuccess
+  | createPlatformSettingsCalendarResponseError
+
+export const getCreatePlatformSettingsCalendarUrl = () => {
+  return `/api/v1/platform-settings/calendars`
+}
+
+/**
+ * @summary Create a Draft business calendar
+ */
+export const createPlatformSettingsCalendar = async (
+  businessCalendarCreate: BusinessCalendarCreate,
+  options?: RequestInit,
+): Promise<createPlatformSettingsCalendarResponse> => {
+  return customFetch<createPlatformSettingsCalendarResponse>(
+    getCreatePlatformSettingsCalendarUrl(),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(businessCalendarCreate),
+    },
+  )
+}
+
+export type setPlatformSettingsCalendarWeekdayResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type setPlatformSettingsCalendarWeekdayResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type setPlatformSettingsCalendarWeekdayResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type setPlatformSettingsCalendarWeekdayResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type setPlatformSettingsCalendarWeekdayResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type setPlatformSettingsCalendarWeekdayResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type setPlatformSettingsCalendarWeekdayResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type setPlatformSettingsCalendarWeekdayResponseSuccess =
+  setPlatformSettingsCalendarWeekdayResponse200 & {
+    headers: Headers
+  }
+export type setPlatformSettingsCalendarWeekdayResponseError = (
+  | setPlatformSettingsCalendarWeekdayResponse400
+  | setPlatformSettingsCalendarWeekdayResponse401
+  | setPlatformSettingsCalendarWeekdayResponse403
+  | setPlatformSettingsCalendarWeekdayResponse404
+  | setPlatformSettingsCalendarWeekdayResponse409
+  | setPlatformSettingsCalendarWeekdayResponse412
+) & {
+  headers: Headers
+}
+
+export type setPlatformSettingsCalendarWeekdayResponse =
+  | setPlatformSettingsCalendarWeekdayResponseSuccess
+  | setPlatformSettingsCalendarWeekdayResponseError
+
+export const getSetPlatformSettingsCalendarWeekdayUrl = (
+  calendarId: UUIDv7,
+  weekday: number,
+) => {
+  return `/api/v1/platform-settings/calendars/${encodeURIComponent(String(calendarId))}/weekdays/${encodeURIComponent(String(weekday))}`
+}
+
+/**
+ * @summary Set a Draft calendar weekday (working day and hours)
+ */
+export const setPlatformSettingsCalendarWeekday = async (
+  calendarId: UUIDv7,
+  weekday: number,
+  businessCalendarWeekday: BusinessCalendarWeekday,
+  options?: RequestInit,
+): Promise<setPlatformSettingsCalendarWeekdayResponse> => {
+  return customFetch<setPlatformSettingsCalendarWeekdayResponse>(
+    getSetPlatformSettingsCalendarWeekdayUrl(calendarId, weekday),
+    {
+      ...options,
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(businessCalendarWeekday),
+    },
+  )
+}
+
+export type setPlatformSettingsCalendarExceptionResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type setPlatformSettingsCalendarExceptionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type setPlatformSettingsCalendarExceptionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type setPlatformSettingsCalendarExceptionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type setPlatformSettingsCalendarExceptionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type setPlatformSettingsCalendarExceptionResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type setPlatformSettingsCalendarExceptionResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type setPlatformSettingsCalendarExceptionResponseSuccess =
+  setPlatformSettingsCalendarExceptionResponse200 & {
+    headers: Headers
+  }
+export type setPlatformSettingsCalendarExceptionResponseError = (
+  | setPlatformSettingsCalendarExceptionResponse400
+  | setPlatformSettingsCalendarExceptionResponse401
+  | setPlatformSettingsCalendarExceptionResponse403
+  | setPlatformSettingsCalendarExceptionResponse404
+  | setPlatformSettingsCalendarExceptionResponse409
+  | setPlatformSettingsCalendarExceptionResponse412
+) & {
+  headers: Headers
+}
+
+export type setPlatformSettingsCalendarExceptionResponse =
+  | setPlatformSettingsCalendarExceptionResponseSuccess
+  | setPlatformSettingsCalendarExceptionResponseError
+
+export const getSetPlatformSettingsCalendarExceptionUrl = (
+  calendarId: UUIDv7,
+  date: string,
+) => {
+  return `/api/v1/platform-settings/calendars/${encodeURIComponent(String(calendarId))}/exceptions/${encodeURIComponent(String(date))}`
+}
+
+/**
+ * @summary Set a Draft calendar exception (holiday or seasonal period) for a date or date range
+ */
+export const setPlatformSettingsCalendarException = async (
+  calendarId: UUIDv7,
+  date: string,
+  businessCalendarException: BusinessCalendarException,
+  options?: RequestInit,
+): Promise<setPlatformSettingsCalendarExceptionResponse> => {
+  return customFetch<setPlatformSettingsCalendarExceptionResponse>(
+    getSetPlatformSettingsCalendarExceptionUrl(calendarId, date),
+    {
+      ...options,
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(businessCalendarException),
+    },
+  )
+}
+
+export type publishPlatformSettingsCalendarResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type publishPlatformSettingsCalendarResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type publishPlatformSettingsCalendarResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type publishPlatformSettingsCalendarResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type publishPlatformSettingsCalendarResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type publishPlatformSettingsCalendarResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type publishPlatformSettingsCalendarResponseSuccess =
+  publishPlatformSettingsCalendarResponse200 & {
+    headers: Headers
+  }
+export type publishPlatformSettingsCalendarResponseError = (
+  | publishPlatformSettingsCalendarResponse401
+  | publishPlatformSettingsCalendarResponse403
+  | publishPlatformSettingsCalendarResponse404
+  | publishPlatformSettingsCalendarResponse409
+  | publishPlatformSettingsCalendarResponse412
+) & {
+  headers: Headers
+}
+
+export type publishPlatformSettingsCalendarResponse =
+  | publishPlatformSettingsCalendarResponseSuccess
+  | publishPlatformSettingsCalendarResponseError
+
+export const getPublishPlatformSettingsCalendarUrl = (calendarId: UUIDv7) => {
+  return `/api/v1/platform-settings/calendars/${encodeURIComponent(String(calendarId))}/publish`
+}
+
+/**
+ * @summary Publish an immutable business calendar
+ */
+export const publishPlatformSettingsCalendar = async (
+  calendarId: UUIDv7,
+  options?: RequestInit,
+): Promise<publishPlatformSettingsCalendarResponse> => {
+  return customFetch<publishPlatformSettingsCalendarResponse>(
+    getPublishPlatformSettingsCalendarUrl(calendarId),
+    {
+      ...options,
+      method: 'POST',
+    },
+  )
+}
+
 export type listBusinessCalendarsResponse200 = {
   data: CollectionResponse
   status: 200
@@ -16493,6 +16984,570 @@ export const getBootstrapHealth = async (
     ...options,
     method: 'GET',
   })
+}
+
+export type listPlatformAlertPoliciesResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listPlatformAlertPoliciesResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listPlatformAlertPoliciesResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listPlatformAlertPoliciesResponseSuccess =
+  listPlatformAlertPoliciesResponse200 & {
+    headers: Headers
+  }
+export type listPlatformAlertPoliciesResponseError = (
+  listPlatformAlertPoliciesResponse401 | listPlatformAlertPoliciesResponse403
+) & {
+  headers: Headers
+}
+
+export type listPlatformAlertPoliciesResponse =
+  | listPlatformAlertPoliciesResponseSuccess
+  | listPlatformAlertPoliciesResponseError
+
+export const getListPlatformAlertPoliciesUrl = (
+  params?: ListPlatformAlertPoliciesParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/platform-operations/alert-policies?${stringifiedParams}`
+    : `/api/v1/platform-operations/alert-policies`
+}
+
+/**
+ * @summary List platform alert routing policies
+ */
+export const listPlatformAlertPolicies = async (
+  params?: ListPlatformAlertPoliciesParams,
+  options?: RequestInit,
+): Promise<listPlatformAlertPoliciesResponse> => {
+  return customFetch<listPlatformAlertPoliciesResponse>(
+    getListPlatformAlertPoliciesUrl(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
+export type updatePlatformAlertPolicyResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type updatePlatformAlertPolicyResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type updatePlatformAlertPolicyResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type updatePlatformAlertPolicyResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type updatePlatformAlertPolicyResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type updatePlatformAlertPolicyResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type updatePlatformAlertPolicyResponseSuccess =
+  updatePlatformAlertPolicyResponse200 & {
+    headers: Headers
+  }
+export type updatePlatformAlertPolicyResponseError = (
+  | updatePlatformAlertPolicyResponse400
+  | updatePlatformAlertPolicyResponse401
+  | updatePlatformAlertPolicyResponse403
+  | updatePlatformAlertPolicyResponse404
+  | updatePlatformAlertPolicyResponse412
+) & {
+  headers: Headers
+}
+
+export type updatePlatformAlertPolicyResponse =
+  | updatePlatformAlertPolicyResponseSuccess
+  | updatePlatformAlertPolicyResponseError
+
+export const getUpdatePlatformAlertPolicyUrl = (policyId: UUIDv7) => {
+  return `/api/v1/platform-operations/alert-policies/${encodeURIComponent(String(policyId))}`
+}
+
+/**
+ * @summary Update a platform alert routing policy
+ */
+export const updatePlatformAlertPolicy = async (
+  policyId: UUIDv7,
+  platformAlertPolicyUpdate: PlatformAlertPolicyUpdate,
+  options?: RequestInit,
+): Promise<updatePlatformAlertPolicyResponse> => {
+  return customFetch<updatePlatformAlertPolicyResponse>(
+    getUpdatePlatformAlertPolicyUrl(policyId),
+    {
+      ...options,
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(platformAlertPolicyUpdate),
+    },
+  )
+}
+
+export type listPlatformMaintenanceWindowsResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listPlatformMaintenanceWindowsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listPlatformMaintenanceWindowsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listPlatformMaintenanceWindowsResponseSuccess =
+  listPlatformMaintenanceWindowsResponse200 & {
+    headers: Headers
+  }
+export type listPlatformMaintenanceWindowsResponseError = (
+  | listPlatformMaintenanceWindowsResponse401
+  | listPlatformMaintenanceWindowsResponse403
+) & {
+  headers: Headers
+}
+
+export type listPlatformMaintenanceWindowsResponse =
+  | listPlatformMaintenanceWindowsResponseSuccess
+  | listPlatformMaintenanceWindowsResponseError
+
+export const getListPlatformMaintenanceWindowsUrl = (
+  params?: ListPlatformMaintenanceWindowsParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/platform-operations/maintenance-windows?${stringifiedParams}`
+    : `/api/v1/platform-operations/maintenance-windows`
+}
+
+/**
+ * @summary List scheduled platform maintenance windows
+ */
+export const listPlatformMaintenanceWindows = async (
+  params?: ListPlatformMaintenanceWindowsParams,
+  options?: RequestInit,
+): Promise<listPlatformMaintenanceWindowsResponse> => {
+  return customFetch<listPlatformMaintenanceWindowsResponse>(
+    getListPlatformMaintenanceWindowsUrl(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
+export type schedulePlatformMaintenanceWindowResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type schedulePlatformMaintenanceWindowResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type schedulePlatformMaintenanceWindowResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type schedulePlatformMaintenanceWindowResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type schedulePlatformMaintenanceWindowResponseSuccess =
+  schedulePlatformMaintenanceWindowResponse201 & {
+    headers: Headers
+  }
+export type schedulePlatformMaintenanceWindowResponseError = (
+  | schedulePlatformMaintenanceWindowResponse400
+  | schedulePlatformMaintenanceWindowResponse401
+  | schedulePlatformMaintenanceWindowResponse403
+) & {
+  headers: Headers
+}
+
+export type schedulePlatformMaintenanceWindowResponse =
+  | schedulePlatformMaintenanceWindowResponseSuccess
+  | schedulePlatformMaintenanceWindowResponseError
+
+export const getSchedulePlatformMaintenanceWindowUrl = () => {
+  return `/api/v1/platform-operations/maintenance-windows`
+}
+
+/**
+ * @summary Schedule a platform maintenance window
+ */
+export const schedulePlatformMaintenanceWindow = async (
+  platformMaintenanceWindowCreate: PlatformMaintenanceWindowCreate,
+  options?: RequestInit,
+): Promise<schedulePlatformMaintenanceWindowResponse> => {
+  return customFetch<schedulePlatformMaintenanceWindowResponse>(
+    getSchedulePlatformMaintenanceWindowUrl(),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(platformMaintenanceWindowCreate),
+    },
+  )
+}
+
+export type cancelPlatformMaintenanceWindowResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type cancelPlatformMaintenanceWindowResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type cancelPlatformMaintenanceWindowResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type cancelPlatformMaintenanceWindowResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type cancelPlatformMaintenanceWindowResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type cancelPlatformMaintenanceWindowResponseSuccess =
+  cancelPlatformMaintenanceWindowResponse200 & {
+    headers: Headers
+  }
+export type cancelPlatformMaintenanceWindowResponseError = (
+  | cancelPlatformMaintenanceWindowResponse401
+  | cancelPlatformMaintenanceWindowResponse403
+  | cancelPlatformMaintenanceWindowResponse404
+  | cancelPlatformMaintenanceWindowResponse412
+) & {
+  headers: Headers
+}
+
+export type cancelPlatformMaintenanceWindowResponse =
+  | cancelPlatformMaintenanceWindowResponseSuccess
+  | cancelPlatformMaintenanceWindowResponseError
+
+export const getCancelPlatformMaintenanceWindowUrl = (windowId: UUIDv7) => {
+  return `/api/v1/platform-operations/maintenance-windows/${encodeURIComponent(String(windowId))}/cancel`
+}
+
+/**
+ * @summary Cancel a scheduled platform maintenance window
+ */
+export const cancelPlatformMaintenanceWindow = async (
+  windowId: UUIDv7,
+  options?: RequestInit,
+): Promise<cancelPlatformMaintenanceWindowResponse> => {
+  return customFetch<cancelPlatformMaintenanceWindowResponse>(
+    getCancelPlatformMaintenanceWindowUrl(windowId),
+    {
+      ...options,
+      method: 'POST',
+    },
+  )
+}
+
+export type requestPlatformRestoreResponse202 = {
+  data: EntityResponse
+  status: 202
+}
+
+export type requestPlatformRestoreResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type requestPlatformRestoreResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type requestPlatformRestoreResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type requestPlatformRestoreResponseSuccess =
+  requestPlatformRestoreResponse202 & {
+    headers: Headers
+  }
+export type requestPlatformRestoreResponseError = (
+  | requestPlatformRestoreResponse400
+  | requestPlatformRestoreResponse401
+  | requestPlatformRestoreResponse403
+) & {
+  headers: Headers
+}
+
+export type requestPlatformRestoreResponse =
+  requestPlatformRestoreResponseSuccess | requestPlatformRestoreResponseError
+
+export const getRequestPlatformRestoreUrl = () => {
+  return `/api/v1/platform-operations/restore-requests`
+}
+
+/**
+ * @summary Request a platform restore operation
+ */
+export const requestPlatformRestore = async (
+  platformRestoreRequestCreate: PlatformRestoreRequestCreate,
+  options?: RequestInit,
+): Promise<requestPlatformRestoreResponse> => {
+  return customFetch<requestPlatformRestoreResponse>(
+    getRequestPlatformRestoreUrl(),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(platformRestoreRequestCreate),
+    },
+  )
+}
+
+export type confirmPlatformRestoreResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type confirmPlatformRestoreResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type confirmPlatformRestoreResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type confirmPlatformRestoreResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type confirmPlatformRestoreResponseSuccess =
+  confirmPlatformRestoreResponse200 & {
+    headers: Headers
+  }
+export type confirmPlatformRestoreResponseError = (
+  | confirmPlatformRestoreResponse401
+  | confirmPlatformRestoreResponse403
+  | confirmPlatformRestoreResponse404
+) & {
+  headers: Headers
+}
+
+export type confirmPlatformRestoreResponse =
+  confirmPlatformRestoreResponseSuccess | confirmPlatformRestoreResponseError
+
+export const getConfirmPlatformRestoreUrl = (requestId: UUIDv7) => {
+  return `/api/v1/platform-operations/restore-requests/${encodeURIComponent(String(requestId))}/confirm`
+}
+
+/**
+ * @summary Confirm a previously requested platform restore
+ */
+export const confirmPlatformRestore = async (
+  requestId: UUIDv7,
+  options?: RequestInit,
+): Promise<confirmPlatformRestoreResponse> => {
+  return customFetch<confirmPlatformRestoreResponse>(
+    getConfirmPlatformRestoreUrl(requestId),
+    {
+      ...options,
+      method: 'POST',
+    },
+  )
+}
+
+export type listPlatformTechnicalLogsResponse200 = {
+  data: CollectionResponse
+  status: 200
+}
+
+export type listPlatformTechnicalLogsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listPlatformTechnicalLogsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listPlatformTechnicalLogsResponse503 = {
+  data: ServiceUnavailableResponse
+  status: 503
+}
+
+export type listPlatformTechnicalLogsResponseSuccess =
+  listPlatformTechnicalLogsResponse200 & {
+    headers: Headers
+  }
+export type listPlatformTechnicalLogsResponseError = (
+  | listPlatformTechnicalLogsResponse401
+  | listPlatformTechnicalLogsResponse403
+  | listPlatformTechnicalLogsResponse503
+) & {
+  headers: Headers
+}
+
+export type listPlatformTechnicalLogsResponse =
+  | listPlatformTechnicalLogsResponseSuccess
+  | listPlatformTechnicalLogsResponseError
+
+export const getListPlatformTechnicalLogsUrl = (
+  params?: ListPlatformTechnicalLogsParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/platform-operations/technical-logs?${stringifiedParams}`
+    : `/api/v1/platform-operations/technical-logs`
+}
+
+/**
+ * @summary List platform technical log entries
+ */
+export const listPlatformTechnicalLogs = async (
+  params?: ListPlatformTechnicalLogsParams,
+  options?: RequestInit,
+): Promise<listPlatformTechnicalLogsResponse> => {
+  return customFetch<listPlatformTechnicalLogsResponse>(
+    getListPlatformTechnicalLogsUrl(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
+export type requestPlatformTechnicalLogsRestoreResponse202 = {
+  data: EntityResponse
+  status: 202
+}
+
+export type requestPlatformTechnicalLogsRestoreResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type requestPlatformTechnicalLogsRestoreResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type requestPlatformTechnicalLogsRestoreResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type requestPlatformTechnicalLogsRestoreResponse503 = {
+  data: ServiceUnavailableResponse
+  status: 503
+}
+
+export type requestPlatformTechnicalLogsRestoreResponseSuccess =
+  requestPlatformTechnicalLogsRestoreResponse202 & {
+    headers: Headers
+  }
+export type requestPlatformTechnicalLogsRestoreResponseError = (
+  | requestPlatformTechnicalLogsRestoreResponse400
+  | requestPlatformTechnicalLogsRestoreResponse401
+  | requestPlatformTechnicalLogsRestoreResponse403
+  | requestPlatformTechnicalLogsRestoreResponse503
+) & {
+  headers: Headers
+}
+
+export type requestPlatformTechnicalLogsRestoreResponse =
+  | requestPlatformTechnicalLogsRestoreResponseSuccess
+  | requestPlatformTechnicalLogsRestoreResponseError
+
+export const getRequestPlatformTechnicalLogsRestoreUrl = () => {
+  return `/api/v1/platform-operations/technical-logs/restore`
+}
+
+/**
+ * @summary Request restoration of archived platform technical logs
+ */
+export const requestPlatformTechnicalLogsRestore = async (
+  platformTechnicalLogsRestoreRequest: PlatformTechnicalLogsRestoreRequest,
+  options?: RequestInit,
+): Promise<requestPlatformTechnicalLogsRestoreResponse> => {
+  return customFetch<requestPlatformTechnicalLogsRestoreResponse>(
+    getRequestPlatformTechnicalLogsRestoreUrl(),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(platformTechnicalLogsRestoreRequest),
+    },
+  )
 }
 
 export type transitionWorkRecordResponse200 = {

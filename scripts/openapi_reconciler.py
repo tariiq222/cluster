@@ -60,6 +60,15 @@ ROUTES_ONLY_PATHS: list[tuple[str, str]] = [
     ("/dashboards/{dashboardId}", "get"),
     ("/notifications/{notificationId}/read", "post"),
     ("/organization/units/reorder", "post"),
+    ("/platform-operations/alert-policies", "get"),
+    ("/platform-operations/alert-policies/{policyId}", "patch"),
+    ("/platform-operations/maintenance-windows", "get"),
+    ("/platform-operations/maintenance-windows", "post"),
+    ("/platform-operations/maintenance-windows/{windowId}/cancel", "post"),
+    ("/platform-operations/restore-requests", "post"),
+    ("/platform-operations/restore-requests/{requestId}/confirm", "post"),
+    ("/platform-operations/technical-logs", "get"),
+    ("/platform-operations/technical-logs/restore", "post"),
     ("/reports/{reportId}", "get"),
     ("/tasks/from-step/{stepId}", "post"),
     ("/work-records/{recordId}/documents", "post"),
@@ -526,6 +535,230 @@ def _block_for_path(path: str, method: str) -> str:
             responses,
         )
 
+    if path == "/platform-operations/alert-policies":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { $ref: \"#/components/parameters/Cursor\" },",
+            "          { $ref: \"#/components/parameters/Limit\" },",
+            "        ]",
+        ]
+        responses = [
+            "        \"200\": { $ref: \"#/components/responses/Collection\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "listPlatformAlertPolicies",
+            "Platform Operations",
+            "List platform alert routing policies",
+            pre,
+            responses,
+        )
+
+    if path == "/platform-operations/alert-policies/{policyId}":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { name: policyId, in: path, required: true, schema: { $ref: \"#/components/schemas/UUIDv7\" } },",
+            "          { $ref: \"#/components/parameters/IfMatch\" },",
+            "        ]",
+            "      requestBody:",
+            "        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { status: { type: string, maxLength: 64 }, severity: { type: string, maxLength: 64 }, channel: { type: string, maxLength: 64 } } } } } }",
+        ]
+        responses = [
+            "        \"200\": { $ref: \"#/components/responses/Entity\" }",
+            "        \"400\": { $ref: \"#/components/responses/BadRequest\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+            "        \"404\": { $ref: \"#/components/responses/NotFound\" }",
+            "        \"412\": { $ref: \"#/components/responses/PreconditionFailed\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "updatePlatformAlertPolicy",
+            "Platform Operations",
+            "Update a platform alert routing policy",
+            pre,
+            responses,
+        )
+
+    if path == "/platform-operations/maintenance-windows" and method == "get":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { $ref: \"#/components/parameters/Cursor\" },",
+            "          { $ref: \"#/components/parameters/Limit\" },",
+            "        ]",
+        ]
+        responses = [
+            "        \"200\": { $ref: \"#/components/responses/Collection\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "listPlatformMaintenanceWindows",
+            "Platform Operations",
+            "List scheduled platform maintenance windows",
+            pre,
+            responses,
+        )
+
+    if path == "/platform-operations/maintenance-windows" and method == "post":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { $ref: \"#/components/parameters/IdempotencyKey\" },",
+            "        ]",
+            "      requestBody:",
+            "        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ starts_at, message_ar, message_en ], properties: { starts_at: { $ref: \"#/components/schemas/UtcDateTime\" }, ends_at: { type: [ string, \"null\" ], format: date-time }, message_ar: { type: string, minLength: 1, maxLength: 1024 }, message_en: { type: string, minLength: 1, maxLength: 1024 } } } } } }",
+        ]
+        responses = [
+            "        \"201\": { $ref: \"#/components/responses/Entity\" }",
+            "        \"400\": { $ref: \"#/components/responses/BadRequest\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "schedulePlatformMaintenanceWindow",
+            "Platform Operations",
+            "Schedule a platform maintenance window",
+            pre,
+            responses,
+        )
+
+    if path == "/platform-operations/maintenance-windows/{windowId}/cancel":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { name: windowId, in: path, required: true, schema: { $ref: \"#/components/schemas/UUIDv7\" } },",
+            "          { $ref: \"#/components/parameters/IfMatch\" },",
+            "          { $ref: \"#/components/parameters/IdempotencyKey\" },",
+            "        ]",
+        ]
+        responses = [
+            "        \"200\": { $ref: \"#/components/responses/Entity\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+            "        \"404\": { $ref: \"#/components/responses/NotFound\" }",
+            "        \"412\": { $ref: \"#/components/responses/PreconditionFailed\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "cancelPlatformMaintenanceWindow",
+            "Platform Operations",
+            "Cancel a scheduled platform maintenance window",
+            pre,
+            responses,
+        )
+
+    if path == "/platform-operations/technical-logs":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { $ref: \"#/components/parameters/Cursor\" },",
+            "          { $ref: \"#/components/parameters/Limit\" },",
+            "        ]",
+        ]
+        responses = [
+            "        \"200\": { $ref: \"#/components/responses/Collection\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+            "        \"503\": { $ref: \"#/components/responses/InternalServerError\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "listPlatformTechnicalLogs",
+            "Platform Operations",
+            "List platform technical log entries",
+            pre,
+            responses,
+        )
+
+    if path == "/platform-operations/technical-logs/restore":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { $ref: \"#/components/parameters/IdempotencyKey\" },",
+            "        ]",
+            "      requestBody:",
+            "        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ manifest_id, reason ], properties: { manifest_id: { $ref: \"#/components/schemas/UUIDv7\" }, reason: { type: string, minLength: 1, maxLength: 2048 } } } } } }",
+        ]
+        responses = [
+            "        \"202\": { $ref: \"#/components/responses/Entity\" }",
+            "        \"400\": { $ref: \"#/components/responses/BadRequest\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+            "        \"503\": { $ref: \"#/components/responses/InternalServerError\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "requestPlatformTechnicalLogsRestore",
+            "Platform Operations",
+            "Request restoration of archived platform technical logs",
+            pre,
+            responses,
+        )
+
+    if path == "/platform-operations/restore-requests":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { $ref: \"#/components/parameters/IdempotencyKey\" },",
+            "        ]",
+            "      requestBody:",
+            "        { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [ backup_id, reason ], properties: { backup_id: { $ref: \"#/components/schemas/UUIDv7\" }, reason: { type: string, minLength: 1, maxLength: 2048 } } } } } }",
+        ]
+        responses = [
+            "        \"202\": { $ref: \"#/components/responses/Entity\" }",
+            "        \"400\": { $ref: \"#/components/responses/BadRequest\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "requestPlatformRestore",
+            "Platform Operations",
+            "Request a platform restore operation",
+            pre,
+            responses,
+        )
+
+    if path == "/platform-operations/restore-requests/{requestId}/confirm":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { name: requestId, in: path, required: true, schema: { $ref: \"#/components/schemas/UUIDv7\" } },",
+            "          { $ref: \"#/components/parameters/IdempotencyKey\" },",
+            "        ]",
+        ]
+        responses = [
+            "        \"200\": { $ref: \"#/components/responses/Entity\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+            "        \"404\": { $ref: \"#/components/responses/NotFound\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "confirmPlatformRestore",
+            "Platform Operations",
+            "Confirm a previously requested platform restore",
+            pre,
+            responses,
+        )
+
     raise ValueError(f"no emitter defined for path: {path}")
 
 
@@ -753,11 +986,13 @@ def append_new_paths(
     not already present in the spec).
     """
     existing = set(parse_spec_path_keys(text))
-    to_add: list[tuple[str, str]] = []
+    to_add: dict[str, list[str]] = {}
     for path, method in new_paths:
         if path in existing:
             continue
-        to_add.append((path, method))
+        methods = to_add.setdefault(path, [])
+        if method not in methods:
+            methods.append(method)
 
     if not to_add:
         return text, []
@@ -768,8 +1003,15 @@ def append_new_paths(
 
     insertion = components_match.start()
     new_blocks: list[str] = []
-    for path, method in to_add:
-        block = _block_for_path(path, method)
+    for path, methods in to_add.items():
+        operation_blocks = [_block_for_path(path, method).splitlines() for method in methods]
+        block_lines = operation_blocks[0]
+        for operation_block in operation_blocks[1:]:
+            # Every emitted block repeats the path key and shared correlation
+            # parameter. Keep those once and append only the additional HTTP
+            # operation under the same YAML mapping key.
+            block_lines.extend(operation_block[2:])
+        block = "\n".join(block_lines)
         if not block.endswith("\n"):
             block += "\n"
         new_blocks.append(block)
@@ -777,7 +1019,7 @@ def append_new_paths(
 
     return (
         text[:insertion] + "\n".join(new_blocks) + "\n" + text[insertion:],
-        [p for p, _m in to_add],
+        list(to_add),
     )
 
 
