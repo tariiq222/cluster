@@ -40,3 +40,38 @@ describe('AccessWorkspace decision route', () => {
     expect((screen.getByLabelText('Decision ID') as HTMLInputElement).value).toBe('decision-7')
   })
 })
+
+describe('AccessWorkspace governance tabs', () => {
+  function withinAccessWorkspace(): HTMLElement {
+    const regions = screen.getAllByRole('region', { name: 'Identity & access' })
+    const workspace = regions[regions.length - 1] as HTMLElement
+    const nav = workspace.querySelector('nav.workspace-tabs')
+    if (!nav) throw new Error('Access workspace tabs nav not found')
+    return nav as HTMLElement
+  }
+  it('renders every governance and diagnostic tab in one workspace', () => {
+    renderRoute({ name: 'identity-accounts' })
+
+    const expected = [
+      'Accounts',
+      'Roles & capabilities',
+      'Role assignments',
+      'Policies & templates',
+      'Delegations',
+      'Access scopes',
+      'Access decision inspector',
+      'Supervisory relationships',
+    ]
+    for (const label of expected) {
+      const link = Array.from(withinAccessWorkspace().querySelectorAll('a')).find((anchor) => anchor.textContent?.includes(label))
+      expect(link, label).toBeTruthy()
+    }
+  })
+
+  it('activates the policy tab when classification policies are open', () => {
+    renderRoute({ name: 'authorization', resource: 'classification-policies' })
+
+    const active = Array.from(withinAccessWorkspace().querySelectorAll('a')).find((anchor) => anchor.textContent?.includes('Policies & templates'))
+    expect(active?.getAttribute('aria-current')).toBe('page')
+  })
+})

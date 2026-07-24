@@ -17,7 +17,10 @@ const issueIdentityActivation = vi.fn()
 const createUserAccount = vi.fn()
 
 vi.mock('../../api', () => ({
-  ApiError: class ApiError extends Error { status = 0 },
+  ApiError: class ApiError extends Error {
+    status: number
+    constructor(status = 0) { super(); this.status = status }
+  },
   createUserAccount: (...args: unknown[]) => createUserAccount(...args),
   issueIdentityActivation: (...args: unknown[]) => issueIdentityActivation(...args),
   listPeople: (...args: unknown[]) => listPeople(...args),
@@ -97,6 +100,23 @@ describe('Identity accounts screen', () => {
     await waitFor(() => {
       expect(transitionUserAccount).toHaveBeenCalledWith('test-token', 'account-1', 'disable', 'left the department')
     })
+  })
+  it('reconciles the drawer with the latest account after an ETag conflict', async () => {
+    const latest = account({ status: 'locked' })
+    listUserAccounts
+      .mockResolvedValueOnce({ items: [account()] })
+      .mockResolvedValueOnce({ items: [latest] })
+    listPeople.mockResolvedValue({ items: [] })
+    transitionUserAccount.mockRejectedValueOnce(new (class extends Error {
+      status = 412
+    })())
+
+    render(<IdentityAccounts />)
+    fireEvent.click(await screen.findByRole('button', { name: /Manage/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Disable account' }))
+
+    await waitFor(() => expect(listUserAccounts).toHaveBeenCalledTimes(2))
+    expect((await screen.findAllByText('Locked')).length).toBeGreaterThan(0)
   })
 
   it('says so plainly when every active employee already has an account', async () => {

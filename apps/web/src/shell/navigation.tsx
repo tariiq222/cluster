@@ -38,8 +38,9 @@ export type NavigationGroupKey =
   | 'my-work'
   | 'organization-workforce'
   | 'processes-workflow'
-  | 'accounts-access'
+  | 'governance-access'
   | 'reports-insights'
+  | 'platform-management'
   | 'internal'
 
 /**
@@ -119,31 +120,22 @@ export const NAVIGATION_ENTRIES: readonly NavigationEntry[] = [
   { key: 'people-assignments', route: { name: 'people-assignments' }, group: 'organization-workforce', labelKey: 'peopleAssignments', icon: ICONS.people, policy: anyOf(['organization.person.read']) },
   { key: 'temporary-assignments', route: { name: 'temporary-assignments' }, group: 'organization-workforce', labelKey: 'temporaryAssignments', icon: ICONS.assignments, policy: anyOf(['organization.temporary-assignment.read']) },
   { key: 'organization-import', route: { name: 'organization-import' }, group: 'organization-workforce', labelKey: 'importReview', icon: ICONS.imports, policy: anyOf(['organization.import.read']) },
-  { key: 'supervisory', route: { name: 'authorization', resource: 'supervisory' }, group: 'organization-workforce', labelKey: 'supervisoryRelationships', icon: ICONS.supervisory, policy: anyOf(['organization.unit.read']) },
+  { key: 'governance-and-access', route: { name: 'identity-accounts' }, group: 'governance-access', labelKey: 'governanceAndAccess', icon: ICONS.roles, policy: anyOf(['identity.account.read', 'authorization.role.read', 'authorization.assignment.read', 'authorization.delegation.read', 'authorization.policy.read', 'organization.unit.read']) },
 
-  // Processes and workflow
+  // Procedures and workflow
+  { key: 'procedure-office-review', route: { name: 'procedure-office-review' }, group: 'processes-workflow', labelKey: 'procedureOfficeReview', icon: ICONS.procedureReview, policy: anyOf(['workflow.approve', 'work_definition.publish']) },
   { key: 'work-definitions', route: { name: 'work-definitions' }, group: 'processes-workflow', labelKey: 'workDefinitions', icon: ICONS.workDefinitions, policy: anyOf(['work_definition.read', 'work_definition.list']) },
   { key: 'workflow-admin', route: { name: 'workflow-admin' }, group: 'processes-workflow', labelKey: 'workflowAdmin', icon: ICONS.workflowAdmin, policy: anyOf(['workflow.read', 'workflow.list', 'workflow.manage']) },
-  { key: 'procedure-office-review', route: { name: 'procedure-office-review' }, group: 'processes-workflow', labelKey: 'procedureOfficeReview', icon: ICONS.procedureReview, policy: anyOf(['workflow.approve', 'work_definition.publish']) },
-
-  // Accounts and access
-  { key: 'identity-accounts', route: { name: 'identity-accounts' }, group: 'accounts-access', labelKey: 'identityAccounts', icon: ICONS.identityAccounts, policy: anyOf(['identity.account.read']) },
-  { key: 'roles', route: { name: 'authorization', resource: 'roles' }, group: 'accounts-access', labelKey: 'roles', icon: ICONS.roles, policy: anyOf(['authorization.role.read', 'authorization.capability.read']) },
-  { key: 'role-assignments', route: { name: 'authorization', resource: 'role-assignments' }, group: 'accounts-access', labelKey: 'roleAssignments', icon: ICONS.roleAssignments, policy: anyOf(['authorization.assignment.read']) },
-  { key: 'access-scopes', route: { name: 'access-scopes' }, group: 'accounts-access', labelKey: 'accessScopes', icon: ICONS.accessScopes, policy: anyOf(['authorization.assignment.read']) },
-  { key: 'delegations', route: { name: 'authorization', resource: 'delegations' }, group: 'accounts-access', labelKey: 'delegations', icon: ICONS.delegations, policy: anyOf(['authorization.delegation.read']) },
-  { key: 'classification-policies', route: { name: 'authorization', resource: 'classification-policies' }, group: 'accounts-access', labelKey: 'classificationPolicies', icon: ICONS.classificationPolicies, policy: anyOf(['authorization.policy.read']) },
-  { key: 'field-access-templates', route: { name: 'authorization', resource: 'field-access-templates' }, group: 'accounts-access', labelKey: 'fieldAccessTemplates', icon: ICONS.classificationPolicies, policy: anyOf(['authorization.policy.read']) },
+  { key: 'access-explanation', route: { name: 'access-explanation' }, group: 'internal', labelKey: 'accessExplanation', icon: ICONS.accessExplanation, policy: anyOf(['authorization.decision.read']) },
+  { key: 'coverage', route: { name: 'coverage' }, group: 'internal', labelKey: 'coverage', icon: ICONS.coverage, policy: anyOf(['authorization.audit.read']) },
+  { key: 'api-docs', route: { name: 'api-docs' }, group: 'internal', labelKey: 'apiReference', icon: ICONS.apiDocs, policy: anyOf(['authorization.audit.read']) },
+  { key: 'platform-settings', route: { name: 'platform-settings', section: 'overview' }, group: 'platform-management', labelKey: 'platformSettings', icon: ICONS.apiDocs, policy: anyOf(PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES) },
 
   // Reporting and indicators
   { key: 'reports', route: { name: 'reports' }, group: 'reports-insights', labelKey: 'reportsScreen', icon: ICONS.reports, policy: anyOf(['reporting.list']) },
   { key: 'dashboards', route: { name: 'dashboards' }, group: 'reports-insights', labelKey: 'dashboardsScreen', icon: ICONS.dashboards, policy: anyOf(['reporting.dashboard']) },
 
   // Internal tools (only platform owners / developers)
-  { key: 'access-explanation', route: { name: 'access-explanation' }, group: 'internal', labelKey: 'accessExplanation', icon: ICONS.accessExplanation, policy: anyOf(['authorization.decision.read']) },
-  { key: 'coverage', route: { name: 'coverage' }, group: 'internal', labelKey: 'coverage', icon: ICONS.coverage, policy: anyOf(['authorization.audit.read']) },
-  { key: 'api-docs', route: { name: 'api-docs' }, group: 'internal', labelKey: 'apiReference', icon: ICONS.apiDocs, policy: anyOf(['authorization.audit.read']) },
-  { key: 'platform-settings', route: { name: 'platform-settings', section: 'overview' }, group: 'accounts-access', labelKey: 'platformSettings', icon: ICONS.apiDocs, policy: anyOf(PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES) },
 ]
 
 /**
@@ -184,8 +176,9 @@ const GROUP_LABELS: Record<NavigationGroupKey, NavigationLabelKey> = {
   'my-work': 'myWork',
   'organization-workforce': 'organizationAndWorkforce',
   'processes-workflow': 'processesAndWorkflow',
-  'accounts-access': 'accountsAndAccess',
+  'governance-access': 'governanceAndAccess',
   'reports-insights': 'reportsAndIndicators',
+  'platform-management': 'platformManagement',
   'internal': 'internalTools',
 }
 
@@ -193,8 +186,9 @@ const GROUP_ICONS: Record<NavigationGroupKey, ReactElement> = {
   'my-work': ICONS.home,
   'organization-workforce': ICONS.organization,
   'processes-workflow': ICONS.workflowAdmin,
-  'accounts-access': ICONS.roles,
+  'governance-access': ICONS.roles,
   'reports-insights': ICONS.dashboards,
+  'platform-management': ICONS.apiDocs,
   'internal': ICONS.coverage,
 }
 
@@ -202,10 +196,12 @@ const GROUP_ORDER: readonly NavigationGroupKey[] = [
   'my-work',
   'organization-workforce',
   'processes-workflow',
-  'accounts-access',
+  'governance-access',
   'reports-insights',
+  'platform-management',
   'internal',
 ]
+
 
 /**
  * Build the sidebar groups from the navigation registry, hiding gated entries

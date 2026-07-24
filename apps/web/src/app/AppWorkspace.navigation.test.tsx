@@ -171,7 +171,7 @@ describe('sidebar navigation by capability', () => {
     // workflow-day2 / authoring / procedure-new authoring entry points live as
     // legacy compatibility links reachable from elsewhere, so they are also
     // excluded.
-    const sidebarExcludedPrefixes = ['/me/', '/work-records/new', '/search', '/notifications', '/admin/workflow/day2', '/admin/procedures/authoring', '/procedures/new', '/admin/organization/structure', '/admin/authorization/capabilities']
+    const sidebarExcludedPrefixes = ['/me/', '/work-records/new', '/search', '/notifications', '/admin/workflow/day2', '/admin/procedures/authoring', '/procedures/new', '/admin/organization/structure', '/admin/authorization/capabilities', '/admin/authorization/roles', '/admin/authorization/role-assignments', '/admin/authorization/delegations', '/admin/authorization/classification-policies', '/admin/authorization/field-access-templates', '/admin/authorization/access-scopes', '/admin/authorization/explain', '/admin/relationships/supervisory']
     const routePaths = pathsFor(allCaps).filter((path) => !sidebarExcludedPrefixes.some((prefix) => path.startsWith(prefix)))
     const navPaths = navigationPathsFor(allCaps)
     for (const path of routePaths) {

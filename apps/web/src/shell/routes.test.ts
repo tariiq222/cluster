@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-
-import { isRouteActive, pathFromRoute, routeFromPath, workspaceOfRoute } from './routes'
+import type { AppRoute } from './routes'
+import { capabilitiesForRoute, DEFERRED_CAPABILITIES, isRouteActive, isRouteVisible, pathFromRoute, routeFromPath, workspaceOfRoute } from './routes'
 
 describe('W1.2 shell route registry', () => {
   it('round-trips document list and detail routes', () => {
@@ -157,5 +157,15 @@ describe('W1.2 shell route registry', () => {
         { name: 'authorization', resource: 'roles' },
       ),
     ).toBe(true)
+  })
+
+  it('hides routes whose capabilities are deferred even if the principal holds them', () => {
+    const route: AppRoute = { name: 'platform-settings', section: 'logs' };
+    expect(capabilitiesForRoute(route)).toEqual([]);
+    expect(
+      isRouteVisible(route, ['platform_operations.logs.read', 'platform_operations.logs.restore']),
+    ).toBe(false);
+    expect(DEFERRED_CAPABILITIES['platform_operations.logs.read']).toBe(true);
+    expect(DEFERRED_CAPABILITIES['platform_operations.logs.restore']).toBe(true);
   })
 })

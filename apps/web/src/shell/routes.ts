@@ -40,11 +40,21 @@ export type AppRoute =
 
 export const PLATFORM_SETTINGS_SECTIONS = ['overview', 'security', 'calendars', 'backups', 'logs', 'health', 'maintenance'] as const
 export type PlatformSettingsSection = (typeof PLATFORM_SETTINGS_SECTIONS)[number]
+
+/**
+ * Capabilities whose underlying surface is intentionally not built.
+ * Routes and sidebar entries gated by these capabilities stay hidden
+ * even when the principal holds them, so production never advertises
+ * something that fails closed.
+ */
+export const DEFERRED_CAPABILITIES: Record<string, true> = {
+  'platform_operations.logs.read': true,
+  'platform_operations.logs.restore': true,
+};
 export const PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES = [
   'platform_settings.read',
   'platform_settings.calendar.read',
   'platform_operations.backup.read',
-  'platform_operations.logs.read',
   'platform_operations.health.read',
   'platform_operations.maintenance.manage',
 ] as const
@@ -300,7 +310,6 @@ export function routeFromPath(pathname: string): AppRoute {
   if (match && UUID_V7_PATTERN.test(match[1])) {
     return { name: 'detail', recordId: match[1] }
   }
-
   return { name: 'not-found' }
 }
 
@@ -312,6 +321,15 @@ export function routeFromPath(pathname: string): AppRoute {
  * silently unclassified sidebar entry.
  */
 export function capabilitiesForRoute(route: AppRoute): readonly string[] | null {
+  const capabilities = routeCapabilities(route);
+  if (capabilities === null) {
+    return null;
+  }
+  const visible = capabilities.filter((capability) => !DEFERRED_CAPABILITIES[capability]);
+  return visible;
+}
+
+function routeCapabilities(route: AppRoute): readonly string[] | null {
   switch (route.name) {
     case 'list':
     case 'access-context':
@@ -403,7 +421,7 @@ export function capabilitiesForRoute(route: AppRoute): readonly string[] | null 
                 ? ['platform_operations.logs.read']
                 : route.section === 'health'
                   ? ['platform_operations.health.read']
-                  : ['platform_operations.maintenance.manage']
+                  : ['platform_operations.maintenance.manage', 'platform_operations.maintenance.cancel']
   }
 }
 

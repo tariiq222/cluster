@@ -51,14 +51,9 @@ import { MyRequestDetail } from '../features/workflow/MyRequestDetail'
 import { TaskDetail } from '../features/tasks/TaskDetail'
 import { WorkDashboard } from '../features/dashboard/WorkDashboard'
 import { DashboardsScreen } from '../features/reporting/DashboardsScreen'
-import { AccessContext } from '../features/authorization/AccessContext'
-import { AccessDecisionWorkspace } from '../features/authorization/AccessDecisionWorkspace'
-import { RolesCapabilitiesWorkspace } from '../features/authorization/RolesCapabilitiesWorkspace'
-import { AccessScopesScreen } from '../features/authorization/AccessScopesScreen'
+import { AccessWorkspace } from '../features/authorization/AccessWorkspace'
 import { OrganizationWorkspace, PeopleAssignments, TemporaryAssignments } from '../features/organization'
 import { ImportReview } from '../features/imports/ImportReview'
-import { IdentityAccounts } from '../features/identity/IdentityAccounts'
-import { AuthorizationAdmin } from '../features/authorization/AuthorizationAdmin'
 import { Day2Workflow } from '../features/workflow/Day2Workflow'
 import {
   ApiError,
@@ -79,23 +74,32 @@ import { BackupsScreen } from '../features/platform-settings/BackupsScreen'
 import { TechnicalLogsScreen } from '../features/platform-settings/TechnicalLogsScreen'
 import { PlatformHealthScreen } from '../features/platform-settings/PlatformHealthScreen'
 import { MaintenanceScreen } from '../features/platform-settings/MaintenanceScreen'
-import { platformSettingsMockFor } from '../features/platform-settings/PlatformSettingsMockData'
+import { usePlatformSettingsLive } from '../features/platform-settings/usePlatformSettingsLive'
+import { createLivePlatformSettingsDataSource } from '../features/platform-settings/PlatformSettingsMockData'
 
-function PlatformSettingsRoute({ locale, section, capabilities, navigate }: { locale: Locale; section: PlatformSettingsSection; capabilities: readonly string[] | null; navigate: (path: string) => void }) {
+function PlatformSettingsRoute({ locale, section, capabilities, navigate, session }: { locale: Locale; section: PlatformSettingsSection; capabilities: readonly string[] | null; navigate: (path: string) => void; session: Session }) {
   const [logCursor, setLogCursor] = useState<string | null>(null)
   useEffect(() => {
     if (section !== 'logs') setLogCursor(null)
   }, [section])
-  const screen = platformSettingsMockFor(section, capabilities, section === 'logs' ? logCursor : null)
+  const source = useMemo(() => createLivePlatformSettingsDataSource(session.access_token), [session.access_token])
+  const { state } = usePlatformSettingsLive(source, { section, capabilities, cursor: section === 'logs' ? logCursor : null })
+  const screen = (state.kind === 'success' || state.kind === 'denied' || state.kind === 'unsupported')
+    ? state.screen
+    : state.kind === 'error'
+      ? { state: 'error' as const, resource: { id: section, items: [], next_cursor: null } as never, allowedActions: [] }
+      : state.kind === 'loading' || state.kind === 'idle'
+        ? { state: 'loading' as const, resource: { id: section, items: [], next_cursor: null } as never, allowedActions: [] }
+        : { state: 'empty' as const, resource: { id: section, items: [], next_cursor: null } as never, allowedActions: [] }
   const props = { locale, state: screen.state, allowedActions: screen.allowedActions, resource: screen.resource }
   return <PlatformSettingsLayout locale={locale} section={section} capabilities={capabilities} navigate={navigate}>
-    {section === 'overview' ? <PlatformOverviewScreen {...props} />
-      : section === 'security' ? <SecuritySettingsScreen {...props} />
-        : section === 'calendars' ? <BusinessCalendarsScreen {...props} />
-          : section === 'backups' ? <BackupsScreen {...props} />
-            : section === 'logs' ? <TechnicalLogsScreen {...props} logs={'items' in screen.resource ? screen.resource : undefined} onCursorChange={setLogCursor} />
-              : section === 'health' ? <PlatformHealthScreen {...props} />
-                : <MaintenanceScreen {...props} />}
+    {section === 'overview' ? <PlatformOverviewScreen {...props} token={session.access_token} />
+      : section === 'security' ? <SecuritySettingsScreen {...props} token={session.access_token} />
+        : section === 'calendars' ? <BusinessCalendarsScreen {...props} token={session.access_token} />
+          : section === 'backups' ? <BackupsScreen {...props} token={session.access_token} />
+            : section === 'logs' ? <TechnicalLogsScreen {...props} token={session.access_token} logs={'items' in screen.resource ? screen.resource : undefined} onCursorChange={setLogCursor} />
+              : section === 'health' ? <PlatformHealthScreen {...props} token={session.access_token} />
+                : <MaintenanceScreen {...props} token={session.access_token} />}
   </PlatformSettingsLayout>
 }
 
@@ -432,18 +436,11 @@ function ShellInner({
           />
         )
       case 'identity-accounts':
-        return <IdentityAccounts />
       case 'authorization':
-        if (route.resource === 'roles' || route.resource === 'capabilities') {
-          return <RolesCapabilitiesWorkspace locale={locale} activeResource={route.resource} capabilities={principal.capabilities} navigate={navigate} />
-        }
-        return <AuthorizationAdmin resource={route.resource} />
       case 'access-scopes':
-        return <AccessScopesScreen locale={locale} scopeReady={principal.scopeReady} scopeEpoch={principal.scopeEpoch} />
-      case 'access-context':
-        return <AccessContext />
       case 'access-explanation':
-        return <AccessDecisionWorkspace locale={locale} decisionId={'decisionId' in route ? route.decisionId : undefined} />
+      case 'access-context':
+        return <AccessWorkspace locale={locale} activeRoute={route} navigate={navigate} scopeReady={principal.scopeReady} scopeEpoch={principal.scopeEpoch} />
       case 'workflow-day2':
         return <Day2Workflow session={session} />
       case 'tasks':
@@ -546,7 +543,7 @@ function ShellInner({
           />
         )
       case 'platform-settings':
-        return <PlatformSettingsRoute locale={locale} section={route.section} capabilities={principal.capabilities} navigate={navigate} />
+        return <PlatformSettingsRoute locale={locale} section={route.section} capabilities={principal.capabilities} navigate={navigate} session={session} />
       case 'not-found':
         return <RouteNotFound locale={locale} />
     }

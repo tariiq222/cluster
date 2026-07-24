@@ -504,10 +504,8 @@ export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
     setSubmitting(true)
     setState('loading')
     try {
-      const result = await searchRecords(token, normalizedQuery)
-      let values = result.items ?? []
-      if (type) values = values.filter((item) => item.resource_type === type || item.record_type === type)
-      if (status) values = values.filter((item) => item.status === status)
+      const result = await searchRecords(token, normalizedQuery, { type: type || undefined, status: status || undefined })
+      const values = result.items ?? []
       setItems(values)
       setState(values.length ? 'ready' : 'empty')
     } catch (error) {

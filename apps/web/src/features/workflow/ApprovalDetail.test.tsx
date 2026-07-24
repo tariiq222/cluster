@@ -190,3 +190,11 @@ describe('ApprovalDetail', () => {
     expect(getWorkflowStepMock).toHaveBeenCalledTimes(1)
   })
 })
+
+  it('routes the Back-to-list control through the SPA navigation, not window.location.href', async () => {
+    getWorkflowStepMock.mockResolvedValue(stepDetail(['approve']))
+    const onNavigate = vi.fn()
+    render(<ApprovalDetail locale="en" session={session} stepId={STEP_ID} scopeReady scopeEpoch={1} onNavigate={onNavigate} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Back to list' }))
+    expect(onNavigate).toHaveBeenCalledWith('/approvals')
+  })

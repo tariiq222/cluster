@@ -62,8 +62,8 @@ export function EndAssignmentDrawer({
     <Drawer open={open} onClose={onClose} title={text.endAssignment} ariaLabelClose={text.close} dismissable={!submitting}>
       <form className="org-drawer-form" onSubmit={(event) => void submit(event)} noValidate>
         {errorMessage ? <p ref={errorRef} className="error-summary" role="alert" tabIndex={-1}>{errorMessage}</p> : null}
-        <Field id="assignment-end-at" label={text.endAt} required error={error === 'validation' && !endAt ? text.endAtRequired : undefined}><input id="assignment-end-at" type="datetime-local" value={endAt} required aria-required="true" aria-invalid={error === 'validation' && !endAt || undefined} onChange={(event) => setEndAt(event.target.value)} /></Field>
-        <Field id="assignment-end-reason" label={text.endReason} required error={error === 'validation' && !reason.trim() ? text.endAtRequired : undefined}><input id="assignment-end-reason" value={reason} required aria-required="true" aria-invalid={error === 'validation' && !reason.trim() || undefined} onChange={(event) => setReason(event.target.value)} /></Field>
+        <Field id="assignment-end-at" label={text.endAt} required error={error === 'validation' && !endAt ? text.endAtRequired : undefined}><input id="assignment-end-at" aria-label={text.endAt} type="datetime-local" value={endAt} required aria-required="true" aria-invalid={error === 'validation' && !endAt || undefined} onChange={(event) => setEndAt(event.target.value)} /></Field>
+        <Field id="assignment-end-reason" label={text.endReason} required error={error === 'validation' && !reason.trim() ? text.endAtRequired : undefined}><input id="assignment-end-reason" aria-label={text.endReason} value={reason} required aria-required="true" aria-invalid={error === 'validation' && !reason.trim() || undefined} onChange={(event) => setReason(event.target.value)} /></Field>
         <div className="org-drawer-form-footer"><Button variant="quiet" onClick={onClose} disabled={submitting}>{text.cancel}</Button><Button type="submit" disabled={submitting}>{submitting ? text.ending : text.endAssignment}</Button></div>
       </form>
     </Drawer>

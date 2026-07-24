@@ -30,6 +30,8 @@ describe('LoginScreen development credential gating', () => {
     expect(screen.queryByRole('button', { name: /w13-e2e-account-b/i })).toBeNull()
     expect(screen.queryByText(/North!River7Quartz2026/i)).toBeNull()
     expect(screen.queryByText(/Cedar!Orbit8Harbor2026/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /platform-admin/i })).toBeNull()
+    expect(screen.queryByText(/Admin!Cluster9Owner2026/i)).toBeNull()
   })
 
   it('reveals development credentials only when DEV is true', async () => {
@@ -47,5 +49,6 @@ describe('LoginScreen development credential gating', () => {
 
     expect(screen.getByRole('button', { name: /w13-e2e-account-a \/ North!River7Quartz2026/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /w13-e2e-account-b \/ Cedar!Orbit8Harbor2026/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /platform-admin \/ Admin!Cluster9Owner2026/ })).toBeTruthy()
   })
 })

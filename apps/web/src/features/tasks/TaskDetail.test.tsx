@@ -95,4 +95,22 @@ describe('TaskDetail', () => {
     expect(await screen.findByText('Task')).toBeTruthy()
     expect(screen.getByText('No details are available for this record.')).toBeTruthy()
   })
-})
+
+  it('navigates back to the list via the in-app router instead of window.location.href', async () => {
+    taskMock.mockResolvedValue({ id: 't', title: 'Task', status: 'pending', allowed_actions: [] })
+    commentsMock.mockResolvedValue({ items: [], total: 0 })
+    const onNavigate = vi.fn()
+    render(<TaskDetail locale="en" session={session} taskId="t" scopeReady scopeEpoch={0} onNavigate={onNavigate} />)
+    await screen.findByText('Task')
+    screen.getByRole('button', { name: 'Back to list' }).click()
+    expect(onNavigate).toHaveBeenCalledWith('/tasks')
+  })
+
+  it('does not force dir=ltr on the actions paragraph in Arabic locale', async () => {
+    taskMock.mockResolvedValue({ id: 't', title: 'مهمة', status: 'pending', allowed_actions: ['complete', 'return-completion'] })
+    commentsMock.mockResolvedValue({ items: [], total: 0 })
+    render(<TaskDetail locale="ar" session={session} taskId="t" scopeReady scopeEpoch={0} />)
+    const actions = await screen.findByText('complete, return-completion')
+    expect(actions.getAttribute('dir')).not.toBe('ltr')
+  })
+ })

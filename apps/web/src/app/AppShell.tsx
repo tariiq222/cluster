@@ -1,4 +1,4 @@
-import { type MouseEvent, type ReactElement, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
+import { type MouseEvent, type ReactElement, type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { numberFormattingLocale } from './copy'
 import {
   Bell,
@@ -225,7 +225,7 @@ export function AppShell({
       return false
     }
   })
-  const activeGroupKey = navigationGroups.find((group) => group.items.some((item) => item.active))?.key
+  const activeGroupKey = useMemo(() => navigationGroups.find((group) => group.items.some((item) => item.active))?.key, [navigationGroups])
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initialGroupKey = activeGroupKey ?? navigationGroups[0]?.key
     return initialGroupKey ? { [initialGroupKey]: true } : {}
@@ -237,9 +237,12 @@ export function AppShell({
     ? `${copy.notifications}: ${new Intl.NumberFormat(numberFormattingLocale(locale)).format(unreadNotifications)}`
     : copy.notifications
 
+  const lastActiveGroupKeyRef = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (!activeGroupKey) return
-    setOpenGroups({ [activeGroupKey]: true })
+    if (lastActiveGroupKeyRef.current === activeGroupKey) return
+    lastActiveGroupKeyRef.current = activeGroupKey
+    setOpenGroups((current) => current[activeGroupKey] ? current : { [activeGroupKey]: true })
   }, [activeGroupKey])
 
   function toggleGroup(groupKey: string) {

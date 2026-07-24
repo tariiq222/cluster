@@ -5,9 +5,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { PersonalSecurity } from './PersonalSecurity'
 
+const testSession = vi.hoisted(() => ({ locale: 'en' as 'ar' | 'en', token: 'test-token' }))
+
 vi.mock('../../app/session-context', () => ({
-  useLocale: () => 'en',
-  useToken: () => 'test-token',
+  useLocale: () => testSession.locale,
+  useToken: () => testSession.token,
 }))
 
 const changeIdentityPassword = vi.fn()
@@ -27,6 +29,7 @@ function submit() {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  testSession.locale = 'en'
 })
 
 describe('Personal security screen', () => {
@@ -50,6 +53,31 @@ describe('Personal security screen', () => {
       'The new password is too short — use at least 14 characters.',
     )
     expect(changeIdentityPassword).not.toHaveBeenCalled()
+  })
+  it('marks the invalid password field for assistive technology', async () => {
+    render(<PersonalSecurity />)
+
+    fill(/Current password/, 'old-password-value')
+    fill(/^New password/, 'short')
+    fill(/Confirm new password/, 'short')
+    submit()
+
+    await screen.findByRole('alert')
+    expect(screen.getByLabelText(/^New password/).getAttribute('aria-invalid')).toBe('true')
+    expect(screen.getByLabelText(/Confirm new password/).getAttribute('aria-invalid')).toBe('false')
+  })
+
+  it('renders server failures in Arabic when the session locale is Arabic', async () => {
+    testSession.locale = 'ar'
+    changeIdentityPassword.mockRejectedValue(new Error('expired'))
+    render(<PersonalSecurity />)
+
+    fill(/كلمة المرور الحالية/, 'old-password-value')
+    fill(/^كلمة المرور الجديدة/, 'a-long-enough-passphrase')
+    fill(/تأكيد كلمة المرور الجديدة/, 'a-long-enough-passphrase')
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ كلمة المرور' }))
+
+    expect((await screen.findByRole('alert')).textContent).toContain('تعذر تغيير كلمة المرور')
   })
 
   it('separates a mismatched confirmation from a rejected password', async () => {

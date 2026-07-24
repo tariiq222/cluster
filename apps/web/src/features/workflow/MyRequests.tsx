@@ -25,7 +25,7 @@ function valueOf(record: Record<string, unknown>, key: string): string | null {
   return typeof value === 'string' && value.trim() ? value : null
 }
 
-export function MyRequests({ locale, session, scopeReady, scopeEpoch }: { locale: Locale; session: Session; scopeReady: boolean; scopeEpoch: number }) {
+export function MyRequests({ locale, session, scopeReady, scopeEpoch, onNavigate }: { locale: Locale; session: Session; scopeReady: boolean; scopeEpoch: number; onNavigate?: (path: string) => void }) {
   const copy = workflowCopy[locale]
   const [loading, setLoading] = useState(true)
   const [requests, setRequests] = useState<WorkflowInstance[]>([])
@@ -84,7 +84,7 @@ export function MyRequests({ locale, session, scopeReady, scopeEpoch }: { locale
                     <div><dt>{copy.reqStartedAt}</dt><dd>{formatAge(instance.created_at, locale)}</dd></div>
                     <div><dt>{copy.status}</dt><dd>{copy.workflowState(state)}</dd></div>
                   </dl>
-                   <Button type="button" variant="secondary" onClick={() => { window.location.href = `/my-requests/${instance.id}` }}>{copy.detail}</Button>
+                   <Button type="button" variant="secondary" onClick={() => { onNavigate?.(`/my-requests/${instance.id}`) }}>{copy.detail}</Button>
                 </Panel>
               )
             })}

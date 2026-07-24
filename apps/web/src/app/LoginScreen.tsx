@@ -17,6 +17,7 @@ const DEV_LOGIN_ACCOUNTS = import.meta.env.DEV
   ? ([
       { username: 'w13-e2e-account-a', password: 'North!River7Quartz2026' },
       { username: 'w13-e2e-account-b', password: 'Cedar!Orbit8Harbor2026' },
+      { username: 'platform-admin', password: 'Admin!Cluster9Owner2026' },
     ] as const)
   : ([] as const)
 

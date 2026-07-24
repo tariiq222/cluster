@@ -108,6 +108,24 @@ describe('PeopleAssignments', () => {
     expect(screen.getByRole('dialog', { name: 'إنهاء التكليف' })).toBeTruthy()
   })
 
+  it('programmatically labels assignment creation fields in the drawer', async () => {
+    renderPeopleAssignments()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'إنشاء تكليف' }))
+
+    expect(screen.getByLabelText('بداية التكليف')).toBeTruthy()
+    expect(screen.getByLabelText('نهاية التكليف')).toBeTruthy()
+  })
+
+  it('programmatically labels assignment ending fields in the drawer', async () => {
+    renderPeopleAssignments()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'إنهاء التكليف' }))
+
+    expect(screen.getByLabelText('نهاية التكليف')).toBeTruthy()
+    expect(screen.getByLabelText('سبب الإنهاء')).toBeTruthy()
+  })
+
   it('explains missing prerequisites without hiding employee management', async () => {
     api.listPositions.mockResolvedValue({ items: [], next_cursor: null })
     renderPeopleAssignments()

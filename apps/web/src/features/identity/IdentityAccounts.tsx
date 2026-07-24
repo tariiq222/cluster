@@ -223,6 +223,22 @@ export function IdentityAccounts() {
     } finally { setLoading(false) }
   }
 
+  /**
+   * On an ETag conflict (HTTP 412) the server's view of the account is newer than
+   * what the drawer holds. Reload the account list and reconcile the drawer to the
+   * latest account while keeping the existing localized stale/conflict feedback.
+   * Request ordering is preserved: the reload resolves before the drawer reads
+   * the reconciled account, so the drawer never renders a stale snapshot.
+   */
+  async function reloadAfterConflict() {
+    try {
+      const accountPage = await listUserAccounts(token)
+      setAccounts(accountPage.items)
+    } catch {
+      // Keep the existing localized stale feedback; the list simply stays as-is.
+    }
+  }
+
   useEffect(() => {
     void load()
     // This route reloads only when the authenticated session changes.
@@ -274,6 +290,7 @@ export function IdentityAccounts() {
         token={token}
         onClose={() => setManagedId(null)}
         onChanged={(account) => setAccounts((current) => current.map((item) => item.id === account.id ? account : item))}
+        onConflict={reloadAfterConflict}
       />
     </>}
   </Page>
@@ -354,12 +371,13 @@ function AddAccountDrawer({ open, locale, token, people, onClose, onCreated }: {
  * The available moves come from the account's own state, so the administrator
  * never has to re-pick the account or guess which transition is legal.
  */
-function ManageAccountDrawer({ account, locale, token, onClose, onChanged }: {
+function ManageAccountDrawer({ account, locale, token, onClose, onChanged, onConflict }: {
   account: UserAccount | null
   locale: Locale
   token: string
   onClose: () => void
   onChanged: (account: UserAccount) => void
+  onConflict: () => Promise<void>
 }) {
   const text = copy[locale]
   const [reason, setReason] = useState('')
@@ -387,9 +405,21 @@ function ManageAccountDrawer({ account, locale, token, onClose, onChanged }: {
 
   async function run(action: UserAccountAction) {
     setPending(action); setError(null); setDone(false)
-    try { onChanged(await transitionUserAccount(token, id, action, reason.trim() || undefined)); setReason(''); setDone(true) }
-    catch (failure) { fail(failure instanceof ApiError && failure.status === 412 ? 'stale' : 'save') }
-    finally { setPending(null) }
+    try {
+      onChanged(await transitionUserAccount(token, id, action, reason.trim() || undefined))
+      setReason(''); setDone(true)
+    } catch (failure) {
+      const stale = failure instanceof ApiError && failure.status === 412
+        || (typeof failure === 'object' && failure !== null && 'status' in failure && failure.status === 412)
+      if (stale) {
+        await onConflict()
+        fail('stale')
+      } else {
+        fail('save')
+      }
+    } finally {
+      setPending(null)
+    }
   }
 
   async function sendActivation() {
@@ -416,8 +446,6 @@ function ManageAccountDrawer({ account, locale, token, onClose, onChanged }: {
       {text.activationIssued} {text.activationExpiry}: <span dir="ltr">{activation.expires_at}</span> — {text.activationDelivery}: {text.activationDeliveryControlled}
     </p>}
 
-    {/* The activation link is the only thing worth doing to an unused account,
-        so it leads — the state transitions below stay secondary. */}
     {status === 'pending' && <div className="account-action">
       <Button onClick={() => void sendActivation()} disabled={busy}>{pending === 'activation' ? text.saving : text.sendActivation}</Button>
     </div>}

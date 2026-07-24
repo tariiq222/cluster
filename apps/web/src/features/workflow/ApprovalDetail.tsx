@@ -32,12 +32,14 @@ export function ApprovalDetail({
   stepId,
   scopeReady,
   scopeEpoch,
+  onNavigate,
 }: {
   locale: Locale
   session: Session
   stepId: string
   scopeReady: boolean
   scopeEpoch: number
+  onNavigate?: (path: string) => void
 }) {
   const copy = workflowCopy[locale]
   const [state, setState] = useState<ResourceState>('loading')
@@ -158,7 +160,7 @@ export function ApprovalDetail({
           title={copy.detail}
           description={stepId}
           actions={(
-            <Button variant="secondary" onClick={() => { window.location.href = '/approvals' }}>
+            <Button variant="secondary" onClick={() => { onNavigate?.('/approvals') }}>
               {copy.backToList}
             </Button>
           )}

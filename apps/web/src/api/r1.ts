@@ -106,7 +106,7 @@ export async function getDocumentDownloadUrl(token: string, documentId: string):
   return location
 }
 
-export const searchRecords = async (token: string, query: string) => unwrap<R1Collection>(await generated.search({ q: query, limit: 50 }, requestInit(token)))
+export const searchRecords = async (token: string, query: string, filters?: { type?: string; status?: string }) => unwrap<R1Collection>(await generated.search({ q: query, limit: 50, ...(filters?.type ? { type: filters.type } : {}), ...(filters?.status ? { status: filters.status } : {}) }, requestInit(token)))
 export const listReports = async (token: string) => unwrap<R1Collection>(await generated.listReports({ limit: 50 }, requestInit(token)))
 export const getReport = async (token: string, reportId: string, scopeId?: string) => unwrap<R1Collection>(await generated.getReport(reportId, scopeId ? { scope_id: scopeId } : undefined, requestInit(token)))
 export const requestReportExport = async (token: string, reportId: string, format: 'csv' | 'xlsx' | 'pdf' = 'csv') => unwrap<R1Entity>(await generated.createReportExport(reportId, { format }, requestInit(token, { command: true })))
