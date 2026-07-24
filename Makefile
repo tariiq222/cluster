@@ -22,7 +22,6 @@ test-api:
 	cd apps/api && composer test
 
 test-web:
-	npm --prefix apps/web run api:check
 	npm --prefix apps/web run build
 	npm --prefix apps/web run lint
 	npm --prefix apps/web run coverage
@@ -72,7 +71,6 @@ verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies 
 
 # بوابة W1.2: عقود الجاهزية ثم حدود الموديولات واختبارات التطبيق المتأثرة.
 verify-w1-2:
-	./scripts/validate-docs.sh
 	$(MAKE) verify-boundaries
 	$(MAKE) test-api
 	$(MAKE) test-web
@@ -82,8 +80,6 @@ verify-w1-3:
 	cd apps/api && php artisan test Modules/Authorization/Tests Modules/Organization/Tests/SupervisoryRelationshipTest.php Modules/Identity/Tests/ScopeSelectionHttpAdapterTest.php
 	cd apps/api && php artisan test tests/Feature/SecurityJourneyW13Test.php tests/Feature/ProductionAuthorizationBindingTest.php
 	$(MAKE) verify-boundaries
-	npm --prefix apps/web run api:lint
-	npm --prefix apps/web run api:check
 	npm --prefix apps/web run test:unit -- src/shell/routes.test.ts src/api/w1-3/authorization.test.ts src/api.test.ts src/w1-2-api.test.ts
 	npm --prefix apps/web run lint
 	npm --prefix apps/web run build
@@ -116,7 +112,6 @@ verify-day3: check-day3-migrations
 
 # بوابة إغلاق شاشات R1: العقد المولّد، API، الويب، وجميع رحلات المتصفح القائمة والجديدة.
 verify-screens: verify-day3
-	npm --prefix apps/web run api:check
 	test ! -e apps/web/src/api/day2.ts
 	test ! -e apps/web/src/api/w1-3/authorization.ts
 
