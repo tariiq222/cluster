@@ -1,9 +1,0 @@
-# Replace role aliases with GitLab groups when the project access model is established.
-/docs/governance/ @platform-governance
-/docs/product/ @product-owners
-/docs/architecture/ @platform-engineering
-/docs/domain/ @platform-engineering
-/docs/data-security/ @information-security
-/mkdocs.yml @platform-engineering
-/scripts/ @platform-engineering
-/SECURITY.md @information-security
