@@ -7,6 +7,7 @@ use App\Http\Controllers\Authorization\GetAuthorizationBootstrapController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Features\OperationsOffice\BootstrapOperationsOffice;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
@@ -39,6 +40,17 @@ final class AuthorizationBootstrapStage00CTest extends TestCase
             $decision = $gate->decide(['user_id' => fake()->uuid()], $capability, $this->facts());
             $this->assertNotContains('authorization_bootstrap_pending', $decision->reasonCodes);
         }
+    }
+
+    public function test_pending_bootstrap_does_not_block_a_platform_owner(): void
+    {
+        $ownerId = Str::uuid7()->toString();
+        $this->app->make(BootstrapOperationsOffice::class)->bootstrap($ownerId, Str::uuid7()->toString());
+
+        $decision = $this->gate()->decide(['user_id' => $ownerId], 'work_record.read', $this->facts());
+
+        $this->assertTrue($decision->isAllowed());
+        $this->assertContains('platform_owner_super_admin_override', $decision->reasonCodes);
     }
 
     public function test_completion_is_atomic_idempotent_audited_and_one_way(): void

@@ -32,6 +32,7 @@ final class GetClusterController
             ownerFacilityId: $principal['facility_id'],
             resourceType: 'organization_cluster',
             classification: 'internal',
+            clusterId: OrganizationApi::clusterId(),
         ))->isAllowed()) {
             return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }

@@ -5,8 +5,9 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\CapabilityCatalog;
-use Modules\Authorization\Features\OperationsOffice\BootstrapOperationsOffice;
 use Modules\Authorization\Domain\UuidV7;
+use Modules\Authorization\Features\OperationsOffice\BootstrapOperationsOffice;
+use Modules\Authorization\Infrastructure\Persistence\AuthorizationBootstrapState;
 use Modules\Identity\Infrastructure\Security\PasswordHasher;
 
 /**
@@ -21,6 +22,16 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
 
     public const ACCOUNT_B_ID = '018f6f7d-0c00-7000-8000-000000000022';
 
+    public const PLATFORM_ADMIN_ACCOUNT_ID = '018f6f7d-0c00-7000-8000-000000000023';
+
+    public const PLATFORM_ADMIN_PERSON_ID = '018f6f7d-0c00-7000-8000-000000000033';
+
+    public const PLATFORM_ADMIN_UNIT_ID = '018f6f7d-0c00-7000-8000-000000000043';
+
+    public const PLATFORM_ADMIN_POSITION_ID = '018f6f7d-0c00-7000-8000-000000000053';
+
+    public const PLATFORM_ADMIN_ASSIGNMENT_ID = '018f6f7d-0c00-7000-8000-000000000063';
+
     public const FACILITY_A_ID = '018f6f7d-0c00-7000-8000-000000000011';
 
     public const FACILITY_B_ID = '018f6f7d-0c00-7000-8000-000000000012';
@@ -32,6 +43,10 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
     public const ACCOUNT_A_PASSWORD = 'North!River7Quartz2026';
 
     public const ACCOUNT_B_PASSWORD = 'Cedar!Orbit8Harbor2026';
+
+    public const PLATFORM_ADMIN_USERNAME = 'platform-admin';
+
+    public const PLATFORM_ADMIN_PASSWORD = 'Admin!Cluster9Owner2026';
 
     public const ROLE_CODE = 'journey.r1-operator';
 
@@ -67,7 +82,17 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
         $this->call(AuthorizationCatalogSeeder::class);
         $platformClusterId = DB::table('clusters')->where('singleton_key', 1)->value('id');
         if (is_string($platformClusterId)) {
-            app(BootstrapOperationsOffice::class)->bootstrap(self::ACCOUNT_B_ID, $platformClusterId);
+            app(BootstrapOperationsOffice::class)->bootstrap(self::PLATFORM_ADMIN_ACCOUNT_ID, $platformClusterId);
+        }
+        $bootstrap = app(AuthorizationBootstrapState::class);
+        if ($bootstrap->isPending()) {
+            $reason = 'Local development journey fixture';
+            $bootstrap->complete(
+                self::PLATFORM_ADMIN_ACCOUNT_ID,
+                $reason,
+                'development-journey-authorization-bootstrap',
+                hash('sha256', json_encode(['reason' => $reason], JSON_THROW_ON_ERROR)),
+            );
         }
 
         $now = now();
@@ -202,6 +227,16 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
                 'password' => self::ACCOUNT_B_PASSWORD,
                 'facility_id' => self::FACILITY_B_ID,
             ],
+            [
+                'id' => self::PLATFORM_ADMIN_PERSON_ID,
+                'employee_number' => 'LOCAL-PLATFORM-ADMIN',
+                'display_name_ar' => 'مدير المنصة',
+                'display_name_en' => 'Platform administrator',
+                'account_id' => self::PLATFORM_ADMIN_ACCOUNT_ID,
+                'username' => self::PLATFORM_ADMIN_USERNAME,
+                'password' => self::PLATFORM_ADMIN_PASSWORD,
+                'facility_id' => self::FACILITY_A_ID,
+            ],
         ];
 
         $existingClusterId = DB::table('clusters')->where('singleton_key', 1)->value('id');
@@ -265,52 +300,70 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+            if ($person['account_id'] === self::PLATFORM_ADMIN_ACCOUNT_ID) {
+                DB::table('users')->where('id', $person['account_id'])->update([
+                    'is_admin' => false,
+                    'updated_at' => $now,
+                ]);
+            }
             DB::table('identity_person_account_claims')->insertOrIgnore([
                 'person_id' => $person['id'],
                 'account_id' => $person['account_id'],
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            $passwordHash = $hasher->hash($person['password']);
-            DB::table('credentials')->updateOrInsert(
-                ['user_id' => $person['account_id']],
-                [
-                    'id' => DB::table('credentials')->where('user_id', $person['account_id'])->value('id') ?? UuidV7::generate(),
+            $credentialExists = DB::table('credentials')->where('user_id', $person['account_id'])->exists();
+            if (! $credentialExists) {
+                $passwordHash = $hasher->hash($person['password']);
+                DB::table('credentials')->insert([
+                    'id' => UuidV7::generate(),
+                    'user_id' => $person['account_id'],
                     'password_hash' => $passwordHash,
                     'hash_algorithm' => $hasher->algorithm(),
                     'password_changed_at' => $now,
                     'policy_version' => 'identity-password-v1',
                     'created_at' => $now,
                     'updated_at' => $now,
-                ],
-            );
-            DB::table('identity_password_history')->updateOrInsert(
-                ['user_id' => $person['account_id'], 'password_version' => 1],
-                [
+                ]);
+                DB::table('identity_password_history')->insertOrIgnore([
+                    'user_id' => $person['account_id'],
+                    'password_version' => 1,
                     'password_hash' => $passwordHash,
                     'hash_algorithm' => $hasher->algorithm(),
                     'created_at' => $now,
                     'updated_at' => $now,
-                ],
-            );
+                ]);
+            }
 
-            $unitId = $person['facility_id'] === self::FACILITY_A_ID
-                ? '018f6f7d-0c00-7000-8000-000000000041'
-                : '018f6f7d-0c00-7000-8000-000000000042';
-            $positionId = $person['facility_id'] === self::FACILITY_A_ID
-                ? '018f6f7d-0c00-7000-8000-000000000051'
-                : '018f6f7d-0c00-7000-8000-000000000052';
-            $assignmentId = $person['facility_id'] === self::FACILITY_A_ID
-                ? '018f6f7d-0c00-7000-8000-000000000061'
-                : '018f6f7d-0c00-7000-8000-000000000062';
+            if ($person['facility_id'] === null) {
+                continue;
+            }
+
+            $unitId = $person['account_id'] === self::PLATFORM_ADMIN_ACCOUNT_ID
+                ? self::PLATFORM_ADMIN_UNIT_ID
+                : ($person['facility_id'] === self::FACILITY_A_ID
+                    ? '018f6f7d-0c00-7000-8000-000000000041'
+                    : '018f6f7d-0c00-7000-8000-000000000042');
+            $positionId = $person['account_id'] === self::PLATFORM_ADMIN_ACCOUNT_ID
+                ? self::PLATFORM_ADMIN_POSITION_ID
+                : ($person['facility_id'] === self::FACILITY_A_ID
+                    ? '018f6f7d-0c00-7000-8000-000000000051'
+                    : '018f6f7d-0c00-7000-8000-000000000052');
+            $assignmentId = $person['account_id'] === self::PLATFORM_ADMIN_ACCOUNT_ID
+                ? self::PLATFORM_ADMIN_ASSIGNMENT_ID
+                : ($person['facility_id'] === self::FACILITY_A_ID
+                    ? '018f6f7d-0c00-7000-8000-000000000061'
+                    : '018f6f7d-0c00-7000-8000-000000000062');
             DB::table('organization_units')->insertOrIgnore([
                 'id' => $unitId,
                 'cluster_id' => $clusterId,
                 'parent_id' => $person['facility_id'],
                 'parent_type' => 'facility',
                 'unit_type_id' => $unitTypeId,
-                'code' => 'w13-e2e-unit-'.($person['facility_id'] === self::FACILITY_A_ID ? 'a' : 'b'),
-                'name_ar' => 'وحدة اختبار W1.3',
+                'code' => $person['account_id'] === self::PLATFORM_ADMIN_ACCOUNT_ID
+                    ? 'local-platform-admin-unit'
+                    : 'w13-e2e-unit-'.($person['facility_id'] === self::FACILITY_A_ID ? 'a' : 'b'),
+                'name_ar' => $person['account_id'] === self::PLATFORM_ADMIN_ACCOUNT_ID ? 'إدارة المنصة' : 'وحدة اختبار W1.3',
                 'status' => 'active',
                 'path_cache' => '/'.$clusterId.'/'.$person['facility_id'].'/'.$unitId,
                 'depth' => 2,
@@ -321,8 +374,8 @@ final class DevelopmentJourneyAuthorizationSeeder extends Seeder
             DB::table('positions')->insertOrIgnore([
                 'id' => $positionId,
                 'organization_unit_id' => $unitId,
-                'code' => 'W13-E2E-POS',
-                'title_ar' => 'منصب اختبار W1.3',
+                'code' => $person['account_id'] === self::PLATFORM_ADMIN_ACCOUNT_ID ? 'LOCAL-PLATFORM-ADMIN' : 'W13-E2E-POS',
+                'title_ar' => $person['account_id'] === self::PLATFORM_ADMIN_ACCOUNT_ID ? 'مدير المنصة' : 'منصب اختبار W1.3',
                 'is_active' => true,
                 'lock_version' => 1,
                 'created_at' => $now,

@@ -10,6 +10,11 @@ use Modules\PlatformSettings\Domain\TechnicalLogPage;
 
 final readonly class CompositeTechnicalLogSource implements TechnicalLogSource
 {
+    public function isAvailable(): bool
+    {
+        return true;
+    }
+
     /** @param list<TechnicalLogSource> $sources */
     public function __construct(private array $sources, private string $cursorSigningKey)
     {

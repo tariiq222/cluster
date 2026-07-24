@@ -13,18 +13,27 @@ use App\Http\Controllers\Organization\CreateTemporaryAssignmentController;
 use App\Http\Controllers\Organization\GetTemporaryAssignmentController;
 use App\Http\Controllers\Organization\ListTemporaryAssignmentsController;
 use App\Http\Controllers\Organization\RevokeTemporaryAssignmentController;
+use App\Integrations\Notifications\DatabaseTechnicalAlertRecipientResolver;
+use App\Integrations\PlatformOperations\CommandBackupOperationsGateway;
+use App\Integrations\PlatformOperations\LaravelPlatformHealthGateway;
+use App\Integrations\PlatformOperations\ObjectStorageTechnicalLogArchive;
+use App\Integrations\PlatformOperations\TechnicalLogSourceUnavailable;
+use App\Integrations\PlatformOperations\UnavailableTechnicalLogSource;
+use App\Integrations\PlatformSettings\CatalogTechnicalAlertRecipientCapabilityValidator;
+use App\Integrations\PlatformSettings\PlatformSettingsApi;
 use App\Integrations\WorkRecordAuthorizationFacts;
 use App\Integrations\WorkRecordWorkflowSourceAuthorizationFacts;
-use App\Integrations\PlatformSettings\PlatformSettingsApi;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\CountOperationsOfficeMembers;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\PersistAccessDecision;
+use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\Persistence\CountOperationsOfficeMembers as DatabaseCountOperationsOfficeMembers;
 use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
+use Modules\Authorization\Infrastructure\Simulation\RegisteredAuthorizationSimulationFactsResolver;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
@@ -75,6 +84,7 @@ use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
 use Modules\Identity\Infrastructure\Persistence\ResolveUserForPerson as DatabaseResolveUserForPerson;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
 use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
+use Modules\Notifications\Contracts\ResolveTechnicalAlertRecipients;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
@@ -96,19 +106,17 @@ use Modules\Organization\Infrastructure\Persistence\DatabaseResolvePersonOrganiz
 use Modules\Organization\Infrastructure\Persistence\ValidatePersonReferenceFromPersistence;
 use Modules\PlatformSettings\Contracts\BackupOperationsGateway;
 use Modules\PlatformSettings\Contracts\GetEffectivePlatformSettings;
-use Modules\PlatformSettings\Contracts\PlatformHealthGateway;
+use Modules\PlatformSettings\Contracts\PublishTechnicalAlert;
 use Modules\PlatformSettings\Contracts\ResolveBusinessCalendar;
 use Modules\PlatformSettings\Contracts\TechnicalLogArchive;
 use Modules\PlatformSettings\Contracts\TechnicalLogArchiveStore;
 use Modules\PlatformSettings\Contracts\TechnicalLogSource;
+use Modules\PlatformSettings\Contracts\ValidateTechnicalAlertRecipientCapability;
+use Modules\PlatformSettings\Features\Alerts\Handler\AlertPolicyHandler;
+use Modules\PlatformSettings\Features\Operations\Console\RunPlatformOperationsDispatchCommand;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseBusinessCalendars;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabasePlatformSettings;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseTechnicalLogArchiveStore;
-use App\Integrations\PlatformOperations\CommandBackupOperationsGateway;
-use App\Integrations\PlatformOperations\CompositeTechnicalLogSource;
-use App\Integrations\PlatformOperations\LaravelPlatformHealthGateway;
-use App\Integrations\PlatformOperations\MockTechnicalLogSource;
-use App\Integrations\PlatformOperations\ObjectStorageTechnicalLogArchive;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedRequestFixture;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedWorkDefinition;
 use Modules\WorkDefinitions\Infrastructure\ResolvePublishedRequestFixtureFromPersistence;
@@ -140,6 +148,7 @@ class AppServiceProvider extends ServiceProvider
                 : null,
         ));
         $this->app->bind(DecideAccess::class, BootstrapGatedDecideAccess::class);
+        $this->app->bind(ResolveAuthorizationSimulationFacts::class, RegisteredAuthorizationSimulationFactsResolver::class);
         $this->app->bind(ResolvePublishedRequestFixture::class, ResolvePublishedRequestFixtureFromPersistence::class);
         $this->app->bind(ResolvePublishedWorkDefinition::class, ResolvePublishedWorkDefinitionFromPersistence::class);
         $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
@@ -155,14 +164,41 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ResolveBusinessCalendar::class, fn (): ResolveBusinessCalendar => new DatabaseBusinessCalendars(
             fn (string $scopeType, string $scopeId): ?array => $this->app->make(ResolveOrganizationScopeAncestry::class)->ancestry($scopeType, $scopeId),
         ));
-        $this->app->bind(TechnicalLogArchiveStore::class, DatabaseTechnicalLogArchiveStore::class);
-        $this->app->bind(TechnicalLogSource::class, fn (): TechnicalLogSource => new CompositeTechnicalLogSource([new MockTechnicalLogSource], (string) config('app.key')));
-        $this->app->bind(TechnicalLogArchive::class, fn (): TechnicalLogArchive => new ObjectStorageTechnicalLogArchive(
-            \Storage::disk((string) config('platform_operations.logs.archive_disk', 'local')),
-            $this->app->make(TechnicalLogArchiveStore::class),
+        $this->app->bind(\Modules\PlatformSettings\Features\Calendars\Handler\BusinessCalendarHandler::class, fn (): \Modules\PlatformSettings\Features\Calendars\Handler\BusinessCalendarHandler => new \Modules\PlatformSettings\Features\Calendars\Handler\BusinessCalendarHandler(
+            $this->app->make(ResolveBusinessCalendar::class),
         ));
+        $this->app->bind(\Modules\PlatformSettings\Features\Maintenance\Handler\MaintenanceWindowHandler::class, fn (): \Modules\PlatformSettings\Features\Maintenance\Handler\MaintenanceWindowHandler => new \Modules\PlatformSettings\Features\Maintenance\Handler\MaintenanceWindowHandler);
+        $this->app->bind(\Modules\PlatformSettings\Features\Settings\Handler\PlatformSettingsHandler::class, fn ($app): \Modules\PlatformSettings\Features\Settings\Handler\PlatformSettingsHandler => new \Modules\PlatformSettings\Features\Settings\Handler\PlatformSettingsHandler(
+            $app->make(\Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox::class),
+        ));
+        $this->app->bind(TechnicalLogArchiveStore::class, DatabaseTechnicalLogArchiveStore::class);
+        $this->app->bind(TechnicalLogSource::class, fn (): TechnicalLogSource => $this->resolveTechnicalLogSource());
+        $this->app->bind(TechnicalLogArchive::class, function (): TechnicalLogArchive {
+            try {
+                return new ObjectStorageTechnicalLogArchive(
+                    \Storage::disk((string) config('platform_operations.logs.archive_disk', 'local')),
+                    $this->app->make(TechnicalLogArchiveStore::class),
+                );
+            } catch (\Throwable) {
+                return new class implements TechnicalLogArchive
+                {
+                    public function archive(\Modules\PlatformSettings\Domain\ArchiveBatch $batch): \Modules\PlatformSettings\Domain\ArchiveManifest
+                    {
+                        throw new TechnicalLogSourceUnavailable('Technical log archive is not configured.');
+                    }
+
+                    public function requestRestore(string $manifestId, string $actorId, string $reason): string
+                    {
+                        throw new TechnicalLogSourceUnavailable('Technical log archive is not configured.');
+                    }
+                };
+            }
+        });
         $this->app->bind(BackupOperationsGateway::class, fn (): BackupOperationsGateway => new CommandBackupOperationsGateway(config('platform_operations')));
-        $this->app->bind(PlatformHealthGateway::class, LaravelPlatformHealthGateway::class);
+        $this->app->bind(\Modules\PlatformSettings\Contracts\PlatformHealthGateway::class, fn (): \Modules\PlatformSettings\Contracts\PlatformHealthGateway => new LaravelPlatformHealthGateway($this->app->make(BackupOperationsGateway::class)));
+        $this->app->bind(ValidateTechnicalAlertRecipientCapability::class, CatalogTechnicalAlertRecipientCapabilityValidator::class);
+        $this->app->bind(PublishTechnicalAlert::class, AlertPolicyHandler::class);
+        $this->app->bind(ResolveTechnicalAlertRecipients::class, DatabaseTechnicalAlertRecipientResolver::class);
         $this->app->bind(ResolvePrincipalContext::class, SessionPrincipalContextResolver::class);
         $this->app->bind(ResolveAccountEntitlement::class, DatabaseResolveAccountEntitlement::class);
         $this->app->bind(ResolveUserForPerson::class, DatabaseResolveUserForPerson::class);
@@ -330,11 +366,13 @@ class AppServiceProvider extends ServiceProvider
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/CreateNotificationsTable.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W18CreateNotificationDeliveryTables.php'),
             base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W13AddNotificationSourceFacts.php'),
+            base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W20UpgradeTechnicalAlertFanoutSchema.php'),
             base_path('Modules/Search/Infrastructure/Persistence/Migrations/CreateSearchProjectionTables.php'),
             base_path('Modules/Reporting/Infrastructure/Persistence/Migrations/CreateReportingProjectionTables.php'),
             base_path('Modules/PlatformSettings/Infrastructure/Persistence/Migrations/CreatePlatformSettingsTables.php'),
+            base_path('Modules/PlatformSettings/Infrastructure/Persistence/Migrations/CreateTechnicalLogArchiveTables.php'),
         ]);
-        $this->commands([ExpireTemporaryAssignmentsCommand::class]);
+        $this->commands([ExpireTemporaryAssignmentsCommand::class, RunPlatformOperationsDispatchCommand::class]);
 
         if ($this->authorizationProduction()) {
             $this->assertAuthorizationRuntimeSafe();
@@ -420,5 +458,16 @@ class AppServiceProvider extends ServiceProvider
             'bucket' => $available['bucket'] ?? null,
             'kms_key_id' => $available['options']['SSEKMSKeyId'] ?? null,
         ]);
+    }
+
+    /**
+     * The technical-logs capability is DEFERRED. Production never returns
+     * the deterministic mock source. The binding resolves to the
+     * unavailable sentinel; tests that want the mock must rebind
+     * `TechnicalLogSource` explicitly via `$this->app->instance(...)`.
+     */
+    private function resolveTechnicalLogSource(): TechnicalLogSource
+    {
+        return new UnavailableTechnicalLogSource;
     }
 }

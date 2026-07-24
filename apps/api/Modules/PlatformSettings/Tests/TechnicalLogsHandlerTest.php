@@ -3,6 +3,7 @@
 namespace Modules\PlatformSettings\Tests;
 
 use App\Integrations\PlatformOperations\CompositeTechnicalLogSource;
+use App\Integrations\PlatformOperations\TechnicalLogSourceUnavailable;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Modules\PlatformSettings\Contracts\TechnicalLogArchive;
@@ -57,11 +58,11 @@ final class TechnicalLogsHandlerTest extends TestCase
 
     public function test_composite_reads_each_source_separately_orders_entries_and_signs_its_cursor(): void
     {
-        $audit = new TechnicalLogsTestSource('audit', [
+        $audit = new TechnicalLogsTestSource([
             $this->entry('audit-2', 'audit', '2026-01-03T08:00:00+03:00'),
             $this->entry('audit-1', 'audit', '2026-01-01T08:00:00+03:00'),
         ]);
-        $security = new TechnicalLogsTestSource('security', [
+        $security = new TechnicalLogsTestSource([
             $this->entry('security-1', 'security', '2026-01-02T08:00:00+03:00'),
         ]);
         $source = new CompositeTechnicalLogSource([$audit, $security], 'test-cursor-secret');
@@ -83,7 +84,7 @@ final class TechnicalLogsHandlerTest extends TestCase
     public function test_restore_requires_the_logs_restore_capability_and_a_reason(): void
     {
         $archive = new TechnicalLogsTestArchive;
-        $handler = new TechnicalLogsHandler(new TechnicalLogsTestSource('audit', []), $archive);
+        $handler = new TechnicalLogsHandler(new TechnicalLogsTestSource([]), $archive);
 
         try {
             $handler->requestRestore('manifest-001', 'actor-001', 'Incident investigation', []);
@@ -101,20 +102,12 @@ final class TechnicalLogsHandlerTest extends TestCase
         $this->assertSame(['manifest-001', 'actor-001', 'Incident investigation'], $archive->lastRequest);
     }
 
-    public function test_v1_container_binding_exposes_only_the_deterministic_redacted_mock_source(): void
+    public function test_production_binding_does_not_expose_deterministic_mock_entries(): void
     {
         $source = $this->app->make(TechnicalLogSource::class);
 
-        $page = $source->search(new TechnicalLogFilter(perPage: 10));
-
-        $this->assertSame(['audit', 'security', 'system', 'operations'], array_map(
-            static fn (TechnicalLogEntry $entry): string => $entry->category,
-            $page->entries,
-        ));
-        $this->assertSame('[REDACTED]', $page->entries[0]->context['document_content']);
-        $this->assertSame('[REDACTED]', $page->entries[1]->context['password']);
-        $this->assertSame('[REDACTED]', $page->entries[0]->context['cookie']);
-        $this->assertSame('[REDACTED]', $page->entries[3]->context['national_id']);
+        $this->expectException(TechnicalLogSourceUnavailable::class);
+        $source->search(new TechnicalLogFilter(perPage: 10));
     }
 
     public function test_composite_drains_each_source_cursor_before_building_the_signed_composite_page(): void
@@ -143,7 +136,12 @@ final class TechnicalLogsTestSource implements TechnicalLogSource
     public int $calls = 0;
 
     /** @param list<TechnicalLogEntry> $entries */
-    public function __construct(private readonly string $name, private readonly array $entries) {}
+    public function __construct(private readonly array $entries) {}
+
+    public function isAvailable(): bool
+    {
+        return true;
+    }
 
     public function search(TechnicalLogFilter $filter): TechnicalLogPage
     {
@@ -176,6 +174,11 @@ final class TechnicalLogsPagedTestSource implements TechnicalLogSource
     public int $calls = 0;
 
     public function __construct(private readonly int $count) {}
+
+    public function isAvailable(): bool
+    {
+        return true;
+    }
 
     public function search(TechnicalLogFilter $filter): TechnicalLogPage
     {

@@ -48,6 +48,7 @@ final class ListTemporaryAssignmentsController
             resourceType: 'organization_temporary_assignment',
             classification: 'internal',
             organizationUnitId: $organizationUnitId,
+            clusterId: OrganizationApi::clusterId(),
         ))->isAllowed()) {
             return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }

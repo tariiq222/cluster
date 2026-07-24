@@ -10,6 +10,11 @@ use Modules\PlatformSettings\Domain\TechnicalLogPage;
 
 final readonly class MockTechnicalLogSource implements TechnicalLogSource
 {
+    public function isAvailable(): bool
+    {
+        return true;
+    }
+
     public function search(TechnicalLogFilter $filter): TechnicalLogPage
     {
         $entries = array_values(array_filter($this->fixtures(), static fn (TechnicalLogEntry $entry): bool => ($filter->category === null || $entry->category === $filter->category)

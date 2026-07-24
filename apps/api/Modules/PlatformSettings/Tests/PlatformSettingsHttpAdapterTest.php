@@ -223,7 +223,7 @@ final class PlatformSettingsHttpDecider implements DecideAccess
         return new AccessDecision(
             $this->deny ? 'deny' : 'allow',
             $capability,
-            $facts?->resourceType ?? 'platform_settings',
+            ($facts === null ? 'platform_settings' : $facts->resourceType),
             [],
             'test',
             'test',
@@ -242,7 +242,7 @@ final class PlatformSettingsScopeDecider implements DecideAccess
         $denied = ($this->blockedFacility !== null && $facts?->ownerFacilityId === $this->blockedFacility)
             || ($this->denyOverride && $capability === 'platform_settings.calendar.override_official_holiday');
 
-        return new AccessDecision($denied ? 'deny' : 'allow', $capability, $facts?->resourceType ?? 'business_calendar', [], 'test', 'test', 'internal');
+        return new AccessDecision($denied ? 'deny' : 'allow', $capability, $facts === null ? 'business_calendar' : $facts->resourceType, [], 'test', 'test', 'internal');
     }
 }
 
@@ -265,7 +265,7 @@ final class PlatformSettingsOwnerPrincipalResolver implements ResolveDevelopment
         return ['access_token' => 'test', 'expires_at' => now()->addHour()->toIso8601String()];
     }
 
-    public function resolve(Request $request): ?array
+    public function resolve(Request $request): array
     {
         return ['user_id' => $this->owner, 'facility_id' => $this->facility];
     }

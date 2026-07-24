@@ -45,7 +45,7 @@ final class PlatformOwnerRoleTest extends TestCase
         ]);
     }
 
-    public function test_platform_owner_uses_the_real_engine_and_explicit_deny_still_wins(): void
+    public function test_platform_owner_bypasses_explicit_denies(): void
     {
         $this->app->make(BootstrapOperationsOffice::class)->bootstrap(self::OWNER, self::CLUSTER);
         $engine = $this->app->make(RbacAbacDecideAccess::class);
@@ -76,13 +76,13 @@ final class PlatformOwnerRoleTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $denied = $engine->decide($this->actor(), 'workflow.approve', $facts);
-        $this->assertFalse($denied->isAllowed());
-        $this->assertContains('explicit_deny', $denied->reasonCodes);
+        $override = $engine->decide($this->actor(), 'workflow.approve', $facts);
+        $this->assertTrue($override->isAllowed());
+        $this->assertContains('platform_owner_super_admin_override', $override->reasonCodes);
         $this->assertDatabaseHas('access_decisions', [
             'actor_user_id' => self::OWNER,
             'action' => 'workflow.approve',
-            'decision' => 'deny',
+            'decision' => 'allow',
         ]);
     }
 

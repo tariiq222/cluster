@@ -50,7 +50,7 @@ final class MaintenanceWindowsController
         if ($row === null) {
             return $this->api->problem(404, 'resource-not-found', 'Not Found', 'Maintenance window was not found.', $this->api->correlationId($request));
         }
-        $context = $this->api->authorize($request, 'platform_operations.maintenance.manage', $this->api->facts('platform_maintenance_window', $windowId, null, (string) $row->created_by));
+        $context = $this->api->authorize($request, 'platform_operations.maintenance.cancel', $this->api->facts('platform_maintenance_window', $windowId, null, (string) $row->created_by));
         if ($context instanceof JsonResponse) {
             return $context;
         }

@@ -1,22 +1,21 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace Modules\Tasks\Features\Http;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Tasks\Features\CompleteTask\Handler\CompleteTaskHandler;
 use Modules\Tasks\Features\CreateTaskFromWorkflowStep\Handler\CreateTaskFromWorkflowStepHandler;
-use Shared\Contracts\TransactionalOutbox;
+use Modules\Tasks\Features\TransitionTask\Handler\TransitionTaskHandler;
+use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
 
 final class TaskController
 {
-    use HttpSupport;
+    use TaskHttpSupport;
 
-    public function __construct(private readonly ResolveDevelopmentFixturePrincipal $resolver, private readonly CreateTaskFromWorkflowStepHandler $creator, private readonly CompleteTaskHandler $completer, private readonly TransactionalOutbox $outbox, private readonly DecideAccess $access) {}
+    public function __construct(private readonly ResolveDevelopmentFixturePrincipal $resolver, private readonly CreateTaskFromWorkflowStepHandler $creator, private readonly CompleteTaskHandler $completer, private readonly TransitionTaskHandler $transitioner, private readonly DecideAccess $access, private readonly TaskHttpStore $store) {}
 
     public function index(Request $request): mixed
     {
@@ -29,7 +28,7 @@ final class TaskController
         }
 
         $items = [];
-        foreach (DB::table('tasks')->where('assignee_user_id', $p['user_id'])->orderBy('created_at')->get() as $row) {
+        foreach ($this->store->listForAssignee($p['user_id']) as $row) {
             if ($this->allowed($p, $row, 'tasks.read', $c)) {
                 $items[] = (array) $row;
             }
@@ -117,7 +116,7 @@ final class TaskController
             return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
         }
 
-        $task = DB::table('tasks')->where('id', $taskId)->first();
+        $task = $this->store->find($taskId);
         if ($task === null) {
             return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
         }
@@ -166,12 +165,12 @@ final class TaskController
             return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
         }
 
-        $now = now();
-        $updates['lock_version'] = $expected + 1;
-        $updates['updated_at'] = $now;
-        DB::table('tasks')->where('id', $taskId)->where('lock_version', $expected)->update($updates);
+        $updated = $this->store->update($taskId, $expected, $updates);
+        if ($updated === null) {
+            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
+        }
 
-        return $this->response((array) DB::table('tasks')->where('id', $taskId)->first(), 200, $c, $expected + 1);
+        return $this->response((array) $updated, 200, $c, $expected + 1);
     }
 
     public function show(Request $request, string $taskId): mixed
@@ -184,7 +183,7 @@ final class TaskController
         if ($p === null) {
             return $this->problem(401, 'authentication-required', 'Authentication is required.', $c);
         }
-        $task = DB::table('tasks')->where('id', $taskId)->where('assignee_user_id', $p['user_id'])->first();
+        $task = $this->store->findForAssignee($taskId, $p['user_id']);
 
         if ($task === null) {
             return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
@@ -207,8 +206,8 @@ final class TaskController
         } $key = $this->commandHeaders($request);
         if ($key === '') {
             return $this->problem(400, 'invalid-idempotency-key', 'Idempotency-Key is required.', $c);
-        } $step = DB::table('workflow_step_instances')->where('id', $stepId)->first();
-        if ($step === null) {
+        }
+        if (! $this->store->workflowStepExists($stepId)) {
             return $this->problem(404, 'resource-not-found', 'The workflow step is not available.', $c);
         }
         if (! $this->allowed($p, null, 'tasks.create', $c)) {
@@ -239,7 +238,7 @@ final class TaskController
         } $key = $this->commandHeaders($request);
         if ($key === '') {
             return $this->problem(400, 'invalid-idempotency-key', 'Idempotency-Key is required.', $c);
-        } $task = DB::table('tasks')->where('id', $taskId)->first();
+        } $task = $this->store->find($taskId);
         if ($task === null) {
             return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
         }
@@ -266,13 +265,13 @@ final class TaskController
             } catch (\Throwable $e) {
                 return $this->problem(409, 'task-transition-failed', $e->getMessage(), $c);
             }
-        } $status = match ($action) {
-            'start' => 'in_progress', 'return', 'return-completion' => 'returned', 'submit-completion' => 'submitted', default => 'cancelled'
-        };
-        DB::table('tasks')->where('id', $taskId)->where('lock_version', $expected)->update(['status' => $status, 'lock_version' => $expected + 1, 'updated_at' => now()]);
-        $this->outbox->append(Str::uuid7()->toString(), $taskId, 'task.'.$action.'.v1', ['task_id' => $taskId, 'actor_user_id' => $p['user_id']]);
+        }
+        $updated = $this->transitioner->handle($taskId, $expected, $action, $p['user_id']);
+        if ($updated === null) {
+            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
+        }
 
-        return $this->response((array) DB::table('tasks')->where('id', $taskId)->first(), 200, $c, $expected + 1);
+        return $this->response((array) $updated, 200, $c, $expected + 1);
     }
 
     private function isUuidV7(mixed $value): bool
@@ -328,7 +327,7 @@ final class TaskController
     private function allowed(array $principal, ?\stdClass $task, string $capability, string $correlationId, ?string $ownerUnitId = null): bool
     {
         $scopeId = $ownerUnitId ?? ($task->owner_organization_unit_id ?? null) ?? ($principal['facility_id'] ?? null);
-        $participants = $task === null ? [] : DB::table('task_participants')->where('task_id', $task->id)->pluck('user_id')->all();
+        $participants = $task === null ? [] : $this->store->participantIds((string) $task->id);
 
         return $this->access->decide(
             [

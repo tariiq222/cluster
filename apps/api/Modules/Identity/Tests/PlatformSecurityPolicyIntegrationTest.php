@@ -46,8 +46,6 @@ final class PlatformSecurityPolicyIntegrationTest extends TestCase
             'failed_login_window_minutes' => 1,
             'lockout_minutes' => 5,
         ]);
-        $settings->draftSecurity = ['minimum_password_length' => 20];
-
         $this->assertContains('min_length', $this->app->make(PasswordPolicy::class)->violations('ValidPass123'));
         $this->assertSame([], $this->app->make(PasswordPolicy::class)->violations('Longer Valid Pass 123!'));
 
@@ -93,6 +91,11 @@ final class PlatformSecurityPolicyIntegrationTest extends TestCase
                     'minimum_password_length' => 18,
                 ]];
             }
+
+            public function hasPublishedVersion(): bool
+            {
+                return true;
+            }
         };
         $policy = new PasswordPolicy(null, $settings);
 
@@ -101,14 +104,85 @@ final class PlatformSecurityPolicyIntegrationTest extends TestCase
         $this->assertContains('min_length', $policy->violations('Valid Pass 123'));
     }
 
+    public function test_published_security_policy_equal_to_bootstrap_defaults_remains_authoritative(): void
+    {
+        $this->bindPublishedSecurity([
+            'idle_timeout_minutes' => 30,
+            'absolute_session_hours' => 8,
+            'minimum_password_length' => 14,
+            'password_history_count' => 5,
+            'failed_login_attempts' => 4,
+            'failed_login_window_minutes' => 1,
+            'lockout_minutes' => 30,
+        ]);
+
+        $this->assertTrue($this->app->make(GetEffectivePlatformSettings::class)->hasPublishedVersion());
+        $this->assertContains('min_length', $this->app->make(PasswordPolicy::class)->violations('ValidPass123'));
+        $this->assertSame([], $this->app->make(PasswordPolicy::class)->violations('Longer Valid Pass 123!'));
+    }
+
+    public function test_environment_config_does_not_override_an_explicitly_published_security_policy(): void
+    {
+        config(['identity.password.min_length' => 6]);
+        $this->bindPublishedSecurity([
+            'minimum_password_length' => 18,
+            'idle_timeout_minutes' => 30,
+            'absolute_session_hours' => 8,
+            'password_history_count' => 5,
+            'failed_login_attempts' => 4,
+            'failed_login_window_minutes' => 1,
+            'lockout_minutes' => 30,
+        ]);
+
+        $this->assertContains('min_length', $this->app->make(PasswordPolicy::class)->violations('ValidPass123'));
+        $this->assertSame([], $this->app->make(PasswordPolicy::class)->violations('Longer Valid Pass 123!!'));
+    }
+
+    public function test_no_published_version_means_identity_uses_environment_floors(): void
+    {
+        config(['identity.password.min_length' => 14]);
+        $this->app->instance(GetEffectivePlatformSettings::class, new class implements GetEffectivePlatformSettings
+        {
+            public function current(): array
+            {
+                return ['default_locale' => 'ar', 'timezone' => 'Asia/Riyadh', 'security' => []];
+            }
+
+            public function hasPublishedVersion(): bool
+            {
+                return false;
+            }
+        });
+
+        $this->assertContains('min_length', $this->app->make(PasswordPolicy::class)->violations('ValidPass123'));
+        $this->assertSame([], $this->app->make(PasswordPolicy::class)->violations('ValidPass1234More'));
+    }
+
+    public function test_contract_failure_fails_safely_and_uses_environment_floor(): void
+    {
+        config(['identity.password.min_length' => 14]);
+        $this->app->instance(GetEffectivePlatformSettings::class, new class implements GetEffectivePlatformSettings
+        {
+            public function current(): array
+            {
+                throw new \RuntimeException('platform settings unavailable');
+            }
+
+            public function hasPublishedVersion(): bool
+            {
+                throw new \RuntimeException('platform settings unavailable');
+            }
+        });
+
+        $this->assertContains('min_length', $this->app->make(PasswordPolicy::class)->violations('ValidPass123'));
+        $this->assertSame([], $this->app->make(PasswordPolicy::class)->violations('ValidPass1234More'));
+    }
+
     /** @param array<string, int> $security */
     private function bindPublishedSecurity(array $security): GetEffectivePlatformSettings
     {
         $settings = new class($security) implements GetEffectivePlatformSettings
         {
-            /** @var array<string, int> */
-            public array $draftSecurity = [];
-
             /** @param array<string, int> $publishedSecurity */
             public function __construct(private readonly array $publishedSecurity) {}
 
@@ -119,6 +193,11 @@ final class PlatformSecurityPolicyIntegrationTest extends TestCase
                     'timezone' => 'Asia/Riyadh',
                     'security' => $this->publishedSecurity,
                 ];
+            }
+
+            public function hasPublishedVersion(): bool
+            {
+                return true;
             }
         };
         $this->app->instance(GetEffectivePlatformSettings::class, $settings);

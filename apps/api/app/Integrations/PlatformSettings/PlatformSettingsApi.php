@@ -52,7 +52,7 @@ final class PlatformSettingsApi
             return null;
         }
 
-return (int) $matches[1];
+        return (int) $matches[1];
     }
 
     public function idempotencyKey(Request $request): ?string
@@ -70,7 +70,7 @@ return (int) $matches[1];
             $response->header('ETag', '"'.$lockVersion.'"');
         }
 
-return $response;
+        return $response;
     }
 
     public function problem(int $status, string $type, string $title, string $detail, ?string $correlationId = null): JsonResponse
@@ -103,7 +103,7 @@ return $response;
             return [];
         }
 
-return $this->ancestry->ancestry('facility', $scopeId) ?? [];
+        return $this->ancestry->ancestry('facility', $scopeId) ?? [];
     }
 
     private function withPrincipalScope(RecordFacts $facts, string $facilityId): RecordFacts
@@ -115,6 +115,6 @@ return $this->ancestry->ancestry('facility', $scopeId) ?? [];
             return $facts;
         }
 
-return new RecordFacts(ownerFacilityId: $facts->ownerFacilityId ?? ($scope['facility_id'] ?? null), resourceType: $facts->resourceType, classification: $facts->classification, factsVersion: $facts->factsVersion, organizationUnitId: $facts->organizationUnitId ?? ($scope['unit_id'] ?? null), recordId: $facts->recordId, sourceModule: $facts->sourceModule, clusterId: $scope['cluster_id'], createdByUserId: $facts->createdByUserId, ownerUserId: $facts->ownerUserId, responsibleUserId: $facts->responsibleUserId, sharedUnitIds: $facts->sharedUnitIds, sharedUserIds: $facts->sharedUserIds, participantIds: $facts->participantIds, lifecycleState: $facts->lifecycleState, workflowState: $facts->workflowState, fieldPolicyKey: $facts->fieldPolicyKey, workTypeVersionId: $facts->workTypeVersionId, legalHold: $facts->legalHold, lockVersion: $facts->lockVersion);
+        return new RecordFacts(ownerFacilityId: $facts->ownerFacilityId ?? ($scope['facility_id'] ?? null), resourceType: $facts->resourceType, classification: $facts->classification, factsVersion: $facts->factsVersion, organizationUnitId: $facts->organizationUnitId ?? ($scope['unit_id'] ?? null), recordId: $facts->recordId, sourceModule: $facts->sourceModule, clusterId: $scope['cluster_id'], createdByUserId: $facts->createdByUserId, ownerUserId: $facts->ownerUserId, responsibleUserId: $facts->responsibleUserId, sharedUnitIds: $facts->sharedUnitIds, sharedUserIds: $facts->sharedUserIds, participantIds: $facts->participantIds, lifecycleState: $facts->lifecycleState, workflowState: $facts->workflowState, fieldPolicyKey: $facts->fieldPolicyKey, workTypeVersionId: $facts->workTypeVersionId, legalHold: $facts->legalHold, lockVersion: $facts->lockVersion);
     }
 }

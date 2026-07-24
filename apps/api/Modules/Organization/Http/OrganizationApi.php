@@ -4,6 +4,8 @@ namespace Modules\Organization\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class OrganizationApi
@@ -40,6 +42,17 @@ final class OrganizationApi
 
         return is_string($contentType)
             && strtolower(trim(explode(';', $contentType, 2)[0])) === 'application/merge-patch+json';
+    }
+
+    public static function clusterId(): ?string
+    {
+        if (! Schema::hasTable('clusters')) {
+            return null;
+        }
+
+        $clusterId = DB::table('clusters')->where('singleton_key', 1)->value('id');
+
+        return is_string($clusterId) ? $clusterId : null;
     }
 
     /** @param array<string, mixed> $data */

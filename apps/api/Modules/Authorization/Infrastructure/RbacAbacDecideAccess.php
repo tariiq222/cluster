@@ -16,6 +16,7 @@ use Modules\Authorization\Domain\AuthorizationScope;
 use Modules\Authorization\Domain\ClassificationLevel;
 use Modules\Authorization\Domain\ExplicitDeny;
 use Modules\Authorization\Domain\UuidV7;
+use Modules\Authorization\Features\OperationsOffice\OperationsOfficeRoleCatalog;
 use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use stdClass;
@@ -37,6 +38,30 @@ final class RbacAbacDecideAccess implements DecideAccess
     public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
         return $this->decideWithPersistence($actor, $capability, $facts, false);
+    }
+
+    /** @param array<string, mixed> $actor */
+    public function isPlatformOwner(array $actor): bool
+    {
+        $userId = $this->actorUserId($actor);
+        if ($userId === null) {
+            return false;
+        }
+
+        $now = now()->utc();
+
+        return DB::table('role_assignments')
+            ->join('roles', 'roles.id', '=', 'role_assignments.role_id')
+            ->where('role_assignments.user_id', $userId)
+            ->where('role_assignments.status', 'active')
+            ->where('role_assignments.start_at', '<=', $now)
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('role_assignments.end_at')
+                    ->orWhere('role_assignments.end_at', '>', $now);
+            })
+            ->where('roles.status', 'active')
+            ->where('roles.code', OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE)
+            ->exists();
     }
 
     private function decideWithPersistence(
@@ -114,13 +139,21 @@ final class RbacAbacDecideAccess implements DecideAccess
     /** @return array{decision: 'allow'|'deny', reasonCodes: list<string>, obligations: list<string>} */
     private function evaluate(array $actor, string $capability, ?RecordFacts $facts): array
     {
-        if ($facts === null) {
-            return $this->denyOutcome(['record_facts_unavailable']);
-        }
-
         $userId = $this->actorUserId($actor);
         if ($userId === null) {
             return $this->denyOutcome(['actor_user_id_missing']);
+        }
+
+        if ($this->isPlatformOwner($actor)) {
+            return [
+                'decision' => 'allow',
+                'reasonCodes' => ['platform_owner_super_admin_override'],
+                'obligations' => [],
+            ];
+        }
+
+        if ($facts === null) {
+            return $this->denyOutcome(['record_facts_unavailable']);
         }
 
         if (CapabilityCatalog::supports($capability) === false) {

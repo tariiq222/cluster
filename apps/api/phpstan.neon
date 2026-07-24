@@ -9,3 +9,13 @@ parameters:
         - Modules
         - Shared
         - tests
+    excludePaths:
+        - tests/PHPStan/*
+    bootstrapFiles:
+        - tests/PHPStan/aliased-types.stub.php
+    ignoreErrors:
+        -
+            message: '#will always evaluate to false#'
+            paths:
+                - Modules/PlatformSettings/Tests/PlatformOperationsHttpAdapterTest.php
+                - Modules/PlatformSettings/Tests/TechnicalLogDeferralTest.php

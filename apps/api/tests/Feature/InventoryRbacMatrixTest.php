@@ -23,7 +23,7 @@ class InventoryRbacMatrixTest extends TestCase
 
         $this->assertArrayHasKey('rows', $payload);
         $this->assertArrayHasKey('middleware_tuples', $payload);
-        $this->assertCount(119, $payload['rows']);
+        $this->assertCount(143, $payload['rows']);
         $this->assertGreaterThanOrEqual(5, count($payload['middleware_tuples']));
         $this->assertLessThanOrEqual(8, count($payload['middleware_tuples']));
     }

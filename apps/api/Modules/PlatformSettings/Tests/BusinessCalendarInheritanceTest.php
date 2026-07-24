@@ -163,7 +163,7 @@ final class BusinessCalendarInheritanceTest extends TestCase
         $this->assertSame('10:00:00+03:00', $first->startsAt?->format('H:i:sP'));
         $this->assertSame('15:00:00+03:00', $last->endsAt?->format('H:i:sP'));
         $this->assertSame('08:00:00+03:00', $after->startsAt?->format('H:i:sP'));
-        $this->assertSame('Asia/Riyadh', $first->startsAt?->getTimezone()->getName());
+        $this->assertSame('Asia/Riyadh', $first->startsAt->getTimezone()->getName());
     }
 
     /** @return array{DatabaseBusinessCalendars, BusinessCalendarHandler} */

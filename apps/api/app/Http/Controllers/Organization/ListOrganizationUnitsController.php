@@ -34,6 +34,7 @@ final class ListOrganizationUnitsController
             ownerFacilityId: $principal['facility_id'],
             resourceType: 'organization_unit',
             classification: 'internal',
+            clusterId: OrganizationApi::clusterId(),
         ))->isAllowed()) {
             return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }

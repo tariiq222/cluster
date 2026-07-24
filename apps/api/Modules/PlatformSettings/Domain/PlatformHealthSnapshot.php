@@ -10,7 +10,7 @@ final readonly class PlatformHealthSnapshot
     public function __construct(public array $checks, public string $status)
     {
         foreach ($checks as $check) {
-            if (! $check instanceof HealthCheckResult || ! HealthCheckResult::isSafeMessageCode($check->messageCode)) {
+            if (! HealthCheckResult::isSafeMessageCode($check->messageCode)) {
                 throw new RuntimeException('Health check messages must be safe codes.');
             }
         }

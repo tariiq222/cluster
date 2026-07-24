@@ -20,7 +20,7 @@ class InventoryRoutesScriptTest extends TestCase
         [$exitCode, $output] = $this->runCommand('python3 scripts/inventory-routes.py --check');
 
         $this->assertSame(0, $exitCode, $output);
-        $this->assertStringContainsString('parsed=119', $output);
+        $this->assertStringContainsString('parsed=143', $output);
     }
 
     /**

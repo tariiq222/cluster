@@ -13,7 +13,7 @@ return [
         'ttl_minutes' => 480,
         'idle_minutes' => 30,
         'same_site' => 'lax',
-        'secure' => env('APP_ENV') === 'production' ? true : (bool) env('IDENTITY_SESSION_SECURE', true),
+        'secure' => env('APP_ENV') === 'production' || env('APP_ENV') === 'testing' ? true : (bool) env('IDENTITY_SESSION_SECURE', false),
         'http_only' => true,
         'path' => '/',
         'max_concurrent' => 3,

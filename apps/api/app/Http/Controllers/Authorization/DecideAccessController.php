@@ -11,7 +11,6 @@ use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
 use Modules\Authorization\Http\AuthorizationApi;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
-use Modules\Authorization\Infrastructure\Simulation\RegisteredAuthorizationSimulationFactsResolver;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 final class DecideAccessController
@@ -19,7 +18,7 @@ final class DecideAccessController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
-        private readonly ?ResolveAuthorizationSimulationFacts $factsResolver = null,
+        private readonly ResolveAuthorizationSimulationFacts $factsResolver,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -48,8 +47,7 @@ final class DecideAccessController
             return AuthorizationApi::problem(422, 'invalid-access-decision', 'Unprocessable Entity', 'The access decision payload is invalid.', $correlationId);
         }
 
-        $facts = ($this->factsResolver ?? new RegisteredAuthorizationSimulationFactsResolver)
-            ->resolve(new AuthorizationResourceReference($reference['type'], $reference['id']));
+        $facts = $this->factsResolver->resolve(new AuthorizationResourceReference($reference['type'], $reference['id']));
         if ($facts === null) {
             return AuthorizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }

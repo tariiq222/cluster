@@ -5,15 +5,24 @@ namespace Modules\Identity\Domain;
 use Modules\Identity\Exceptions\WeakPassword;
 use Modules\Identity\Features\Credentials\Contracts\UsernameDenylist;
 use Modules\Identity\Infrastructure\Security\LocalUsernameDenylist;
+use Modules\PlatformSettings\Contracts\GetEffectivePlatformSettings;
+use Throwable;
 
 final class PasswordPolicy
 {
-    public function __construct(private readonly ?UsernameDenylist $denylist = null) {}
+    /** @var array<string, int>|null */
+    private ?array $cachedSecurity = null;
+
+    public function __construct(
+        private readonly ?UsernameDenylist $denylist = null,
+        private readonly ?GetEffectivePlatformSettings $settings = null,
+    ) {}
 
     /** @return list<string> */
     public function violations(string $password, ?string $username = null): array
     {
-        $min = (int) config('identity.password.min_length', 14);
+        $security = $this->securitySnapshot();
+        $min = (int) ($security['minimum_password_length'] ?? config('identity.password.min_length', 14));
         $max = (int) config('identity.password.max_length', 128);
         $violations = [];
 
@@ -53,5 +62,28 @@ final class PasswordPolicy
         if ($violations !== []) {
             throw new WeakPassword($violations);
         }
+    }
+
+    /** @return array<string, int> */
+    private function securitySnapshot(): array
+    {
+        if ($this->settings === null) {
+            return [];
+        }
+        if ($this->cachedSecurity !== null) {
+            return $this->cachedSecurity;
+        }
+        try {
+            if (! $this->settings->hasPublishedVersion()) {
+                $this->cachedSecurity = [];
+            } else {
+                $current = $this->settings->current();
+                $this->cachedSecurity = $current['security'];
+            }
+        } catch (Throwable) {
+            // Retain the last successful snapshot; on first failure keep the contract empty.
+        }
+
+        return $this->cachedSecurity ?? [];
     }
 }

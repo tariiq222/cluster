@@ -10,12 +10,20 @@ use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Features\Sessions\Contracts\SessionTransport;
 use Modules\Identity\Features\Sessions\Contracts\TrustedRequestBindingContext;
 use Modules\Identity\Infrastructure\Outbox\IdentityOutbox;
+use Modules\PlatformSettings\Contracts\GetEffectivePlatformSettings;
 use stdClass;
 use Symfony\Component\HttpFoundation\Cookie;
+use Throwable;
 
 final class SessionHandler implements ResolveSession
 {
-    public function __construct(private readonly IdentityOutbox $outbox) {}
+    /** @var array<string, int>|null */
+    private ?array $cachedSecurity = null;
+
+    public function __construct(
+        private readonly IdentityOutbox $outbox,
+        private readonly ?GetEffectivePlatformSettings $settings = null,
+    ) {}
 
     /** @param array<string, mixed> $metadata */
     public function issue(string $userId, array $metadata = [], bool $mfaVerified = false): SessionTransport
@@ -41,7 +49,12 @@ final class SessionHandler implements ResolveSession
         }
 
         $now = CarbonImmutable::now('UTC');
-        $expiresAt = $now->addMinutes(max(1, (int) config('identity.session.ttl_minutes', 480)));
+        $security = $this->securitySnapshot();
+        $absoluteHours = (int) ($security['absolute_session_hours'] ?? 0);
+        $ttlMinutes = $absoluteHours > 0
+            ? $absoluteHours * 60
+            : (int) config('identity.session.ttl_minutes', 480);
+        $expiresAt = $now->addMinutes(max(1, $ttlMinutes));
         $sessionId = Str::uuid7()->toString();
         $rawSessionToken = bin2hex(random_bytes(32));
         $rawCsrfToken = bin2hex(random_bytes(32));
@@ -129,10 +142,15 @@ final class SessionHandler implements ResolveSession
             }
 
             $now = CarbonImmutable::now('UTC');
+            $security = $this->securitySnapshot();
+            $idleMinutes = (int) ($security['idle_timeout_minutes'] ?? 0);
+            if ($idleMinutes <= 0) {
+                $idleMinutes = (int) config('identity.session.idle_minutes', 30);
+            }
             $expired = $session->revoked_at !== null
                 || CarbonImmutable::parse($session->expires_at, 'UTC')->lessThanOrEqualTo($now)
                 || CarbonImmutable::parse($session->last_seen_at ?? $session->issued_at, 'UTC')
-                    ->addMinutes((int) config('identity.session.idle_minutes', 30))->lessThanOrEqualTo($now);
+                    ->addMinutes(max(1, $idleMinutes))->lessThanOrEqualTo($now);
             $metadata = json_decode((string) $session->metadata, true);
             $restricted = is_array($metadata) && ($metadata['session_restriction'] ?? null) === 'password_change_only';
             $bindingMatches = is_array($metadata)
@@ -245,6 +263,29 @@ final class SessionHandler implements ResolveSession
         }
 
         return $count;
+    }
+
+    /** @return array<string, int> */
+    private function securitySnapshot(): array
+    {
+        if ($this->settings === null) {
+            return [];
+        }
+        if ($this->cachedSecurity !== null) {
+            return $this->cachedSecurity;
+        }
+        try {
+            if (! $this->settings->hasPublishedVersion()) {
+                $this->cachedSecurity = [];
+            } else {
+                $current = $this->settings->current();
+                $this->cachedSecurity = $current['security'];
+            }
+        } catch (Throwable) {
+            // Retain the last successful snapshot for the request lifetime.
+        }
+
+        return $this->cachedSecurity ?? [];
     }
 
     /** @param array<string, mixed> $metadata @return array<string, scalar|null> */

@@ -18,11 +18,6 @@ final class ArchiveBatch
         if ($id === '' || $activeLogMonths < 1 || $activeLogMonths > 120) {
             throw new InvalidArgumentException('Technical log archive batch is invalid.');
         }
-        foreach ($entries as $entry) {
-            if (! $entry instanceof TechnicalLogEntry) {
-                throw new InvalidArgumentException('Archive batches contain only technical log entries.');
-            }
-        }
     }
 
     public function isEligibleAt(DateTimeImmutable $now): bool

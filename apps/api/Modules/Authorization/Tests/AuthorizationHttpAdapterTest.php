@@ -188,6 +188,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
             DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_PASSWORD,
         );
 
+        $beforeDecisionCount = DB::table('access_decisions')->count();
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/access-decisions', [
             'action' => 'work_record.read',
             'resource_reference' => [
@@ -199,7 +200,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
             'X-CSRF-Token' => $csrf,
         ])->assertForbidden()->assertJsonPath('type', 'https://cluster.example/problems/access-denied');
 
-        $this->assertDatabaseCount('access_decisions', 0);
+        $this->assertSame($beforeDecisionCount, DB::table('access_decisions')->count());
     }
 
     public function test_explanation_conceals_a_decision_from_another_persisted_scope(): void

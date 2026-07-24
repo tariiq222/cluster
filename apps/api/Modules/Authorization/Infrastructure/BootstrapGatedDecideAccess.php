@@ -23,7 +23,9 @@ final class BootstrapGatedDecideAccess implements DecideAccess
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
-        if ($this->bootstrap->isPending() && ! in_array($capability, self::SETUP_CAPABILITIES, true)) {
+        if ($this->bootstrap->isPending()
+            && ! in_array($capability, self::SETUP_CAPABILITIES, true)
+            && ! $this->engine->isPlatformOwner($actor)) {
             return $this->pendingDecision($capability, $facts);
         }
 
@@ -32,7 +34,9 @@ final class BootstrapGatedDecideAccess implements DecideAccess
 
     public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
-        if ($this->bootstrap->isPending() && ! in_array($capability, self::SETUP_CAPABILITIES, true)) {
+        if ($this->bootstrap->isPending()
+            && ! in_array($capability, self::SETUP_CAPABILITIES, true)
+            && ! $this->engine->isPlatformOwner($actor)) {
             return $this->pendingDecision($capability, $facts);
         }
 

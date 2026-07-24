@@ -120,8 +120,9 @@ class ModuleBoundariesTest extends TestCase
 
     public function test_current_module_tree_obeys_the_repository_boundary_rules(): void
     {
-        $this->assertSame([], $this->violationsIn(base_path()));
+        $this->assertSame([], $this->unapprovedViolationsIn(base_path()));
     }
+
     public function test_planned_modules_have_no_implementation_directory_yet(): void
     {
         $modulesPath = base_path('apps/api/Modules');
@@ -198,6 +199,100 @@ PHP);
         }
     }
 
+    public function test_detects_a_business_controller_outside_its_module(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'app/Http/Controllers/Tasks/FakeTaskController.php', <<<'PHP'
+<?php
+namespace App\Http\Controllers\Tasks;
+final class FakeTaskController {}
+PHP);
+
+        try {
+            $this->assertContains(
+                'Business controller must be module-owned: app/Http/Controllers/Tasks/FakeTaskController.php.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_detects_business_table_access_below_app(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'app/Integrations/FakeTasksReader.php', <<<'PHP'
+<?php
+namespace App\Integrations;
+use Illuminate\Support\Facades\DB;
+final class FakeTasksReader
+{
+    public function read(): mixed
+    {
+        return DB::table('tasks')->first();
+    }
+}
+PHP);
+
+        try {
+            $this->assertContains(
+                'Business table access outside its owning module: app/Integrations/FakeTasksReader.php references tasks.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_detects_business_table_access_from_a_module_http_controller(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/Tasks/Features/ListTasks/Http/FakeTaskController.php', <<<'PHP'
+<?php
+namespace Modules\Tasks\Features\ListTasks\Http;
+use Illuminate\Support\Facades\DB;
+final class FakeTaskController
+{
+    public function __invoke(): mixed
+    {
+        return DB::table('tasks')->get();
+    }
+}
+PHP);
+
+        try {
+            $this->assertContains(
+                'Tasks HTTP controller must not access business table tasks: Modules/Tasks/Features/ListTasks/Http/FakeTaskController.php.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_detects_outbox_ownership_in_a_module_http_controller(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/Tasks/Features/TransitionTask/Http/FakeTaskController.php', <<<'PHP'
+<?php
+namespace Modules\Tasks\Features\TransitionTask\Http;
+use Shared\Contracts\TransactionalOutbox;
+final class FakeTaskController
+{
+    public function __construct(private TransactionalOutbox $outbox) {}
+}
+PHP);
+
+        try {
+            $this->assertContains(
+                'Tasks HTTP controller must not own transactions or Outbox: Modules/Tasks/Features/TransitionTask/Http/FakeTaskController.php.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
     /**
      * The guard uses PHP's tokenizer to inspect executable imports and string literals,
      * then tokenizes SQL literals before interpreting table references. It deliberately
@@ -208,12 +303,8 @@ PHP);
     private function violationsIn(string $root): array
     {
         $modulesPath = $root.'/Modules';
-        if (! is_dir($modulesPath)) {
-            return [];
-        }
-
         $violations = [];
-        foreach (glob($modulesPath.'/*', GLOB_ONLYDIR) ?: [] as $modulePath) {
+        foreach (is_dir($modulesPath) ? (glob($modulesPath.'/*', GLOB_ONLYDIR) ?: []) : [] as $modulePath) {
             $module = basename($modulePath);
             if ($module === 'Requests') {
                 $violations[] = 'Forbidden Requests business boundary: Modules/Requests.';
@@ -252,6 +343,23 @@ PHP);
                             $violations = [...$violations, ...$this->tableOwnershipViolations($module, $table, 'SQL')];
                         }
                     }
+
+                    $containsHttpController = str_contains($path, DIRECTORY_SEPARATOR.'Http'.DIRECTORY_SEPARATOR)
+                        && array_filter(
+                            $this->businessIdentifiersFrom($source),
+                            static fn (string $identifier): bool => str_ends_with($identifier, 'Controller'),
+                        ) !== [];
+                    if ($containsHttpController) {
+                        $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
+                        foreach ($this->tablesInDatabaseCalls($source) as $table) {
+                            if (array_key_exists($table, self::TABLE_OWNERS)) {
+                                $violations[] = "{$module} HTTP controller must not access business table {$table}: {$relativePath}.";
+                            }
+                        }
+                        if (in_array('Shared\Contracts\TransactionalOutbox', $this->allImportsFrom($source), true)) {
+                            $violations[] = "{$module} HTTP controller must not own transactions or Outbox: {$relativePath}.";
+                        }
+                    }
                 }
 
                 if ($isKnownModule && str_contains($path, DIRECTORY_SEPARATOR.'Migrations'.DIRECTORY_SEPARATOR)) {
@@ -262,11 +370,62 @@ PHP);
             }
         }
 
+        $appPath = $root.'/app';
+        if (is_dir($appPath)) {
+            foreach ($this->phpFilesIn($appPath) as $path) {
+                $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
+                $source = file_get_contents($path);
+                if ($source === false) {
+                    $violations[] = "Unable to parse {$relativePath}.";
+
+                    continue;
+                }
+
+                if (str_starts_with($relativePath, 'app/Http/Controllers/')
+                    && basename($relativePath) !== 'Controller.php'
+                    && str_ends_with($relativePath, 'Controller.php')) {
+                    $violations[] = "Business controller must be module-owned: {$relativePath}.";
+                }
+
+                foreach ($this->tablesInDatabaseCalls($source) as $table) {
+                    if (array_key_exists($table, self::TABLE_OWNERS)) {
+                        $violations[] = "Business table access outside its owning module: {$relativePath} references {$table}.";
+                    }
+                }
+            }
+        }
+
         return array_values(array_unique($violations));
     }
 
     /** @return list<string> */
+    private function unapprovedViolationsIn(string $root): array
+    {
+        return array_values(array_filter(
+            $this->violationsIn($root),
+            static function (string $violation): bool {
+                foreach (ModulePlacementInventory::misplacedBusinessFiles() as $legacyPath) {
+                    if (str_contains($violation, $legacyPath)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            },
+        ));
+    }
+
+    /** @return list<string> */
     private function importsFrom(string $source): array
+    {
+        return array_values(array_filter(
+            $this->allImportsFrom($source),
+            static fn (string $import): bool => str_starts_with($import, 'Modules\\'),
+        ));
+    }
+
+    /** @return list<string> */
+    private function allImportsFrom(string $source): array
     {
         $imports = [];
         $tokens = token_get_all($source);
@@ -284,7 +443,7 @@ PHP);
 
             foreach (explode(',', $name) as $candidate) {
                 $candidate = trim(explode(' as ', trim($candidate), 2)[0]);
-                if (str_starts_with($candidate, 'Modules\\')) {
+                if ($candidate !== '') {
                     $imports[] = $candidate;
                 }
             }
@@ -382,6 +541,36 @@ PHP);
     }
 
     /** @return list<string> */
+    private function tablesInDatabaseCalls(string $source): array
+    {
+        $tokens = array_values(array_filter(
+            token_get_all($source),
+            static fn (array|string $token): bool => ! is_array($token)
+                || ! in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true),
+        ));
+        $tables = [];
+
+        for ($index = 0, $count = count($tokens); $index + 5 < $count; $index++) {
+            if (! is_array($tokens[$index]) || $tokens[$index][0] !== T_STRING || $tokens[$index][1] !== 'DB') {
+                continue;
+            }
+            if ((! is_array($tokens[$index + 1]) || $tokens[$index + 1][0] !== T_DOUBLE_COLON)
+                || ! is_array($tokens[$index + 2])
+                || $tokens[$index + 2][0] !== T_STRING
+                || $tokens[$index + 2][1] !== 'table'
+                || $tokens[$index + 3] !== '('
+                || ! is_array($tokens[$index + 4])
+                || $tokens[$index + 4][0] !== T_CONSTANT_ENCAPSED_STRING) {
+                continue;
+            }
+
+            $tables[] = strtolower(stripcslashes(substr($tokens[$index + 4][1], 1, -1)));
+        }
+
+        return array_values(array_unique($tables));
+    }
+
+    /** @return list<string> */
     private function tableOwnershipViolations(string $module, string $table, string $surface): array
     {
         $normalized = strtolower($table);
@@ -440,6 +629,7 @@ PHP);
 
         rmdir($path);
     }
+
     public function test_every_event_type_in_outbox_has_a_matching_json_schema(): void
     {
         $repoRoot = dirname(__DIR__, 3);
@@ -502,5 +692,4 @@ PHP);
             .'Add a schema file for each missing type (filename: <type-with-dots-as-dashes>.schema.json) or drop the event_type from code.'
         );
     }
-
 }

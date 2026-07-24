@@ -123,6 +123,22 @@ class CapabilityCatalogTest extends TestCase
             'risk.treatment.manage',
             'risk.accept',
             'risk.kri.manage',
+            'platform_settings.read',
+            'platform_settings.manage',
+            'platform_settings.publish',
+            'platform_settings.calendar.read',
+            'platform_settings.calendar.manage',
+            'platform_settings.calendar.override_official_holiday',
+            'platform_operations.health.read',
+            'platform_operations.backup.read',
+            'platform_operations.backup.run',
+            'platform_operations.restore.request',
+            'platform_operations.restore.confirm',
+            'platform_operations.logs.read',
+            'platform_operations.logs.restore',
+            'platform_operations.alerts.manage',
+            'platform_operations.maintenance.manage',
+            'platform_operations.maintenance.cancel',
         ];
 
         $this->assertSame($expected, CapabilityCatalog::all());

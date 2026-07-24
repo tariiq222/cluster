@@ -6,11 +6,18 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Modules\Identity\Features\Authentication\Contracts\PreAuthThrottle;
 use Modules\Identity\Features\Authentication\Contracts\PreAuthThrottleDecision;
+use Modules\PlatformSettings\Contracts\GetEffectivePlatformSettings;
 use RuntimeException;
 use stdClass;
+use Throwable;
 
 final class PersistentPreAuthThrottle implements PreAuthThrottle
 {
+    /** @var array<string, int>|null */
+    private ?array $cachedSecurity = null;
+
+    public function __construct(private readonly ?GetEffectivePlatformSettings $settings = null) {}
+
     public function attempt(string $source, string $normalizedUsername): PreAuthThrottleDecision
     {
         return DB::transaction(function () use ($source, $normalizedUsername): PreAuthThrottleDecision {
@@ -149,7 +156,10 @@ final class PersistentPreAuthThrottle implements PreAuthThrottle
 
     private function sourceUsernameLimit(): int
     {
-        return max(1, (int) config('identity.pre_auth_throttle.source_username_max_attempts', 4));
+        $security = $this->securitySnapshot();
+        $limit = (int) ($security['failed_login_attempts'] ?? 0);
+
+        return $limit > 0 ? $limit : max(1, (int) config('identity.pre_auth_throttle.source_username_max_attempts', 4));
     }
 
     private function accountLimit(): int
@@ -159,14 +169,45 @@ final class PersistentPreAuthThrottle implements PreAuthThrottle
 
     private function windowSeconds(): int
     {
-        return max(1, (int) config('identity.pre_auth_throttle.window_seconds', 60));
+        $security = $this->securitySnapshot();
+        $windowMinutes = (int) ($security['failed_login_window_minutes'] ?? 0);
+        $seconds = $windowMinutes > 0 ? $windowMinutes * 60 : 0;
+
+        return $seconds > 0 ? $seconds : max(1, (int) config('identity.pre_auth_throttle.window_seconds', 60));
     }
 
     private function lockDuration(int $lockLevel): int
     {
+        $security = $this->securitySnapshot();
+        $published = (int) ($security['lockout_minutes'] ?? 0);
+        if ($published > 0) {
+            return max(1, $published);
+        }
         $durations = array_values(array_map('intval', config('identity.pre_auth_throttle.lock_durations_minutes', [15, 30, 60, 120])));
 
         return max(1, $durations[min(max(0, $lockLevel - 1), max(0, count($durations) - 1))] ?? 15);
+    }
+
+    private function securitySnapshot(): array
+    {
+        if ($this->settings === null) {
+            return [];
+        }
+        if ($this->cachedSecurity !== null) {
+            return $this->cachedSecurity;
+        }
+        try {
+            if (! $this->settings->hasPublishedVersion()) {
+                $this->cachedSecurity = [];
+            } else {
+                $current = $this->settings->current();
+                $this->cachedSecurity = $current['security'];
+            }
+        } catch (Throwable) {
+            // Retain the last successful snapshot for the object lifetime.
+        }
+
+        return $this->cachedSecurity ?? [];
     }
 
     private function windowEnd(stdClass $row, CarbonImmutable $now): CarbonImmutable

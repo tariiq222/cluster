@@ -2,6 +2,7 @@
 
 namespace App\Integrations\PlatformOperations;
 
+use Closure;
 use DateTimeImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Crypt;
@@ -15,11 +16,13 @@ use RuntimeException;
 
 final class ObjectStorageTechnicalLogArchive implements TechnicalLogArchive
 {
-    /** @param null|callable(): DateTimeImmutable $clock */
+    /**
+     * @param  null|Closure(): DateTimeImmutable  $clock
+     */
     public function __construct(
         private readonly Filesystem $storage,
         private readonly TechnicalLogArchiveStore $store,
-        private readonly mixed $clock = null,
+        private readonly ?Closure $clock = null,
         private readonly int $restoreReadModelMinutes = 60,
     ) {
         if ($restoreReadModelMinutes < 1 || $restoreReadModelMinutes > 1440) {
@@ -122,14 +125,9 @@ final class ObjectStorageTechnicalLogArchive implements TechnicalLogArchive
     {
         if ($this->clock !== null) {
             $now = ($this->clock)();
-            if (! $now instanceof DateTimeImmutable) {
-                throw new RuntimeException('Technical log archive clock must return DateTimeImmutable.');
-            }
-
-            return $now;
         }
 
-        return new DateTimeImmutable('now');
+        return $now ?? new DateTimeImmutable('now');
     }
 
     /** @return array<string, mixed> */

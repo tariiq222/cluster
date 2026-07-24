@@ -1,8 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\LinkDocumentController;
-use App\Http\Controllers\Api\TaskController;
-use App\Http\Controllers\Api\TaskEngagementController;
 use App\Http\Controllers\Api\WorkDefinitionController;
 use App\Http\Controllers\Api\WorkflowController;
 use App\Http\Controllers\Api\WorkRecordLifecycleController;
@@ -86,13 +84,11 @@ use Illuminate\Support\Facades\Route;
 use Modules\Identity\Features\DevelopmentFixtureLogin\Http\DevelopmentFixtureLoginController;
 use Modules\Notifications\Features\ListMyNotifications\Http\ListMyNotificationsController;
 use Modules\Notifications\Features\ListMyNotifications\Http\MarkNotificationReadController;
-use Modules\Reporting\Http\CreateReportExportController;
-use Modules\Reporting\Http\DownloadExportController;
-use Modules\Reporting\Http\GetDashboardController;
-use Modules\Reporting\Http\GetReportController;
-use Modules\Reporting\Http\ListDashboardsController;
-use Modules\Reporting\Http\ListReportsController;
-use Modules\Search\Http\SearchController;
+use Modules\PlatformSettings\Features\Alerts\Http\AlertPoliciesController;
+use Modules\PlatformSettings\Features\Calendars\Http\BusinessCalendarController;
+use Modules\PlatformSettings\Features\Logs\Http\TechnicalLogsController;
+use Modules\PlatformSettings\Features\Maintenance\Http\MaintenanceWindowsController;
+use Modules\PlatformSettings\Features\Operations\Http\DispatchBackupController;
 use Modules\PlatformSettings\Features\Operations\Http\GetPlatformOverviewController;
 use Modules\PlatformSettings\Features\Operations\Http\PlatformOperationsController;
 use Modules\PlatformSettings\Features\Settings\Http\CreateSettingsVersionController;
@@ -101,6 +97,15 @@ use Modules\PlatformSettings\Features\Settings\Http\ListSettingsVersionsControll
 use Modules\PlatformSettings\Features\Settings\Http\PublishSettingsVersionController;
 use Modules\PlatformSettings\Features\Settings\Http\UpdateSettingsValueController;
 use Modules\PlatformSettings\Features\Settings\Http\ValidateSettingsVersionController;
+use Modules\Reporting\Http\CreateReportExportController;
+use Modules\Reporting\Http\DownloadExportController;
+use Modules\Reporting\Http\GetDashboardController;
+use Modules\Reporting\Http\GetReportController;
+use Modules\Reporting\Http\ListDashboardsController;
+use Modules\Reporting\Http\ListReportsController;
+use Modules\Search\Http\SearchController;
+use Modules\Tasks\Features\Http\TaskController;
+use Modules\Tasks\Features\Http\TaskEngagementController;
 use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController;
 use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController;
 use Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController;
@@ -200,7 +205,11 @@ Route::prefix('api/v1')->group(function (): void {
     });
     Route::middleware([IdentitySessionMiddleware::class, RequireIdentitySessionPrincipal::class])->group(function (): void {
         Route::get('platform-settings/current', GetCurrentPlatformSettingsController::class);
+        Route::get('platform-operations/maintenance-windows', [MaintenanceWindowsController::class, 'index']);
+        Route::get('platform-operations/alert-policies', [AlertPoliciesController::class, 'index']);
+        Route::get('platform-operations/technical-logs', [TechnicalLogsController::class, 'index']);
         Route::get('platform-settings/versions', ListSettingsVersionsController::class);
+        Route::get('platform-settings/calendars', [BusinessCalendarController::class, 'index']);
         Route::get('platform-operations/overview', GetPlatformOverviewController::class);
         Route::get('platform-operations/health', [PlatformOperationsController::class, 'health']);
         Route::get('platform-operations/backups', [PlatformOperationsController::class, 'backups']);
@@ -220,6 +229,17 @@ Route::prefix('api/v1')->group(function (): void {
         Route::put('platform-settings/versions/{versionId}/settings/{settingKey}', UpdateSettingsValueController::class);
         Route::post('platform-settings/versions/{versionId}/validate', ValidateSettingsVersionController::class);
         Route::post('platform-settings/versions/{versionId}/publish', PublishSettingsVersionController::class);
+        Route::post('platform-settings/calendars', [BusinessCalendarController::class, 'store']);
+        Route::put('platform-settings/calendars/{calendarId}/weekdays/{weekday}', [BusinessCalendarController::class, 'setWeekday'])->where('weekday', '[0-6]');
+        Route::put('platform-settings/calendars/{calendarId}/exceptions/{date}', [BusinessCalendarController::class, 'setException'])->where('date', '\d{4}-\d{2}-\d{2}');
+        Route::post('platform-settings/calendars/{calendarId}/publish', [BusinessCalendarController::class, 'publish']);
+        Route::post('platform-operations/backups', DispatchBackupController::class);
+        Route::post('platform-operations/restore-requests', [PlatformOperationsController::class, 'requestRestore']);
+        Route::post('platform-operations/restore-requests/{requestId}/confirm', [PlatformOperationsController::class, 'confirmRestore']);
+        Route::post('platform-operations/maintenance-windows', [MaintenanceWindowsController::class, 'store']);
+        Route::post('platform-operations/maintenance-windows/{windowId}/cancel', [MaintenanceWindowsController::class, 'cancel'])->where('windowId', '[0-9a-fA-F-]+');
+        Route::patch('platform-operations/alert-policies/{policyId}', [AlertPoliciesController::class, 'update'])->where('policyId', '[0-9a-fA-F-]+');
+        Route::post('platform-operations/technical-logs/restore', [TechnicalLogsController::class, 'restore']);
         Route::post('work-records', SubmitWorkRecordController::class)->middleware([
             ProjectWorkRecordReadModels::class,
             ConsumeSubmittedNotification::class,

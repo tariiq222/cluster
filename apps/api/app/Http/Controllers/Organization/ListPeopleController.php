@@ -34,6 +34,7 @@ final class ListPeopleController
             ownerFacilityId: $principal['facility_id'],
             resourceType: 'organization_person',
             classification: 'confidential',
+            clusterId: OrganizationApi::clusterId(),
         ))->isAllowed()) {
             return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }

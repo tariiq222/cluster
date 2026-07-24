@@ -2,6 +2,7 @@
 
 namespace Modules\PlatformSettings\Features\Logs\Handler;
 
+use App\Integrations\PlatformOperations\TechnicalLogSourceUnavailable;
 use DomainException;
 use Modules\PlatformSettings\Contracts\TechnicalLogArchive;
 use Modules\PlatformSettings\Contracts\TechnicalLogSource;
@@ -20,6 +21,9 @@ final readonly class TechnicalLogsHandler
     /** @param list<string> $grantedCapabilities */
     public function requestRestore(string $manifestId, string $actorId, string $reason, array $grantedCapabilities): string
     {
+        if (! $this->source->isAvailable()) {
+            throw new TechnicalLogSourceUnavailable('Technical log source is not configured.');
+        }
         if (! in_array('platform_operations.logs.restore', $grantedCapabilities, true)) {
             throw new DomainException('platform_operations.logs.restore is required.');
         }

@@ -2,6 +2,7 @@
 
 namespace Modules\PlatformSettings\Features\Logs\Http;
 
+use App\Integrations\PlatformOperations\TechnicalLogSourceUnavailable;
 use App\Integrations\PlatformSettings\PlatformSettingsApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,10 @@ use Throwable;
 
 final class TechnicalLogsController
 {
+    private const UNAVAILABLE_PROBLEM_TYPE = 'service-unavailable';
+
+    private const UNAVAILABLE_DETAIL = 'Technical logs are not available in this environment.';
+
     public function __construct(private readonly PlatformSettingsApi $api, private readonly TechnicalLogsHandler $logs) {}
 
     public function index(Request $request): JsonResponse
@@ -23,9 +28,20 @@ final class TechnicalLogsController
         try {
             Log::info('platform_settings.sensitive_access', ['resource_type' => 'technical_log', 'user_id' => $context['principal']['user_id'], 'correlation_id' => $context['correlation_id']]);
             $page = $this->logs->search(new TechnicalLogFilter($request->query('category'), $request->query('source'), $request->query('correlation_id'), $request->query('cursor'), (int) $request->query('per_page', 50)));
-            $items = array_map(static fn ($entry) => ['id' => $entry->id, 'source' => $entry->source, 'category' => $entry->category, 'occurred_at' => $entry->occurredAt->format(DATE_ATOM), 'correlation_id' => $entry->correlationId, 'context' => $entry->context], $page->entries);
+            $items = array_map(static fn ($entry) => [
+                'id' => $entry->id,
+                'source' => $entry->source,
+                'category' => $entry->category,
+                'severity' => 'info',
+                'message_ar' => 'سجل فني',
+                'message_en' => 'Technical log entry',
+                'occurred_at' => $entry->occurredAt->format(DATE_ATOM),
+                'correlation_id' => $entry->correlationId,
+            ], $page->entries);
 
             return $this->api->response(['items' => $items, 'next_cursor' => $page->nextCursor, 'allowed_actions' => $context['decision']->allowedActions], 200, $context['correlation_id']);
+        } catch (TechnicalLogSourceUnavailable $unavailable) {
+            return $this->unavailableResponse($context['correlation_id']);
         } catch (Throwable $exception) {
             return $this->api->exception($exception, $context['correlation_id']);
         }
@@ -44,8 +60,15 @@ final class TechnicalLogsController
             $operationId = $this->logs->requestRestore((string) $request->input('manifest_id'), $context['principal']['user_id'], (string) $request->input('reason'), ['platform_operations.logs.restore']);
 
             return $this->api->response(['operation_id' => $operationId, 'status' => 'requested', 'allowed_actions' => $context['decision']->allowedActions], 202, $context['correlation_id']);
+        } catch (TechnicalLogSourceUnavailable $unavailable) {
+            return $this->unavailableResponse($context['correlation_id']);
         } catch (Throwable $exception) {
             return $this->api->exception($exception, $context['correlation_id']);
         }
+    }
+
+    private function unavailableResponse(?string $correlationId): JsonResponse
+    {
+        return $this->api->problem(503, self::UNAVAILABLE_PROBLEM_TYPE, 'Service Unavailable', self::UNAVAILABLE_DETAIL, $correlationId);
     }
 }

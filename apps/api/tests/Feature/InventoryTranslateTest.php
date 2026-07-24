@@ -21,7 +21,7 @@ class InventoryTranslateTest extends TestCase
         $this->summaryPath = $this->repoRoot.'/.minimax-flow/translate-summary.json';
 
         // Start each test from a pristine S3 markdown so the assertions about
-        // the initial 119 placeholders are stable. The S3 generator writes the
+        // the initial 143 placeholders are stable. The S3 generator writes the
         // file in-place; we don't need to mirror it anywhere.
         [$exitCode, $output] = $this->runShell(
             'python3 scripts/inventory-routes.py --mode md --json '.escapeshellarg(dirname($this->endpointsPath))
@@ -36,7 +36,7 @@ class InventoryTranslateTest extends TestCase
     public function test_s6_translate_mode_replaces_every_placeholder(): void
     {
         $before = (string) file_get_contents($this->endpointsPath);
-        $this->assertSame(119, substr_count($before, '{{AR:'), 'precondition: 119 placeholders expected');
+        $this->assertSame(143, substr_count($before, '{{AR:'), 'precondition: 143 placeholders expected');
 
         [$exitCode, $output] = $this->runShell(
             'python3 scripts/inventory-routes.py --mode translate --md-path '.escapeshellarg($this->endpointsPath)
@@ -46,7 +46,7 @@ class InventoryTranslateTest extends TestCase
 
         $after = (string) file_get_contents($this->endpointsPath);
         $this->assertSame(0, substr_count($after, '{{AR:'), 'no {{AR: placeholders may remain after translation');
-        $this->assertSame(119, substr_count($after, 'ملخص'), 'every card should expose an Arabic ملخص header');
+        $this->assertSame(143, substr_count($after, 'ملخص'), 'every card should expose an Arabic ملخص header');
     }
 
     public function test_s6_translate_mode_is_idempotent(): void
@@ -59,7 +59,7 @@ class InventoryTranslateTest extends TestCase
         $afterFirst = (string) file_get_contents($this->endpointsPath);
         // Sanity: first run actually translated.
         $this->assertSame(0, substr_count($afterFirst, '{{AR:'), 'first run must replace placeholders');
-        $this->assertSame(119, substr_count($afterFirst, 'ملخص'), 'first run must add Arabic headers');
+        $this->assertSame(143, substr_count($afterFirst, 'ملخص'), 'first run must add Arabic headers');
 
         [$secondExit, $secondOutput] = $this->runShell(
             'python3 scripts/inventory-routes.py --mode translate --md-path '.escapeshellarg($this->endpointsPath)
@@ -86,7 +86,7 @@ class InventoryTranslateTest extends TestCase
         $payload = json_decode((string) file_get_contents($this->summaryPath), true, flags: JSON_THROW_ON_ERROR);
         $this->assertArrayHasKey('timestamp', $payload);
         $this->assertArrayHasKey('endpoint_count_translated', $payload);
-        $this->assertSame(119, $payload['endpoint_count_translated']);
+        $this->assertSame(143, $payload['endpoint_count_translated']);
         $this->assertArrayHasKey('sample_arabic', $payload);
         $this->assertIsArray($payload['sample_arabic']);
         $this->assertGreaterThanOrEqual(5, count($payload['sample_arabic']));
@@ -108,7 +108,7 @@ class InventoryTranslateTest extends TestCase
         [$exitCode, $output] = $this->runShell('python3 scripts/inventory-routes.py --check');
 
         $this->assertSame(0, $exitCode, "--check must keep exiting 0 after translation:\n{$output}");
-        $this->assertStringContainsString('parsed=119', $output);
+        $this->assertStringContainsString('parsed=143', $output);
     }
 
     /**
