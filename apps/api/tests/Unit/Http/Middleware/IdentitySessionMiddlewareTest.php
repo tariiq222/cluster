@@ -118,6 +118,8 @@ final class IdentitySessionMiddlewareTest extends TestCase
         });
 
         $request = Request::create('/api/v1/tasks', 'GET');
+        $request->headers->set('X-Correlation-ID', self::CORRELATION_ID);
+        $request->cookies->set('cluster_identity_session', 'opaque-session-token');
 
         $response = $this->app->make(IdentitySessionMiddleware::class)->handle(
             $request,

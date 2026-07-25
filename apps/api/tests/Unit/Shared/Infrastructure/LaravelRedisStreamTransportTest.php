@@ -111,7 +111,7 @@ final class LaravelRedisStreamTransportTest extends TestCase
     public function test_predis_driver_invokes_stream_commands_with_positional_arguments(): void
     {
         $client = Mockery::mock(PredisClient::class);
-        $client->shouldReceive('xgroup')->once()->with('CREATE', 'platform.events.v1', 'workers.v1', '0', true)->andReturn('OK');
+        $client->shouldReceive('executeRaw')->once()->with(['XGROUP', 'CREATE', 'platform.events.v1', 'workers.v1', '0', 'MKSTREAM'])->andReturn('OK');
 
         $driver = new PredisStreamDriver($client);
         $driver->createGroup('platform.events.v1', 'workers.v1');

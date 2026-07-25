@@ -5,10 +5,12 @@ namespace App\Providers;
 use App\Http\Authentication\SessionPrincipalResolver;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
 use Modules\Documents\Infrastructure\Security\ClamAvConfiguration;
 use Modules\Documents\Infrastructure\Storage\PrivateDocumentDiskConfiguration;
 use Modules\Documents\Infrastructure\Storage\S3\S3CompatibleConfiguration;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\TemporaryAssignment\Console\ExpireTemporaryAssignmentsCommand;
 use Modules\PlatformSettings\Features\Operations\Console\RunPlatformOperationsDispatchCommand;
 use Shared\Contracts\TransactionalOutbox;
@@ -81,9 +83,16 @@ class AppServiceProvider extends ServiceProvider
 
     private function assertAuthorizationRuntimeSafe(): void
     {
+        /** @var mixed $engine */
         $engine = $this->app->make(DecideAccess::class);
-        if (! $engine->usesProductionEngine()) {
+        if (! $engine instanceof BootstrapGatedDecideAccess || ! $engine->usesProductionEngine()) {
             throw new \RuntimeException('Production must bind DecideAccess to the RBAC+ABAC engine.');
+        }
+
+        /** @var mixed $principalResolver */
+        $principalResolver = $this->app->make(ResolveDevelopmentFixturePrincipal::class);
+        if (! $principalResolver instanceof SessionPrincipalResolver) {
+            throw new \RuntimeException('Production must resolve user principals from Identity sessions.');
         }
     }
 
