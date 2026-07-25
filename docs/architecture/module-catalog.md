@@ -386,3 +386,73 @@ authorization decisions (Stage 3)
   `./test-results/` so the existing artifact upload captures it; if the new
   check needs additional host software or services, update both the workflow
   header prerequisites and this entry in the same change.
+
+### 6.7 Identity security events validated through a registry (Stage 15)
+
+- **What.** `IdentityOutbox::insertSecurityEvent(string $type, ...)` previously
+  built the literal `'com.cluster.identity.' . $type . '.v1'` and passed
+  it to `IdentityOutbox::insert()`. The `OutboxEventType::from` validation
+  in `insert()` then rejected unknown suffixes, but the error message
+  referenced the assembled string rather than the suffix the producer
+  actually passed, making typos hard to diagnose. Add a dedicated
+  `IdentitySecurityEventRegistry` at
+  `apps/api/Modules/Identity/Infrastructure/Outbox/` that maps the 12
+  producer suffixes (the 10 new cases plus the 2 legacy cases
+  `account_login_locked` and `authentication_failed`) to their matching
+  `OutboxEventType` cases. `resolve(string $type)` returns the case or throws
+  `InvalidArgumentException` with the suffix the producer passed plus the full
+  list of registered suffixes. `IdentityOutbox::insertSecurityEvent` now
+  delegates to the registry, so an unknown suffix raises a suffix-specific
+  error before the assembled literal ever reaches `OutboxEventType::from`.
+- **Why.** Routing every security-event suffix through a single
+  Identity-side adapter makes the boundary explicit and concentrates the
+  suffix-to-event-type contract in one file rather than letting it leak
+  across producer call sites.
+- **Tests.** `tests/Unit/Shared/Infrastructure/Outbox/IdentitySecurityEventRegistryTest.php`
+  uses PHPUnit 12 `#[DataProvider]` (the `@dataProvider` annotation is
+  no longer recognised) and asserts every one of the 12 suffixes
+  resolves to its expected case and carries a CloudEvents type under
+  `com.cluster.identity.*.v1`. The unknown-suffix test asserts the
+  `InvalidArgumentException` message includes both the unknown suffix and
+  the list of registered suffixes. An empty-string test guards against
+  the trivial typo of an empty producer argument.
+- **Where.** `apps/api/Modules/Identity/Infrastructure/Outbox/IdentitySecurityEventRegistry.php`,
+  `apps/api/Modules/Identity/Infrastructure/Outbox/IdentityOutbox.php` (call site),
+  `apps/api/tests/Unit/Shared/Infrastructure/Outbox/IdentitySecurityEventRegistryTest.php`.
+
+### 6.8 Legacy controller migration (Stages 16, 17)
+
+- **What.** apps/api/app/Http/Controllers/Organization/ held 35 controllers and
+  apps/api/Modules/Reporting/Http/ held 2 controllers that the architecture
+  test requires inside `Modules/<Name>/Features/<Feature>/Http/`. Migrate
+  12 Organization controllers (GetCluster, GetImportJob, ListImportJobRows,
+  GetOrganizationUnit, ReorderOrganizationUnits, GetPerson, GetPersonReference,
+  GetPosition, GetTemporaryAssignment, GetFacility, ListFacilities,
+  ListAssignments) and 2 Reporting controllers (ListReports,
+  ListDashboards) to their owning `apps/api/Modules/<Module>/Features/<Feature>/Http/`
+  directories, update the namespace declaration in each, point the route
+  binding in apps/api/routes/web.php at the new namespace, and remove
+  the corresponding entry from
+  apps/api/tests/Architecture/ModulePlacementInventory.php. The legacy
+  files in app/Http/Controllers/ stay on disk because the remaining ~74
+  legacy paths have a 2027-04-25 expiry.
+- **Why.** ModuleBoundariesTest::test_detects_a_business_controller_outside_its_module
+  flags every controller outside `Modules/<Name>/Features/<Feature>/Http/`
+  as a violation. The 12 Organization migrations and 2 Reporting
+  migrations reduce the inventory from 89 to 74 entries and demonstrate
+  that the migration pattern is repeatable: pick the smallest
+  single-method controller, copy to the matching Features/Http/ folder,
+  update the namespace and the route binding, remove the inventory entry.
+- **Tests.** composer test verifies that the existing 12 organization
+  feature tests and 2 reporting feature tests still pass after the
+  migration; the architecture test
+  test_current_module_tree_obeys_the_repository_boundary_rules now sees
+  0 controllers in app/Http/Controllers/ for the migrated module/feature
+  combinations.
+- **Where.** `apps/api/Modules/Organization/Features/*/Http/*.php` (12 files),
+  `apps/api/Modules/Reporting/Features/ListReports/Http/ListReportsController.php`
+  and `apps/api/Modules/Reporting/Features/ListDashboards/Http/ListDashboardsController.php`,
+  `apps/api/routes/web.php` (route bindings), and
+  `apps/api/tests/Architecture/ModulePlacementInventory.php` (3 inventory
+  removals, 12 Organisation inventory entries shortened to the new
+  Modules/ path).
