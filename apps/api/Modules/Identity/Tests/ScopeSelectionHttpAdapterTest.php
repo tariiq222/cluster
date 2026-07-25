@@ -2,13 +2,13 @@
 
 namespace Modules\Identity\Tests;
 
-use App\Http\Controllers\Identity\SelectMyScopeController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Modules\Identity\Contracts\PrincipalContext;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
+use Modules\Identity\Features\Sessions\Http\SelectMyScopeController;
 use Tests\TestCase;
 
 final class ScopeSelectionHttpAdapterTest extends TestCase

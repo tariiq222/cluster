@@ -3,9 +3,6 @@
 namespace Modules\Authorization\Tests;
 
 use App\Http\Authentication\SessionPrincipalResolver;
-use App\Http\Controllers\Authorization\AuthorizationAdminController;
-use App\Http\Controllers\Authorization\DecideAccessController;
-use App\Http\Controllers\Authorization\ExplainAccessDecisionController;
 use Database\Seeders\DevelopmentJourneyAuthorizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +11,9 @@ use Modules\Authorization\Contracts\AuthorizationResourceReference;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
+use Modules\Authorization\Features\Administration\Http\AuthorizationAdminController;
+use Modules\Authorization\Features\DecideAccess\Http\DecideAccessController;
+use Modules\Authorization\Features\ExplainAccessDecision\Http\ExplainAccessDecisionController;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Tests\TestCase;
 

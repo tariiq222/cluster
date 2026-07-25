@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Authorization\CompleteAuthorizationBootstrapController;
-use App\Http\Controllers\Authorization\GetAuthorizationBootstrapController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Authorization\Features\Bootstrap\Http\CompleteAuthorizationBootstrapController;
+use Modules\Authorization\Features\Bootstrap\Http\GetAuthorizationBootstrapController;
 use Modules\Authorization\Features\OperationsOffice\BootstrapOperationsOffice;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationBootstrapState;
@@ -122,6 +122,7 @@ final class AuthorizationBootstrapStage00CTest extends TestCase
             $entitlements,
             $state,
             $this->app->make(BootstrapOperationsOffice::class),
+            $this->app->make(\Modules\Organization\Contracts\GetDefaultClusterId::class),
         );
         $headers = ['X-Correlation-ID' => '0190f5d2-7b9a-7000-8000-000000000001'];
 

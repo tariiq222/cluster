@@ -2,12 +2,6 @@
 
 namespace Modules\Identity\Tests;
 
-use App\Http\Controllers\Identity\ChangePasswordController;
-use App\Http\Controllers\Identity\ConsumeActivationController;
-use App\Http\Controllers\Identity\GetCurrentIdentityController;
-use App\Http\Controllers\Identity\IdentityLoginController;
-use App\Http\Controllers\Identity\IdentityLogoutController;
-use App\Http\Controllers\Identity\IssueActivationController;
 use App\Http\Middleware\IdentityCsrfMiddleware;
 use App\Http\Middleware\IdentitySessionMiddleware;
 use Carbon\CarbonImmutable;
@@ -17,12 +11,18 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
 use Modules\Identity\Features\Activation\Handler\ActivationHandler;
+use Modules\Identity\Features\Activation\Http\ConsumeActivationController;
+use Modules\Identity\Features\Activation\Http\IssueActivationController;
 use Modules\Identity\Features\Authentication\Contracts\AuthenticateUser;
 use Modules\Identity\Features\Authentication\Handler\AuthenticationHandler;
+use Modules\Identity\Features\Authentication\Http\IdentityLoginController;
+use Modules\Identity\Features\Authentication\Http\IdentityLogoutController;
 use Modules\Identity\Features\Credentials\Contracts\ChangePassword;
 use Modules\Identity\Features\Credentials\Handler\CredentialHandler;
+use Modules\Identity\Features\Credentials\Http\ChangePasswordController;
 use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Features\Sessions\Handler\SessionHandler;
+use Modules\Identity\Features\Sessions\Http\GetCurrentIdentityController;
 use Tests\TestCase;
 
 class IdentityCredentialHttpAdapterTest extends TestCase

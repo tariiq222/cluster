@@ -2,21 +2,21 @@
 
 namespace Tests\Feature\Http\Controllers\Organization;
 
-use App\Http\Controllers\Organization\CreateTemporaryAssignmentController;
-use App\Http\Controllers\Organization\GetTemporaryAssignmentController;
-use App\Http\Controllers\Organization\ListTemporaryAssignmentsController;
-use App\Http\Controllers\Organization\RevokeTemporaryAssignmentController;
 use DomainException;
 use Illuminate\Http\Request;
 use Illuminate\Testing\TestResponse;
 use InvalidArgumentException;
-use Modules\Authorization\Contracts\AccessDecision;
-use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Contracts\AccessDecision;
+use Modules\Organization\Contracts\DecideAccess;
+use Modules\Organization\Contracts\RecordFacts;
+use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\TemporaryAssignment\Console\ExpireTemporaryAssignmentsCommand;
 use Modules\Organization\Features\TemporaryAssignment\Console\RunTemporaryAssignmentExpiration;
 use Modules\Organization\Features\TemporaryAssignment\Exceptions\TemporaryAssignmentIdempotencyConflict;
+use Modules\Organization\Features\TemporaryAssignment\Http\CreateTemporaryAssignmentController;
+use Modules\Organization\Features\TemporaryAssignment\Http\GetTemporaryAssignmentController;
+use Modules\Organization\Features\TemporaryAssignment\Http\ListTemporaryAssignmentsController;
+use Modules\Organization\Features\TemporaryAssignment\Http\RevokeTemporaryAssignmentController;
 use Modules\Organization\Features\TemporaryAssignment\Http\TemporaryAssignmentHttpGateway;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;

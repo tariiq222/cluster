@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Documents\DocumentsApi;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Artisan;
@@ -13,6 +12,7 @@ use Modules\Documents\Application\IdempotencyContext;
 use Modules\Documents\Application\InitiateDocumentUpload;
 use Modules\Documents\Application\UploadFileMetadata;
 use Modules\Documents\Features\Upload\DocumentUploadHandler;
+use Modules\Documents\Http\DocumentsApi;
 use Tests\TestCase;
 
 final class W12E2EDocumentUploadRuntimeTest extends TestCase
