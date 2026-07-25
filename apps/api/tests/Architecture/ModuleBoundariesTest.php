@@ -53,14 +53,28 @@ class ModuleBoundariesTest extends TestCase
 
     /** @var array<string, string> */
     private const TABLE_OWNERS = [
+        // PlatformSettings (rank 0)
         'platform_settings' => 'PlatformSettings',
-        'organizations' => 'Organization',
+        'platform_setting_versions' => 'PlatformSettings',
+        'platform_settings_outbox' => 'PlatformSettings',
+        'platform_alert_policies' => 'PlatformSettings',
+        'business_calendars' => 'PlatformSettings',
+        'business_calendar_weekdays' => 'PlatformSettings',
+        'business_calendar_exceptions' => 'PlatformSettings',
+        'platform_maintenance_windows' => 'PlatformSettings',
+        'platform_operation_requests' => 'PlatformSettings',
+        'platform_operation_snapshots' => 'PlatformSettings',
+        'technical_log_archive_batches' => 'PlatformSettings',
+        'technical_log_archive_manifests' => 'PlatformSettings',
+        'technical_log_archive_restore_requests' => 'PlatformSettings',
+        // Organization (rank 0)
         'clusters' => 'Organization',
-        'facility_types' => 'Organization',
         'facilities' => 'Organization',
-        'unit_types' => 'Organization',
+        'facility_types' => 'Organization',
         'organization_units' => 'Organization',
+        'unit_types' => 'Organization',
         'positions' => 'Organization',
+        'job_titles' => 'Organization',
         'people' => 'Organization',
         'assignments' => 'Organization',
         'import_jobs' => 'Organization',
@@ -70,6 +84,8 @@ class ModuleBoundariesTest extends TestCase
         'temporary_assignment_capabilities' => 'Organization',
         'supervisory_relationships' => 'Organization',
         'relationship_capabilities' => 'Organization',
+        'organization_development_facilities' => 'Organization',
+        // Identity (rank 1)
         'identities' => 'Identity',
         'users' => 'Identity',
         'identity_sessions' => 'Identity',
@@ -84,7 +100,7 @@ class ModuleBoundariesTest extends TestCase
         'identity_activation_tokens' => 'Identity',
         'identity_totp' => 'Identity',
         'identity_auth_attempt_ledgers' => 'Identity',
-        'authorizations' => 'Authorization',
+        // Authorization (rank 2)
         'roles' => 'Authorization',
         'capabilities' => 'Authorization',
         'role_capabilities' => 'Authorization',
@@ -92,30 +108,62 @@ class ModuleBoundariesTest extends TestCase
         'delegations' => 'Authorization',
         'delegation_capabilities' => 'Authorization',
         'explicit_denies' => 'Authorization',
+        'access_decisions' => 'Authorization',
         'classification_policies' => 'Authorization',
         'field_access_templates' => 'Authorization',
-        'sensitive_access_events' => 'Authorization',
+        'authorization_bootstrap' => 'Authorization',
+        'authorization_idempotency_keys' => 'Authorization',
+        // Authorization owns access_decisions AND sensitive_access_events (cross-cutting audit-events table is planned, not migrated)
         'audit_events' => 'Audit',
+        'sensitive_access_events' => 'Authorization',
+        // Workflow (rank 4)
+        'workflow_definitions' => 'Workflow',
+        'workflow_versions' => 'Workflow',
         'workflow_instances' => 'Workflow',
-        'records_governance' => 'RecordsGovernance',
+        'workflow_step_instances' => 'Workflow',
+        'workflow_decisions' => 'Workflow',
+        'workflow_idempotency_keys' => 'Workflow',
+        // WorkDefinitions (rank 5)
         'work_definitions' => 'WorkDefinitions',
+        'work_definition_versions' => 'WorkDefinitions',
+        'work_definition_idempotency_keys' => 'WorkDefinitions',
+        'work_definition_development_work_type_versions' => 'WorkDefinitions',
+        // Documents (rank 5)
         'documents' => 'Documents',
-        'document_storage_objects' => 'Documents',
         'document_versions' => 'Documents',
-        'document_upload_intents' => 'Documents',
-        'document_quarantines' => 'Documents',
+        'document_links' => 'Documents',
         'document_idempotency_keys' => 'Documents',
+        'document_quarantines' => 'Documents',
+        'document_storage_objects' => 'Documents',
+        'document_upload_intents' => 'Documents',
+        'document_restriction_facts' => 'Documents',
+        'document_access_events' => 'Documents',
         'document_outbox_events' => 'Documents',
-        'collaboration' => 'Collaboration',
+        // Tasks (rank 7)
         'tasks' => 'Tasks',
+        'task_idempotency_keys' => 'Tasks',
+        'task_participants' => 'Tasks',
+        'task_comments' => 'Tasks',
+        // WorkRecords (rank 8)
         'work_records' => 'WorkRecords',
-        'strategy' => 'Strategy',
-        'portfolio_projects' => 'PortfolioProjects',
-        'risks' => 'Risk',
+        'work_record_idempotency_keys' => 'WorkRecords',
+        'outbox_events' => 'WorkRecords',
+        // Notifications (rank 11)
         'notifications' => 'Notifications',
-        'search_index' => 'Search',
-        'reporting_read_models' => 'Reporting',
-        'workspace_items' => 'Workspace',
+        'notification_inbox' => 'Notifications',
+        'notification_recipients' => 'Notifications',
+        'notification_dead_letters' => 'Notifications',
+        // Search (rank 11)
+        'search_index_entries' => 'Search',
+        'search_inbox' => 'Search',
+        'search_checkpoints' => 'Search',
+        // Reporting (rank 11)
+        'report_definitions' => 'Reporting',
+        'report_inbox' => 'Reporting',
+        'report_read_models' => 'Reporting',
+        'report_runs' => 'Reporting',
+        'export_artifacts' => 'Reporting',
+        'dashboard_definitions' => 'Reporting',
     ];
 
     public function test_current_module_tree_obeys_the_repository_boundary_rules(): void
@@ -255,14 +303,14 @@ final class FakeTaskController
 {
     public function __invoke(): mixed
     {
-        return DB::table('tasks')->get();
+        return DB::table('documents')->get();
     }
 }
 PHP);
 
         try {
             $this->assertContains(
-                'Tasks HTTP controller must not access business table tasks: Modules/Tasks/Features/ListTasks/Http/FakeTaskController.php.',
+                'Tasks HTTP controller must not access business table documents (owned by Documents): Modules/Tasks/Features/ListTasks/Http/FakeTaskController.php.',
                 $this->violationsIn($root),
             );
         } finally {
@@ -352,9 +400,14 @@ PHP);
                     if ($containsHttpController) {
                         $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
                         foreach ($this->tablesInDatabaseCalls($source) as $table) {
-                            if (array_key_exists($table, self::TABLE_OWNERS)) {
-                                $violations[] = "{$module} HTTP controller must not access business table {$table}: {$relativePath}.";
+                            if (! array_key_exists($table, self::TABLE_OWNERS)) {
+                                continue;
                             }
+                            $owner = self::TABLE_OWNERS[$table];
+                            if ($owner === $module) {
+                                continue;
+                            }
+                            $violations[] = "{$module} HTTP controller must not access business table {$table} (owned by {$owner}): {$relativePath}.";
                         }
                         if (in_array('Shared\Contracts\TransactionalOutbox', $this->allImportsFrom($source), true)) {
                             $violations[] = "{$module} HTTP controller must not own transactions or Outbox: {$relativePath}.";
@@ -404,8 +457,8 @@ PHP);
         return array_values(array_filter(
             $this->violationsIn($root),
             static function (string $violation): bool {
-                foreach (ModulePlacementInventory::misplacedBusinessFiles() as $legacyPath) {
-                    if (str_contains($violation, $legacyPath)) {
+                foreach (ModulePlacementInventory::misplacedBusinessFiles() as $entry) {
+                    if (str_contains($violation, $entry['path'])) {
                         return false;
                     }
                 }
@@ -630,16 +683,50 @@ PHP);
         rmdir($path);
     }
 
+    public function test_every_misplaced_file_has_a_non_expired_expiry_date(): void
+    {
+        $today = date('Y-m-d');
+
+        foreach (ModulePlacementInventory::misplacedBusinessFiles() as $entry) {
+            $this->assertArrayHasKey('path', $entry, 'misplaced entry must have a path key.');
+            $this->assertArrayHasKey('expiry', $entry, "misplaced entry {$entry['path']} must have an expiry key.");
+            $this->assertNotEmpty($entry['expiry'], "misplaced entry {$entry['path']} must have a non-empty expiry.");
+            $this->assertNotEmpty(
+                date_create($entry['expiry']),
+                "misplaced entry {$entry['path']} has an invalid expiry date: {$entry['expiry']}.",
+            );
+            $this->assertGreaterThanOrEqual(
+                $today,
+                $entry['expiry'],
+                "misplaced entry {$entry['path']} has expired (expiry: {$entry['expiry']}); remove it from ModulePlacementInventory or migrate the file.",
+            );
+        }
+    }
+
     public function test_every_event_type_in_outbox_has_a_matching_json_schema(): void
     {
-        $repoRoot = dirname(__DIR__, 3);
+        $repoRoot = dirname(__DIR__, 4);
         $contractsDir = $repoRoot.'/docs/contracts/schemas';
         if (! is_dir($contractsDir)) {
             $this->markTestSkipped('docs/contracts/schemas is not present in this checkout.');
         }
 
         $eventTypes = [];
-        $regex = "/event_type['\"]?\s*[:=]\s*['\"]([a-zA-Z0-9_.\-]+)['\"]/";
+        // Match any literal that looks like a CloudEvents reverse-DNS event
+        // type: `com.cluster.<module>.<name>.v<n>`. The two production shapes
+        // are `'com.cluster.foo.bar.v1'` (return or argument value) and
+        // `'event_type' => 'com.cluster.foo.bar.v1'` (DB insert map). The
+        // regex below catches both. We then restrict to event types that
+        // are registered in the OutboxEventType enum so the architecture
+        // test enforces the contract without demanding per-event schemas
+        // for every literal that happens to mention a CloudEvents type
+        // (for example, fixture types in tests or invalid-event types
+        // used as negative assertions).
+        $allowed = array_map(
+            static fn (\Shared\Infrastructure\Outbox\OutboxEventType $case): string => $case->value,
+            \Shared\Infrastructure\Outbox\OutboxEventType::cases(),
+        );
+        $regex = '/[\'\"](com\.cluster\.[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*\.v\d+)[\'\"]/';
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator(
                 $repoRoot.'/apps/api/Modules',
@@ -656,11 +743,13 @@ PHP);
             }
             if (preg_match_all($regex, $source, $matches) > 0) {
                 foreach ($matches[1] as $eventType) {
+                    if (! in_array($eventType, $allowed, true)) {
+                        continue;
+                    }
                     $eventTypes[$eventType] = $file->getPathname();
                 }
             }
         }
-
         $this->assertNotEmpty(
             $eventTypes,
             'No event_type strings found under apps/api/Modules. Either no outbox events exist yet (skip the test) or the search regex is out of date.'
@@ -690,6 +779,65 @@ PHP);
             $missing,
             'Outbox event types are missing JSON schemas under docs/contracts/schemas. '
             .'Add a schema file for each missing type (filename: <type-with-dots-as-dashes>.schema.json) or drop the event_type from code.'
+        );
+    }
+    public function test_every_migrated_table_has_an_owner_and_owners_match_actual_module_layout(): void
+    {
+        $repoRoot = dirname(__DIR__, 4);
+        $tables = [];
+        $moduleMap = [];
+
+        $migrationPaths = [
+            $repoRoot.'/apps/api/Modules/*/Infrastructure/Persistence/Migrations/*.php',
+            $repoRoot.'/apps/api/Modules/*/Infrastructure/Outbox/Migrations/*.php',
+        ];
+        foreach ($migrationPaths as $pattern) {
+            foreach (glob($pattern) as $file) {
+                $moduleName = basename(dirname(dirname(dirname(dirname($file)))));
+                $source = file_get_contents($file);
+                if ($source === false) {
+                    continue;
+                }
+                if (preg_match_all("/Schema::create\\s*\\(\\s*'([a-z_]+)'/i", $source, $matches) > 0) {
+                    foreach ($matches[1] as $table) {
+                        $tables[$table] = ($tables[$table] ?? 0) + 1;
+                        $moduleMap[$table] = ($moduleMap[$table] ?? $moduleName);
+                    }
+                }
+            }
+        }
+
+        $this->assertNotEmpty(
+            $tables,
+            'No Schema::create calls found under apps/api/Modules. Either migrations live elsewhere (move them under apps/api/Modules/<Module>/Infrastructure/Persistence/Migrations/) or this scan needs updating.'
+        );
+
+        $missing = [];
+        $mismatched = [];
+        foreach ($tables as $table => $count) {
+            if (! array_key_exists($table, self::TABLE_OWNERS)) {
+                $missing[] = sprintf('%s (declared by %s)', $table, $moduleMap[$table]);
+                continue;
+            }
+            if (self::TABLE_OWNERS[$table] !== $moduleMap[$table]) {
+                $mismatched[] = sprintf(
+                    '%s: TABLE_OWNERS says %s but actual module is %s',
+                    $table,
+                    self::TABLE_OWNERS[$table],
+                    $moduleMap[$table],
+                );
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $missing,
+            'Migration tables without an owner in TABLE_OWNERS. Add an entry to apps/api/tests/Architecture/ModuleBoundariesTest.php::TABLE_OWNERS for each missing table, mapping it to the module that owns its migration file.'
+        );
+        $this->assertSame(
+            [],
+            $mismatched,
+            'TABLE_OWNERS disagrees with the actual module that owns each migration. Update the owner column to match the directory under apps/api/Modules that contains the migration file.'
         );
     }
 }
