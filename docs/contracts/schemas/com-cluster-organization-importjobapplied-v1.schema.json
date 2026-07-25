@@ -1,8 +1,118 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-importjobapplied-v1.schema.json",
-    "title": "Outbox event: com.cluster.organization.importjobapplied.v1",
-    "description": "CloudEvents envelope for the 'com.cluster.organization.importjobapplied.v1' event. The actual data shape is owned by the producing module (OrganizationImportJobApplied in OutboxEventType). This file is a placeholder until the producer-author documents the full payload contract; the architecture test only checks that a file exists for every registered event type so the contract is not silently missing.",
-    "type": "object",
-    "additionalProperties": true
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-importjobapplied-v1.schema.json",
+  "title": "Outbox event: com.cluster.organization.importjobapplied.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.organization.importjobapplied.v1' event. Produced by apps/api/app/Http/Controllers/Organization/TransitionImportJobController.php.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "import_job": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "template_code": {
+              "type": "string"
+            },
+            "import_type": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "submitted_by_user_id": {
+              "type": "string"
+            },
+            "approved_by_user_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "total_rows": {
+              "type": "integer"
+            },
+            "valid_rows": {
+              "type": "integer"
+            },
+            "error_rows": {
+              "type": "integer"
+            },
+            "applied_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "lock_version": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "template_code",
+            "import_type",
+            "status",
+            "submitted_by_user_id",
+            "approved_by_user_id",
+            "total_rows",
+            "valid_rows",
+            "error_rows",
+            "applied_at",
+            "lock_version"
+          ]
+        },
+        "access_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subject_id": {
+              "type": "string"
+            },
+            "tenant_id": {
+              "type": "string"
+            },
+            "organization_unit_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "clearance": {
+              "type": "string"
+            },
+            "break_glass": {
+              "type": "boolean"
+            },
+            "correlation_id": {
+              "type": "string"
+            }
+          }
+        },
+        "classification": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "import_job",
+        "access_context",
+        "classification"
+      ]
+    }
+  }
 }

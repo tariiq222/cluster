@@ -1,8 +1,95 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://contracts.cluster.example/schemas/com-cluster-workrecord-invalid-v1.schema.json",
-    "title": "Outbox event: com.cluster.workrecord.invalid.v1",
-    "description": "CloudEvents envelope for the 'com.cluster.workrecord.invalid.v1' event. The actual data shape is owned by the producing module (WorkRecordInvalid in OutboxEventType). This file is a placeholder until the producer-author documents the full payload contract; the architecture test only checks that a file exists for every registered event type so the contract is not silently missing.",
-    "type": "object",
-    "additionalProperties": true
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-workrecord-invalid-v1.schema.json",
+  "title": "Outbox event: com.cluster.workrecord.invalid.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.workrecord.invalid.v1' event. Produced by producer unknown. producer unknown — no producer found in apps/api/Modules/WorkRecords. This event type is registered in Shared/Infrastructure/Outbox/OutboxEventType but no code path emits it; the schema is documented from the expected shape recovered from WorkRecordEnvelopeTest and the submission envelope producer.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "record_number": {
+              "type": "string"
+            },
+            "work_type_version_id": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "facility_id": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "facility_id",
+                "user_id"
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "classification": {
+              "type": "string"
+            },
+            "field_policy_key": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "payload": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "lock_version": {
+              "type": "integer"
+            },
+            "submitted_at": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "updated_at": {
+              "type": "string"
+            }
+          }
+        },
+        "access_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "owner_facility_id": {
+              "type": "string"
+            }
+          }
+        },
+        "classification": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "record",
+        "access_context",
+        "classification"
+      ]
+    }
+  }
 }

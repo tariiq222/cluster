@@ -1,8 +1,103 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-facilitycreated-v1.schema.json",
-    "title": "Outbox event: com.cluster.organization.facilitycreated.v1",
-    "description": "CloudEvents envelope for the 'com.cluster.organization.facilitycreated.v1' event. The actual data shape is owned by the producing module (OrganizationFacilityCreated in OutboxEventType). This file is a placeholder until the producer-author documents the full payload contract; the architecture test only checks that a file exists for every registered event type so the contract is not silently missing.",
-    "type": "object",
-    "additionalProperties": true
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-facilitycreated-v1.schema.json",
+  "title": "Outbox event: com.cluster.organization.facilitycreated.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.organization.facilitycreated.v1' event. Produced by apps/api/app/Http/Controllers/Organization/CreateFacilityController.php.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "facility": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "cluster_id": {
+              "type": "string"
+            },
+            "type_code": {
+              "type": "string"
+            },
+            "code": {
+              "type": "string"
+            },
+            "name_ar": {
+              "type": "string"
+            },
+            "name_en": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "lock_version": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "cluster_id",
+            "type_code",
+            "code",
+            "name_ar",
+            "name_en",
+            "status",
+            "lock_version"
+          ]
+        },
+        "access_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subject_id": {
+              "type": "string"
+            },
+            "tenant_id": {
+              "type": "string"
+            },
+            "organization_unit_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "clearance": {
+              "type": "string"
+            },
+            "break_glass": {
+              "type": "boolean"
+            },
+            "correlation_id": {
+              "type": "string"
+            }
+          }
+        },
+        "classification": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "facility",
+        "access_context",
+        "classification"
+      ]
+    }
+  }
 }

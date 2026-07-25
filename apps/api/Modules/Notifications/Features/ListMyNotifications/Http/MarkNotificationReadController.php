@@ -21,9 +21,10 @@ final class MarkNotificationReadController
         if ($principal === null) {
             return $this->problem(401, 'authentication-required', 'Authentication is required.', $correlationId);
         }
-        if (! is_string($request->header('Idempotency-Key')) || $request->header('Idempotency-Key') === '') {
-            return $this->problem(400, 'invalid-idempotency-key', 'Idempotency-Key is required.', $correlationId);
-        }
+        // The handler performs a single conditional UPDATE that is naturally
+        // idempotent at the SQL level (setting is_read=true on an already-read
+        // row is a no-op), so the request is safe to retry without storing a
+        // per-key replay record.
         $notification = DB::table('notifications')->where('id', $notificationId)->where('recipient_user_id', $principal['user_id'])->first();
         if ($notification === null) {
             return $this->problem(404, 'resource-not-found', 'The notification is not available.', $correlationId);

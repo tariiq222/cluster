@@ -86,7 +86,7 @@ class ModuleBoundariesTest extends TestCase
         'relationship_capabilities' => 'Organization',
         'organization_development_facilities' => 'Organization',
         // Identity (rank 1)
-        'identities' => 'Identity',
+        // (identities table has no Schema::create migration; declared only in docs)
         'users' => 'Identity',
         'identity_sessions' => 'Identity',
         'identity_person_account_claims' => 'Identity',
@@ -114,7 +114,7 @@ class ModuleBoundariesTest extends TestCase
         'authorization_bootstrap' => 'Authorization',
         'authorization_idempotency_keys' => 'Authorization',
         // Authorization owns access_decisions AND sensitive_access_events (cross-cutting audit-events table is planned, not migrated)
-        'audit_events' => 'Audit',
+        // (audit_events has no Schema::create migration; declared only in docs)
         'sensitive_access_events' => 'Authorization',
         // Workflow (rank 4)
         'workflow_definitions' => 'Workflow',
@@ -212,17 +212,17 @@ PHP);
         $root = $this->fixtureRoot();
         $this->writeFixture($root, 'Modules/WorkRecords/Infrastructure/Persistence/Migrations/2026_create_work_records.php', <<<'PHP'
 <?php
-DB::statement('select * from work_records join identities on identities.id = work_records.identity_id');
+DB::statement('select * from work_records join users on users.id = work_records.user_id');
 Schema::table('work_records', function ($table) {
-    $table->foreignUuid('identity_id')->constrained('identities');
+    $table->foreignUuid('user_id')->constrained('users');
 });
 PHP);
 
         try {
             $violations = $this->violationsIn($root);
 
-            $this->assertContains('WorkRecords SQL references Identity-owned table identities.', $violations);
-            $this->assertContains('WorkRecords migration references Identity-owned table identities.', $violations);
+            $this->assertContains('WorkRecords SQL references Identity-owned table users.', $violations);
+            $this->assertContains('WorkRecords migration references Identity-owned table users.', $violations);
         } finally {
             $this->removeDirectory($root);
         }
@@ -756,21 +756,38 @@ PHP);
         );
 
         $missing = [];
+        $placeholder = [];
         foreach ($eventTypes as $eventType => $sourceFile) {
             $slug = str_replace('.', '-', $eventType);
             $candidates = [
                 $contractsDir.'/'.$slug.'.schema.json',
                 $contractsDir.'/'.$eventType.'.schema.json',
             ];
-            $found = false;
+            $found = null;
             foreach ($candidates as $candidate) {
                 if (is_file($candidate)) {
-                    $found = true;
+                    $found = $candidate;
                     break;
                 }
             }
-            if (! $found) {
+            if ($found === null) {
                 $missing[] = sprintf('%s (referenced in %s)', $eventType, $sourceFile);
+                continue;
+            }
+
+            $raw = file_get_contents($found);
+            if ($raw === false) {
+                $placeholder[] = sprintf('%s (unable to read %s)', $eventType, $found);
+                continue;
+            }
+            try {
+                $schema = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                $placeholder[] = sprintf('%s (%s is not valid JSON)', $eventType, $found);
+                continue;
+            }
+            if (! is_array($schema) || ! isset($schema['properties']['data']['type']) || $schema['properties']['data']['type'] !== 'object') {
+                $placeholder[] = sprintf('%s (%s has no top-level `data` object schema)', $eventType, $found);
             }
         }
 
@@ -780,7 +797,14 @@ PHP);
             'Outbox event types are missing JSON schemas under docs/contracts/schemas. '
             .'Add a schema file for each missing type (filename: <type-with-dots-as-dashes>.schema.json) or drop the event_type from code.'
         );
+        $this->assertSame(
+            [],
+            $placeholder,
+            'Outbox event schemas are placeholders (no top-level `data` object). '
+            .'Each schema must declare a Draft 2020-12 document with a top-level `data` object whose properties reflect the actual payload emitted by the producer.'
+        );
     }
+
     public function test_every_migrated_table_has_an_owner_and_owners_match_actual_module_layout(): void
     {
         $repoRoot = dirname(__DIR__, 4);

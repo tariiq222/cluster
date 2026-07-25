@@ -1,8 +1,99 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-positionupdated-v1.schema.json",
-    "title": "Outbox event: com.cluster.organization.positionupdated.v1",
-    "description": "CloudEvents envelope for the 'com.cluster.organization.positionupdated.v1' event. The actual data shape is owned by the producing module (OrganizationPositionUpdated in OutboxEventType). This file is a placeholder until the producer-author documents the full payload contract; the architecture test only checks that a file exists for every registered event type so the contract is not silently missing.",
-    "type": "object",
-    "additionalProperties": true
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-positionupdated-v1.schema.json",
+  "title": "Outbox event: com.cluster.organization.positionupdated.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.organization.positionupdated.v1' event. Produced by apps/api/app/Http/Controllers/Organization/UpdatePositionController.php.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "organization_unit_id": {
+              "type": "string"
+            },
+            "code": {
+              "type": "string"
+            },
+            "title_ar": {
+              "type": "string"
+            },
+            "manager_position_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "is_active": {
+              "type": "boolean"
+            },
+            "lock_version": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "organization_unit_id",
+            "code",
+            "title_ar",
+            "manager_position_id",
+            "is_active",
+            "lock_version"
+          ]
+        },
+        "access_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subject_id": {
+              "type": "string"
+            },
+            "tenant_id": {
+              "type": "string"
+            },
+            "organization_unit_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "clearance": {
+              "type": "string"
+            },
+            "break_glass": {
+              "type": "boolean"
+            },
+            "correlation_id": {
+              "type": "string"
+            }
+          }
+        },
+        "classification": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "position",
+        "access_context",
+        "classification"
+      ]
+    }
+  }
 }

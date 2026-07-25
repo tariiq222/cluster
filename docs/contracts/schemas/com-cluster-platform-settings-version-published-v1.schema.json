@@ -1,8 +1,29 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://contracts.cluster.example/schemas/com-cluster-platform-settings-version-published-v1.schema.json",
-    "title": "Outbox event: com.cluster.platform-settings.version-published.v1",
-    "description": "CloudEvents envelope for the 'com.cluster.platform-settings.version-published.v1' event. The actual data shape is owned by the producing module (PlatformSettingVersionPublished in OutboxEventType). This file is a placeholder until the producer-author documents the full payload contract; the architecture test only checks that a file exists for every registered event type so the contract is not silently missing.",
-    "type": "object",
-    "additionalProperties": true
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-platform-settings-version-published-v1.schema.json",
+  "title": "Outbox event: com.cluster.platform-settings.version-published.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.platform-settings.version-published.v1' event. Produced by apps/api/Modules/PlatformSettings/Features/Settings/Handler/PlatformSettingsHandler.php.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version_id": {
+          "type": "string"
+        },
+        "content_hash": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "version_id",
+        "content_hash"
+      ]
+    }
+  }
 }
