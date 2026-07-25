@@ -27,7 +27,25 @@ Each schema is a contract for consumers; producers must emit data that
 matches it. When the producer and the contract disagree, the consumer
 fails fast on the first malformed event.
 
-## Adding a new event type
+## Identity security events
+
+The Identity module produces 12 security event types (e.g.
+`com.cluster.identity.session_created.v1`,
+`com.cluster.identity.authentication_failed.v1`) through
+`IdentityOutbox::insertSecurityEvent(string $type, ...)`. The producer
+passes a short suffix (e.g. `session_created`); the Identity-side
+adapter `IdentitySecurityEventRegistry` (at
+`apps/api/Modules/Identity/Infrastructure/Outbox/IdentitySecurityEventRegistry.php`)
+maps the suffix to the matching `OutboxEventType` case and rejects
+unknown suffixes with a suffix-specific error before the assembled
+literal ever reaches `OutboxEventType::from`.
+
+Routing the security-event suffix contract through a single Identity-side
+registry keeps the suffix-to-event-type contract in one file rather
+than letting it leak across producer call sites. The registry
+contract is tested at
+`tests/Unit/Shared/Infrastructure/Outbox/IdentitySecurityEventRegistryTest.php`.
+
 
 1. Add a new case to `OutboxEventType` in
    `apps/api/Shared/Infrastructure/Outbox/OutboxEventType.php`.
