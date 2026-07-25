@@ -19,6 +19,7 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000601';
 
     private const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000602';
+    private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000605';
 
     private const PRINCIPAL_ID = '018f6f7d-0c00-7000-8000-000000000603';
 
@@ -38,9 +39,18 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('facility_types')->insert([
+            'id' => self::FACILITY_TYPE_ID,
+            'code' => 'work_record_masking_test_facility',
+            'name_ar' => 'منشأة اختبار',
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         DB::table('facilities')->insert([
             'id' => self::FACILITY_ID,
             'cluster_id' => self::CLUSTER_ID,
+            'facility_type_id' => self::FACILITY_TYPE_ID,
             'code' => 'WR-FAC-MASK',
             'name_ar' => 'منشأة',
             'status' => 'active',
@@ -84,7 +94,7 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
 
         $this->assertNotNull($result);
         $this->assertSame(self::RECORD_ID, $result['id']);
-        $this->assertSame(['*' => 'hidden'], $result['field_access']);
+        $this->assertSame(['*' => 'hidden'], (array) $result['field_access']);
         $this->assertArrayHasKey('payload', $result);
         $this->assertArrayNotHasKey('summary', $result['payload'], 'read field should be visible');
         $this->assertArrayNotHasKey('reviewer_note', $result['payload'], 'edit field should be visible as readonly');
@@ -115,8 +125,8 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
 
 final class FieldPolicyDecider implements DecideAccess
 {
-    /** @param array<string, string> $overrideAccess */
-    public function __construct(private array $overrideAccess = [])
+    /** @param array<string, string>|null $overrideAccess */
+    public function __construct(private ?array $overrideAccess = null)
     {
     }
 
@@ -139,7 +149,7 @@ final class FieldPolicyDecider implements DecideAccess
             classification: $facts === null ? 'confidential' : $facts->classification,
             decisionId: '0197f0e0-0000-7000-8000-000000000aaa',
             allowedActions: ['read'],
-            fieldAccess: $this->overrideAccess === [] ? $defaultAccess : array_merge($defaultAccess, $this->overrideAccess),
+            fieldAccess: $this->overrideAccess === null ? ['*' => 'hidden'] : array_merge($defaultAccess, $this->overrideAccess),
         );
     }
 }

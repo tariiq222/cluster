@@ -19,6 +19,7 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000501';
 
     private const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000502';
+    private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000504';
 
     private const PRINCIPAL_ID = '018f6f7d-0c00-7000-8000-000000000503';
 
@@ -34,9 +35,18 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('facility_types')->insert([
+            'id' => self::FACILITY_TYPE_ID,
+            'code' => 'work_record_query_budget_test_facility',
+            'name_ar' => 'منشأة اختبار',
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         DB::table('facilities')->insert([
             'id' => self::FACILITY_ID,
             'cluster_id' => self::CLUSTER_ID,
+            'facility_type_id' => self::FACILITY_TYPE_ID,
             'code' => 'WR-FAC',
             'name_ar' => 'منشأة',
             'status' => 'active',

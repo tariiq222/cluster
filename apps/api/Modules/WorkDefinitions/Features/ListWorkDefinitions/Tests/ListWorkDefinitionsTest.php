@@ -20,6 +20,7 @@ final class ListWorkDefinitionsTest extends TestCase
     private const ACTOR_ID = '018f6f7d-0c00-7000-8000-000000000021';
 
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000011';
+    private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000010';
 
     protected function setUp(): void
     {
@@ -33,9 +34,18 @@ final class ListWorkDefinitionsTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('facility_types')->insert([
+            'id' => self::FACILITY_TYPE_ID,
+            'code' => 'work_definition_test_facility',
+            'name_ar' => 'منشأة اختبار',
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         DB::table('facilities')->insert([
             'id' => self::FACILITY_ID,
             'cluster_id' => '018f6f7d-0c00-7000-8000-000000000099',
+            'facility_type_id' => self::FACILITY_TYPE_ID,
             'code' => 'WD-FAC',
             'name_ar' => 'منشأة',
             'status' => 'active',

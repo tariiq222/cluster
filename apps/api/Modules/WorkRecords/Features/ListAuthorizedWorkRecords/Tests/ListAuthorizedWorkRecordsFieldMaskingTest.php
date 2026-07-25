@@ -19,6 +19,7 @@ final class ListAuthorizedWorkRecordsFieldMaskingTest extends TestCase
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000701';
 
     private const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000702';
+    private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000704';
 
     private const PRINCIPAL_ID = '018f6f7d-0c00-7000-8000-000000000703';
 
@@ -36,9 +37,18 @@ final class ListAuthorizedWorkRecordsFieldMaskingTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('facility_types')->insert([
+            'id' => self::FACILITY_TYPE_ID,
+            'code' => 'work_record_list_test_facility',
+            'name_ar' => 'منشأة اختبار',
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         DB::table('facilities')->insert([
             'id' => self::FACILITY_ID,
             'cluster_id' => self::CLUSTER_ID,
+            'facility_type_id' => self::FACILITY_TYPE_ID,
             'code' => 'WR-FAC-LIST',
             'name_ar' => 'منشأة',
             'status' => 'active',
