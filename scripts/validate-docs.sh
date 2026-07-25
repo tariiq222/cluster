@@ -8,18 +8,20 @@ for script in scripts/*.sh; do
   bash -n "$script"
 done
 
-if ! command -v python3 >/dev/null 2>&1; then
-  printf '%s\n' 'ERROR: python3 is required for documentation validation.' >&2
+readonly python_binary="${PYTHON_BINARY:-python3}"
+
+if ! command -v "$python_binary" >/dev/null 2>&1; then
+  printf 'ERROR: %s is required for documentation validation.\n' "$python_binary" >&2
   exit 2
 fi
 
-python3 scripts/validate-notifications-openapi.py
-python3 scripts/validate-auth-openapi.py
-python3 scripts/validate-work-records-openapi.py
-python3 scripts/validate-w1-1-openapi.py
-python3 scripts/validate-w1-2-contracts.py
+"$python_binary" scripts/validate-notifications-openapi.py
+"$python_binary" scripts/validate-auth-openapi.py
+"$python_binary" scripts/validate-work-records-openapi.py
+"$python_binary" scripts/validate-w1-1-openapi.py
+"$python_binary" scripts/validate-w1-2-contracts.py
 
-python3 - <<'PY'
+"$python_binary" - <<'PY'
 from __future__ import annotations
 
 import datetime as dt

@@ -175,7 +175,7 @@ final class CiMakeSurfaceTest extends TestCase
         // guard as a required CI gate; a target without a recipe is treated
         // by make as "nothing to do" — silently passing.
         $this->assertMatchesRegularExpression(
-            "/^verify-boundaries:\n\\t(?:?!#)(.+)/m",
+            "/^verify-boundaries:\n\\t(?!#)(.+)/m",
             $content,
             'verify-boundaries must have a non-comment recipe body (the architecture guard cannot be silently passing)',
         );

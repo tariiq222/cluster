@@ -1,4 +1,4 @@
-.PHONY: verify-intake api\:inventory test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-mysql-integration verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
+.PHONY: verify-intake python-bin api\:inventory api\:check test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets npm-audit audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-mysql-integration docs-validate docs-validate-fast help verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
@@ -7,9 +7,28 @@ verify-intake:
 	npm --prefix apps/web ci --ignore-scripts --dry-run
 
 INVENTORY_MODE ?= --check
+PYTHON_BINARY ?= $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
+DOCS_VALIDATOR := scripts/validate-docs.sh
+
+ifeq ($(strip $(PYTHON_BINARY)),)
+PYTHON_BINARY := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
+endif
+
+python-bin:
+	@version="$$($(PYTHON_BINARY) -c 'import sys; print("{}.{}".format(*sys.version_info[:2]))' 2>/dev/null)" || { \
+		printf '%s\n' 'ERROR: no working Python interpreter found; set PYTHON_BINARY.' >&2; \
+		exit 2; \
+	}; \
+	case "$$version" in \
+		3.*) printf '%s %s\n' "$(PYTHON_BINARY)" "$$version" ;; \
+		*) printf 'ERROR: PYTHON_BINARY must resolve to Python 3, got %s.\n' "$$version" >&2; exit 2 ;; \
+	esac
 
 api\:inventory:
-	python3 scripts/inventory-routes.py $(INVENTORY_MODE)
+	$(PYTHON_BINARY) scripts/inventory-routes.py $(INVENTORY_MODE)
+
+api\:check:
+	npm --prefix apps/web run api:check
 
 test-api-smoke:
 	cd apps/api && composer test
@@ -41,9 +60,11 @@ analyse-api:
 scan-secrets:
 	gitleaks detect --source . --redact --no-banner
 
-audit-dependencies:
-	composer --working-dir=apps/api audit --locked
+npm-audit:
 	npm --prefix apps/web audit --omit=dev
+
+audit-dependencies: npm-audit
+	composer --working-dir=apps/api audit --locked
 
 test-e2e: test-e2e-w1-1
 
@@ -56,27 +77,64 @@ test-e2e-w1-1:
 verify-boundaries:
 	cd apps/api && php artisan test tests/Architecture/ModuleBoundariesTest.php
 
-# MySQL integration suite (WalkingSkeleton + concurrency). Run against a real
-# MySQL instance with the cluster_w12_test database. Skips with a clear
-# message if no MySQL is reachable, so it stays a manual gate.
+# MySQL integration suite (WalkingSkeleton + concurrency). Environmental
+# prerequisites are reported as a skip; a started runner that fails is a gate
+# failure so CI never mistakes test failures for an unavailable local service.
 verify-mysql-integration:
-	cd apps/api && php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);' && \
-		cd apps/api && vendor/bin/phpunit -c phpunit.mysql.xml || \
-		echo 'pdo_mysql extension not loaded; verify-mysql-integration skipped.'
+	@if ! command -v docker >/dev/null 2>&1; then \
+		printf '%s\n' 'SKIP: verify-mysql-integration prereq missing: docker.'; \
+		exit 0; \
+	fi; \
+	if ! (cd apps/api && php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);'); then \
+		printf '%s\n' 'SKIP: verify-mysql-integration prereq missing: pdo_mysql.'; \
+		exit 0; \
+	fi; \
+	if [ ! -x scripts/run-mysql-integration-tests.sh ]; then \
+		printf '%s\n' 'SKIP: verify-mysql-integration prereq missing: runner script scripts/run-mysql-integration-tests.sh.'; \
+		exit 0; \
+	fi; \
+	if ! scripts/run-mysql-integration-tests.sh; then \
+		printf '%s\n' 'ERROR: verify-mysql-integration runner failed; failing the gate.' >&2; \
+		exit 1; \
+	fi
 
-	cd apps/api && php artisan test tests/Architecture/ModuleBoundariesTest.php
-
-# البوابة المحلية الكاملة: عقود، جودة، اختبارات، حدود، ورحلة E2E.
-# التحقق من وجود وثائق المعمارية المطلوبة. الـ validation الكامل (frontmatter + catalog + nav)
-# يعمل عبر scripts/validate-docs.sh لكن يحتاج mkdocs.yml و docs/catalog.yaml و frontmatter
-# كامل لكل .md تحت docs/؛ هذا الـ target يضمن الحد الأدنى الذي يعتمد عليه الـ architecture test.
+# Documentation validation is deliberately strict: missing tools or catalog
+# input are setup failures, never a fallback to a reduced validation path.
 docs-validate:
-	test -f docs/contracts/api/openapi.yaml
-	test -f docs/contracts/api/w1-1.openapi.yaml
-	test -f docs/contracts/api/w1-2.openapi.yaml
-	test -f docs/contracts/api/r1-screens.openapi.yaml
-	test -f docs/architecture/module-catalog.md
+	@failed=0; \
+	if [ ! -x "$(DOCS_VALIDATOR)" ]; then \
+		printf '%s\n' 'ERROR: docs/validate-docs.sh is missing; validator required at scripts/validate-docs.sh.' >&2; \
+		failed=1; \
+	fi; \
+	if ! "$(PYTHON_BINARY)" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 0) else 1)' >/dev/null 2>&1; then \
+		printf '%s\n' 'ERROR: python3 is missing or PYTHON_BINARY is not Python 3.' >&2; \
+		failed=1; \
+	fi; \
+	if ! "$(PYTHON_BINARY)" -c 'import yaml' >/dev/null 2>&1; then \
+		printf '%s\n' 'ERROR: PyYAML is missing; install the documentation validator dependency.' >&2; \
+		failed=1; \
+	fi; \
+	if [ ! -f docs/catalog.yaml ]; then \
+		printf '%s\n' 'ERROR: docs/catalog.yaml is missing.' >&2; \
+		failed=1; \
+	fi; \
+	if [ "$$failed" -ne 0 ]; then exit 2; fi; \
+	PYTHON_BINARY="$(PYTHON_BINARY)" "$(DOCS_VALIDATOR)"
 
+docs-validate-fast: docs-validate
+
+help:
+	@printf '%s\n' \
+		'Public CI gates:' \
+		'  verify-intake              Validate locked dependency intake.' \
+		'  api:check                  Check generated API contracts.' \
+		'  docs-validate              Validate documentation contracts.' \
+		'  docs-validate-fast         Strict alias for docs-validate.' \
+		'  verify-boundaries          Run module architecture boundaries.' \
+		'  verify-mysql-integration   Run the isolated MySQL integration suite.' \
+		'  npm-audit                  Audit production web dependencies.' \
+		'  audit-dependencies         Audit API and web dependencies.' \
+		'  python-bin                 Print the resolved Python 3 binary.'
 # البوابة المحلية الكاملة: عقود، جودة، اختبارات، حدود، ورحلة E2E.
 verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies docs-validate test-api test-web verify-boundaries test-w1-1-api-worker-smoke test-e2e-w1-1
 
@@ -128,7 +186,7 @@ verify-screens: verify-day3
 
 # حزمة الإنتاج: بناء صور الإنتاج من lockfiles وتشغيلها بحزمة Compose كاملة.
 validate-production-bundle:
-	python3 scripts/production_bundle_policy.py
+	$(PYTHON_BINARY) scripts/production_bundle_policy.py
 
 build-production-images:
 	./infra/platform/production/build-images.sh
