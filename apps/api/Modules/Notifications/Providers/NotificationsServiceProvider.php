@@ -2,7 +2,7 @@
 
 namespace Modules\Notifications\Providers;
 
-use App\Integrations\Notifications\DatabaseTechnicalAlertRecipientResolver;
+use Modules\Notifications\Infrastructure\Persistence\DatabaseTechnicalAlertRecipientResolver;
 use Illuminate\Support\ServiceProvider;
 use Modules\Notifications\Contracts\ResolveTechnicalAlertRecipients;
 

@@ -3,9 +3,8 @@
 namespace Modules\PlatformSettings\Providers;
 
 use App\Integrations\PlatformOperations\CommandBackupOperationsGateway;
-use App\Integrations\PlatformOperations\LaravelPlatformHealthGateway;
+use Modules\PlatformSettings\Infrastructure\LaravelPlatformHealthGateway;
 use App\Integrations\PlatformOperations\ObjectStorageTechnicalLogArchive;
-use App\Integrations\PlatformOperations\TechnicalLogSourceUnavailable;
 use App\Integrations\PlatformOperations\UnavailableTechnicalLogSource;
 use App\Integrations\PlatformOperations\UnavailableTechnicalLogArchive;
 use App\Integrations\PlatformSettings\CatalogTechnicalAlertRecipientCapabilityValidator;
