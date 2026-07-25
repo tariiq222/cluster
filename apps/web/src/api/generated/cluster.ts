@@ -2215,31 +2215,66 @@ export interface SettingValue {
   value: SettingValueValue
 }
 
+export type BusinessCalendarCreateScopeType =
+  (typeof BusinessCalendarCreateScopeType)[keyof typeof BusinessCalendarCreateScopeType]
+
+export const BusinessCalendarCreateScopeType = {
+  platform: 'platform',
+  cluster: 'cluster',
+  facility: 'facility',
+} as const
+
 export interface BusinessCalendarCreate {
-  /** @pattern ^[A-Z0-9_-]{2,64}$ */
-  code: string
-  /**
-   * @minLength 1
-   * @maxLength 255
-   */
-  name: string
-  timezone: 'Asia/Riyadh'
-  /**
-   * @minimum 2000
-   * @maximum 2200
-   */
-  year: number
+  scope_type: BusinessCalendarCreateScopeType
+  /** @minLength 1 */
+  scope_id: string
 }
 
-export interface BusinessCalendarDay {
+export interface BusinessCalendarWeekday {
   is_working_day: boolean
   /**
-   * @minimum 0
-   * @maximum 1440
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
    */
-  working_minutes?: number
-  /** @maxLength 255 */
-  label?: string
+  starts_at?: string | null
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  ends_at?: string | null
+}
+
+export type BusinessCalendarExceptionType =
+  (typeof BusinessCalendarExceptionType)[keyof typeof BusinessCalendarExceptionType]
+
+export const BusinessCalendarExceptionType = {
+  official_holiday: 'official_holiday',
+  local_closure: 'local_closure',
+  local_hours: 'local_hours',
+  official_holiday_work_override: 'official_holiday_work_override',
+  ramadan: 'ramadan',
+} as const
+
+export interface BusinessCalendarException {
+  type: BusinessCalendarExceptionType
+  /** @nullable */
+  ends_on?: string | null
+  is_working_day: boolean
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  starts_at?: string | null
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  ends_at?: string | null
+  /**
+   * @maxLength 2000
+   * @nullable
+   */
+  reason?: string | null
 }
 
 export type StrategyResourceCreateResourceType =
@@ -3303,7 +3338,8 @@ export type ListPlatformSettingsVersionsParams = {
   limit?: LimitParameter
 }
 
-export type ListBusinessCalendarsParams = {
+export type ListPlatformSettingsCalendarsParams = {
+  scope?: ListPlatformSettingsCalendarsScope
   /**
    * @minLength 1
    */
@@ -3314,6 +3350,15 @@ export type ListBusinessCalendarsParams = {
    */
   limit?: LimitParameter
 }
+
+export type ListPlatformSettingsCalendarsScope =
+  (typeof ListPlatformSettingsCalendarsScope)[keyof typeof ListPlatformSettingsCalendarsScope]
+
+export const ListPlatformSettingsCalendarsScope = {
+  platform: 'platform',
+  cluster: 'cluster',
+  facility: 'facility',
+} as const
 
 export type ListStrategyResourcesParams = {
   /**
@@ -12809,36 +12854,38 @@ export const getPlatformBackups = async (
   })
 }
 
-export type listBusinessCalendarsResponse200 = {
+export type listPlatformSettingsCalendarsResponse200 = {
   data: CollectionResponse
   status: 200
 }
 
-export type listBusinessCalendarsResponse401 = {
+export type listPlatformSettingsCalendarsResponse401 = {
   data: UnauthorizedResponse
   status: 401
 }
 
-export type listBusinessCalendarsResponse403 = {
+export type listPlatformSettingsCalendarsResponse403 = {
   data: ForbiddenResponse
   status: 403
 }
 
-export type listBusinessCalendarsResponseSuccess =
-  listBusinessCalendarsResponse200 & {
+export type listPlatformSettingsCalendarsResponseSuccess =
+  listPlatformSettingsCalendarsResponse200 & {
     headers: Headers
   }
-export type listBusinessCalendarsResponseError = (
-  listBusinessCalendarsResponse401 | listBusinessCalendarsResponse403
+export type listPlatformSettingsCalendarsResponseError = (
+  | listPlatformSettingsCalendarsResponse401
+  | listPlatformSettingsCalendarsResponse403
 ) & {
   headers: Headers
 }
 
-export type listBusinessCalendarsResponse =
-  listBusinessCalendarsResponseSuccess | listBusinessCalendarsResponseError
+export type listPlatformSettingsCalendarsResponse =
+  | listPlatformSettingsCalendarsResponseSuccess
+  | listPlatformSettingsCalendarsResponseError
 
-export const getListBusinessCalendarsUrl = (
-  params?: ListBusinessCalendarsParams,
+export const getListPlatformSettingsCalendarsUrl = (
+  params?: ListPlatformSettingsCalendarsParams,
 ) => {
   const normalizedParams = new URLSearchParams()
 
@@ -12851,19 +12898,19 @@ export const getListBusinessCalendarsUrl = (
   const stringifiedParams = normalizedParams.toString()
 
   return stringifiedParams.length > 0
-    ? `/api/v1/business-calendars?${stringifiedParams}`
-    : `/api/v1/business-calendars`
+    ? `/api/v1/platform-settings/calendars?${stringifiedParams}`
+    : `/api/v1/platform-settings/calendars`
 }
 
 /**
  * @summary List business calendars
  */
-export const listBusinessCalendars = async (
-  params?: ListBusinessCalendarsParams,
+export const listPlatformSettingsCalendars = async (
+  params?: ListPlatformSettingsCalendarsParams,
   options?: RequestInit,
-): Promise<listBusinessCalendarsResponse> => {
-  return customFetch<listBusinessCalendarsResponse>(
-    getListBusinessCalendarsUrl(params),
+): Promise<listPlatformSettingsCalendarsResponse> => {
+  return customFetch<listPlatformSettingsCalendarsResponse>(
+    getListPlatformSettingsCalendarsUrl(params),
     {
       ...options,
       method: 'GET',
@@ -12871,60 +12918,61 @@ export const listBusinessCalendars = async (
   )
 }
 
-export type createBusinessCalendarResponse201 = {
+export type createPlatformSettingsCalendarResponse201 = {
   data: EntityResponse
   status: 201
 }
 
-export type createBusinessCalendarResponse400 = {
+export type createPlatformSettingsCalendarResponse400 = {
   data: BadRequestResponse
   status: 400
 }
 
-export type createBusinessCalendarResponse401 = {
+export type createPlatformSettingsCalendarResponse401 = {
   data: UnauthorizedResponse
   status: 401
 }
 
-export type createBusinessCalendarResponse403 = {
+export type createPlatformSettingsCalendarResponse403 = {
   data: ForbiddenResponse
   status: 403
 }
 
-export type createBusinessCalendarResponse409 = {
+export type createPlatformSettingsCalendarResponse409 = {
   data: ConflictResponse
   status: 409
 }
 
-export type createBusinessCalendarResponseSuccess =
-  createBusinessCalendarResponse201 & {
+export type createPlatformSettingsCalendarResponseSuccess =
+  createPlatformSettingsCalendarResponse201 & {
     headers: Headers
   }
-export type createBusinessCalendarResponseError = (
-  | createBusinessCalendarResponse400
-  | createBusinessCalendarResponse401
-  | createBusinessCalendarResponse403
-  | createBusinessCalendarResponse409
+export type createPlatformSettingsCalendarResponseError = (
+  | createPlatformSettingsCalendarResponse400
+  | createPlatformSettingsCalendarResponse401
+  | createPlatformSettingsCalendarResponse403
+  | createPlatformSettingsCalendarResponse409
 ) & {
   headers: Headers
 }
 
-export type createBusinessCalendarResponse =
-  createBusinessCalendarResponseSuccess | createBusinessCalendarResponseError
+export type createPlatformSettingsCalendarResponse =
+  | createPlatformSettingsCalendarResponseSuccess
+  | createPlatformSettingsCalendarResponseError
 
-export const getCreateBusinessCalendarUrl = () => {
-  return `/api/v1/business-calendars`
+export const getCreatePlatformSettingsCalendarUrl = () => {
+  return `/api/v1/platform-settings/calendars`
 }
 
 /**
- * @summary Create a Draft business calendar
+ * @summary Create a draft business calendar
  */
-export const createBusinessCalendar = async (
+export const createPlatformSettingsCalendar = async (
   businessCalendarCreate: BusinessCalendarCreate,
   options?: RequestInit,
-): Promise<createBusinessCalendarResponse> => {
-  return customFetch<createBusinessCalendarResponse>(
-    getCreateBusinessCalendarUrl(),
+): Promise<createPlatformSettingsCalendarResponse> => {
+  return customFetch<createPlatformSettingsCalendarResponse>(
+    getCreatePlatformSettingsCalendarUrl(),
     {
       ...options,
       method: 'POST',
@@ -12934,146 +12982,229 @@ export const createBusinessCalendar = async (
   )
 }
 
-export type setBusinessCalendarDayResponse200 = {
+export type setPlatformSettingsCalendarWeekdayResponse200 = {
   data: EntityResponse
   status: 200
 }
 
-export type setBusinessCalendarDayResponse400 = {
+export type setPlatformSettingsCalendarWeekdayResponse400 = {
   data: BadRequestResponse
   status: 400
 }
 
-export type setBusinessCalendarDayResponse401 = {
+export type setPlatformSettingsCalendarWeekdayResponse401 = {
   data: UnauthorizedResponse
   status: 401
 }
 
-export type setBusinessCalendarDayResponse403 = {
+export type setPlatformSettingsCalendarWeekdayResponse403 = {
   data: ForbiddenResponse
   status: 403
 }
 
-export type setBusinessCalendarDayResponse404 = {
+export type setPlatformSettingsCalendarWeekdayResponse404 = {
   data: NotFoundResponse
   status: 404
 }
 
-export type setBusinessCalendarDayResponse409 = {
+export type setPlatformSettingsCalendarWeekdayResponse409 = {
   data: ConflictResponse
   status: 409
 }
 
-export type setBusinessCalendarDayResponse412 = {
+export type setPlatformSettingsCalendarWeekdayResponse412 = {
   data: PreconditionFailedResponse
   status: 412
 }
 
-export type setBusinessCalendarDayResponseSuccess =
-  setBusinessCalendarDayResponse200 & {
+export type setPlatformSettingsCalendarWeekdayResponseSuccess =
+  setPlatformSettingsCalendarWeekdayResponse200 & {
     headers: Headers
   }
-export type setBusinessCalendarDayResponseError = (
-  | setBusinessCalendarDayResponse400
-  | setBusinessCalendarDayResponse401
-  | setBusinessCalendarDayResponse403
-  | setBusinessCalendarDayResponse404
-  | setBusinessCalendarDayResponse409
-  | setBusinessCalendarDayResponse412
+export type setPlatformSettingsCalendarWeekdayResponseError = (
+  | setPlatformSettingsCalendarWeekdayResponse400
+  | setPlatformSettingsCalendarWeekdayResponse401
+  | setPlatformSettingsCalendarWeekdayResponse403
+  | setPlatformSettingsCalendarWeekdayResponse404
+  | setPlatformSettingsCalendarWeekdayResponse409
+  | setPlatformSettingsCalendarWeekdayResponse412
 ) & {
   headers: Headers
 }
 
-export type setBusinessCalendarDayResponse =
-  setBusinessCalendarDayResponseSuccess | setBusinessCalendarDayResponseError
+export type setPlatformSettingsCalendarWeekdayResponse =
+  | setPlatformSettingsCalendarWeekdayResponseSuccess
+  | setPlatformSettingsCalendarWeekdayResponseError
 
-export const getSetBusinessCalendarDayUrl = (
+export const getSetPlatformSettingsCalendarWeekdayUrl = (
   calendarId: UUIDv7,
-  date: string,
+  weekday: number,
 ) => {
-  return `/api/v1/business-calendars/${encodeURIComponent(String(calendarId))}/days/${encodeURIComponent(String(date))}`
+  return `/api/v1/platform-settings/calendars/${encodeURIComponent(String(calendarId))}/weekdays/${encodeURIComponent(String(weekday))}`
 }
 
 /**
- * @summary Set a Draft calendar day
+ * @summary Set a draft calendar weekday
  */
-export const setBusinessCalendarDay = async (
+export const setPlatformSettingsCalendarWeekday = async (
   calendarId: UUIDv7,
-  date: string,
-  businessCalendarDay: BusinessCalendarDay,
+  weekday: number,
+  businessCalendarWeekday: BusinessCalendarWeekday,
   options?: RequestInit,
-): Promise<setBusinessCalendarDayResponse> => {
-  return customFetch<setBusinessCalendarDayResponse>(
-    getSetBusinessCalendarDayUrl(calendarId, date),
+): Promise<setPlatformSettingsCalendarWeekdayResponse> => {
+  return customFetch<setPlatformSettingsCalendarWeekdayResponse>(
+    getSetPlatformSettingsCalendarWeekdayUrl(calendarId, weekday),
     {
       ...options,
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(businessCalendarDay),
+      body: JSON.stringify(businessCalendarWeekday),
     },
   )
 }
 
-export type publishBusinessCalendarResponse200 = {
+export type setPlatformSettingsCalendarExceptionResponse200 = {
   data: EntityResponse
   status: 200
 }
 
-export type publishBusinessCalendarResponse401 = {
+export type setPlatformSettingsCalendarExceptionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type setPlatformSettingsCalendarExceptionResponse401 = {
   data: UnauthorizedResponse
   status: 401
 }
 
-export type publishBusinessCalendarResponse403 = {
+export type setPlatformSettingsCalendarExceptionResponse403 = {
   data: ForbiddenResponse
   status: 403
 }
 
-export type publishBusinessCalendarResponse404 = {
+export type setPlatformSettingsCalendarExceptionResponse404 = {
   data: NotFoundResponse
   status: 404
 }
 
-export type publishBusinessCalendarResponse409 = {
+export type setPlatformSettingsCalendarExceptionResponse409 = {
   data: ConflictResponse
   status: 409
 }
 
-export type publishBusinessCalendarResponse412 = {
+export type setPlatformSettingsCalendarExceptionResponse412 = {
   data: PreconditionFailedResponse
   status: 412
 }
 
-export type publishBusinessCalendarResponseSuccess =
-  publishBusinessCalendarResponse200 & {
+export type setPlatformSettingsCalendarExceptionResponseSuccess =
+  setPlatformSettingsCalendarExceptionResponse200 & {
     headers: Headers
   }
-export type publishBusinessCalendarResponseError = (
-  | publishBusinessCalendarResponse401
-  | publishBusinessCalendarResponse403
-  | publishBusinessCalendarResponse404
-  | publishBusinessCalendarResponse409
-  | publishBusinessCalendarResponse412
+export type setPlatformSettingsCalendarExceptionResponseError = (
+  | setPlatformSettingsCalendarExceptionResponse400
+  | setPlatformSettingsCalendarExceptionResponse401
+  | setPlatformSettingsCalendarExceptionResponse403
+  | setPlatformSettingsCalendarExceptionResponse404
+  | setPlatformSettingsCalendarExceptionResponse409
+  | setPlatformSettingsCalendarExceptionResponse412
 ) & {
   headers: Headers
 }
 
-export type publishBusinessCalendarResponse =
-  publishBusinessCalendarResponseSuccess | publishBusinessCalendarResponseError
+export type setPlatformSettingsCalendarExceptionResponse =
+  | setPlatformSettingsCalendarExceptionResponseSuccess
+  | setPlatformSettingsCalendarExceptionResponseError
 
-export const getPublishBusinessCalendarUrl = (calendarId: UUIDv7) => {
-  return `/api/v1/business-calendars/${encodeURIComponent(String(calendarId))}/publish`
+export const getSetPlatformSettingsCalendarExceptionUrl = (
+  calendarId: UUIDv7,
+  date: string,
+) => {
+  return `/api/v1/platform-settings/calendars/${encodeURIComponent(String(calendarId))}/exceptions/${encodeURIComponent(String(date))}`
 }
 
 /**
- * @summary Publish an immutable business calendar
+ * @summary Set a draft calendar exception
  */
-export const publishBusinessCalendar = async (
+export const setPlatformSettingsCalendarException = async (
+  calendarId: UUIDv7,
+  date: string,
+  businessCalendarException: BusinessCalendarException,
+  options?: RequestInit,
+): Promise<setPlatformSettingsCalendarExceptionResponse> => {
+  return customFetch<setPlatformSettingsCalendarExceptionResponse>(
+    getSetPlatformSettingsCalendarExceptionUrl(calendarId, date),
+    {
+      ...options,
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(businessCalendarException),
+    },
+  )
+}
+
+export type publishPlatformSettingsCalendarResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type publishPlatformSettingsCalendarResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type publishPlatformSettingsCalendarResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type publishPlatformSettingsCalendarResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type publishPlatformSettingsCalendarResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type publishPlatformSettingsCalendarResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type publishPlatformSettingsCalendarResponseSuccess =
+  publishPlatformSettingsCalendarResponse200 & {
+    headers: Headers
+  }
+export type publishPlatformSettingsCalendarResponseError = (
+  | publishPlatformSettingsCalendarResponse401
+  | publishPlatformSettingsCalendarResponse403
+  | publishPlatformSettingsCalendarResponse404
+  | publishPlatformSettingsCalendarResponse409
+  | publishPlatformSettingsCalendarResponse412
+) & {
+  headers: Headers
+}
+
+export type publishPlatformSettingsCalendarResponse =
+  | publishPlatformSettingsCalendarResponseSuccess
+  | publishPlatformSettingsCalendarResponseError
+
+export const getPublishPlatformSettingsCalendarUrl = (calendarId: UUIDv7) => {
+  return `/api/v1/platform-settings/calendars/${encodeURIComponent(String(calendarId))}/publish`
+}
+
+/**
+ * @summary Publish a business calendar
+ */
+export const publishPlatformSettingsCalendar = async (
   calendarId: UUIDv7,
   options?: RequestInit,
-): Promise<publishBusinessCalendarResponse> => {
-  return customFetch<publishBusinessCalendarResponse>(
-    getPublishBusinessCalendarUrl(calendarId),
+): Promise<publishPlatformSettingsCalendarResponse> => {
+  return customFetch<publishPlatformSettingsCalendarResponse>(
+    getPublishPlatformSettingsCalendarUrl(calendarId),
     {
       ...options,
       method: 'POST',

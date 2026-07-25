@@ -71,7 +71,7 @@ export function BusinessCalendarsScreen({
   const [overrideOpen, setOverrideOpen] = useState(false)
   const [overrideDate, setOverrideDate] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
-  const [overrideType, setOverrideType] = useState<'official_holiday' | 'ad_hoc_holiday' | 'seasonal_period' | 'official_holiday_work_override'>('official_holiday')
+  const [overrideType, setOverrideType] = useState<'official_holiday' | 'local_closure' | 'ramadan' | 'official_holiday_work_override'>('official_holiday')
   const [overrideStart, setOverrideStart] = useState('08:00')
   const [overrideEnd, setOverrideEnd] = useState('16:00')
   const [overrideWorking, setOverrideWorking] = useState(true)
@@ -111,7 +111,6 @@ export function BusinessCalendarsScreen({
       const response = await createBusinessCalendar(token, {
         scope_type: scope,
         scope_id: scope,
-        parent_calendar_id: null,
       })
       const created = response as unknown as { id?: string; lock_version?: number; values?: Record<string, unknown> }
       if (typeof created.id === 'string' && created.id.length > 0) {
@@ -143,8 +142,9 @@ export function BusinessCalendarsScreen({
       const response = await setBusinessCalendarException(token, calendarId, overrideDate, {
         type: overrideType,
         is_working_day: overrideWorking,
-        starts_at: overrideWorking ? overrideStart : '',
-        ends_at: overrideWorking ? overrideEnd : '',
+        starts_at: overrideWorking ? overrideStart : null,
+        ends_at: overrideWorking ? overrideEnd : null,
+        reason: overrideReason === '' ? null : overrideReason,
       }, lockVersion)
       const updated = response as unknown as { lock_version?: number }
       if (typeof updated.lock_version === 'number') {
@@ -191,8 +191,8 @@ export function BusinessCalendarsScreen({
     try {
       const response = await setBusinessCalendarWeekday(token, calendarId, weekday, {
         is_working_day: isWorking,
-        starts_at: isWorking ? '08:00' : '',
-        ends_at: isWorking ? '16:00' : '',
+        starts_at: isWorking ? '08:00' : null,
+        ends_at: isWorking ? '16:00' : null,
       }, lockVersion)
       const updated = response as unknown as { lock_version?: number }
       if (typeof updated.lock_version === 'number') {
@@ -296,11 +296,11 @@ export function BusinessCalendarsScreen({
           <Select
             id="calendar-exception-type"
             value={overrideType}
-            onChange={(value) => setOverrideType(value as 'official_holiday' | 'ad_hoc_holiday' | 'seasonal_period' | 'official_holiday_work_override')}
+            onChange={(value) => setOverrideType(value as 'official_holiday' | 'local_closure' | 'ramadan' | 'official_holiday_work_override')}
             options={[
               { value: 'official_holiday', label: screenText(locale, 'عطلة رسمية', 'Official holiday') },
-              { value: 'ad_hoc_holiday', label: screenText(locale, 'عطلة استثنائية', 'Ad-hoc holiday') },
-              { value: 'seasonal_period', label: screenText(locale, 'فترة موسمية', 'Seasonal period') },
+              { value: 'local_closure', label: screenText(locale, 'إغلاق محلي', 'Local closure') },
+              { value: 'ramadan', label: screenText(locale, 'رمضان', 'Ramadan') },
               { value: 'official_holiday_work_override', label: screenText(locale, 'عمل أثناء عطلة رسمية', 'Official-holiday work override') },
             ]}
             ariaLabel={screenText(locale, 'نوع الاستثناء', 'Exception type')}
