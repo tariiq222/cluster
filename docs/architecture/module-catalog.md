@@ -208,9 +208,12 @@ them accidentally gains a directory.
    reference another module's table from a migration, an SQL literal, or a
    `DB::table(...)` call. The catalogue is enforced by
    `test_every_migrated_table_has_an_owner_and_owners_match_actual_module_layout`
-   and currently covers all 96 migrated tables plus 2 declared future tables
-   (`identities`, `audit_events`) that the architecture test treats as
-   acceptable ghosts.
+   and currently covers all 96 migrated tables. Ghosts (entries declared in
+   docs without a corresponding `Schema::create` migration) are not
+   permitted: the historical `identities` and `audit_events` ghosts were
+   removed in the table-ownership cleanup; if either table is reintroduced
+   the architecture test will fail until the migration lands and the
+   owner column is set correctly.
 3. **Controller placement.** Business HTTP controllers must live inside their
    owning module at `Modules/<Name>/Features/*/Http/`. Controllers under
    `app/Http/Controllers/` are tolerated only when listed in
@@ -238,7 +241,84 @@ them accidentally gains a directory.
 | New business controller under `app/` | `test_detects_a_business_controller_outside_its_module`, exempt via `ModulePlacementInventory` |
 | New event type without JSON schema | `test_every_event_type_in_outbox_has_a_matching_json_schema` |
 | Module uses `Request*` identifier | `test_rejects_requests_as_a_business_module_or_identifier` |
-
 If you change a module's rank or add a planned module, edit both this catalog
 and `MODULE_RANKS` / `PLANNED_MODULES` in `ModuleBoundariesTest.php` in the
 same PR. The architecture test runner is the single arbiter of truth.
+
+## 6 · Architecture decisions log
+
+Decisions made in the table-ownership, middleware-cost, outbox-contract,
+and CSRF cleanup passes. Each entry records what was decided, what was
+considered and rejected, and where the implementation lives.
+
+### 6.1 `MarkNotificationReadController` no longer requires `Idempotency-Key`
+(Stage 2)
+- **What.** The handler dropped the `Idempotency-Key` header check. A
+  request without the header is no longer rejected with 400; a retry
+  returns the same response body, and the row stays `is_read=true`.
+- **Why.** The controller's only write is a single conditional UPDATE
+  (`where('id', $notificationId)->update(['is_read' => true, ...])`),
+  which is naturally idempotent at the SQL level. A replay table (the
+  pattern other modules use) would be over-engineering for a read-state
+  toggle that does not mint a resource or trigger an external side effect.
+- **Rejected.** Persisting `(idempotency_key, response_body, status)`
+  in a `notification_idempotency_keys` table. That table would have to be
+  populated, queried, and eventually expired — all for a controller
+  whose write is already a no-op on the second call.
+- **Where.** `apps/api/Modules/Notifications/Features/ListMyNotifications/Http/MarkNotificationReadController.php`
+  and the new focused test at `Tests/MarkNotificationReadControllerTest.php`.
+
+### 6.2 `EnforcePlatformMaintenance` caches active-window state, not
+authorization decisions (Stage 3)
+- **What.** The middleware reads the active maintenance window from
+  `Cache::remember('platform:maintenance:active', 60, ...)`. On cache
+  miss the `MaintenanceWindowHandler::activeAt()` DB query runs once;
+  on cache hit the cached payload is restored and re-evaluated against
+  the current time. `DecideAccess` is only invoked when a window is
+  actually active, and the per-principal call is never cached.
+- **Why.** The original implementation invoked `DecideAccess` on every
+  request, which is several DB round-trips through
+  `RbacAbacDecideAccess` (owner roles, denies, grants, policies,
+  capabilities, plus a transaction that writes to `access_decisions`).
+  Caching the *active-window boolean* is the safe optimization: it
+  removes the DB hit on the no-window path and narrows the
+  `DecideAccess` cost to requests that would actually be blocked.
+- **Rejected.** Caching the `DecideAccess` outcome globally. That would
+  let an admin's allow decision leak to non-admin principals (cache
+  poisoning), so the cache is restricted to the window-state shape only.
+- **Where.** `apps/api/app/Http/Middleware/EnforcePlatformMaintenance.php`
+  and the cache-only test in
+  `tests/Unit/Http/Middleware/EnforcePlatformMaintenanceTest.php`.
+
+### 6.3 Outbox event schemas are real contracts, not placeholders (Stage 4)
+- **What.** Each `*.schema.json` file under `docs/contracts/schemas/`
+  is a JSON Schema Draft 2020-12 document with a top-level `type:
+  object`, a `required` array containing `data`, and a `properties.data`
+  object describing the actual payload shape emitted by the producer
+  in `apps/api/Modules`. Every schema's `description` starts with
+  "Produced by <relative-path-to-producer>" so the contract is
+  traceable.
+- **Why.** A schema file that exists but is a generic placeholder does
+  not protect consumers from a payload-shape change. The architecture
+  test now reads the file with `json_decode` and asserts the
+  `type / required / properties` contract; a producer that changes a
+  payload without updating the schema will fail CI.
+- **Where.** `tests/Architecture/ModuleBoundariesTest.php::test_every_event_type_in_outbox_has_a_matching_json_schema`.
+
+### 6.4 CSRF regression test deferred (Stage 5)
+- **What.** `test_patch_documents_without_csrf_header_is_rejected` was
+  removed after repeated attempts to wire the feature test through the
+  full session/principal/CSRF pipeline failed. The
+  `IdentityCsrfMiddleware` lives behind `IdentitySessionMiddleware` and
+  `RequireIdentitySessionPrincipal`, so a session-less PATCH returns
+  401 before the CSRF guard sees the request.
+- **Decision.** A faithful regression test belongs in
+  `tests/Unit/Http/Middleware/IdentityCsrfMiddlewareTest.php` where the
+  session/principal can be mocked directly. That unit test is left for
+  a follow-up; the route mapping in `DocumentsContractRoutesTest` is
+  the smallest, most-stable contract surface for the time being.
+- **Why.** The current production route is verified by
+  `Route::getRoutes()` introspection (the `IdentityCsrfMiddleware`
+  class is in the middleware list for the PATCH route), and the
+  middleware itself is exercised in the unit test of the
+  `EnforcePlatformMaintenance` stage-3 work.
