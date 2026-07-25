@@ -1,6 +1,6 @@
 # ملخّص تنفيذي (بالعربية)
 
-> **التاريخ:** 2026-07-25 (إعادة كتابة بعد تحديث drift)
+> **التاريخ:** 2026-07-26 (إعادة كتابة بعد تحديث drift)
 > **الحالة:** تحليل evidence-first لـ Cluster (R3).
 > **الفهرس الكامل:** [`00-overview.md`](00-overview.md)
 
@@ -18,16 +18,15 @@ Cluster مبنيّ كـ **Laravel 13.8 Modular Monolith** بـ 12 موديول �
 3. **`docs/architecture/module-catalog.md` مُنشَأ** (المرجع الأعلى للـ ranks والحدود).
 4. **`IdentitySecurityEventRegistry`** (Stage 6.7) — مركز موحَّد لتعيين الـ 12 suffix للـ security events.
 5. **Self-hosted E2E CI workflow** (`.github/workflows/ci-e2e.yml`) — قالب جاهز ينتظر provisioning لـ runner مع label `cluster-e2e`.
-6. **Legacy controller migration** (Stage 6.8) — 14 controller منقول (12 Organization + 2 Reporting) من `app/Http/Controllers/` إلى `Modules/<Name>/Features/<Feature>/Http/`.
+6. **Legacy controller migration** (Stage 6.8) — لا تبقى business controllers في `app/Http/Controllers/`; المجلد يحوي `Controller.php` الأساسي فقط.
 7. **`AppWorkspace.tsx` مُفكَّك** — الآن 1 سطر (re-export)؛ التقطيع تم في `AppWorkspaceShell.tsx` (271 سطر) + `WorkspaceContent.tsx` (271) + `WorkspaceHeader.tsx` (90) + `WorkspaceSidebar.tsx` (64) + `WorkspaceTabs.tsx` (54) = **750 سطر موزعة على 5 مكونات**.
 8. **الحارس الإنتاجي على `RequireIdentitySessionPrincipal`** — قرار 6.5 موثَّق في `module-catalog.md` §6.5.
 
 ## المخاطر الحرجة المتبقية (P0)
 
 1. **CSRF gap** — `UpdateDocumentController` لا يستخدم `IdentityCsrfMiddleware` رغم كونه mutation.
-2. **60+ legacy controller** في `app/Http/Controllers/` (تاريخ انتهاء 2027-04-25 — 14 منقول من 75).
-3. **9 جداول ناقصة** في `TABLE_OWNERS` (`work_definition_versions`, `search_index_entries`, `platform_settings_outbox`, `notification_inbox`, إلخ).
-4. **`audit_events` ownership drift** — مُسجَّل لـ Authorization لكن Audit مُخطَّط (rank 3).
+2. **9 جداول ناقصة** في `TABLE_OWNERS` (`work_definition_versions`, `search_index_entries`, `platform_settings_outbox`, `notification_inbox`, إلخ).
+3. **`audit_events` ownership drift** — مُسجَّل لـ Authorization لكن Audit مُخطَّط (rank 3).
 ## ما تبقّى من Quick Wins (الأسبوع 1)
 
 1. ✅ **`docs/contracts/api/openapi.yaml`** — **مُنجَز** (10380 سطر، مع snapshots `w1-1`, `w1-2`, `r1-screens`).
@@ -55,7 +54,7 @@ Cluster مبنيّ كـ **Laravel 13.8 Modular Monolith** بـ 12 موديول �
 ## خارطة طريق (7 مراحل، 10 أسابيع) — محدَّثة
 
 1. **الأسبوع 1:** إصلاحات حرجة متبقية — CSRF gap + `TABLE_OWNERS`.
-2. **الأسبوع 2-3:** تنظيف Architecture — نقل 75 legacy controller + 4 integrations + 3 seeders.
+2. **الأسبوع 2-3:** تنظيف Architecture — الحفاظ على نقل controllers الحالي وإزالة integrations وseeders المتبقية من طبقة التطبيق.
 3. **الأسبوع 4:** ملكية الجداول — إضافة 9 جداول ناقصة.
 4. **الأسبوع 5-6:** تحسينات الإنتاج — Outbox typed + Dead path cleanup + retry/timeout.
 5. **الأسبوع 7:** إنشاء موديول `Audit` (rank 3) ونقل `audit_events`.
@@ -66,7 +65,7 @@ Cluster مبنيّ كـ **Laravel 13.8 Modular Monolith** بـ 12 موديول �
 
 | المؤشر | الحالي | المستهدف |
 |--------|--------|----------|
-| `misplacedBusinessFiles` count | 75 (انخفض من 89 بـ 14 منقول) | 0 (تاريخ انتهاء 2027-04-25) |
+| `misplacedBusinessFiles` count | 0 (لا تبقى business controllers خارج الموديولات) | 0 ✅ |
 | `TABLE_OWNERS` entries | 39 (ناقصة) | 50+ (نظيف) |
 | Web client unit tests | 212 ملف `.test.{ts,tsx}` | تغطية features متكافئة |
 | `AppWorkspace.tsx` LOC | 1 (re-export لـ `AppWorkspaceShell`) | 1 ✅ |
