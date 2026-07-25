@@ -12,7 +12,9 @@ use Tests\TestCase;
 final class RequireIdentitySessionPrincipalTest extends TestCase
 {
     private const USER_ID = '018f6f7d-0c00-7000-8000-000000000021';
+
     private const OTHER_USER_ID = '018f6f7d-0c00-7000-8000-000000000022';
+
     private const SESSION_ID = '018f6f7d-0c00-7000-8000-000000000031';
 
     public function test_coherent_session_and_principal_binding_passes_through_verbatim(): void

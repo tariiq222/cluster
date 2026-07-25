@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Shared\Infrastructure;
 
-use Illuminate\Redis\Connections\Connection as LaravelConnection;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Redis\Connections\PredisConnection;
 use Mockery;

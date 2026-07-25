@@ -13,10 +13,10 @@ use Modules\Documents\Application\RetryableStorageException;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
 use Modules\Documents\Features\Upload\DocumentUploadHandler;
+use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use RuntimeException;
 use UnexpectedValueException;
-use Modules\Documents\Http\DocumentsApi;
 
 /** Internal-only reconciliation action; route wiring must enforce a worker-only authentication boundary. */
 final class ReconcileDocumentPromotionController

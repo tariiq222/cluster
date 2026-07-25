@@ -375,7 +375,6 @@ final class WorkflowController
     }
 
     public function actOnStep(Request $request, string $stepId, string $stepAction): mixed
-
     {
         $c = $this->correlation($request);
         if ($c === null) {
@@ -625,7 +624,6 @@ final class WorkflowController
 
         return ['step' => $step === null ? null : (array) $step, ...$extra];
     }
-
 
     private function showDefinition(string $id, string $c, int $status = 200): mixed
     {

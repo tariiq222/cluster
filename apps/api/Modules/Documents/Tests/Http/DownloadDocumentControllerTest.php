@@ -2,13 +2,13 @@
 
 namespace Modules\Documents\Tests\Http;
 
-use Modules\Documents\Features\DocumentDownload\Http\DownloadDocumentController;
 use Illuminate\Http\Request;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
 use Modules\Documents\Contracts\SensitiveAccessEventRecorder;
+use Modules\Documents\Features\DocumentDownload\Http\DownloadDocumentController;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Tests\TestCase;
 

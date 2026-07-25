@@ -773,18 +773,21 @@ PHP);
             }
             if ($found === null) {
                 $missing[] = sprintf('%s (referenced in %s)', $eventType, $sourceFile);
+
                 continue;
             }
 
             $raw = file_get_contents($found);
             if ($raw === false) {
                 $placeholder[] = sprintf('%s (unable to read %s)', $eventType, $found);
+
                 continue;
             }
             try {
                 $schema = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
             } catch (\JsonException) {
                 $placeholder[] = sprintf('%s (%s is not valid JSON)', $eventType, $found);
+
                 continue;
             }
             if (! is_array($schema) || ! isset($schema['properties']['data']['type']) || $schema['properties']['data']['type'] !== 'object') {
@@ -842,6 +845,7 @@ PHP);
         foreach ($tables as $table => $count) {
             if (! array_key_exists($table, self::TABLE_OWNERS)) {
                 $missing[] = sprintf('%s (declared by %s)', $table, $moduleMap[$table]);
+
                 continue;
             }
             if (self::TABLE_OWNERS[$table] !== $moduleMap[$table]) {

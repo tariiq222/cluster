@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
+use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use RuntimeException;
-use Modules\Documents\Http\DocumentsApi;
 
 /**
  * POST /api/v1/documents/{documentId}/{grantType}-grant — issues a one-time

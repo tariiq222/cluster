@@ -2,19 +2,15 @@
 
 namespace Modules\WorkDefinitions\Features\Definition\Http;
 
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use JsonException;
-use Illuminate\Contracts\Encryption\DecryptException;
-use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\WorkDefinitions\Features\Definition\Handler\WorkDefinitionMutator;
 use stdClass;
-use Shared\Http\HttpSupport;
 
 final class WorkDefinitionController
 {
@@ -22,7 +18,6 @@ final class WorkDefinitionController
 
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $resolver,
-        private readonly DecideAccess $access,
         private readonly WorkDefinitionMutator $mutator,
     ) {}
 

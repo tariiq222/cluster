@@ -19,7 +19,7 @@ final class LaravelRedisStreamTransport implements RedisStreamTransport
     {
         $messageId = $this->driver()->xadd($stream, $fields);
 
-        if (! is_string($messageId) || $messageId === '') {
+        if ($messageId === '') {
             throw new RuntimeException('Redis did not return a stream message identifier.');
         }
 
@@ -53,11 +53,8 @@ final class LaravelRedisStreamTransport implements RedisStreamTransport
     public function pending(string $stream, string $group, int $limit): array
     {
         $response = $this->driver()->pending($stream, $group, $limit);
-        if (! is_array($response)) {
-            return [];
-        }
-
         $pending = [];
+
         foreach ($response as $entry) {
             if (! is_array($entry) || count($entry) < 4 || ! is_string($entry[0] ?? null)) {
                 continue;
@@ -182,7 +179,7 @@ LUA;
     private function deliveryCount(string $stream, string $group, string $messageId): int
     {
         $response = $this->driver()->pendingSummary($stream, $group, $messageId);
-        $entry = is_array($response) ? ($response[0] ?? null) : null;
+        $entry = $response[0] ?? null;
 
         return is_array($entry) ? max(1, (int) ($entry[3] ?? 1)) : 1;
     }

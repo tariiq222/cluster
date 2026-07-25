@@ -6,7 +6,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Throwable;
-use Modules\Organization\Features\TemporaryAssignment\Console\RunTemporaryAssignmentExpiration;
 
 final class ExpireTemporaryAssignmentsCommand extends Command
 {

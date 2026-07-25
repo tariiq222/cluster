@@ -14,7 +14,6 @@ use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Features\Totp\Handler\TotpHandler;
 use Modules\Identity\Infrastructure\Outbox\IdentityOutbox;
 use Modules\Identity\Infrastructure\Security\PasswordHasher;
-use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
 use stdClass;
 
 final class AuthenticationHandler implements AuthenticateUser

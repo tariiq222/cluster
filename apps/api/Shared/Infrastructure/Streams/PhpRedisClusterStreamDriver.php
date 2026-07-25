@@ -61,12 +61,12 @@ final class PhpRedisClusterStreamDriver implements RedisStreamDriver
 
     public function pending(string $stream, string $group, int $limit): array
     {
-        return $this->client()->xpending($stream, $group, null, '-', '+', $limit);
+        return $this->client()->xpending($stream, $group, '-', '+', $limit);
     }
 
     public function pendingSummary(string $stream, string $group, string $messageId): array
     {
-        return $this->client()->xpending($stream, $group, null, $messageId, $messageId, 1);
+        return $this->client()->xpending($stream, $group, $messageId, $messageId, 1);
     }
 
     public function reclaim(string $stream, string $group, string $consumer, int $minimumIdleMilliseconds, array $messageIds): array

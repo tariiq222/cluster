@@ -15,16 +15,12 @@ interface RedisStreamDriver
 
     public function createGroup(string $stream, string $group): void;
 
-    /** @return mixed */
     public function readGroup(string $stream, string $group, string $consumer, int $limit): array;
 
-    /** @return mixed */
     public function pending(string $stream, string $group, int $limit): array;
 
-    /** @return mixed */
     public function pendingSummary(string $stream, string $group, string $messageId): array;
 
-    /** @return mixed */
     public function reclaim(string $stream, string $group, string $consumer, int $minimumIdleMilliseconds, array $messageIds): array;
 
     public function ack(string $stream, string $group, string $messageId): void;

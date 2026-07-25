@@ -2,13 +2,6 @@
 
 namespace Modules\Documents\Tests\Http;
 
-use Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController;
-use Modules\Documents\Features\Upload\Http\CompleteDocumentUploadController;
-use Modules\Documents\Features\DocumentGrant\Http\CreateDocumentGrantController;
-use Modules\Documents\Features\Upload\Http\GetDocumentUploadStatusController;
-use Modules\Documents\Features\Upload\Http\InitiateDocumentUploadController;
-use Modules\Documents\Features\DocumentVersion\Http\ReconcileDocumentPromotionController;
-use Modules\Documents\Features\DocumentVersion\Http\ScanDocumentVersionController;
 use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -25,7 +18,14 @@ use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
+use Modules\Documents\Features\DocumentGrant\Http\CreateDocumentGrantController;
+use Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController;
+use Modules\Documents\Features\DocumentVersion\Http\ReconcileDocumentPromotionController;
+use Modules\Documents\Features\DocumentVersion\Http\ScanDocumentVersionController;
 use Modules\Documents\Features\Upload\DocumentUploadHandler;
+use Modules\Documents\Features\Upload\Http\CompleteDocumentUploadController;
+use Modules\Documents\Features\Upload\Http\GetDocumentUploadStatusController;
+use Modules\Documents\Features\Upload\Http\InitiateDocumentUploadController;
 use Modules\Documents\Infrastructure\Persistence\DatabaseDocumentAuthorizationFactsReader;
 use Modules\Documents\Infrastructure\Persistence\DatabaseDocumentUploadStatusReader;
 use Modules\Documents\Infrastructure\Security\UnavailableMalwareScanner;

@@ -19,6 +19,7 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000501';
 
     public const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000502';
+
     private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000504';
 
     private const PRINCIPAL_ID = '018f6f7d-0c00-7000-8000-000000000503';
@@ -81,7 +82,7 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
         {
             public function __construct(private int &$calls) {}
 
-            public function ancestry(string $scopeType, string $scopeId): ?array
+            public function ancestry(string $scopeType, string $scopeId): array
             {
                 $this->calls++;
 
@@ -132,7 +133,7 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
         };
         $ancestry = new class implements ResolveOrganizationScopeAncestry
         {
-            public function ancestry(string $scopeType, string $scopeId): ?array
+            public function ancestry(string $scopeType, string $scopeId): array
             {
                 return ['cluster_id' => null, 'facility_id' => $scopeId, 'unit_id' => null];
             }

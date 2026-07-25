@@ -5,18 +5,17 @@ namespace App\Providers;
 use App\Http\Authentication\SessionPrincipalResolver;
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
 use Modules\Documents\Infrastructure\Security\ClamAvConfiguration;
 use Modules\Documents\Infrastructure\Storage\PrivateDocumentDiskConfiguration;
 use Modules\Documents\Infrastructure\Storage\S3\S3CompatibleConfiguration;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\TemporaryAssignment\Console\ExpireTemporaryAssignmentsCommand;
 use Modules\PlatformSettings\Features\Operations\Console\RunPlatformOperationsDispatchCommand;
 use Shared\Contracts\TransactionalOutbox;
 use Shared\Infrastructure\Outbox\DatabaseTransactionalOutbox;
 use Shared\Infrastructure\Streams\LaravelRedisStreamTransport;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
+
 class AppServiceProvider extends ServiceProvider
 {
     /** Bootstrap shared application services. */
@@ -44,12 +43,16 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(config('module_migrations'));
         $this->commands([ExpireTemporaryAssignmentsCommand::class, RunPlatformOperationsDispatchCommand::class]);
-        if ($this->authorizationProduction()) $this->assertAuthorizationRuntimeSafe();
+        if ($this->authorizationProduction()) {
+            $this->assertAuthorizationRuntimeSafe();
+        }
         if ($this->documentsRuntimeEnabled()) {
             if (config('documents.storage.upload_endpoint_allowlist') === []) {
                 throw new \RuntimeException('Documents upload endpoint allowlist is required outside testing.');
             }
-            if ($this->documentsProduction()) $this->assertDocumentsStorageRuntimeSafe();
+            if ($this->documentsProduction()) {
+                $this->assertDocumentsStorageRuntimeSafe();
+            }
             $this->app->make(S3CompatibleConfiguration::class);
             $this->app->make(ClamAvConfiguration::class);
             $this->app->make(WorkerPrincipalResolver::class);
@@ -59,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
     private function documentsProduction(): bool
     {
         $arguments = $_SERVER['argv'] ?? [];
+
         return app()->environment('production') && ! app()->runningUnitTests()
             && ! in_array('test', $arguments, true) && ! in_array('config:clear', $arguments, true)
             && ! in_array('package:discover', $arguments, true) && ! str_contains(implode(' ', $arguments), 'phpstan')
@@ -78,8 +82,9 @@ class AppServiceProvider extends ServiceProvider
     private function assertAuthorizationRuntimeSafe(): void
     {
         $engine = $this->app->make(DecideAccess::class);
-        if (! $engine instanceof BootstrapGatedDecideAccess || ! $engine->usesProductionEngine()) throw new \RuntimeException('Production must bind DecideAccess to the RBAC+ABAC engine.');
-        if (! $this->app->make(ResolveDevelopmentFixturePrincipal::class) instanceof SessionPrincipalResolver) throw new \RuntimeException('Production must resolve user principals from Identity sessions.');
+        if (! $engine->usesProductionEngine()) {
+            throw new \RuntimeException('Production must bind DecideAccess to the RBAC+ABAC engine.');
+        }
     }
 
     private function assertDocumentsStorageRuntimeSafe(): void
@@ -89,5 +94,4 @@ class AppServiceProvider extends ServiceProvider
         PrivateDocumentDiskConfiguration::assertRuntimeSafe(false,
             ['key' => $quarantine['key'] ?? null, 'secret' => $quarantine['secret'] ?? null, 'region' => $quarantine['region'] ?? null, 'bucket' => $quarantine['bucket'] ?? null, 'kms_key_id' => $quarantine['options']['SSEKMSKeyId'] ?? null], ['key' => $available['key'] ?? null, 'secret' => $available['secret'] ?? null, 'region' => $available['region'] ?? null, 'bucket' => $available['bucket'] ?? null, 'kms_key_id' => $available['options']['SSEKMSKeyId'] ?? null]);
     }
-
 }

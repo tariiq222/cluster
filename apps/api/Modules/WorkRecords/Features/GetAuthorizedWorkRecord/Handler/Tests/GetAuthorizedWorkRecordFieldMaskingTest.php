@@ -4,7 +4,6 @@ namespace Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
@@ -19,6 +18,7 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000601';
 
     private const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000602';
+
     private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000605';
 
     private const PRINCIPAL_ID = '018f6f7d-0c00-7000-8000-000000000603';
@@ -126,9 +126,7 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
 final class FieldPolicyDecider implements DecideAccess
 {
     /** @param array<string, string>|null $overrideAccess */
-    public function __construct(private ?array $overrideAccess = null)
-    {
-    }
+    public function __construct(private ?array $overrideAccess = null) {}
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
@@ -161,7 +159,7 @@ final class SingleAncestry implements ResolveOrganizationScopeAncestry
         private readonly string $facilityId,
     ) {}
 
-    public function ancestry(string $scopeType, string $scopeId): ?array
+    public function ancestry(string $scopeType, string $scopeId): array
     {
         return ['cluster_id' => $this->clusterId, 'facility_id' => $this->facilityId, 'unit_id' => null];
     }

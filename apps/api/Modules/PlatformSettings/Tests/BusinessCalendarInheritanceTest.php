@@ -7,7 +7,6 @@ use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Modules\PlatformSettings\Contracts\ResolveBusinessCalendar;
 use Modules\PlatformSettings\Domain\CalendarException;
 use Modules\PlatformSettings\Domain\WorkingWeek;
 use Modules\PlatformSettings\Features\Calendars\Handler\BusinessCalendarHandler;

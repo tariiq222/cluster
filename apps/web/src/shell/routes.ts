@@ -230,7 +230,8 @@ export function routeFromPath(pathname: string): AppRoute {
   }
   if (pathname === '/documents') return { name: 'documents' }
   const documentMatch = pathname.match(/^\/documents\/([^/]+)$/)
-  if (documentMatch && UUID_V7_PATTERN.test(documentMatch[1])) return { name: 'document-detail', documentId: documentMatch[1] }
+  const documentId = documentMatch?.[1]
+  if (documentId !== undefined && UUID_V7_PATTERN.test(documentId)) return { name: 'document-detail', documentId }
   if (pathname === '/work-records/new') {
     return { name: 'create' }
   }
@@ -288,27 +289,32 @@ export function routeFromPath(pathname: string): AppRoute {
   const explanationMatch = pathname.match(/^\/admin\/authorization\/explain(?:\/([^/]+))?$/)
   if (explanationMatch) return { name: 'access-explanation', decisionId: explanationMatch[1] }
   const importMatch = pathname.match(/^\/admin\/imports\/organization\/([^/]+)$/)
-  if (importMatch && UUID_V7_PATTERN.test(importMatch[1])) {
-    return { name: 'organization-import', jobId: importMatch[1] }
+  const importJobId = importMatch?.[1]
+  if (importJobId !== undefined && UUID_V7_PATTERN.test(importJobId)) {
+    return { name: 'organization-import', jobId: importJobId }
   }
   const approvalDetailMatch = pathname.match(/^\/approvals\/([^/]+)$/)
-  if (approvalDetailMatch && UUID_V7_PATTERN.test(approvalDetailMatch[1])) {
-    return { name: 'approval-detail', stepId: approvalDetailMatch[1] }
+  const approvalStepId = approvalDetailMatch?.[1]
+  if (approvalStepId !== undefined && UUID_V7_PATTERN.test(approvalStepId)) {
+    return { name: 'approval-detail', stepId: approvalStepId }
   }
   const myRequestDetailMatch = pathname.match(/^\/my-requests\/([^/]+)$/)
-  if (myRequestDetailMatch && UUID_V7_PATTERN.test(myRequestDetailMatch[1])) {
-    return { name: 'my-request-detail', instanceId: myRequestDetailMatch[1] }
+  const requestInstanceId = myRequestDetailMatch?.[1]
+  if (requestInstanceId !== undefined && UUID_V7_PATTERN.test(requestInstanceId)) {
+    return { name: 'my-request-detail', instanceId: requestInstanceId }
   }
   const taskDetailMatch = pathname.match(/^\/tasks\/([^/]+)$/)
-  if (taskDetailMatch && UUID_V7_PATTERN.test(taskDetailMatch[1])) {
-    return { name: 'task-detail', taskId: taskDetailMatch[1] }
+  const taskId = taskDetailMatch?.[1]
+  if (taskId !== undefined && UUID_V7_PATTERN.test(taskId)) {
+    return { name: 'task-detail', taskId }
   }
   const dashboardDetailMatch = pathname.match(/^\/dashboards\/([^/]+)$/)
   if (dashboardDetailMatch) return { name: 'dashboards', dashboardId: dashboardDetailMatch[1] }
 
   const match = pathname.match(/^\/work-records\/([^/]+)$/)
-  if (match && UUID_V7_PATTERN.test(match[1])) {
-    return { name: 'detail', recordId: match[1] }
+  const recordId = match?.[1]
+  if (recordId !== undefined && UUID_V7_PATTERN.test(recordId)) {
+    return { name: 'detail', recordId }
   }
   return { name: 'not-found' }
 }

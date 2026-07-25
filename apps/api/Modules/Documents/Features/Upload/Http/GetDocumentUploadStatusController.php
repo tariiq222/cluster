@@ -8,10 +8,10 @@ use InvalidArgumentException;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentUploadStatusReader;
+use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use RuntimeException;
 use UnexpectedValueException;
-use Modules\Documents\Http\DocumentsApi;
 
 final class GetDocumentUploadStatusController
 {

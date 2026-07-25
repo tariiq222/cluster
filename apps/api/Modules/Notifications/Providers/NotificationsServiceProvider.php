@@ -2,9 +2,9 @@
 
 namespace Modules\Notifications\Providers;
 
-use Modules\Notifications\Infrastructure\Persistence\DatabaseTechnicalAlertRecipientResolver;
 use Illuminate\Support\ServiceProvider;
 use Modules\Notifications\Contracts\ResolveTechnicalAlertRecipients;
+use Modules\Notifications\Infrastructure\Persistence\DatabaseTechnicalAlertRecipientResolver;
 
 final class NotificationsServiceProvider extends ServiceProvider
 {

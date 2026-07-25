@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Documents\Http\DocumentsApi;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 /**
  * POST /api/v1/documents — creates document metadata (no bytes) after a

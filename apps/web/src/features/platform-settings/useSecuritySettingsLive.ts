@@ -214,5 +214,5 @@ export function latestDraftVersion<T extends { status: string; id: string; lock_
 ): T | null {
   if (versions.length === 0) return null
   const draft = versions.find((version) => version.status === 'draft')
-  return draft ?? versions[0]
+  return draft ?? versions[0] ?? null
 }

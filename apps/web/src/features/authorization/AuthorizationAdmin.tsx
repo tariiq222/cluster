@@ -117,7 +117,10 @@ function StatusPanel({ state, text, retry }: { state: AdminState; text: Labels; 
 
 function ItemTable({ items, locale, onSelect }: { items: AuthorizationItem[]; locale: Locale; onSelect?: (item: AuthorizationItem) => void }) {
   const text = labels[locale]
-  return <div className="table-scroll"><table className="data-table"><caption className="visually-hidden">{text.title}</caption><thead><tr><th>{text.name}</th><th>{text.code}</th><th>{text.status}</th>{onSelect && <th>{screenCopy[locale].action}</th>}</tr></thead><tbody>{mapAuthorizationRows(items).map((row, index) => <tr key={row.id}><td>{row.name}</td><td>{row.code}</td><td>{row.status}</td>{onSelect && <td><Button variant="secondary" onClick={() => onSelect(items[index])}>{text.update}</Button></td>}</tr>)}</tbody></table></div>
+  return <div className="table-scroll"><table className="data-table"><caption className="visually-hidden">{text.title}</caption><thead><tr><th>{text.name}</th><th>{text.code}</th><th>{text.status}</th>{onSelect && <th>{screenCopy[locale].action}</th>}</tr></thead><tbody>{mapAuthorizationRows(items).map((row, index) => {
+    const item = items[index]
+    return <tr key={row.id}><td>{row.name}</td><td>{row.code}</td><td>{row.status}</td>{onSelect && item && <td><Button variant="secondary" onClick={() => onSelect(item)}>{text.update}</Button></td>}</tr>
+  })}</tbody></table></div>
 }
 
 const ADMIN_SCOPE_OPTIONS = [

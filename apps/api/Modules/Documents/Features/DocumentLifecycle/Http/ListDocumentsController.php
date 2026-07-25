@@ -6,8 +6,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Documents\Http\DocumentsApi;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 /**
  * GET /api/v1/documents — lists document metadata inside the principal's

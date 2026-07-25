@@ -24,7 +24,7 @@ final class WorkRecordLifecycleMutator
     ) {}
 
     /**
-     * @return array{ok: true, result: array<string, mixed>, decision: \Modules\Authorization\Contracts\AccessDecision, capability: string}|array{ok: false, problem: array{status: int, type: string, detail: string}}
+     * @return array{ok: true, result: array<string, mixed>, decision: \Modules\Authorization\Contracts\AccessDecision, capability: string, access_projection: \Modules\Authorization\Contracts\AccessProjection}|array{ok: false, problem: array{status: int, type: string, detail: string}}
      */
     public function transition(string $recordId, string $action, array $principal, string $correlationId, int $expectedLockVersion): array
     {

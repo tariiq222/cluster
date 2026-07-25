@@ -63,9 +63,10 @@ final class IdentityOrganizationContainerResolutionTest extends TestCase
         $reflection = new \ReflectionMethod(PasswordPolicy::class, '__construct');
         $parameters = $reflection->getParameters();
         $this->assertSame('denylist', $parameters[0]->getName());
-        $this->assertNotNull($parameters[0]->getType());
-        $this->assertFalse($parameters[0]->allowsNull(), 'UsernameDenylist must be a required non-nullable constructor dependency.');
-        $this->assertSame(UsernameDenylist::class, $parameters[0]->getType()->getName());
+        $type = $parameters[0]->getType();
+        $this->assertInstanceOf(\ReflectionNamedType::class, $type);
+        $this->assertFalse($type->allowsNull(), 'UsernameDenylist must be a required non-nullable constructor dependency.');
+        $this->assertSame(UsernameDenylist::class, $type->getName());
     }
 
     public function test_authentication_handler_resolves_with_the_bound_persistent_throttle(): void

@@ -2,13 +2,13 @@
 
 namespace Modules\Documents\Tests\Http;
 
-use Modules\Documents\Features\DocumentLifecycle\Http\ListDocumentsController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Documents\Features\DocumentLifecycle\Http\ListDocumentsController;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Tests\TestCase;
 

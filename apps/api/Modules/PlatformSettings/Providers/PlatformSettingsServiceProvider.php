@@ -3,10 +3,9 @@
 namespace Modules\PlatformSettings\Providers;
 
 use App\Integrations\PlatformOperations\CommandBackupOperationsGateway;
-use Modules\PlatformSettings\Infrastructure\LaravelPlatformHealthGateway;
 use App\Integrations\PlatformOperations\ObjectStorageTechnicalLogArchive;
-use App\Integrations\PlatformOperations\UnavailableTechnicalLogSource;
 use App\Integrations\PlatformOperations\UnavailableTechnicalLogArchive;
+use App\Integrations\PlatformOperations\UnavailableTechnicalLogSource;
 use App\Integrations\PlatformSettings\CatalogTechnicalAlertRecipientCapabilityValidator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
@@ -24,6 +23,7 @@ use Modules\PlatformSettings\Features\Alerts\Handler\AlertPolicyHandler;
 use Modules\PlatformSettings\Features\Calendars\Handler\BusinessCalendarHandler;
 use Modules\PlatformSettings\Features\Maintenance\Handler\MaintenanceWindowHandler;
 use Modules\PlatformSettings\Features\Settings\Handler\PlatformSettingsHandler;
+use Modules\PlatformSettings\Infrastructure\LaravelPlatformHealthGateway;
 use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseBusinessCalendars;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabasePlatformSettings;

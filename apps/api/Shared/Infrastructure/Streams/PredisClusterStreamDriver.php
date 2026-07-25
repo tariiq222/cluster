@@ -29,7 +29,7 @@ final class PredisClusterStreamDriver implements RedisStreamDriver
     {
         $messageId = $this->client()->xadd($stream, $fields, '*');
 
-        if (! is_string($messageId) || $messageId === '') {
+        if ($messageId === '') {
             throw new \RuntimeException('Redis did not return a stream message identifier.');
         }
 
@@ -39,7 +39,7 @@ final class PredisClusterStreamDriver implements RedisStreamDriver
     public function createGroup(string $stream, string $group): void
     {
         try {
-            $this->client()->xgroup('CREATE', $stream, $group, '0', true);
+            $this->client()->executeRaw(['XGROUP', 'CREATE', $stream, $group, '0', 'MKSTREAM']);
         } catch (Throwable $exception) {
             if (str_contains($exception->getMessage(), 'BUSYGROUP')) {
                 return;

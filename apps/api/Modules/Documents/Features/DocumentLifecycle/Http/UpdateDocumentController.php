@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Documents\Http\DocumentsApi;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 /** PATCH /api/v1/documents/{documentId} — governed metadata update. */
 final class UpdateDocumentController

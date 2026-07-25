@@ -9,8 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Documents\Application\DocumentAccessRequest;
 use Modules\Documents\Application\DocumentDownloadService;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Documents\Http\DocumentsApi;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 final class DownloadDocumentController
 {

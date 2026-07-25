@@ -17,8 +17,8 @@ use Modules\Documents\Contracts\WorkerPrincipalResolver;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController;
-use Modules\Documents\Features\Upload\Http\CompleteDocumentUploadController;
 use Modules\Documents\Features\Upload\DocumentUploadHandler;
+use Modules\Documents\Features\Upload\Http\CompleteDocumentUploadController;
 use Modules\Documents\Features\Upload\Http\InitiateDocumentUploadController;
 use Modules\Documents\Infrastructure\Persistence\DatabaseDocumentAuthorizationFactsReader;
 use Modules\Documents\Tests\Support\InMemoryMalwareScanner;
@@ -55,6 +55,7 @@ use Tests\TestCase;
 final class OptimisticConcurrencyRegressionTest extends TestCase
 {
     use RefreshDatabase;
+
     private const CORRELATION_ID = '018f6f7d-0c00-7000-8000-00000000f101';
 
     public const PRINCIPAL_ID = '018f6f7d-0c00-7000-8000-000000000802';
@@ -72,6 +73,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
     private InMemoryMalwareScanner $scanner;
 
     private InitiateDocumentUploadController $initiate;
+
     private AddDocumentVersionController $addVersion;
 
     private CompleteDocumentUploadController $complete;
@@ -238,7 +240,6 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
         $this->assertLessThan($idempotencyIdx, $documentsIdx, 'documents must be locked before document_idempotency_keys.');
     }
 
-
     private function hashFor(string $filename, int $sizeBytes): string
     {
         return hash('sha256', $filename.':'.$sizeBytes);
@@ -277,7 +278,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
         return $id;
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, int|string> */
     private function initiatePayload(string $name): array
     {
         return [
@@ -315,23 +316,23 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
 
         return Request::create('/', $method, [], [], [], $server, json_encode($payload, JSON_THROW_ON_ERROR));
     }
+
     /**
      * Execute the callback while listening to the connection and capture the
      * order in which lockForUpdate queries touch the named tables. Returning
      * a list preserves the order in which each table is locked for the first
      * time so callers can assert the relative order across the transaction.
      *
-     * @param list<string> $tables
-     *
+     * @param  list<string>  $tables
      * @return list<string>
      */
     private function captureLockOrderDuring(callable $callback, array $tables): array
     {
         $seen = array_fill_keys($tables, false);
         $order = [];
-        $active = true;
-        DB::listen(function ($query) use ($tables, &$seen, &$order, &$active): void {
-            if (! $active) {
+        $capture = new \ArrayObject(['active' => true]);
+        DB::listen(function ($query) use ($tables, &$seen, &$order, $capture): void {
+            if (! ($capture['active'] ?? false)) {
                 return;
             }
             $sql = strtolower($query->sql);
@@ -350,7 +351,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
             }
         });
         $callback();
-        $active = false;
+        $capture['active'] = false;
 
         return $order;
     }
@@ -364,7 +365,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
                 return ['access_token' => 'regression-token', 'expires_at' => '2026-07-18T00:00:00.000Z'];
             }
 
-            public function resolve(Request $request): ?array
+            public function resolve(Request $request): array
             {
                 return ['user_id' => OptimisticConcurrencyRegressionTest::PRINCIPAL_ID, 'facility_id' => OptimisticConcurrencyRegressionTest::FACILITY_ID];
             }

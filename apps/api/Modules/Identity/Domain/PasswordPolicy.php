@@ -4,7 +4,6 @@ namespace Modules\Identity\Domain;
 
 use Modules\Identity\Exceptions\WeakPassword;
 use Modules\Identity\Features\Credentials\Contracts\UsernameDenylist;
-use Modules\Identity\Infrastructure\Security\LocalUsernameDenylist;
 use Modules\PlatformSettings\Contracts\GetEffectivePlatformSettings;
 use Throwable;
 
@@ -32,7 +31,7 @@ final class PasswordPolicy
         if (mb_strlen($password) > $max) {
             $violations[] = 'max_length';
         }
-        $denylist = $this->denylist ?? new LocalUsernameDenylist;
+        $denylist = $this->denylist;
         if ($denylist->contains($password)) {
             $violations[] = 'common_password';
         }

@@ -10,7 +10,7 @@ use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal as OrganizationResolveDevelopmentFixturePrincipal;
 
-final class DevelopmentFixturePrincipalResolver implements ResolveDevelopmentFixturePrincipal, OrganizationResolveDevelopmentFixturePrincipal
+final class DevelopmentFixturePrincipalResolver implements OrganizationResolveDevelopmentFixturePrincipal, ResolveDevelopmentFixturePrincipal
 {
     private const TOKEN_TTL_MINUTES = 120;
 

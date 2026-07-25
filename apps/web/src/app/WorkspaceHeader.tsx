@@ -75,7 +75,8 @@ export function WorkspaceHeader({
       stale: principal.state === 'stale' || principal.state === 'denied' || principal.state === 'error',
       onSelect: (value: string) => {
         const [scopeType, scopeId] = value.split(':')
-        void principal.selectScope(scopeType as 'cluster' | 'facility' | 'unit', scopeId)
+        if ((scopeType !== 'cluster' && scopeType !== 'facility' && scopeType !== 'unit') || scopeId === undefined) return
+        void principal.selectScope(scopeType, scopeId)
       },
       onRetry: () => { void principal.refresh() },
     }

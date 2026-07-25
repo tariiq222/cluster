@@ -12,8 +12,8 @@ use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Application\DocumentLinkService;
 use Modules\Documents\Contracts\DocumentSourceReference;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Documents\Http\DocumentsApi;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 /** POST /api/v1/documents/{documentId}/links — links a document to a source. */
 final class LinkDocumentController

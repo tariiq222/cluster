@@ -12,15 +12,15 @@ namespace Modules\Documents\Contracts;
 interface LinkDocument
 {
     /**
-     * @param string $relationType Must be one of the supported relation types
-     *                              (e.g. "attachment", "evidence").
-     * @param string $facilityId   The principal's facility id; used for
+     * @param  string  $relationType  Must be one of the supported relation types
+     *                                (e.g. "attachment", "evidence").
+     * @param  string  $facilityId  The principal's facility id; used for
      *                              authorization facts only.
      * @return string The link id (UUIDv7).
      *
      * @throws \DomainException When the document is not available for
-     *                            linking, or the source reference cannot
-     *                            be resolved.
+     *                          linking, or the source reference cannot
+     *                          be resolved.
      */
     public function link(
         string $documentId,

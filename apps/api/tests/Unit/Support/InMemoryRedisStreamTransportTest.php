@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Support;
 
-use Shared\Infrastructure\Streams\LaravelRedisStreamTransport;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\Support\Streams\BindsInMemoryRedisStreamTransport;
 use Tests\Support\Streams\InMemoryRedisStreamTransport;
@@ -23,6 +22,7 @@ class InMemoryRedisStreamTransportTest extends TestCase
 
         $this->assertSame($inMemory, $this->app->make(RedisStreamTransport::class));
     }
+
     public function test_xadd_generates_stable_ordered_ids_for_each_millisecond(): void
     {
         $now = 1_784_198_760_000;

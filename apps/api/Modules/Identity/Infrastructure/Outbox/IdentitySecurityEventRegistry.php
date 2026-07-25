@@ -58,10 +58,10 @@ final class IdentitySecurityEventRegistry
      * `OutboxEventType` case.
      *
      * @throws InvalidArgumentException when `$type` is not a registered
-     *         security-event suffix. The error is raised here rather
-     *         than letting `OutboxEventType::from()` raise a `ValueError`
-     *         on the assembled string so the failure is labelled with
-     *         the suffix the producer actually passed.
+     *                                  security-event suffix. The error is raised here rather
+     *                                  than letting `OutboxEventType::from()` raise a `ValueError`
+     *                                  on the assembled string so the failure is labelled with
+     *                                  the suffix the producer actually passed.
      */
     public function resolve(string $type): OutboxEventType
     {

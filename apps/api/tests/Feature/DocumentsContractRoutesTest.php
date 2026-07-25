@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Route;
 use Modules\Documents\Features\DocumentLifecycle\Http\UpdateDocumentController;
 use Modules\Documents\Features\DocumentLink\Http\LinkDocumentController;
 use Modules\Documents\Features\DocumentLink\Http\ListDocumentLinksController;
 use Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController;
-use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 final class DocumentsContractRoutesTest extends TestCase

@@ -10,7 +10,7 @@ use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal as OrganizationResolveDevelopmentFixturePrincipal;
 
-final class SessionPrincipalResolver implements ResolveDevelopmentFixturePrincipal, OrganizationResolveDevelopmentFixturePrincipal
+final class SessionPrincipalResolver implements OrganizationResolveDevelopmentFixturePrincipal, ResolveDevelopmentFixturePrincipal
 {
     public function __construct(private readonly ?ResolvePrincipalContext $principalContexts = null) {}
 

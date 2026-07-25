@@ -99,7 +99,7 @@ final class PythonBinary
         } catch (\Throwable) {
             return null;
         }
-        if (! is_string($root) || ! is_dir($root)) {
+        if (! is_dir($root)) {
             return null;
         }
 
@@ -115,11 +115,11 @@ final class PythonBinary
         fclose($pipes[1]);
         fclose($pipes[2]);
         $exit = proc_close($make);
-        if ($exit !== 0 || ! is_string($stdout)) {
+        if ($exit !== 0) {
             return null;
         }
 
-        $first = trim(explode(' ', $stdout, 2)[0] ?? '');
+        $first = trim(explode(' ', $stdout, 2)[0]);
 
         return $first !== '' ? $first : null;
     }

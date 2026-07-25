@@ -2,7 +2,6 @@
 
 namespace Modules\PlatformSettings\Tests;
 
-use Modules\PlatformSettings\Infrastructure\LaravelPlatformHealthGateway;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Modules\PlatformSettings\Contracts\BackupOperationsGateway;
@@ -10,6 +9,7 @@ use Modules\PlatformSettings\Contracts\PlatformHealthGateway;
 use Modules\PlatformSettings\Domain\BackupStatus;
 use Modules\PlatformSettings\Domain\HealthCheckResult;
 use Modules\PlatformSettings\Features\Operations\Handler\PlatformOperationsHandler;
+use Modules\PlatformSettings\Infrastructure\LaravelPlatformHealthGateway;
 use RuntimeException;
 use Tests\TestCase;
 

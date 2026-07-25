@@ -6,6 +6,4 @@ namespace Tests\Support\Shell;
 
 use RuntimeException;
 
-final class PythonBinaryUnavailable extends RuntimeException
-{
-}
+final class PythonBinaryUnavailable extends RuntimeException {}

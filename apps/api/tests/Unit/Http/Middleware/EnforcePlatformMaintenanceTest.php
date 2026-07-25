@@ -31,9 +31,13 @@ final class EnforcePlatformMaintenanceTest extends TestCase
     use MockeryPHPUnitIntegration;
 
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000011';
+
     private const ORG_UNIT_ID = '018f6f7d-0c00-7000-8000-000000000012';
+
     private const USER_ID = '018f6f7d-0c00-7000-8000-000000000021';
+
     private const CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000501';
+
     private const CACHE_KEY = 'platform:maintenance:active';
 
     protected function setUp(): void
@@ -167,7 +171,7 @@ final class EnforcePlatformMaintenanceTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $shape
+     * @param  array<string, mixed>  $shape
      */
     private function seedCache(array $shape): void
     {
@@ -182,8 +186,8 @@ final class EnforcePlatformMaintenanceTest extends TestCase
         return [
             'active' => true,
             'id' => '018f6f7d-0c00-7000-8000-000000000601',
-            'starts_at' => (new DateTimeImmutable())->modify('-5 minutes')->format(DateTimeImmutable::ATOM),
-            'ends_at' => (new DateTimeImmutable())->modify('+2 hours')->format(DateTimeImmutable::ATOM),
+            'starts_at' => (new DateTimeImmutable)->modify('-5 minutes')->format(DateTimeImmutable::ATOM),
+            'ends_at' => (new DateTimeImmutable)->modify('+2 hours')->format(DateTimeImmutable::ATOM),
             'message_ar' => 'صيانة مجدولة',
             'message_en' => 'planned',
             'status' => 'active',

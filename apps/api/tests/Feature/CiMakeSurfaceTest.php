@@ -72,7 +72,6 @@ final class CiMakeSurfaceTest extends TestCase
             'docs/validate-docs.sh is missing',
             $output,
             'docs-validate must surface a missing validator as a labeled failure',
-            'docs-validate must surface a missing PyYAML as a labeled failure',
         );
         $this->assertStringContainsString(
             'docs/catalog.yaml is missing',
@@ -301,6 +300,7 @@ final class CiMakeSurfaceTest extends TestCase
                     $current = null;
                     $collectingNeeds = false;
                 }
+
                 continue;
             }
             if ($current === null) {
@@ -310,16 +310,19 @@ final class CiMakeSurfaceTest extends TestCase
                 $raw = trim($matches[1]);
                 if ($raw === '') {
                     $collectingNeeds = true;
+
                     continue;
                 }
                 // Strip inline list brackets: needs: [a, b, c]
                 $raw = trim($raw, '[]');
                 $needs = array_values(array_filter(array_map('trim', explode(',', $raw))));
                 $collectingNeeds = false;
+
                 continue;
             }
             if ($collectingNeeds && preg_match('/^\s+-\s+(.+)$/', $line, $matches) === 1) {
                 $needs[] = trim($matches[1]);
+
                 continue;
             }
             if ($collectingNeeds && trim($line) === '') {

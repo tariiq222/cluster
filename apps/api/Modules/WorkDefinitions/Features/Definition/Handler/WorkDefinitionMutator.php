@@ -23,8 +23,8 @@ final class WorkDefinitionMutator
     ) {}
 
     /**
-     * @param array{code: string, name: string, description?: ?string, default_classification: string} $input
-     * @param array{user_id: string} $principal
+     * @param  array{code: string, name: string, description?: ?string, default_classification: string}  $input
+     * @param  array{user_id: string}  $principal
      * @return array{resource: array<string, mixed>, lock_version: int, conflict?: string}
      */
     public function create(array $input, array $principal, string $keyHash, string $hash, string $idempotencyOperation): array
@@ -66,8 +66,8 @@ final class WorkDefinitionMutator
     }
 
     /**
-     * @param array<string, mixed> $schemaDocument
-     * @param array{user_id: string} $principal
+     * @param  array<string, mixed>  $schemaDocument
+     * @param  array{user_id: string}  $principal
      * @return array{resource: array<string, mixed>, lock_version: int}
      */
     public function createVersion(string $definitionId, array $schemaDocument, string $fieldPolicyKey, ?string $changeSummary, array $principal, string $keyHash, string $hash, string $idempotencyOperation): array
@@ -110,7 +110,7 @@ final class WorkDefinitionMutator
     /**
      * @return array{ok: bool, conflict?: string}
      */
-    public function transition(string $versionId, string $expectedVersion, string $action, string $target, ?string $publishedAt): array
+    public function transition(string $versionId, int $expectedVersion, string $action, string $target, ?string $publishedAt): array
     {
         try {
             $now = now();
@@ -134,7 +134,7 @@ final class WorkDefinitionMutator
     }
 
     /**
-     * @param array{user_id: string, facility_id: ?string} $principal
+     * @param  array{user_id: string, facility_id: ?string}  $principal
      */
     public function gate(array $principal, string $capability, string $correlationId): bool
     {

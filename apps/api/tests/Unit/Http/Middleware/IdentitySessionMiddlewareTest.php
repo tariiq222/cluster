@@ -28,18 +28,19 @@ final class IdentitySessionMiddlewareTest extends TestCase
         $sessionId = self::SESSION_ID;
 
         $this->app->bind(ResolveSession::class, static function () use ($userId, $sessionId): ResolveSession {
-            return new class($userId, $sessionId) implements ResolveSession {
+            return new class($userId, $sessionId) implements ResolveSession
+            {
                 public function __construct(
                     private readonly string $userId,
                     private readonly string $sessionId,
-                ) {
-                }
+                ) {}
 
-                public function resolve(string $rawSessionToken, TrustedRequestBindingContext $context): ?array
+                public function resolve(string $rawSessionToken, TrustedRequestBindingContext $context): array
                 {
                     return [
                         'user_id' => $this->userId,
                         'session_id' => $this->sessionId,
+                        'csrf_token_hash' => null,
                         'restricted' => true,
                     ];
                 }
@@ -87,17 +88,13 @@ final class IdentitySessionMiddlewareTest extends TestCase
     public function test_missing_correlation_header_short_circuits_with_400_and_does_not_set_attribute(): void
     {
         $request = Request::create('/api/v1/tasks', 'GET');
-        $request->cookies->set('cluster_identity_session', 'opaque-session-token');
-        $nextCalled = false;
 
         $response = $this->app->make(IdentitySessionMiddleware::class)->handle(
             $request,
-            function () use (&$nextCalled): never {
-                $nextCalled = true;
+            function (): never {
+                throw new \LogicException('The next middleware must not run.');
             },
         );
-
-        $this->assertFalse($nextCalled);
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertSame(400, $response->getStatusCode());
         $this->assertSame('application/problem+json', $response->headers->get('Content-Type'));
@@ -107,7 +104,8 @@ final class IdentitySessionMiddlewareTest extends TestCase
 
     public function test_session_resolution_failure_returns_401_with_request_correlation_id(): void
     {
-        $this->app->bind(ResolveSession::class, static fn (): ResolveSession => new class implements ResolveSession {
+        $this->app->bind(ResolveSession::class, static fn (): ResolveSession => new class implements ResolveSession
+        {
             public function resolve(string $rawSessionToken, TrustedRequestBindingContext $context): ?array
             {
                 return null;
@@ -120,17 +118,13 @@ final class IdentitySessionMiddlewareTest extends TestCase
         });
 
         $request = Request::create('/api/v1/tasks', 'GET');
-        $request->headers->set('X-Correlation-ID', self::CORRELATION_ID);
-        $nextCalled = false;
 
         $response = $this->app->make(IdentitySessionMiddleware::class)->handle(
             $request,
-            function () use (&$nextCalled): never {
-                $nextCalled = true;
+            function (): never {
+                throw new \LogicException('The next middleware must not run.');
             },
         );
-
-        $this->assertFalse($nextCalled);
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertSame(401, $response->getStatusCode());
         $this->assertSame(self::CORRELATION_ID, $response->headers->get('X-Correlation-ID'));

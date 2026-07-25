@@ -5,8 +5,8 @@ namespace Modules\Documents\Features\DocumentLifecycle\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Documents\Http\DocumentsApi;
+use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 /**
  * GET /api/v1/documents/{documentId} — authorized metadata read; a denied

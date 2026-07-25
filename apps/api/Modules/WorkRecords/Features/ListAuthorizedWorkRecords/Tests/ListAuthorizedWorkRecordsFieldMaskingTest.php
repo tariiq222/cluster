@@ -19,6 +19,7 @@ final class ListAuthorizedWorkRecordsFieldMaskingTest extends TestCase
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000701';
 
     private const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000702';
+
     private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000704';
 
     private const PRINCIPAL_ID = '018f6f7d-0c00-7000-8000-000000000703';
@@ -132,7 +133,7 @@ final class ListSingleAncestry implements ResolveOrganizationScopeAncestry
         private readonly string $facilityId,
     ) {}
 
-    public function ancestry(string $scopeType, string $scopeId): ?array
+    public function ancestry(string $scopeType, string $scopeId): array
     {
         return ['cluster_id' => $this->clusterId, 'facility_id' => $this->facilityId, 'unit_id' => null];
     }

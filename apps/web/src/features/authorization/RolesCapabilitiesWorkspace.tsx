@@ -65,7 +65,7 @@ export function RolesCapabilitiesWorkspace({ locale, activeResource, navigate, c
           onNavigate={navigate}
           tabs={visibleResources.map((resource) => ({
             key: resource,
-            label: resource === 'roles' ? t.title.split(' ')[0] : t.capabilitiesTitle,
+            label: resource === 'roles' ? (t.title.split(' ')[0] ?? t.title) : t.capabilitiesTitle,
             path: resource === 'roles' ? '/admin/authorization/roles' : '/admin/authorization/capabilities',
             active: resource === visibleResource,
           }))}

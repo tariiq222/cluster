@@ -657,7 +657,7 @@ export function formatAge(value: unknown, locale: Locale): string {
 
   const seconds = Math.round((Date.now() - dateValue) / 1000)
   const absolute = Math.abs(seconds)
-  const [unit, divisor] = absolute >= 86_400
+  const [unit, divisor]: [Intl.RelativeTimeFormatUnit, number] = absolute >= 86_400
     ? ['day', 86_400]
     : absolute >= 3_600
       ? ['hour', 3_600]
@@ -665,14 +665,8 @@ export function formatAge(value: unknown, locale: Locale): string {
         ? ['minute', 60]
         : ['second', 1]
   const amount = Math.max(0, Math.round(seconds / divisor))
-  const unitMap: Record<string, Intl.RelativeTimeFormatUnit> = {
-    day: 'day',
-    hour: 'hour',
-    minute: 'minute',
-    second: 'second',
-  }
   return new Intl.RelativeTimeFormat(locale === 'ar' ? 'ar-SA' : 'en-GB', { numeric: 'auto' })
-    .format(-amount, unitMap[unit])
+    .format(-amount, unit)
 }
 
 export function stringValue(value: unknown, fallback = '—'): string {

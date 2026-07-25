@@ -26,7 +26,7 @@ final class WorkflowLifecycleMutator
     }
 
     /**
-     * @param array<string, mixed> $graph
+     * @param  array<string, mixed>  $graph
      * @return array{ok: true, definition: array<string, mixed>, version: array<string, mixed>}|array{ok: false, conflict: string}
      */
     public function createDefinition(array $input, string $principalId, array $graph, string $requestHash, string $keyHash): array
@@ -85,7 +85,7 @@ final class WorkflowLifecycleMutator
     }
 
     /**
-     * @param array<string, mixed> $graph
+     * @param  array<string, mixed>  $graph
      * @return array{ok: true, version_id: string}|array{ok: false, conflict: string}
      */
     public function createVersion(string $definitionId, string $principalId, array $graph): array
@@ -153,9 +153,8 @@ final class WorkflowLifecycleMutator
     }
 
     /**
-     * @param array<string, mixed> $step
-     * @param array<string, mixed>|null $instance
-     * @param string $reason
+     * @param  array<string, mixed>  $step
+     * @param  array<string, mixed>|null  $instance
      * @return array{ok: true}|array{ok: false, conflict: string}
      */
     public function recordStepDecision(array $step, ?array $instance, string $expectedVersion, string $newState, string $decision, ?string $reason, string $principalId, string $correlationId): array
@@ -196,7 +195,7 @@ final class WorkflowLifecycleMutator
     }
 
     /**
-     * @param array<string, mixed> $step
+     * @param  array<string, mixed>  $step
      * @return array{ok: true}|array{ok: false, conflict: string}
      */
     public function actOnStep(array $step, string $expectedVersion, string $stepAction, ?string $targetUserId, string $reason, string $principalId, string $correlationId): array
@@ -223,7 +222,7 @@ final class WorkflowLifecycleMutator
     }
 
     /**
-     * @param array<string, mixed> $instance
+     * @param  array<string, mixed>  $instance
      * @return array{ok: true}|array{ok: false, conflict: string}
      */
     public function cancelInstance(array $instance, string $expectedVersion, string $reason, string $principalId, string $correlationId): array
@@ -256,7 +255,7 @@ final class WorkflowLifecycleMutator
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     public function remember(string $principalId, string $operation, string $key, array $payload, string $resourceId): void
     {
@@ -276,7 +275,7 @@ final class WorkflowLifecycleMutator
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     public function replay(string $principalId, string $operation, string $key, array $payload): ?array
     {

@@ -5,7 +5,6 @@ namespace Modules\Identity\Infrastructure\Outbox;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Modules\Identity\Infrastructure\Outbox\IdentitySecurityEventRegistry;
 use Shared\Infrastructure\Outbox\OutboxEventType;
 
 final class IdentityOutbox

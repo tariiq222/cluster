@@ -3,15 +3,15 @@
 namespace Modules\Authorization\Tests;
 
 use App\Http\Authentication\SessionPrincipalResolver;
-use Modules\Authorization\Features\Administration\Http\AuthorizationAdminController;
-use Modules\Authorization\Features\DecideAccess\Http\DecideAccessController;
-use Modules\Authorization\Features\ExplainAccessDecision\Http\ExplainAccessDecisionController;
 use Database\Seeders\DevelopmentJourneyAuthorizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\PersistAccessDecision;
+use Modules\Authorization\Features\Administration\Http\AuthorizationAdminController;
+use Modules\Authorization\Features\DecideAccess\Http\DecideAccessController;
+use Modules\Authorization\Features\ExplainAccessDecision\Http\ExplainAccessDecisionController;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;

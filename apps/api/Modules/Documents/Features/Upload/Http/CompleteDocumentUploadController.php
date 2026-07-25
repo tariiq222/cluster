@@ -18,7 +18,6 @@ use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use RuntimeException;
 use UnexpectedValueException;
 
-
 final class CompleteDocumentUploadController
 {
     public function __construct(

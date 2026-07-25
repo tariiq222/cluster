@@ -2,13 +2,11 @@
 
 namespace Modules\WorkDefinitions\Features\ListWorkDefinitions\Tests;
 
-use Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
+use Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController;
 use Tests\TestCase;
 
 final class ListWorkDefinitionsTest extends TestCase
@@ -20,6 +18,7 @@ final class ListWorkDefinitionsTest extends TestCase
     public const ACTOR_ID = '018f6f7d-0c00-7000-8000-000000000021';
 
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000011';
+
     private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000010';
 
     protected function setUp(): void
@@ -79,7 +78,11 @@ final class ListWorkDefinitionsTest extends TestCase
         {
             public function __construct(private readonly string $facilityId) {}
 
-            public function issue(array $principal): array { return ['access_token' => 't', 'expires_at' => '2026-07-22T00:00:00Z']; }
+            public function issue(array $principal): array
+            {
+                return ['access_token' => 't', 'expires_at' => '2026-07-22T00:00:00Z'];
+            }
+
             public function resolve(\Illuminate\Http\Request $request): array
             {
                 return ['user_id' => ListWorkDefinitionsTest::ACTOR_ID, 'facility_id' => $this->facilityId];
@@ -315,6 +318,7 @@ final class ListWorkDefinitionsTest extends TestCase
         $this->assertSame(401, $response->getStatusCode());
         $this->assertSame('https://cluster.example/problems/authentication-required', $response->getData(true)['type']);
     }
+
     private function controller(
         \Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal $resolver,
         \Shared\Contracts\TransactionalOutbox $outbox,
@@ -322,7 +326,7 @@ final class ListWorkDefinitionsTest extends TestCase
     ): WorkDefinitionController {
         $cluster = new class implements \Modules\Organization\Contracts\GetDefaultClusterId
         {
-            public function resolve(): ?string
+            public function resolve(): string
             {
                 return '018f6f7d-0c00-7000-8000-000000000099';
             }
@@ -330,9 +334,7 @@ final class ListWorkDefinitionsTest extends TestCase
 
         return new WorkDefinitionController(
             $resolver,
-            $access,
             new \Modules\WorkDefinitions\Features\Definition\Handler\WorkDefinitionMutator($outbox, $access, $cluster),
         );
     }
-
 }
