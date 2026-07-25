@@ -17,7 +17,7 @@ final class ListWorkDefinitionsTest extends TestCase
 
     private const CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000401';
 
-    private const ACTOR_ID = '018f6f7d-0c00-7000-8000-000000000021';
+    public const ACTOR_ID = '018f6f7d-0c00-7000-8000-000000000021';
 
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000011';
     private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000010';
@@ -96,7 +96,7 @@ final class ListWorkDefinitionsTest extends TestCase
         {
             public function append(string $eventId, string $aggregateId, string $type, array $payload): void {}
         };
-        $controller = new WorkDefinitionController($resolver, $outbox, $access);
+        $controller = $this->controller($resolver, $outbox, $access);
 
         $request = \Illuminate\Http\Request::create('/api/v1/work-definitions', 'GET', ['limit' => 4], [], [], [
             'HTTP_X_CORRELATION_ID' => self::CORRELATION_ID,
@@ -169,7 +169,7 @@ final class ListWorkDefinitionsTest extends TestCase
             public function append(string $eventId, string $aggregateId, string $type, array $payload): void {}
         };
 
-        $controller = new WorkDefinitionController($resolver, $outbox, $access);
+        $controller = $this->controller($resolver, $outbox, $access);
         $first = $controller->index($request);
         $this->assertSame(200, $first->getStatusCode());
         $firstBody = $first->getData(true);
@@ -238,7 +238,7 @@ final class ListWorkDefinitionsTest extends TestCase
             public function append(string $eventId, string $aggregateId, string $type, array $payload): void {}
         };
 
-        $controller = new WorkDefinitionController($resolver, $outbox, $access);
+        $controller = $this->controller($resolver, $outbox, $access);
         $response = $controller->index($request);
         $this->assertSame(400, $response->getStatusCode());
         $this->assertSame('application/problem+json', $response->headers->get('Content-Type'));
@@ -276,7 +276,7 @@ final class ListWorkDefinitionsTest extends TestCase
             public function append(string $eventId, string $aggregateId, string $type, array $payload): void {}
         };
 
-        $controller = new WorkDefinitionController($resolver, $outbox, $access);
+        $controller = $this->controller($resolver, $outbox, $access);
         $response = $controller->index($request);
         $this->assertSame(400, $response->getStatusCode());
     }
@@ -310,9 +310,29 @@ final class ListWorkDefinitionsTest extends TestCase
             public function append(string $eventId, string $aggregateId, string $type, array $payload): void {}
         };
 
-        $controller = new WorkDefinitionController($resolver, $outbox, $access);
+        $controller = $this->controller($resolver, $outbox, $access);
         $response = $controller->index($request);
         $this->assertSame(401, $response->getStatusCode());
         $this->assertSame('https://cluster.example/problems/authentication-required', $response->getData(true)['type']);
     }
+    private function controller(
+        \Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal $resolver,
+        \Shared\Contracts\TransactionalOutbox $outbox,
+        \Modules\Authorization\Contracts\DecideAccess $access,
+    ): WorkDefinitionController {
+        $cluster = new class implements \Modules\Organization\Contracts\GetDefaultClusterId
+        {
+            public function resolve(): ?string
+            {
+                return '018f6f7d-0c00-7000-8000-000000000099';
+            }
+        };
+
+        return new WorkDefinitionController(
+            $resolver,
+            $access,
+            new \Modules\WorkDefinitions\Features\Definition\Handler\WorkDefinitionMutator($outbox, $access, $cluster),
+        );
+    }
+
 }

@@ -18,7 +18,7 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
 
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000501';
 
-    private const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000502';
+    public const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000502';
     private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000504';
 
     private const PRINCIPAL_ID = '018f6f7d-0c00-7000-8000-000000000503';

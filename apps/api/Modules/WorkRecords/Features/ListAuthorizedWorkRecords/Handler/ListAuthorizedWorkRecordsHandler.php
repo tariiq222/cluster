@@ -62,12 +62,24 @@ final class ListAuthorizedWorkRecordsHandler
             $query->where('classification', $classification);
         }
 
+        $rows = $query->limit($limit * 4)->get();
+        $facilityIds = $rows
+            ->pluck('owner_facility_id')
+            ->filter(static fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->unique()
+            ->values()
+            ->all();
+        $clusterIdsByFacility = DB::table('facilities')
+            ->whereIn('id', $facilityIds)
+            ->pluck('cluster_id', 'id')
+            ->all();
+
         $authorized = [];
-        foreach ($query->get() as $row) {
+        foreach ($rows as $row) {
             $decision = $this->access->decide(
                 $this->actor($principal),
                 'work_record.list',
-                $this->factsFor($row),
+                $this->factsFor($row, $clusterIdsByFacility),
             );
 
             if ($decision->isAllowed()) {
@@ -145,15 +157,19 @@ final class ListAuthorizedWorkRecordsHandler
         ];
     }
 
-    private function factsFor(stdClass $row): RecordFacts
+    /** @param array<string, string|null> $clusterIdsByFacility */
+    private function factsFor(stdClass $row, array $clusterIdsByFacility): RecordFacts
     {
-        $ancestry = $this->ancestry->ancestry('facility', (string) $row->owner_facility_id);
+        $facilityId = (string) $row->owner_facility_id;
+        $clusterId = array_key_exists($facilityId, $clusterIdsByFacility)
+            ? $clusterIdsByFacility[$facilityId]
+            : ($this->ancestry->ancestry('facility', $facilityId)['cluster_id'] ?? null);
 
         return new RecordFacts(
             ownerFacilityId: $row->owner_facility_id,
             resourceType: 'work_record',
             classification: $row->classification,
-            clusterId: $ancestry['cluster_id'] ?? null,
+            clusterId: is_string($clusterId) ? $clusterId : null,
             recordId: (string) $row->id,
             createdByUserId: (string) $row->creator_user_id,
             lifecycleState: (string) $row->status,
