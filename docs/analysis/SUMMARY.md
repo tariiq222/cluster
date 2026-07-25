@@ -61,7 +61,7 @@ Cluster مبنيّ كـ **Laravel 13.8 Modular Monolith** بـ 12 موديول �
 6. **الأسبوع 8-9:** Web client — تفكيك `AppShell.tsx` (583 سطر) و `AppShell.css` (864 سطر) لاستخراج design system موحَّد.
 7. **الأسبوع 10:** CI + Tooling — تفكيك `openapi_reconciler.py` (51KB) + cache + `make docs:validate`.
 
-## مؤشرات النجاح — محدَّثة (2026-07-25)
+## مؤشرات النجاح — محدَّثة (2026-07-26)
 
 | المؤشر | الحالي | المستهدف |
 |--------|--------|----------|
