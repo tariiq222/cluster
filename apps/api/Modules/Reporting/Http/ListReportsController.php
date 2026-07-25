@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Contracts\GetDefaultClusterId;
 
 /**
  * GET /api/v1/reports — lists published report definitions after the central
@@ -18,6 +19,7 @@ final class ListReportsController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly GetDefaultClusterId $defaultClusterId,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -36,7 +38,7 @@ final class ListReportsController
             return ReportingApi::problem(400, 'invalid-pagination', 'Bad Request', 'The collection parameters are invalid.', $correlationId);
         }
 
-        $clusterId = DB::table('clusters')->orderBy('code')->value('id');
+        $clusterId = $this->defaultClusterId->resolve();
         $decision = $this->access->decide(
             [
                 'user_id' => $principal['user_id'],
@@ -49,7 +51,7 @@ final class ListReportsController
                 ownerFacilityId: null,
                 resourceType: 'report_definition',
                 classification: 'internal',
-                clusterId: is_string($clusterId) ? $clusterId : null,
+                clusterId: $clusterId,
             ),
         );
         if (! $decision->isAllowed()) {
