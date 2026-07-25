@@ -64,7 +64,10 @@ final class ProductionAuthorizationBindingTest extends TestCase
         $_ENV['APP_ENV'] = $environment;
         $_SERVER['APP_ENV'] = $environment;
         // Keep the documents production runtime (S3/ClamAV assertions) out of
-        // the binding assertions; "test" mirrors `php artisan test` argv.
+        // the binding assertions: the assertion set is a contract check, not a
+        // storage wiring check. documents.runtime.testing_enabled resolves to
+        // false under APP_ENV=production, so documentsRuntimeEnabled() returns
+        // false and the boot guards do not require a real S3/ClamAV setup.
         $_SERVER['argv'] = ['artisan', 'test'];
     }
 }

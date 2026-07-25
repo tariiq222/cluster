@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/_template.schema.json",
+  "title": "Outbox event payload template",
+  "description": "Replace this template when authoring a real event schema. The shape below is the minimum every payload must carry: a `data` object whose properties are scoped to the event in question.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

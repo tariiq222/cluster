@@ -1,0 +1,8 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-clusterupdated-v1.schema.json",
+    "title": "Outbox event: com.cluster.organization.clusterupdated.v1",
+    "description": "CloudEvents envelope for the 'com.cluster.organization.clusterupdated.v1' event. The actual data shape is owned by the producing module (OrganizationClusterUpdated in OutboxEventType). This file is a placeholder until the producer-author documents the full payload contract; the architecture test only checks that a file exists for every registered event type so the contract is not silently missing.",
+    "type": "object",
+    "additionalProperties": true
+}

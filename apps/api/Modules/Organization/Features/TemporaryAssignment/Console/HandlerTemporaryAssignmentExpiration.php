@@ -3,6 +3,7 @@
 namespace Modules\Organization\Features\TemporaryAssignment\Console;
 
 use Modules\Organization\Features\TemporaryAssignment\Handler\ExpireTemporaryAssignmentsHandler;
+use Modules\Organization\Features\TemporaryAssignment\Console\RunTemporaryAssignmentExpiration;
 
 final class HandlerTemporaryAssignmentExpiration implements RunTemporaryAssignmentExpiration
 {
