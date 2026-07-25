@@ -25,6 +25,7 @@ use Modules\Identity\Domain\PasswordPolicy;
 use Modules\Identity\Features\Credentials\Contracts\UsernameDenylist;
 use Modules\Identity\Infrastructure\Security\LocalUsernameDenylist;
 use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
+use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal as OrganizationResolveDevelopmentFixturePrincipal;
 
 final class IdentityServiceProvider extends ServiceProvider
 {
@@ -49,6 +50,10 @@ final class IdentityServiceProvider extends ServiceProvider
 
             return $this->app->make(DevelopmentFixturePrincipalResolver::class);
         });
+        $this->app->bind(
+            OrganizationResolveDevelopmentFixturePrincipal::class,
+            fn ($app): ResolveDevelopmentFixturePrincipal => $app->make(ResolveDevelopmentFixturePrincipal::class),
+        );
     }
 
     private function developmentFixturesAllowed(): bool

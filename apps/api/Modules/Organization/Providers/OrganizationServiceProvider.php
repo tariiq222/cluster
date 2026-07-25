@@ -5,7 +5,6 @@ namespace Modules\Organization\Providers;
 use Illuminate\Support\ServiceProvider;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use Modules\Organization\Contracts\GetDefaultClusterId;
-use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use Modules\Organization\Contracts\ResolveQuarantinedImport;
@@ -18,7 +17,6 @@ use Modules\Organization\Features\TemporaryAssignment\Events\TemporaryAssignment
 use Modules\Organization\Features\TemporaryAssignment\Http\DatabaseTemporaryAssignmentHttpGateway;
 use Modules\Organization\Features\TemporaryAssignment\Http\TemporaryAssignmentHttpGateway;
 use Modules\Organization\Infrastructure\Authorization\ConfiguredTemporaryAssignmentCapabilityValidator;
-use Modules\Organization\Infrastructure\Authorization\OrganizationPrincipalResolver;
 use Modules\Organization\Infrastructure\Import\UnavailableQuarantinedImport;
 use Modules\Organization\Infrastructure\Persistence\DatabaseGetActiveSupervisoryRelationships;
 use Modules\Organization\Infrastructure\Persistence\DatabaseGetDefaultClusterId;
@@ -40,10 +38,5 @@ final class OrganizationServiceProvider extends ServiceProvider
         $this->app->bind(RunTemporaryAssignmentExpiration::class, HandlerTemporaryAssignmentExpiration::class);
         $this->app->bind(BuildTemporaryAssignmentEvent::class, TemporaryAssignmentEventFactory::class);
         $this->app->bind(ValidateTemporaryAssignmentCapabilities::class, ConfiguredTemporaryAssignmentCapabilityValidator::class);
-        // The Organization-owned DecideAccess and AuthorizationIdempotencyKeyLookup
-        // contracts are bound by the higher-ranked Authorization provider; this
-        // provider owns the principal resolver so the controllers can resolve a
-        // development-fixture bearer without importing the Identity module.
-        $this->app->bind(ResolveDevelopmentFixturePrincipal::class, OrganizationPrincipalResolver::class);
     }
 }
