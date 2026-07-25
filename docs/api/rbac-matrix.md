@@ -1072,13 +1072,13 @@ references:
 - **Method:** `POST`
 - **Path:** `/api/v1/work-records/{recordId}/{recordAction}`
 - **Endpoint tag:** `api-v1-work-records-recordId-recordAction-transition:post:workrecordlifecyclecontroller::transition`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
+- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → project_work_record_read_models`
 - **Session:** `yes`
 - **Principal:** `yes`
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-249
+### row-250
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-records/{recordId}/documents`
@@ -1089,7 +1089,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-250
+### row-251
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/access-decisions`
@@ -1100,7 +1100,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-251
+### row-252
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/bootstrap/complete`
@@ -1111,7 +1111,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-252
+### row-253
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/{adminResource}`
@@ -1122,7 +1122,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-253
+### row-254
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/authorization/{adminResource}/{resourceId}`
@@ -1133,7 +1133,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-254
+### row-255
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/{adminResource}/{resourceId}/{authorizationAction}`
@@ -1144,7 +1144,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-257
+### row-258
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-definitions`
@@ -1155,7 +1155,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-258
+### row-259
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-definitions/{definitionId}`
@@ -1166,7 +1166,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-259
+### row-260
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-definitions/{definitionId}/versions`
@@ -1177,7 +1177,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-260
+### row-261
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-definition-versions/{versionId}`
@@ -1188,7 +1188,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-261
+### row-262
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/definitions`
@@ -1199,7 +1199,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-262
+### row-263
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/definitions/{definitionId}/versions`
@@ -1210,7 +1210,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-263
+### row-264
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/instances`
@@ -1221,7 +1221,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-264
+### row-265
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/instances/{instanceId}`
@@ -1232,7 +1232,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-265
+### row-266
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/steps`
@@ -1243,7 +1243,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-266
+### row-267
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/steps/{stepId}`
@@ -1254,7 +1254,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-267
+### row-268
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks`
@@ -1265,7 +1265,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-268
+### row-269
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks/{taskId}/comments`
@@ -1276,7 +1276,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-269
+### row-270
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks/{taskId}`
@@ -1287,7 +1287,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-270
+### row-271
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents`
@@ -1298,7 +1298,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-271
+### row-272
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}`
@@ -1309,7 +1309,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-272
+### row-273
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}/versions`
@@ -1320,7 +1320,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-273
+### row-274
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}/links`
@@ -1331,7 +1331,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-274
+### row-275
 
 - **Method:** `GET`
 - **Path:** `/api/v1/reports`
@@ -1342,7 +1342,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-275
+### row-276
 
 - **Method:** `GET`
 - **Path:** `/api/v1/dashboards`
@@ -1353,7 +1353,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-282
+### row-283
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-definitions`
@@ -1364,7 +1364,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-283
+### row-284
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-definitions/{definitionId}/versions`
@@ -1375,7 +1375,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-284
+### row-285
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-definition-versions/{versionId}/{versionAction}`
@@ -1386,7 +1386,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-285
+### row-286
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/definitions`
@@ -1397,7 +1397,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-286
+### row-287
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/definitions/{definitionId}/versions`
@@ -1408,7 +1408,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-287
+### row-288
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}`
@@ -1419,7 +1419,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-288
+### row-289
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/instances`
@@ -1430,7 +1430,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-289
+### row-290
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks`
@@ -1441,7 +1441,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-290
+### row-291
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/tasks/{taskId}`
@@ -1452,7 +1452,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-291
+### row-292
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/from-step/{stepId}`
@@ -1463,7 +1463,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-292
+### row-293
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/participants`
@@ -1474,7 +1474,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-293
+### row-294
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/comments`
@@ -1485,7 +1485,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-294
+### row-295
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/{workflowTaskAction}`
@@ -1496,7 +1496,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-295
+### row-296
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/steps/{stepId}/decisions`
@@ -1507,7 +1507,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-296
+### row-297
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/steps/{stepId}/{stepAction}`
@@ -1518,7 +1518,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-297
+### row-298
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/instances/{instanceId}/cancel`
@@ -1529,7 +1529,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-298
+### row-299
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents`
@@ -1540,7 +1540,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-299
+### row-300
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/documents/{documentId}`
@@ -1551,7 +1551,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-300
+### row-301
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/versions`
@@ -1562,7 +1562,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-301
+### row-302
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/links`
@@ -1573,7 +1573,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-302
+### row-303
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/{documentAction}`
@@ -1584,7 +1584,7 @@ references:
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-303
+### row-304
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/{documentGrantType}-grant`

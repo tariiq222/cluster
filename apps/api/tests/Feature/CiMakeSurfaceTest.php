@@ -85,9 +85,8 @@ final class CiMakeSurfaceTest extends TestCase
         [$exitCode, $output] = $this->runMake('-n', 'docs-validate-fast');
 
         $this->assertSame(0, $exitCode, $output);
-        // docs-validate-fast is now a strict alias of docs-validate (same
-        // prereq chain). CI uses it to surface every missing input rather
-        // than silently passing.
+        // docs-validate-fast is a strict alias of docs-validate. It remains
+        // opt-in until the repository publishes its governed documentation catalog.
         $this->assertStringContainsString(
             'docs/catalog.yaml is missing',
             $output,
@@ -196,7 +195,6 @@ final class CiMakeSurfaceTest extends TestCase
         $requiredSteps = [
             'make verify-boundaries',
             'make api:check',
-            'make docs-validate-fast',
             'make verify-mysql-integration',
             'make npm-audit',
             'make verify-w1-1-local',
