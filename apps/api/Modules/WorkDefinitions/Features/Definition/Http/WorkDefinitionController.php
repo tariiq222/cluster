@@ -80,14 +80,14 @@ final class WorkDefinitionController
 
         $limit = (int) $request->query('limit', 25);
         if ($limit < 1 || $limit > 100) {
-            return $this->problem(400, 'invalid-pagination', 'Bad Request', 'The collection parameters are invalid.', $c);
+            return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
         }
         $cursor = $request->query('cursor');
         if (is_string($cursor) && $cursor !== '') {
             try {
                 $after = $this->decodeWorkDefinitionCursor($cursor, $limit);
             } catch (InvalidArgumentException) {
-                return $this->problem(400, 'invalid-pagination', 'Bad Request', 'The collection parameters are invalid.', $c);
+                return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
             }
         } else {
             $after = null;
