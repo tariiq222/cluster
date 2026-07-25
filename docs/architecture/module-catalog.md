@@ -322,3 +322,27 @@ authorization decisions (Stage 3)
   class is in the middleware list for the PATCH route), and the
   middleware itself is exercised in the unit test of the
   `EnforcePlatformMaintenance` stage-3 work.
+
+
+### 6.5 Self-hosted end-to-end CI workflow (Stage 7)
+- **What.** `.github/workflows/ci-e2e.yml` is the release and manually
+  dispatched E2E workflow. It runs on a self-hosted runner carrying the
+  `cluster-e2e` label and has a 30-minute job timeout. The workflow invokes,
+  in order, `make verify-intake`, `make verify-boundaries`,
+  `make docs-validate`, `make test-api`, and `make verify-w1-1-local`, then
+  uploads `./test-results/` as a workflow artifact.
+- **Runner prerequisites.** Provision a Linux runner with Docker Engine and
+  Docker Compose v2, grant its runner user access to the Docker socket, and
+  make PHP 8.4, Composer 2, Node.js 20, npm, `openssl`, `lsof`, and `curl`
+  available on `PATH`. MySQL must be reachable at `localhost:3306`, outbound
+  HTTPS must permit pulling the pinned production images, and the production
+  bundle must be buildable on the host. The workflow is intentionally a
+  template: no live runner is required until the repository owner provisions
+  and labels one.
+- **How to extend it.** When a module adds a new CI contract, expose that
+  contract as a Makefile target and add a named workflow step before
+  `verify-w1-1-local`, keeping cheap static or boundary checks ahead of the
+  production-bundle E2E run. Add the module's failure output under
+  `./test-results/` so the existing artifact upload captures it; if the new
+  check needs additional host software or services, update both the workflow
+  header prerequisites and this entry in the same change.

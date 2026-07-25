@@ -1,0 +1,93 @@
+# Self-hosted E2E workflow template. Adjust tool versions and paths for your runner image.
+# Runner prerequisites:
+# - A Linux x86_64 GitHub Actions runner registered with the `self-hosted` and
+#   `cluster-e2e` labels; allow only one job at a time to avoid port contention.
+# - Docker Engine 20.10+ with Docker Compose v2, with the runner user permitted
+#   to access the Docker socket and `host-gateway` supported.
+# - MySQL reachable at localhost:3306 for host-side integration checks. The
+#   production-bundle E2E script also starts isolated MySQL and Redis containers.
+# - PHP 8.4/Composer 2 and Node.js/npm support. The setup actions below provision
+#   their requested versions, but the runner must support those actions.
+# - Playwright Chromium system dependencies, plus openssl, lsof, and curl on PATH.
+#   This workflow installs the matching Chromium binary into the runner temp dir.
+# - Enough free disk for Docker images, containers, and Chromium, and outbound
+#   HTTPS access to Docker Hub and the package registries.
+# - The production bundle must remain buildable from apps/api/Dockerfile and
+#   apps/web/Dockerfile. Its entry points live in infra/platform/production/;
+#   development E2E entry points live in infra/dev/ (not below apps/api/infra/).
+
+name: Self-hosted production E2E
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-e2e:
+    runs-on: [self-hosted, cluster-e2e]
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@a42e73e16d831796463b22b8d70a3efcad74e074
+        with:
+          php-version: "8.4"
+          extensions: mbstring, intl, pdo_mysql, pdo_sqlite, sqlite3, gd, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install API dependencies
+        run: composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
+
+      - name: Install web dependencies
+        run: npm --prefix apps/web ci
+
+      - name: Install Playwright Chromium
+        run: npm --prefix apps/web exec -- playwright install chromium
+
+      - name: Verify dependency intake
+        run: make verify-intake
+
+      - name: Verify module boundaries
+        run: make verify-boundaries
+
+      - name: Validate documentation contracts
+        run: make docs-validate
+
+      - name: Run API test suite
+        run: make test-api
+
+      - name: Build and verify the production bundle E2E
+        run: make verify-w1-1-local
+
+      - name: Upload E2E test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: production-e2e-test-results
+          path: |
+            ./test-results/
+            ./apps/web/test-results/
+          if-no-files-found: warn
+          retention-days: 14
