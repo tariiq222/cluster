@@ -67,7 +67,18 @@ verify-mysql-integration:
 	cd apps/api && php artisan test tests/Architecture/ModuleBoundariesTest.php
 
 # البوابة المحلية الكاملة: عقود، جودة، اختبارات، حدود، ورحلة E2E.
-verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies test-api test-web verify-boundaries test-w1-1-api-worker-smoke test-e2e-w1-1
+# التحقق من وجود وثائق المعمارية المطلوبة. الـ validation الكامل (frontmatter + catalog + nav)
+# يعمل عبر scripts/validate-docs.sh لكن يحتاج mkdocs.yml و docs/catalog.yaml و frontmatter
+# كامل لكل .md تحت docs/؛ هذا الـ target يضمن الحد الأدنى الذي يعتمد عليه الـ architecture test.
+docs-validate:
+	test -f docs/contracts/api/openapi.yaml
+	test -f docs/contracts/api/w1-1.openapi.yaml
+	test -f docs/contracts/api/w1-2.openapi.yaml
+	test -f docs/contracts/api/r1-screens.openapi.yaml
+	test -f docs/architecture/module-catalog.md
+
+# البوابة المحلية الكاملة: عقود، جودة، اختبارات، حدود، ورحلة E2E.
+verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies docs-validate test-api test-web verify-boundaries test-w1-1-api-worker-smoke test-e2e-w1-1
 
 # بوابة W1.2: عقود الجاهزية ثم حدود الموديولات واختبارات التطبيق المتأثرة.
 verify-w1-2:

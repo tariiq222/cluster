@@ -123,4 +123,19 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Runtime Mode
+    |--------------------------------------------------------------------------
+    |
+    | Explicit override for what kind of process is currently running. Replaces
+    | the legacy argv-based detection that conflated "the artisan command line"
+    | with "the request handler". Use one of: "production", "testing", "local".
+    | When null, the value is derived from `app.env` (production -> production,
+    | testing -> testing, anything else -> local). See
+    | `Shared\Infrastructure\RuntimeMode`.
+    |
+    */
+
+    'runtime_mode' => env('APP_RUNTIME_MODE'),
 ];
