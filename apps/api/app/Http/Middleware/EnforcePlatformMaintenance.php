@@ -105,9 +105,19 @@ final class EnforcePlatformMaintenance
         if ($principal === null) {
             return false;
         }
+        // Validate the correlation id before forwarding it to
+        // DecideAccess so a malformed header cannot trigger a DB
+        // error when access_decisions.correlation_id (uuid type,
+        // 36 chars) refuses to accept a longer string. The other
+        // modules (e.g. MarkNotificationReadController) enforce
+        // the same regex at their controller boundary.
+        $correlationId = $request->header('X-Correlation-ID');
+        if (! is_string($correlationId) || preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $correlationId) !== 1) {
+            return false;
+        }
 
         return $this->access->decide(
-            $principal->toActorArray($request->header('X-Correlation-ID')),
+            $principal->toActorArray($correlationId),
             'platform_operations.maintenance.manage',
             new RecordFacts(null, 'platform_maintenance', 'internal', 'platform-maintenance-v1'),
         )->isAllowed();

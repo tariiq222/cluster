@@ -1,15 +1,25 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Modules\Organization\Infrastructure\Outbox;
 
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
+use Shared\Infrastructure\Outbox\OutboxEventType;
 
 final class OrganizationOutbox
 {
     /** @param array<string, mixed> $cloudEvent */
     public function insert(array $cloudEvent, string $aggregateId): void
     {
+        // Validate the event type at the boundary so a producer-side
+        // typo cannot silently land a string that the Redis relay
+        // (and the schema catalogue) does not know about. This is a
+        // cheap invariant that complements the architecture test;
+        // OutboxEventType::from throws ValueError on an unknown value.
+        OutboxEventType::from($cloudEvent['type']);
+
         DB::table('outbox_events')->insert([
             'event_id' => $cloudEvent['id'],
             'aggregate_id' => $aggregateId,

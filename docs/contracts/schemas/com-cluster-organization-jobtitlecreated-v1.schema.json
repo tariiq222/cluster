@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-organizationunitarchived-v1.schema.json",
-  "title": "Outbox event: com.cluster.organization.organizationunitarchived.v1",
-  "description": "CloudEvents envelope for the 'com.cluster.organization.organizationunitarchived.v1' event. Produced by apps/api/Modules/Organization/Features/CreateOrganizationUnit/Handler/CreateOrganizationUnitHandler.php.",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-jobtitlecreated-v1.schema.json",
+  "title": "Outbox event: com.cluster.organization.jobtitlecreated.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.organization.jobtitlecreated.v1' event. Produced by apps/api/app/Http/Controllers/Organization/CreateJobTitleController.php.",
   "type": "object",
   "additionalProperties": true,
   "required": [
@@ -13,26 +13,20 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "organization_unit": {
+        "job_title": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "id": {
               "type": "string"
             },
-            "cluster_id": {
-              "type": "string"
-            },
             "code": {
               "type": "string"
             },
-            "type_code": {
+            "title_ar": {
               "type": "string"
             },
-            "name_ar": {
-              "type": "string"
-            },
-            "name_en": {
+            "title_en": {
               "type": [
                 "string",
                 "null"

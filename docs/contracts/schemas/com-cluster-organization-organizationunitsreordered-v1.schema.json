@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-organizationunitsreordered-v1.schema.json",
+  "title": "Outbox event: com.cluster.organization.organizationunitsreordered.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.organization.organizationunitsreordered.v1' event. Produced by apps/api/Modules/Organization/Features/ReorderOrganizationUnits/Handler/ReorderOrganizationUnitsHandler.php.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reordered_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

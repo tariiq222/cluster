@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-organizationunitarchived-v1.schema.json",
-  "title": "Outbox event: com.cluster.organization.organizationunitarchived.v1",
-  "description": "CloudEvents envelope for the 'com.cluster.organization.organizationunitarchived.v1' event. Produced by apps/api/Modules/Organization/Features/CreateOrganizationUnit/Handler/CreateOrganizationUnitHandler.php.",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-organization-organizationunitupdated-v1.schema.json",
+  "title": "Outbox event: com.cluster.organization.organizationunitupdated.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.organization.organizationunitupdated.v1' event. Produced by apps/api/Modules/Organization/Features/UpdateOrganizationUnit/Handler/UpdateOrganizationUnitHandler.php.",
   "type": "object",
   "additionalProperties": true,
   "required": [

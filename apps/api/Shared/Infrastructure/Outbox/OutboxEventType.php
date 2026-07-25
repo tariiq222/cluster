@@ -38,8 +38,11 @@ enum OutboxEventType: string
     case OrganizationUnitCreated = 'com.cluster.organization.organizationunitcreated.v1';
     case OrganizationUnitMoved = 'com.cluster.organization.organizationunitmoved.v1';
     case OrganizationUnitArchived = 'com.cluster.organization.organizationunitarchived.v1';
+    case OrganizationUnitUpdated = 'com.cluster.organization.organizationunitupdated.v1';
+    case OrganizationUnitsReordered = 'com.cluster.organization.organizationunitsreordered.v1';
     case OrganizationPositionCreated = 'com.cluster.organization.positioncreated.v1';
     case OrganizationPositionUpdated = 'com.cluster.organization.positionupdated.v1';
+    case OrganizationJobTitleCreated = 'com.cluster.organization.jobtitlecreated.v1';
     case OrganizationAssignmentStarted = 'com.cluster.organization.assignmentstarted.v1';
     case OrganizationAssignmentEnded = 'com.cluster.organization.assignmentended.v1';
     case OrganizationTemporaryAssignmentCreated = 'com.cluster.organization.temporaryassignmentcreated.v1';
