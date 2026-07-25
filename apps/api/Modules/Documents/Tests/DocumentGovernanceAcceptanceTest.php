@@ -17,7 +17,7 @@ use Modules\Documents\Application\DocumentDownloadGrant;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Application\DocumentLinkService;
 use Modules\Documents\Application\DocumentMetadata;
-use Modules\Documents\Application\DocumentSourceReference;
+use Modules\Documents\Contracts\DocumentSourceReference;
 use Modules\Documents\Application\IdempotencyContext;
 use Modules\Documents\Application\InitiateDocumentUpload;
 use Modules\Documents\Application\StoredObjectProperties;

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Application\DocumentLinkService;
-use Modules\Documents\Application\DocumentSourceReference;
+use Modules\Documents\Contracts\DocumentSourceReference;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Documents\Http\DocumentsApi;
 

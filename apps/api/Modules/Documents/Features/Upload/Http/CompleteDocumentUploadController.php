@@ -10,6 +10,7 @@ use JsonException;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Application\CompleteDocumentUpload;
 use Modules\Documents\Application\IdempotencyContext;
+use Modules\Documents\Application\RetryableStorageException;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Features\Upload\DocumentUploadHandler;
 use Modules\Documents\Http\DocumentsApi;

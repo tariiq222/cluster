@@ -9,6 +9,7 @@ use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
+use Modules\Documents\Contracts\DocumentSourceReference;
 use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
 use Modules\Documents\Contracts\SensitiveAccessEventRecorder;
 use Modules\Documents\Domain\DocumentScanStatus;

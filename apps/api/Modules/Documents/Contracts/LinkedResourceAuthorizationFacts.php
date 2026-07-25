@@ -3,7 +3,6 @@
 namespace Modules\Documents\Contracts;
 
 use Modules\Authorization\Contracts\RecordFacts;
-use Modules\Documents\Application\DocumentSourceReference;
 
 /**
  * The producer module resolves its own facts.  Documents receives only the
