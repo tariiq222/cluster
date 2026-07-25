@@ -324,7 +324,47 @@ authorization decisions (Stage 3)
   `EnforcePlatformMaintenance` stage-3 work.
 
 
-### 6.5 Self-hosted end-to-end CI workflow (Stage 7)
+### 6.5 `RequireIdentitySessionPrincipal` is a real session-only enforcer (Stage 12)
+- **What.** `App\Http\Middleware\RequireIdentitySessionPrincipal` no longer
+  just sets the dead `identity.session_only` request attribute. It now reads
+  the `identity.session` and `identity.principal` attributes written by
+  `IdentitySessionMiddleware` and enforces a coherent binding: a non-empty
+  string `user_id` on the session, a non-empty string `session_id` on the
+  session, a non-empty string `user_id` on the principal, and
+  `principal.user_id === session.user_id`. A coherent binding is passed
+  through to `$next` unchanged; a missing, malformed, or mismatched binding
+  returns the standard `IdentityApi::problem(401, 'authentication-required', ...)`
+  response without invoking the next handler.
+- **Why.** The middleware's name implied enforcement it never performed.
+  Before this stage the body was `set 'identity.session_only' = true; return $next($request)`,
+  and no production code read that attribute — every test that wanted the
+  flag set wrote `config()->set('identity.session_only', true)` directly,
+  which meant the protected routes behind `RequireIdentitySessionPrincipal`
+  were not actually gated by anything beyond `IdentitySessionMiddleware`
+  itself. The route layer kept growing (`/api/v1/identity/me`,
+  `/api/v1/me`, the `/api/v1/me/scope` family, the password-change route,
+  and several other protected surfaces) and the cost of leaving a
+  name-implies-but-doesn't-enforce middleware in front of them kept rising.
+- **Rejected.** Calling `ResolvePrincipalContext` from the middleware.
+  That contract returns `null` for restricted must-change-password sessions,
+  because restricted sessions are not yet trusted principal contexts —
+  they exist precisely so the user can reach the password-change route
+  and *become* unrestricted. Resolving the principal here would have made
+  the protected password-change route unreachable for exactly the
+  principals it is supposed to serve. The middleware therefore inspects
+  only the attributes `IdentitySessionMiddleware` writes (string `user_id`
+  on the session, string `session_id` on the session, matching
+  string `user_id` on the principal) and leaves principal-context
+  resolution to the handlers that need the full PrincipalContext.
+- **Where.**
+  `apps/api/app/Http/Middleware/RequireIdentitySessionPrincipal.php`
+  and the new unit test
+  `apps/api/tests/Unit/Http/Middleware/RequireIdentitySessionPrincipalTest.php`
+  covering coherent pass-through, missing `identity.session` 401, and
+  mismatched user IDs 401.
+
+
+### 6.6 Self-hosted end-to-end CI workflow (Stage G)
 - **What.** `.github/workflows/ci-e2e.yml` is the release and manually
   dispatched E2E workflow. It runs on a self-hosted runner carrying the
   `cluster-e2e` label and has a 30-minute job timeout. The workflow invokes,
