@@ -1,5 +1,5 @@
 import { FileText, ArrowLeft, Archive, ShieldCheck } from 'lucide-react'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { stateFromError, type ResourceState } from '../../api/http'
 import {
   getDocumentRecord,
@@ -25,7 +25,7 @@ const copy = {
   en: { title: 'Documents', intro: 'Browse documents authorized for you, including versions and links.', filter: 'Classification', all: 'All classifications', loading: 'Loading documents…', empty: 'No documents available', emptyBody: 'Documents available in your access context will appear here.', retry: 'Retry', forbidden: 'You do not have permission to view documents.', notFound: 'The document was not found or access is concealed.', error: 'Could not load documents.', next: 'Load more', back: 'Back to documents', metadata: 'Metadata', versions: 'Versions', links: 'Links', state: 'State', classification: 'Classification', owner: 'Owner unit', archive: 'Archive', archived: 'Archived', actionError: 'Action failed. The data may be stale; refresh and retry.', conflict: 'A conflict occurred. Refresh before retrying.', stale: 'The data is stale. Refresh before saving.', archiveReason: 'Archived from the document center', create: 'Add document', update: 'Save changes', version: 'Add version', relation: 'Link relation', sourceModule: 'Source module', recordType: 'Record type', recordId: 'Record ID', grant: 'Issue download grant', purpose: 'Purpose', titleField: 'Title', descriptionField: 'Description', ownerField: 'Owner unit ID', required: 'This field is required.' },
 } as const
 
-function value(record: DocumentRecord, key: string): unknown { return (record as unknown as Record<string, unknown>)[key] }
+function value(record: DocumentRecord, key: string): unknown { if (typeof record !== 'object' || record === null) return undefined; const payload: Record<PropertyKey, unknown> = { ...(record as object) }; return payload[key] }
 export function isDocumentActionAllowed(record: DocumentRecord | null, action: string): boolean {
   const actions = record ? value(record, 'allowed_actions') : null
   return Array.isArray(actions) && actions.includes(action)
@@ -34,9 +34,9 @@ function availableGrantVersion(document: DocumentRecord, versions: DocumentRecor
   const available = versions.filter(version => value(version, 'availability_status') === 'available' && value(version, 'status') !== 'rejected')
   const current = value(document, 'current_version_id')
   if (typeof current === 'string' && available.some(version => value(version, 'id') === current)) return current
-  return [...available].sort((left, right) => Number(value(right, 'version_number') ?? 0) - Number(value(left, 'version_number') ?? 0))[0]
-    ? String(value([...available].sort((left, right) => Number(value(right, 'version_number') ?? 0) - Number(value(left, 'version_number') ?? 0))[0], 'id'))
-    : undefined
+  const sorted = [...available].sort((left, right) => Number(value(right, 'version_number') ?? 0) - Number(value(left, 'version_number') ?? 0))
+  const top = sorted[0]
+  return top ? String(value(top, 'id')) : undefined
 }
 
 export function DocumentsWorkspace({ locale, token, documentId, onNavigate }: { locale: Locale; token: string; documentId?: string; onNavigate: (path: string) => void }) {
@@ -49,17 +49,48 @@ export function DocumentsWorkspace({ locale, token, documentId, onNavigate }: { 
   const [versions, setVersions] = useState<DocumentRecord[]>([])
   const [links, setLinks] = useState<DocumentRecord[]>([])
   const [actionState, setActionState] = useState<ResourceState | null>(null)
+  /**
+   * Track in-flight list/detail requests so superseded calls cannot overwrite
+   * the freshest snapshot. The unmount cleanup bumps the ref so no async
+   * callback writes after the workspace route is torn down.
+   */
+  const activeRef = useRef(true)
+  const listRequestRef = useRef(0)
+  const detailRequestRef = useRef(0)
+  useEffect(() => () => {
+    activeRef.current = false
+    listRequestRef.current += 1
+    detailRequestRef.current += 1
+  }, [])
 
   const loadList = useCallback(async (append = false) => {
+    const epoch = ++listRequestRef.current
+    activeRef.current = true
     setState('loading')
-    try { const page = await listDocumentRecords({ classification: classification ? classification as never : undefined, cursor: append ? cursor ?? undefined : undefined, limit: 20 }); setItems(current => append ? [...current, ...page.items] : page.items); setCursor(page.next_cursor); setState(page.items.length || append ? 'ready' : 'empty') }
-    catch (error) { setState(stateFromError(error)) }
+    try {
+      const page = await listDocumentRecords({ classification: classification ? classification as never : undefined, cursor: append ? cursor ?? undefined : undefined, limit: 20 })
+      if (!activeRef.current || epoch !== listRequestRef.current) return
+      setItems(current => append ? [...current, ...page.items] : page.items)
+      setCursor(page.next_cursor)
+      setState(page.items.length || append ? 'ready' : 'empty')
+    } catch (error) {
+      if (!activeRef.current || epoch !== listRequestRef.current) return
+      setState(stateFromError(error))
+    }
   }, [classification, cursor])
   const loadDetail = useCallback(async () => {
     if (!documentId) return
+    const epoch = ++detailRequestRef.current
+    activeRef.current = true
     setState('loading')
-    try { const [doc, ver, lnk] = await Promise.all([getDocumentRecord(documentId), listDocumentRecordVersions(documentId), listDocumentRecordLinks(documentId)]); setSelected(doc); setVersions(ver.items); setLinks(lnk.items); setState('ready') }
-    catch (error) { setState(stateFromError(error)) }
+    try {
+      const [doc, ver, lnk] = await Promise.all([getDocumentRecord(documentId), listDocumentRecordVersions(documentId), listDocumentRecordLinks(documentId)])
+      if (!activeRef.current || epoch !== detailRequestRef.current) return
+      setSelected(doc); setVersions(ver.items); setLinks(lnk.items); setState('ready')
+    } catch (error) {
+      if (!activeRef.current || epoch !== detailRequestRef.current) return
+      setState(stateFromError(error))
+    }
   }, [documentId])
   useEffect(() => { if (documentId) void loadDetail(); else void loadList(false) }, [documentId, loadDetail, loadList])
 

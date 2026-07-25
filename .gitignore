@@ -36,6 +36,7 @@ apps/**/test-results/
 .omo/
 .playwright-mcp/
 .superpowers/
+.letta/
 
 # Local live-service state (logs, PIDs, and disposable databases)
 artifacts/local-live/

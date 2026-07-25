@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { formattingLocale } from '../../app/copy'
 import { useLocale, useToken } from '../../app/session-context'
 import { Inbox } from 'lucide-react'
@@ -211,15 +211,32 @@ export function TasksScreen() {
   const [pendingAction, setPendingAction] = useState<{ item: R1Entity; action: 'complete' | 'return-completion' } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  /**
+   * Track in-flight load and mutation requests so superseded calls cannot
+   * overwrite the freshest snapshot. The unmount cleanup bumps the refs so no
+   * async callback writes after the tasks route is torn down.
+   */
+  const activeRef = useRef(true)
+  const loadRequestRef = useRef(0)
+  const mutationEpochRef = useRef(0)
+  useEffect(() => () => {
+    activeRef.current = false
+    loadRequestRef.current += 1
+    mutationEpochRef.current += 1
+  }, [])
 
   const load = useCallback(async () => {
+    const epoch = ++loadRequestRef.current
+    activeRef.current = true
     setState('loading')
     try {
       const result = await listTasks(token)
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setItems(result.items ?? [])
       setLastRefreshedAt(new Date())
       setState(result.items?.length ? 'ready' : 'empty')
     } catch (error) {
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setState(stateFrom(error))
     }
   }, [token])
@@ -615,7 +632,7 @@ export function ReportsScreen() {
         setState('empty')
         return
       }
-      setSelection((current) => allOptions.some((option) => option.value === current) ? current : allOptions[0].value)
+      const firstOption = allOptions[0]; setSelection((current) => allOptions.some((option) => option.value === current) ? current : (firstOption?.value ?? ''))
     } catch (error) {
       setReport(null)
       setSelectedKind(null)

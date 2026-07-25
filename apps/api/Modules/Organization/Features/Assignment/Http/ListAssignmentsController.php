@@ -6,9 +6,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
-use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Contracts\DecideAccess;
+use Modules\Organization\Contracts\RecordFacts;
+use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\Assignment\Handler\AssignmentHandler;
 use Modules\Organization\Http\OrganizationApi;
 

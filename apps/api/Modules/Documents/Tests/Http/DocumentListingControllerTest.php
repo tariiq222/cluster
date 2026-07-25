@@ -2,7 +2,7 @@
 
 namespace Modules\Documents\Tests\Http;
 
-use App\Http\Controllers\Documents\ListDocumentsController;
+use Modules\Documents\Features\DocumentLifecycle\Http\ListDocumentsController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

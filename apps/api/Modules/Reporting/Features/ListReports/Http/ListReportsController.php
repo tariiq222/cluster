@@ -9,6 +9,7 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Contracts\GetDefaultClusterId;
+use Modules\Reporting\Http\ReportingApi;
 
 /**
  * GET /api/v1/reports — lists published report definitions after the central

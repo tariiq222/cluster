@@ -25,13 +25,14 @@ function asText(value: unknown): string | null {
 
 function readableLogs(logs: PlatformLogsScreenProps['logs']): LogRow[] {
   return (logs?.items ?? []).flatMap((item) => {
-    const row = item as unknown as Record<string, unknown>
-    const source = asText(row.source)
-    const severity = asText(row.severity)
-    const ar = asText(row.message_ar)
-    const en = asText(row.message_en)
-    const at = asText(row.occurred_at)
+    const record: Record<string, unknown> | null = (typeof item === 'object' && item !== null) ? { ...(item as object) } : null
+    const source = record ? asText(record.source) : null
+    const severity = record ? asText(record.severity) : null
+    const ar = record ? asText(record.message_ar) : null
+    const en = record ? asText(record.message_en) : null
+    const at = record ? asText(record.occurred_at) : null
     if (
+      !record ||
       source === null ||
       ar === null ||
       en === null ||
@@ -41,9 +42,9 @@ function readableLogs(logs: PlatformLogsScreenProps['logs']): LogRow[] {
       return []
     }
     return [{
-      id: String(row.id ?? ''),
+      id: asText(record.id) ?? `log-${at}`,
       source,
-      severity: severity as LogRow['severity'],
+      severity: (severity ?? 'info') as LogRow['severity'],
       ar,
       en,
       at,

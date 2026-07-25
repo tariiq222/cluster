@@ -23,6 +23,18 @@ function response(data: unknown, status = 200, etag = '"2"') {
   })
 }
 
+function requireFetchCall(fetchMock: { mock: { calls: Parameters<typeof fetch>[] } }, index: number): Parameters<typeof fetch> {
+  const call = fetchMock.mock.calls[index]
+  if (!call) throw new Error(`Expected fetch call ${index + 1}`)
+  return call
+}
+
+function requireMockEntry<T>(entries: T[], index: number): T {
+  const entry = entries[index]
+  if (entry === undefined) throw new Error(`Expected mock entry ${index + 1}`)
+  return entry
+}
+
 afterEach(() => vi.unstubAllGlobals())
 
 describe('organization lifecycle wrappers', () => {
@@ -54,10 +66,10 @@ describe('organization lifecycle wrappers', () => {
       expect(headers.get('X-Correlation-ID')).toMatch(/^[0-9a-f-]+$/)
       expect(headers.get('Idempotency-Key')).toBeTruthy()
     }
-    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('If-Match')).toBe('"1"')
-    expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get('If-Match')).toBe('"2"')
-    expect(new Headers(fetchMock.mock.calls[2][1]?.headers).get('If-Match')).toBe('"3"')
-    expect(new Headers(fetchMock.mock.calls[3][1]?.headers).get('If-Match')).toBe('"4"')
+    expect(new Headers(requireFetchCall(fetchMock, 0)[1]?.headers).get('If-Match')).toBe('"1"')
+    expect(new Headers(requireFetchCall(fetchMock, 1)[1]?.headers).get('If-Match')).toBe('"2"')
+    expect(new Headers(requireFetchCall(fetchMock, 2)[1]?.headers).get('If-Match')).toBe('"3"')
+    expect(new Headers(requireFetchCall(fetchMock, 3)[1]?.headers).get('If-Match')).toBe('"4"')
   })
 
   it('surfaces a stale 412 response instead of pretending the update succeeded', async () => {
@@ -88,11 +100,11 @@ describe('organization lifecycle wrappers', () => {
       expect(headers.get('Idempotency-Key')).toBeTruthy()
       expect(headers.get('Content-Type')).toBe('application/merge-patch+json')
     }
-    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('If-Match')).toBe('"5"')
-    expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get('If-Match')).toBe('"6"')
+    expect(new Headers(requireFetchCall(fetchMock, 0)[1]?.headers).get('If-Match')).toBe('"5"')
+    expect(new Headers(requireFetchCall(fetchMock, 1)[1]?.headers).get('If-Match')).toBe('"6"')
     const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)))
-    expect(bodies[0]).toEqual({ name: 'تجمع محدّث' })
-    expect(bodies[1]).toEqual({ name: 'منشأة محدّثة', status: 'active' })
+    expect(requireMockEntry(bodies, 0)).toEqual({ name: 'تجمع محدّث' })
+    expect(requireMockEntry(bodies, 1)).toEqual({ name: 'منشأة محدّثة', status: 'active' })
   })
 
   it('surfaces a stale 412 response for cluster and facility updates', async () => {

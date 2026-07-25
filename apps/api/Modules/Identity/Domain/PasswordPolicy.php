@@ -14,7 +14,7 @@ final class PasswordPolicy
     private ?array $cachedSecurity = null;
 
     public function __construct(
-        private readonly ?UsernameDenylist $denylist = null,
+        private readonly UsernameDenylist $denylist,
         private readonly ?GetEffectivePlatformSettings $settings = null,
     ) {}
 

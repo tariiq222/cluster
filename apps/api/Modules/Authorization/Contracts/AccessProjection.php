@@ -38,7 +38,15 @@ final readonly class AccessProjection
     public function compose(array $resource, ?callable $filterPayload = null): array
     {
         if ($filterPayload !== null && array_key_exists('payload', $resource) && is_array($resource['payload'])) {
-            $resource['payload'] = $filterPayload($resource['payload'], $this->fieldAccess);
+            $payloadFieldAccess = [];
+            foreach ($this->fieldAccess as $fieldPath => $decision) {
+                if ($fieldPath === '*') {
+                    $payloadFieldAccess['*'] = $decision;
+                } elseif (str_starts_with($fieldPath, 'payload.') && strlen($fieldPath) > 8) {
+                    $payloadFieldAccess[substr($fieldPath, 8)] = $decision;
+                }
+            }
+            $resource['payload'] = $filterPayload($resource['payload'], $payloadFieldAccess);
         }
 
         return [

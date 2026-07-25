@@ -1,7 +1,7 @@
 import { formattingLocale, type Locale } from '../../app/copy'
 
 import { Activity } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { ApiError } from '../../api'
 import {
@@ -55,6 +55,19 @@ export function PlatformHealthScreen({
   const [editError, setEditError] = useState<string | null>(null)
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [refreshBusy, setRefreshBusy] = useState(false)
+  /**
+   * Track in-flight policy load and mutation requests so superseded calls
+   * cannot overwrite the freshest snapshot. The unmount cleanup bumps the refs
+   * so no async callback writes after the platform health screen is torn down.
+   */
+  const activeRef = useRef(true)
+  const loadRequestRef = useRef(0)
+  const mutationEpochRef = useRef(0)
+  useEffect(() => () => {
+    activeRef.current = false
+    loadRequestRef.current += 1
+    mutationEpochRef.current += 1
+  }, [])
 
   useEffect(() => {
     setRefreshError(null)
@@ -62,10 +75,13 @@ export function PlatformHealthScreen({
 
   useEffect(() => {
     if (token === undefined) return
+    const epoch = ++loadRequestRef.current
+    activeRef.current = true
     setPolicyLoadBusy(true)
     setPolicyLoadError(null)
     listPlatformAlertPolicies(token)
       .then((response) => {
+        if (!activeRef.current || epoch !== loadRequestRef.current) return
         const items = Array.isArray((response as { items?: unknown }).items)
           ? ((response as { items: unknown[] }).items)
           : []
@@ -86,13 +102,15 @@ export function PlatformHealthScreen({
             description: typeof values.description === 'string' ? values.description : undefined,
           })
         }
+        if (!activeRef.current || epoch !== loadRequestRef.current) return
         setPolicies(mapped)
       })
       .catch((error: unknown) => {
+        if (!activeRef.current || epoch !== loadRequestRef.current) return
         setPolicyLoadError(error instanceof ApiError ? error.problem.title : 'Policies could not be loaded')
       })
       .finally(() => {
-        setPolicyLoadBusy(false)
+        if (activeRef.current && epoch === loadRequestRef.current) setPolicyLoadBusy(false)
       })
   }, [token])
 

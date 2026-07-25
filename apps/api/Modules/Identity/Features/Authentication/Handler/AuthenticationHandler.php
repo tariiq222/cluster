@@ -26,9 +26,9 @@ final class AuthenticationHandler implements AuthenticateUser
         private readonly SessionHandler $sessions,
         private readonly TotpHandler $totp,
         private readonly IdentityOutbox $outbox,
-        ?PreAuthThrottle $preAuthThrottle = null,
+        PreAuthThrottle $preAuthThrottle,
     ) {
-        $this->preAuthThrottle = $preAuthThrottle ?? new PersistentPreAuthThrottle;
+        $this->preAuthThrottle = $preAuthThrottle;
     }
 
     /** @param array<string, mixed> $metadata */

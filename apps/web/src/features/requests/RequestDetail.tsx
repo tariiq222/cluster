@@ -15,7 +15,7 @@ import { Button, Field, InlineError, Page, PageHeader, Panel, Select, StatusBadg
 import { RecordProjection } from '../work-records/RecordProjection'
 
 function canAttachDocument(document: DocumentRecord): boolean {
-  const payload = document as unknown as Record<string, unknown>
+  const payload: Record<PropertyKey, unknown> = { ...(document as object) }
   const allowed = payload.allowed_actions
   const currentVersionId = payload.current_version_id
   return Array.isArray(allowed)
@@ -54,7 +54,7 @@ export function RequestDetail({ locale, token, record, loading, state, authorize
       } while (cursor)
       const available = documents.filter(canAttachDocument)
       const options = available.map((document) => {
-        const payload = document as unknown as Record<string, unknown>
+        const payload: Record<PropertyKey, unknown> = { ...(document as object) }
         return {
           value: String(payload.id),
           label: String(payload.title ?? payload.name ?? payload.id),

@@ -211,16 +211,31 @@ export function IdentityAccounts() {
   const [state, setState] = useState<'ready' | 'forbidden' | 'error'>('ready')
   const [addOpen, setAddOpen] = useState(false)
   const [managedId, setManagedId] = useState<string | null>(null)
+  /**
+   * Every load (initial, retry, conflict reconciliation) captures an epoch and only
+   * writes state if its epoch is still current. A superseded token/retry/load no
+   * longer overwrites the freshest snapshot, and writes never happen after unmount
+   * because the cleanup bumps the ref to a value no in-flight call can match.
+   */
+  const activeRef = useRef(true)
+  const loadRequestRef = useRef(0)
+  useEffect(() => () => { activeRef.current = false; loadRequestRef.current += 1 }, [])
 
   async function load() {
+    const epoch = ++loadRequestRef.current
+    activeRef.current = true
     setLoading(true); setState('ready')
     try {
       const [accountPage, peoplePage] = await Promise.all([listUserAccounts(token), listPeople(token)])
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setAccounts(accountPage.items); setPeople(peoplePage.items)
     } catch (error) {
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setAccounts([]); setPeople([])
       setState(stateFromError(error) === 'forbidden' ? 'forbidden' : 'error')
-    } finally { setLoading(false) }
+    } finally {
+      if (activeRef.current && epoch === loadRequestRef.current) setLoading(false)
+    }
   }
 
   /**
@@ -231,11 +246,14 @@ export function IdentityAccounts() {
    * the reconciled account, so the drawer never renders a stale snapshot.
    */
   async function reloadAfterConflict() {
+    const epoch = ++loadRequestRef.current
     try {
       const accountPage = await listUserAccounts(token)
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setAccounts(accountPage.items)
     } catch {
       // Keep the existing localized stale feedback; the list simply stays as-is.
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
     }
   }
 
@@ -412,6 +430,9 @@ function ManageAccountDrawer({ account, locale, token, onClose, onChanged, onCon
       const stale = failure instanceof ApiError && failure.status === 412
         || (typeof failure === 'object' && failure !== null && 'status' in failure && failure.status === 412)
       if (stale) {
+        // Clear the busy state before awaiting conflict reconciliation so the
+        // second action click is not blocked while the reload resolves.
+        setPending(null)
         await onConflict()
         fail('stale')
       } else {

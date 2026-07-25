@@ -11,6 +11,12 @@ import {
 const token = 'csrf-token'
 const versionId = '01980f50-5f0d-7000-8000-000000000901'
 
+function requiredAt<T>(values: readonly T[], index: number): T {
+  const value = values[index]
+  if (value === undefined) throw new Error(`Expected value at index ${index}`)
+  return value
+}
+
 function response(data: unknown, status = 200, etag = '"2"') {
   return new Response(JSON.stringify({ data }), {
     status,
@@ -44,7 +50,7 @@ describe('platform settings API wrappers', () => {
     await expect(getCurrentPlatformSettings(token)).resolves.toMatchObject({ id: versionId })
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/platform-settings/current', expect.any(Object))
-    const headers = new Headers(fetchMock.mock.calls[0][1]?.headers)
+    const headers = new Headers(requiredAt(fetchMock.mock.calls, 0)[1]?.headers)
     expect(headers.get('X-Correlation-ID')).toMatch(/^[0-9a-f-]+$/)
     expect(headers.get('X-CSRF-Token')).toBeNull()
   })
@@ -65,7 +71,10 @@ describe('platform settings API wrappers', () => {
       `/api/v1/platform-settings/versions/${versionId}/settings/identity.session_idle_minutes`,
       `/api/v1/platform-settings/versions/${versionId}/validate`,
     ])
-    const [create, setValue, validate] = fetchMock.mock.calls.map(([, init]) => new Headers(init?.headers))
+    const headers = fetchMock.mock.calls.map(([, init]) => new Headers(init?.headers))
+    const create = requiredAt(headers, 0)
+    const setValue = requiredAt(headers, 1)
+    const validate = requiredAt(headers, 2)
     expect(create.get('X-CSRF-Token')).toBe(token)
     expect(create.get('Idempotency-Key')).toMatch(/^platform-settings-draft-/)
     expect(setValue.get('X-CSRF-Token')).toBe(token)

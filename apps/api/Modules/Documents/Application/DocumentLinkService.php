@@ -6,13 +6,15 @@ use DomainException;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Documents\Contracts\DocumentSourceReference;
+use Modules\Documents\Contracts\LinkDocument;
 use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
 use Modules\Documents\Domain\DocumentVersionAvailabilityStatus;
 use Modules\Documents\Domain\UuidV7;
 use stdClass;
 
 /** Coordinates a link without taking ownership of the source record. */
-final class DocumentLinkService
+final class DocumentLinkService implements LinkDocument
 {
     public function __construct(
         private readonly DecideAccess $access,

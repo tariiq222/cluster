@@ -38,7 +38,9 @@ const copy = {
 } as const satisfies Record<Locale, Record<string, string>>
 
 function field(item: AuthorizationItem, key: string): string {
-  const value = (item as unknown as Record<string, unknown>)[key]
+  if (typeof item !== 'object' || item === null) return '—'
+  const payload: Record<PropertyKey, unknown> = { ...(item as object) }
+  const value = payload[key]
   return typeof value === 'string' && value.trim() !== '' ? value : '—'
 }
 

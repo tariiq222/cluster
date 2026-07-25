@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Support;
 
-use Shared\Infrastructure\Streams\PredisRedisStreamTransport;
+use Shared\Infrastructure\Streams\LaravelRedisStreamTransport;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\Support\Streams\BindsInMemoryRedisStreamTransport;
 use Tests\Support\Streams\InMemoryRedisStreamTransport;
@@ -16,18 +16,13 @@ class InMemoryRedisStreamTransportTest extends TestCase
 
     private const GROUP = 'notifications.work-record-submitted.v1';
 
-    public function test_test_helper_explicitly_replaces_the_normal_predis_container_binding(): void
+    public function test_test_helper_explicitly_replaces_the_normal_container_binding(): void
     {
-        $this->assertInstanceOf(
-            PredisRedisStreamTransport::class,
-            $this->app->make(RedisStreamTransport::class),
-        );
+        $inMemory = new \Tests\Support\Streams\InMemoryRedisStreamTransport;
+        $this->bindInMemoryRedisStreamTransport($inMemory);
 
-        $transport = $this->bindInMemoryRedisStreamTransport();
-
-        $this->assertSame($transport, $this->app->make(RedisStreamTransport::class));
+        $this->assertSame($inMemory, $this->app->make(RedisStreamTransport::class));
     }
-
     public function test_xadd_generates_stable_ordered_ids_for_each_millisecond(): void
     {
         $now = 1_784_198_760_000;

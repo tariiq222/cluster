@@ -8,8 +8,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
+use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal as OrganizationResolveDevelopmentFixturePrincipal;
 
-final class DevelopmentFixturePrincipalResolver implements ResolveDevelopmentFixturePrincipal
+final class DevelopmentFixturePrincipalResolver implements ResolveDevelopmentFixturePrincipal, OrganizationResolveDevelopmentFixturePrincipal
 {
     private const TOKEN_TTL_MINUTES = 120;
 

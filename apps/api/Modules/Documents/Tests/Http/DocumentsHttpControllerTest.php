@@ -2,13 +2,13 @@
 
 namespace Modules\Documents\Tests\Http;
 
-use App\Http\Controllers\Documents\AddDocumentVersionController;
-use App\Http\Controllers\Documents\CompleteDocumentUploadController;
-use App\Http\Controllers\Documents\CreateDocumentGrantController;
-use App\Http\Controllers\Documents\GetDocumentUploadStatusController;
-use App\Http\Controllers\Documents\InitiateDocumentUploadController;
-use App\Http\Controllers\Documents\ReconcileDocumentPromotionController;
-use App\Http\Controllers\Documents\ScanDocumentVersionController;
+use Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController;
+use Modules\Documents\Features\Upload\Http\CompleteDocumentUploadController;
+use Modules\Documents\Features\DocumentGrant\Http\CreateDocumentGrantController;
+use Modules\Documents\Features\Upload\Http\GetDocumentUploadStatusController;
+use Modules\Documents\Features\Upload\Http\InitiateDocumentUploadController;
+use Modules\Documents\Features\DocumentVersion\Http\ReconcileDocumentPromotionController;
+use Modules\Documents\Features\DocumentVersion\Http\ScanDocumentVersionController;
 use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;

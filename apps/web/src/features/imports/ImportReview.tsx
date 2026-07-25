@@ -69,18 +69,36 @@ export function ImportReview({ jobId, onJobOpen }: {
   const [loading, setLoading] = useState(Boolean(jobId))
   const [state, setState] = useState<'ready' | 'forbidden' | 'not-found' | 'error'>('ready')
   const [quarantineId, setQuarantineId] = useState('')
+  /**
+   * Track in-flight load requests so a superseded token/jobId change cannot
+   * overwrite the freshest snapshot. The unmount cleanup bumps the ref so no
+   * async callback writes after the import route is torn down.
+   */
+  const activeRef = useRef(true)
+  const loadRequestRef = useRef(0)
+  useEffect(() => () => { activeRef.current = false; loadRequestRef.current += 1 }, [])
 
   async function load() {
-    if (!jobId) { setJob(null); setRows([]); setLoading(false); return }
+    const epoch = ++loadRequestRef.current
+    activeRef.current = true
+    if (!jobId) {
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
+      setJob(null); setRows([]); setLoading(false)
+      return
+    }
     setLoading(true); setState('ready')
     try {
       const [jobValue, rowPage] = await Promise.all([getImportJob(token, jobId), listImportJobRows(token, jobId)])
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setJob(jobValue); setRows(rowPage.items)
     } catch (error) {
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setJob(null); setRows([])
       const resolution = stateFromError(error)
       setState(resolution === 'forbidden' || resolution === 'not-found' ? resolution : 'error')
-    } finally { setLoading(false) }
+    } finally {
+      if (activeRef.current && epoch === loadRequestRef.current) setLoading(false)
+    }
   }
   useEffect(() => {
     void load()

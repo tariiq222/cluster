@@ -53,8 +53,15 @@ describe('buildOrganizationTree', () => {
     expect(roots.map((n) => n.unit.code)).toEqual(['A-SECTOR', 'B-UNIT-1'])
 
     const sectorNode = roots[0]
+    if (!sectorNode) {
+      throw new Error('buildOrganizationTree should produce at least one root node for the sector anchor')
+    }
     expect(sectorNode.children.map((c) => c.unit.code)).toEqual(['A-DEPT'])
-    expect(sectorNode.children[0].children.map((c) => c.unit.code)).toEqual(['A-UNIT-1'])
+    const sectorChild = sectorNode.children[0]
+    if (!sectorChild) {
+      throw new Error('sector should have at least one child unit')
+    }
+    expect(sectorChild.children.map((c) => c.unit.code)).toEqual(['A-UNIT-1'])
   })
 
   it('promotes orphans to the root so the operator never loses a row', () => {
@@ -64,14 +71,22 @@ describe('buildOrganizationTree', () => {
     })
     const roots = buildOrganizationTree([orphan])
     expect(roots).toHaveLength(1)
-    expect(roots[0].unit.code).toBe('ORPHAN')
+    const orphanRoot = roots[0]
+    if (!orphanRoot) {
+      throw new Error('buildOrganizationTree should promote orphans to the root level')
+    }
+    expect(orphanRoot.unit.code).toBe('ORPHAN')
   })
 
   it('aggregates descendant and self ids for cycle checks', () => {
     const a = unit({ id: uuid('000000000001'), code: 'A', parentType: 'cluster', depth: 1 })
     const b = unit({ id: uuid('000000000002'), code: 'B', parentType: 'unit', parentId: a.id, depth: 2 })
     const c = unit({ id: uuid('000000000003'), code: 'C', parentType: 'unit', parentId: b.id, depth: 3 })
-    const [aNode] = buildOrganizationTree([a, b, c])
+    const roots = buildOrganizationTree([a, b, c])
+    const aNode = roots[0]
+    if (!aNode) {
+      throw new Error('buildOrganizationTree should produce a root node for the cycle-check fixture')
+    }
     expect(aNode.allIds).toEqual([a.id, b.id, c.id])
     expect(aNode.descendantIds).toEqual([b.id, c.id])
   })
@@ -133,10 +148,10 @@ describe('default expansion', () => {
       unit({ id: uuid('000000000001'), code: 'A', parentType: 'cluster', depth: 1 }),
       unit({ id: uuid('000000000002'), code: 'B', parentType: 'cluster', depth: 1 }),
       unit({ id: uuid('000000000003'), code: 'C', parentType: 'unit', parentId: uuid('000000000001'), depth: 2 }),
-    ]
-    const expanded = defaultExpandedNodes(units)
-    for (const unit of units) {
-      if (unit.depth <= 2) expect(expanded.has(unit.id)).toBe(true)
+    ] as const
+    const expanded = defaultExpandedNodes([...units])
+    for (const u of units) {
+      if (u.depth <= 2) expect(expanded.has(u.id)).toBe(true)
     }
     expect(expanded.has(units[2].id)).toBe(true)
   })

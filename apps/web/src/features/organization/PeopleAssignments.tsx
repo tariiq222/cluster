@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   listAssignments,
@@ -134,8 +134,18 @@ export function PeopleAssignments() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState<'ready' | 'forbidden' | 'error'>('ready')
+  /**
+   * Track in-flight load requests so a superseded token change cannot
+   * overwrite the freshest snapshot. The unmount cleanup bumps the ref so no
+   * async callback writes after the people/assignments route is torn down.
+   */
+  const activeRef = useRef(true)
+  const loadRequestRef = useRef(0)
+  useEffect(() => () => { activeRef.current = false; loadRequestRef.current += 1 }, [])
 
   async function load() {
+    const epoch = ++loadRequestRef.current
+    activeRef.current = true
     setLoading(true)
     setState('ready')
     try {
@@ -144,16 +154,18 @@ export function PeopleAssignments() {
         listPositions(token),
         listAssignments(token),
       ])
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setPeople(peoplePage.items)
       setPositions(positionPage.items)
       setAssignments(assignmentPage.items)
     } catch (caught) {
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setPeople([])
       setPositions([])
       setAssignments([])
       setState(stateFromError(caught) === 'forbidden' ? 'forbidden' : 'error')
     } finally {
-      setLoading(false)
+      if (activeRef.current && epoch === loadRequestRef.current) setLoading(false)
     }
   }
 

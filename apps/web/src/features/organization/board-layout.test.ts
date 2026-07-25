@@ -46,9 +46,14 @@ describe('autoLayoutCards — hierarchical tree', () => {
     const parent = unit({ id: uuid('000000000010'), code: 'P' })
     const child = unit({ id: uuid('000000000020'), code: 'C', parentId: parent.id, parentType: 'unit', depth: 2 })
     const positions = autoLayoutCards([parent, child])
-    expect(positions[parent.id].x).toBe(0)
-    expect(positions[child.id].x).toBe(0)
-    expect(positions[child.id].y).toBeGreaterThan(positions[parent.id].y + CARD_HEIGHT / 2)
+    const parentPos = positions[parent.id]
+    const childPos = positions[child.id]
+    if (!parentPos || !childPos) {
+      throw new Error('autoLayoutCards should produce a position for every input unit')
+    }
+    expect(parentPos.x).toBe(0)
+    expect(childPos.x).toBe(0)
+    expect(childPos.y).toBeGreaterThan(parentPos.y + CARD_HEIGHT / 2)
   })
 
   it('centres a parent over its children span', () => {
@@ -56,9 +61,15 @@ describe('autoLayoutCards — hierarchical tree', () => {
     const c1 = unit({ id: uuid('000000000020'), code: 'C1', parentId: parent.id, parentType: 'unit', depth: 2 })
     const c2 = unit({ id: uuid('000000000030'), code: 'C2', parentId: parent.id, parentType: 'unit', depth: 2 })
     const positions = autoLayoutCards([parent, c1, c2])
-    const parentCenter = positions[parent.id].x + CARD_WIDTH / 2
-    const c1Center = positions[c1.id].x + CARD_WIDTH / 2
-    const c2Center = positions[c2.id].x + CARD_WIDTH / 2
+    const parentPos = positions[parent.id]
+    const c1Pos = positions[c1.id]
+    const c2Pos = positions[c2.id]
+    if (!parentPos || !c1Pos || !c2Pos) {
+      throw new Error('autoLayoutCards should produce a position for every input unit')
+    }
+    const parentCenter = parentPos.x + CARD_WIDTH / 2
+    const c1Center = c1Pos.x + CARD_WIDTH / 2
+    const c2Center = c2Pos.x + CARD_WIDTH / 2
     expect(parentCenter).toBeCloseTo((c1Center + c2Center) / 2, 5)
   })
 
@@ -66,7 +77,12 @@ describe('autoLayoutCards — hierarchical tree', () => {
     const a = unit({ id: uuid('000000000001'), code: 'A' })
     const b = unit({ id: uuid('000000000002'), code: 'B' })
     const positions = autoLayoutCards([a, b])
-    expect(positions[a.id].x).toBeLessThan(positions[b.id].x)
+    const aPos = positions[a.id]
+    const bPos = positions[b.id]
+    if (!aPos || !bPos) {
+      throw new Error('autoLayoutCards should produce a position for every input unit')
+    }
+    expect(aPos.x).toBeLessThan(bPos.x)
   })
 
   it('places every child strictly below its parent', () => {
@@ -75,8 +91,18 @@ describe('autoLayoutCards — hierarchical tree', () => {
     const c2 = unit({ id: uuid('000000000030'), code: 'C2', parentId: root.id, parentType: 'unit', depth: 2 })
     const gc = unit({ id: uuid('000000000040'), code: 'GC', parentId: c1.id, parentType: 'unit', depth: 3 })
     const positions = autoLayoutCards([root, c1, c2, gc])
-    for (const [childId, parentId] of [[c1.id, root.id], [c2.id, root.id], [gc.id, c1.id]] as const) {
-      expect(positions[childId].y).toBeGreaterThan(positions[parentId].y + CARD_HEIGHT / 2)
+    const parentChildPairs = [
+      [c1.id, root.id],
+      [c2.id, root.id],
+      [gc.id, c1.id],
+    ] as const
+    for (const [childId, parentId] of parentChildPairs) {
+      const childPos = positions[childId]
+      const parentPos = positions[parentId]
+      if (!childPos || !parentPos) {
+        throw new Error('autoLayoutCards should produce a position for every input unit')
+      }
+      expect(childPos.y).toBeGreaterThan(parentPos.y + CARD_HEIGHT / 2)
     }
   })
 
@@ -84,6 +110,10 @@ describe('autoLayoutCards — hierarchical tree', () => {
     const units = [unit({ id: uuid('000000000010'), code: 'A' })]
     const tree = buildOrganizationTree(units)
     expect(tree).toHaveLength(1)
-    expect(tree[0].children).toEqual([])
+    const rootNode = tree[0]
+    if (!rootNode) {
+      throw new Error('buildOrganizationTree should produce a node for every root unit')
+    }
+    expect(rootNode.children).toEqual([])
   })
 })

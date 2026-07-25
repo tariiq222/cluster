@@ -40,6 +40,12 @@ function mockFetch(response: Response) {
   return fetchMock
 }
 
+function requireFetchCall(fetchMock: { mock: { calls: Parameters<typeof fetch>[] } }, index: number): Parameters<typeof fetch> {
+  const call = fetchMock.mock.calls[index]
+  if (!call) throw new Error(`Expected fetch call ${index + 1}`)
+  return call
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -53,7 +59,7 @@ describe('API client', () => {
     await expect(login('fixture-user', 'fixture-password')).resolves.toMatchObject({ csrf_token: 'csrf-token', user_id: session.user_id })
 
     expect(fetchMock).toHaveBeenCalledOnce()
-    const [path, init] = fetchMock.mock.calls[0]
+    const [path, init] = requireFetchCall(fetchMock, 0)
     const headers = new Headers(init?.headers)
     expect(path).toBe('/api/v1/identity/login')
     expect(init).toMatchObject({ method: 'POST', credentials: 'include' })
@@ -103,7 +109,7 @@ describe('API client', () => {
 
     await expect(restoreSession()).resolves.toMatchObject({ csrf_token: 'fresh-csrf', user_id: session.user_id })
 
-    const [, init] = fetchMock.mock.calls[1]
+    const [, init] = requireFetchCall(fetchMock, 1)
     expect(init).toMatchObject({ credentials: 'include' })
     expect(new Headers(init?.headers).get('Authorization')).toBeNull()
   })
@@ -117,13 +123,13 @@ describe('API client', () => {
     sessionStorage.clear()
 
     await expect(restoreSession()).resolves.toMatchObject({ csrf_token: 'fresh-csrf', user_id: session.user_id })
-    expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get('Authorization')).toBeNull()
+    expect(new Headers(requireFetchCall(fetchMock, 1)[1]?.headers).get('Authorization')).toBeNull()
   })
 
   it('refreshes CSRF through the authenticated cookie session without a bearer header', async () => {
     const fetchMock = mockFetch(jsonResponse({ data: { csrf_token: 'rotated-csrf' } }))
     await expect(refreshIdentityCsrf()).resolves.toEqual({ csrf_token: 'rotated-csrf' })
-    const [, init] = fetchMock.mock.calls[0]
+    const [, init] = requireFetchCall(fetchMock, 0)
     expect(init?.credentials).toBe('include')
     expect(new Headers(init?.headers).get('Authorization')).toBeNull()
   })
@@ -150,7 +156,7 @@ describe('API client', () => {
   it('returns null when the live identity session is missing or unauthenticated', async () => {
     const fetchMock = mockFetch(jsonResponse({ title: 'Unauthorized', status: 401 }, 401))
     await expect(restoreSession()).resolves.toBeNull()
-    const [, init] = fetchMock.mock.calls[0]
+    const [, init] = requireFetchCall(fetchMock, 0)
     expect(init?.credentials).toBe('include')
   })
 
@@ -180,7 +186,7 @@ describe('API client', () => {
   it('uses the cookie-backed logout endpoint on success', async () => {
     const fetchMock = mockFetch(new Response(null, { status: 204 }))
     await expect(identityLogout('csrf-token')).resolves.toBeUndefined()
-    const [, init] = fetchMock.mock.calls[0]
+    const [, init] = requireFetchCall(fetchMock, 0)
     expect(init?.credentials).toBe('include')
     expect(new Headers(init?.headers).get('X-CSRF-Token')).toBe('csrf-token')
     expect(new Headers(init?.headers).get('Authorization')).toBeNull()
@@ -281,7 +287,7 @@ describe('API client', () => {
       problem: { title: 'Forbidden', detail: 'The CSRF proof is invalid.' },
     })
 
-    const [, init] = fetchMock.mock.calls[0]
+    const [, init] = requireFetchCall(fetchMock, 0)
     const headers = new Headers(init?.headers)
     expect(init).toMatchObject({ credentials: 'include' })
     expect(headers.get('X-CSRF-Token')).toBe('csrf-token')
@@ -304,7 +310,7 @@ describe('API client', () => {
       description: 'Description',
     })).resolves.toEqual(record)
 
-    const [, init] = fetchMock.mock.calls[0]
+    const [, init] = requireFetchCall(fetchMock, 0)
     const headers = new Headers(init?.headers)
     const correlationId = headers.get('X-Correlation-ID')
     expect(headers.get('Authorization')).toBeNull()

@@ -3,15 +3,18 @@
 namespace Modules\Authorization\Tests;
 
 use App\Http\Authentication\SessionPrincipalResolver;
-use App\Http\Controllers\Authorization\AuthorizationAdminController;
-use App\Http\Controllers\Authorization\DecideAccessController;
-use App\Http\Controllers\Authorization\ExplainAccessDecisionController;
+use Modules\Authorization\Features\Administration\Http\AuthorizationAdminController;
+use Modules\Authorization\Features\DecideAccess\Http\DecideAccessController;
+use Modules\Authorization\Features\ExplainAccessDecision\Http\ExplainAccessDecisionController;
 use Database\Seeders\DevelopmentJourneyAuthorizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\PersistAccessDecision;
+use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use Tests\TestCase;
 
 /**
@@ -40,6 +43,15 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->bindRealAccessDecision();
+        $engine = new RbacAbacDecideAccess(
+            $this->app->make(GetActiveSupervisoryRelationships::class),
+            $this->app->make(PersistAccessDecision::class),
+        );
+        $this->app->instance(DecideAccess::class, $engine);
+        $this->app->when(AuthorizationAdminController::class)
+            ->needs(DecideAccess::class)
+            ->give(fn () => $engine);
         $this->app->when([
             AuthorizationAdminController::class,
             DecideAccessController::class,
@@ -55,8 +67,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'lock_version' => 2,
             'updated_at' => now(),
         ]);
-        $this->bindRealAccessDecision();
-        $this->app->forgetInstance(DecideAccess::class);
+        $this->seedOrganizationTree();
     }
 
     public function test_role_capability_is_attached_updated_listed_and_revoked(): void
@@ -348,6 +359,100 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ], $this->writeHeaders('delegation-beyond-window', $csrf))->assertUnprocessable();
     }
 
+    public function test_delegation_lifecycle_immediately_updates_effective_capabilities_through_http(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+        $this->seedOrgTree();
+        $delegate = '018f6f7d-0c00-7000-8000-00000000dd03';
+        $expiredDelegate = '018f6f7d-0c00-7000-8000-00000000dd04';
+        $roleId = $this->createRole($cookie, $csrf, 'lifecycle_delegator');
+        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
+        $this->assignRole(self::ADMIN_ID, $roleId, 'facility', self::FACILITY, null);
+
+        $created = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations', [
+            'resource_type' => 'delegation',
+            'delegator_user_id' => self::ADMIN_ID,
+            'delegate_user_id' => $delegate,
+            'module_code' => 'work_record',
+            'capability_codes' => ['work_record.read'],
+            'scope_type' => 'unit',
+            'scope_id' => self::UNIT_A,
+            'start_at' => now()->subMinute()->utc()->format('Y-m-d\TH:i:s.v\Z'),
+            'end_at' => now()->addHour()->utc()->format('Y-m-d\TH:i:s.v\Z'),
+        ], $this->writeHeaders('delegation-lifecycle-create', $csrf))
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'pending');
+        $id = (string) $created->json('data.id');
+        $this->assertDatabaseHas('delegations', ['id' => $id, 'status' => 'pending']);
+        $this->assertSame([], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($delegate));
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations/'.$id.'/activate', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Idempotency-Key' => 'delegation-lifecycle-activate',
+            'X-CSRF-Token' => $csrf,
+        ])->assertOk()->assertJsonPath('data.status', 'active');
+        $this->assertDatabaseHas('delegations', ['id' => $id, 'status' => 'active', 'lock_version' => 2]);
+        $this->assertSame(['work_record.read'], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($delegate));
+
+        $revokeHeaders = [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"2"',
+            'Idempotency-Key' => 'delegation-lifecycle-revoke',
+            'X-CSRF-Token' => $csrf,
+        ];
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations/'.$id.'/revoke', [], $revokeHeaders)
+            ->assertOk()->assertJsonPath('data.status', 'revoked');
+        $revokedEndAt = DB::table('delegations')->where('id', $id)->value('end_at');
+        $this->assertNotNull($revokedEndAt);
+        $this->assertDatabaseHas('delegations', ['id' => $id, 'status' => 'revoked', 'lock_version' => 3]);
+        $this->assertSame([], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($delegate));
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations/'.$id.'/revoke', [], $revokeHeaders)
+            ->assertOk()->assertJsonPath('data.status', 'revoked');
+        $this->assertDatabaseHas('delegations', [
+            'id' => $id,
+            'status' => 'revoked',
+            'end_at' => $revokedEndAt,
+            'lock_version' => 3,
+        ]);
+        $this->assertSame([], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($delegate));
+
+        $expiredId = '018f6f7d-0c00-7000-8000-00000000dd05';
+        DB::table('delegations')->insert([
+            'id' => $expiredId,
+            'delegator_user_id' => self::ADMIN_ID,
+            'delegate_user_id' => $expiredDelegate,
+            'module_code' => 'work_record',
+            'scope_type' => 'unit',
+            'scope_id' => self::UNIT_B,
+            'start_at' => now()->subMinute(),
+            'end_at' => now()->addHour(),
+            'status' => 'active',
+            'lock_version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('delegation_capabilities')->insert([
+            'delegation_id' => $expiredId,
+            'capability_code' => 'work_record.read',
+        ]);
+        $this->assertSame(['work_record.read'], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($expiredDelegate));
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations/'.$expiredId.'/expire', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Idempotency-Key' => 'delegation-lifecycle-expire',
+            'X-CSRF-Token' => $csrf,
+        ])->assertOk()->assertJsonPath('data.status', 'expired');
+        $this->assertDatabaseHas('delegations', [
+            'id' => $expiredId,
+            'status' => 'expired',
+            'lock_version' => 2,
+        ]);
+        $this->assertSame([], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($expiredDelegate));
+    }
+
     public function test_admin_rows_are_scoped_before_pagination_and_direct_mutations(): void
     {
         [$cookie, $csrf] = $this->loginAdminSession();
@@ -456,6 +561,18 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'granted_by_user_id' => self::ADMIN_ID,
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+    }
+
+    private function seedOrganizationTree(): void
+    {
+        $this->assertDatabaseHas('clusters', ['id' => self::CLUSTER, 'status' => 'active']);
+        $this->assertDatabaseHas('facilities', ['id' => self::FACILITY, 'cluster_id' => self::CLUSTER]);
+        $this->assertDatabaseHas('organization_units', [
+            'cluster_id' => self::CLUSTER,
+            'parent_id' => self::FACILITY,
+            'parent_type' => 'facility',
+            'status' => 'active',
         ]);
     }
 

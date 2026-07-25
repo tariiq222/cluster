@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Documents\Application\AuthorizedDocumentActor;
 use Modules\Documents\Application\CleanSpreadsheetDocument;
-use Modules\Documents\Application\CleanSpreadsheetParseResult;
 use Modules\Documents\Application\CompleteDocumentUpload;
 use Modules\Documents\Application\DocumentMetadata;
 use Modules\Documents\Application\IdempotencyContext;
@@ -16,7 +15,6 @@ use Modules\Documents\Application\InitiateDocumentUpload;
 use Modules\Documents\Application\RetryableStorageException;
 use Modules\Documents\Application\StoredObjectProperties;
 use Modules\Documents\Application\UploadFileMetadata;
-use Modules\Documents\Contracts\CleanSpreadsheetParser;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\Spreadsheet\CleanSpreadsheetReferenceService;
@@ -488,14 +486,7 @@ final class DocumentUploadCoreTest extends TestCase
         $this->handler->reconcilePromotion($this->actor(DocumentUploadHandler::RECONCILE_PROMOTION_OPERATION), $started->versionId, $this->idempotency(DocumentUploadHandler::RECONCILE_PROMOTION_OPERATION, 'spreadsheet-promote', 'spreadsheet-promote'));
 
         $reference = $references->fromVerifiedAvailableVersion($this->actor(CleanSpreadsheetReferenceService::OPERATION), $started->versionId);
-        $parser = new class implements CleanSpreadsheetParser
-        {
-            public function parse(CleanSpreadsheetDocument $document): CleanSpreadsheetParseResult
-            {
-                return new CleanSpreadsheetParseResult($document->sourceFilename, $document->format, ['employee_number'], [['employee_number' => 'EMP-001']]);
-            }
-        };
-        $this->assertSame('xlsx', $parser->parse($reference)->format);
+        $this->assertSame('xlsx', $reference->format);
     }
 
     public function test_hardening_migration_and_private_disk_configuration_fail_closed_outside_testing(): void

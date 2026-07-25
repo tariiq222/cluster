@@ -107,23 +107,24 @@ describe('workflow detail API wrappers', () => {
   })
 
   it('combines only the current principal waiting and active inbox steps', async () => {
+    const waitingItem: generated.WorkflowStepInboxItem = {
+      step_id: STEP_ID,
+      workflow_instance_id: INSTANCE_ID,
+      source_type: 'work_record',
+      source_id: 'WR-17',
+      state: generated.WorkflowStepInboxItemState.waiting,
+      assignee_user_id: USER_ID,
+      created_at: CREATED_AT,
+      lock_version: 7,
+      allowed_actions: [generated.WorkflowStepInboxItemAllowedActionsItem.approve],
+    }
     const waiting: generated.WorkflowStepCollection = {
-      items: [{
-        step_id: STEP_ID,
-        workflow_instance_id: INSTANCE_ID,
-        source_type: 'work_record',
-        source_id: 'WR-17',
-        state: generated.WorkflowStepInboxItemState.waiting,
-        assignee_user_id: USER_ID,
-        created_at: CREATED_AT,
-        lock_version: 7,
-        allowed_actions: [generated.WorkflowStepInboxItemAllowedActionsItem.approve],
-      }],
+      items: [waitingItem],
       next_cursor: null,
     }
     const active: generated.WorkflowStepCollection = {
       ...waiting,
-      items: [{ ...waiting.items[0], step_id: '01980f50-5f0d-7000-8000-000000000105', state: generated.WorkflowStepInboxItemState.active }],
+      items: [{ ...waitingItem, step_id: '01980f50-5f0d-7000-8000-000000000105', state: generated.WorkflowStepInboxItemState.active }],
     }
     listWorkflowStepsInboxMock.mockResolvedValueOnce({ data: waiting, status: 200, headers: new Headers() })
     listWorkflowStepsInboxMock.mockResolvedValueOnce({ data: active, status: 200, headers: new Headers() })

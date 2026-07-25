@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocale, useToken } from '../../app/session-context'
 import { ArrowDownNarrowWide, Plus } from 'lucide-react'
 
 import {
-  ApiError,
   getCluster,
   listFacilities,
   listOrganizationUnits,
@@ -90,8 +89,23 @@ export function OrganizationStructure() {
   const [preselectedPositionUnitId, setPreselectedPositionUnitId] = useState<
     string | undefined
   >(undefined)
+  /**
+   * Track the in-flight load and reorder requests so superseded calls cannot
+   * overwrite the freshest snapshot. The refs survive between renders and the
+   * unmount cleanup bumps them so no async callback writes after teardown.
+   */
+  const activeRef = useRef(true)
+  const loadRequestRef = useRef(0)
+  const reorderEpochRef = useRef(0)
+  useEffect(() => () => {
+    activeRef.current = false
+    loadRequestRef.current += 1
+    reorderEpochRef.current += 1
+  }, [])
 
   async function load() {
+    const epoch = ++loadRequestRef.current
+    activeRef.current = true
     setLoading(true)
     setState('ready')
     try {
@@ -103,6 +117,7 @@ export function OrganizationStructure() {
           listPositions(token),
           listJobTitles(token),
         ])
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setCluster(clusterValue)
       setFacilities(facilityPage.items)
       setUnits(unitPage.items)
@@ -114,6 +129,7 @@ export function OrganizationStructure() {
           : null,
       )
     } catch (error) {
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setCluster(null)
       setFacilities([])
       setUnits([])
@@ -121,7 +137,7 @@ export function OrganizationStructure() {
       setSelectedUnitId(null)
       setState(stateFromError(error) === 'forbidden' ? 'forbidden' : 'error')
     } finally {
-      setLoading(false)
+      if (activeRef.current && epoch === loadRequestRef.current) setLoading(false)
     }
   }
 
@@ -149,9 +165,7 @@ export function OrganizationStructure() {
   function handlePositionCreated(position: Position) {
     setPositions((current) => [...current, position])
     setPositionDrawerOpen(false)
-    setPreselectedPositionUnitId(undefined)
   }
-
   async function handleReorder() {
     if (reordering) return
     const confirmed =
@@ -159,10 +173,12 @@ export function OrganizationStructure() {
         ? window.confirm(text.reorderConfirm)
         : true
     if (!confirmed) return
+    const epoch = ++reorderEpochRef.current
     setReordering(true)
     setReorderStatus(null)
     try {
       const result = await reorderOrganizationUnits(token)
+      if (!activeRef.current || epoch !== reorderEpochRef.current) return
       if (
         typeof window !== 'undefined' &&
         typeof window.localStorage !== 'undefined'
@@ -175,13 +191,13 @@ export function OrganizationStructure() {
       })
       await load()
     } catch (error) {
+      if (!activeRef.current || epoch !== reorderEpochRef.current) return
       setReorderStatus({
         kind: 'error',
-        message:
-          error instanceof ApiError ? text.reorderFailed : text.reorderFailed,
+        message: text.reorderFailed,
       })
     } finally {
-      setReordering(false)
+      if (activeRef.current && epoch === reorderEpochRef.current) setReordering(false)
     }
   }
 

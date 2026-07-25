@@ -4,6 +4,7 @@ namespace Modules\Authorization\Tests;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Domain\ClassificationLevel;
 use Modules\Authorization\Domain\ClassificationPolicy;
 use Modules\Authorization\Domain\FieldAccessTemplate;
@@ -67,6 +68,52 @@ class ClassificationFieldAuditDomainTest extends TestCase
             fieldDecisions: ['' => FieldDecision::HIDE],
             policyVersion: 'v1',
         );
+    }
+
+    public function test_access_projection_maps_payload_paths_to_serializer_fields(): void
+    {
+        $projection = new AccessProjection(
+            decisionId: '0197f0e0-0000-7000-8000-000000000407',
+            allowedActions: ['read'],
+            fieldAccess: [
+                '*' => 'hidden',
+                'payload.summary' => 'readonly',
+                'payload.budget_amount' => 'masked',
+                'payload.internal_memo' => 'hidden',
+            ],
+        );
+
+        $result = $projection->compose([
+            'payload' => [
+                'summary' => 'visible',
+                'budget_amount' => 50000,
+                'internal_memo' => 'secret',
+                'unmapped' => 'hidden by wildcard',
+            ],
+        ], static function (array $payload, array $fieldAccess): array {
+            $wildcard = $fieldAccess['*'] ?? null;
+            foreach ($payload as $field => $value) {
+                $state = $fieldAccess[$field] ?? $wildcard;
+                if ($state === 'hidden') {
+                    unset($payload[$field]);
+                } elseif ($state === 'masked') {
+                    $payload[$field] = '***';
+                }
+            }
+
+            return $payload;
+        });
+
+        $this->assertSame([
+            'summary' => 'visible',
+            'budget_amount' => '***',
+        ], $result['payload']);
+        $this->assertSame([
+            '*' => 'hidden',
+            'payload.summary' => 'readonly',
+            'payload.budget_amount' => 'masked',
+            'payload.internal_memo' => 'hidden',
+        ], (array) $result['field_access']);
     }
 
     public function test_sensitive_access_event_is_immutable_and_requires_sensitive_classification(): void

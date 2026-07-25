@@ -3,18 +3,20 @@
 namespace Modules\Documents\Providers;
 
 use App\Http\Authentication\SessionPrincipalResolver;
-use App\Http\Controllers\Documents\CompleteDocumentUploadController;
-use App\Http\Controllers\Documents\DownloadDocumentController;
-use App\Http\Controllers\Documents\GetDocumentUploadStatusController;
-use App\Http\Controllers\Documents\InitiateDocumentUploadController;
-use App\Http\Controllers\Documents\ReconcileDocumentPromotionController;
-use App\Http\Controllers\Documents\ScanDocumentVersionController;
 use GuzzleHttp\Client;
 use Illuminate\Support\ServiceProvider;
+use Modules\Documents\Features\DocumentDownload\Http\DownloadDocumentController;
+use Modules\Documents\Features\DocumentVersion\Http\ReconcileDocumentPromotionController;
+use Modules\Documents\Features\DocumentVersion\Http\ScanDocumentVersionController;
+use Modules\Documents\Features\Upload\Http\CompleteDocumentUploadController;
+use Modules\Documents\Features\Upload\Http\GetDocumentUploadStatusController;
+use Modules\Documents\Features\Upload\Http\InitiateDocumentUploadController;
 use Modules\Documents\Application\DocumentDownloadService;
+use Modules\Documents\Application\DocumentLinkService;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\DocumentUploadStatusReader;
+use Modules\Documents\Contracts\LinkDocument;
 use Modules\Documents\Contracts\MalwareScanner;
 use Modules\Documents\Contracts\PrivateObjectStorage;
 use Modules\Documents\Contracts\SensitiveAccessEventRecorder;
@@ -51,8 +53,9 @@ final class DocumentsServiceProvider extends ServiceProvider
         $this->app->bind(DocumentUploadStatusReader::class, DatabaseDocumentUploadStatusReader::class);
         $this->app->bind(DocumentDownloadGrantIssuer::class, S3DocumentDownloadGrantIssuer::class);
         $this->app->bind(DocumentDownloadService::class);
-        $this->app->bind(SensitiveAccessEventRecorder::class, DatabaseSensitiveAccessEventRecorder::class);
+        $this->app->bind(LinkDocument::class, DocumentLinkService::class);
         $this->app->singleton(DocumentUploadPolicy::class, fn (): DocumentUploadPolicy => DocumentUploadPolicy::fromConfig(config('documents')));
+        $this->app->bind(SensitiveAccessEventRecorder::class, DatabaseSensitiveAccessEventRecorder::class);
         $this->app->singleton(DocumentRetentionPolicy::class, fn (): DocumentRetentionPolicy => DocumentRetentionPolicy::fromConfig(config('documents')));
         $this->app->singleton(WorkerPrincipalResolver::class, fn (): WorkerPrincipalResolver => new ConfiguredWorkerPrincipalResolver(
             (string) config('documents.worker.token'),

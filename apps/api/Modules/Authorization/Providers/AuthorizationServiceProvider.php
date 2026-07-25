@@ -3,15 +3,21 @@
 namespace Modules\Authorization\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Modules\Authorization\Adapter\AuthorizeIdentityManagementAdapter;
 use Modules\Authorization\Contracts\CountOperationsOfficeMembers;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
+use Modules\Authorization\Infrastructure\OrganizationDecideAccessAdapter;
 use Modules\Authorization\Infrastructure\Persistence\CountOperationsOfficeMembers as DatabaseCountOperationsOfficeMembers;
+use Modules\Authorization\Infrastructure\Persistence\DatabaseAuthorizationIdempotencyKeyLookup;
 use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Authorization\Infrastructure\Simulation\RegisteredAuthorizationSimulationFactsResolver;
+use Modules\Identity\Contracts\AuthorizeIdentityManagement;
+use Modules\Organization\Contracts\AuthorizationIdempotencyKeyLookup;
+use Modules\Organization\Contracts\DecideAccess as OrganizationDecideAccess;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 
 final class AuthorizationServiceProvider extends ServiceProvider
@@ -27,6 +33,11 @@ final class AuthorizationServiceProvider extends ServiceProvider
                 : null,
         ));
         $this->app->bind(DecideAccess::class, BootstrapGatedDecideAccess::class);
+        $this->app->bind(AuthorizeIdentityManagement::class, AuthorizeIdentityManagementAdapter::class);
         $this->app->bind(ResolveAuthorizationSimulationFacts::class, RegisteredAuthorizationSimulationFactsResolver::class);
+        // Bind the Organization-owned contracts to the Authorization-side adapters so
+        // lower-ranked controllers never reference Authorization types directly.
+        $this->app->bind(OrganizationDecideAccess::class, OrganizationDecideAccessAdapter::class);
+        $this->app->bind(AuthorizationIdempotencyKeyLookup::class, DatabaseAuthorizationIdempotencyKeyLookup::class);
     }
 }

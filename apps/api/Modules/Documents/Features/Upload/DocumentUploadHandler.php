@@ -245,6 +245,7 @@ final class DocumentUploadHandler
         string $uploadIntentId,
         CompleteDocumentUpload $completion,
         IdempotencyContext $idempotency,
+        ?int $expectedDocumentLockVersion = null,
     ): DocumentUploadCompletion {
         UuidV7::assert($uploadIntentId, 'Upload intent id');
         $upload = $this->requiredUploadIntent($uploadIntentId);
@@ -270,7 +271,16 @@ final class DocumentUploadHandler
         );
         $failureCodes = $this->uploadPolicy->completionFailureCodes($file, $stored, $completion);
 
-        return DB::transaction(function () use ($actor, $uploadIntentId, $idempotency, $stored, $failureCodes): DocumentUploadCompletion {
+        return DB::transaction(function () use ($actor, $uploadIntentId, $idempotency, $stored, $failureCodes, $expectedDocumentLockVersion, $upload): DocumentUploadCompletion {
+            if ($expectedDocumentLockVersion !== null) {
+                $matched = DB::table('documents')
+                    ->where('id', $upload->document_id)
+                    ->where('lock_version', $expectedDocumentLockVersion)
+                    ->update(['lock_version' => $expectedDocumentLockVersion]);
+                if ($matched !== 1) {
+                    throw new StaleDocumentLockVersion((string) $upload->document_public_id, $expectedDocumentLockVersion);
+                }
+            }
             $upload = $this->requiredUploadIntent($uploadIntentId, true);
             $this->assertActor($actor, self::COMPLETE_OPERATION, (string) $upload->owner_organization_unit_id, $idempotency);
             $existing = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();

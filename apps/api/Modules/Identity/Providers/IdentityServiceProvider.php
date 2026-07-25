@@ -21,12 +21,19 @@ use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
 use Modules\Identity\Infrastructure\Persistence\ResolveUserForPerson as DatabaseResolveUserForPerson;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
+use Modules\Identity\Domain\PasswordPolicy;
+use Modules\Identity\Features\Credentials\Contracts\UsernameDenylist;
+use Modules\Identity\Infrastructure\Security\LocalUsernameDenylist;
 use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
 
 final class IdentityServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(UsernameDenylist::class, LocalUsernameDenylist::class);
+        $this->app->singleton(PasswordPolicy::class, function ($app): PasswordPolicy {
+            return new PasswordPolicy($app->make(UsernameDenylist::class), $app->make(\Modules\PlatformSettings\Contracts\GetEffectivePlatformSettings::class));
+        });
         $this->app->bind(ResolvePrincipalContext::class, SessionPrincipalContextResolver::class);
         $this->app->bind(ResolveAccountEntitlement::class, DatabaseResolveAccountEntitlement::class);
         $this->app->bind(ResolveUserForPerson::class, DatabaseResolveUserForPerson::class);

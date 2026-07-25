@@ -58,6 +58,14 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
+function requiredEntry<T>(entries: readonly T[], index: number): T {
+  const entry = entries[index]
+  if (entry === undefined) {
+    throw new Error(`Expected entry at index ${index}`)
+  }
+  return entry
+}
+
 afterEach(() => vi.unstubAllGlobals())
 
 describe('W1.2 Organization API adapter', () => {
@@ -126,11 +134,11 @@ describe('W1.2 Organization API adapter', () => {
       expect(new Headers(init?.headers).get('Authorization')).toBeNull()
     }
     for (const callIndex of [0, 2, 4, 6]) {
-      const headers = new Headers(fetchMock.mock.calls[callIndex][1]?.headers)
+      const headers = new Headers(requiredEntry(fetchMock.mock.calls, callIndex)[1]?.headers)
       expect(headers.get('X-CSRF-Token')).toBe('csrf-token')
       expect(headers.get('Idempotency-Key')).toBeTruthy()
     }
-    expect(new Headers(fetchMock.mock.calls[6][1]?.headers).get('If-Match')).toBe('"1"')
+    expect(new Headers(requiredEntry(fetchMock.mock.calls, 6)[1]?.headers).get('If-Match')).toBe('"1"')
   })
 
   it('uses cookie-session credential operations with their required CSRF inputs', async () => {
@@ -164,7 +172,7 @@ describe('W1.2 Organization API adapter', () => {
       expect(new Headers(init?.headers).get('Authorization')).toBeNull()
     }
     for (const callIndex of [3, 4, 5]) {
-      expect(new Headers(fetchMock.mock.calls[callIndex][1]?.headers).get('X-CSRF-Token')).toBe('csrf-token')
+      expect(new Headers(requiredEntry(fetchMock.mock.calls, callIndex)[1]?.headers).get('X-CSRF-Token')).toBe('csrf-token')
     }
   })
 
@@ -304,7 +312,7 @@ describe('W1.2 Organization API adapter', () => {
       '/api/v1/organization/people',
       '/api/v1/organization/assignments',
     ])
-    expect(String(fetchMock.mock.calls[2][1]?.body)).not.toContain('identity')
+    expect(String(requiredEntry(fetchMock.mock.calls, 2)[1]?.body)).not.toContain('identity')
   })
 
   it('reads an account ETag before a governed lifecycle transition', async () => {
@@ -332,7 +340,7 @@ describe('W1.2 Organization API adapter', () => {
       `/api/v1/identity/accounts/${account.id}`,
       `/api/v1/identity/accounts/${account.id}/activate`,
     ])
-    const headers = new Headers(fetchMock.mock.calls[3][1]?.headers)
+    const headers = new Headers(requiredEntry(fetchMock.mock.calls, 3)[1]?.headers)
     expect(headers.get('If-Match')).toBe('"3"')
     expect(headers.get('Idempotency-Key')).toMatch(/^identity-activate-[0-9a-f-]+$/)
   })
@@ -353,7 +361,7 @@ describe('W1.2 Organization API adapter', () => {
     await expect(transitionUserAccount(token, accountId, 'revoke-sessions')).resolves.toEqual(account)
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[2][1]?.body).toBeUndefined()
+    expect(requiredEntry(fetchMock.mock.calls, 2)[1]?.body).toBeUndefined()
   })
 
   it('submits, reads, and transitions a redacted import using a fresh ETag', async () => {
@@ -383,9 +391,9 @@ describe('W1.2 Organization API adapter', () => {
       `/api/v1/organization/import-jobs/${job.id}`,
       `/api/v1/organization/import-jobs/${job.id}/validate`,
     ])
-    const transitionHeaders = new Headers(fetchMock.mock.calls[4][1]?.headers)
+    const transitionHeaders = new Headers(requiredEntry(fetchMock.mock.calls, 4)[1]?.headers)
     expect(transitionHeaders.get('If-Match')).toBe('"1"')
-    expect(String(fetchMock.mock.calls[0][1]?.body)).not.toContain('raw_payload')
+    expect(String(requiredEntry(fetchMock.mock.calls, 0)[1]?.body)).not.toContain('raw_payload')
   })
 
   it('fails closed without an import ETag and sends a governed decision reason', async () => {
@@ -404,6 +412,6 @@ describe('W1.2 Organization API adapter', () => {
     await transitionImportJob(token, jobId, 'reject', 'Rows require correction')
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[2][1]?.body).toBe(JSON.stringify({ reason: 'Rows require correction' }))
+    expect(requiredEntry(fetchMock.mock.calls, 2)[1]?.body).toBe(JSON.stringify({ reason: 'Rows require correction' }))
   })
 })

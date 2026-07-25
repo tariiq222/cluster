@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Building2, Hospital } from 'lucide-react'
 
 import { formattingLocale } from '../../app/copy'
@@ -64,8 +64,23 @@ export function OrganizationOverview() {
   const [state, setState] = useState<'ready' | 'forbidden' | 'error'>('ready')
   const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' })
   const [notice, setNotice] = useState<string | null>(null)
+  /**
+   * Track in-flight load and mutation requests so superseded calls cannot
+   * overwrite the freshest snapshot. The unmount cleanup bumps the refs so no
+   * async callback writes after the overview route is torn down.
+   */
+  const activeRef = useRef(true)
+  const loadRequestRef = useRef(0)
+  const mutationEpochRef = useRef(0)
+  useEffect(() => () => {
+    activeRef.current = false
+    loadRequestRef.current += 1
+    mutationEpochRef.current += 1
+  }, [])
 
   const load = useCallback(async () => {
+    const epoch = ++loadRequestRef.current
+    activeRef.current = true
     setLoading(true)
     setState('ready')
     try {
@@ -76,12 +91,14 @@ export function OrganizationOverview() {
         else throw error
       }
       setFacilities((await listFacilities(token)).items)
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
     } catch (error) {
+      if (!activeRef.current || epoch !== loadRequestRef.current) return
       setCluster(null)
       setFacilities([])
       setState(error instanceof ApiError && error.status === 403 ? 'forbidden' : 'error')
     } finally {
-      setLoading(false)
+      if (activeRef.current && epoch === loadRequestRef.current) setLoading(false)
     }
   }, [token])
 

@@ -44,9 +44,15 @@ describe('ProcessWorkspace', () => {
     const links = within(navigation).getAllByRole('link')
 
     expect(links).toHaveLength(3)
-    expect(links[0].getAttribute('href')).toBe('/admin/workflow/day2')
-    expect(links[1].getAttribute('href')).toBe('/admin/work-definitions')
-    expect(links[2].getAttribute('href')).toBe('/admin/workflow')
+    const first = links[0]
+    const second = links[1]
+    const third = links[2]
+    if (!first || !second || !third) {
+      throw new Error('ProcessWorkspace navigation should expose exactly three stable links')
+    }
+    expect(first.getAttribute('href')).toBe('/admin/workflow/day2')
+    expect(second.getAttribute('href')).toBe('/admin/work-definitions')
+    expect(third.getAttribute('href')).toBe('/admin/workflow')
     expect(screen.getByText('Day 2 compatibility view')).toBeTruthy()
   })
 

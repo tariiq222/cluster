@@ -13,12 +13,10 @@ use Modules\Documents\Infrastructure\Storage\S3\S3CompatibleConfiguration;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\TemporaryAssignment\Console\ExpireTemporaryAssignmentsCommand;
 use Modules\PlatformSettings\Features\Operations\Console\RunPlatformOperationsDispatchCommand;
-use Predis\Client as PredisClient;
 use Shared\Contracts\TransactionalOutbox;
 use Shared\Infrastructure\Outbox\DatabaseTransactionalOutbox;
-use Shared\Infrastructure\Streams\PredisRedisStreamTransport;
+use Shared\Infrastructure\Streams\LaravelRedisStreamTransport;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
-
 class AppServiceProvider extends ServiceProvider
 {
     /** Bootstrap shared application services. */
@@ -31,19 +29,15 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
         $this->app->singleton(SessionPrincipalResolver::class);
+        $this->app->bind(\Modules\PlatformSettings\Contracts\ResolveOrganizationScopeAncestry::class, \Modules\Organization\Infrastructure\Persistence\DatabaseResolveOrganizationScopeAncestry::class);
         $this->app->singleton(RedisStreamTransport::class, function (): RedisStreamTransport {
-            $url = config('database.redis.default.url');
-            if (is_string($url) && $url !== '') {
-                return new PredisRedisStreamTransport(new PredisClient($url));
-            }
-            $parameters = ['scheme' => 'tcp', 'host' => config('database.redis.default.host', '127.0.0.1'), 'port' => (int) config('database.redis.default.port', 6379), 'database' => (int) config('database.redis.default.database', 0)];
-            foreach (['username', 'password'] as $credential) {
-                $value = config("database.redis.default.{$credential}");
-                if (is_string($value) && $value !== '') $parameters[$credential] = $value;
-            }
-            return new PredisRedisStreamTransport(new PredisClient($parameters));
+            $connection = $this->app->make('redis')->connection();
+
+            return new LaravelRedisStreamTransport($connection);
         });
-        foreach (self::MODULE_PROVIDERS as $providerClass) $this->app->register($providerClass);
+        foreach (self::MODULE_PROVIDERS as $providerClass) {
+            $this->app->register($providerClass);
+        }
     }
 
     public function boot(): void

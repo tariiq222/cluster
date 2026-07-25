@@ -2,7 +2,7 @@
 
 namespace Modules\Documents\Tests\Http;
 
-use App\Http\Controllers\Documents\DownloadDocumentController;
+use Modules\Documents\Features\DocumentDownload\Http\DownloadDocumentController;
 use Illuminate\Http\Request;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Application\DocumentDownloadService;

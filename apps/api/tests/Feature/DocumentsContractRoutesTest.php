@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Documents\AddDocumentVersionController;
-use App\Http\Controllers\Documents\LinkDocumentController;
-use App\Http\Controllers\Documents\ListDocumentLinksController;
-use App\Http\Controllers\Documents\UpdateDocumentController;
+use Modules\Documents\Features\DocumentLifecycle\Http\UpdateDocumentController;
+use Modules\Documents\Features\DocumentLink\Http\LinkDocumentController;
+use Modules\Documents\Features\DocumentLink\Http\ListDocumentLinksController;
+use Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 

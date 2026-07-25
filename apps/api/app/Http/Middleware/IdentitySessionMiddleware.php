@@ -24,6 +24,7 @@ final class IdentitySessionMiddleware
             );
         }
 
+        $request->attributes->set(IdentityRequestAttributes::CORRELATION_ID, $correlationId);
         $rawSessionToken = $request->cookie((string) config('identity.session.cookie', 'cluster_identity_session'));
         $session = $this->sessions->resolve(
             is_string($rawSessionToken) ? $rawSessionToken : '',

@@ -4,9 +4,9 @@ namespace Modules\Organization\Features\Person\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
-use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Contracts\DecideAccess;
+use Modules\Organization\Contracts\RecordFacts;
+use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\Person\Handler\PersonHandler;
 use Modules\Organization\Http\OrganizationApi;
 

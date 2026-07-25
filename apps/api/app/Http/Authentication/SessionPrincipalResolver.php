@@ -8,8 +8,9 @@ use LogicException;
 use Modules\Identity\Contracts\PrincipalContext;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
+use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal as OrganizationResolveDevelopmentFixturePrincipal;
 
-final class SessionPrincipalResolver implements ResolveDevelopmentFixturePrincipal
+final class SessionPrincipalResolver implements ResolveDevelopmentFixturePrincipal, OrganizationResolveDevelopmentFixturePrincipal
 {
     public function __construct(private readonly ?ResolvePrincipalContext $principalContexts = null) {}
 

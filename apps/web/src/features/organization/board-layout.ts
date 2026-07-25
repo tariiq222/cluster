@@ -129,8 +129,10 @@ export function autoLayoutCards(units: OrganizationUnit[]): Record<string, Board
     }
     const firstChild = node.children[0]
     const lastChild = node.children[node.children.length - 1]
+    if (firstChild === undefined || lastChild === undefined) return
     const firstChildPos = positions[firstChild.unit.id]
     const lastChildPos = positions[lastChild.unit.id]
+    if (firstChildPos === undefined || lastChildPos === undefined) return
     const spanLeft = firstChildPos.x
     const spanRight = lastChildPos.x + CARD_WIDTH
     const parentCenter = (spanLeft + spanRight) / 2
@@ -210,6 +212,7 @@ export function fitToViewport(
   let maxY = -Infinity
   for (const id of ids) {
     const pos = cards[id]
+    if (pos === undefined) continue
     if (!isFiniteNumber(pos.x) || !isFiniteNumber(pos.y)) continue
     if (pos.x < minX) minX = pos.x
     if (pos.y < minY) minY = pos.y

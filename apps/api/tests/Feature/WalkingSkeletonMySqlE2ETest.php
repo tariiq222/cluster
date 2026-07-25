@@ -11,7 +11,7 @@ use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWor
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use Predis\Client;
 use RuntimeException;
-use Shared\Infrastructure\Streams\PredisRedisStreamTransport;
+use Shared\Infrastructure\Streams\LaravelRedisStreamTransport;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\TestCase;
 
@@ -37,7 +37,7 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
         $this->assertSame('mysql', config('database.default'));
         $this->assertSame('mysql', DB::connection()->getDriverName());
         $transport = app(RedisStreamTransport::class);
-        $this->assertInstanceOf(PredisRedisStreamTransport::class, $transport);
+        $this->assertInstanceOf(LaravelRedisStreamTransport::class, $transport);
         $this->clearStreams();
 
         $tokenA = $this->login('fixture-account-a', 'fixture-password-a', self::CORRELATION_A)
@@ -92,7 +92,7 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
     public function test_real_redis_poison_event_reaches_dlq_before_ack(): void
     {
         $transport = app(RedisStreamTransport::class);
-        $this->assertInstanceOf(PredisRedisStreamTransport::class, $transport);
+        $this->assertInstanceOf(LaravelRedisStreamTransport::class, $transport);
         $this->clearStreams();
         $event = [
             'specversion' => '1.0',

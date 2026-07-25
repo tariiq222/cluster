@@ -50,20 +50,40 @@ final class OrganizationApi
             return null;
         }
 
-        $clusterId = DB::table('clusters')->where('singleton_key', 1)->value('id');
-
-        return is_string($clusterId) ? $clusterId : null;
+        return DB::table('clusters')->where('singleton_key', 1)->value('id');
     }
 
     /** @param array<string, mixed> $data */
     public static function data(array $data, int $status, string $correlationId, ?int $lockVersion = null): JsonResponse
     {
-        $headers = ['X-Correlation-ID' => $correlationId];
+        $response = response()->json(['data' => $data], $status)->header('X-Correlation-ID', $correlationId);
         if ($lockVersion !== null) {
-            $headers['ETag'] = '"'.$lockVersion.'"';
+            $response->header('ETag', '"'.$lockVersion.'"');
         }
 
-        return response()->json(['data' => $data], $status)->withHeaders($headers);
+        return $response;
+    }
+
+    /** @param array<string, mixed> $data */
+    public static function resource(array $data, int $status, string $correlationId, ?int $version = null): JsonResponse
+    {
+        $response = response()->json(['data' => $data], $status)->header('X-Correlation-ID', $correlationId);
+        if ($version !== null) {
+            $response->header('ETag', '"'.$version.'"');
+        }
+
+        return $response;
+    }
+
+    /** @param array{items: list<array<string,mixed>>, next_cursor: string|null} $page */
+    public static function collection(array $page, string $correlationId, ?string $link = null): JsonResponse
+    {
+        $response = response()->json($page)->header('X-Correlation-ID', $correlationId);
+        if ($link !== null) {
+            $response->header('Link', $link);
+        }
+
+        return $response;
     }
 
     public static function problem(

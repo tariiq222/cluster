@@ -19,6 +19,18 @@ import {
 } from './AccessContext'
 import { listMyAccessScopes, parseStrongEtag, selectMyAccessScope } from '../../api/r1'
 
+function requiredAt<T>(values: readonly T[], index: number): T {
+  const value = values[index]
+  if (value === undefined) throw new Error(`Expected value at index ${index}`)
+  return value
+}
+
+function requiredRequest(calls: readonly Parameters<typeof fetch>[], index: number): RequestInit {
+  const request = requiredAt(calls, index)[1]
+  if (request === undefined) throw new Error(`Expected request init at index ${index}`)
+  return request
+}
+
 describe('AccessContext pure view-model helpers', () => {
   it('renders masked fields as *** and never renders hidden fields', () => {
     const rows = fieldAccessRows({ visible: 'editable', secret: 'hidden', masked: 'masked', locked: 'readonly' })
@@ -68,7 +80,7 @@ describe('AccessContext pure view-model helpers', () => {
     })
     expect(selection.options).toHaveLength(2)
     expect(selection.lockVersion).toBeNull()
-    expect(selection.options[1].effective).toBe(true)
+    expect(requiredAt(selection.options, 1).effective).toBe(true)
     expect(selection.effective?.scopeId).toBe('018f6f7d-0c00-7000-8000-000000000002')
 
     const values = selection.options.map(scopeSelectValue)
@@ -99,7 +111,7 @@ describe('AccessContext pure view-model helpers', () => {
   })
 
   it('passes the GET ETag version as If-Match through the generated scope client seam', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ available_scopes: [], effective_scope: { scope_type: 'cluster', scope_id: '018f6f7d-0c00-7000-8000-000000000001', label: 'Cluster' } }), { status: 200, headers: { ETag: '"7"' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ available_scopes: [], effective_scope: { scope_type: 'facility', scope_id: '018f6f7d-0c00-7000-8000-000000000002', label: 'Facility' } }), { status: 200, headers: { ETag: '"8"' } }))
     vi.stubGlobal('fetch', fetchMock)
@@ -108,7 +120,7 @@ describe('AccessContext pure view-model helpers', () => {
     await selectMyAccessScope('token', { scope_type: 'facility', scope_id: '018f6f7d-0c00-7000-8000-000000000002' }, snapshot.lockVersion!)
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    const selectionInit = fetchMock.mock.calls[1][1] as RequestInit
+    const selectionInit = requiredRequest(fetchMock.mock.calls, 1)
     expect(new Headers(selectionInit.headers).get('If-Match')).toBe('"7"')
     expect(new Headers(selectionInit.headers).get('Idempotency-Key')).toBeTruthy()
     vi.unstubAllGlobals()
