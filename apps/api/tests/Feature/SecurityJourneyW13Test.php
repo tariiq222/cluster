@@ -405,7 +405,7 @@ final class SecurityJourneyW13Test extends TestCase
             'resource_type' => 'field_access_template',
             'field_policy_key' => 'request-journey-v1',
             'module_code' => 'work_record',
-            'policy_document' => ['fields' => ['title' => 'edit', 'description' => 'mask', 'secret_note' => 'hide']],
+            'policy_document' => ['fields' => ['payload.title' => 'edit', 'payload.description' => 'mask', 'payload.secret_note' => 'hide']],
         ])->assertCreated();
         $this->grantViaAdminApi('w13-j08-read', self::USER_B, ['work_record.read'], 'facility', self::FACILITY_A);
 
@@ -417,10 +417,10 @@ final class SecurityJourneyW13Test extends TestCase
 
         $response = $this->getAsB('/api/v1/work-records/'.$recordId)->assertOk()
             ->assertJsonPath('data.payload.title', 'عنوان ظاهر')
-            ->assertJsonPath('data.payload.description', '***')
-            ->assertJsonPath('data.field_access.title', 'readonly')
-            ->assertJsonPath('data.field_access.description', 'masked')
-            ->assertJsonPath('data.field_access.secret_note', 'hidden');
+            ->assertJsonPath('data.payload.description', '***');
+        $this->assertSame('readonly', $response->json('data.field_access')['payload.title']);
+        $this->assertSame('masked', $response->json('data.field_access')['payload.description']);
+        $this->assertSame('hidden', $response->json('data.field_access')['payload.secret_note']);
         $this->assertArrayNotHasKey('secret_note', $response->json('data.payload'));
 
         // An unknown policy key fails closed on every field.
