@@ -50,6 +50,13 @@ return new class extends Migration
             });
         }
 
+        if (Schema::hasTable('notifications')
+            && ! Schema::hasIndex('notifications', ['event_id'], 'unique')) {
+            Schema::table('notifications', static function (Blueprint $table): void {
+                $table->unique('event_id', 'notifications_event_id_unique');
+            });
+        }
+
         if (Schema::hasTable('notification_inbox')) {
             Schema::table('notification_inbox', function (Blueprint $table): void {
                 $columns = array_values(array_filter(

@@ -59,6 +59,7 @@ return new class extends Migration
                 'approved_by_user_id',
                 'approved_at',
                 'rejection_reason',
+                'approval_status',
                 'review_state',
                 'usage_description',
                 'scope',

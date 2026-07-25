@@ -95,7 +95,7 @@ final class OrganizationPersonReadClearanceTest extends TestCase
     private function confidentialReadingCapabilities(): array
     {
         $capabilities = [];
-        $directory = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(app_path('Http/Controllers')));
+        $directory = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path('Modules')));
         foreach ($directory as $file) {
             if (! $file instanceof \SplFileInfo || $file->getExtension() !== 'php') {
                 continue;

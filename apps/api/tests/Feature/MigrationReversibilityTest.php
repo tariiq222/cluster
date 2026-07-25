@@ -28,8 +28,19 @@ final class MigrationReversibilityTest extends TestCase
         return require $path;
     }
 
+    /** @param list<string> $tables */
+    private function dropTables(array $tables): void
+    {
+        Schema::disableForeignKeyConstraints();
+        foreach ($tables as $table) {
+            Schema::dropIfExists($table);
+        }
+        Schema::enableForeignKeyConstraints();
+    }
+
     public function test_workflow_w15_up_creates_the_canonical_workflow_decisions_schema(): void
     {
+        $this->dropTables(['workflow_decisions', 'workflow_step_instances', 'workflow_instances', 'workflow_versions', 'workflow_definitions']);
         Schema::create('workflow_definitions', function ($table): void {
             $table->uuid('id')->primary();
             $table->string('code', 64);
@@ -87,6 +98,7 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_workflow_w15_down_restores_workflow_versions_and_drops_workflow_decisions(): void
     {
+        $this->dropTables(['workflow_decisions', 'workflow_step_instances', 'workflow_instances', 'workflow_versions', 'workflow_definitions']);
         Schema::create('workflow_definitions', function ($table): void {
             $table->uuid('id')->primary();
             $table->boolean('is_system')->default(false);
@@ -151,6 +163,7 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_workflow_w17_up_adds_approval_status_alongside_other_review_columns(): void
     {
+        $this->dropTables(['workflow_versions']);
         Schema::create('workflow_versions', function ($table): void {
             $table->uuid('id')->primary();
             $table->unsignedInteger('version_number');
@@ -172,6 +185,7 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_workflow_w17_down_drops_approval_status_along_with_other_review_columns(): void
     {
+        $this->dropTables(['workflow_versions']);
         Schema::create('workflow_versions', function ($table): void {
             $table->uuid('id')->primary();
             $table->unsignedInteger('version_number');
@@ -204,6 +218,7 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_notifications_w18_up_adds_columns_indexes_and_delivery_tables(): void
     {
+        $this->dropTables(['notification_dead_letters', 'notification_recipients', 'notifications', 'notification_inbox']);
         Schema::create('notifications', function ($table): void {
             $table->uuid('id')->primary();
             $table->uuid('event_id')->unique();
@@ -234,6 +249,7 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_notifications_w18_down_restores_pre_w18_notification_columns_and_indexes(): void
     {
+        $this->dropTables(['notification_dead_letters', 'notification_recipients', 'notifications', 'notification_inbox']);
         Schema::create('notifications', function ($table): void {
             $table->uuid('id')->primary();
             $table->uuid('event_id');
@@ -286,6 +302,7 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_notifications_w20_up_replaces_event_id_unique_with_composite_event_recipient_unique(): void
     {
+        $this->dropTables(['notification_dead_letters', 'notification_recipients', 'notifications', 'notification_inbox']);
         Schema::create('notifications', function ($table): void {
             $table->uuid('id')->primary();
             $table->uuid('event_id')->unique();
@@ -318,6 +335,7 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_notifications_w20_down_restores_legacy_event_id_unique_and_removes_inbox_columns(): void
     {
+        $this->dropTables(['notification_dead_letters', 'notification_recipients', 'notifications', 'notification_inbox']);
         Schema::create('notifications', function ($table): void {
             $table->uuid('id')->primary();
             $table->uuid('event_id');
@@ -354,32 +372,38 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_authorization_w15_up_inserts_the_two_office_roles(): void
     {
-        Schema::create('capabilities', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->string('code', 96)->unique();
-            $table->string('name');
-            $table->string('sensitivity', 16)->default('standard');
-            $table->timestamps();
-        });
+        $this->dropTables(['role_assignments', 'role_capabilities', 'roles', 'capabilities']);
         Schema::create('roles', function ($table): void {
             $table->uuid('id')->primary();
             $table->string('code', 96)->unique();
-            $table->string('name');
+            $table->string('name_ar');
+            $table->string('name_en')->nullable();
+            $table->string('role_type', 32);
             $table->string('status', 16)->default('active');
+            $table->boolean('is_system_role')->default(false);
             $table->timestamps();
         });
-        Schema::create('role_capabilities', function ($table): void {
+        Schema::create('capabilities', function ($table): void {
             $table->uuid('id')->primary();
+            $table->string('module_code', 64);
+            $table->string('capability_code', 96);
+            $table->string('action', 32);
+            $table->string('sensitivity', 16)->default('normal');
+            $table->string('status', 16)->default('active');
+            $table->timestamps();
+            $table->unique(['module_code', 'capability_code']);
+        });
+        Schema::create('role_capabilities', function ($table): void {
             $table->uuid('role_id');
             $table->uuid('capability_id');
+            $table->string('effect', 8)->default('allow');
             $table->timestamps();
+            $table->primary(['role_id', 'capability_id']);
         });
         Schema::create('role_assignments', function ($table): void {
             $table->uuid('id')->primary();
             $table->uuid('role_id');
             $table->uuid('user_id');
-            $table->string('scope_type', 32);
-            $table->string('scope_id', 64);
             $table->timestamps();
         });
 
@@ -395,32 +419,38 @@ final class MigrationReversibilityTest extends TestCase
 
     public function test_authorization_w15_down_removes_only_office_owned_rows(): void
     {
-        Schema::create('capabilities', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->string('code', 96)->unique();
-            $table->string('name');
-            $table->string('sensitivity', 16)->default('standard');
-            $table->timestamps();
-        });
+        $this->dropTables(['role_assignments', 'role_capabilities', 'roles', 'capabilities']);
         Schema::create('roles', function ($table): void {
             $table->uuid('id')->primary();
             $table->string('code', 96)->unique();
-            $table->string('name');
+            $table->string('name_ar');
+            $table->string('name_en')->nullable();
+            $table->string('role_type', 32);
             $table->string('status', 16)->default('active');
+            $table->boolean('is_system_role')->default(false);
             $table->timestamps();
         });
-        Schema::create('role_capabilities', function ($table): void {
+        Schema::create('capabilities', function ($table): void {
             $table->uuid('id')->primary();
+            $table->string('module_code', 64);
+            $table->string('capability_code', 96);
+            $table->string('action', 32);
+            $table->string('sensitivity', 16)->default('normal');
+            $table->string('status', 16)->default('active');
+            $table->timestamps();
+            $table->unique(['module_code', 'capability_code']);
+        });
+        Schema::create('role_capabilities', function ($table): void {
             $table->uuid('role_id');
             $table->uuid('capability_id');
+            $table->string('effect', 8)->default('allow');
             $table->timestamps();
+            $table->primary(['role_id', 'capability_id']);
         });
         Schema::create('role_assignments', function ($table): void {
             $table->uuid('id')->primary();
             $table->uuid('role_id');
             $table->uuid('user_id');
-            $table->string('scope_type', 32);
-            $table->string('scope_id', 64);
             $table->timestamps();
         });
 
@@ -432,8 +462,11 @@ final class MigrationReversibilityTest extends TestCase
         DB::table('roles')->insert([
             'id' => '0197f0e0-0000-7000-8000-000000009901',
             'code' => 'unrelated-role',
-            'name' => 'Unrelated role',
+            'name_ar' => 'دور غير مرتبط',
+            'name_en' => 'Unrelated role',
+            'role_type' => 'custom',
             'status' => 'active',
+            'is_system_role' => false,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

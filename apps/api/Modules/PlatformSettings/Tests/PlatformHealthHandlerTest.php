@@ -2,7 +2,7 @@
 
 namespace Modules\PlatformSettings\Tests;
 
-use App\Integrations\PlatformOperations\LaravelPlatformHealthGateway;
+use Modules\PlatformSettings\Infrastructure\LaravelPlatformHealthGateway;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Modules\PlatformSettings\Contracts\BackupOperationsGateway;

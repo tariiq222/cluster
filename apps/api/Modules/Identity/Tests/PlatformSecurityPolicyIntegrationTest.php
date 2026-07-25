@@ -97,7 +97,7 @@ final class PlatformSecurityPolicyIntegrationTest extends TestCase
                 return true;
             }
         };
-        $policy = new PasswordPolicy(null, $settings);
+        $policy = new PasswordPolicy(new \Modules\Identity\Infrastructure\Security\LocalUsernameDenylist, $settings);
 
         $this->assertContains('min_length', $policy->violations('Valid Pass 123'));
         $settings->fails = true;
