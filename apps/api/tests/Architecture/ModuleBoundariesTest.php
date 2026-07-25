@@ -148,6 +148,7 @@ class ModuleBoundariesTest extends TestCase
         'work_records' => 'WorkRecords',
         'work_record_idempotency_keys' => 'WorkRecords',
         'outbox_events' => 'WorkRecords',
+        'project_work_record_read_models' => 'WorkRecords',
         // Notifications (rank 11)
         'notifications' => 'Notifications',
         'notification_inbox' => 'Notifications',

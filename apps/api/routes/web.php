@@ -245,6 +245,7 @@ Route::prefix('api/v1')->group(function (): void {
             ConsumeSubmittedNotification::class,
         ]);
         Route::post('work-records/{recordId}/{recordAction}', [WorkRecordLifecycleController::class, 'transition'])
+            ->middleware(ProjectWorkRecordReadModels::class)
             ->whereIn('recordAction', ['submit', 'return', 'complete', 'complete-submission', 'cancel', 'archive']);
         Route::post('work-records/{recordId}/documents', WorkRecordDocumentLinkController::class);
         Route::post('authorization/access-decisions', DecideAccessController::class);
