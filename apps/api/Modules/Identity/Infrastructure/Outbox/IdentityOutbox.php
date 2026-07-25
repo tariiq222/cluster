@@ -5,10 +5,15 @@ namespace Modules\Identity\Infrastructure\Outbox;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Identity\Infrastructure\Outbox\IdentitySecurityEventRegistry;
 use Shared\Infrastructure\Outbox\OutboxEventType;
 
 final class IdentityOutbox
 {
+    public function __construct(
+        private readonly IdentitySecurityEventRegistry $securityEventRegistry = new IdentitySecurityEventRegistry,
+    ) {}
+
     /** @param array<string, mixed> $cloudEvent */
     public function insert(array $cloudEvent, string $aggregateId): void
     {
@@ -77,16 +82,19 @@ final class IdentityOutbox
     }
 
     /**
-     * Build and validate the OutboxEventType for a security event suffix.
-     * The producer passes only the short suffix (e.g. `session_created`) and
-     * this helper assembles the full `com.cluster.identity.<suffix>.v1`
-     * string and resolves it through the OutboxEventType enum so a typo
-     * fails loudly at the outbox boundary instead of slipping an
-     * unregistered event type into the outbox_events table.
+     * Resolve a producer-supplied security-event suffix to its matching
+     * `OutboxEventType` case via {@see IdentitySecurityEventRegistry}.
+     *
+     * The registry is the single source of truth for which suffixes
+     * `insertSecurityEvent()` may emit; an unknown suffix raises
+     * `InvalidArgumentException` here rather than slipping an
+     * unregistered `com.cluster.identity.<suffix>.v1` literal past the
+     * outbox helper. The CloudEvents `type` value comes from the enum
+     * case so renaming a suffix only requires updating the registry.
      */
     private function identitySecurityEventType(string $type): OutboxEventType
     {
-        return OutboxEventType::from('com.cluster.identity.'.$type.'.v1');
+        return $this->securityEventRegistry->resolve($type);
     }
 
     private function isUuidV7(string $value): bool
