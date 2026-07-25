@@ -5,12 +5,15 @@ namespace Modules\Identity\Infrastructure\Outbox;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Shared\Infrastructure\Outbox\OutboxEventType;
 
 final class IdentityOutbox
 {
     /** @param array<string, mixed> $cloudEvent */
     public function insert(array $cloudEvent, string $aggregateId): void
     {
+        OutboxEventType::from($cloudEvent['type']);
+
         DB::table('outbox_events')->insert([
             'event_id' => $cloudEvent['id'],
             'aggregate_id' => $aggregateId,
@@ -60,16 +63,30 @@ final class IdentityOutbox
                 $safeData[$key] = $data[$key];
             }
         }
+        $eventType = $this->identitySecurityEventType($type);
         $this->insert([
             'specversion' => '1.0',
             'id' => Str::uuid7()->toString(),
             'source' => '/identity',
-            'type' => 'com.cluster.identity.'.$type.'.v1',
+            'type' => $eventType->value,
             'subject' => '/identity/users/'.$aggregateId,
             'time' => now()->utc()->format('Y-m-d\TH:i:s.v\Z'),
             'datacontenttype' => 'application/json',
             'data' => $safeData,
         ], $aggregateId);
+    }
+
+    /**
+     * Build and validate the OutboxEventType for a security event suffix.
+     * The producer passes only the short suffix (e.g. `session_created`) and
+     * this helper assembles the full `com.cluster.identity.<suffix>.v1`
+     * string and resolves it through the OutboxEventType enum so a typo
+     * fails loudly at the outbox boundary instead of slipping an
+     * unregistered event type into the outbox_events table.
+     */
+    private function identitySecurityEventType(string $type): OutboxEventType
+    {
+        return OutboxEventType::from('com.cluster.identity.'.$type.'.v1');
     }
 
     private function isUuidV7(string $value): bool

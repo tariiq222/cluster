@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-identity-activation_token_issued-v1.schema.json",
+  "title": "Outbox event: com.cluster.identity.activation_token_issued.v1",
+  "description": "CloudEvents envelope for the 'com.cluster.identity.activation_token_issued.v1' event. Produced by apps/api/Modules/Identity/Infrastructure/Outbox/IdentityOutbox.php.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "source_hash": {
+          "type": "string"
+        },
+        "username_hash": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "credential_id": {
+          "type": "string"
+        },
+        "password_version": {
+          "type": "integer"
+        },
+        "lockout_level": {
+          "type": "integer"
+        },
+        "failure_code": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "ip_cidr": {
+          "type": "string"
+        },
+        "user_agent_hash": {
+          "type": "string"
+        },
+        "capability_version": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

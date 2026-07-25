@@ -65,6 +65,16 @@ enum OutboxEventType: string
     case IdentityUserAccountChanged = 'com.cluster.identity.useraccountchanged.v1';
     case IdentityAuthenticationFailed = 'com.cluster.identity.authentication_failed.v1';
     case IdentityAccountLoginLocked = 'com.cluster.identity.account_login_locked.v1';
+    case IdentityAccountActivated = 'com.cluster.identity.account_activated.v1';
+    case IdentityActivationTokenIssued = 'com.cluster.identity.activation_token_issued.v1';
+    case IdentityAuthenticationSucceeded = 'com.cluster.identity.authentication_succeeded.v1';
+    case IdentityCredentialCreated = 'com.cluster.identity.credential_created.v1';
+    case IdentityPasswordChanged = 'com.cluster.identity.password_changed.v1';
+    case IdentitySessionCreated = 'com.cluster.identity.session_created.v1';
+    case IdentitySessionRevoked = 'com.cluster.identity.session_revoked.v1';
+    case IdentitySessionsRevoked = 'com.cluster.identity.sessions_revoked.v1';
+    case IdentityTotpEnrollmentStarted = 'com.cluster.identity.totp_enrollment_started.v1';
+    case IdentityTotpEnabled = 'com.cluster.identity.totp_enabled.v1';
 
     // ── WorkRecords ───────────────────────────────────────────────────────
     case WorkRecordSubmitted = 'com.cluster.workrecord.submitted.v1';
