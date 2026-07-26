@@ -3,6 +3,7 @@
 namespace Modules\Workflow\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Modules\Workflow\Features\PublishWorkflowVersion\Handler\PublishWorkflowVersionHandler;
 use Modules\Workflow\Features\StartWorkflow\Handler\StartWorkflowHandler;
 use RuntimeException;
@@ -30,6 +31,9 @@ final class WorkflowCoreTest extends TestCase
 
     public function test_outbox_failure_rolls_back_version_and_definition(): void
     {
+        $beforeDefinitions = DB::table('workflow_definitions')->count();
+        $beforeVersions = DB::table('workflow_versions')->count();
+        $beforeOutbox = DB::table('outbox_events')->count();
         $this->app->instance(TransactionalOutbox::class, new class implements TransactionalOutbox
         {
             public function append(string $eventId, string $aggregateId, string $eventType, array $payload): void
@@ -38,8 +42,17 @@ final class WorkflowCoreTest extends TestCase
             }
         });
 
-        $this->expectException(RuntimeException::class);
-        $this->app->make(PublishWorkflowVersionHandler::class)->publish('rollback', 'record', self::USER, $this->graph('x'));
+        try {
+            $this->app->make(PublishWorkflowVersionHandler::class)->publish('rollback', 'record', self::USER, $this->graph('x'));
+            $this->fail('The failing outbox should abort workflow version publication.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('outbox unavailable', $exception->getMessage());
+        }
+
+        $this->assertSame(0, DB::table('workflow_definitions')->where('code', 'rollback')->count());
+        $this->assertSame($beforeDefinitions, DB::table('workflow_definitions')->count());
+        $this->assertSame($beforeVersions, DB::table('workflow_versions')->count());
+        $this->assertSame($beforeOutbox, DB::table('outbox_events')->count());
     }
 
     /** @return array<string, mixed> */

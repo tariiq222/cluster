@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -28,6 +29,13 @@ return new class extends Migration
 
     public function down(): void
     {
-        // The tree schema rollback removes organization_units before unit_types.
+        $ids = array_column(self::TYPES, 'id');
+        if (Schema::hasTable('organization_units')
+            && DB::table('organization_units')->whereIn('unit_type_id', $ids)->exists()) {
+            throw new \LogicException('organization_unit_type_rollback_has_references');
+        }
+        if (Schema::hasTable('unit_types')) {
+            DB::table('unit_types')->whereIn('id', $ids)->delete();
+        }
     }
 };

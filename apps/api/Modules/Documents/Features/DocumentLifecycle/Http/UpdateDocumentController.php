@@ -5,11 +5,9 @@ namespace Modules\Documents\Features\DocumentLifecycle\Http;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Documents\Domain\Contracts\DocumentsOutbox;
-use Modules\Documents\Domain\UuidV7;
+use Modules\Documents\Application\DocumentMutationHandler;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
@@ -21,7 +19,7 @@ final class UpdateDocumentController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
-        private readonly DocumentsOutbox $outbox,
+        private readonly DocumentMutationHandler $mutations,
     ) {}
 
     public function __invoke(Request $request, string $documentId): JsonResponse
@@ -78,32 +76,8 @@ final class UpdateDocumentController
             return DocumentsApi::problem(400, 'invalid-document', 'Bad Request', 'A classification change reason is required.', $correlationId);
         }
 
-        $now = now();
         try {
-            $fresh = DB::transaction(function () use ($document, $expectedVersion, $changes, $validated, $principal, $correlationId, $now): \stdClass {
-                $updated = DB::table('documents')
-                    ->where('id', $document->id)
-                    ->where('lock_version', $expectedVersion)
-                    ->update([...$changes, 'lock_version' => $expectedVersion + 1, 'updated_at' => $now]);
-                if ($updated !== 1) {
-                    throw new \DomainException('precondition_failed');
-                }
-                $this->outbox->append(
-                    UuidV7::generate(),
-                    $document->id,
-                    'com.cluster.documents.metadataupdated.v1',
-                    [
-                        'document_id' => $document->public_id,
-                        'changed_fields' => array_keys($changes),
-                        'classification_change_reason' => $validated['classification_change_reason'] ?? null,
-                        'correlation_id' => $correlationId,
-                        'actor_user_id' => $principal['user_id'],
-                    ],
-                    $now,
-                );
-
-                return DB::table('documents')->where('id', $document->id)->first();
-            });
+            $fresh = $this->mutations->update($document, $expectedVersion, $changes, $validated, $principal, $correlationId);
         } catch (\DomainException $exception) {
             if ($exception->getMessage() === 'precondition_failed') {
                 return DocumentsApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current version.', $correlationId);
@@ -113,8 +87,6 @@ final class UpdateDocumentController
         } catch (QueryException) {
             return DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'The document cannot be updated.', $correlationId);
         }
-
-        $this->recordAccessEvent($document, $principal['user_id'], 'metadata_update', 'allow', 'document_metadata_updated');
 
         return response()->json(['data' => $this->serializeDocument($fresh)])
             ->header('X-Correlation-ID', $correlationId)

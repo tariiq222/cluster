@@ -31,7 +31,9 @@ final class PredisStreamDriver implements RedisStreamDriver
     public function createGroup(string $stream, string $group): void
     {
         try {
-            $this->client->executeRaw(['XGROUP', 'CREATE', $stream, $group, '0', 'MKSTREAM']);
+            $this->client->executeCommand(
+                $this->client->createCommand('XGROUP', ['CREATE', $stream, $group, '0', true]),
+            );
         } catch (Throwable $exception) {
             if (str_contains($exception->getMessage(), 'BUSYGROUP')) {
                 return;
@@ -43,7 +45,11 @@ final class PredisStreamDriver implements RedisStreamDriver
 
     public function readGroup(string $stream, string $group, string $consumer, int $limit): array
     {
-        return $this->client->xreadgroup($group, $consumer, $limit, null, false, $stream, '>');
+        $response = $this->client->executeCommand(
+            $this->client->createCommand('XREADGROUP', [$group, $consumer, $limit, null, false, $stream, '>']),
+        );
+
+        return is_array($response) ? $response : [];
     }
 
     public function pending(string $stream, string $group, int $limit): array

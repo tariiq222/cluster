@@ -1,4 +1,4 @@
-.PHONY: verify-intake python-bin api\:inventory api\:check test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets npm-audit audit-dependencies test-e2e test-e2e-w1-1 test-w1-1-api-worker-smoke verify-boundaries verify-mysql-integration docs-validate docs-validate-fast help verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
+.PHONY: verify-intake python-bin api\:inventory api\:check test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets npm-audit audit-dependencies test-e2e test-e2e-w1-1 test-e2e-w1-1-strict test-w1-1-api-worker-smoke verify-boundaries verify-mysql-integration verify-mysql-integration-strict preflight-mysql-integration-strict preflight-e2e-w1-1-strict preflight-architecture-closure verify-architecture-closure docs-validate docs-validate-fast help verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
@@ -98,6 +98,104 @@ verify-mysql-integration:
 		exit 1; \
 	fi
 
+# Closure-only MySQL gate. The developer target above keeps its intentional
+# SKIP semantics; this preflight turns every unavailable prerequisite into a
+# hard failure before the closure runner starts.
+preflight-mysql-integration-strict:
+	@failed=0; \
+	for command_name in docker php; do \
+		if ! command -v "$$command_name" >/dev/null 2>&1; then \
+			printf 'ERROR: architecture closure MySQL prerequisite missing: %s.\n' "$$command_name" >&2; \
+			failed=1; \
+		fi; \
+	done; \
+	if command -v docker >/dev/null 2>&1; then \
+		if ! docker info >/dev/null 2>&1; then \
+			printf '%s\n' 'ERROR: architecture closure MySQL prerequisite unavailable: docker daemon.' >&2; \
+			failed=1; \
+		fi; \
+		if ! docker compose version >/dev/null 2>&1; then \
+			printf '%s\n' 'ERROR: architecture closure MySQL prerequisite missing: docker compose.' >&2; \
+			failed=1; \
+		fi; \
+	fi; \
+	if command -v php >/dev/null 2>&1; then \
+		if ! php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);' >/dev/null 2>&1; then \
+			printf '%s\n' 'ERROR: architecture closure MySQL prerequisite missing: pdo_mysql.' >&2; \
+			failed=1; \
+		fi; \
+		if ! php -r 'exit(extension_loaded("pcntl") ? 0 : 1);' >/dev/null 2>&1; then \
+			printf '%s\n' 'ERROR: architecture closure MySQL prerequisite missing: pcntl.' >&2; \
+			failed=1; \
+		fi; \
+	fi; \
+	for required_path in apps/api/vendor/bin/phpunit apps/api/phpunit.mysql.xml infra/dev/compose.yaml infra/dev/.env.example scripts/run-mysql-integration-tests.sh; do \
+		if [ ! -e "$$required_path" ]; then \
+			printf 'ERROR: architecture closure MySQL prerequisite missing: %s.\n' "$$required_path" >&2; \
+			failed=1; \
+		fi; \
+	done; \
+	if [ ! -x apps/api/vendor/bin/phpunit ]; then \
+		printf '%s\n' 'ERROR: architecture closure MySQL prerequisite is not executable: apps/api/vendor/bin/phpunit.' >&2; \
+		failed=1; \
+	fi; \
+	if [ ! -x scripts/run-mysql-integration-tests.sh ]; then \
+		printf '%s\n' 'ERROR: architecture closure MySQL runner is not executable.' >&2; \
+		failed=1; \
+	fi; \
+	if [ "$$failed" -ne 0 ]; then exit 2; fi
+
+verify-mysql-integration-strict: preflight-mysql-integration-strict
+	@scripts/run-mysql-integration-tests.sh
+
+# Closure-only browser gate. The ordinary test-e2e-w1-1 target remains
+# developer-friendly; this preflight rejects a missing localhost stack runner,
+# runtime, dependency install, or Docker service instead of reporting SKIP.
+preflight-e2e-w1-1-strict:
+	@failed=0; \
+	for command_name in bash curl docker lsof node npm php; do \
+		if ! command -v "$$command_name" >/dev/null 2>&1; then \
+			printf 'ERROR: architecture closure E2E prerequisite missing: %s.\n' "$$command_name" >&2; \
+			failed=1; \
+		fi; \
+	done; \
+	if command -v docker >/dev/null 2>&1; then \
+		if ! docker info >/dev/null 2>&1; then \
+			printf '%s\n' 'ERROR: architecture closure E2E prerequisite unavailable: docker daemon.' >&2; \
+			failed=1; \
+		fi; \
+		if ! docker compose version >/dev/null 2>&1; then \
+			printf '%s\n' 'ERROR: architecture closure E2E prerequisite missing: docker compose.' >&2; \
+			failed=1; \
+		fi; \
+	fi; \
+	if command -v php >/dev/null 2>&1 && ! php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);' >/dev/null 2>&1; then \
+		printf '%s\n' 'ERROR: architecture closure E2E prerequisite missing: pdo_mysql.' >&2; \
+		failed=1; \
+	fi; \
+	for required_path in apps/api/vendor/autoload.php apps/web/node_modules/.bin/playwright infra/dev/compose.yaml infra/dev/.env.example infra/dev/run-w1-1-e2e.sh; do \
+		if [ ! -e "$$required_path" ]; then \
+			printf 'ERROR: architecture closure E2E prerequisite missing: %s.\n' "$$required_path" >&2; \
+			failed=1; \
+		fi; \
+	done; \
+	if [ ! -x apps/web/node_modules/.bin/playwright ]; then \
+		printf '%s\n' 'ERROR: architecture closure E2E prerequisite is not executable: apps/web/node_modules/.bin/playwright.' >&2; \
+		failed=1; \
+	fi; \
+	if [ ! -x infra/dev/run-w1-1-e2e.sh ]; then \
+		printf '%s\n' 'ERROR: architecture closure E2E runner is not executable.' >&2; \
+		failed=1; \
+	fi; \
+	if [ "$$failed" -ne 0 ]; then exit 2; fi
+
+test-e2e-w1-1-strict: preflight-e2e-w1-1-strict
+	@./infra/dev/run-w1-1-e2e.sh
+
+preflight-architecture-closure:
+	$(MAKE) preflight-mysql-integration-strict
+	$(MAKE) preflight-e2e-w1-1-strict
+
 # Documentation validation is deliberately strict about the validator runtime.
 # The current lean docs tree has no catalog or MkDocs registry.
 docs-validate:
@@ -119,6 +217,22 @@ docs-validate:
 
 docs-validate-fast: docs-validate
 
+# Deterministic architecture-closure gate. All external-service prerequisites
+# are proven first, then every constituent gate runs in a fixed order. The
+# strict MySQL and W1.1 E2E targets cannot convert missing prerequisites to SKIP.
+verify-architecture-closure:
+	$(MAKE) preflight-architecture-closure
+	$(MAKE) verify-intake
+	$(MAKE) docs-validate
+	$(MAKE) verify-boundaries
+	$(MAKE) lint-api
+	$(MAKE) analyse-api
+	$(MAKE) test-api
+	$(MAKE) verify-mysql-integration-strict
+	$(MAKE) api:check
+	$(MAKE) test-web
+	$(MAKE) test-e2e-w1-1-strict
+
 help:
 	@printf '%s\n' \
 		'Public CI gates:' \
@@ -130,7 +244,8 @@ help:
 		'  verify-mysql-integration   Run the isolated MySQL integration suite.' \
 		'  npm-audit                  Audit production web dependencies.' \
 		'  audit-dependencies         Audit API and web dependencies.' \
-		'  python-bin                 Print the resolved Python 3 binary.'
+		'  python-bin                 Print the resolved Python 3 binary.' \
+		'  verify-architecture-closure Run the strict deterministic architecture closure gate.'
 # البوابة المحلية الكاملة: عقود، جودة، اختبارات، حدود، ورحلة E2E.
 verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies docs-validate test-api test-web verify-boundaries test-w1-1-api-worker-smoke test-e2e-w1-1
 

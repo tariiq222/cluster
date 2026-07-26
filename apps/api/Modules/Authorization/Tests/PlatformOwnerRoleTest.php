@@ -20,6 +20,9 @@ final class PlatformOwnerRoleTest extends TestCase
 
     private const CLUSTER = '0197f0e0-0000-7000-8000-000000000101';
 
+    // Platform owner grants the complete capability catalog and rides above
+    // active explicit denies by design. The engine still checks unknown
+    // capabilities before applying that documented exception.
     public function test_platform_owner_role_tracks_the_complete_capability_catalog(): void
     {
         $this->app->make(BootstrapOperationsOffice::class)->bootstrap(self::OWNER, self::CLUSTER);
@@ -86,6 +89,24 @@ final class PlatformOwnerRoleTest extends TestCase
         ]);
     }
 
+    public function test_platform_owner_does_not_bypass_unknown_capability(): void
+    {
+        $this->app->make(BootstrapOperationsOffice::class)->bootstrap(self::OWNER, self::CLUSTER);
+
+        $decision = $this->app->make(RbacAbacDecideAccess::class)->decide(
+            $this->actor(),
+            'work_record.unknown',
+            null,
+        );
+
+        $this->assertSame('deny', $decision->decision);
+        $this->assertContains('capability_not_supported', $decision->reasonCodes);
+    }
+
+    // Capability-catalog validation remains fail closed and precedes the
+    // documented platform-owner override. Once the capability is known, the
+    // owner rides above record-facts, classification, and explicit-deny checks.
+    // test_platform_owner_bypasses_explicit_denies pins that concession.
     /** @return array{user_id: string, organization_unit_ids: list<string>, correlation_id: string} */
     private function actor(): array
     {

@@ -32,6 +32,7 @@ use Modules\Documents\Domain\DocumentStatus;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Domain\DocumentVersionAvailabilityStatus;
 use Modules\Documents\Domain\UuidV7;
+use Shared\Contracts\TransactionalOutbox;
 use stdClass;
 use Throwable;
 use UnexpectedValueException;
@@ -51,7 +52,7 @@ final class DocumentUploadHandler
         private readonly MalwareScanner $scanner,
         private readonly DocumentUploadPolicy $uploadPolicy,
         private readonly DocumentRetentionPolicy $retentionPolicy,
-        private readonly \Modules\Documents\Domain\Contracts\DocumentsOutbox $outbox,
+        private readonly TransactionalOutbox $outbox,
     ) {}
 
     public function initiate(
@@ -228,7 +229,7 @@ final class DocumentUploadHandler
                 'document_id' => $documentPublicId,
                 'version_id' => $versionPublicId,
                 'upload_intent_id' => $uploadIntentId,
-            ], $now);
+            ]);
 
             return new InitiatedDocumentUpload(
                 $documentPublicId,
@@ -343,7 +344,7 @@ final class DocumentUploadHandler
                     'document_id' => $upload->document_public_id,
                     'version_id' => $upload->version_public_id,
                     'availability_status' => $availabilityStatus->value,
-                ], $now);
+                ]);
 
             return $result;
         });
@@ -439,7 +440,7 @@ final class DocumentUploadHandler
                 'document_id' => $version->document_public_id,
                 'version_id' => $version->version_public_id,
                 'availability_status' => $availabilityStatus->value,
-            ], $now);
+            ]);
 
             return $result;
         });
@@ -533,7 +534,7 @@ final class DocumentUploadHandler
                 'document_id' => $version->document_public_id,
                 'version_id' => $version->version_public_id,
                 'availability_status' => DocumentVersionAvailabilityStatus::Available->value,
-            ], $now);
+            ]);
 
             return $result;
         });

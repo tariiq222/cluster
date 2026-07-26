@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-platform-operations-restore_validation-requested-v1.schema.json",
+  "title": "Outbox event: com.cluster.platform-operations.restore_validation-requested.v1",
+  "description": "CloudEvents envelope for a requested platform restore validation. Produced by apps/api/Modules/PlatformSettings/Features/Operations/Handler/PlatformOperationsHandler.php.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "operation_type": {
+          "const": "restore_validation"
+        }
+      },
+      "required": [
+        "operation_id",
+        "operation_type"
+      ]
+    }
+  }
+}

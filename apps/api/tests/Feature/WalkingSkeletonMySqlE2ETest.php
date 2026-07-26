@@ -130,8 +130,7 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
         $this->assertSame(1, $worker->consumeOnce('poison-c'));
 
         $client = $this->redisClient();
-        $dlq = $client->executeRaw(['XRANGE', 'platform.dlq.v1', '-', '+']);
-        $this->assertIsArray($dlq);
+        $dlq = $client->xrange('platform.dlq.v1', '-', '+');
         $this->assertNotEmpty($dlq);
     }
 
@@ -174,8 +173,7 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
     private function clearStreams(): void
     {
         $client = $this->redisClient();
-        $client->executeRaw([
-            'DEL',
+        $client->del([
             'platform.work-record.submitted.v1',
             'platform.dlq.v1',
             'platform.dlq.v1:source-message-index',
@@ -184,9 +182,15 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
 
     private function redisClient(): Client
     {
+        $options = [];
+        $prefix = config('database.redis.options.prefix');
+        if (is_string($prefix) && $prefix !== '') {
+            $options['prefix'] = $prefix;
+        }
+
         $url = config('database.redis.default.url');
         if (is_string($url) && $url !== '') {
-            return new Client($url);
+            return new Client($url, $options);
         }
 
         $parameters = [
@@ -202,7 +206,7 @@ final class WalkingSkeletonMySqlE2ETest extends TestCase
             }
         }
 
-        return new Client($parameters);
+        return new Client($parameters, $options);
     }
 }
 

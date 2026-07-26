@@ -221,7 +221,7 @@ final class WorkDefinitionController
             return $deny;
         }
         $expected = $this->versionFromMatch($request);
-        if ($expected === null || $expected !== (int) $row->lock_version) {
+        if ($expected === null) {
             return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
         }
         $target = ['test' => 'tested', 'approve' => 'approved', 'sign' => 'signed', 'publish' => 'published'][$action] ?? null;
@@ -230,6 +230,9 @@ final class WorkDefinitionController
         }
 
         $result = $this->mutator->transition($versionId, $expected, $action, $target, $row->published_at);
+        if (($result['stale'] ?? false) === true) {
+            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
+        }
         if (! $result['ok']) {
             return $this->problem(409, 'work-definition-conflict', $result['conflict'] ?? 'conflict', $c);
         }

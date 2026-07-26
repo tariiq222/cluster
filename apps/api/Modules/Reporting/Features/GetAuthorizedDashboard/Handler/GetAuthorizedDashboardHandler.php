@@ -3,6 +3,7 @@
 namespace Modules\Reporting\Features\GetAuthorizedDashboard\Handler;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 
@@ -31,21 +32,22 @@ final class GetAuthorizedDashboardHandler
         foreach ($query->get() as $row) {
             $decision = $this->access->decide(
                 $actor,
-                'work_record.read',
+                'reporting.dashboard',
                 new RecordFacts($row->scope_id, $row->source_type, $row->classification),
             );
             if (! $decision->isAllowed()) {
                 continue;
             }
             $data = json_decode((string) $row->safe_data, true);
-            $items[] = [
+            $items[] = AccessProjection::fromDecision($decision)->compose([
                 'id' => $row->id,
                 'source_type' => $row->source_type,
                 'source_id' => $row->source_id,
                 'title' => $row->title,
                 'scope_id' => $row->scope_id,
+                'classification' => $row->classification,
                 'data' => is_array($data) ? $data : [],
-            ];
+            ]);
         }
 
         return ['id' => $dashboardId, 'title' => $dashboard->title, 'items' => $items, 'total' => count($items)];

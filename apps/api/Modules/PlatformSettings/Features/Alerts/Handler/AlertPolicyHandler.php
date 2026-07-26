@@ -8,12 +8,16 @@ use Illuminate\Support\Str;
 use Modules\PlatformSettings\Contracts\PublishTechnicalAlert;
 use Modules\PlatformSettings\Contracts\ValidateTechnicalAlertRecipientCapability;
 use Modules\PlatformSettings\Domain\AlertPolicy;
+use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 
 final class AlertPolicyHandler implements PublishTechnicalAlert
 {
     public const TECHNICAL_ALERT = 'com.cluster.platform.technical-alert.v1';
 
-    public function __construct(private readonly ValidateTechnicalAlertRecipientCapability $capabilities) {}
+    public function __construct(
+        private readonly ValidateTechnicalAlertRecipientCapability $capabilities,
+        private readonly PlatformSettingsOutbox $outbox,
+    ) {}
 
     /** @return array{id: string, code: string, severity: string, channel: string, recipient_capability: string, escalation_minutes: int} */
     public function create(
@@ -25,29 +29,32 @@ final class AlertPolicyHandler implements PublishTechnicalAlert
     ): array {
         $policy = new AlertPolicy($code, $severity, $channel, $recipientCapability, $escalationMinutes);
         $this->capabilities->assertSupported($policy->recipientCapability);
-        $id = Str::uuid7()->toString();
-        $now = now();
-        DB::table('platform_alert_policies')->insert([
-            'id' => $id,
-            'code' => $policy->code,
-            'status' => 'active',
-            'severity' => $policy->severity,
-            'channel' => $policy->channel,
-            'routing_policy' => json_encode(['recipient_capability' => $policy->recipientCapability], JSON_THROW_ON_ERROR),
-            'escalation_policy' => json_encode(['after_minutes' => $policy->escalationMinutes], JSON_THROW_ON_ERROR),
-            'lock_version' => 1,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
 
-        return [
-            'id' => $id,
-            'code' => $policy->code,
-            'severity' => $policy->severity,
-            'channel' => $policy->channel,
-            'recipient_capability' => $policy->recipientCapability,
-            'escalation_minutes' => $policy->escalationMinutes,
-        ];
+        return DB::transaction(function () use ($policy): array {
+            $id = Str::uuid7()->toString();
+            $now = now();
+            DB::table('platform_alert_policies')->insert([
+                'id' => $id,
+                'code' => $policy->code,
+                'status' => 'active',
+                'severity' => $policy->severity,
+                'channel' => $policy->channel,
+                'routing_policy' => json_encode(['recipient_capability' => $policy->recipientCapability], JSON_THROW_ON_ERROR),
+                'escalation_policy' => json_encode(['after_minutes' => $policy->escalationMinutes], JSON_THROW_ON_ERROR),
+                'lock_version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            return [
+                'id' => $id,
+                'code' => $policy->code,
+                'severity' => $policy->severity,
+                'channel' => $policy->channel,
+                'recipient_capability' => $policy->recipientCapability,
+                'escalation_minutes' => $policy->escalationMinutes,
+            ];
+        });
     }
 
     public function publish(
@@ -63,23 +70,15 @@ final class AlertPolicyHandler implements PublishTechnicalAlert
             throw new \InvalidArgumentException('alert_correlation_id_invalid');
         }
 
-        $now = now();
-        DB::table('platform_settings_outbox')->insert([
-            'id' => Str::uuid7()->toString(),
-            'event_type' => self::TECHNICAL_ALERT,
-            'aggregate_type' => 'technical_alert',
-            'aggregate_id' => Str::uuid7()->toString(),
-            'payload' => json_encode([
-                'alert_code' => $alertCode,
-                'severity' => $severity,
-                'recipient_capability' => $recipientCapability,
-                'occurred_at' => $occurredAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\\TH:i:sP'),
-                'correlation_id' => $correlationId,
-            ], JSON_THROW_ON_ERROR),
-            'occurred_at' => $occurredAt,
-            'published_at' => null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        DB::transaction(function () use ($alertCode, $severity, $recipientCapability, $occurredAt, $correlationId): void {
+            $this->outbox->appendTechnicalAlert(
+                alertId: Str::uuid7()->toString(),
+                alertCode: $alertCode,
+                severity: $severity,
+                recipientCapability: $recipientCapability,
+                occurredAt: $occurredAt,
+                correlationId: $correlationId,
+            );
+        });
     }
 }

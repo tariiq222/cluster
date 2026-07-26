@@ -28,6 +28,11 @@ final class TaskHttpStore
         return DB::table('tasks')->where('id', $taskId)->first();
     }
 
+    public function findForUpdate(string $taskId): ?stdClass
+    {
+        return DB::table('tasks')->where('id', $taskId)->lockForUpdate()->first();
+    }
+
     public function findForAssignee(string $taskId, string $userId): ?stdClass
     {
         return DB::table('tasks')

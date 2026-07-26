@@ -22,12 +22,14 @@ use Modules\PlatformSettings\Contracts\ValidateTechnicalAlertRecipientCapability
 use Modules\PlatformSettings\Features\Alerts\Handler\AlertPolicyHandler;
 use Modules\PlatformSettings\Features\Calendars\Handler\BusinessCalendarHandler;
 use Modules\PlatformSettings\Features\Maintenance\Handler\MaintenanceWindowHandler;
+use Modules\PlatformSettings\Features\Operations\Handler\PlatformOperationsHandler;
 use Modules\PlatformSettings\Features\Settings\Handler\PlatformSettingsHandler;
 use Modules\PlatformSettings\Infrastructure\LaravelPlatformHealthGateway;
 use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseBusinessCalendars;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabasePlatformSettings;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseTechnicalLogArchiveStore;
+use Shared\Contracts\OutboxRelayStore;
 
 final class PlatformSettingsServiceProvider extends ServiceProvider
 {
@@ -57,8 +59,16 @@ final class PlatformSettingsServiceProvider extends ServiceProvider
             }
         });
         $this->app->bind(BackupOperationsGateway::class, fn (): BackupOperationsGateway => new CommandBackupOperationsGateway(config('platform_operations')));
-        $this->app->bind(PlatformHealthGateway::class, fn (): PlatformHealthGateway => new LaravelPlatformHealthGateway($this->app->make(BackupOperationsGateway::class)));
+        $this->app->bind(PlatformHealthGateway::class, fn ($app): PlatformHealthGateway => new LaravelPlatformHealthGateway(
+            $app->make(BackupOperationsGateway::class),
+            outbox: $app->make(OutboxRelayStore::class),
+        ));
         $this->app->bind(ValidateTechnicalAlertRecipientCapability::class, CatalogTechnicalAlertRecipientCapabilityValidator::class);
+        $this->app->bind(PlatformOperationsHandler::class, fn ($app): PlatformOperationsHandler => new PlatformOperationsHandler(
+            $app->make(PlatformHealthGateway::class),
+            $app->make(BackupOperationsGateway::class),
+            $app->make(PlatformSettingsOutbox::class),
+        ));
         $this->app->bind(PublishTechnicalAlert::class, AlertPolicyHandler::class);
     }
 

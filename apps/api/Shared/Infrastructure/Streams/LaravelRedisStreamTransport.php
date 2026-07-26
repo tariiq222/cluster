@@ -196,7 +196,9 @@ LUA;
         }
 
         $streamEntry = $response[0] ?? null;
-        if (! is_array($streamEntry) || ($streamEntry[0] ?? null) !== $stream) {
+        // Predis reports the configured key prefix in the response key. This
+        // transport requests exactly one stream, so the response slot is authoritative.
+        if (! is_array($streamEntry)) {
             return [];
         }
 

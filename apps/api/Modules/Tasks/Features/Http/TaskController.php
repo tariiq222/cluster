@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Tasks\Domain\TaskIdempotencyConflict;
 use Modules\Tasks\Features\CompleteTask\Handler\CompleteTaskHandler;
+use Modules\Tasks\Features\CompleteTask\Handler\StaleTaskVersion;
 use Modules\Tasks\Features\CreateTaskFromWorkflowStep\Handler\CreateTaskFromWorkflowStepHandler;
 use Modules\Tasks\Features\TransitionTask\Handler\TransitionTaskHandler;
 use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
@@ -255,23 +257,33 @@ final class TaskController
         if (! $this->allowed($p, $task, $taskCapability, $c)) {
             return $this->problem(403, 'access-denied', 'Access denied.', $c);
         } $expected = $this->versionFromMatch($request);
-        if ($expected === null || $expected !== (int) $task->lock_version) {
+        if ($expected === null) {
             return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
         } if ($action === 'complete') {
             try {
-                $result = $this->completer->handle($taskId, $p['user_id']);
+                $result = $this->completer->handle($taskId, $p['user_id'], $expected, $key);
 
                 return $this->response($result['task'], 200, $c, (int) $result['task']['lock_version']);
+            } catch (StaleTaskVersion) {
+                return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
+            } catch (TaskIdempotencyConflict $e) {
+                return $this->problem(409, 'idempotency-conflict', $e->getMessage(), $c);
             } catch (\Throwable $e) {
                 return $this->problem(409, 'task-transition-failed', $e->getMessage(), $c);
             }
         }
-        $updated = $this->transitioner->handle($taskId, $expected, $action, $p['user_id']);
-        if ($updated === null) {
+        try {
+            $updated = $this->transitioner->handle($taskId, $expected, $action, $p['user_id'], $key);
+        } catch (StaleTaskVersion) {
             return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
+        } catch (TaskIdempotencyConflict $e) {
+            return $this->problem(409, 'idempotency-conflict', $e->getMessage(), $c);
+        }
+        if ($updated === null) {
+            return $this->problem(409, 'invalid-task-transition', 'The task action is not supported.', $c);
         }
 
-        return $this->response((array) $updated, 200, $c, $expected + 1);
+        return $this->response((array) $updated, 200, $c, (int) $updated->lock_version);
     }
 
     private function isUuidV7(mixed $value): bool

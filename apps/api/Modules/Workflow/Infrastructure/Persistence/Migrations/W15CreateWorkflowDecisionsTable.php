@@ -5,6 +5,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Superseded before registration by W16CreateWorkflowDecisionsTable and
+ * W17AddApprovalColumnsToWorkflowVersions. Retained only for migration-history
+ * reversibility; config/module_migrations.php must never register W15 with W16.
+ */
 return new class extends Migration
 {
     public function up(): void

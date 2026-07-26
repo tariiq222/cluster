@@ -5,11 +5,18 @@ namespace Modules\PlatformSettings\Features\Operations\Handler;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\PlatformSettings\Contracts\BackupOperationsGateway;
+use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
+use Shared\Contracts\OutboxEventLookup;
+use Shared\Contracts\OutboxRelayStore;
 use Throwable;
 
 final class PlatformOperationsDispatchHandler
 {
-    public function __construct(private readonly BackupOperationsGateway $backups) {}
+    public function __construct(
+        private readonly BackupOperationsGateway $backups,
+        private readonly OutboxRelayStore $outbox,
+        private readonly OutboxEventLookup $outboxEvents,
+    ) {}
 
     public function run(int $limit): int
     {
@@ -91,10 +98,12 @@ final class PlatformOperationsDispatchHandler
                 'updated_at' => now(),
             ]);
             $this->snapshot((string) $operation->id, (string) $operation->operation_type, $status);
-            DB::table('platform_settings_outbox')->where('aggregate_id', $operation->id)->whereNull('published_at')->update([
-                'published_at' => now(),
-                'updated_at' => now(),
-            ]);
+            $eventType = PlatformSettingsOutbox::operationEventType((string) $operation->operation_type)->value;
+            $event = $this->outboxEvents->findCloudEvent((string) $operation->id, $eventType);
+            $eventId = $event['id'] ?? null;
+            if (! is_string($eventId) || ! $this->outbox->markPublished($eventId)) {
+                throw new \LogicException('The platform operation Outbox event could not be marked published.');
+            }
         });
     }
 

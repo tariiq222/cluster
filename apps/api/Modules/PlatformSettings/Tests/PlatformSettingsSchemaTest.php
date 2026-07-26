@@ -30,10 +30,11 @@ final class PlatformSettingsSchemaTest extends TestCase
             'platform_maintenance_windows',
             'platform_alert_policies',
             'platform_operation_snapshots',
-            'platform_settings_outbox',
         ] as $table) {
             $this->assertTrue(Schema::hasTable($table));
         }
+        $this->assertFalse(Schema::hasTable('platform_settings_outbox'));
+        $this->assertTrue(Schema::hasTable('outbox_events'));
 
         DB::table('platform_setting_versions')->insert([
             'id' => '0197f0e0-0000-7000-8000-000000000001',

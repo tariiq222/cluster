@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Modules\PlatformSettings\Contracts\BackupOperationsGateway;
 use Modules\PlatformSettings\Contracts\PlatformHealthGateway;
 use Modules\PlatformSettings\Domain\PlatformHealthSnapshot;
+use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final class PlatformOperationsHandler
@@ -15,6 +16,7 @@ final class PlatformOperationsHandler
     public function __construct(
         private readonly PlatformHealthGateway $health,
         private readonly BackupOperationsGateway $backups,
+        private readonly ?PlatformSettingsOutbox $outbox = null,
     ) {}
 
     public function health(): PlatformHealthSnapshot
@@ -296,16 +298,9 @@ final class PlatformOperationsHandler
 
     private function appendDispatchOutbox(string $operationId, string $operationType): void
     {
-        DB::table('platform_settings_outbox')->insert([
-            'id' => (string) Str::uuid7(),
-            'event_type' => "com.cluster.platform-operations.{$operationType}-requested.v1",
-            'aggregate_type' => 'platform_operation_request',
-            'aggregate_id' => $operationId,
-            'payload' => json_encode(['operation_id' => $operationId, 'operation_type' => $operationType], JSON_THROW_ON_ERROR),
-            'occurred_at' => now(),
-            'published_at' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if ($this->outbox === null) {
+            throw new \LogicException('PlatformSettingsOutbox is required for platform operation mutations.');
+        }
+        $this->outbox->appendOperationRequested($operationId, $operationType);
     }
 }

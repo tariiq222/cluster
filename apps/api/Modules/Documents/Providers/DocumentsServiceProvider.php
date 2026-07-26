@@ -15,7 +15,6 @@ use Modules\Documents\Contracts\MalwareScanner;
 use Modules\Documents\Contracts\PrivateObjectStorage;
 use Modules\Documents\Contracts\SensitiveAccessEventRecorder;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
-use Modules\Documents\Domain\Contracts\DocumentsOutbox;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\DocumentDownload\Http\DownloadDocumentController;
@@ -25,7 +24,6 @@ use Modules\Documents\Features\Upload\Http\CompleteDocumentUploadController;
 use Modules\Documents\Features\Upload\Http\GetDocumentUploadStatusController;
 use Modules\Documents\Features\Upload\Http\InitiateDocumentUploadController;
 use Modules\Documents\Infrastructure\Authorization\ConfiguredWorkerPrincipalResolver;
-use Modules\Documents\Infrastructure\Outbox\DocumentsTransactionalOutbox;
 use Modules\Documents\Infrastructure\Persistence\DatabaseDocumentAuthorizationFactsReader;
 use Modules\Documents\Infrastructure\Persistence\DatabaseDocumentUploadStatusReader;
 use Modules\Documents\Infrastructure\Persistence\DatabaseSensitiveAccessEventRecorder;
@@ -51,7 +49,6 @@ final class DocumentsServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->bind(DocumentsOutbox::class, DocumentsTransactionalOutbox::class);
         $this->app->bind(DocumentAuthorizationFactsReader::class, DatabaseDocumentAuthorizationFactsReader::class);
         $this->app->bind(DocumentUploadStatusReader::class, DatabaseDocumentUploadStatusReader::class);
         $this->app->bind(DocumentDownloadGrantIssuer::class, S3DocumentDownloadGrantIssuer::class);

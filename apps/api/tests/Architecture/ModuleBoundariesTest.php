@@ -52,12 +52,28 @@ class ModuleBoundariesTest extends TestCase
         'Risk',
     ];
 
+    /**
+     * W15 combined unrelated workflow review/runtime changes and was replaced
+     * before registration by the narrower W16 decision-ledger migration plus
+     * W17 approval columns. It remains as migration-history evidence only.
+     *
+     * @var list<string>
+     */
+    private const SUPERSEDED_MIGRATIONS = [
+        'Modules/Workflow/Infrastructure/Persistence/Migrations/W15CreateWorkflowDecisionsTable.php',
+    ];
+
+    /** @var list<string> */
+    private const LEGACY_MODULE_OUTBOX_TABLES = [
+        'document_outbox_events',
+        'platform_settings_outbox',
+    ];
+
     /** @var array<string, string> */
     private const TABLE_OWNERS = [
         // PlatformSettings (rank 0)
         'platform_settings' => 'PlatformSettings',
         'platform_setting_versions' => 'PlatformSettings',
-        'platform_settings_outbox' => 'PlatformSettings',
         'platform_alert_policies' => 'PlatformSettings',
         'business_calendars' => 'PlatformSettings',
         'business_calendar_weekdays' => 'PlatformSettings',
@@ -140,7 +156,6 @@ class ModuleBoundariesTest extends TestCase
         'document_upload_intents' => 'Documents',
         'document_restriction_facts' => 'Documents',
         'document_access_events' => 'Documents',
-        'document_outbox_events' => 'Documents',
         // Tasks (rank 7)
         'tasks' => 'Tasks',
         'task_idempotency_keys' => 'Tasks',
@@ -407,6 +422,37 @@ PHP);
         }
     }
 
+    public function test_rejects_legacy_module_outbox_access_outside_the_shared_cutover_migration(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/PlatformSettings/Features/Settings/Handler.php', <<<'PHP'
+<?php
+namespace Modules\PlatformSettings\Features\Settings;
+use Illuminate\Support\Facades\DB;
+final class Handler
+{
+    public function handle(): void
+    {
+        DB::table('platform_settings_outbox')->insert(['id' => 'legacy']);
+        DB::table('document_outbox_events')->insert(['id' => 'legacy']);
+    }
+}
+PHP);
+
+        try {
+            $this->assertContains(
+                'PlatformSettings must not access legacy module outbox table platform_settings_outbox; use Shared\\Contracts.',
+                $this->violationsIn($root),
+            );
+            $this->assertContains(
+                'PlatformSettings must not access legacy module outbox table document_outbox_events; use Shared\\Contracts.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
     public function test_rejects_cross_owner_infrastructure_import_from_a_producer(): void
     {
         $root = $this->fixtureRoot();
@@ -523,13 +569,10 @@ PHP);
                 ) {
                     $violations[] = "{$module} must access Shared-owned outbox_events only through Shared\Contracts.";
                 }
-                if (
-                    $module === 'Documents'
-                    && ! str_contains($relativePath, '/Tests/')
-                    && ! str_ends_with($relativePath, '/Infrastructure/Outbox/DocumentsTransactionalOutbox.php')
-                    && in_array('document_outbox_events', $this->tablesInDatabaseCalls($source), true)
-                ) {
-                    $violations[] = 'Documents must access document_outbox_events only through Modules\\Documents\\Domain\\Contracts\\DocumentsOutbox.';
+                if (! str_contains($relativePath, '/Tests/')) {
+                    foreach (array_intersect(self::LEGACY_MODULE_OUTBOX_TABLES, $this->tablesInDatabaseCalls($source)) as $legacyOutbox) {
+                        $violations[] = "{$module} must not access legacy module outbox table {$legacyOutbox}; use Shared\\Contracts.";
+                    }
                 }
 
                 foreach ($this->businessIdentifiersFrom($source) as $identifier) {
@@ -869,60 +912,6 @@ PHP);
         rmdir($path);
     }
 
-    public function test_rejects_raw_document_outbox_access_outside_the_documents_adapter(): void
-    {
-        $root = $this->fixtureRoot();
-        $this->writeFixture($root, 'Modules/Documents/Features/Upload/Handler.php', <<<'PHP'
-<?php
-namespace Modules\Documents\Features\Upload;
-use Illuminate\Support\Facades\DB;
-final class Handler
-{
-    public function handle(): void
-    {
-        DB::table('document_outbox_events')->insert(['id' => 'duplicate']);
-    }
-}
-PHP);
-
-        try {
-            $this->assertContains(
-                'Documents must access document_outbox_events only through Modules\\Documents\\Domain\\Contracts\\DocumentsOutbox.',
-                $this->violationsIn($root),
-            );
-        } finally {
-            $this->removeDirectory($root);
-        }
-    }
-
-    public function test_allows_raw_document_outbox_access_inside_the_documents_adapter(): void
-    {
-        $root = $this->fixtureRoot();
-        $this->writeFixture($root, 'Modules/Documents/Infrastructure/Outbox/DocumentsTransactionalOutbox.php', <<<'PHP'
-<?php
-namespace Modules\Documents\Infrastructure\Outbox;
-use Illuminate\Support\Facades\DB;
-final class DocumentsTransactionalOutbox
-{
-    public function append(): void
-    {
-        DB::table('document_outbox_events')->insert(['id' => '1']);
-    }
-}
-PHP);
-
-        try {
-            $violations = $this->violationsIn($root);
-            $this->assertNotContains(
-                'Documents must access document_outbox_events only through Modules\\Documents\\Domain\\Contracts\\DocumentsOutbox.',
-                $violations,
-                'Documents-owned outbox adapter must be allowed to write to its own table without flagging: '.implode(' | ', $violations),
-            );
-        } finally {
-            $this->removeDirectory($root);
-        }
-    }
-
     public function test_every_misplaced_file_has_a_reason_a_non_past_expiry_and_an_existing_path(): void
     {
         $entries = ModulePlacementInventory::misplacedBusinessFiles();
@@ -1043,6 +1032,51 @@ PHP);
         );
     }
 
+    public function test_module_migration_manifest_registers_every_live_migration_exactly_once(): void
+    {
+        $registered = array_values(config('module_migrations', []));
+        foreach ($registered as $path) {
+            $this->assertIsString($path);
+            $this->assertFileExists($path, sprintf('Registered migration does not exist: %s', $path));
+        }
+        $counts = array_count_values($registered);
+        $duplicates = array_keys(array_filter($counts, static fn (int $count): bool => $count !== 1));
+        $this->assertSame([], $duplicates, 'Migration manifest paths must be registered exactly once.');
+
+        $superseded = array_map(
+            static fn (string $path): string => base_path($path),
+            self::SUPERSEDED_MIGRATIONS,
+        );
+        foreach ($superseded as $path) {
+            $this->assertFileExists($path, sprintf('Classified superseded migration does not exist: %s', $path));
+        }
+        $this->assertSame(
+            [],
+            array_values(array_intersect($registered, $superseded)),
+            'Superseded migrations must not be registered alongside their replacements.',
+        );
+
+        $discovered = [];
+        foreach ([
+            base_path('Modules/*/Infrastructure/Persistence/Migrations/*.php'),
+            base_path('Modules/*/Infrastructure/Outbox/Migrations/*.php'),
+            base_path('Shared/Infrastructure/Outbox/Migrations/*.php'),
+        ] as $pattern) {
+            foreach (glob($pattern) ?: [] as $path) {
+                $discovered[] = $path;
+            }
+        }
+        $live = array_values(array_diff(array_unique($discovered), $superseded));
+        sort($live);
+        sort($registered);
+
+        $this->assertSame(
+            $live,
+            $registered,
+            'Every live migration must be registered once; every unregistered migration must be explicitly classified as superseded.',
+        );
+    }
+
     public function test_every_migrated_table_has_an_owner_and_owners_match_actual_module_layout(): void
     {
         $repoRoot = dirname(__DIR__, 4);
@@ -1056,6 +1090,11 @@ PHP);
         ];
         foreach ($migrationPaths as $pattern) {
             foreach (glob($pattern) as $file) {
+                if (basename($file) === 'MigrateLegacyModuleOutboxes.php') {
+                    // Its Schema::create calls are rollback-only restorations of retired
+                    // module outboxes; up() creates no live table and drops both after copy.
+                    continue;
+                }
                 $moduleName = basename(dirname(dirname(dirname(dirname($file)))));
                 $source = file_get_contents($file);
                 if ($source === false) {

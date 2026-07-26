@@ -81,17 +81,23 @@ enum OutboxEventType: string
     case WorkRecordInvalid = 'com.cluster.workrecord.invalid.v1';
 
     // ── Documents ─────────────────────────────────────────────────────────
+    case DocumentCreated = 'com.cluster.documents.created.v1';
     case DocumentUploadInitiated = 'com.cluster.documents.uploadinitiated.v1';
     case DocumentVersionUploaded = 'com.cluster.documents.versionuploaded.v1';
     case DocumentVersionRejected = 'com.cluster.documents.versionrejected.v1';
     case DocumentVersionQuarantined = 'com.cluster.documents.versionquarantined.v1';
     case DocumentVersionPromotionRequested = 'com.cluster.documents.versionpromotionrequested.v1';
     case DocumentVersionAvailable = 'com.cluster.documents.versionavailable.v1';
+    case DocumentMetadataUpdated = 'com.cluster.documents.metadataupdated.v1';
+    case DocumentLinked = 'com.cluster.documents.linked.v1';
+    case DocumentLifecycleTransitioned = 'com.cluster.documents.lifecycletransitioned.v1';
+    case DocumentGrantIssued = 'com.cluster.documents.grantissued.v1';
 
     // ── PlatformSettings ──────────────────────────────────────────────────
     case PlatformSettingVersionPublished = 'com.cluster.platform-settings.version-published.v1';
     case PlatformTechnicalAlert = 'com.cluster.platform.technical-alert.v1';
     case PlatformOperationsBackupRequested = 'com.cluster.platform-operations.backup-requested.v1';
+    case PlatformOperationsRestoreValidationRequested = 'com.cluster.platform-operations.restore_validation-requested.v1';
 
     /**
      * Path to the JSON schema document for this event type under the

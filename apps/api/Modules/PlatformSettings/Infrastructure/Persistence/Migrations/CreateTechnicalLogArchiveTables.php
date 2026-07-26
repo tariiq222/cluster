@@ -44,7 +44,7 @@ return new class extends Migration
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
             $table->index(['status', 'expires_at']);
-            $table->index(['manifest_id', 'created_at']);
+            $table->index(['manifest_id', 'created_at'], 'technical_log_restore_manifest_created_idx');
         });
     }
 

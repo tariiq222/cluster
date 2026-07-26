@@ -10,7 +10,6 @@ use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Workflow\Contracts\ResolveWorkflowSourceAuthorizationFacts;
 use Modules\Workflow\Contracts\WorkflowSourceReference;
-use Modules\Workflow\Features\Engine\Handler\RecordDecisionHandler;
 use Modules\Workflow\Features\GetVisibleWorkflowInstance\Query\GetVisibleWorkflowInstance;
 use Modules\Workflow\Features\ListApprovalInbox\Query\ListApprovalInbox;
 use Modules\Workflow\Features\StartWorkflow\Handler\StartWorkflowHandler;
@@ -29,7 +28,6 @@ final class WorkflowController
         private readonly GetVisibleWorkflowInstance $visibleInstances,
         private readonly ListApprovalInbox $approvalInbox,
         private readonly ResolveWorkflowSourceAuthorizationFacts $sourceFacts,
-        private readonly ?RecordDecisionHandler $recordDecision = null,
     ) {}
 
     public function definitions(Request $request): mixed
@@ -92,13 +90,33 @@ final class WorkflowController
         }
         $p = $this->principal($request, $this->resolver);
         $graph = ['nodes' => $v['nodes'], 'transitions' => $v['transitions'], 'decision_policy' => $v['decision_policy'] ?? []];
-        $result = $this->mutator->createVersion($definitionId, (string) $p['user_id'], $graph);
+        $versionCommand = [...$v, 'definition_id' => $definitionId];
+        $replay = $this->mutator->replay((string) $p['user_id'], 'createWorkflowVersion', $key, $versionCommand);
+        if ($replay !== null) {
+            if (! $replay['match']) {
+                return $this->problem(409, 'idempotency-conflict', 'Idempotency-Key was already used for a different request.', $c);
+            }
+            $stored = DB::table('workflow_versions')->where('id', $replay['resource_id'])->first();
+            if ($stored !== null) {
+                return $this->response($this->decode((array) $stored), 201, $c, 1);
+            }
+        }
+        $result = $this->mutator->createVersion(
+            $definitionId,
+            (string) $p['user_id'],
+            $graph,
+            [
+                'operation' => 'createWorkflowVersion',
+                'key_hash' => hash('sha256', $key),
+                'request_hash' => hash('sha256', json_encode($versionCommand, JSON_THROW_ON_ERROR)),
+                'principal_id' => (string) $p['user_id'],
+            ],
+        );
         if (! $result['ok']) {
             return $this->problem(409, 'workflow-version-conflict', $result['conflict'], $c);
         }
-        $versionRow = (array) DB::table('workflow_versions')->where('id', $result['version_id'])->first();
 
-        return $this->response($this->decode($versionRow), 201, $c, 1);
+        return $this->response($this->decode($result['version']), 201, $c, 1);
     }
 
     public function publish(Request $request, string $versionId, string $action): mixed
@@ -125,10 +143,29 @@ final class WorkflowController
         }
         if ($action !== 'publish') {
             return $this->problem(409, 'invalid-lifecycle-transition', 'Only publish is available in this vertical.', $c);
-        } if ($row->definition_state === 'published') {
+        }
+        $publishCommand = ['version_id' => $versionId];
+        $replay = $this->mutator->replay((string) $p['user_id'], 'publishWorkflowVersion', $key, $publishCommand);
+        if ($replay !== null) {
+            if (! $replay['match']) {
+                return $this->problem(409, 'idempotency-conflict', 'Idempotency-Key was already used for a different request.', $c);
+            }
+            $stored = DB::table('workflow_versions')->where('id', $replay['resource_id'])->first();
+
+            return $stored === null
+                ? $this->problem(409, 'invalid-lifecycle-transition', 'The workflow version cannot be published.', $c)
+                : $this->response($this->decode((array) $stored), 200, $c, 1);
+        }
+        if ($row->definition_state === 'published') {
             return $this->response($this->decode((array) $row), 200, $c, 1);
         }
-        $result = $this->mutator->publishVersion($versionId);
+        $pubIdem = [
+            'operation' => 'publishWorkflowVersion',
+            'key_hash' => hash('sha256', $key),
+            'request_hash' => hash('sha256', json_encode($publishCommand, JSON_THROW_ON_ERROR)),
+            'principal_id' => (string) $p['user_id'],
+        ];
+        $result = $this->mutator->publishVersion($versionId, $pubIdem);
         if (! $result['ok']) {
             return $this->problem(409, 'invalid-lifecycle-transition', $result['conflict'], $c);
         }
@@ -344,11 +381,17 @@ final class WorkflowController
         if (! in_array($step->state, ['active', 'waiting'], true)) {
             return $this->problem(409, 'workflow-step-invalid-state', 'The workflow step is not in a state for this action.', $c);
         }
-        $replay = $this->mutator->replay((string) $p['user_id'], 'recordWorkflowDecision', $key, $v);
+        $replay = $this->mutator->replay((string) $p['user_id'], 'recordWorkflowDecision', $key, [...$v, 'step_id' => $stepId]);
         if ($replay !== null) {
             return $replay['match'] ? $this->response($this->stepPayload((string) $step->id), 201, $c) : $this->problem(409, 'idempotency-conflict', 'Idempotency-Key was already used for a different request.', $c);
         }
         $newState = in_array($v['decision'], ['approve', 'accept'], true) ? 'completed' : ($v['decision'] === 'return' ? 'returned' : 'rejected');
+        $recIdem = [
+            'operation' => 'recordWorkflowDecision',
+            'key_hash' => hash('sha256', $key),
+            'request_hash' => hash('sha256', json_encode([...$v, 'step_id' => $stepId], JSON_THROW_ON_ERROR)),
+            'principal_id' => (string) $p['user_id'],
+        ];
         $result = $this->mutator->recordStepDecision(
             (array) $step,
             $instance === null ? null : (array) $instance,
@@ -358,20 +401,13 @@ final class WorkflowController
             is_string($v['reason'] ?? null) ? $v['reason'] : null,
             (string) $p['user_id'],
             $c,
+            $recIdem,
         );
         if (! $result['ok']) {
             return $this->problem(409, 'workflow-step-conflict', $result['conflict'], $c);
         }
-        // Persist a queryable decision row outside the transaction so the
-        // reason survives outbox trim/retention. The handler is optional to
-        // keep this controller invokable when only the legacy outbox path is
-        // wired (older deployments or staged rollouts).
-        if ($this->recordDecision !== null) {
-            $this->recordDecision->record((string) $step->id, (string) $v['decision'], is_string($v['reason'] ?? null) ? $v['reason'] : null, (string) $p['user_id'], $c);
-        }
-        $this->mutator->remember((string) $p['user_id'], 'recordWorkflowDecision', $key, $v, (string) $step->id);
 
-        return $this->response($this->stepPayload((string) $step->id, ['decision' => $v['decision']]), 201, $c);
+        return $this->response(['step' => $result['step'], 'decision' => $v['decision']], 201, $c);
     }
 
     public function actOnStep(Request $request, string $stepId, string $stepAction): mixed
@@ -416,6 +452,12 @@ final class WorkflowController
             return $replay['match'] ? $this->response($this->stepPayload((string) $step->id), 200, $c) : $this->problem(409, 'idempotency-conflict', 'Idempotency-Key was already used for a different request.', $c);
         }
 
+        $actIdem = [
+            'operation' => 'actOnWorkflowStep.'.$stepAction,
+            'key_hash' => hash('sha256', $key),
+            'request_hash' => hash('sha256', json_encode([...$v, 'step_id' => $stepId], JSON_THROW_ON_ERROR)),
+            'principal_id' => (string) $p['user_id'],
+        ];
         $result = $this->mutator->actOnStep(
             (array) $step,
             (string) $expected,
@@ -424,13 +466,13 @@ final class WorkflowController
             trim($v['reason']),
             (string) $p['user_id'],
             $c,
+            $actIdem,
         );
         if (! $result['ok']) {
             return $this->problem(409, 'workflow-step-action-conflict', $result['conflict'], $c);
         }
-        $this->mutator->remember((string) $p['user_id'], 'actOnWorkflowStep.'.$stepAction, $key, [...$v, 'step_id' => $stepId], (string) $step->id);
 
-        return $this->response($this->stepPayload((string) $step->id, ['action' => $stepAction]), 200, $c);
+        return $this->response(['step' => $result['step'], 'action' => $stepAction], 200, $c);
     }
 
     public function cancelInstance(Request $request, string $instanceId): mixed
@@ -472,19 +514,25 @@ final class WorkflowController
             return $replay['match'] ? $this->response(['instance' => (array) $current], 200, $c, (int) $current->lock_version) : $this->problem(409, 'idempotency-conflict', 'Idempotency-Key was already used for a different request.', $c);
         }
 
+        $cancelIdem = [
+            'operation' => 'cancelWorkflow',
+            'key_hash' => hash('sha256', $key),
+            'request_hash' => hash('sha256', json_encode([...$v, 'instance_id' => $instanceId], JSON_THROW_ON_ERROR)),
+            'principal_id' => (string) $p['user_id'],
+        ];
         $result = $this->mutator->cancelInstance(
             (array) $instance,
             (string) $expected,
             trim($v['reason']),
             (string) $p['user_id'],
             $c,
+            $cancelIdem,
         );
         if (! $result['ok']) {
             return $this->problem(409, 'workflow-cancel-conflict', $result['conflict'], $c);
         }
-        $this->mutator->remember((string) $p['user_id'], 'cancelWorkflow', $key, [...$v, 'instance_id' => $instanceId], $instanceId);
 
-        return $this->response(['instance' => (array) DB::table('workflow_instances')->where('id', $instanceId)->first()], 200, $c, ((int) $expected) + 1);
+        return $this->response(['instance' => $result['instance']], 200, $c, (int) $result['instance']['lock_version']);
     }
 
     /**

@@ -43,11 +43,25 @@ final class ReportingProjectionTest extends TestCase
         $actor = ['user_id' => 'u', 'facility_id' => 'scope-a'];
         $decider = new ReportingScopeDecider;
 
-        $this->assertSame(1, (new RunAuthorizedReportHandler($decider))->handle($reportId, $actor)['total']);
+        $run = (new RunAuthorizedReportHandler($decider))->handle($reportId, $actor);
         $export = (new ExportAuthorizedReportHandler($decider))->handle($reportId, $actor);
+        $download = (new DownloadExportArtifactHandler($decider))->handle($export['id'], $actor);
+        $dashboard = (new GetAuthorizedDashboardHandler($decider))->handle($dashboardId, $actor);
+
+        $this->assertSame(1, $run['total']);
         $this->assertSame(1, $export['total']);
-        $this->assertSame(1, (new DownloadExportArtifactHandler($decider))->handle($export['id'], $actor)['total']);
-        $this->assertSame(1, (new GetAuthorizedDashboardHandler($decider))->handle($dashboardId, $actor)['total']);
+        $this->assertNotNull($download);
+        $this->assertSame(1, $download['total']);
+        $this->assertSame(1, $dashboard['total']);
+        foreach ([$run, $export, $download, $dashboard] as $result) {
+            $this->assertArrayHasKey('allowed_actions', $result['items'][0]);
+            $this->assertArrayHasKey('field_access', $result['items'][0]);
+            $this->assertArrayHasKey('decision_id', $result['items'][0]);
+        }
+        $this->assertEqualsCanonicalizing(
+            ['reporting.run', 'reporting.export', 'reporting.download', 'reporting.dashboard'],
+            array_values(array_unique($decider->capabilities)),
+        );
     }
 
     /** @return array<string, mixed> */
@@ -59,10 +73,24 @@ final class ReportingProjectionTest extends TestCase
 
 final class ReportingScopeDecider implements DecideAccess
 {
+    /** @var list<string> */
+    public array $capabilities = [];
+
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
+        $this->capabilities[] = $capability;
         $allowed = $facts !== null && ($actor['facility_id'] ?? null) === $facts->ownerFacilityId;
 
-        return new AccessDecision($allowed ? 'allow' : 'deny', $capability, $facts === null ? 'work_record' : $facts->resourceType, [], 'test', 'test', $facts === null ? 'internal' : $facts->classification);
+        return new AccessDecision(
+            decision: $allowed ? 'allow' : 'deny',
+            action: $capability,
+            resourceType: $facts === null ? 'work_record' : $facts->resourceType,
+            reasonCodes: [],
+            policyVersion: 'test',
+            factsVersion: 'test',
+            classification: $facts === null ? 'internal' : $facts->classification,
+            decisionId: $allowed ? 'decision-'.$capability : null,
+            allowedActions: $allowed ? [$capability] : [],
+        );
     }
 }

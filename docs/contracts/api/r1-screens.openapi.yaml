@@ -482,7 +482,7 @@ paths:
   /work-definition-versions/{versionId}/test:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     post:
       summary: Test a Draft version and transition it to Tested
       operationId: testWorkDefinitionVersion
@@ -508,7 +508,7 @@ paths:
   /work-definition-versions/{versionId}/approve:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     post:
       summary: Approve a Tested version
       operationId: approveWorkDefinitionVersion
@@ -532,7 +532,7 @@ paths:
   /work-definition-versions/{versionId}/sign:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     post:
       summary: Sign an Approved version whose schema hash matches
       operationId: signWorkDefinitionVersion
@@ -564,7 +564,7 @@ paths:
   /work-definition-versions/{versionId}/publish:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     post:
       summary: Publish a Signed version as immutable
       operationId: publishWorkDefinitionVersion
@@ -1266,7 +1266,7 @@ paths:
   /work-records/{recordId}/cancel:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     post:
       summary: Cancel a work record without physical deletion
       operationId: cancelWorkRecord
@@ -1298,7 +1298,7 @@ paths:
   /work-records/{recordId}/archive:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     post:
       summary: Archive a terminal work record subject to retention and holds
       operationId: archiveWorkRecord
@@ -1589,7 +1589,7 @@ paths:
   /documents/{documentId}/{grantType}-grant:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     post:
       summary: Issue a one-time preview or download grant after authorization and audit
       operationId: createDocumentAccessGrant

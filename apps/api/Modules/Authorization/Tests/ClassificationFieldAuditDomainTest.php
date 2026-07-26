@@ -70,6 +70,23 @@ class ClassificationFieldAuditDomainTest extends TestCase
         );
     }
 
+    public function test_field_access_template_normalizes_unqualified_paths_to_payload_paths(): void
+    {
+        $template = new FieldAccessTemplate(
+            fieldPolicyKey: 'work_record.normalized',
+            moduleCode: 'work_records',
+            fieldDecisions: [
+                'summary' => FieldDecision::READ,
+                'payload.status' => FieldDecision::EDIT,
+            ],
+            policyVersion: 'v1',
+        );
+
+        $this->assertSame(FieldDecision::READ, $template->decisionFor('payload.summary'));
+        $this->assertSame(FieldDecision::EDIT, $template->decisionFor('payload.status'));
+        $this->assertSame(FieldDecision::HIDE, $template->decisionFor('summary'));
+    }
+
     public function test_access_projection_maps_payload_paths_to_serializer_fields(): void
     {
         $projection = new AccessProjection(

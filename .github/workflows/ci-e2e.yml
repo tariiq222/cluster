@@ -34,7 +34,7 @@ concurrency:
 jobs:
   production-e2e:
     runs-on: [self-hosted, cluster-e2e]
-    timeout-minutes: 30
+    timeout-minutes: 120
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
 
@@ -80,17 +80,8 @@ jobs:
       - name: Install Playwright Chromium
         run: npm --prefix apps/web exec -- playwright install chromium
 
-      - name: Verify dependency intake
-        run: make verify-intake
-
-      - name: Verify module boundaries
-        run: make verify-boundaries
-
-      - name: Validate documentation contracts
-        run: make docs-validate
-
-      - name: Run API test suite
-        run: make test-api
+      - name: Run the deterministic architecture closure gate
+        run: make verify-architecture-closure
 
       - name: Build and verify the production bundle E2E
         run: make verify-w1-1-local

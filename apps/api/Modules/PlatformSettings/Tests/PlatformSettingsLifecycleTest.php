@@ -3,10 +3,12 @@
 namespace Modules\PlatformSettings\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Modules\PlatformSettings\Contracts\GetEffectivePlatformSettings;
 use Modules\PlatformSettings\Features\Settings\Handler\PlatformSettingsHandler;
-use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 use RuntimeException;
+use Shared\Contracts\OutboxDuplicatePolicy;
+use Shared\Contracts\TransactionalOutboxEnvelope;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\PreconditionFailedHttpException;
 use Tests\TestCase;
@@ -45,23 +47,31 @@ final class PlatformSettingsLifecycleTest extends TestCase
 
     public function test_outbox_failure_rolls_back_the_publish(): void
     {
-        $this->app->instance(PlatformSettingsOutbox::class, new class extends PlatformSettingsOutbox
+        $handler = $this->app->make(PlatformSettingsHandler::class);
+        $draft = $handler->createDraft();
+        $validated = $handler->validate($draft['id'], $draft['lock_version']);
+        $outboxCount = DB::table('outbox_events')->count();
+        $this->app->instance(TransactionalOutboxEnvelope::class, new class implements TransactionalOutboxEnvelope
         {
-            public function append(string $versionId, string $contentHash): void
-            {
+            public function appendEnvelope(
+                string $eventId,
+                string $aggregateId,
+                array $cloudEvent,
+                string $occurredAt,
+                ?string $auditAt = null,
+                OutboxDuplicatePolicy $policy = OutboxDuplicatePolicy::Strict,
+            ): void {
                 throw new RuntimeException('outbox unavailable');
             }
         });
         $handler = $this->app->make(PlatformSettingsHandler::class);
-        $draft = $handler->createDraft();
-        $validated = $handler->validate($draft['id'], $draft['lock_version']);
-
         try {
             $handler->publish($validated['id'], $validated['lock_version']);
             $this->fail('Expected outbox failure.');
         } catch (RuntimeException) {
             $this->assertSame('validated', $handler->listVersions()[0]['status']);
             $this->assertNull($handler->current()['version_id']);
+            $this->assertSame($outboxCount, DB::table('outbox_events')->count());
         }
     }
 

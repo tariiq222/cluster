@@ -11,7 +11,7 @@ use Modules\Authorization\Features\OperationsOffice\OperationsOfficeRoleCatalog;
 use Tests\TestCase;
 
 /**
- * Reversibility coverage for the migrations owned by Task 14.
+ * Reversibility coverage for the migration repairs owned by closure Task 11.
  *
  * Each test loads the migration by `require base_path(...)` so the assertion
  * is the same artifact the application ships.
@@ -38,7 +38,84 @@ final class MigrationReversibilityTest extends TestCase
         Schema::enableForeignKeyConstraints();
     }
 
-    public function test_workflow_w15_up_creates_the_canonical_workflow_decisions_schema(): void
+    public function test_workflow_w16_up_creates_one_decision_slot_per_workflow_step(): void
+    {
+        $this->dropTables(['workflow_decisions']);
+        $migration = self::loadMigration(
+            'Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php',
+        );
+        $migration->up();
+        $this->assertTrue(Schema::hasTable('workflow_decisions'));
+        $this->assertTrue(Schema::hasColumns('workflow_decisions', [
+            'id', 'workflow_step_id', 'workflow_instance_id', 'decision', 'reason',
+            'actor_user_id', 'correlation_id', 'decided_at',
+        ]));
+        $this->assertTrue(
+            Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'),
+            'The registered workflow decision ledger must permit one decision row per workflow step.',
+        );
+    }
+
+    public function test_workflow_w16_down_drops_the_registered_decision_ledger(): void
+    {
+        $this->dropTables(['workflow_decisions']);
+        $migration = self::loadMigration(
+            'Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php',
+        );
+        $migration->up();
+        $migration->down();
+        $this->assertFalse(Schema::hasTable('workflow_decisions'));
+    }
+
+    public function test_workflow_w22_adds_and_reverses_the_unique_step_constraint_for_deployed_w16_schema(): void
+    {
+        $this->dropTables(['workflow_decisions']);
+        Schema::create('workflow_decisions', function ($table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('workflow_step_id');
+            $table->index('workflow_step_id', 'workflow_decisions_step_index');
+        });
+        $migration = self::loadMigration(
+            'Modules/Workflow/Infrastructure/Persistence/Migrations/W22AddWorkflowDecisionStepUnique.php',
+        );
+
+        $migration->up();
+        $this->assertTrue(Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'));
+
+        $migration->down();
+        $this->assertFalse(Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'));
+        $this->assertTrue(Schema::hasIndex('workflow_decisions', ['workflow_step_id']));
+    }
+
+    public function test_workflow_w22_refuses_to_hide_preexisting_duplicate_decisions(): void
+    {
+        $this->dropTables(['workflow_decisions']);
+        Schema::create('workflow_decisions', function ($table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('workflow_step_id');
+            $table->index('workflow_step_id', 'workflow_decisions_step_index');
+        });
+        $stepId = '018f6f7d-0c00-7000-8000-000000000999';
+        DB::table('workflow_decisions')->insert([
+            ['id' => '018f6f7d-0c00-7000-8000-000000000997', 'workflow_step_id' => $stepId],
+            ['id' => '018f6f7d-0c00-7000-8000-000000000998', 'workflow_step_id' => $stepId],
+        ]);
+        $migration = self::loadMigration(
+            'Modules/Workflow/Infrastructure/Persistence/Migrations/W22AddWorkflowDecisionStepUnique.php',
+        );
+
+        try {
+            $migration->up();
+            $this->fail('Expected W22 to require explicit duplicate remediation.');
+        } catch (\LogicException $exception) {
+            $this->assertSame('workflow_decisions_step_unique_requires_duplicate_remediation', $exception->getMessage());
+        }
+
+        $this->assertFalse(Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'));
+        $this->assertSame(2, DB::table('workflow_decisions')->count());
+    }
+
+    public function test_superseded_workflow_w15_up_remains_reversible_for_existing_migration_history(): void
     {
         $this->dropTables(['workflow_decisions', 'workflow_step_instances', 'workflow_instances', 'workflow_versions', 'workflow_definitions']);
         Schema::create('workflow_definitions', function ($table): void {
@@ -96,7 +173,7 @@ final class MigrationReversibilityTest extends TestCase
         );
     }
 
-    public function test_workflow_w15_down_restores_workflow_versions_and_drops_workflow_decisions(): void
+    public function test_superseded_workflow_w15_down_remains_reversible_for_existing_migration_history(): void
     {
         $this->dropTables(['workflow_decisions', 'workflow_step_instances', 'workflow_instances', 'workflow_versions', 'workflow_definitions']);
         Schema::create('workflow_definitions', function ($table): void {
@@ -216,6 +293,240 @@ final class MigrationReversibilityTest extends TestCase
         $this->assertFalse(Schema::hasColumn('workflow_versions', 'single_member_bootstrap_approval'));
     }
 
+    public function test_identity_credentials_down_restores_the_pre_credential_schema_when_empty(): void
+    {
+        $this->dropTables([
+            'identity_auth_attempt_ledgers', 'identity_totp', 'identity_activation_tokens',
+            'identity_password_history', 'credentials', 'identity_person_provisioning',
+            'identity_person_event_watermarks', 'identity_inbox', 'identity_idempotency_keys',
+            'identity_sessions', 'identity_person_account_claims', 'users',
+        ]);
+        $accounts = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/CreateIdentityAccountTables.php',
+        );
+        $credentials = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php',
+        );
+        $accounts->up();
+        $credentials->up();
+
+        $credentials->down();
+
+        $this->assertTrue(Schema::hasTable('users'));
+        $this->assertTrue(Schema::hasTable('identity_sessions'));
+        $this->assertFalse(Schema::hasTable('credentials'));
+        $this->assertFalse(Schema::hasTable('identity_password_history'));
+        $this->assertFalse(Schema::hasTable('identity_activation_tokens'));
+        $this->assertFalse(Schema::hasTable('identity_totp'));
+        $this->assertFalse(Schema::hasTable('identity_auth_attempt_ledgers'));
+        $this->assertFalse(Schema::hasColumn('users', 'is_admin'));
+        $this->assertFalse(Schema::hasColumn('users', 'lockout_level'));
+        $this->assertFalse(Schema::hasColumn('identity_sessions', 'csrf_token_hash'));
+        $this->assertFalse(Schema::hasColumn('identity_sessions', 'mfa_verified'));
+
+        $accounts->down();
+        $this->assertFalse(Schema::hasTable('identity_sessions'));
+        $this->assertFalse(Schema::hasTable('users'));
+    }
+
+    public function test_identity_accounts_down_requires_credentials_to_roll_back_first_even_when_empty(): void
+    {
+        $this->dropTables([
+            'identity_auth_attempt_ledgers', 'identity_totp', 'identity_activation_tokens',
+            'identity_password_history', 'credentials', 'identity_person_provisioning',
+            'identity_person_event_watermarks', 'identity_inbox', 'identity_idempotency_keys',
+            'identity_sessions', 'identity_person_account_claims', 'users',
+        ]);
+        $accounts = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/CreateIdentityAccountTables.php',
+        );
+        $credentials = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php',
+        );
+        $accounts->up();
+        $credentials->up();
+
+        try {
+            $accounts->down();
+            $this->fail('Expected account rollback to require credential rollback first.');
+        } catch (\LogicException $exception) {
+            $this->assertSame('identity_credentials_must_rollback_first', $exception->getMessage());
+        }
+
+        $this->assertTrue(Schema::hasTable('users'));
+        $this->assertTrue(Schema::hasTable('credentials'));
+        $credentials->down();
+        $accounts->down();
+        $this->assertFalse(Schema::hasTable('users'));
+    }
+
+    public function test_identity_credentials_down_refuses_to_destroy_nonempty_credential_state(): void
+    {
+        $this->dropTables([
+            'identity_auth_attempt_ledgers', 'identity_totp', 'identity_activation_tokens',
+            'identity_password_history', 'credentials', 'identity_person_provisioning',
+            'identity_person_event_watermarks', 'identity_inbox', 'identity_idempotency_keys',
+            'identity_sessions', 'identity_person_account_claims', 'users',
+        ]);
+        $accounts = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/CreateIdentityAccountTables.php',
+        );
+        $credentials = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php',
+        );
+        $accounts->up();
+        $credentials->up();
+        $userId = '018f6f7d-0c00-7000-8000-000000000971';
+        DB::table('users')->insert([
+            'id' => $userId,
+            'username' => 'migration-rollback-guard',
+            'display_name_ar' => 'حارس التراجع',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('credentials')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000972',
+            'user_id' => $userId,
+            'password_hash' => 'not-a-real-hash',
+            'hash_algorithm' => 'test',
+            'password_changed_at' => now(),
+            'policy_version' => 'test',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        try {
+            $credentials->down();
+            $this->fail('Expected credential rollback to refuse destructive data loss.');
+        } catch (\LogicException $exception) {
+            $this->assertSame('identity_credentials_rollback_requires_empty_tables', $exception->getMessage());
+        }
+
+        $this->assertTrue(Schema::hasTable('credentials'));
+        $this->assertSame(1, DB::table('credentials')->count());
+        $this->assertTrue(Schema::hasColumn('users', 'is_admin'));
+    }
+
+    public function test_organization_seed_downs_remove_only_their_unreferenced_owned_rows(): void
+    {
+        $this->dropTables([
+            'positions', 'organization_units', 'unit_types', 'organization_idempotency_keys',
+            'facilities', 'facility_types', 'clusters',
+        ]);
+        $core = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationCoreTables.php',
+        );
+        $tree = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationTreeTables.php',
+        );
+        $facilityTypes = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationFacilityTypes.php',
+        );
+        $unitTypes = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationUnitTypes.php',
+        );
+        $core->up();
+        $tree->up();
+        $facilityTypes->up();
+        $unitTypes->up();
+
+        $unitTypes->down();
+        $facilityTypes->down();
+
+        $this->assertSame(0, DB::table('facility_types')->count());
+        $this->assertSame(0, DB::table('unit_types')->count());
+        $this->assertTrue(Schema::hasTable('facilities'));
+        $this->assertTrue(Schema::hasTable('organization_units'));
+    }
+
+    public function test_facility_type_seed_down_refuses_to_delete_a_referenced_controlled_type(): void
+    {
+        $this->dropTables(['organization_idempotency_keys', 'facilities', 'facility_types', 'clusters']);
+        $core = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationCoreTables.php',
+        );
+        $seed = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationFacilityTypes.php',
+        );
+        $core->up();
+        $seed->up();
+        DB::table('clusters')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000981',
+            'code' => 'ROLLBACK-GUARD',
+            'name_ar' => 'تجمع الحماية',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('facilities')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000982',
+            'cluster_id' => '018f6f7d-0c00-7000-8000-000000000981',
+            'facility_type_id' => '0197f0e0-0000-7000-8000-000000000101',
+            'code' => 'ROLLBACK-GUARD-FACILITY',
+            'name_ar' => 'منشأة الحماية',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        try {
+            $seed->down();
+            $this->fail('Expected facility type rollback to refuse a referenced controlled type.');
+        } catch (\LogicException $exception) {
+            $this->assertSame('organization_facility_type_rollback_has_references', $exception->getMessage());
+        }
+
+        $this->assertSame(4, DB::table('facility_types')->count());
+    }
+
+    public function test_unit_type_seed_down_refuses_to_delete_a_referenced_controlled_type(): void
+    {
+        $this->dropTables([
+            'positions', 'organization_units', 'unit_types', 'organization_idempotency_keys',
+            'facilities', 'facility_types', 'clusters',
+        ]);
+        $core = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationCoreTables.php',
+        );
+        $tree = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationTreeTables.php',
+        );
+        $seed = self::loadMigration(
+            'Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationUnitTypes.php',
+        );
+        $core->up();
+        $tree->up();
+        $seed->up();
+        $clusterId = '018f6f7d-0c00-7000-8000-000000000983';
+        DB::table('clusters')->insert([
+            'id' => $clusterId,
+            'code' => 'UNIT-ROLLBACK-GUARD',
+            'name_ar' => 'تجمع حماية الوحدات',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('organization_units')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000984',
+            'cluster_id' => $clusterId,
+            'parent_id' => $clusterId,
+            'parent_type' => 'cluster',
+            'unit_type_id' => '0197f0e0-0000-7000-8000-000000000201',
+            'code' => 'UNIT-ROLLBACK-GUARD',
+            'name_ar' => 'وحدة الحماية',
+            'path_cache' => '/018f6f7d-0c00-7000-8000-000000000984',
+            'depth' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        try {
+            $seed->down();
+            $this->fail('Expected unit type rollback to refuse a referenced controlled type.');
+        } catch (\LogicException $exception) {
+            $this->assertSame('organization_unit_type_rollback_has_references', $exception->getMessage());
+        }
+
+        $this->assertSame(5, DB::table('unit_types')->count());
+    }
+
     public function test_notifications_w18_up_adds_columns_indexes_and_delivery_tables(): void
     {
         $this->dropTables(['notification_dead_letters', 'notification_recipients', 'notifications', 'notification_inbox']);
@@ -333,7 +644,7 @@ final class MigrationReversibilityTest extends TestCase
         );
     }
 
-    public function test_notifications_w20_down_restores_legacy_event_id_unique_and_removes_inbox_columns(): void
+    public function test_notifications_w20_down_restores_w18_uniqueness_and_preserves_the_w18_consumer_contract(): void
     {
         $this->dropTables(['notification_dead_letters', 'notification_recipients', 'notifications', 'notification_inbox']);
         Schema::create('notifications', function ($table): void {
@@ -342,7 +653,7 @@ final class MigrationReversibilityTest extends TestCase
             $table->uuid('recipient_user_id')->index();
             $table->string('title', 160);
             $table->boolean('is_read')->default(false);
-            $table->unique(['event_id', 'recipient_user_id'], 'notifications_event_recipient_unique');
+            $table->unique(['event_id', 'recipient_user_id'], 'pre_w20_event_recipient_unique');
             $table->timestamps();
         });
         Schema::create('notification_inbox', function ($table): void {
@@ -350,6 +661,7 @@ final class MigrationReversibilityTest extends TestCase
             $table->string('recipient_capability', 96)->nullable();
             $table->string('consumer', 96)->nullable();
             $table->timestamp('processed_at');
+            $table->index(['consumer', 'processed_at'], 'notif_inbox_consumer_idx');
             $table->timestamps();
         });
 
@@ -367,7 +679,8 @@ final class MigrationReversibilityTest extends TestCase
             'W20 down must restore the legacy event_id unique index exactly.',
         );
         $this->assertFalse(Schema::hasColumn('notification_inbox', 'recipient_capability'));
-        $this->assertFalse(Schema::hasColumn('notification_inbox', 'consumer'));
+        $this->assertTrue(Schema::hasColumn('notification_inbox', 'consumer'));
+        $this->assertTrue(Schema::hasIndex('notification_inbox', ['consumer', 'processed_at']));
     }
 
     public function test_authorization_w15_up_inserts_the_two_office_roles(): void

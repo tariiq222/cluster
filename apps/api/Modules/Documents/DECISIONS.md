@@ -7,7 +7,7 @@ recorded, with new decisions appended below.
 
 ---
 
-## D-DOCS-001 (2026-07-26) — Close `ARCHITECTURE-CLOSURE:DOCUMENTS-OUTBOX-DECISION`
+## D-DOCS-001 (2026-07-26, superseded by D-DOCS-002) — Original module-owned outbox decision
 
 ### Decision
 
@@ -29,14 +29,12 @@ The contract lives in `Modules/Documents/Domain/Contracts/`; the implementation 
 - **In-scope:** All three production call sites that today write `document_outbox_events` (`uploadinitiated.v1`, `versionuploaded.v1`, `versionrejected.v1`, `versionpromotionrequested.v1`, `versionavailable.v1`, `metadataupdated.v1`, `linked.v1`).
 - **Out-of-scope:** Implementing a relay/worker that flips `published_at`. See "Open gaps" below.
 
-### Evidence
+### Historical evidence
 
-- `Modules/Documents/Domain/Contracts/DocumentsOutbox.php` — contract. Accepts `?DateTimeInterface` so producers passing `Carbon::now()` are accepted without conversion.
-- `Modules/Documents/Infrastructure/Outbox/DocumentsTransactionalOutbox.php` — implementation. Normalises to UTC via `DateTimeImmutable::createFromInterface(...)->setTimezone(new DateTimeZone('UTC'))`, writes the columns the existing `documents.document_outbox_events` migration already declares.
-- `Modules/Documents/Providers/DocumentsServiceProvider.php:53` — binding `DocumentsOutbox::class => DocumentsTransactionalOutbox::class`.
-- `Tests/Architecture/ModuleBoundariesTest.php:526-534` — new rule blocking `DB::table('document_outbox_events')` outside `Infrastructure/Outbox/DocumentsTransactionalOutbox.php` and `/Tests/`.
-- `Tests/Architecture/ModuleBoundariesTest.php:test_rejects_raw_document_outbox_access_outside_the_documents_adapter` and `test_allows_raw_document_outbox_access_inside_the_documents_adapter` — fixture-based proof the rule fires and accepts the bound adapter.
-- `Modules/Documents/Tests/DocumentUploadCoreTest.php:test_upload_initiated_through_handler_writes_document_outbox_events_row` — runs the real `DocumentUploadHandler::initiate` against SQLite, asserts a row is persisted with `event_type = com.cluster.documents.uploadinitiated.v1`, non-empty `payload`, and `published_at = null`.
+The D-DOCS-001 evidence was the module-owned `DocumentsOutbox` contract,
+`DocumentsTransactionalOutbox` adapter, provider binding, boundary fixtures, and the upload
+outbox assertion. D-DOCS-002 deliberately removes those artifacts and replaces the evidence
+surface with the canonical Shared contract, migration, relay, and rollback tests below.
 - `make verify-boundaries` → 28/28 PASS (was 26/26 before this slice; two new fixtures added).
 - `php -d memory_limit=2G ./vendor/bin/phpstan analyse --memory-limit=2G` → 0 errors.
 - `composer --working-dir=apps/api test` against the working tree containing this slice → **788 tests, 779 passed, 9 skipped, 3 incomplete, 0 failed**.
@@ -56,7 +54,7 @@ The contract lives in `Modules/Documents/Domain/Contracts/`; the implementation 
 - Commit `e8e6690` (DECISIONS post-alignment update): `apps/api/Modules/Documents/DECISIONS.md`.
 - Commit `1fd523b` (this record): `apps/api/Modules/Documents/DECISIONS.md`.
 
-### Open gaps (must be tracked explicitly)
+### Historical gaps at D-DOCS-001 (items 1–3 resolved by D-DOCS-002)
 
 1. **No relay worker.** `document_outbox_events.published_at` never flips. Events accumulate indefinitely. A Documents-owned relay that watches `whereNull('published_at')` and publishes through S3-compatible storage is unowned. Deferred to either P02 (production runtime wiring) or a future workstream; this decision does not implement it.
 2. **Two event types without runtime coverage.** `com.cluster.documents.metadataupdated.v1` (UpdateDocumentController, line 89) and `com.cluster.documents.linked.v1` (LinkDocumentController, line 128) are converted to use the contract but are not asserted on by a test in this slice. The middleware/auth/seed path required to exercise `POST /api/v1/documents/{id}/links` and `PATCH /api/v1/documents/{id}` through the real HTTP stack stayed on the queue. Known gaps; closure of DOCUMENTS-OUTBOX-DECISION does not require these as evidence today — the architecture rule + the upload-init assertion prove the contract surface; coverage for the remaining event types is conventional regression work, not a contract boundary.
@@ -64,7 +62,7 @@ The contract lives in `Modules/Documents/Domain/Contracts/`; the implementation 
 4. **T4 carve-out re-arms on status transition.** The validator skips DOC_REFERENCE for plans whose status is `planned` or `blocked`. If a plan transitions to `in_progress` before the deferred artefacts exist, the 114-reference gate fires again. Any plan promotion must be coupled with the missing evidence manifests or the assertion will block the next push. Recorded here so the next session does not need to re-derive this.
 5. **s9 contract surface is unenforced.** The catalog probe and the labeled-failure messages are not asserted anywhere in the repository. A governed docs catalog slice must reintroduce both the Makefile probe and the corresponding test assertions together; either alone will leave the gate either silently green or noisy red.
 
-### Rollback
+### Historical rollback (do not use after D-DOCS-002)
 
 Removing the decision is a self-contained revert of:
 
@@ -72,4 +70,52 @@ Removing the decision is a self-contained revert of:
 - Removal of the two new `ModuleBoundariesTest` fixtures
 - Removal of `DocumentUploadCoreTest`'s outbox assertion
 
-The controllers will fall back to `DB::table('document_outbox_events')->insert(...)`, restoring the pre-decision scattered-write surface and the open `DOCUMENTS-OUTBOX-DECISION`.
+This was the D-DOCS-001 rollback path; D-DOCS-002 replaces it with the migration-first rollback below.
+
+---
+
+## D-DOCS-002 (2026-07-26) — Supersede D-DOCS-001 with the canonical Shared outbox
+
+### Decision
+
+Task 10 cleanly cuts Documents over to `Shared\Contracts\TransactionalOutbox`. The Shared
+`DatabaseTransactionalOutbox` is the sole runtime writer. The
+`Application\DocumentMutationHandler` owns the create/grant/link/update/transition database
+transactions, including their audit and event writes; HTTP controllers retain request
+validation, authorization, and response mapping. Documents owns event dispatch through
+`DocumentsOutboxRelay`, backed by the Shared `OutboxRelayStore` and `RedisStreamTransport`;
+the bounded `documents:relay-events --once` command is wired into `docker/worker-loop.sh`.
+No Documents producer, provider binding, adapter, or fresh schema creates or writes
+`document_outbox_events`.
+
+`Shared/Infrastructure/Outbox/Migrations/MigrateLegacyModuleOutboxes.php` is the deployed-data
+cutover. It copies legacy Documents and PlatformSettings rows to `outbox_events`, verifies
+aggregate, type, and canonical payload equivalence, rejects conflicting `event_id` content,
+and only then drops the legacy tables. Re-running `up()` is a no-op; `down()` recreates and
+restores both legacy tables without deleting canonical rows.
+
+### Atomicity
+
+Document create, upload, grant, link, metadata update, and lifecycle transition effects now
+append their canonical event inside the same database transaction as state, idempotency, and
+access audit writes. Grant replay still returns the stored response, and
+link/update/transition preserve their existing ETag behavior.
+
+### Evidence owned by this change
+
+- `DocumentMutationAtomicityTest` injects an outbox failure into create, grant, link, update,
+  and transition paths and asserts no state/idempotency/audit fragment survives.
+- `DocumentUploadCoreTest` injects the same failure into upload initiation and asserts all
+  aggregate rows roll back.
+- `DocumentsOutboxRelayTest` covers successful publication marking the canonical row while
+  transport failure leaves it pending with an incremented delivery attempt.
+- `LegacyOutboxCutoverMigrationTest` covers copy/drop, published timestamp preservation,
+  idempotent replay, down restoration, and conflicting-ID fail-closed behavior.
+- Documents event types, including created, grant, and lifecycle events, are registered in
+  `OutboxEventType` with matching JSON schemas.
+
+### Rollback
+
+Rollback requires the migration `down()` path before reverting the canonical callers.
+Never revert callers alone: doing so would restore a producer for a table that no longer
+exists and would split state from event delivery.

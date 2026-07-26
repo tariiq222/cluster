@@ -14,7 +14,6 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Documents\Application\StoredObjectProperties;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
-use Modules\Documents\Domain\Contracts\DocumentsOutbox;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController;
@@ -24,6 +23,7 @@ use Modules\Documents\Features\Upload\Http\InitiateDocumentUploadController;
 use Modules\Documents\Infrastructure\Persistence\DatabaseDocumentAuthorizationFactsReader;
 use Modules\Documents\Tests\Support\InMemoryMalwareScanner;
 use Modules\Documents\Tests\Support\InMemoryPrivateObjectStorage;
+use Shared\Contracts\TransactionalOutbox;
 use Tests\TestCase;
 
 /**
@@ -47,11 +47,9 @@ use Tests\TestCase;
  * and document_idempotency_keys tables.
  *
  * Sequential HTTP calls are explicitly labelled as propagation / regression
- * tests, not concurrent-writer tests. Asserting a final-state invariant
- * after a sequential request is the cheapest faithful exercise of the
- * propagation contract; a true concurrent-writer test lives in
- * TemporaryAssignmentMySqlConcurrencyTest and depends on a real MySQL
- * integration lane plus pcntl workers, which is out of scope here.
+ * tests, not concurrent-writer tests. True concurrent-writer coverage lives
+ * in the module MySQL integration tests for Business Calendar, Workflow,
+ * WorkDefinitions, and Organization temporary assignments.
  */
 final class OptimisticConcurrencyRegressionTest extends TestCase
 {
@@ -97,7 +95,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
             $this->scanner,
             DocumentUploadPolicy::fromConfig(config('documents')),
             DocumentRetentionPolicy::fromConfig(config('documents')),
-            $this->app->make(DocumentsOutbox::class),
+            $this->app->make(TransactionalOutbox::class),
         );
         $principals = $this->documentPrincipals();
         $access = $this->documentAccess();

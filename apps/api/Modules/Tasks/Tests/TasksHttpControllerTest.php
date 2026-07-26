@@ -165,6 +165,33 @@ final class TasksHttpControllerTest extends TestCase
         $this->assertSame('completed', DB::table('tasks')->where('id', $taskId)->value('status'));
     }
 
+    public function test_transition_idempotency_replays_stored_response_and_rejects_changed_request(): void
+    {
+        $taskId = $this->seedTask($this->userId);
+        $headers = [
+            'X-Correlation-ID' => self::CORRELATION,
+            'Idempotency-Key' => 'transition-replay',
+            'If-Match' => '"1"',
+        ];
+
+        $first = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/start', [], $headers);
+        $replay = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/start', [], $headers);
+
+        $first->assertOk()->assertHeader('ETag', '"2"');
+        $replay->assertOk()->assertHeader('ETag', '"2"')->assertExactJson($first->json());
+
+        $conflict = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/start', [], [
+            ...$headers,
+            'If-Match' => '"2"',
+        ]);
+        $conflict->assertStatus(409)
+            ->assertJsonPath('type', 'https://cluster.example/problems/idempotency-conflict');
+
+        $this->assertSame(2, (int) DB::table('tasks')->where('id', $taskId)->value('lock_version'));
+        $this->assertSame(1, DB::table('outbox_events')->where('aggregate_id', $taskId)->where('event_type', 'task.start.v1')->count());
+        $this->assertSame(1, DB::table('task_idempotency_keys')->where('task_id', $taskId)->count());
+    }
+
     public function test_transition_rejects_unknown_action(): void
     {
         $taskId = $this->seedTask($this->userId);

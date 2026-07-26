@@ -43,11 +43,17 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::hasTable('notifications')
-            && Schema::hasIndex('notifications', ['event_id', 'recipient_user_id'], 'unique')) {
-            Schema::table('notifications', static function (Blueprint $table): void {
-                $table->dropUnique('notifications_event_recipient_unique');
-            });
+        if (Schema::hasTable('notifications')) {
+            $compositeUniques = array_values(array_filter(
+                Schema::getIndexes('notifications'),
+                static fn (array $index): bool => $index['unique']
+                    && $index['columns'] === ['event_id', 'recipient_user_id'],
+            ));
+            foreach ($compositeUniques as $index) {
+                Schema::table('notifications', static function (Blueprint $table) use ($index): void {
+                    $table->dropUnique($index['name']);
+                });
+            }
         }
 
         if (Schema::hasTable('notifications')
@@ -57,15 +63,10 @@ return new class extends Migration
             });
         }
 
-        if (Schema::hasTable('notification_inbox')) {
-            Schema::table('notification_inbox', function (Blueprint $table): void {
-                $columns = array_values(array_filter(
-                    ['recipient_capability', 'consumer'],
-                    static fn (string $column): bool => Schema::hasColumn('notification_inbox', $column),
-                ));
-                if ($columns !== []) {
-                    $table->dropColumn($columns);
-                }
+        if (Schema::hasTable('notification_inbox')
+            && Schema::hasColumn('notification_inbox', 'recipient_capability')) {
+            Schema::table('notification_inbox', static function (Blueprint $table): void {
+                $table->dropColumn('recipient_capability');
             });
         }
     }

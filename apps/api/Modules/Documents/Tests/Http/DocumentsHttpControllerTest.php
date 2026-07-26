@@ -11,12 +11,12 @@ use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Documents\Application\DocumentDownloadGrant;
+use Modules\Documents\Application\DocumentMutationHandler;
 use Modules\Documents\Application\QuarantineObjectReference;
 use Modules\Documents\Application\StoredObjectProperties;
 use Modules\Documents\Application\VerifiedQuarantineObject;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
-use Modules\Documents\Domain\Contracts\DocumentsOutbox;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\DocumentGrant\Http\CreateDocumentGrantController;
@@ -35,6 +35,7 @@ use Modules\Documents\Tests\Support\InMemoryMalwareScanner;
 use Modules\Documents\Tests\Support\InMemoryPrivateObjectStorage;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use RuntimeException;
+use Shared\Contracts\TransactionalOutbox;
 use Tests\TestCase;
 
 final class DocumentsHttpControllerTest extends TestCase
@@ -85,7 +86,7 @@ final class DocumentsHttpControllerTest extends TestCase
             $this->scanner,
             DocumentUploadPolicy::fromConfig(config('documents')),
             DocumentRetentionPolicy::fromConfig(config('documents')),
-            $this->app->make(DocumentsOutbox::class),
+            $this->app->make(TransactionalOutbox::class),
         );
         $this->resolvedPrincipal = ['user_id' => self::PRINCIPAL_ID, 'facility_id' => self::FACILITY_ID];
         $this->principals = new class($this) implements WorkerPrincipalResolver
@@ -133,7 +134,7 @@ final class DocumentsHttpControllerTest extends TestCase
             {
                 return new DocumentDownloadGrant($documentId, $versionId, 'https://download.invalid/'.$versionId, new DateTimeImmutable('+5 minutes'), 'test-correlation');
             }
-        });
+        }, $this->app->make(DocumentMutationHandler::class));
     }
 
     public function test_grants_only_available_versions_belonging_to_the_document(): void
@@ -150,6 +151,11 @@ final class DocumentsHttpControllerTest extends TestCase
         $allowed = ($this->grant)($this->jsonRequest('POST', ['version_id' => $versionId], 'grant-state-available'), $documentId, 'download');
         $this->assertSame(Response::HTTP_CREATED, $allowed->getStatusCode());
         $this->assertSame($versionId, $allowed->getData(true)['data']['version_id']);
+        $replayed = ($this->grant)($this->jsonRequest('POST', ['version_id' => $versionId], 'grant-state-available'), $documentId, 'download');
+        $this->assertSame($allowed->getData(true), $replayed->getData(true));
+        $this->assertSame(1, DB::table('document_idempotency_keys')->where('operation', 'documents.download-grant')->count());
+        $this->assertSame(1, DB::table('document_access_events')->where('action', 'download-grant')->count());
+        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'com.cluster.documents.grantissued.v1')->count());
     }
 
     public function test_it_initiates_an_opaque_signed_quarantine_upload_from_the_trusted_principal_only(): void
@@ -335,7 +341,7 @@ final class DocumentsHttpControllerTest extends TestCase
             new InMemoryMalwareScanner,
             DocumentUploadPolicy::fromConfig(config('documents')),
             DocumentRetentionPolicy::fromConfig(config('documents')),
-            $this->app->make(DocumentsOutbox::class),
+            $this->app->make(TransactionalOutbox::class),
         );
         $userOnlyPrincipal = new class implements ResolveDevelopmentFixturePrincipal
         {

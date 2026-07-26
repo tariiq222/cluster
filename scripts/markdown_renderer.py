@@ -8,6 +8,7 @@ import re
 from collections import defaultdict
 
 from rbac import build_matrix, parse_routes
+from openapi_reconciler import exact_operation_reconciliation
 
 
 IMPORT_RE = re.compile(r"^use\s+([^;]+);$", re.MULTILINE)
@@ -149,6 +150,18 @@ def _front_matter(
 def render_markdown(repo_root: pathlib.Path, summary) -> str:
     routes_text = (repo_root / "apps/api/routes/web.php").read_text(encoding="utf-8")
     statements = parse_routes(routes_text)
+    openapi_text = (repo_root / "docs/contracts/api/openapi.yaml").read_text(
+        encoding="utf-8"
+    )
+    route_operations = [
+        (
+            statement.method.upper(),
+            statement.path.removeprefix("/api/v1"),
+        )
+        for statement in statements
+    ]
+    route_operations.append(("GET", "/up"))
+    reconciliation = exact_operation_reconciliation(openapi_text, route_operations)
     matrix = build_matrix(repo_root, summary)
     rows = matrix["rows"]
     if len(statements) != len(rows):
@@ -251,19 +264,17 @@ def render_markdown(repo_root: pathlib.Path, summary) -> str:
             "Run the inventory and contract checks from the repository root:",
             "",
             "```shell",
-            "make api:inventory",
+            "python3 scripts/inventory-routes.py --mode reconcile --write",
             "python3 scripts/inventory-routes.py --mode md --json docs/api",
-            "python3 scripts/inventory-routes.py --check",
-            "npm --prefix apps/web run api:lint",
+            "npm --prefix apps/web run api:generate",
             "npm --prefix apps/web run api:check",
             "```",
             "",
             "### Orval",
             "",
-            "`apps/web/orval.config.ts` is the frontend generator entry point. Its canonical bundles are",
-            "`docs/contracts/api/w1-1.openapi.yaml`, `docs/contracts/api/w1-2.openapi.yaml`, and",
-            "`docs/contracts/api/r1-screens.openapi.yaml`. The split files are frozen in this S3 skeleton",
-            "and will be refreshed from the canonical contract by the contract-sync slice.",
+            "`apps/web/orval.config.ts` generates one client from `.orval/cluster-client.openapi.yaml`.",
+            "`apps/web/build-client-contract.mjs` builds that contract from the authoritative master",
+            "`docs/contracts/api/openapi.yaml` plus the governed W1.1, W1.2, and R1 split surfaces.",
             "",
             "### Coverage",
             "",
@@ -273,7 +284,14 @@ def render_markdown(repo_root: pathlib.Path, summary) -> str:
             "",
             "### Contract Diff",
             "",
-            "Placeholder for S4. The contract-sync slice will add `git diff --stat` output and per-path drift bullets.",
+            f"- Spec-only operations: `{reconciliation['spec_only_operation_count']}` across `{reconciliation['spec_only_path_count']}` paths by raw literal comparison.",
+            f"- Exact template equivalences cover `{reconciliation['intentional_spec_operation_count']}` of those operations; planned-only remainder: `{reconciliation['effective_spec_only_operation_count']}` operations across `{reconciliation['effective_spec_only_path_count']}` paths; unclassified: `{len(reconciliation['unclassified_spec_only'])}`.",
+            f"- Runtime-only literal declarations: `{reconciliation['runtime_only_literal_count']}`; intentional template equivalences: `{len(reconciliation['intentional_runtime_only'])}`; unresolved: `{len(reconciliation['unresolved_runtime_only'])}`.",
+            "- The previous real gap, `POST /api/v1/platform-operations/backups`, is now declared by the master contract as `dispatchPlatformBackup`; it returns an asynchronous entity (`202`) and is owned by `platform_operations.backup.run`.",
+            "- `GET /api/v1/platform-operations/backups` remains a single backup-status entity owned by `platform_operations.backup.read`; it is not a collection route.",
+            "- Runtime template equivalences are exact: document grant parameter naming; platform-settings `settingsAction` (`validate|publish`); work-definition `versionAction` (four verbs); and work-record `recordAction` (six verbs).",
+            "- Operation-only planned exclusions on live item paths are `POST /authorization/bootstrap` plus PATCH for work-definition, work-definition-version, and work-record items.",
+            "- Source evidence: `apps/api/routes/web.php`, `scripts/openapi_reconciler.py`, and `docs/contracts/api/openapi.yaml`.",
             "",
         ]
     )

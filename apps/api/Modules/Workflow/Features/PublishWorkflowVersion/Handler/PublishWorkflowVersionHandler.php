@@ -14,50 +14,60 @@ final class PublishWorkflowVersionHandler
     /** @param array<string, mixed> $graph @return array<string, mixed> */
     public function publish(string $code, string $sourceRecordType, string $actorUserId, array $graph): array
     {
-        return DB::transaction(function () use ($code, $sourceRecordType, $actorUserId, $graph): array {
-            $definition = DB::table('workflow_definitions')->where('code', $code)->first();
-            $definitionId = $definition === null ? Str::uuid7()->toString() : (string) $definition->id;
-            if ($definition === null) {
-                DB::table('workflow_definitions')->insert([
-                    'id' => $definitionId,
-                    'code' => $code,
-                    'source_record_type' => $sourceRecordType,
-                    'created_by_user_id' => $actorUserId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+        $attempt = 0;
+        while (true) {
+            try {
+                return DB::transaction(function () use ($code, $sourceRecordType, $actorUserId, $graph): array {
+                    $definition = DB::table('workflow_definitions')->where('code', $code)->lockForUpdate()->first();
+                    $definitionId = $definition === null ? Str::uuid7()->toString() : (string) $definition->id;
+                    if ($definition === null) {
+                        DB::table('workflow_definitions')->insert([
+                            'id' => $definitionId,
+                            'code' => $code,
+                            'source_record_type' => $sourceRecordType,
+                            'created_by_user_id' => $actorUserId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+
+                    $versionNumber = ((int) DB::table('workflow_versions')->where('workflow_definition_id', $definitionId)->max('version_number')) + 1;
+                    $version = WorkflowVersion::published(Str::uuid7()->toString(), $definitionId, $versionNumber, $graph);
+                    $publishedAt = now();
+                    DB::table('workflow_versions')->insert([
+                        'id' => $version->id,
+                        'workflow_definition_id' => $version->definitionId,
+                        'version_number' => $version->versionNumber,
+                        'definition_state' => $version->state,
+                        'graph_document' => json_encode($version->graph, JSON_THROW_ON_ERROR),
+                        'graph_hash' => $version->graphHash,
+                        'dsl_version' => '1',
+                        'published_at' => $publishedAt,
+                        'created_at' => $publishedAt,
+                        'updated_at' => $publishedAt,
+                    ]);
+                    $this->outbox->append(
+                        Str::uuid7()->toString(),
+                        $version->id,
+                        'workflow.version.published.v1',
+                        ['workflow_version_id' => $version->id, 'workflow_definition_id' => $definitionId, 'version_number' => $versionNumber],
+                    );
+
+                    return [
+                        'id' => $version->id,
+                        'workflow_definition_id' => $definitionId,
+                        'version_number' => $versionNumber,
+                        'definition_state' => 'published',
+                        'graph_document' => $graph,
+                        'graph_hash' => $version->graphHash,
+                    ];
+                });
+            } catch (\Illuminate\Database\QueryException $exception) {
+                if ($attempt !== 0 || (string) $exception->getCode() !== '23000') {
+                    throw $exception;
+                }
+                $attempt++;
             }
-
-            $versionNumber = ((int) DB::table('workflow_versions')->where('workflow_definition_id', $definitionId)->max('version_number')) + 1;
-            $version = WorkflowVersion::published(Str::uuid7()->toString(), $definitionId, $versionNumber, $graph);
-            $publishedAt = now();
-            DB::table('workflow_versions')->insert([
-                'id' => $version->id,
-                'workflow_definition_id' => $version->definitionId,
-                'version_number' => $version->versionNumber,
-                'definition_state' => $version->state,
-                'graph_document' => json_encode($version->graph, JSON_THROW_ON_ERROR),
-                'graph_hash' => $version->graphHash,
-                'dsl_version' => '1',
-                'published_at' => $publishedAt,
-                'created_at' => $publishedAt,
-                'updated_at' => $publishedAt,
-            ]);
-            $this->outbox->append(
-                Str::uuid7()->toString(),
-                $version->id,
-                'workflow.version.published.v1',
-                ['workflow_version_id' => $version->id, 'workflow_definition_id' => $definitionId, 'version_number' => $versionNumber],
-            );
-
-            return [
-                'id' => $version->id,
-                'workflow_definition_id' => $definitionId,
-                'version_number' => $versionNumber,
-                'definition_state' => 'published',
-                'graph_document' => $graph,
-                'graph_hash' => $version->graphHash,
-            ];
-        });
+        }
     }
 }

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-documents-created-v1.schema.json",
+  "title": "Outbox event: com.cluster.documents.created.v1",
+  "description": "CloudEvents envelope for governed document metadata creation.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["data"],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id", "classification", "owner_organization_unit_id", "correlation_id", "actor_user_id"],
+      "properties": {
+        "document_id": {"type": "string"},
+        "classification": {"type": "string", "enum": ["public", "internal", "confidential", "top_secret"]},
+        "owner_organization_unit_id": {"type": "string"},
+        "correlation_id": {"type": "string"},
+        "actor_user_id": {"type": "string"}
+      }
+    }
+  }
+}

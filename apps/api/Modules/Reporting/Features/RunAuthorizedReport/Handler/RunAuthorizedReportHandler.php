@@ -4,6 +4,7 @@ namespace Modules\Reporting\Features\RunAuthorizedReport\Handler;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 
@@ -18,7 +19,7 @@ final class RunAuthorizedReportHandler
     public function handle(string $reportId, array $actor, ?string $scopeId = null): array
     {
         $scopeId ??= $actor['facility_id'] ?? null;
-        $items = $this->authorizedRows($reportId, $actor, $scopeId, 'work_record.read');
+        $items = $this->authorizedRows($reportId, $actor, $scopeId, 'reporting.run');
         $runId = (string) Str::uuid();
 
         DB::table('report_runs')->insert([
@@ -56,14 +57,15 @@ final class RunAuthorizedReportHandler
             }
 
             $safeData = json_decode((string) $row->safe_data, true);
-            $items[] = [
+            $items[] = AccessProjection::fromDecision($decision)->compose([
                 'id' => $row->id,
                 'source_type' => $row->source_type,
                 'source_id' => $row->source_id,
                 'title' => $row->title,
                 'scope_id' => $row->scope_id,
+                'classification' => $row->classification,
                 'data' => is_array($safeData) ? $safeData : [],
-            ];
+            ]);
         }
 
         return $items;

@@ -133,22 +133,10 @@ return new class extends Migration
             $table->index(['operation_type', 'captured_at']);
         });
 
-        Schema::create('platform_settings_outbox', function (Blueprint $table): void {
-            $table->uuid('id')->primary();
-            $table->string('event_type', 128);
-            $table->string('aggregate_type', 96);
-            $table->uuid('aggregate_id');
-            $table->json('payload');
-            $table->timestamp('occurred_at');
-            $table->timestamp('published_at')->nullable();
-            $table->timestamps();
-            $table->index(['published_at', 'occurred_at']);
-        });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('platform_settings_outbox');
         Schema::dropIfExists('platform_operation_snapshots');
         Schema::dropIfExists('platform_operation_requests');
         Schema::dropIfExists('platform_alert_policies');

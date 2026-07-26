@@ -31,7 +31,10 @@ final class TechnicalAlertDeliveryTest extends TestCase
         $transport = new InMemoryTechnicalAlertTransport;
         $this->app->instance(RedisStreamTransport::class, $transport);
         $this->assertSame(1, $this->app->make(TechnicalAlertOutboxRelay::class)->relayPending());
-        $this->assertDatabaseHas('platform_settings_outbox', ['published_at' => now()]);
+        $this->assertDatabaseHas('outbox_events', [
+            'event_type' => 'com.cluster.platform.technical-alert.v1',
+            'published_at' => now(),
+        ]);
 
         $event = json_decode($transport->event, true, 512, JSON_THROW_ON_ERROR);
         $recipients = new FixedTechnicalAlertRecipients([

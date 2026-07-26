@@ -5,8 +5,8 @@ namespace Modules\Documents\Features\DocumentLifecycle\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Documents\Application\DocumentMutationHandler;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
@@ -22,6 +22,7 @@ final class TransitionDocumentController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
+        private readonly DocumentMutationHandler $mutations,
     ) {}
 
     public function __invoke(Request $request, string $documentId, string $documentAction): JsonResponse
@@ -70,17 +71,18 @@ final class TransitionDocumentController
             ->where('idempotency_key_hash', $keyHash)
             ->first();
         if ($existing !== null) {
-            if ($existing->request_hash !== $requestHash) {
+            if ($existing->request_hash !== $requestHash || ! is_string($existing->response_payload)) {
                 return DocumentsApi::problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId);
             }
+            $stored = json_decode($existing->response_payload, false, 512, JSON_THROW_ON_ERROR);
+            if (! $stored instanceof \stdClass) {
+                return DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'The stored transition response is invalid.', $correlationId);
+            }
 
-            $current = DB::table('documents')->where('id', $document->id)->first();
-
-            return response()->json(['data' => $this->serializeDocument($current ?? $document)])
+            return response()->json(['data' => $this->serializeDocument($stored)])
                 ->header('X-Correlation-ID', $correlationId)
-                ->header('ETag', '"'.(int) ($current->lock_version ?? $document->lock_version).'"');
+                ->header('ETag', '"'.(int) $stored->lock_version.'"');
         }
-
         $changes = match ($documentAction) {
             'archive' => ['status' => 'archived'],
             'place-hold' => ['legal_hold' => true, 'legal_hold_reason' => trim($reason), 'legal_hold_at' => now()],
@@ -94,32 +96,27 @@ final class TransitionDocumentController
             return DocumentsApi::problem(409, 'document-upload-invalid-state', 'Conflict', 'The document is not in a state for this action.', $correlationId);
         }
 
-        $updated = DB::table('documents')
-            ->where('id', $document->id)
-            ->where('lock_version', (int) $document->lock_version)
-            ->update([...$changes, 'lock_version' => (int) $document->lock_version + 1, 'updated_at' => now()]);
-        if ($updated !== 1) {
-            return DocumentsApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current version.', $correlationId);
+        try {
+            $fresh = $this->mutations->transition(
+                $document,
+                $principal,
+                $documentAction,
+                $changes,
+                $operation,
+                $keyHash,
+                $requestHash,
+                $correlationId,
+            );
+        } catch (\DomainException $exception) {
+            if ($exception->getMessage() === 'precondition_failed') {
+                return DocumentsApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current version.', $correlationId);
+            }
+
+            throw $exception;
         }
 
-        DB::table('document_idempotency_keys')->insert([
-            'id' => Str::uuid7()->toString(),
-            'principal_id' => $principal['user_id'],
-            'operation' => $operation,
-            'idempotency_key_hash' => $keyHash,
-            'request_hash' => $requestHash,
-            'resource_type' => 'document',
-            'resource_id' => $document->id,
-            'response_payload' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        $this->recordAccessEvent($document, $principal['user_id'], $documentAction, 'allow', 'document_transition_allowed');
-
-        $fresh = DB::table('documents')->where('id', $document->id)->first();
-
-        return response()->json(['data' => $this->serializeDocument($fresh ?? $document)])
+        return response()->json(['data' => $this->serializeDocument($fresh)])
             ->header('X-Correlation-ID', $correlationId)
-            ->header('ETag', '"'.((int) $document->lock_version + 1).'"');
+            ->header('ETag', '"'.((int) $fresh->lock_version).'"');
     }
 }

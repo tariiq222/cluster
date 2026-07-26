@@ -81,9 +81,10 @@ final class AlertPolicyTest extends TestCase
             correlationId: $correlationId,
         );
 
-        $outbox = $this->app['db']->table('platform_settings_outbox')->first();
+        $outbox = $this->app['db']->table('outbox_events')->first();
         $this->assertSame('com.cluster.platform.technical-alert.v1', $outbox->event_type);
-        $payload = json_decode((string) $outbox->payload, true, 512, JSON_THROW_ON_ERROR);
+        $envelope = json_decode((string) $outbox->cloud_event, true, 512, JSON_THROW_ON_ERROR);
+        $payload = $envelope['data'];
         $this->assertSame([
             'alert_code' => 'database-latency',
             'severity' => 'critical',

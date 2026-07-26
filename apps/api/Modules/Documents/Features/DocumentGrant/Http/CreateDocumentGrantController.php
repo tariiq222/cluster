@@ -5,8 +5,8 @@ namespace Modules\Documents\Features\DocumentGrant\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Documents\Application\DocumentMutationHandler;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
@@ -25,6 +25,7 @@ final class CreateDocumentGrantController
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
         private readonly DocumentDownloadGrantIssuer $grants,
+        private readonly DocumentMutationHandler $mutations,
     ) {}
 
     public function __invoke(Request $request, string $documentId, string $documentGrantType): JsonResponse
@@ -96,19 +97,17 @@ final class CreateDocumentGrantController
         }
 
         $payload = [...$grant->toArray(), 'grant_type' => $documentGrantType, 'document_id' => $document->public_id, 'version_id' => $version->public_id];
-        DB::table('document_idempotency_keys')->insert([
-            'id' => Str::uuid7()->toString(),
-            'principal_id' => $principal['user_id'],
-            'operation' => $operation,
-            'idempotency_key_hash' => $keyHash,
-            'request_hash' => $requestHash,
-            'resource_type' => 'document',
-            'resource_id' => $document->id,
-            'response_payload' => json_encode($payload, JSON_THROW_ON_ERROR),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        $this->recordAccessEvent($document, $principal['user_id'], $documentGrantType.'-grant', 'allow', 'document_grant_issued');
+        $this->mutations->recordGrant(
+            $document,
+            $version,
+            $principal['user_id'],
+            $documentGrantType,
+            $operation,
+            $keyHash,
+            $requestHash,
+            $payload,
+            $correlationId,
+        );
 
         return response()->json(['data' => $payload], 201)->header('X-Correlation-ID', $correlationId);
     }

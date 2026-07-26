@@ -8,12 +8,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Documents\Application\DocumentLinkService;
-use Modules\Documents\Contracts\DocumentSourceReference;
-use Modules\Documents\Domain\Contracts\DocumentsOutbox;
-use Modules\Documents\Domain\UuidV7;
+use Modules\Documents\Application\DocumentMutationHandler;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
@@ -25,8 +21,7 @@ final class LinkDocumentController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
-        private readonly DocumentLinkService $links,
-        private readonly DocumentsOutbox $outbox,
+        private readonly DocumentMutationHandler $mutations,
     ) {}
 
     public function __invoke(Request $request, string $documentId): JsonResponse
@@ -93,57 +88,23 @@ final class LinkDocumentController
                 ->header('ETag', '"'.(int) $document->lock_version.'"');
         }
 
-        $now = now();
         try {
-            $resource = DB::transaction(function () use ($document, $expectedVersion, $principal, $source, $validated, $constraintPolicyKey, $requestHash, $keyHash, $operation, $correlationId, $now): array {
-                $locked = DB::table('documents')->where('id', $document->id)->lockForUpdate()->first();
-                if ($locked === null || (int) $locked->lock_version !== $expectedVersion) {
-                    throw new DomainException('precondition_failed');
-                }
-                $sourceModule = $source['source_module'] === 'work_records' ? 'work-records' : $source['source_module'];
-                $linkId = $this->links->link(
-                    $document->public_id,
-                    new DocumentSourceReference($sourceModule, $source['record_type'], $source['record_id']),
-                    $validated['relation_type'],
-                    $principal['user_id'],
-                    $principal['facility_id'],
-                    $constraintPolicyKey,
-                );
-                DB::table('documents')->where('id', $document->id)->update(['lock_version' => $expectedVersion + 1, 'updated_at' => $now]);
-                $resource = [
-                    'id' => $linkId,
-                    'resource_type' => 'document_link',
-                    'document_id' => $document->public_id,
-                    'status' => 'active',
-                    'source' => ['source_module' => $source['source_module'], 'record_type' => $source['record_type'], 'record_id' => $source['record_id']],
-                    'relation_type' => $validated['relation_type'],
-                    'constraint_policy_key' => $constraintPolicyKey,
-                    'lock_version' => 1,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-                DB::table('document_idempotency_keys')->insert([
-                    'id' => Str::uuid7()->toString(), 'principal_id' => $principal['user_id'], 'operation' => $operation,
-                    'idempotency_key_hash' => $keyHash, 'request_hash' => $requestHash, 'resource_type' => 'document_link',
-                    'resource_id' => $linkId, 'response_payload' => json_encode($resource, JSON_THROW_ON_ERROR),
-                    'created_at' => $now, 'updated_at' => $now,
-                ]);
-                $this->outbox->append(
-                    UuidV7::generate(),
-                    $document->id,
-                    'com.cluster.documents.linked.v1',
-                    [
-                        'document_id' => $document->public_id,
-                        'link_id' => $linkId,
-                        'relation_type' => $validated['relation_type'],
-                        'constraint_policy_key' => $constraintPolicyKey,
-                        'correlation_id' => $correlationId,
-                    ],
-                    $now,
-                );
-
-                return $resource;
-            });
+            $resource = $this->mutations->link(
+                $document,
+                $expectedVersion,
+                $principal,
+                [
+                    'source_module' => $source['source_module'],
+                    'record_type' => $source['record_type'],
+                    'record_id' => $source['record_id'],
+                ],
+                $validated['relation_type'],
+                $constraintPolicyKey,
+                $requestHash,
+                $keyHash,
+                $operation,
+                $correlationId,
+            );
         } catch (DomainException $exception) {
             if ($exception->getMessage() === 'precondition_failed') {
                 return DocumentsApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current version.', $correlationId);
@@ -153,8 +114,6 @@ final class LinkDocumentController
         } catch (QueryException) {
             return DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'The document link cannot be created.', $correlationId);
         }
-
-        $this->recordAccessEvent($document, $principal['user_id'], 'link', 'allow', 'document_link_created');
 
         return response()->json(['data' => $resource], 201)
             ->header('X-Correlation-ID', $correlationId)

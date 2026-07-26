@@ -132,24 +132,29 @@ class InventoryReconcileTest extends TestCase
         );
     }
 
-    public function test_s4_at_least_45_paths_marked_planned_in_openapi(): void
+    public function test_s4_exact_operation_delta_is_fully_classified(): void
     {
-        $count = $this->countImplementationStatus('planned');
-        $this->assertGreaterThanOrEqual(
-            45,
-            $count,
-            "openapi.yaml must contain >=45 'x-implementation-status: planned' annotations; got {$count}",
-        );
+        $reconciliation = $this->loadSummary()['operation_reconciliation'];
+
+        $this->assertSame(144, $reconciliation['live_operation_count']);
+        $this->assertSame(203, $reconciliation['spec_operation_count']);
+        $this->assertSame(64, $reconciliation['spec_only_operation_count']);
+        $this->assertSame(50, $reconciliation['spec_only_path_count']);
+        $this->assertSame(52, $reconciliation['effective_spec_only_operation_count']);
+        $this->assertSame(38, $reconciliation['effective_spec_only_path_count']);
+        $this->assertSame(5, $reconciliation['runtime_only_literal_count']);
+        $this->assertCount(5, $reconciliation['intentional_runtime_only']);
+        $this->assertSame([], $reconciliation['unresolved_runtime_only']);
+        $this->assertSame([], $reconciliation['unclassified_spec_only']);
     }
 
-    public function test_s4_at_least_33_paths_marked_implemented_in_openapi(): void
+    public function test_s4_r1_template_equivalents_are_implemented_while_w1_2_keeps_two_planned_operations(): void
     {
-        $count = $this->countImplementationStatus('implemented');
-        $this->assertGreaterThanOrEqual(
-            33,
-            $count,
-            "openapi.yaml must preserve >=33 'x-implementation-status: implemented' annotations; got {$count}",
-        );
+        $r1 = (string) file_get_contents($this->r1ScreensPath);
+        $w12 = (string) file_get_contents($this->w12Path);
+
+        $this->assertSame(0, substr_count($r1, 'x-implementation-status: planned'));
+        $this->assertSame(2, substr_count($w12, 'x-implementation-status: planned'));
     }
 
     public function test_s4_does_not_modify_frozen_w1_1_openapi(): void
@@ -291,25 +296,6 @@ class InventoryReconcileTest extends TestCase
         $this->assertIsArray($decoded);
 
         return $decoded;
-    }
-
-    private function countImplementationStatus(string $status): int
-    {
-        $needle = "x-implementation-status: {$status}";
-        $count = 0;
-        $fh = fopen($this->openapiPath, 'r');
-        $this->assertNotFalse($fh);
-        try {
-            while (($line = fgets($fh)) !== false) {
-                if (str_contains($line, $needle)) {
-                    $count++;
-                }
-            }
-        } finally {
-            fclose($fh);
-        }
-
-        return $count;
     }
 
     /**

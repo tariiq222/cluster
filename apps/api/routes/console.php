@@ -4,6 +4,7 @@ use App\Support\OrganizationHierarchyDemoSeeder;
 use App\Support\W12E2EFixtureSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Modules\Documents\Infrastructure\Outbox\Relay\DocumentsOutboxRelay;
 use Modules\Identity\Features\ConsumeOrganizationPersonEvents\Worker\IdentityPersonStreamWorker;
 use Modules\Notifications\Features\ConsumeTechnicalAlert\Worker\NotificationsTechnicalAlertWorker;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
@@ -37,6 +38,26 @@ Artisan::command('work-records:relay-pending {--once}', function (): int {
         return Command::FAILURE;
     }
 })->purpose('Relay one bounded batch of committed WorkRecord events');
+
+Artisan::command('documents:relay-events {--once} {--limit=100}', function (): int {
+    if (! $this->option('once')) {
+        $this->error('The bounded --once mode is required.');
+
+        return Command::FAILURE;
+    }
+
+    $limit = max(1, min((int) $this->option('limit'), 100));
+    try {
+        $published = app(DocumentsOutboxRelay::class)->relayPending($limit);
+        $this->info("Relayed document events: {$published}");
+
+        return Command::SUCCESS;
+    } catch (Throwable) {
+        $this->error('The bounded Documents relay cycle failed.');
+
+        return Command::FAILURE;
+    }
+})->purpose('Relay one bounded batch of committed Documents events');
 
 Artisan::command('platform-settings:relay-technical-alerts {--once} {--limit=100}', function (): int {
     if (! $this->option('once')) {

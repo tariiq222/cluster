@@ -15,6 +15,7 @@ use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Domain\AuthorizationScope;
 use Modules\Authorization\Domain\ClassificationLevel;
 use Modules\Authorization\Domain\ExplicitDeny;
+use Modules\Authorization\Domain\FieldAccessTemplate;
 use Modules\Authorization\Domain\UuidV7;
 use Modules\Authorization\Features\OperationsOffice\OperationsOfficeRoleCatalog;
 use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
@@ -144,6 +145,10 @@ final class RbacAbacDecideAccess implements DecideAccess
             return $this->denyOutcome(['actor_user_id_missing']);
         }
 
+        if (CapabilityCatalog::supports($capability) === false) {
+            return $this->denyOutcome(['capability_not_supported']);
+        }
+
         if ($this->isPlatformOwner($actor)) {
             return [
                 'decision' => 'allow',
@@ -154,10 +159,6 @@ final class RbacAbacDecideAccess implements DecideAccess
 
         if ($facts === null) {
             return $this->denyOutcome(['record_facts_unavailable']);
-        }
-
-        if (CapabilityCatalog::supports($capability) === false) {
-            return $this->denyOutcome(['capability_not_supported']);
         }
 
         if ($this->hasActiveExplicitDeny($userId, $capability, $facts)) {
@@ -669,8 +670,13 @@ final class RbacAbacDecideAccess implements DecideAccess
         $readOnlyCapability = $this->isReadOnlyCapability($capability);
         $fieldAccess = [];
         foreach ($fields as $fieldPath => $fieldRule) {
-            if (! is_string($fieldPath) || trim($fieldPath) === '') {
-                continue;
+            if (! is_string($fieldPath)) {
+                return ['*' => 'hidden'];
+            }
+            try {
+                $fieldPath = FieldAccessTemplate::normalizeFieldPath($fieldPath);
+            } catch (\InvalidArgumentException) {
+                return ['*' => 'hidden'];
             }
             $access = match (is_string($fieldRule) ? $fieldRule : 'hide') {
                 'edit' => 'editable',

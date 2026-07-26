@@ -11,14 +11,16 @@ Rules enforced by this module:
   ``docs/contracts/api/openapi.yaml`` (e.g. the ``/organization/job-titles``
   routes + four ``JobTitle*`` schemas) and the lone ``$ref:`` line the user
   added to ``docs/contracts/api/w1-2.openapi.yaml``.
-* Tag every spec-only path under ``paths:`` with
-  ``x-implementation-status: planned`` (or per-method, where the convention
-  already operates at operation level).
-* Add new path keys for the routes-only set (8 paths), the missing
-  ``work-records/{recordId}/{return|complete|complete-submission}`` verbs
-  (3 paths), the ``/up`` bootstrap health probe, and the ``documentGrantType``
-  param-name reconciliation.
-* Tag every newly added routes-only path with
+* Tag every real spec-only operation under ``paths:`` with
+  ``x-implementation-status: planned`` at path or method level.
+* Treat reviewed ``whereIn`` route templates and parameter-name differences
+  as exact equivalences, and classify their concrete spec operations as
+  implemented rather than planned.
+* Add new path keys for the routes-only set, the missing
+  ``work-records/{recordId}/{return|complete|complete-submission}`` verbs,
+  the ``/up`` bootstrap health probe, and any missing method on an existing
+  path such as ``POST /platform-operations/backups``.
+* Tag newly added live operations with
   ``x-implementation-status: implemented`` so the Orval bundle sees them as
   live.
 * Append ``$ref:`` lines to ``docs/contracts/api/r1-screens.openapi.yaml``
@@ -62,6 +64,7 @@ ROUTES_ONLY_PATHS: list[tuple[str, str]] = [
     ("/organization/units/reorder", "post"),
     ("/platform-operations/alert-policies", "get"),
     ("/platform-operations/alert-policies/{policyId}", "patch"),
+    ("/platform-operations/backups", "post"),
     ("/platform-operations/maintenance-windows", "get"),
     ("/platform-operations/maintenance-windows", "post"),
     ("/platform-operations/maintenance-windows/{windowId}/cancel", "post"),
@@ -73,6 +76,53 @@ ROUTES_ONLY_PATHS: list[tuple[str, str]] = [
     ("/tasks/from-step/{stepId}", "post"),
     ("/work-records/{recordId}/documents", "post"),
 ]
+
+# A live operation can intentionally use one parameterized route declaration
+# while OpenAPI exposes concrete operation paths (or a semantically equivalent
+# parameter name). These are exact, reviewed equivalences—not fuzzy matches.
+INTENTIONAL_RUNTIME_EQUIVALENCES: dict[
+    tuple[str, str], tuple[tuple[str, str], ...]
+] = {
+    ("POST", "/documents/{documentId}/{documentGrantType}-grant"): (
+        ("POST", "/documents/{documentId}/{grantType}-grant"),
+    ),
+    ("POST", "/platform-settings/versions/{versionId}/publish"): (
+        ("POST", "/platform-settings/versions/{versionId}/{settingsAction}"),
+    ),
+    ("POST", "/platform-settings/versions/{versionId}/validate"): (
+        ("POST", "/platform-settings/versions/{versionId}/{settingsAction}"),
+    ),
+    ("POST", "/work-definition-versions/{versionId}/{versionAction}"): (
+        ("POST", "/work-definition-versions/{versionId}/test"),
+        ("POST", "/work-definition-versions/{versionId}/approve"),
+        ("POST", "/work-definition-versions/{versionId}/sign"),
+        ("POST", "/work-definition-versions/{versionId}/publish"),
+    ),
+    ("POST", "/work-records/{recordId}/{recordAction}"): (
+        ("POST", "/work-records/{recordId}/submit"),
+        ("POST", "/work-records/{recordId}/return"),
+        ("POST", "/work-records/{recordId}/complete"),
+        ("POST", "/work-records/{recordId}/complete-submission"),
+        ("POST", "/work-records/{recordId}/cancel"),
+        ("POST", "/work-records/{recordId}/archive"),
+    ),
+}
+
+IMPLEMENTED_EQUIVALENT_PATHS = {
+    path
+    for equivalents in INTENTIONAL_RUNTIME_EQUIVALENCES.values()
+    for _method, path in equivalents
+} | {"/up"}
+
+# Spec operations on otherwise live item paths that are intentionally not
+# wired yet. They must carry operation-level planned status so a live sibling
+# method never hides reverse drift.
+SPEC_ONLY_METHODS: tuple[tuple[str, str], ...] = (
+    ("/authorization/bootstrap", "post"),
+    ("/work-definitions/{definitionId}", "patch"),
+    ("/work-definition-versions/{versionId}", "patch"),
+    ("/work-records/{recordId}", "patch"),
+)
 
 # Missing discrete ``work-records/{recordId}/{recordAction}`` verbs that are
 # declared in routes via ``whereIn`` but for which the spec does not yet
@@ -89,9 +139,8 @@ WORK_RECORD_VERB_PATHS: list[tuple[str, str]] = [
 # ``no-identical-paths`` would reject two path templates resolving to the
 # same URL, we DO NOT add a duplicate key. Instead, we RENAME the existing
 # path's parameter name in-place from ``grantType`` to ``documentGrantType``
-# and update its operation summary to reflect the route-side id. The
-# existing path remains tagged ``x-implementation-status: planned`` so the
-# ``grantType`` declaration is now an exact match for the routes side.
+# and update its operation summary to reflect the route-side id. The path is
+# classified implemented through the reviewed parameter-name equivalence.
 DOCUMENT_GRANT_RENAME_PATH: str = "/documents/{documentId}/{grantType}-grant"
 DOCUMENT_GRANT_RENAME_NEW_NAME: str = "documentGrantType"
 
@@ -192,6 +241,98 @@ def compute_spec_only_paths(
     """Spec-only paths = spec path keys NOT present in any routes prefix path."""
     route_path_set = {p for _m, p in routes}
     return [p for p in spec_paths if p not in route_path_set]
+
+def parse_planned_operations(text: str) -> set[tuple[str, str]]:
+    """Return spec operations classified as planned at path or method level."""
+    lines = text.splitlines()
+    planned: set[tuple[str, str]] = set()
+    methods = parse_spec_methods(text)
+    path_starts = [
+        (index, line.rstrip().rstrip(":").strip())
+        for index, line in enumerate(lines)
+        if line.rstrip().startswith("  /") and line.rstrip().endswith(":")
+    ]
+    for position, (start, path) in enumerate(path_starts):
+        end = path_starts[position + 1][0] if position + 1 < len(path_starts) else len(lines)
+        block = lines[start:end]
+        if any(line.startswith("    x-implementation-status: planned") for line in block):
+            planned.update((method, path) for method in methods.get(path, set()))
+            continue
+
+        current_method: str | None = None
+        for line in block:
+            stripped = line.rstrip()
+            method = next(
+                (
+                    verb.upper()
+                    for verb in ("get", "post", "patch", "put", "delete")
+                    if stripped == f"    {verb}:"
+                ),
+                None,
+            )
+            if method is not None:
+                current_method = method
+                continue
+            if (
+                current_method is not None
+                and line.startswith("      x-implementation-status: planned")
+            ):
+                planned.add((current_method, path))
+    return planned
+
+
+def exact_operation_reconciliation(
+    spec_text: str, routes: list[tuple[str, str]]
+) -> dict:
+    """Classify exact method/path drift without semantic-similarity guesses."""
+    spec_operations = {
+        (method, path)
+        for path, methods in parse_spec_methods(spec_text).items()
+        for method in methods
+    }
+    live_operations = set(routes)
+    runtime_only = sorted(live_operations - spec_operations)
+    spec_only = sorted(spec_operations - live_operations)
+
+    intentional_runtime_only: list[dict] = []
+    unresolved_runtime_only: list[dict] = []
+    intentional_spec_operations: set[tuple[str, str]] = set()
+    for operation in runtime_only:
+        equivalents = INTENTIONAL_RUNTIME_EQUIVALENCES.get(operation)
+        item = {"method": operation[0], "path": operation[1]}
+        if equivalents is not None and all(
+            equivalent in spec_operations for equivalent in equivalents
+        ):
+            item["spec_operations"] = [
+                {"method": method, "path": path} for method, path in equivalents
+            ]
+            intentional_runtime_only.append(item)
+            intentional_spec_operations.update(equivalents)
+        else:
+            unresolved_runtime_only.append(item)
+
+    effective_spec_only = sorted(set(spec_only) - intentional_spec_operations)
+    planned_operations = parse_planned_operations(spec_text)
+    unclassified_spec_only = [
+        {"method": method, "path": path}
+        for method, path in effective_spec_only
+        if (method, path) not in planned_operations
+    ]
+    spec_only_paths = {path for _method, path in spec_only}
+    effective_spec_only_paths = {path for _method, path in effective_spec_only}
+    return {
+        "live_operation_count": len(live_operations),
+        "spec_operation_count": len(spec_operations),
+        "spec_only_operation_count": len(spec_only),
+        "spec_only_path_count": len(spec_only_paths),
+        "effective_spec_only_operation_count": len(effective_spec_only),
+        "effective_spec_only_path_count": len(effective_spec_only_paths),
+        "runtime_only_literal_count": len(runtime_only),
+        "intentional_runtime_only": intentional_runtime_only,
+        "intentional_spec_operation_count": len(intentional_spec_operations),
+        "unresolved_runtime_only": unresolved_runtime_only,
+        "unclassified_spec_only": unclassified_spec_only,
+    }
 
 
 # -------------------------- new operation emitters --------------------------
@@ -535,6 +676,30 @@ def _block_for_path(path: str, method: str) -> str:
             responses,
         )
 
+    if path == "/platform-operations/backups" and method == "post":
+        pre = [
+            "      parameters:",
+            "        [",
+            "          { $ref: \"#/components/parameters/IdempotencyKey\" },",
+            "        ]",
+        ]
+        responses = [
+            "        \"202\": { $ref: \"#/components/responses/Entity\" }",
+            "        \"400\": { $ref: \"#/components/responses/BadRequest\" }",
+            "        \"401\": { $ref: \"#/components/responses/Unauthorized\" }",
+            "        \"403\": { $ref: \"#/components/responses/Forbidden\" }",
+            "        \"500\": { $ref: \"#/components/responses/InternalServerError\" }",
+        ]
+        return _emitted_path_block(
+            path,
+            method,
+            "dispatchPlatformBackup",
+            "Platform Operations",
+            "Dispatch an idempotent asynchronous platform backup",
+            pre,
+            responses,
+        )
+
     if path == "/platform-operations/alert-policies":
         pre = [
             "      parameters:",
@@ -782,91 +947,26 @@ def _path_already_planned(after_path_idx: int, lines: list[str]) -> bool:
 
 
 def annotate_reverse_drift_method(
-    text: str, path: str, method: str, op_summary_marker: str
+    text: str, path: str, method: str, _op_summary_marker: str
 ) -> tuple[str, int]:
-    """Inject ``x-implementation-status: planned`` inside a specific
-    operation block of an existing path key. Used for the
-    ``/authorization/bootstrap`` POST method-level reverse drift: the spec
-    declares POST on ``/authorization/bootstrap`` while the Laravel routes
-    only register POST on ``/authorization/bootstrap/complete``.
-
-    Idempotent: a two-pass scan ensures we never duplicate the annotation.
-    Pass 1 walks the file looking for any ``x-implementation-status`` line
-    between the path key and the next path key that contains our target
-    path. If found, pass 2 is skipped. Pass 2 injects the annotation only
-    if it was not already present.
-    """
-    already_annotated = False
-    seen_target_path = False
-    for line in text.splitlines():
-        stripped = line.rstrip()
-        if stripped.startswith("  /") and stripped.endswith(":"):
-            current_path = stripped.rstrip(":").strip()
-            if seen_target_path:
-                # Exited the target path block.
-                seen_target_path = False
-            if current_path == path:
-                seen_target_path = True
-            continue
-        if seen_target_path and "x-implementation-status:" in stripped:
-            already_annotated = True
-            break
-
-    if already_annotated:
-        return text, 0
-
+    """Add operation-level planned status to one exact method/path pair."""
     if target_method_has_status(text, path, method):
         return text, 0
 
     lines = text.splitlines()
-    out: list[str] = []
-    current_path: str | None = None
     inside_target_path = False
-    inside_target_method = False
-    injected = False
-
-    def _is_path_key(s: str) -> bool:
-        return s.startswith("  /") and s.endswith(":")
-
-    i = 0
-    while i < len(lines):
-        line = lines[i]
+    for index, line in enumerate(lines):
         stripped = line.rstrip()
-        if _is_path_key(stripped):
-            current_path = stripped.rstrip(":").strip()
-            inside_target_path = current_path == path
-            inside_target_method = False
-            out.append(line)
-            i += 1
+        if stripped.startswith("  /") and stripped.endswith(":"):
+            inside_target_path = stripped.rstrip(":").strip() == path
             continue
         if inside_target_path and stripped == f"    {method}:":
-            inside_target_method = True
-            out.append(line)
-            i += 1
-            continue
-        if (
-            inside_target_method
-            and not injected
-            and stripped.startswith("      tags:")
-        ):
-            out.append(line)
-            out.append(
-                "      x-implementation-status: planned  # [planned: not yet wired \u2014 method]"
+            lines.insert(
+                index + 1,
+                "      x-implementation-status: planned  # [planned: not yet wired — method]",
             )
-            injected = True
-            i += 1
-            continue
-        if (
-            inside_target_method
-            and stripped in {"    get:", "    post:", "    patch:", "    put:", "    delete:"}
-            and stripped != f"    {method}:"
-        ):
-            inside_target_method = False
-        out.append(line)
-        i += 1
-    if out:
-        return "\n".join(out) + "\n", 1 if injected else 0
-    return "", 0
+            return "\n".join(lines) + "\n", 1
+    return text, 0
 
 
 def target_method_has_status(text: str, path: str, method: str) -> bool:
@@ -975,6 +1075,27 @@ def add_x_planned_for_spec_only_paths(
         return "\n".join(out) + "\n", count
     return "", count
 
+def mark_paths_implemented(
+    text: str, paths: set[str]
+) -> tuple[str, list[str]]:
+    """Reclassify exact runtime-template equivalents from planned to implemented."""
+    lines = text.splitlines()
+    current_path: str | None = None
+    changed: list[str] = []
+    for index, line in enumerate(lines):
+        stripped = line.rstrip()
+        if stripped.startswith("  /") and stripped.endswith(":"):
+            current_path = stripped.rstrip(":").strip()
+            continue
+        if (
+            current_path in paths
+            and line.startswith("    x-implementation-status: planned")
+        ):
+            lines[index] = "    x-implementation-status: implemented"
+            changed.append(current_path)
+            current_path = None
+    return "\n".join(lines) + "\n", changed
+
 
 def append_new_paths(
     text: str, new_paths: list[tuple[str, str]]
@@ -1021,6 +1142,42 @@ def append_new_paths(
         text[:insertion] + "\n".join(new_blocks) + "\n" + text[insertion:],
         list(to_add),
     )
+
+def append_missing_methods(
+    text: str, candidates: list[tuple[str, str]]
+) -> tuple[str, list[tuple[str, str]]]:
+    """Append missing methods to path keys that already exist.
+
+    New-path reconciliation and new-method reconciliation are deliberately
+    separate: treating an existing path as complete merely because one sibling
+    method exists is what hid POST ``/platform-operations/backups``.
+    """
+    added: list[tuple[str, str]] = []
+    for path, method in candidates:
+        methods = parse_spec_methods(text)
+        if path not in methods or method.upper() in methods[path]:
+            continue
+
+        operation_lines = _block_for_path(path, method).splitlines()[2:]
+        lines = text.splitlines()
+        path_index = next(
+            (index for index, line in enumerate(lines) if line.rstrip() == f"  {path}:"),
+            None,
+        )
+        if path_index is None:
+            continue
+        insertion_index = next(
+            (
+                index
+                for index in range(path_index + 1, len(lines))
+                if lines[index].startswith("  /") or lines[index] == "components:"
+            ),
+            len(lines),
+        )
+        lines[insertion_index:insertion_index] = operation_lines
+        text = "\n".join(lines) + "\n"
+        added.append((path, method))
+    return text, added
 
 
 def append_r1_screen_refs(
@@ -1119,6 +1276,7 @@ def reconcile(repo_root: pathlib.Path) -> dict:
     r1_text = _read_text(repo_root / R1_SCREENS_PATH)
 
     routes = parse_route_spec_paths(routes_text)
+    routes.append((UP_PATH[1].upper(), UP_PATH[0]))
 
     # Compute spec-only paths for the planned tagging pass.
     spec_paths_in_order = parse_spec_path_keys(openapi_text)
@@ -1128,18 +1286,25 @@ def reconcile(repo_root: pathlib.Path) -> dict:
     openapi_after_planned, planned_tag_count = add_x_planned_for_spec_only_paths(
         openapi_text, spec_only
     )
-
-    # Reverse-drift: /authorization/bootstrap POST is a method-level drift.
-    # The spec declares POST on /authorization/bootstrap but the Laravel
-    # routes register POST on /authorization/bootstrap/complete. The block
-    # is not in the spec-only path count but the method is — annotate it so
-    # the planned-status gate is satisfied at operation level too.
-    openapi_after_drift, drift_count = annotate_reverse_drift_method(
-        openapi_after_planned,
-        "/authorization/bootstrap",
-        "post",
-        "Complete bootstrap once with an audited idempotent command",
+    openapi_after_classification, implemented_paths = mark_paths_implemented(
+        openapi_after_planned, IMPLEMENTED_EQUIVALENT_PATHS
     )
+    r1_after_classification, r1_implemented_paths = mark_paths_implemented(
+        r1_text, IMPLEMENTED_EQUIVALENT_PATHS
+    )
+
+    # A live sibling method must not hide a spec-only operation. Apply
+    # method-level planned status to every reviewed reverse-drift operation.
+    openapi_after_drift = openapi_after_classification
+    drift_count = 0
+    for path, method in SPEC_ONLY_METHODS:
+        openapi_after_drift, added = annotate_reverse_drift_method(
+            openapi_after_drift,
+            path,
+            method,
+            "",
+        )
+        drift_count += added
 
     # Decide which paths to append (routes-only + work-record verbs + /up).
     # All of these are NEW path keys.
@@ -1151,12 +1316,15 @@ def reconcile(repo_root: pathlib.Path) -> dict:
         openapi_after_drift, new_paths
     )
 
+    openapi_after_methods, methods_added = append_missing_methods(
+        openapi_after_append, new_paths
+    )
     # Param-name reconciliation: rename the existing ``grantType`` path
     # parameter to ``documentGrantType`` so the spec matches the route. This
     # keeps the existing path key (append-only) while aligning parameter
-    # naming. The path stays tagged [planned] in the spec-only loop above.
+    # naming; exact equivalence classifies the operation as implemented.
     openapi_after_rename, rename_did = _rename_grant_parameter(
-        openapi_after_append
+        openapi_after_methods
     )
 
     # Decide r1-screens scope additions.
@@ -1171,8 +1339,22 @@ def reconcile(repo_root: pathlib.Path) -> dict:
         "/dashboards/{dashboardId}",
     }
     r1_after, r1_added = append_r1_screen_refs(
-        r1_text, paths_added, r1_screen_scope
+        r1_after_classification, paths_added, r1_screen_scope
     )
+
+    operation_reconciliation = exact_operation_reconciliation(
+        openapi_after_rename, routes
+    )
+    if operation_reconciliation["unresolved_runtime_only"]:
+        raise RuntimeError(
+            "unresolved runtime-only OpenAPI operations: "
+            f"{operation_reconciliation['unresolved_runtime_only']}"
+        )
+    if operation_reconciliation["unclassified_spec_only"]:
+        raise RuntimeError(
+            "spec-only OpenAPI operations require planned status: "
+            f"{operation_reconciliation['unclassified_spec_only']}"
+        )
 
     # Persistence.
     (repo_root / OPENAPI_PATH).write_text(openapi_after_rename, encoding="utf-8")
@@ -1196,12 +1378,22 @@ def reconcile(repo_root: pathlib.Path) -> dict:
     payload = {
         "timestamp": _now_iso(),
         "paths_added": paths_added,
-        "paths_marked_planned": [
-            {"path": p, "annotated": True} for p in spec_only
+        "methods_added": [
+            {"path": path, "method": method.upper()}
+            for path, method in methods_added
         ],
+        "operation_reconciliation": operation_reconciliation,
+        "paths_marked_planned": [
+            {"path": path, "annotated": True}
+            for path in sorted(
+                {path for _method, path in parse_planned_operations(openapi_after_rename)}
+            )
+        ],
+        "paths_reclassified_implemented": implemented_paths,
+        "r1_paths_reclassified_implemented": r1_implemented_paths,
         "planned_count": planned_tag_count + drift_count,
         "reverse_drift_count": drift_count,
-        "spec_only_path_count": len(spec_only),
+        "spec_only_path_count": operation_reconciliation["spec_only_path_count"],
         "parameter_name_syncs": [
             {
                 "from": "grantType",
@@ -1227,8 +1419,8 @@ def reconcile(repo_root: pathlib.Path) -> dict:
         },
         "notes": [
             "w1-2.openapi.yaml is FROZEN (no appends) to satisfy validate-w1-2-contracts.py strict equality.",
-            "documentGrantType-grant path adds as a NEW key; the existing grantType-grant path keeps being tagged [planned].",
-            "/up uses security: [] matching the 17 anonymous operations already present.",
+            "documentGrantType-grant is intentionally equivalent to the implemented grantType-grant contract path.",
+            "/up uses security: [] and is counted from bootstrap/app.php as a live operation.",
         ],
     }
     write_summary(repo_root, payload)

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\PlatformSettings\Infrastructure\Outbox;
 
-use Illuminate\Support\Carbon;
-use Shared\Contracts\PendingOutboxStore;
+use Shared\Contracts\OutboxRelayStore;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 
 final class TechnicalAlertOutboxRelay
@@ -17,7 +16,7 @@ final class TechnicalAlertOutboxRelay
     private const MAX_BATCH_SIZE = 100;
 
     public function __construct(
-        private readonly PendingOutboxStore $outbox,
+        private readonly OutboxRelayStore $outbox,
         private readonly RedisStreamTransport $transport,
     ) {}
 
@@ -30,18 +29,13 @@ final class TechnicalAlertOutboxRelay
 
         $published = 0;
         foreach ($events as $event) {
-            /** @var array{alert_code: string, severity: string, recipient_capability: string, occurred_at: string, correlation_id: string} $payload */
-            $payload = $event->payload;
-            $cloudEvent = [
-                'specversion' => '1.0',
-                'id' => $event->eventId,
-                'source' => '/platform-settings',
-                'type' => self::EVENT_TYPE,
-                'subject' => '/technical-alerts/'.rawurlencode($payload['alert_code']),
-                'time' => Carbon::parse($payload['occurred_at'])->utc()->format('Y-m-d\\TH:i:s.v\\Z'),
-                'datacontenttype' => 'application/json',
-                'data' => $payload,
-            ];
+            $cloudEvent = $event->payload;
+            if (($cloudEvent['type'] ?? null) !== self::EVENT_TYPE || ! is_array($cloudEvent['data'] ?? null)) {
+                throw new \UnexpectedValueException(sprintf(
+                    'Shared Outbox event %s is not a valid technical-alert CloudEvent.',
+                    $event->eventId,
+                ));
+            }
             $this->transport->xadd(self::STREAM, ['event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR)]);
 
             if ($this->outbox->markPublished($event->eventId)) {

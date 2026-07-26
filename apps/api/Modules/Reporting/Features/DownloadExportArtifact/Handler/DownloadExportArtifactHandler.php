@@ -3,6 +3,7 @@
 namespace Modules\Reporting\Features\DownloadExportArtifact\Handler;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 
@@ -32,16 +33,19 @@ final class DownloadExportArtifactHandler
             }
             $decision = $this->access->decide(
                 $actor,
-                'work_record.read',
+                'reporting.download',
                 new RecordFacts(
                     is_string($item['scope_id'] ?? null) ? $item['scope_id'] : null,
                     $item['source_type'],
-                    'internal',
+                    is_string($item['classification'] ?? null) ? $item['classification'] : 'internal',
                 ),
             );
-            if ($decision->isAllowed()) {
-                $allowed[] = $item;
+            if (! $decision->isAllowed()) {
+                continue;
             }
+
+            unset($item['allowed_actions'], $item['field_access'], $item['decision_id']);
+            $allowed[] = AccessProjection::fromDecision($decision)->compose($item);
         }
 
         return ['id' => $artifact->id, 'format' => $artifact->format, 'items' => $allowed, 'total' => count($allowed)];

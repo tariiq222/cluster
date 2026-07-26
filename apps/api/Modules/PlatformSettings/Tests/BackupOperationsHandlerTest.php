@@ -9,6 +9,12 @@ use Modules\PlatformSettings\Contracts\PlatformHealthGateway;
 use Modules\PlatformSettings\Domain\BackupStatus;
 use Modules\PlatformSettings\Features\Operations\Handler\PlatformOperationsDispatchHandler;
 use Modules\PlatformSettings\Features\Operations\Handler\PlatformOperationsHandler;
+use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
+use RuntimeException;
+use Shared\Contracts\OutboxDuplicatePolicy;
+use Shared\Contracts\OutboxEventLookup;
+use Shared\Contracts\OutboxRelayStore;
+use Shared\Contracts\TransactionalOutboxEnvelope;
 use Tests\TestCase;
 
 final class BackupOperationsHandlerTest extends TestCase
@@ -18,7 +24,7 @@ final class BackupOperationsHandlerTest extends TestCase
     public function test_replaying_an_idempotency_key_returns_the_same_operation_without_starting_a_second_backup(): void
     {
         $gateway = new FakeBackupOperationsGateway;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
 
         $first = $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'backup-once');
         $second = $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'backup-once');
@@ -27,14 +33,14 @@ final class BackupOperationsHandlerTest extends TestCase
         $this->assertSame($first['operation_id'], $second['operation_id']);
         $this->assertSame([], $gateway->backupOperationIds);
         $this->assertDatabaseCount('platform_operation_requests', 1);
-        $this->assertSame(1, (new PlatformOperationsDispatchHandler($gateway))->run(10));
+        $this->assertSame(1, $this->dispatcher($gateway)->run(10));
         $this->assertSame([$first['operation_id']], $gateway->backupOperationIds);
     }
 
     public function test_restore_confirmation_requires_a_second_actor_and_separate_capabilities(): void
     {
         $gateway = new FakeBackupOperationsGateway;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
         $requestedBy = '0197f0e0-0000-7000-8000-000000000001';
         $operation = $handler->requestRestore(
             requestedBy: $requestedBy,
@@ -54,7 +60,7 @@ final class BackupOperationsHandlerTest extends TestCase
     public function test_confirmation_dispatches_only_restore_validation_and_never_a_production_restore(): void
     {
         $gateway = new FakeBackupOperationsGateway;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
         $operation = $handler->requestRestore(
             requestedBy: '0197f0e0-0000-7000-8000-000000000001',
             backupId: 'backup-2026-07-23',
@@ -71,14 +77,14 @@ final class BackupOperationsHandlerTest extends TestCase
         $this->assertSame(202, $result['http_status']);
         $this->assertSame('validation_running', $result['status']);
         $this->assertSame([], $gateway->restoreValidationRequests);
-        $this->assertSame(1, (new PlatformOperationsDispatchHandler($gateway))->run(10));
+        $this->assertSame(1, $this->dispatcher($gateway)->run(10));
         $this->assertSame([[$operation['operation_id'], 'backup-2026-07-23']], $gateway->restoreValidationRequests);
     }
 
     public function test_completed_restore_validation_hands_off_only_the_operator_runbook_reference(): void
     {
         $gateway = new FakeBackupOperationsGateway;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
         $operation = $handler->requestRestore(
             requestedBy: '0197f0e0-0000-7000-8000-000000000001',
             backupId: 'backup-2026-07-23',
@@ -101,7 +107,7 @@ final class BackupOperationsHandlerTest extends TestCase
     public function test_unconfirmed_restore_request_can_be_cancelled_without_dispatching_validation(): void
     {
         $gateway = new FakeBackupOperationsGateway;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
         $operation = $handler->requestRestore(
             requestedBy: '0197f0e0-0000-7000-8000-000000000001',
             backupId: 'backup-2026-07-23',
@@ -118,7 +124,7 @@ final class BackupOperationsHandlerTest extends TestCase
     public function test_backup_request_writes_a_hashed_scoped_idempotency_claim_and_outbox_without_starting_a_process(): void
     {
         $gateway = new FakeBackupOperationsGateway;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
 
         $result = $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'backup-once');
 
@@ -130,7 +136,7 @@ final class BackupOperationsHandlerTest extends TestCase
             'dispatch_status' => 'queued',
         ]);
         $this->assertDatabaseMissing('platform_operation_requests', ['operation_payload' => json_encode(['idempotency_key' => 'backup-once'])]);
-        $this->assertDatabaseHas('platform_settings_outbox', [
+        $this->assertDatabaseHas('outbox_events', [
             'aggregate_id' => $result['operation_id'],
             'event_type' => 'com.cluster.platform-operations.backup-requested.v1',
         ]);
@@ -159,7 +165,7 @@ final class BackupOperationsHandlerTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, new FakeBackupOperationsGateway);
+        $handler = $this->handler(new FakeBackupOperationsGateway);
 
         $result = $handler->requestBackup($requestedBy, $key);
 
@@ -170,9 +176,9 @@ final class BackupOperationsHandlerTest extends TestCase
     public function test_dispatcher_claims_once_waits_for_the_gateway_and_records_completed_backup(): void
     {
         $gateway = new FakeBackupOperationsGateway;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
         $operation = $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'dispatch-once');
-        $dispatcher = new PlatformOperationsDispatchHandler($gateway);
+        $dispatcher = $this->dispatcher($gateway);
 
         $this->assertSame(1, $dispatcher->run(10));
         $this->assertSame([$operation['operation_id']], $gateway->backupOperationIds);
@@ -189,9 +195,9 @@ final class BackupOperationsHandlerTest extends TestCase
     {
         $gateway = new FakeBackupOperationsGateway;
         $gateway->failNextBackup = true;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
         $operation = $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'recover-dispatch');
-        $dispatcher = new PlatformOperationsDispatchHandler($gateway);
+        $dispatcher = $this->dispatcher($gateway);
 
         $this->assertSame(0, $dispatcher->run(10));
         $this->assertDatabaseHas('platform_operation_requests', [
@@ -225,14 +231,14 @@ final class BackupOperationsHandlerTest extends TestCase
     {
         config(['platform_operations.dispatch_claim_timeout_seconds' => 5]);
         $gateway = new FakeBackupOperationsGateway;
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
         $operation = $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'recover-stale-claim');
         DB::table('platform_operation_requests')->where('id', $operation['operation_id'])->update([
             'dispatch_status' => 'running',
             'dispatch_claimed_at' => now()->subSeconds(6),
         ]);
 
-        $this->assertSame(0, (new PlatformOperationsDispatchHandler($gateway))->run(10));
+        $this->assertSame(0, $this->dispatcher($gateway)->run(10));
 
         $this->assertSame([], $gateway->backupOperationIds);
         $this->assertDatabaseHas('platform_operation_requests', [
@@ -248,13 +254,62 @@ final class BackupOperationsHandlerTest extends TestCase
     {
         $gateway = new FakeBackupOperationsGateway;
         $this->app->instance(BackupOperationsGateway::class, $gateway);
-        $handler = new PlatformOperationsHandler(new EmptyHealthGateway, $gateway);
+        $handler = $this->handler($gateway);
         $operation = $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'artisan-dispatch');
 
         $this->artisan('platform-operations:dispatch', ['--once' => true, '--limit' => '1'])
             ->assertExitCode(0);
 
         $this->assertSame([$operation['operation_id']], $gateway->backupOperationIds);
+    }
+
+    public function test_outbox_failure_rolls_back_operation_and_idempotency_claim(): void
+    {
+        $this->app->instance(TransactionalOutboxEnvelope::class, new class implements TransactionalOutboxEnvelope
+        {
+            public function appendEnvelope(
+                string $eventId,
+                string $aggregateId,
+                array $cloudEvent,
+                string $occurredAt,
+                ?string $auditAt = null,
+                OutboxDuplicatePolicy $policy = OutboxDuplicatePolicy::Strict,
+            ): void {
+                throw new RuntimeException('outbox unavailable');
+            }
+        });
+        $handler = $this->handler(new FakeBackupOperationsGateway);
+
+        try {
+            $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'rollback-backup');
+            $this->fail('Expected Outbox failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('outbox unavailable', $exception->getMessage());
+        }
+
+        $this->assertDatabaseMissing('platform_operation_requests', [
+            'requested_by' => '0197f0e0-0000-7000-8000-000000000001',
+            'idempotency_key_hash' => hash('sha256', '0197f0e0-0000-7000-8000-000000000001|backup|rollback-backup'),
+        ]);
+        $this->assertDatabaseCount('outbox_events', 0);
+    }
+
+    private function handler(BackupOperationsGateway $gateway): PlatformOperationsHandler
+    {
+        return new PlatformOperationsHandler(
+            new EmptyHealthGateway,
+            $gateway,
+            $this->app->make(PlatformSettingsOutbox::class),
+        );
+    }
+
+    private function dispatcher(BackupOperationsGateway $gateway): PlatformOperationsDispatchHandler
+    {
+        return new PlatformOperationsDispatchHandler(
+            $gateway,
+            $this->app->make(OutboxRelayStore::class),
+            $this->app->make(OutboxEventLookup::class),
+        );
     }
 }
 

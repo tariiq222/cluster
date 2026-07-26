@@ -38,6 +38,7 @@ use Modules\PlatformSettings\Features\Maintenance\Http\MaintenanceWindowsControl
 use Modules\PlatformSettings\Features\Operations\Handler\PlatformOperationsHandler;
 use Modules\PlatformSettings\Features\Operations\Http\DispatchBackupController;
 use Modules\PlatformSettings\Features\Operations\Http\GetPlatformOverviewController;
+use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 use Tests\TestCase;
 
 final class PlatformOperationsHttpAdapterTest extends TestCase
@@ -260,6 +261,7 @@ final class PlatformOperationsHttpAdapterTest extends TestCase
         return new PlatformOperationsHandler(
             new PlatformOperationsHttpHealthGateway,
             new PlatformOperationsHttpBackupGateway($failBackups),
+            $this->app->make(PlatformSettingsOutbox::class),
         );
     }
 

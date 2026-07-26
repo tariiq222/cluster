@@ -25,7 +25,6 @@ use Modules\Documents\Application\UploadFileMetadata;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\DocumentSourceReference;
 use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
-use Modules\Documents\Domain\Contracts\DocumentsOutbox;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\Upload\DocumentUploadHandler;
@@ -33,6 +32,7 @@ use Modules\Documents\Infrastructure\Persistence\DatabaseSensitiveAccessEventRec
 use Modules\Documents\Tests\Support\InMemoryMalwareScanner;
 use Modules\Documents\Tests\Support\InMemoryPrivateObjectStorage;
 use Modules\Documents\Tests\Support\InMemoryTrustedDocumentAuthorizationContext;
+use Shared\Contracts\TransactionalOutbox;
 use Tests\TestCase;
 
 final class DocumentGovernanceAcceptanceTest extends TestCase
@@ -253,7 +253,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
 
     private function handler(InMemoryPrivateObjectStorage $storage, InMemoryMalwareScanner $scanner): DocumentUploadHandler
     {
-        return new DocumentUploadHandler($storage, $scanner, DocumentUploadPolicy::fromConfig(config('documents')), DocumentRetentionPolicy::fromConfig(config('documents')), $this->app->make(DocumentsOutbox::class));
+        return new DocumentUploadHandler($storage, $scanner, DocumentUploadPolicy::fromConfig(config('documents')), DocumentRetentionPolicy::fromConfig(config('documents')), $this->app->make(TransactionalOutbox::class));
     }
 
     private function initiate(DocumentUploadHandler $handler, string $filename, string $mime, string $key, string $classification = 'internal'): object

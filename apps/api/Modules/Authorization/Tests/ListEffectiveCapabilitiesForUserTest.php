@@ -5,6 +5,7 @@ namespace Modules\Authorization\Tests;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Modules\Authorization\Features\OperationsOffice\OperationsOfficeRoleCatalog;
 use Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser;
 use Tests\TestCase;
 
@@ -149,6 +150,58 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
         $this->seedAssignment('assign-2', self::USER_ID, self::ROLE_ID, scopeId: self::ORGANIZATION_UNIT_ID);
 
         $this->assertSame(['work_record.read'], $this->capabilities()->forUser(self::USER_ID));
+    }
+
+    public function test_platform_owner_deny_subtraction_is_skipped(): void
+    {
+        $this->seedCapability('cap-read', 'work_record.read');
+        $this->seedRole(OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE, 'platform_owner');
+        $this->seedRoleCapability(OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE, 'cap-read', 'allow');
+        $this->seedAssignment('assign-owner', self::USER_ID, OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE);
+
+        DB::table('explicit_denies')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000b02',
+            'user_id' => self::USER_ID,
+            'capability_code' => 'work_record.read',
+            'classification' => null,
+            'organization_unit_id' => null,
+            'resource_pattern' => null,
+            'reason' => 'TEST: temp stop',
+            'issued_by_user_id' => self::GRANTED_BY_USER_ID,
+            'issued_at' => now()->subMinute(),
+            'expires_at' => null,
+            'revocable' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertSame(['work_record.read'], $this->capabilities()->forUser(self::USER_ID));
+    }
+
+    public function test_active_user_targeted_explicit_deny_subtracts_capability(): void
+    {
+        $this->seedCapability('cap-read', 'work_record.read');
+        $this->seedRole(self::ROLE_ID, 'nav_reader');
+        $this->seedRoleCapability(self::ROLE_ID, 'cap-read', 'allow');
+        $this->seedAssignment('assign-1', self::USER_ID, self::ROLE_ID);
+
+        DB::table('explicit_denies')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000b01',
+            'user_id' => self::USER_ID,
+            'capability_code' => 'work_record.read',
+            'classification' => null,
+            'organization_unit_id' => null,
+            'resource_pattern' => null,
+            'reason' => 'TEST: temporary stop',
+            'issued_by_user_id' => self::GRANTED_BY_USER_ID,
+            'issued_at' => now()->subMinute(),
+            'expires_at' => null,
+            'revocable' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertSame([], $this->capabilities()->forUser(self::USER_ID));
     }
 
     private function capabilities(): ListEffectiveCapabilitiesForUser

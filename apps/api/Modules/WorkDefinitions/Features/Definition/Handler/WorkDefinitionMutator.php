@@ -74,6 +74,10 @@ final class WorkDefinitionMutator
     {
         $resource = DB::transaction(function () use ($definitionId, $schemaDocument, $fieldPolicyKey, $changeSummary, $principal, $hash, $keyHash, $idempotencyOperation): array {
             $id = Str::uuid7()->toString();
+            $definition = DB::table('work_definitions')->where('id', $definitionId)->lockForUpdate()->first();
+            if ($definition === null) {
+                throw new \InvalidArgumentException('work_definition_not_found');
+            }
             $now = now();
             $n = (int) DB::table('work_definition_versions')->where('work_definition_id', $definitionId)->max('version_number') + 1;
             DB::table('work_definition_versions')->insert([
@@ -108,7 +112,7 @@ final class WorkDefinitionMutator
     }
 
     /**
-     * @return array{ok: bool, conflict?: string}
+     * @return array{ok: bool, stale?: bool, conflict?: string}
      */
     public function transition(string $versionId, int $expectedVersion, string $action, string $target, ?string $publishedAt): array
     {
@@ -122,12 +126,14 @@ final class WorkDefinitionMutator
                     'updated_at' => $now,
                 ]);
                 if ($updated !== 1) {
-                    throw new \RuntimeException('stale');
+                    throw new StaleWorkDefinitionVersion;
                 }
                 $this->outbox->append(Str::uuid7()->toString(), $versionId, 'work_definition.version.'.$action.'.v1', ['version_id' => $versionId]);
             });
 
             return ['ok' => true];
+        } catch (StaleWorkDefinitionVersion) {
+            return ['ok' => false, 'stale' => true];
         } catch (\Throwable $e) {
             return ['ok' => false, 'conflict' => $e->getMessage()];
         }

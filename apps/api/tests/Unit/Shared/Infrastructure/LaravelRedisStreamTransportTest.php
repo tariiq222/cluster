@@ -7,6 +7,7 @@ use Illuminate\Redis\Connections\PredisConnection;
 use Mockery;
 use PHPUnit\Framework\TestCase;
 use Predis\Client as PredisClient;
+use Predis\Command\CommandInterface;
 use Shared\Infrastructure\Streams\LaravelRedisStreamTransport;
 use Shared\Infrastructure\Streams\PhpRedisStreamDriver;
 use Shared\Infrastructure\Streams\PredisStreamDriver;
@@ -108,10 +109,14 @@ final class LaravelRedisStreamTransportTest extends TestCase
         $this->assertSame('platform.events.v1', $driver->eval('return KEYS[1]', ['platform.events.v1'], ['arg-1']));
     }
 
-    public function test_predis_driver_invokes_stream_commands_with_positional_arguments(): void
+    public function test_predis_driver_creates_group_through_prefixable_command_pipeline(): void
     {
+        $command = Mockery::mock(CommandInterface::class);
         $client = Mockery::mock(PredisClient::class);
-        $client->shouldReceive('executeRaw')->once()->with(['XGROUP', 'CREATE', 'platform.events.v1', 'workers.v1', '0', 'MKSTREAM'])->andReturn('OK');
+        $client->shouldReceive('createCommand')->once()
+            ->with('XGROUP', ['CREATE', 'platform.events.v1', 'workers.v1', '0', true])
+            ->andReturn($command);
+        $client->shouldReceive('executeCommand')->once()->with($command)->andReturn('OK');
 
         $driver = new PredisStreamDriver($client);
         $driver->createGroup('platform.events.v1', 'workers.v1');

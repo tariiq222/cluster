@@ -2,7 +2,7 @@
 
 namespace Modules\Workflow\Features\WorkflowLifecycle\Handler;
 
-use Illuminate\Database\QueryException;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Organization\Contracts\GetDefaultClusterId;
@@ -86,14 +86,15 @@ final class WorkflowLifecycleMutator
 
     /**
      * @param  array<string, mixed>  $graph
-     * @return array{ok: true, version_id: string}|array{ok: false, conflict: string}
+     * @param  array{operation: string, key_hash: string, request_hash: string, principal_id: string}|null  $idempotency
+     * @return array{ok: true, version_id: string, version: array<string, mixed>}|array{ok: false, conflict: string}
      */
-    public function createVersion(string $definitionId, string $principalId, array $graph): array
+    public function createVersion(string $definitionId, string $principalId, array $graph, ?array $idempotency = null): array
     {
         try {
             $versionId = Str::uuid7()->toString();
             $now = now();
-            DB::transaction(function () use ($definitionId, &$versionId, $graph, $principalId, &$now): void {
+            $version = DB::transaction(function () use ($definitionId, &$versionId, $graph, $principalId, &$now, $idempotency): array {
                 // Lock the parent definition row so concurrent version
                 // allocations for the same definition observe sequential
                 // max(version_number) values; the unique
@@ -114,54 +115,73 @@ final class WorkflowLifecycleMutator
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
-            });
-            $this->outbox->append(
-                Str::uuid7()->toString(),
-                $versionId,
-                'workflow.version.created.v1',
-                ['workflow_version_id' => $versionId, 'actor_user_id' => $principalId],
-            );
+                // State, outbox, and idempotency must commit or roll back together.
+                $this->outbox->append(
+                    Str::uuid7()->toString(),
+                    $versionId,
+                    'workflow.version.created.v1',
+                    ['workflow_version_id' => $versionId, 'actor_user_id' => $principalId],
+                );
+                if ($idempotency !== null) {
+                    $this->storeIdempotency($versionId, $idempotency, $now);
+                }
 
-            return ['ok' => true, 'version_id' => $versionId];
+                return (array) DB::table('workflow_versions')->where('id', $versionId)->first();
+            });
+
+            return ['ok' => true, 'version_id' => $versionId, 'version' => $version];
         } catch (\Throwable $e) {
             return ['ok' => false, 'conflict' => $e->getMessage()];
         }
     }
 
     /**
+     * @param  array{operation: string, key_hash: string, request_hash: string, principal_id: string}|null  $idempotency
      * @return array{ok: true, version: array<string, mixed>}|array{ok: false, conflict: string}
      */
-    public function publishVersion(string $versionId): array
+    public function publishVersion(string $versionId, ?array $idempotency = null): array
     {
-        $updated = DB::table('workflow_versions')->where('id', $versionId)->where('definition_state', 'draft')->update([
-            'definition_state' => 'published',
-            'published_at' => now(),
-            'updated_at' => now(),
-        ]);
-        if ($updated !== 1) {
-            return ['ok' => false, 'conflict' => 'The workflow version cannot be published.'];
-        }
-        $this->outbox->append(
-            Str::uuid7()->toString(),
-            $versionId,
-            'workflow.version.published.v1',
-            ['workflow_version_id' => $versionId],
-        );
-        $version = (array) DB::table('workflow_versions')->where('id', $versionId)->first();
+        // State, outbox, and idempotency must commit or roll back together.
+        try {
+            return DB::transaction(function () use ($versionId, $idempotency): array {
+                $updated = DB::table('workflow_versions')->where('id', $versionId)->where('definition_state', 'draft')->update([
+                    'definition_state' => 'published',
+                    'published_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                if ($updated !== 1) {
+                    throw new \RuntimeException('The workflow version cannot be published.');
+                }
+                $this->outbox->append(
+                    Str::uuid7()->toString(),
+                    $versionId,
+                    'workflow.version.published.v1',
+                    ['workflow_version_id' => $versionId],
+                );
+                $now = now();
+                if ($idempotency !== null) {
+                    $this->storeIdempotency($versionId, $idempotency, $now);
+                }
+                $version = (array) DB::table('workflow_versions')->where('id', $versionId)->first();
 
-        return ['ok' => true, 'version' => $version];
+                return ['ok' => true, 'version' => $version];
+            });
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'conflict' => $e->getMessage()];
+        }
     }
 
     /**
      * @param  array<string, mixed>  $step
      * @param  array<string, mixed>|null  $instance
-     * @return array{ok: true}|array{ok: false, conflict: string}
+     * @param  array{operation: string, key_hash: string, request_hash: string, principal_id: string}|null  $idempotency
+     * @return array{ok: true, step: array<string, mixed>}|array{ok: false, conflict: string}
      */
-    public function recordStepDecision(array $step, ?array $instance, string $expectedVersion, string $newState, string $decision, ?string $reason, string $principalId, string $correlationId): array
+    public function recordStepDecision(array $step, ?array $instance, string $expectedVersion, string $newState, string $decision, ?string $reason, string $principalId, string $correlationId, ?array $idempotency = null): array
     {
         try {
             $now = now();
-            DB::transaction(function () use ($step, $instance, $expectedVersion, $newState, $now, $decision, $reason, $principalId, $correlationId): void {
+            $updatedStep = DB::transaction(function () use ($step, $instance, $expectedVersion, $newState, $now, $decision, $reason, $principalId, $correlationId, $idempotency): array {
                 DB::table('workflow_step_instances')->where('id', $step['id'])->where('lock_version', $expectedVersion)->update([
                     'state' => $newState,
                     'completed_at' => in_array($newState, ['completed', 'rejected'], true) ? $now : null,
@@ -179,6 +199,18 @@ final class WorkflowLifecycleMutator
                         ]);
                     }
                 }
+                DB::table('workflow_decisions')->insert([
+                    'id' => Str::uuid7()->toString(),
+                    'workflow_step_id' => (string) $step['id'],
+                    'workflow_instance_id' => (string) $step['workflow_instance_id'],
+                    'decision' => substr($decision, 0, 16),
+                    'reason' => $reason,
+                    'actor_user_id' => $principalId,
+                    'correlation_id' => $correlationId,
+                    'decided_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
                 $this->outbox->append(Str::uuid7()->toString(), (string) $step['workflow_instance_id'], 'workflow.step.decision.recorded.v1', [
                     'workflow_step_id' => (string) $step['id'],
                     'decision' => $decision,
@@ -186,9 +218,14 @@ final class WorkflowLifecycleMutator
                     'actor_user_id' => $principalId,
                     'correlation_id' => $correlationId,
                 ]);
+                if ($idempotency !== null) {
+                    $this->storeIdempotency((string) $step['id'], $idempotency, $now);
+                }
+
+                return (array) DB::table('workflow_step_instances')->where('id', $step['id'])->first();
             });
 
-            return ['ok' => true];
+            return ['ok' => true, 'step' => $updatedStep];
         } catch (\Throwable $e) {
             return ['ok' => false, 'conflict' => $e->getMessage()];
         }
@@ -196,26 +233,35 @@ final class WorkflowLifecycleMutator
 
     /**
      * @param  array<string, mixed>  $step
-     * @return array{ok: true}|array{ok: false, conflict: string}
+     * @param  array{operation: string, key_hash: string, request_hash: string, principal_id: string}|null  $idempotency
+     * @return array{ok: true, step: array<string, mixed>}|array{ok: false, conflict: string}
      */
-    public function actOnStep(array $step, string $expectedVersion, string $stepAction, ?string $targetUserId, string $reason, string $principalId, string $correlationId): array
+    public function actOnStep(array $step, string $expectedVersion, string $stepAction, ?string $targetUserId, string $reason, string $principalId, string $correlationId, ?array $idempotency = null): array
     {
         try {
-            $now = now();
-            $updates = ['lock_version' => ((int) $expectedVersion) + 1, 'updated_at' => $now];
-            if ($stepAction === 'reassign') {
-                $updates['assignee_user_id'] = $targetUserId;
-            }
-            DB::table('workflow_step_instances')->where('id', $step['id'])->where('lock_version', $expectedVersion)->update($updates);
-            $this->outbox->append(Str::uuid7()->toString(), (string) $step['workflow_instance_id'], 'workflow.step.'.$stepAction.'.v1', [
-                'workflow_step_id' => (string) $step['id'],
-                'target_user_id' => $targetUserId,
-                'reason' => $reason,
-                'actor_user_id' => $principalId,
-                'correlation_id' => $correlationId,
-            ]);
+            return DB::transaction(function () use ($step, $expectedVersion, $stepAction, $targetUserId, $reason, $principalId, $correlationId, $idempotency): array {
+                $now = now();
+                $updates = ['lock_version' => ((int) $expectedVersion) + 1, 'updated_at' => $now];
+                if ($stepAction === 'reassign') {
+                    $updates['assignee_user_id'] = $targetUserId;
+                }
+                DB::table('workflow_step_instances')->where('id', $step['id'])->where('lock_version', $expectedVersion)->update($updates);
+                $this->outbox->append(Str::uuid7()->toString(), (string) $step['workflow_instance_id'], 'workflow.step.'.$stepAction.'.v1', [
+                    'workflow_step_id' => (string) $step['id'],
+                    'target_user_id' => $targetUserId,
+                    'reason' => $reason,
+                    'actor_user_id' => $principalId,
+                    'correlation_id' => $correlationId,
+                ]);
+                if ($idempotency !== null) {
+                    $this->storeIdempotency((string) $step['id'], $idempotency, $now);
+                }
 
-            return ['ok' => true];
+                return [
+                    'ok' => true,
+                    'step' => (array) DB::table('workflow_step_instances')->where('id', $step['id'])->first(),
+                ];
+            });
         } catch (\Throwable $e) {
             return ['ok' => false, 'conflict' => $e->getMessage()];
         }
@@ -223,13 +269,14 @@ final class WorkflowLifecycleMutator
 
     /**
      * @param  array<string, mixed>  $instance
-     * @return array{ok: true}|array{ok: false, conflict: string}
+     * @param  array{operation: string, key_hash: string, request_hash: string, principal_id: string}|null  $idempotency
+     * @return array{ok: true, instance: array<string, mixed>}|array{ok: false, conflict: string}
      */
-    public function cancelInstance(array $instance, string $expectedVersion, string $reason, string $principalId, string $correlationId): array
+    public function cancelInstance(array $instance, string $expectedVersion, string $reason, string $principalId, string $correlationId, ?array $idempotency = null): array
     {
         try {
             $now = now();
-            DB::transaction(function () use ($instance, $expectedVersion, $now, $reason, $principalId, $correlationId): void {
+            $cancelled = DB::transaction(function () use ($instance, $expectedVersion, $now, $reason, $principalId, $correlationId, $idempotency): array {
                 DB::table('workflow_instances')->where('id', $instance['id'])->where('lock_version', $expectedVersion)->update([
                     'state' => 'cancelled',
                     'completed_at' => $now,
@@ -246,9 +293,14 @@ final class WorkflowLifecycleMutator
                     'actor_user_id' => $principalId,
                     'correlation_id' => $correlationId,
                 ]);
+                if ($idempotency !== null) {
+                    $this->storeIdempotency((string) $instance['id'], $idempotency, $now);
+                }
+
+                return (array) DB::table('workflow_instances')->where('id', $instance['id'])->first();
             });
 
-            return ['ok' => true];
+            return ['ok' => true, 'instance' => $cancelled];
         } catch (\Throwable $e) {
             return ['ok' => false, 'conflict' => $e->getMessage()];
         }
@@ -256,26 +308,7 @@ final class WorkflowLifecycleMutator
 
     /**
      * @param  array<string, mixed>  $payload
-     */
-    public function remember(string $principalId, string $operation, string $key, array $payload, string $resourceId): void
-    {
-        try {
-            DB::table('workflow_idempotency_keys')->insert([
-                'principal_id' => $principalId,
-                'operation' => $operation,
-                'key_hash' => hash('sha256', $key),
-                'request_hash' => hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR)),
-                'resource_id' => $resourceId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } catch (QueryException) {
-            // Replay already recorded by a concurrent writer; the response stays deterministic.
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
+     * @return array{match: bool, resource_id: string}|null
      */
     public function replay(string $principalId, string $operation, string $key, array $payload): ?array
     {
@@ -288,6 +321,31 @@ final class WorkflowLifecycleMutator
             return null;
         }
 
-        return ['match' => $row->request_hash === hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR))];
+        return [
+            'match' => $row->request_hash === hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR)),
+            'resource_id' => (string) $row->resource_id,
+        ];
+    }
+
+    /**
+     * Insert an idempotency record.
+     *
+     * MUST be called from inside an already-open `DB::transaction(...)`
+     * closure so the row commits or rolls back with the state change that
+     * produced it.
+     *
+     * @param  array{operation: string, key_hash: string, request_hash: string, principal_id: string}  $idempotency
+     */
+    private function storeIdempotency(string $resourceId, array $idempotency, DateTimeInterface $now): void
+    {
+        DB::table('workflow_idempotency_keys')->insert([
+            'principal_id' => $idempotency['principal_id'],
+            'operation' => $idempotency['operation'],
+            'key_hash' => $idempotency['key_hash'],
+            'request_hash' => $idempotency['request_hash'],
+            'resource_id' => $resourceId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 }

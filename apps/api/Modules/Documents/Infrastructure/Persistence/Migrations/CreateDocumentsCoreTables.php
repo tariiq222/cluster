@@ -113,23 +113,10 @@ return new class extends Migration
             $table->unique(['principal_id', 'operation', 'idempotency_key_hash'], 'document_idempotency_scope_unique');
             $table->index(['resource_type', 'resource_id']);
         });
-
-        Schema::create('document_outbox_events', function (Blueprint $table): void {
-            $table->uuid('id')->primary();
-            $table->uuid('aggregate_id')->index();
-            $table->string('event_type', 128)->index();
-            $table->json('payload');
-            $table->dateTime('occurred_at', 3);
-            $table->dateTime('published_at', 3)->nullable();
-            $table->timestamps();
-
-            $table->index(['published_at', 'occurred_at']);
-        });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('document_outbox_events');
         Schema::dropIfExists('document_idempotency_keys');
         Schema::dropIfExists('document_quarantines');
         Schema::dropIfExists('document_upload_intents');

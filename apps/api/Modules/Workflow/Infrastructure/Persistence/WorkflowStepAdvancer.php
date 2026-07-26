@@ -10,30 +10,38 @@ final class WorkflowStepAdvancer implements AdvanceWorkflowStep
 {
     public function __construct(private readonly TransactionalOutbox $outbox) {}
 
+    /**
+     * Failure after the step state update MUST roll the update back
+     * together with the outbox append — the engine emits
+     * `workflow.step.completed.v1` exactly once per step completion, and
+     * downstream relays dedupe on the shared `outbox_events` table.
+     */
     public function taskCompleted(string $stepId, string $taskId, string $actorUserId): array
     {
-        $step = DB::table('workflow_step_instances')->where('id', $stepId)->lockForUpdate()->first();
-        if ($step === null) {
-            return ['step_id' => $stepId, 'instance_id' => '', 'state' => 'unknown', 'instance_state' => 'unknown'];
-        }
-        $instance = DB::table('workflow_instances')->where('id', $step->workflow_instance_id)->lockForUpdate()->first();
-        if ($step->state === 'completed') {
-            return ['step_id' => $stepId, 'instance_id' => $step->workflow_instance_id, 'state' => 'completed', 'instance_state' => (string) $instance->state];
-        }
-        $now = now();
-        DB::table('workflow_step_instances')->where('id', $stepId)->update([
-            'state' => 'completed', 'task_id' => $taskId, 'completed_at' => $now,
-            'lock_version' => ((int) $step->lock_version) + 1, 'updated_at' => $now,
-        ]);
-        DB::table('workflow_instances')->where('id', $step->workflow_instance_id)->update([
-            'state' => 'completed', 'completed_at' => $now,
-            'lock_version' => ((int) $instance->lock_version) + 1, 'updated_at' => $now,
-        ]);
-        $this->outbox->append($this->eventId('workflow.step.completed.v1', $stepId), $step->workflow_instance_id, 'workflow.step.completed.v1', [
-            'workflow_step_id' => $stepId, 'workflow_instance_id' => $step->workflow_instance_id, 'task_id' => $taskId, 'actor_user_id' => $actorUserId,
-        ]);
+        return DB::transaction(function () use ($stepId, $taskId, $actorUserId): array {
+            $step = DB::table('workflow_step_instances')->where('id', $stepId)->lockForUpdate()->first();
+            if ($step === null) {
+                return ['step_id' => $stepId, 'instance_id' => '', 'state' => 'unknown', 'instance_state' => 'unknown'];
+            }
+            $instance = DB::table('workflow_instances')->where('id', $step->workflow_instance_id)->lockForUpdate()->first();
+            if ($step->state === 'completed') {
+                return ['step_id' => $stepId, 'instance_id' => $step->workflow_instance_id, 'state' => 'completed', 'instance_state' => (string) $instance->state];
+            }
+            $now = now();
+            DB::table('workflow_step_instances')->where('id', $stepId)->update([
+                'state' => 'completed', 'task_id' => $taskId, 'completed_at' => $now,
+                'lock_version' => ((int) $step->lock_version) + 1, 'updated_at' => $now,
+            ]);
+            DB::table('workflow_instances')->where('id', $step->workflow_instance_id)->update([
+                'state' => 'completed', 'completed_at' => $now,
+                'lock_version' => ((int) $instance->lock_version) + 1, 'updated_at' => $now,
+            ]);
+            $this->outbox->append($this->eventId('workflow.step.completed.v1', $stepId), $step->workflow_instance_id, 'workflow.step.completed.v1', [
+                'workflow_step_id' => $stepId, 'workflow_instance_id' => $step->workflow_instance_id, 'task_id' => $taskId, 'actor_user_id' => $actorUserId,
+            ]);
 
-        return ['step_id' => $stepId, 'instance_id' => $step->workflow_instance_id, 'state' => 'completed', 'instance_state' => 'completed'];
+            return ['step_id' => $stepId, 'instance_id' => $step->workflow_instance_id, 'state' => 'completed', 'instance_state' => 'completed'];
+        });
     }
 
     private function eventId(string $type, string $id): string

@@ -34,7 +34,7 @@ final class SearchAccessibleRecordsHandler
         foreach ($builder->get() as $row) {
             $decision = $this->access->decide(
                 $actor,
-                'work_record.read',
+                'search.query',
                 new RecordFacts($row->scope_id, $row->source_type, $row->classification),
             );
             if (! $decision->isAllowed()) {
@@ -43,14 +43,14 @@ final class SearchAccessibleRecordsHandler
 
             $total++;
             if (count($items) < $limit) {
-                $items[] = [
+                $items[] = \Modules\Authorization\Contracts\AccessProjection::fromDecision($decision)->compose([
                     'id' => $row->id,
                     'source_type' => $row->source_type,
                     'source_id' => $row->source_id,
                     'title' => $row->title,
                     'excerpt' => $row->excerpt,
                     'scope_id' => $row->scope_id,
-                ];
+                ]);
             }
         }
 

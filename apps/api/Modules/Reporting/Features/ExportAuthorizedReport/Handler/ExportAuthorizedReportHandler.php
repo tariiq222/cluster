@@ -4,6 +4,7 @@ namespace Modules\Reporting\Features\ExportAuthorizedReport\Handler;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use UnexpectedValueException;
@@ -96,22 +97,24 @@ final class ExportAuthorizedReportHandler
                 $query->where('scope_id', $scopeId);
             }
             foreach ($query->get() as $row) {
-                if (! $this->access->decide(
+                $decision = $this->access->decide(
                     $actor,
-                    'work_record.read',
+                    'reporting.export',
                     new RecordFacts($row->scope_id, $row->source_type, $row->classification),
-                )->isAllowed()) {
+                );
+                if (! $decision->isAllowed()) {
                     continue;
                 }
                 $data = json_decode((string) $row->safe_data, true);
-                $items[] = [
+                $items[] = AccessProjection::fromDecision($decision)->compose([
                     'id' => $row->id,
                     'source_type' => $row->source_type,
                     'source_id' => $row->source_id,
                     'title' => $row->title,
                     'scope_id' => $row->scope_id,
+                    'classification' => $row->classification,
                     'data' => is_array($data) ? $data : [],
-                ];
+                ]);
             }
 
             $artifactId = (string) Str::uuid();

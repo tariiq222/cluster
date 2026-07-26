@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -27,7 +28,13 @@ return new class extends Migration
 
     public function down(): void
     {
-        // The following schema rollback drops facilities before facility_types.
-        // Deleting controlled types here would violate existing facility FKs.
+        $ids = array_column(self::TYPES, 'id');
+        if (Schema::hasTable('facilities')
+            && DB::table('facilities')->whereIn('facility_type_id', $ids)->exists()) {
+            throw new \LogicException('organization_facility_type_rollback_has_references');
+        }
+        if (Schema::hasTable('facility_types')) {
+            DB::table('facility_types')->whereIn('id', $ids)->delete();
+        }
     }
 };

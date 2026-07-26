@@ -24,7 +24,7 @@ return new class extends Migration
             $table->timestamps();
             $table->index('workflow_instance_id', 'workflow_decisions_instance_index');
             $table->index('actor_user_id', 'workflow_decisions_actor_index');
-            $table->index('workflow_step_id', 'workflow_decisions_step_index');
+            $table->unique('workflow_step_id', 'workflow_decisions_step_unique');
         });
     }
 

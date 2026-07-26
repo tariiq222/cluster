@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Modules\PlatformSettings\Contracts\BackupOperationsGateway;
 use Modules\PlatformSettings\Contracts\PlatformHealthGateway;
 use Modules\PlatformSettings\Domain\HealthCheckResult;
+use Shared\Contracts\OutboxRelayStore;
 use Throwable;
 
 final class LaravelPlatformHealthGateway implements PlatformHealthGateway
@@ -17,6 +18,7 @@ final class LaravelPlatformHealthGateway implements PlatformHealthGateway
     public function __construct(
         private readonly BackupOperationsGateway $backups,
         private readonly array $probes = [],
+        private readonly ?OutboxRelayStore $outbox = null,
     ) {}
 
     /** @return list<HealthCheckResult> */
@@ -51,8 +53,11 @@ final class LaravelPlatformHealthGateway implements PlatformHealthGateway
                 return 'reachable';
             },
             'queue' => static fn (int $timeoutMs): string => is_string(config('queue.default')) ? 'configured' : throw new \RuntimeException('queue_unavailable'),
-            'outbox' => static function (int $timeoutMs): string {
-                DB::table('platform_settings_outbox')->limit(1)->get();
+            'outbox' => function (int $timeoutMs): string {
+                if ($this->outbox === null) {
+                    throw new \RuntimeException('outbox_unavailable');
+                }
+                $this->outbox->pending(['com.cluster.platform.technical-alert.v1'], 1);
 
                 return 'reachable';
             },

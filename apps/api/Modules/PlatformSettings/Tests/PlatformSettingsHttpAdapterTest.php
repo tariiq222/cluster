@@ -15,7 +15,6 @@ use Modules\PlatformSettings\Features\Settings\Http\GetCurrentPlatformSettingsCo
 use Modules\PlatformSettings\Features\Settings\Http\PublishSettingsVersionController;
 use Modules\PlatformSettings\Features\Settings\Http\UpdateSettingsValueController;
 use Modules\PlatformSettings\Features\Settings\Http\ValidateSettingsVersionController;
-use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseBusinessCalendars;
 use Tests\TestCase;
 
@@ -90,7 +89,7 @@ final class PlatformSettingsHttpAdapterTest extends TestCase
     public function test_settings_validate_publish_and_calendar_publish_require_idempotency_key(): void
     {
         $versionId = $this->createVersion()->getData(true)['id'];
-        $handler = new PlatformSettingsHandler(new PlatformSettingsOutbox);
+        $handler = $this->app->make(PlatformSettingsHandler::class);
         foreach ([
             new ValidateSettingsVersionController($this->api(), $handler),
             new PublishSettingsVersionController($this->api(), $handler),
@@ -127,7 +126,7 @@ final class PlatformSettingsHttpAdapterTest extends TestCase
     public function test_lifecycle_commands_replay_and_reject_conflicting_key_reuse(): void
     {
         $versionId = $this->createVersion()->getData(true)['id'];
-        $handler = new PlatformSettingsHandler(new PlatformSettingsOutbox);
+        $handler = $this->app->make(PlatformSettingsHandler::class);
         $validate = new ValidateSettingsVersionController($this->api(), $handler);
         $validateRequest = $this->request('POST', '/platform-settings/versions/'.$versionId.'/validate');
         $validateRequest->headers->set('If-Match', '"1"');
@@ -309,14 +308,14 @@ final class PlatformSettingsHttpAdapterTest extends TestCase
         $facility = '0197f0e0-0000-7000-8000-000000000898';
         $this->app->make(BootstrapOperationsOffice::class)->bootstrap($owner, $cluster);
         $api = new PlatformSettingsApi(new PlatformSettingsOwnerPrincipalResolver($owner, $facility), $this->app->make(RbacAbacDecideAccess::class), new PlatformSettingsClusterAncestry($facility, $cluster));
-        $response = (new GetCurrentPlatformSettingsController($api, new PlatformSettingsHandler(new PlatformSettingsOutbox)))($this->request('GET', '/platform-settings/current'));
+        $response = (new GetCurrentPlatformSettingsController($api, $this->app->make(PlatformSettingsHandler::class)))($this->request('GET', '/platform-settings/current'));
 
         $this->assertSame(200, $response->getStatusCode());
     }
 
     private function current(string $authorization): JsonResponse
     {
-        return (new GetCurrentPlatformSettingsController($this->api($authorization), new PlatformSettingsHandler(new PlatformSettingsOutbox)))(
+        return (new GetCurrentPlatformSettingsController($this->api($authorization), $this->app->make(PlatformSettingsHandler::class)))(
             $this->request('GET', '/platform-settings/current', $authorization),
         );
     }
@@ -326,7 +325,7 @@ final class PlatformSettingsHttpAdapterTest extends TestCase
         $request = $this->request('POST', '/platform-settings/versions');
         $request->headers->set('Idempotency-Key', 'create-settings-version');
 
-        return (new CreateSettingsVersionController($this->api(), new PlatformSettingsHandler(new PlatformSettingsOutbox)))(
+        return (new CreateSettingsVersionController($this->api(), $this->app->make(PlatformSettingsHandler::class)))(
             $request,
         );
     }
@@ -337,7 +336,7 @@ final class PlatformSettingsHttpAdapterTest extends TestCase
         $request->headers->set('If-Match', $etag);
         $request->merge(['value' => $value]);
 
-        return (new UpdateSettingsValueController($this->api(), new PlatformSettingsHandler(new PlatformSettingsOutbox)))($request, $versionId, $key);
+        return (new UpdateSettingsValueController($this->api(), $this->app->make(PlatformSettingsHandler::class)))($request, $versionId, $key);
     }
 
     private function api(string $authorization = 'allow'): PlatformSettingsApi

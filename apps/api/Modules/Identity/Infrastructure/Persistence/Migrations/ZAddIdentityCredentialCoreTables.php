@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -97,9 +98,53 @@ return new class extends Migration
         }
     }
 
-    /**
-     * Identity credential state is forward-only. A rollback must be a separately reviewed
-     * migration because dropping credential, history, token, or MFA state is destructive.
-     */
-    public function down(): void {}
+    public function down(): void
+    {
+        $credentialTables = [
+            'credentials',
+            'identity_password_history',
+            'identity_activation_tokens',
+            'identity_totp',
+            'identity_auth_attempt_ledgers',
+        ];
+        foreach ($credentialTables as $table) {
+            if (Schema::hasTable($table) && DB::table($table)->exists()) {
+                throw new \LogicException('identity_credentials_rollback_requires_empty_tables');
+            }
+        }
+
+        Schema::dropIfExists('identity_auth_attempt_ledgers');
+        Schema::dropIfExists('identity_totp');
+        Schema::dropIfExists('identity_activation_tokens');
+        Schema::dropIfExists('identity_password_history');
+        Schema::dropIfExists('credentials');
+
+        if (Schema::hasTable('identity_sessions')) {
+            $columns = array_values(array_filter(
+                ['csrf_token_hash', 'mfa_verified'],
+                static fn (string $column): bool => Schema::hasColumn('identity_sessions', $column),
+            ));
+            if ($columns !== []) {
+                Schema::table('identity_sessions', static function (Blueprint $table) use ($columns): void {
+                    $table->dropColumn($columns);
+                });
+            }
+        }
+        if (Schema::hasTable('users')) {
+            if (Schema::hasIndex('users', ['is_admin'])) {
+                Schema::table('users', static function (Blueprint $table): void {
+                    $table->dropIndex(['is_admin']);
+                });
+            }
+            $columns = array_values(array_filter(
+                ['is_admin', 'lockout_level'],
+                static fn (string $column): bool => Schema::hasColumn('users', $column),
+            ));
+            if ($columns !== []) {
+                Schema::table('users', static function (Blueprint $table) use ($columns): void {
+                    $table->dropColumn($columns);
+                });
+            }
+        }
+    }
 };

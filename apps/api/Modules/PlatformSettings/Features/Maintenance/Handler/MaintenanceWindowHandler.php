@@ -17,21 +17,24 @@ final class MaintenanceWindowHandler
         string $messageEn,
     ): MaintenanceWindow {
         $window = new MaintenanceWindow(Str::uuid7()->toString(), $startsAt, $endsAt, $messageAr, $messageEn);
-        $now = now();
-        DB::table('platform_maintenance_windows')->insert([
-            'id' => $window->id,
-            'status' => $window->status,
-            'starts_at' => $window->startsAt,
-            'ends_at' => $window->endsAt,
-            // The existing schema owns one reason field. A structured value retains both mandatory locale messages.
-            'reason' => json_encode(['ar' => $window->messageAr, 'en' => $window->messageEn], JSON_THROW_ON_ERROR),
-            'created_by' => $createdBy,
-            'lock_version' => 1,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
 
-        return $window;
+        return DB::transaction(function () use ($window, $createdBy): MaintenanceWindow {
+            $now = now();
+            DB::table('platform_maintenance_windows')->insert([
+                'id' => $window->id,
+                'status' => $window->status,
+                'starts_at' => $window->startsAt,
+                'ends_at' => $window->endsAt,
+                // The existing schema owns one reason field. A structured value retains both mandatory locale messages.
+                'reason' => json_encode(['ar' => $window->messageAr, 'en' => $window->messageEn], JSON_THROW_ON_ERROR),
+                'created_by' => $createdBy,
+                'lock_version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            return $window;
+        });
     }
 
     public function activeAt(DateTimeImmutable $now): ?MaintenanceWindow

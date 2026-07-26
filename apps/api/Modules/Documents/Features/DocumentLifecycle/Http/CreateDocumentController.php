@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Documents\Application\DocumentMutationHandler;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
@@ -25,6 +26,7 @@ final class CreateDocumentController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
+        private readonly DocumentMutationHandler $mutations,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -84,57 +86,37 @@ final class CreateDocumentController
             ->where('idempotency_key_hash', $keyHash)
             ->first();
         if ($existing !== null) {
-            if ($existing->request_hash !== $requestHash) {
+            if ($existing->request_hash !== $requestHash || ! is_string($existing->response_payload)) {
                 return DocumentsApi::problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId);
             }
+            $stored = json_decode($existing->response_payload, false, 512, JSON_THROW_ON_ERROR);
 
-            $document = DB::table('documents')->where('id', $existing->resource_id)->first();
-
-            return $document === null
-                ? DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'The document operation cannot be completed.', $correlationId)
-                : $this->createdResponse($document, $correlationId);
+            return $stored instanceof \stdClass
+                ? $this->createdResponse($stored, $correlationId)
+                : DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'The stored create response is invalid.', $correlationId);
         }
 
         $id = Str::uuid7()->toString();
         $publicId = Str::uuid7()->toString();
-        $now = now();
         try {
-            DB::transaction(function () use ($id, $publicId, $title, $description, $classification, $ownerUnitId, $restrictionPolicyKey, $principal, $now, $keyHash, $requestHash): void {
-                DB::table('documents')->insert([
-                    'id' => $id,
-                    'public_id' => $publicId,
-                    'owner_organization_unit_id' => $ownerUnitId,
-                    'created_by_user_id' => $principal['user_id'],
-                    'name' => trim($title),
-                    'description' => $description,
-                    'classification' => $classification,
-                    'status' => 'active',
-                    'current_version_id' => null,
-                    'retention_until' => null,
-                    'retention_policy_key' => trim($restrictionPolicyKey),
-                    'legal_hold' => false,
-                    'lock_version' => 1,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-                DB::table('document_idempotency_keys')->insert([
-                    'id' => Str::uuid7()->toString(),
-                    'principal_id' => $principal['user_id'],
-                    'operation' => self::OPERATION,
-                    'idempotency_key_hash' => $keyHash,
-                    'request_hash' => $requestHash,
-                    'resource_type' => 'document',
-                    'resource_id' => $id,
-                    'response_payload' => null,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-            });
+            $document = $this->mutations->create(
+                $id,
+                $publicId,
+                $title,
+                $description,
+                $classification,
+                $ownerUnitId,
+                $restrictionPolicyKey,
+                $principal['user_id'],
+                $keyHash,
+                $requestHash,
+                $correlationId,
+            );
         } catch (QueryException) {
             return DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'The document operation cannot be completed.', $correlationId);
         }
 
-        return $this->createdResponse(DB::table('documents')->where('id', $id)->first(), $correlationId);
+        return $this->createdResponse($document, $correlationId);
     }
 
     private function createdResponse(?\stdClass $document, string $correlationId): JsonResponse
