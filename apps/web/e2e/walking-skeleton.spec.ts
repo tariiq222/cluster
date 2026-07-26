@@ -4,6 +4,14 @@ import { walkingSkeletonFixtures, walkingSkeletonLocales } from '../src/test/set
 
 type Locale = 'ar' | 'en'
 
+const PLATFORM_ADMIN = {
+  username: 'platform-admin',
+  password: 'Admin!Cluster9Owner2026',
+} as const
+const SESSION_METADATA_KEY = 'cluster.identity-session'
+const WEB_PORT = process.env.W1_1_WEB_PORT ?? '4173'
+const WEB_ORIGIN = `http://127.0.0.1:${WEB_PORT}`
+
 type WorkRecord = {
   id: string
   payload: {
@@ -86,7 +94,7 @@ async function apiRecords(request: APIRequestContext): Promise<WorkRecordCollect
 
 async function signIn(page: Page, locale: Locale, username: string, password: string): Promise<void> {
   const labels = copy[locale]
-  await page.goto('/')
+  await page.goto(WEB_ORIGIN)
   if (locale === 'en') {
     await page.getByRole('button', { name: 'English' }).click()
   }
@@ -114,6 +122,30 @@ async function openRoute(page: Page, path: string): Promise<void> {
     window.history.pushState({}, '', nextPath)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }, path)
+}
+
+async function signInPlatformAdmin(page: Page): Promise<void> {
+  await page.goto(WEB_ORIGIN)
+  await page.getByLabel('اسم المستخدم').fill(PLATFORM_ADMIN.username)
+  await page.getByLabel('كلمة المرور', { exact: true }).fill(PLATFORM_ADMIN.password)
+  await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
+  await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
+}
+
+async function currentCsrfToken(page: Page): Promise<string> {
+  const token = await page.evaluate((storageKey) => {
+    const stored = window.sessionStorage.getItem(storageKey)
+    if (stored === null) return ''
+    const parsed = JSON.parse(stored) as { csrf_token?: unknown }
+    return typeof parsed.csrf_token === 'string' ? parsed.csrf_token : ''
+  }, SESSION_METADATA_KEY)
+  expect(token).toMatch(/^[a-f0-9]{64}$/)
+  return token
+}
+
+async function openOrganizationOverview(page: Page): Promise<void> {
+  await page.goto(`${WEB_ORIGIN}/admin/organization`)
+  await expect(page.getByRole('heading', { name: 'منشآت التجمع' })).toBeVisible()
 }
 
 async function exerciseIsolatedJourney(browser: Browser, request: APIRequestContext, locale: Locale): Promise<void> {
@@ -207,4 +239,194 @@ test('Arabic RTL journey keeps facility A and B records symmetrically isolated',
 
 test('English LTR journey keeps facility A and B records symmetrically isolated', async ({ browser, request }) => {
   await exerciseIsolatedJourney(browser, request, 'en')
+})
+
+test('cookie session restores after storage loss and a later 401 expires the whole shell', async ({ page }) => {
+  await signIn(
+    page,
+    'ar',
+    walkingSkeletonFixtures.accountA.username,
+    walkingSkeletonFixtures.accountA.password,
+  )
+
+  await page.evaluate(() => window.sessionStorage.clear())
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'طلباتي' })).toBeVisible()
+  const csrfToken = await currentCsrfToken(page)
+
+  const logout = await page.request.post('/api/v1/identity/logout', {
+    headers: {
+      'X-Correlation-ID': correlationId(),
+      'X-CSRF-Token': csrfToken,
+      'Idempotency-Key': `closure-session-expiry-${correlationId()}`,
+    },
+  })
+  expect(logout.status()).toBe(204)
+
+  await page.getByRole('link', { name: 'مهامي' }).click()
+  await expect(page.getByRole('heading', { name: 'مرحباً بعودتك' })).toBeVisible()
+  await expect(page.getByRole('status')).toContainText('انتهت جلستك. سجّل الدخول للمتابعة.')
+})
+
+test('cookie mutation rejects a missing CSRF proof and admits the matching proof', async ({ page }) => {
+  await signInPlatformAdmin(page)
+  const payload = {
+    code: `CSRF-${correlationId().replaceAll('-', '').slice(-12).toUpperCase()}`,
+    name: 'تجمع تحقق CSRF',
+    name_en: 'CSRF verification cluster',
+  }
+  const rejected = await page.request.post('/api/v1/organization/cluster', {
+    headers: {
+      'X-Correlation-ID': correlationId(),
+      'Idempotency-Key': `closure-csrf-rejected-${correlationId()}`,
+    },
+    data: payload,
+  })
+  expect(rejected.status()).toBe(403)
+  await expect(rejected.json()).resolves.toMatchObject({
+    type: 'https://cluster.example/problems/csrf-failed',
+    status: 403,
+  })
+
+  const accepted = await page.request.post('/api/v1/organization/cluster', {
+    headers: {
+      'X-Correlation-ID': correlationId(),
+      'X-CSRF-Token': await currentCsrfToken(page),
+      'Idempotency-Key': `closure-csrf-accepted-${correlationId()}`,
+    },
+    data: payload,
+  })
+  expect(accepted.status()).toBe(409)
+  await expect(accepted.json()).resolves.toMatchObject({
+    type: 'https://cluster.example/problems/cluster-already-exists',
+    status: 409,
+    detail: 'Only one cluster may exist.',
+  })
+})
+
+test('server capabilities gate both the platform-settings route and its create control', async ({ browser, page }) => {
+  await signIn(
+    page,
+    'ar',
+    walkingSkeletonFixtures.accountA.username,
+    walkingSkeletonFixtures.accountA.password,
+  )
+  await page.goto(`${WEB_ORIGIN}/admin/platform/calendars`)
+  await expect(page.getByText('لا تملك صلاحية فتح هذه الصفحة')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'إنشاء تقويم' })).toHaveCount(0)
+
+  const ownerPage = await browser.newPage()
+  try {
+    await signInPlatformAdmin(ownerPage)
+    await ownerPage.goto(`${WEB_ORIGIN}/admin/platform/calendars`)
+    await expect(ownerPage.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
+    await expect(ownerPage.getByRole('button', { name: 'إنشاء تقويم' })).toBeVisible()
+  } finally {
+    await ownerPage.close()
+  }
+})
+
+test('Organization renders the exact 409 detail when two owners create the same facility', async ({ browser }) => {
+  const pageA = await browser.newPage()
+  const pageB = await browser.newPage()
+  const code = `CLOSURE-${correlationId().replaceAll('-', '').slice(-12).toUpperCase()}`
+
+  try {
+    await signInPlatformAdmin(pageA)
+    await signInPlatformAdmin(pageB)
+    await openOrganizationOverview(pageA)
+    await openOrganizationOverview(pageB)
+
+    await pageA.getByRole('button', { name: 'إضافة منشأة' }).click()
+    await pageB.getByRole('button', { name: 'إضافة منشأة' }).click()
+    const dialogA = pageA.getByRole('dialog', { name: 'إضافة منشأة' })
+    const dialogB = pageB.getByRole('dialog', { name: 'إضافة منشأة' })
+    await dialogA.getByLabel('الرقم التعريفي').fill(code)
+    await dialogA.getByLabel('اسم المنشأة بالعربية').fill('منشأة الفائز')
+    await dialogB.getByLabel('الرقم التعريفي').fill(code)
+    await dialogB.getByLabel('اسم المنشأة بالعربية').fill('منشأة الخاسر')
+
+    await dialogA.getByRole('button', { name: 'حفظ المنشأة' }).click()
+    await expect(pageA.getByText('تم حفظ بيانات المنشأة.')).toBeVisible()
+
+    const conflictResponse = pageB.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/v1/organization/facilities'
+      && response.request().method() === 'POST'
+    ))
+    await dialogB.getByRole('button', { name: 'حفظ المنشأة' }).click()
+    expect((await conflictResponse).status()).toBe(409)
+    await expect(dialogB.getByRole('alert')).toContainText('A facility with this code already exists.')
+  } finally {
+    await pageA.close()
+    await pageB.close()
+  }
+})
+
+test('Business Calendar persists create, weekday, exception, and publish through the UI', async ({ page }) => {
+  await signInPlatformAdmin(page)
+  await page.goto(`${WEB_ORIGIN}/admin/platform/calendars`)
+  await expect(page.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'إنشاء تقويم' }).click()
+  await expect(page.getByText('تم إنشاء التقويم بنجاح')).toBeVisible()
+  await page.getByRole('button', { name: 'تفعيل الإثنين' }).click()
+  await expect(page.getByText('تم تحديث اليوم')).toBeVisible()
+
+  await page.getByRole('button', { name: 'طلب العمل أثناء عطلة رسمية' }).click()
+  const exceptionDialog = page.getByRole('dialog', { name: 'سبب العمل أثناء العطلة' })
+  await exceptionDialog.getByLabel('التاريخ').fill('2099-06-15')
+  await exceptionDialog.getByLabel('السبب').fill('Architecture closure browser journey')
+  await exceptionDialog.getByRole('button', { name: 'تأكيد الطلب' }).click()
+  await expect(page.getByText('تم تسجيل الاستثناء.')).toBeVisible()
+
+  await page.getByRole('button', { name: 'نشر التقويم' }).click()
+  await expect(page.getByText('تم نشر التقويم')).toBeVisible()
+  await page.reload()
+  await expect(page.getByText('منشور').first()).toBeVisible()
+})
+
+test('Organization stale-write loser sees 412 feedback and refreshes to the winner value', async ({ browser }) => {
+  const pageA = await browser.newPage()
+  const pageB = await browser.newPage()
+  const suffix = correlationId().replaceAll('-', '').slice(-8)
+  const winnerName = `تجمع الفائز ${suffix}`
+  const loserName = `تجمع الخاسر ${suffix}`
+
+  try {
+    await signInPlatformAdmin(pageA)
+    await signInPlatformAdmin(pageB)
+    await openOrganizationOverview(pageA)
+    await openOrganizationOverview(pageB)
+
+    await pageA.getByRole('button', { name: 'تعديل بيانات التجمع' }).click()
+    await pageB.getByRole('button', { name: 'تعديل بيانات التجمع' }).click()
+    const dialogA = pageA.getByRole('dialog', { name: 'تعديل بيانات التجمع' })
+    const dialogB = pageB.getByRole('dialog', { name: 'تعديل بيانات التجمع' })
+    await dialogA.getByLabel('اسم التجمع بالعربية').fill(winnerName)
+    await dialogB.getByLabel('اسم التجمع بالعربية').fill(loserName)
+
+    const winnerResponse = pageA.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/v1/organization/cluster'
+      && response.request().method() === 'PATCH'
+    ))
+    await dialogA.getByRole('button', { name: 'حفظ التعديل' }).click()
+    expect((await winnerResponse).status()).toBe(200)
+    await expect(pageA.getByText('تم حفظ بيانات التجمع.')).toBeVisible()
+
+    const loserResponse = pageB.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/v1/organization/cluster'
+      && response.request().method() === 'PATCH'
+    ))
+    await dialogB.getByRole('button', { name: 'حفظ التعديل' }).click()
+    expect((await loserResponse).status()).toBe(412)
+    await expect(dialogB.getByRole('alert')).toContainText('تغيّرت البيانات في مكان آخر. حدّث الصفحة ثم أعد المحاولة.')
+
+    await pageB.reload()
+    await expect(pageB.getByRole('heading', { name: 'منشآت التجمع' })).toBeVisible()
+    await expect(pageB.getByText(winnerName, { exact: true })).toBeVisible()
+    await expect(pageB.getByText(loserName, { exact: true })).toHaveCount(0)
+  } finally {
+    await pageA.close()
+    await pageB.close()
+  }
 })

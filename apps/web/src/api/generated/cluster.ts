@@ -12854,6 +12854,66 @@ export const getPlatformBackups = async (
   })
 }
 
+export type dispatchPlatformBackupResponse202 = {
+  data: EntityResponse
+  status: 202
+}
+
+export type dispatchPlatformBackupResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type dispatchPlatformBackupResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type dispatchPlatformBackupResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type dispatchPlatformBackupResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type dispatchPlatformBackupResponseSuccess =
+  dispatchPlatformBackupResponse202 & {
+    headers: Headers
+  }
+export type dispatchPlatformBackupResponseError = (
+  | dispatchPlatformBackupResponse400
+  | dispatchPlatformBackupResponse401
+  | dispatchPlatformBackupResponse403
+  | dispatchPlatformBackupResponse500
+) & {
+  headers: Headers
+}
+
+export type dispatchPlatformBackupResponse =
+  dispatchPlatformBackupResponseSuccess | dispatchPlatformBackupResponseError
+
+export const getDispatchPlatformBackupUrl = () => {
+  return `/api/v1/platform-operations/backups`
+}
+
+/**
+ * @summary Dispatch an idempotent asynchronous platform backup
+ */
+export const dispatchPlatformBackup = async (
+  options?: RequestInit,
+): Promise<dispatchPlatformBackupResponse> => {
+  return customFetch<dispatchPlatformBackupResponse>(
+    getDispatchPlatformBackupUrl(),
+    {
+      ...options,
+      method: 'POST',
+    },
+  )
+}
+
 export type listPlatformSettingsCalendarsResponse200 = {
   data: CollectionResponse
   status: 200
