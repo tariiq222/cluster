@@ -450,13 +450,22 @@ final class SecurityJourneyW13Test extends TestCase
         $this->getAsB('/api/v1/reports/'.self::REPORT_ID.'?scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 0);
         $this->getAsB('/api/v1/dashboards/'.self::DASHBOARD_ID.'?scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 0);
 
-        $grant = $this->grantViaAdminApi('w13-j09-read', self::USER_B, ['work_record.read'], 'facility', self::FACILITY_A);
+        $grant = $this->grantViaAdminApi(
+            'w13-j09-projections',
+            self::USER_B,
+            ['search.query', 'reporting.run', 'reporting.dashboard'],
+            'facility',
+            self::FACILITY_A,
+        );
 
-        $search = $this->getAsB('/api/v1/search?q=budget&scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 1);
+        $search = $this->getAsB('/api/v1/search?q=budget&scope_id='.self::FACILITY_A)->assertOk();
+        $this->assertSame(1, $search->json('total'), 'Search must expose the authorized facility row.');
         $this->assertSame(self::FACILITY_A, $search->json('items.0.scope_id'));
-        $report = $this->getAsB('/api/v1/reports/'.self::REPORT_ID.'?scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 1);
+        $report = $this->getAsB('/api/v1/reports/'.self::REPORT_ID.'?scope_id='.self::FACILITY_A)->assertOk();
+        $this->assertSame(1, $report->json('total'), 'Reporting must expose the authorized facility row.');
         $this->assertSame(self::FACILITY_A, $report->json('items.0.scope_id'));
-        $dashboard = $this->getAsB('/api/v1/dashboards/'.self::DASHBOARD_ID.'?scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 1);
+        $dashboard = $this->getAsB('/api/v1/dashboards/'.self::DASHBOARD_ID.'?scope_id='.self::FACILITY_A)->assertOk();
+        $this->assertSame(1, $dashboard->json('total'), 'Dashboard must expose the authorized facility row.');
         $this->assertSame(self::FACILITY_A, $dashboard->json('items.0.scope_id'));
 
         // The grant never leaks the other facility's rows in the default scope.

@@ -64,6 +64,22 @@ class RbacAbacDecideAccessTest extends TestCase
     {
         parent::setUp();
 
+        foreach ([
+            'sensitive_access_events',
+            'access_decisions',
+            'explicit_denies',
+            'classification_policies',
+            'field_access_templates',
+            'role_assignments',
+            'role_capabilities',
+            'delegation_capabilities',
+            'delegations',
+            'roles',
+            'capabilities',
+        ] as $table) {
+            DB::table($table)->delete();
+        }
+
         Carbon::setTestNow(Carbon::parse('2026-07-19 12:00:00', 'UTC'));
         $this->supervisoryRelationships = new FakeGetActiveSupervisoryRelationships;
     }
