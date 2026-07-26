@@ -829,7 +829,7 @@ historical_findings_explicitly_out_of_scope:
   - F123
 closure_decision: CLOSED
 verification:
-  commit: <pending-this-commit>
+  commit: da27c8158582c0e2402f30d422e15818fb08644d
   command: make verify-architecture-closure
   result: passed
   workstation_sub_gates:
