@@ -159,6 +159,20 @@ describe('W1.2 shell route registry', () => {
     ).toBe(true)
   })
 
+  it('gates search with the exact server catalog capability', () => {
+    const route: AppRoute = { name: 'search' }
+    expect(capabilitiesForRoute(route)).toEqual(['search.query'])
+    expect(isRouteVisible(route, [])).toBe(false)
+    expect(isRouteVisible(route, ['search.query'])).toBe(true)
+  })
+
+  it('keeps platform read visibility separate from mutation capabilities', () => {
+    expect(capabilitiesForRoute({ name: 'platform-settings', section: 'security' })).toEqual(['platform_settings.read'])
+    expect(capabilitiesForRoute({ name: 'platform-settings', section: 'backups' })).toEqual(['platform_operations.backup.read'])
+    expect(capabilitiesForRoute({ name: 'platform-settings', section: 'health' })).toEqual(['platform_operations.health.read'])
+    expect(capabilitiesForRoute({ name: 'platform-settings', section: 'overview' })).not.toContain('platform_operations.maintenance.manage')
+  })
+
   it('hides routes whose capabilities are deferred even if the principal holds them', () => {
     const route: AppRoute = { name: 'platform-settings', section: 'logs' };
     expect(capabilitiesForRoute(route)).toEqual([]);

@@ -8,6 +8,21 @@
 
 **Tech Stack:** PHP 8.3, Laravel 13, PHPUnit 12.5, MySQL/SQLite test profiles, React 19, TypeScript 6, Vite 8, OpenAPI/Orval.
 
+## Current execution status — 2026-07-26
+
+This file preserves the original task decomposition; unchecked boxes are not a
+reliable live-progress signal after the large migration wave. Current evidence
+is maintained in
+[`docs/analysis/SUMMARY.md`](../../analysis/SUMMARY.md) and
+[`docs/analysis/17-cross-cutting-risks.md`](../../analysis/17-cross-cutting-risks.md).
+
+Observed progress includes the module-provider split, migration of the legacy
+`app/Http/Controllers/` tree, complete coverage of migrated tables in
+`TABLE_OWNERS`, the Documents CSRF route correction, and restored static/CI
+gates. Remaining blockers include eight failing Organization drawer tests,
+inventory exactness gaps, missing fresh E2E evidence, and the final full-suite
+verification pass.
+
 ## Global Constraints
 
 - Preserve module rank direction and depend only on another module's `Contracts/` or `Events/` surface.

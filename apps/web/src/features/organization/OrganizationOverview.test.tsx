@@ -58,8 +58,13 @@ function renderOverview(locale: 'ar' | 'en' = 'ar') {
   )
 }
 
-function apiError(status: number): ApiError {
-  return new ApiError(status, { type: 'about:blank', title: 'Request failed', status })
+function apiError(status: number, detail?: string): ApiError {
+  return new ApiError(status, {
+    type: 'about:blank',
+    title: 'Request failed',
+    status,
+    ...(detail ? { detail } : {}),
+  })
 }
 
 beforeEach(() => {
@@ -135,7 +140,7 @@ describe('OrganizationOverview', () => {
   })
 
   it('keeps a conflicting facility update in the drawer with understandable feedback', async () => {
-    api.updateFacility.mockRejectedValue(apiError(409))
+    api.updateFacility.mockRejectedValue(apiError(409, 'الرقم التعريفي للمنشأة مستخدم بالفعل.'))
     renderOverview()
 
     fireEvent.click(await screen.findByRole('button', { name: 'تعديل المنشأة' }))
@@ -144,7 +149,7 @@ describe('OrganizationOverview', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'حفظ التعديل' }))
 
-    expect((await screen.findByRole('alert')).textContent).toContain('تغيّرت البيانات')
+    expect((await screen.findByRole('alert')).textContent).toContain('الرقم التعريفي للمنشأة مستخدم بالفعل.')
   })
 
   it('updates the overview after a successful cluster creation', async () => {

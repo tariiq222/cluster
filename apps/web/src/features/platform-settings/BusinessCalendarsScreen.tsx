@@ -7,6 +7,7 @@ import {
   publishBusinessCalendar,
   setBusinessCalendarException,
   setBusinessCalendarWeekday,
+  type BusinessCalendarCreateInput,
 } from '../../api/platform-settings'
 import { Button, Drawer, Field, Panel, Select, StatusBadge } from '../../ui'
 import {
@@ -59,6 +60,15 @@ function errorMessage(error: unknown, locale: 'ar' | 'en'): string {
     : 'The operation could not be completed.'
 }
 
+type CalendarExceptionType =
+  | 'official_holiday'
+  | 'local_closure'
+  | 'local_hours'
+  | 'official_holiday_work_override'
+  | 'ramadan'
+
+const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
 export function BusinessCalendarsScreen({
   locale,
   state = 'success',
@@ -68,10 +78,11 @@ export function BusinessCalendarsScreen({
   holidayOverrideAllowed = false,
 }: BusinessCalendarsScreenProps) {
   const [scope, setScope] = useState<'platform' | 'cluster' | 'facility'>('platform')
+  const [scopeId, setScopeId] = useState('')
   const [overrideOpen, setOverrideOpen] = useState(false)
   const [overrideDate, setOverrideDate] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
-  const [overrideType, setOverrideType] = useState<'official_holiday' | 'ad_hoc_holiday' | 'seasonal_period' | 'official_holiday_work_override'>('official_holiday')
+  const [overrideType, setOverrideType] = useState<CalendarExceptionType>('official_holiday_work_override')
   const [overrideStart, setOverrideStart] = useState('08:00')
   const [overrideEnd, setOverrideEnd] = useState('16:00')
   const [overrideWorking, setOverrideWorking] = useState(true)
@@ -85,10 +96,11 @@ export function BusinessCalendarsScreen({
 
   const gate = stateGate(locale, state, screenText(locale, 'لا يوجد تقويم في هذا النطاق', 'No calendar exists in this scope'))
   if (gate) return gate
-  const canOverride = holidayOverrideAllowed || isAllowed(allowedActions, 'platform_settings.calendar.override_official_holiday')
-  const canCreate = token !== undefined && busy === null
-  const canPublish = token !== undefined && busy === null && (isAllowed(allowedActions, 'platform_settings.calendar.publish') || isAllowed(allowedActions, 'platform_settings.publish'))
-  const canApply = token !== undefined && busy === null
+  const canOverride = isAllowed(allowedActions, 'platform_settings.calendar.override_official_holiday')
+  const scopeIdValid = scope === 'platform' || UUID_V7_PATTERN.test(scopeId.trim())
+  const canCreate = token !== undefined && isAllowed(allowedActions, 'platform_settings.calendar.manage')
+  const canPublish = token !== undefined && busy === null && isAllowed(allowedActions, 'platform_settings.calendar.publish')
+  const canApply = token !== undefined && busy === null && isAllowed(allowedActions, 'platform_settings.calendar.manage')
   const calendarFromResource = firstCalendar(resource)
   const calendar = localCalendar !== null
     ? { id: localCalendar.id, lockVersion: localCalendar.lockVersion, workingDays: [] as readonly string[], workingHours: '08:00–16:00', weekends: [] as readonly string[], holidays: [] as readonly string[] }
@@ -103,16 +115,20 @@ export function BusinessCalendarsScreen({
     : screenText(locale, 'لا توجد عطلات أسبوعية محددة', 'No weekend days defined')
   const holidays = calendar?.holidays ?? []
 
+  function createInput(): BusinessCalendarCreateInput {
+    const parent_calendar_id = null
+    if (scope === 'platform') return { scope_type: 'platform', scope_id: 'platform', parent_calendar_id }
+    const enteredScopeId = scopeId.trim()
+    if (scope === 'cluster') return { scope_type: 'cluster', scope_id: enteredScopeId, parent_calendar_id }
+    return { scope_type: 'facility', scope_id: enteredScopeId, parent_calendar_id }
+  }
+
   async function createCalendar(): Promise<void> {
-    if (token === undefined || busy !== null) return
+    if (token === undefined || busy !== null || !scopeIdValid) return
     setBusy('create')
     setNotice({ kind: 'idle' })
     try {
-      const response = await createBusinessCalendar(token, {
-        scope_type: scope,
-        scope_id: scope,
-        parent_calendar_id: null,
-      })
+      const response = await createBusinessCalendar(token, createInput())
       const created = response as unknown as { id?: string; lock_version?: number; values?: Record<string, unknown> }
       if (typeof created.id === 'string' && created.id.length > 0) {
         setLocalCalendar({ id: created.id, lockVersion: created.lock_version ?? 1, values: created.values ?? {} })
@@ -216,7 +232,12 @@ export function BusinessCalendarsScreen({
           <Select
             id="calendar-scope-select"
             value={scope}
-            onChange={(value) => setScope(value as 'platform' | 'cluster' | 'facility')}
+            onChange={(value) => {
+              setScope(value as 'platform' | 'cluster' | 'facility')
+              setScopeId('')
+              setLocalCalendar(null)
+              setLiveLockVersion(null)
+            }}
             options={[
               { value: 'platform', label: screenText(locale, 'المنصة', 'Platform') },
               { value: 'cluster', label: screenText(locale, 'التجمع', 'Cluster') },
@@ -225,11 +246,35 @@ export function BusinessCalendarsScreen({
             ariaLabel={screenText(locale, 'نطاق التقويم', 'Calendar scope')}
           />
         </Field>
-        {canCreate ? (
+        {scope !== 'platform' ? (
+          <Field
+            id="calendar-scope-id"
+            label={screenText(locale, 'معرّف النطاق', 'Scope ID')}
+            required
+            error={scopeId !== '' && !scopeIdValid
+              ? screenText(locale, 'أدخل معرّف UUID صالحاً.', 'Enter a valid UUID.')
+              : undefined}
+          >
+            <input
+              id="calendar-scope-id"
+              type="text"
+              dir="ltr"
+              required
+              aria-required="true"
+              aria-invalid={scopeId !== '' && !scopeIdValid}
+              aria-describedby={scopeId !== '' && !scopeIdValid ? 'calendar-scope-id-error' : undefined}
+              value={scopeId}
+              onChange={(event) => setScopeId(event.target.value)}
+            />
+          </Field>
+        ) : null}
+        {canCreate || canPublish ? (
           <div className="platform-action-row">
-            <Button onClick={() => void createCalendar()} disabled={busy !== null}>
-              {screenText(locale, 'إنشاء تقويم', 'Create calendar')}
-            </Button>
+            {canCreate ? (
+              <Button onClick={() => void createCalendar()} disabled={busy !== null || !scopeIdValid}>
+                {screenText(locale, 'إنشاء تقويم', 'Create calendar')}
+              </Button>
+            ) : null}
             {canPublish ? (
               <Button variant="secondary" onClick={() => void publishCalendar()} disabled={busy !== null || calendarId === undefined}>
                 {screenText(locale, 'نشر التقويم', 'Publish calendar')}
@@ -296,12 +341,13 @@ export function BusinessCalendarsScreen({
           <Select
             id="calendar-exception-type"
             value={overrideType}
-            onChange={(value) => setOverrideType(value as 'official_holiday' | 'ad_hoc_holiday' | 'seasonal_period' | 'official_holiday_work_override')}
+            onChange={(value) => setOverrideType(value as CalendarExceptionType)}
             options={[
               { value: 'official_holiday', label: screenText(locale, 'عطلة رسمية', 'Official holiday') },
-              { value: 'ad_hoc_holiday', label: screenText(locale, 'عطلة استثنائية', 'Ad-hoc holiday') },
-              { value: 'seasonal_period', label: screenText(locale, 'فترة موسمية', 'Seasonal period') },
+              { value: 'local_closure', label: screenText(locale, 'إغلاق محلي', 'Local closure') },
+              { value: 'local_hours', label: screenText(locale, 'ساعات محلية', 'Local hours') },
               { value: 'official_holiday_work_override', label: screenText(locale, 'عمل أثناء عطلة رسمية', 'Official-holiday work override') },
+              { value: 'ramadan', label: screenText(locale, 'رمضان', 'Ramadan') },
             ]}
             ariaLabel={screenText(locale, 'نوع الاستثناء', 'Exception type')}
           />

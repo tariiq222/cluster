@@ -1,12 +1,13 @@
 <?php
 
-namespace Modules\Search\Http;
+namespace Modules\Search\Features\Search\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler;
+use Modules\Search\Http\SearchApi;
 
 final class SearchController
 {

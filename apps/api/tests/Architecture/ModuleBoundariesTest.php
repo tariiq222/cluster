@@ -11,6 +11,7 @@ class ModuleBoundariesTest extends TestCase
 {
     /** @var array<string, int> */
     private const MODULE_RANKS = [
+        'Shared' => -1,
         'PlatformSettings' => 0,
         'Organization' => 0,
         'Identity' => 1,
@@ -62,6 +63,7 @@ class ModuleBoundariesTest extends TestCase
         'business_calendar_weekdays' => 'PlatformSettings',
         'business_calendar_exceptions' => 'PlatformSettings',
         'platform_maintenance_windows' => 'PlatformSettings',
+        'platform_settings_idempotency_keys' => 'PlatformSettings',
         'platform_operation_requests' => 'PlatformSettings',
         'platform_operation_snapshots' => 'PlatformSettings',
         'technical_log_archive_batches' => 'PlatformSettings',
@@ -147,9 +149,16 @@ class ModuleBoundariesTest extends TestCase
         // WorkRecords (rank 8)
         'work_records' => 'WorkRecords',
         'work_record_idempotency_keys' => 'WorkRecords',
-        'outbox_events' => 'WorkRecords',
-        'project_work_record_read_models' => 'WorkRecords',
-        // Notifications (rank 11)
+        // Cross-cutting infrastructure: this is the only table whose
+        // migration may live under apps/api/Shared.
+        'outbox_events' => 'Shared',
+        // NOTE: `project_work_record_read_models` was an extra TABLE_OWNERS
+        // key with no Schema::create migration. The architecture test now
+        // asserts TABLE_OWNERS equals the set of migrated tables exactly;
+        // virtual read models must not pollute TABLE_OWNERS. If a future
+        // virtual resource requires inventory (e.g. an in-memory projection
+        // surfaced by a module handler), register it in VIRTUAL_RESOURCES
+        // rather than TABLE_OWNERS.
         'notifications' => 'Notifications',
         'notification_inbox' => 'Notifications',
         'notification_recipients' => 'Notifications',
@@ -165,6 +174,17 @@ class ModuleBoundariesTest extends TestCase
         'report_runs' => 'Reporting',
         'export_artifacts' => 'Reporting',
         'dashboard_definitions' => 'Reporting',
+    ];
+
+    /**
+     * Existing infrastructure types that function as published Shared
+     * surfaces until their Contracts migrations are separately authorized.
+     *
+     * @var list<string>
+     */
+    private const SHARED_INFRASTRUCTURE_IMPORT_ALLOWLIST = [
+        'Shared\Infrastructure\Outbox\OutboxEventType',
+        'Shared\Infrastructure\Streams\RedisStreamTransport',
     ];
 
     public function test_current_module_tree_obeys_the_repository_boundary_rules(): void
@@ -342,6 +362,114 @@ PHP);
         }
     }
 
+    public function test_rejects_a_business_controller_under_a_module_top_level_http_directory(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/Tasks/Http/FakeTasksController.php', <<<'PHP'
+<?php
+namespace Modules\Tasks\Http;
+final class FakeTasksController {}
+PHP);
+
+        try {
+            $this->assertContains(
+                'Tasks HTTP boundary /Http/ may host only support APIs (ReportingApi/SearchApi); controllers must live under Features/<Feature>/Http (offender: Modules/Tasks/Http/FakeTasksController.php).',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_rejects_raw_outbox_access_outside_the_shared_adapter(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/WorkRecords/Features/Submit/Handler.php', <<<'PHP'
+<?php
+namespace Modules\WorkRecords\Features\Submit;
+use Illuminate\Support\Facades\DB;
+final class Handler
+{
+    public function handle(): void
+    {
+        DB::table('outbox_events')->insert(['event_id' => 'duplicate']);
+    }
+}
+PHP);
+
+        try {
+            $this->assertContains(
+                'WorkRecords must access Shared-owned outbox_events only through Shared\Contracts.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_rejects_cross_owner_infrastructure_import_from_a_producer(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/WorkRecords/Features/Submit/Handler.php', <<<'PHP'
+<?php
+namespace Modules\WorkRecords\Features\Submit;
+use Modules\Identity\Infrastructure\Persistence\IdentityStore;
+final class Handler {}
+PHP);
+
+        try {
+            $this->assertContains(
+                'WorkRecords must not import Identity Infrastructure.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_rejects_shared_infrastructure_import_from_a_producer(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/WorkRecords/Features/Submit/Handler.php', <<<'PHP'
+<?php
+namespace Modules\WorkRecords\Features\Submit;
+use Shared\Infrastructure\Outbox\DatabaseTransactionalOutbox;
+final class Handler {}
+PHP);
+
+        try {
+            $this->assertContains(
+                'WorkRecords must not import Shared Infrastructure; depend on Shared\Contracts.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_allows_raw_outbox_access_inside_the_shared_adapter(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Shared/Infrastructure/Outbox/DatabaseTransactionalOutbox.php', <<<'PHP'
+<?php
+namespace Shared\Infrastructure\Outbox;
+use Illuminate\Support\Facades\DB;
+final class DatabaseTransactionalOutbox
+{
+    public function append(): void
+    {
+        DB::table('outbox_events')->insert(['event_id' => 'shared']);
+    }
+}
+PHP);
+
+        try {
+            $this->assertSame([], $this->violationsIn($root));
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
     /**
      * The guard uses PHP's tokenizer to inspect executable imports and string literals,
      * then tokenizes SQL literals before interpreting table references. It deliberately
@@ -373,11 +501,27 @@ PHP);
 
                     continue;
                 }
+                $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
 
                 if ($isKnownModule) {
                     foreach ($this->importsFrom($source) as $import) {
                         $violations = [...$violations, ...$this->importViolations($module, $import)];
                     }
+                }
+
+                if (! str_contains($relativePath, '/Tests/')) {
+                    foreach ($this->allImportsFrom($source) as $import) {
+                        $violations = [
+                            ...$violations,
+                            ...$this->infrastructureImportViolations($module, $import),
+                        ];
+                    }
+                }
+                if (
+                    ! str_contains($relativePath, '/Tests/')
+                    && in_array('outbox_events', $this->tablesInDatabaseCalls($source), true)
+                ) {
+                    $violations[] = "{$module} must access Shared-owned outbox_events only through Shared\Contracts.";
                 }
 
                 foreach ($this->businessIdentifiersFrom($source) as $identifier) {
@@ -414,11 +558,19 @@ PHP);
                             $violations[] = "{$module} HTTP controller must not own transactions or Outbox: {$relativePath}.";
                         }
                     }
-                }
 
-                if ($isKnownModule && str_contains($path, DIRECTORY_SEPARATOR.'Migrations'.DIRECTORY_SEPARATOR)) {
-                    foreach ($this->stringLiteralsFrom($source) as $literal) {
-                        $violations = [...$violations, ...$this->tableOwnershipViolations($module, $literal, 'migration')];
+                    if (str_contains($path, DIRECTORY_SEPARATOR.'Migrations'.DIRECTORY_SEPARATOR)) {
+                        foreach ($this->stringLiteralsFrom($source) as $literal) {
+                            $violations = [...$violations, ...$this->tableOwnershipViolations($module, $literal, 'migration')];
+                        }
+                    }
+
+                    // @phpstan-ignore-next-line if.alwaysTrue
+                    if ($isKnownModule) {
+                        $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
+                        if (preg_match('#^Modules/'.preg_quote($module, '#').'/Http/.+Controller\.php$#', $relativePath) === 1) {
+                            $violations[] = "{$module} HTTP boundary /Http/ may host only support APIs (ReportingApi/SearchApi); controllers must live under Features/<Feature>/Http (offender: {$relativePath}).";
+                        }
                     }
                 }
             }
@@ -531,6 +683,31 @@ PHP);
         }
 
         return $violations;
+    }
+
+    /** @return list<string> */
+    private function infrastructureImportViolations(string $sourceModule, string $import): array
+    {
+        if (str_starts_with($import, 'Shared\Infrastructure\\')) {
+            if (in_array($import, self::SHARED_INFRASTRUCTURE_IMPORT_ALLOWLIST, true)) {
+                return [];
+            }
+
+            return ["{$sourceModule} must not import Shared Infrastructure; depend on Shared\Contracts."];
+        }
+
+        if (! str_starts_with($import, 'Modules\\')) {
+            return [];
+        }
+
+        $parts = explode('\\', $import);
+        $targetModule = $parts[1] ?? '';
+        $surface = $parts[2] ?? '';
+        if ($targetModule === $sourceModule || $surface !== 'Infrastructure') {
+            return [];
+        }
+
+        return ["{$sourceModule} must not import {$targetModule} Infrastructure."];
     }
 
     /** @return list<string> */
@@ -684,24 +861,19 @@ PHP);
         rmdir($path);
     }
 
-    public function test_every_misplaced_file_has_a_non_expired_expiry_date(): void
+    public function test_every_misplaced_file_has_a_reason_a_non_past_expiry_and_an_existing_path(): void
     {
-        $today = date('Y-m-d');
+        $entries = ModulePlacementInventory::misplacedBusinessFiles();
 
-        foreach (ModulePlacementInventory::misplacedBusinessFiles() as $entry) {
-            $this->assertArrayHasKey('path', $entry, 'misplaced entry must have a path key.');
-            $this->assertArrayHasKey('expiry', $entry, "misplaced entry {$entry['path']} must have an expiry key.");
-            $this->assertNotEmpty($entry['expiry'], "misplaced entry {$entry['path']} must have a non-empty expiry.");
-            $this->assertNotEmpty(
-                date_create($entry['expiry']),
-                "misplaced entry {$entry['path']} has an invalid expiry date: {$entry['expiry']}.",
-            );
-            $this->assertGreaterThanOrEqual(
-                $today,
-                $entry['expiry'],
-                "misplaced entry {$entry['path']} has expired (expiry: {$entry['expiry']}); remove it from ModulePlacementInventory or migrate the file.",
-            );
-        }
+        $shapeMessages = self::inventoryShapeMessages($entries);
+        $pathMessages = $this->inventoryPathExistenceFailures($entries);
+
+        $allMessages = [...$shapeMessages, ...$pathMessages];
+        $this->assertSame(
+            [],
+            $allMessages,
+            'Placement-inventory shape mismatch: '.implode(' | ', $allMessages),
+        );
     }
 
     public function test_every_event_type_in_outbox_has_a_matching_json_schema(): void
@@ -818,6 +990,7 @@ PHP);
         $migrationPaths = [
             $repoRoot.'/apps/api/Modules/*/Infrastructure/Persistence/Migrations/*.php',
             $repoRoot.'/apps/api/Modules/*/Infrastructure/Outbox/Migrations/*.php',
+            $repoRoot.'/apps/api/Shared/Infrastructure/Outbox/Migrations/*.php',
         ];
         foreach ($migrationPaths as $pattern) {
             foreach (glob($pattern) as $file) {
@@ -858,15 +1031,276 @@ PHP);
             }
         }
 
-        $this->assertSame(
-            [],
-            $missing,
-            'Migration tables without an owner in TABLE_OWNERS. Add an entry to apps/api/tests/Architecture/ModuleBoundariesTest.php::TABLE_OWNERS for each missing table, mapping it to the module that owns its migration file.'
+        $ownershipMessages = self::ownershipShapeMessages(
+            $tables,
+            $moduleMap,
+            self::TABLE_OWNERS,
         );
         $this->assertSame(
             [],
-            $mismatched,
-            'TABLE_OWNERS disagrees with the actual module that owns each migration. Update the owner column to match the directory under apps/api/Modules that contains the migration file.'
+            $ownershipMessages,
+            'TABLE_OWNERS shape mismatch: '.implode(' | ', $ownershipMessages),
         );
+    }
+
+    /**
+     * @param  array<string, int>  $tables  table => occurrences discovered by the migration scan
+     * @param  array<string, string>  $moduleMap  table => module that owns the migration file
+     * @param  array<string, string>  $owners  the candidate TABLE_OWNERS map (keys are table names)
+     * @return list<string> distinct human-readable rejection messages, one per violation class
+     */
+    public static function ownershipShapeMessages(array $tables, array $moduleMap, array $owners): array
+    {
+        $messages = [];
+
+        $extra = array_values(array_diff(array_keys($owners), array_keys($tables)));
+        if ($extra !== []) {
+            $messages[] = sprintf(
+                'extra-owner: TABLE_OWNERS contains entries without a Schema::create migration: %s.',
+                implode(', ', $extra),
+            );
+        }
+
+        $missing = [];
+        foreach ($tables as $table => $_count) {
+            if (! array_key_exists($table, $owners)) {
+                $missing[] = sprintf('%s (declared by %s)', $table, $moduleMap[$table] ?? 'unknown');
+            }
+        }
+        if ($missing !== []) {
+            $messages[] = sprintf(
+                'missing-owner: migrations declare tables without an owner in TABLE_OWNERS: %s.',
+                implode(', ', $missing),
+            );
+        }
+
+        $mismatched = [];
+        foreach ($tables as $table => $_count) {
+            if (! array_key_exists($table, $owners)) {
+                continue;
+            }
+            if ($owners[$table] !== ($moduleMap[$table] ?? null)) {
+                $mismatched[] = sprintf(
+                    '%s: TABLE_OWNERS says %s but actual module is %s',
+                    $table,
+                    $owners[$table],
+                    $moduleMap[$table] ?? 'unknown',
+                );
+            }
+        }
+        if ($mismatched !== []) {
+            $messages[] = sprintf(
+                'owner-mismatch: TABLE_OWNERS disagrees with the actual module that owns each migration: %s.',
+                implode(', ', $mismatched),
+            );
+        }
+
+        return $messages;
+    }
+
+    /**
+     * Validate a placement-inventory candidate shape. Each rejection class
+     * (missing reason, empty reason, missing expires_on, invalid expires_on,
+     * expired expires_on, missing path existence) returns a distinct message
+     * prefixed by a class discriminator so the architecture test reports
+     * exactly which rule failed.
+     *
+     * @param  list<array<string, mixed>>  $entries  inventory candidates
+     * @return list<string> distinct rejection messages, one per violation class
+     */
+    public static function inventoryShapeMessages(array $entries): array
+    {
+        $messages = [];
+        $today = date('Y-m-d');
+
+        foreach ($entries as $entry) {
+            $path = is_string($entry['path'] ?? null) ? $entry['path'] : '';
+
+            $reason = is_string($entry['reason'] ?? null) ? trim($entry['reason']) : '';
+            if (! array_key_exists('reason', $entry)) {
+                $messages[] = sprintf('missing-reason: entry %s must declare a non-empty `reason`.', $path !== '' ? $path : '(no path)');
+            } elseif ($reason === '') {
+                $messages[] = sprintf('empty-reason: entry %s has an empty `reason`.', $path !== '' ? $path : '(no path)');
+            }
+
+            if (! array_key_exists('expires_on', $entry)) {
+                $messages[] = sprintf('missing-expires-on: entry %s must declare an ISO-8601 `expires_on` (legacy `expiry` is rejected).', $path !== '' ? $path : '(no path)');
+
+                continue;
+            }
+            $expiresOn = (string) $entry['expires_on'];
+            if ($expiresOn === '') {
+                $messages[] = sprintf('empty-expires-on: entry %s has an empty `expires_on`.', $path !== '' ? $path : '(no path)');
+
+                continue;
+            }
+            if (date_create($expiresOn) === false) {
+                $messages[] = sprintf('invalid-expires-on: entry %s has an invalid ISO-8601 `expires_on`: %s.', $path !== '' ? $path : '(no path)', $expiresOn);
+
+                continue;
+            }
+            if ($expiresOn < $today) {
+                $messages[] = sprintf('expired-exception: entry %s has an expired `expires_on` (%s < %s).', $path !== '' ? $path : '(no path)', $expiresOn, $today);
+            }
+        }
+
+        return $messages;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function inventoryPathExistenceFailures(array $entries): array
+    {
+        $messages = [];
+        foreach ($entries as $entry) {
+            $path = is_string($entry['path'] ?? null) ? $entry['path'] : '';
+            if ($path === '' || ! is_file(base_path($path))) {
+                $messages[] = sprintf('missing-path: inventory entry %s does not exist on disk.', $path !== '' ? $path : '(no path)');
+            }
+        }
+
+        return $messages;
+    }
+
+    // ------------------------------------------------------------------
+    // Negative fixtures: prove each rejection class fires a distinct,
+    // discriminator-prefixed message. These tests call the same helper
+    // methods used by the live guard, so adding new rejection classes
+    // requires updating the helper AND these fixtures.
+    // ------------------------------------------------------------------
+
+    public function test_ownership_shape_rejects_extra_owner_with_distinct_message(): void
+    {
+        $tables = ['work_records' => 1];
+        $moduleMap = ['work_records' => 'WorkRecords'];
+        $owners = [
+            'work_records' => 'WorkRecords',
+            'project_work_record_read_models' => 'WorkRecords',
+        ];
+
+        $messages = self::ownershipShapeMessages($tables, $moduleMap, $owners);
+
+        $this->assertCount(1, $messages, 'expected exactly one rejection class: '.implode(' | ', $messages));
+        $this->assertStringContainsString(
+            'extra-owner:',
+            $messages[0],
+            'extra-owner rejection must use the `extra-owner:` discriminator so it is distinguishable from missing-owner or owner-mismatch.',
+        );
+        $this->assertStringContainsString('project_work_record_read_models', $messages[0]);
+    }
+
+    public function test_ownership_shape_rejects_missing_owner_with_distinct_message(): void
+    {
+        $tables = ['work_records' => 1, 'unowned_projection' => 1];
+        $moduleMap = ['work_records' => 'WorkRecords', 'unowned_projection' => 'WorkRecords'];
+        $owners = ['work_records' => 'WorkRecords'];
+
+        $messages = self::ownershipShapeMessages($tables, $moduleMap, $owners);
+
+        $this->assertCount(1, $messages, 'expected exactly one rejection class: '.implode(' | ', $messages));
+        $this->assertStringContainsString(
+            'missing-owner:',
+            $messages[0],
+            'missing-owner rejection must use the `missing-owner:` discriminator.',
+        );
+        $this->assertStringContainsString('unowned_projection', $messages[0]);
+    }
+
+    public function test_ownership_shape_rejects_owner_mismatch_with_distinct_message(): void
+    {
+        $tables = ['work_records' => 1];
+        $moduleMap = ['work_records' => 'WorkRecords'];
+        $owners = ['work_records' => 'Tasks'];
+
+        $messages = self::ownershipShapeMessages($tables, $moduleMap, $owners);
+
+        $this->assertCount(1, $messages, 'expected exactly one rejection class: '.implode(' | ', $messages));
+        $this->assertStringContainsString(
+            'owner-mismatch:',
+            $messages[0],
+            'owner-mismatch rejection must use the `owner-mismatch:` discriminator.',
+        );
+    }
+
+    public function test_inventory_shape_rejects_missing_reason_with_distinct_message(): void
+    {
+        $entries = [
+            ['path' => 'app/Support/MissingReasonFixture.php', 'expires_on' => '2999-12-31'],
+        ];
+
+        $messages = self::inventoryShapeMessages($entries);
+
+        $this->assertCount(1, $messages);
+        $this->assertStringContainsString('missing-reason:', $messages[0]);
+        $this->assertStringContainsString('MissingReasonFixture.php', $messages[0]);
+    }
+
+    public function test_inventory_shape_rejects_empty_reason_with_distinct_message(): void
+    {
+        $entries = [
+            ['path' => 'app/Support/EmptyReasonFixture.php', 'reason' => '   ', 'expires_on' => '2999-12-31'],
+        ];
+
+        $messages = self::inventoryShapeMessages($entries);
+
+        $this->assertCount(1, $messages);
+        $this->assertStringContainsString('empty-reason:', $messages[0]);
+    }
+
+    public function test_inventory_shape_rejects_missing_expires_on_with_distinct_message(): void
+    {
+        $entries = [
+            ['path' => 'app/Support/MissingExpiryFixture.php', 'reason' => 'fixture reason'],
+        ];
+
+        $messages = self::inventoryShapeMessages($entries);
+
+        $this->assertCount(1, $messages);
+        $this->assertStringContainsString('missing-expires-on:', $messages[0]);
+    }
+
+    public function test_inventory_shape_rejects_invalid_expires_on_with_distinct_message(): void
+    {
+        $entries = [
+            ['path' => 'app/Support/InvalidExpiryFixture.php', 'reason' => 'fixture reason', 'expires_on' => 'not-a-date'],
+        ];
+
+        $messages = self::inventoryShapeMessages($entries);
+
+        $this->assertCount(1, $messages);
+        $this->assertStringContainsString('invalid-expires-on:', $messages[0]);
+    }
+
+    public function test_inventory_shape_rejects_expired_expiry_with_distinct_message(): void
+    {
+        $entries = [
+            [
+                'path' => 'app/Support/ExpiredExpiryFixture.php',
+                'reason' => 'fixture reason',
+                'expires_on' => '2020-01-01',
+            ],
+        ];
+
+        $messages = self::inventoryShapeMessages($entries);
+
+        $this->assertCount(1, $messages);
+        $this->assertStringContainsString('expired-exception:', $messages[0]);
+    }
+
+    public function test_inventory_path_existence_rejects_missing_path_with_distinct_message(): void
+    {
+        $entries = [
+            [
+                'path' => 'app/Support/ThisFileDoesNotExist.php',
+                'reason' => 'fixture reason',
+                'expires_on' => '2999-12-31',
+            ],
+        ];
+
+        $messages = $this->inventoryPathExistenceFailures($entries);
+
+        $this->assertCount(1, $messages);
+        $this->assertStringContainsString('missing-path:', $messages[0]);
     }
 }

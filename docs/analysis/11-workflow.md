@@ -1,5 +1,8 @@
 # 11 · موديول Workflow (تدفقات العمل)
 
+> **خط أساس تاريخي — 2026-07-25.** الوصف التفصيلي مفيد، لكن المقاييس
+> والمخاطر الحالية تؤخذ من [`SUMMARY.md`](SUMMARY.md) و[`17-cross-cutting-risks.md`](17-cross-cutting-risks.md).
+
 > **المسار:** `apps/api/Modules/Workflow/`
 > **Rank:** 4
 > **عدد الملفات:** 27 PHP

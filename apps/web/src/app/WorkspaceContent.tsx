@@ -166,11 +166,11 @@ export function WorkspaceContent({
       case 'access-scopes':
       case 'access-explanation':
       case 'access-context':
-        return <AccessWorkspace locale={locale} activeRoute={route} navigate={navigate} scopeReady={principal.scopeReady} scopeEpoch={principal.scopeEpoch} />
+        return <AccessWorkspace locale={locale} activeRoute={route} navigate={navigate} scopeReady={principal.scopeReady} scopeEpoch={principal.scopeEpoch} capabilities={principal.capabilities ?? undefined} />
       case 'workflow-day2':
         return <Day2Workflow session={session} />
       case 'tasks':
-        return <TasksScreen />
+        return <TasksScreen capabilities={principal.capabilities ?? []} />
       case 'task-detail':
         return (
           <TaskDetail
@@ -182,9 +182,11 @@ export function WorkspaceContent({
           />
         )
       case 'work-definitions':
-        return <WorkDefinitionsScreen />
+        return <WorkDefinitionsScreen capabilities={principal.capabilities ?? []} />
       case 'workflow-admin':
-        return <WorkflowAdminScreen />
+        return <WorkflowAdminScreen capabilities={principal.capabilities ?? []} />
+      case 'reports':
+        return <ReportsScreen capabilities={principal.capabilities ?? []} />
       case 'procedure-authoring':
         return <ProcedureAuthoring locale={locale} session={session} />
       case 'procedure-office-review':
@@ -245,8 +247,6 @@ export function WorkspaceContent({
         return <ApiDocsRoute locale={locale} />
       case 'search':
         return <SearchScreen initialQuery={globalSearchQuery} />
-      case 'reports':
-        return <ReportsScreen />
       case 'dashboards':
         return (
           <DashboardsScreen

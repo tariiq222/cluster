@@ -59,6 +59,7 @@ final class MarkNotificationReadControllerTest extends TestCase
                 'type' => 'https://cluster.example/problems/authentication-required',
                 'title' => 'Unauthorized',
                 'status' => 401,
+                'correlation_id' => self::CORRELATION_ID,
                 'detail' => 'Authentication is required.',
             ]);
     }
@@ -76,6 +77,7 @@ final class MarkNotificationReadControllerTest extends TestCase
                 'type' => 'https://cluster.example/problems/resource-not-found',
                 'title' => 'Not Found',
                 'status' => 404,
+                'correlation_id' => self::CORRELATION_ID,
                 'detail' => 'The notification is not available.',
             ]);
     }
@@ -92,6 +94,7 @@ final class MarkNotificationReadControllerTest extends TestCase
                 'type' => 'https://cluster.example/problems/resource-not-found',
                 'title' => 'Not Found',
                 'status' => 404,
+                'correlation_id' => self::CORRELATION_ID,
                 'detail' => 'The notification is not available.',
             ]);
 

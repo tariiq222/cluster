@@ -7,11 +7,16 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
 use Modules\WorkRecords\Domain\WorkRecord;
+use Shared\Contracts\TransactionalOutboxEnvelope;
 use stdClass;
 use UnexpectedValueException;
 
 final class SubmitWorkRecordHandler
 {
+    public function __construct(
+        private readonly TransactionalOutboxEnvelope $outbox,
+    ) {}
+
     /**
      * Persist the source envelope and its CloudEvent in one caller-owned transaction.
      *
@@ -67,17 +72,13 @@ final class SubmitWorkRecordHandler
                 'updated_at' => $submittedAt,
             ]);
 
-            DB::table('outbox_events')->insert([
-                'event_id' => $cloudEvent['id'],
-                'aggregate_id' => $envelope['id'],
-                'event_type' => $cloudEvent['type'],
-                'cloud_event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR),
-                'occurred_at' => $this->databaseTimestamp($cloudEvent['time']),
-                'published_at' => null,
-                'delivery_attempts' => 0,
-                'created_at' => $submittedAt,
-                'updated_at' => $submittedAt,
-            ]);
+            $this->outbox->appendEnvelope(
+                (string) $cloudEvent['id'],
+                (string) $envelope['id'],
+                $cloudEvent,
+                (string) $cloudEvent['time'],
+                (string) $envelope['submitted_at'],
+            );
 
             return [
                 'created' => true,

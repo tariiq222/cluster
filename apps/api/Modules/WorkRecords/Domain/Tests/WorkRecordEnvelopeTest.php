@@ -105,7 +105,7 @@ class WorkRecordEnvelopeTest extends TestCase
 
     public function test_persisting_a_submitted_record_writes_its_cloudevent_to_the_outbox_in_the_same_transaction(): void
     {
-        $handler = new SubmitWorkRecordHandler;
+        $handler = $this->app->make(SubmitWorkRecordHandler::class);
         $first = $this->record(self::RECORD_ID, 'WR-000001');
 
         $handler->persist(
@@ -133,11 +133,15 @@ class WorkRecordEnvelopeTest extends TestCase
             'com.cluster.workrecord.submitted.v1',
             DB::table('outbox_events')->value('event_type'),
         );
+        $this->assertSame(
+            '2026-07-16 10:00:00',
+            (string) DB::table('outbox_events')->value('created_at'),
+        );
     }
 
     public function test_replaying_the_same_submitted_event_is_idempotent(): void
     {
-        $handler = new SubmitWorkRecordHandler;
+        $handler = $this->app->make(SubmitWorkRecordHandler::class);
         $record = $this->record(self::RECORD_ID, 'WR-000001');
         $event = $this->cloudEvent($record, '0197f0e0-0000-7000-8000-000000000202');
 
@@ -155,7 +159,7 @@ class WorkRecordEnvelopeTest extends TestCase
 
     public function test_unique_idempotency_claim_collapses_a_concurrent_loser_to_the_committed_result(): void
     {
-        $handler = new SubmitWorkRecordHandler;
+        $handler = $this->app->make(SubmitWorkRecordHandler::class);
         $winner = $this->record(self::RECORD_ID, 'WR-000001');
         $loser = $this->record('0197f0e0-0000-7000-8000-000000000102', 'WR-000002');
         $idempotency = $this->idempotency('concurrent-claim');

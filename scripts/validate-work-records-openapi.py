@@ -13,8 +13,8 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parent.parent
 OPENAPI_PATH = ROOT / "docs/contracts/api/openapi.yaml"
-PROBLEM_REF = "../schemas/problem-details.schema.json"
-WORK_RECORD_REF = "../schemas/work-record.schema.json"
+PROBLEM_REF = "#/components/schemas/problem-details.schema"
+WORK_RECORD_REF = "#/components/schemas/work-record.schema"
 
 
 def mapping(value: Any) -> dict[str, Any]:

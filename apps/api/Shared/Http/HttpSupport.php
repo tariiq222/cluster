@@ -42,16 +42,21 @@ trait HttpSupport
 
     private function problem(int $status, string $type, string $detail, ?string $correlation = null): JsonResponse
     {
-        $response = response()->json([
-            'type' => 'https://cluster.example/problems/'.$type,
-            'title' => match ($status) {
-                400 => 'Bad Request', 401 => 'Unauthorized', 403 => 'Forbidden', 404 => 'Not Found', 409 => 'Conflict', 412 => 'Precondition Failed', default => 'Unprocessable Content'
+        return ProblemEnvelope::make(
+            $status,
+            $type,
+            match ($status) {
+                400 => 'Bad Request',
+                401 => 'Unauthorized',
+                403 => 'Forbidden',
+                404 => 'Not Found',
+                409 => 'Conflict',
+                412 => 'Precondition Failed',
+                default => 'Unprocessable Content',
             },
-            'status' => $status,
-            'detail' => $detail,
-        ], $status)->header('Content-Type', 'application/problem+json');
-
-        return $correlation === null ? $response : $response->header('X-Correlation-ID', $correlation);
+            $correlation,
+            ['detail' => $detail],
+        );
     }
 
     private function versionFromMatch(Request $request): ?int

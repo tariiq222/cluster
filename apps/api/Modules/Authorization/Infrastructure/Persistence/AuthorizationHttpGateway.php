@@ -15,7 +15,7 @@ use Modules\Authorization\Domain\ExplicitDeny;
 use Modules\Authorization\Domain\Role;
 use Modules\Authorization\Domain\RoleAssignment;
 use Modules\Authorization\Domain\UuidV7;
-use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\Organization\Contracts\ResolveScopeDescendants;
 
 final class AuthorizationHttpGateway
 {
@@ -37,7 +37,7 @@ final class AuthorizationHttpGateway
     public function __construct(
         private readonly ValidateDelegationAuthority $delegationAuthority,
         private readonly ValidateGrantAuthority $grantAuthority,
-        private readonly ResolveOrganizationScopeAncestry $ancestry,
+        private readonly ResolveScopeDescendants $descendants,
     ) {}
 
     /** @return list<string> */
@@ -756,24 +756,7 @@ final class AuthorizationHttpGateway
     /** @return list<array{scope_type:string,scope_id:string}> */
     private function descendantScopes(string $scopeType, string $scopeId): array
     {
-        $descendants = [];
-        if ($scopeType === 'cluster') {
-            foreach (DB::table('facilities')->where('cluster_id', $scopeId)->pluck('id') as $facilityId) {
-                $descendants[] = ['scope_type' => 'facility', 'scope_id' => (string) $facilityId];
-            }
-            foreach (DB::table('organization_units')->where('cluster_id', $scopeId)->pluck('id') as $unitId) {
-                $descendants[] = ['scope_type' => 'unit', 'scope_id' => (string) $unitId];
-            }
-        } elseif ($scopeType === 'facility') {
-            foreach (DB::table('organization_units')->pluck('id') as $unitId) {
-                $ancestry = $this->ancestry->ancestry('unit', (string) $unitId);
-                if (($ancestry['facility_id'] ?? null) === $scopeId) {
-                    $descendants[] = ['scope_type' => 'unit', 'scope_id' => (string) $unitId];
-                }
-            }
-        }
-
-        return $descendants;
+        return $this->descendants->descendants($scopeType, $scopeId);
     }
 
     /** @return array{0: string, 1: string} */

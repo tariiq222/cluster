@@ -1,10 +1,13 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 
-import { ApiError, createFacility, updateFacility, type Cluster, type Facility } from '../../api'
+import { createFacility, updateFacility, type Cluster, type Facility } from '../../api'
 import { Button, Drawer, Field, Select } from '../../ui'
+import {
+  classifyOrganizationMutationFailure,
+  type OrganizationMutationFailure,
+} from './organization-mutation-error'
 
 type Locale = 'ar' | 'en'
-type SaveError = 'validation' | 'stale' | 'save' | null
 
 const copy = {
   ar: {
@@ -35,7 +38,8 @@ export function FacilityDrawer({ open, cluster, facility, locale, token, onClose
   const [typeCode, setTypeCode] = useState('hospital')
   const [status, setStatus] = useState<Facility['status']>('active')
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<SaveError>(null)
+  const [validationError, setValidationError] = useState(false)
+  const [failure, setFailure] = useState<OrganizationMutationFailure | null>(null)
   const errorRef = useRef<HTMLParagraphElement>(null)
   const editing = facility !== null
 
@@ -46,42 +50,56 @@ export function FacilityDrawer({ open, cluster, facility, locale, token, onClose
     setNameEn(facility?.name_en ?? '')
     setTypeCode(facility?.type_code ?? 'hospital')
     setStatus(facility?.status ?? 'active')
-    setError(null)
+    setValidationError(false)
+    setFailure(null)
   }, [open, facility])
+
+  useEffect(() => {
+    if (failure === null || submitting) return
+    const focusTimer = window.requestAnimationFrame(() => errorRef.current?.focus())
+    return () => window.cancelAnimationFrame(focusTimer)
+  }, [failure, submitting])
 
   function close() { if (!submitting) onClose() }
   function changeStatus(value: string) { if (isFacilityStatus(value)) setStatus(value) }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setValidationError(false)
+    setFailure(null)
     if (!name.trim() || (!editing && !CODE_PATTERN.test(code))) {
-      setError('validation')
+      setValidationError(true)
       window.requestAnimationFrame(() => errorRef.current?.focus())
       return
     }
     setSubmitting(true)
-    setError(null)
     try {
       const saved = editing && facility
         ? await updateFacility(token, facility.id, facility.lock_version, { name: name.trim(), status })
         : await createFacility(token, { cluster_id: cluster.id, type_code: typeCode, code, name: name.trim(), name_en: nameEn.trim() || null })
       onSaved(saved)
     } catch (caught) {
-      setError(caught instanceof ApiError && (caught.status === 409 || caught.status === 412) ? 'stale' : 'save')
-      window.requestAnimationFrame(() => errorRef.current?.focus())
+      setFailure(classifyOrganizationMutationFailure(caught))
     } finally {
       setSubmitting(false)
     }
   }
 
-  const codeInvalid = !editing && (error === 'validation' || code.length > 0) && !CODE_PATTERN.test(code)
-  const errorMessage = error === 'validation' ? text.validation : error === 'stale' ? text.stale : error === 'save' ? text.saveError : null
+  const codeInvalid = !editing && (validationError || code.length > 0) && !CODE_PATTERN.test(code)
+  const failureMessage = failure?.kind === 'conflict'
+    ? failure.message
+    : failure?.kind === 'stale'
+      ? text.stale
+      : failure?.kind === 'save'
+        ? text.saveError
+        : null
   return <Drawer open={open} onClose={close} title={editing ? text.editTitle : text.createTitle} ariaLabelClose={text.close} dismissable={!submitting}>
     <p className="ui-drawer-intro">{text.intro}</p>
     <form className="organization-overview-drawer-form" onSubmit={(event) => void submit(event)} noValidate>
-      {errorMessage ? <p ref={errorRef} className="error-summary" role="alert" tabIndex={-1}>{errorMessage}</p> : null}
+      {validationError ? <p ref={errorRef} className="error-summary" role="alert" tabIndex={-1}>{text.validation}</p> : null}
+      {failure ? <p data-testid="org-drawer-alert" ref={errorRef} className="error-summary" role="alert" tabIndex={-1}>{failureMessage}</p> : null}
       {!editing ? <Field id="facility-code" label={text.identifier} required help={text.identifierHelp} error={codeInvalid ? text.codeHint : undefined}><input id="facility-code" dir="ltr" value={code} required aria-required="true" aria-invalid={codeInvalid || undefined} aria-describedby={codeInvalid ? 'facility-code-error' : 'facility-code-help'} onChange={(event) => setCode(event.target.value.toUpperCase())} /></Field> : null}
-      <Field id="facility-name" label={text.name} required error={error === 'validation' && !name.trim() ? text.validation : undefined}><input id="facility-name" value={name} required aria-required="true" aria-invalid={error === 'validation' && !name.trim() ? true : undefined} aria-describedby={error === 'validation' && !name.trim() ? 'facility-name-error' : undefined} onChange={(event) => setName(event.target.value)} /></Field>
+      <Field id="facility-name" label={text.name} required error={validationError && !name.trim() ? text.validation : undefined}><input id="facility-name" value={name} required aria-required="true" aria-invalid={validationError && !name.trim() ? true : undefined} aria-describedby={validationError && !name.trim() ? 'facility-name-error' : undefined} onChange={(event) => setName(event.target.value)} /></Field>
       {!editing ? <Field id="facility-name-en" label={text.englishName}><input id="facility-name-en" value={nameEn} onChange={(event) => setNameEn(event.target.value)} /></Field> : null}
       {!editing ? <Field id="facility-type" label={text.type}><Select id="facility-type" value={typeCode} onChange={setTypeCode} options={[{ value: 'hospital', label: text.hospital }, { value: 'center', label: text.center }, { value: 'lab', label: text.lab }, { value: 'shared_services', label: text.sharedServices }]} /></Field> : null}
       {editing ? <Field id="facility-status" label={text.status}><Select id="facility-status" value={status} onChange={changeStatus} options={[{ value: 'active', label: text.active }, { value: 'inactive', label: text.inactive }, { value: 'archived', label: text.archived }]} /></Field> : null}

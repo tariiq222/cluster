@@ -32,7 +32,7 @@ return [
     base_path('Modules/WorkDefinitions/Infrastructure/Persistence/Migrations/CreateWorkDefinitionTables.php'),
     base_path('Modules/WorkRecords/Infrastructure/Persistence/Migrations/CreateWorkRecordsTable.php'),
     base_path('Modules/WorkRecords/Infrastructure/Persistence/Migrations/W13AddWorkRecordFieldPolicyKey.php'),
-    base_path('Modules/WorkRecords/Infrastructure/Outbox/Migrations/CreateOutboxTable.php'),
+    base_path('Shared/Infrastructure/Outbox/Migrations/CreateOutboxTable.php'),
     base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/CreateWorkflowTables.php'),
     base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W14AddWorkflowStepAssignee.php'),
     base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php'),
@@ -46,6 +46,8 @@ return [
     base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W20UpgradeTechnicalAlertFanoutSchema.php'),
     base_path('Modules/Search/Infrastructure/Persistence/Migrations/CreateSearchProjectionTables.php'),
     base_path('Modules/Reporting/Infrastructure/Persistence/Migrations/CreateReportingProjectionTables.php'),
+    base_path('Modules/Reporting/Infrastructure/Persistence/Migrations/ZAddReportRunIdempotency.php'),
     base_path('Modules/PlatformSettings/Infrastructure/Persistence/Migrations/CreatePlatformSettingsTables.php'),
+    base_path('Modules/PlatformSettings/Infrastructure/Persistence/Migrations/ZAddPlatformSettingsIdempotency.php'),
     base_path('Modules/PlatformSettings/Infrastructure/Persistence/Migrations/CreateTechnicalLogArchiveTables.php'),
 ];

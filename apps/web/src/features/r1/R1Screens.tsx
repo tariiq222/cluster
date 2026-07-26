@@ -200,7 +200,13 @@ function EntityTable({ locale, items, actions }: { locale: Locale; items: R1Enti
   return <div className="table-scroll"><table className="data-table"><thead><tr><th>{t.name}</th><th>{t.code}</th><th>{t.status}</th>{actions && <th>{common[locale].actions}</th>}</tr></thead><tbody>{items.map((item, index) => <tr key={String(item.id ?? index)}><td>{String(item.name ?? item.title ?? item.id ?? '—')}</td><td>{String(item.code ?? item.version_number ?? '—')}</td><td>{String(item.status ?? item.definition_state ?? '—')}</td>{actions && <td>{actions(item)}</td>}</tr>)}</tbody></table></div>
 }
 
-export function TasksScreen() {
+function mutationAllowed(capabilities: readonly string[], capability: string): boolean {
+  return capabilities.includes(capability)
+}
+
+type R1CapabilityProps = { capabilities: readonly string[] }
+
+export function TasksScreen({ capabilities }: R1CapabilityProps) {
   const locale = useLocale()
   const token = useToken()
   const [items, setItems] = useState<R1Entity[]>([])
@@ -210,6 +216,8 @@ export function TasksScreen() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null)
   const [pendingAction, setPendingAction] = useState<{ item: R1Entity; action: 'complete' | 'return-completion' } | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const canComplete = mutationAllowed(capabilities, 'tasks.complete')
+  const canReturnCompletion = mutationAllowed(capabilities, 'tasks.update')
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   /**
    * Track in-flight load and mutation requests so superseded calls cannot
@@ -252,6 +260,11 @@ export function TasksScreen() {
 
   async function confirmAction() {
     if (!pendingAction) return
+    const requiredCapability = pendingAction.action === 'complete' ? 'tasks.complete' : 'tasks.update'
+    if (!mutationAllowed(capabilities, requiredCapability)) {
+      setPendingAction(null)
+      return
+    }
     setSubmitting(true)
     try {
       await transitionTask(token, String(pendingAction.item.id), pendingAction.action, Number(pendingAction.item.lock_version ?? 1))
@@ -296,11 +309,11 @@ export function TasksScreen() {
           return (
             <div className="table-actions">
               <Button variant="quiet" onClick={() => setSelected(item)}>{common[locale].open}</Button>
-              {!isDone && (
-                <>
-                  <Button onClick={() => setPendingAction({ item, action: 'complete' })} disabled={submitting}>{common[locale].complete}</Button>
-                  <Button variant="secondary" onClick={() => setPendingAction({ item, action: 'return-completion' })} disabled={submitting}>{common[locale].return}</Button>
-                </>
+              {!isDone && canComplete && (
+                <Button onClick={() => setPendingAction({ item, action: 'complete' })} disabled={submitting}>{common[locale].complete}</Button>
+              )}
+              {!isDone && canReturnCompletion && (
+                <Button variant="secondary" onClick={() => setPendingAction({ item, action: 'return-completion' })} disabled={submitting}>{common[locale].return}</Button>
               )}
             </div>
           )
@@ -347,7 +360,7 @@ export function TasksScreen() {
   )
 }
 
-export function WorkDefinitionsScreen() {
+export function WorkDefinitionsScreen({ capabilities }: R1CapabilityProps) {
   const locale = useLocale()
   const token = useToken()
   const [items, setItems] = useState<R1Entity[]>([])
@@ -367,7 +380,7 @@ export function WorkDefinitionsScreen() {
   useEffect(() => { void load() }, [load])
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (submitting) return
+    if (!capabilities.includes('work_definition.create') || !capabilities.includes('work_definition.publish') || submitting) return
     const form = new FormData(event.currentTarget)
     setSubmitting(true)
     setFeedback(null)
@@ -391,22 +404,25 @@ export function WorkDefinitionsScreen() {
       setSubmitting(false)
     }
   }
+  const canMutate = capabilities.includes('work_definition.create') && capabilities.includes('work_definition.publish')
   return (
     <section className="ui-page" aria-labelledby="definitions-heading">
       <PageHeader id="definitions-heading" title={common[locale].workDefinitionAdministration} />
       <p className="status-message">{common[locale].existingRecordsRemainPinnedToThe}</p>
-      <form className="inline-form" onSubmit={(event) => void create(event)} aria-describedby="definitions-form-help">
-        <p id="definitions-form-help" className="visually-hidden">{common[locale].createADefinitionTheSystemPublishes}</p>
-        <Field id="work-definition-code" label={common[locale].code} required help={common[locale].lowercaseLatinLettersDigitsAndDashes}>
-          <input id="work-definition-code" name="code" required pattern="[a-z][a-z0-9-]+" />
-        </Field>
-        <Field id="work-definition-name" label={common[locale].name} required>
-          <input id="work-definition-name" name="name" required />
-        </Field>
-        <Button type="submit" disabled={submitting}>
-          {submitting ? (common[locale].publishing) : common[locale].create}
-        </Button>
-      </form>
+      {canMutate ? (
+        <form className="inline-form" onSubmit={(event) => void create(event)} aria-describedby="definitions-form-help">
+          <p id="definitions-form-help" className="visually-hidden">{common[locale].createADefinitionTheSystemPublishes}</p>
+          <Field id="work-definition-code" label={common[locale].code} required help={common[locale].lowercaseLatinLettersDigitsAndDashes}>
+            <input id="work-definition-code" name="code" required pattern="[a-z][a-z0-9-]+" />
+          </Field>
+          <Field id="work-definition-name" label={common[locale].name} required>
+            <input id="work-definition-name" name="name" required />
+          </Field>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? (common[locale].publishing) : common[locale].create}
+          </Button>
+        </form>
+      ) : null}
       {feedback && (
         <div className={`status-message ${feedback.kind === 'error' ? 'error' : 'success'}`} role={feedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">
           {feedback.message}
@@ -415,9 +431,7 @@ export function WorkDefinitionsScreen() {
       <ScreenState locale={locale} state={state} retry={() => void load()} />
       {state === 'ready' && items.length > 0 && (
         <>
-          <p className="status-message" aria-live="polite">
-            {common[locale].totalDefinitions(items.length)}
-          </p>
+          <p className="status-message" aria-live="polite">{common[locale].totalDefinitions(items.length)}</p>
           <EntityTable locale={locale} items={items} />
         </>
       )}
@@ -425,7 +439,7 @@ export function WorkDefinitionsScreen() {
   )
 }
 
-export function WorkflowAdminScreen() {
+export function WorkflowAdminScreen({ capabilities }: R1CapabilityProps) {
   const locale = useLocale()
   const token = useToken()
   const [definitions, setDefinitions] = useState<R1Entity[]>([])
@@ -447,16 +461,12 @@ export function WorkflowAdminScreen() {
   useEffect(() => { void load() }, [load])
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (submitting) return
+    if (!capabilities.includes('workflow.manage') || submitting) return
     const form = new FormData(event.currentTarget)
     setSubmitting(true)
     setFeedback(null)
     try {
-      const created = await createWorkflowDefinition(token, {
-        code: String(form.get('code')),
-        name: String(form.get('name')),
-        source_record_type: 'work_record',
-      })
+      const created = await createWorkflowDefinition(token, { code: String(form.get('code')), name: String(form.get('name')), source_record_type: 'work_record' })
       await publishWorkflowVersion(token, String(created.version.id), Number(created.version.lock_version ?? 1))
       event.currentTarget.reset()
       setFeedback({ kind: 'success', message: common[locale].workflowPublished(String(form.get('code'))) })
@@ -467,41 +477,27 @@ export function WorkflowAdminScreen() {
       setSubmitting(false)
     }
   }
+  const canMutate = capabilities.includes('workflow.manage')
   return (
     <section className="ui-page" aria-labelledby="workflow-heading">
       <PageHeader id="workflow-heading" title={common[locale].workflowAdministration} />
-      <form className="inline-form" onSubmit={(event) => void create(event)}>
-        <Field id="workflow-code" label={common[locale].code} required>
-          <input id="workflow-code" name="code" required pattern="[a-z][a-z0-9_]+" />
-        </Field>
-        <Field id="workflow-name" label={common[locale].name} required>
-          <input id="workflow-name" name="name" required />
-        </Field>
-        <Button type="submit" disabled={submitting}>
-          {submitting ? (common[locale].publishing) : common[locale].create}
-        </Button>
-      </form>
-      {feedback && (
-        <div className={`status-message ${feedback.kind === 'error' ? 'error' : 'success'}`} role={feedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">
-          {feedback.message}
-        </div>
-      )}
+      {canMutate ? (
+        <form className="inline-form" onSubmit={(event) => void create(event)}>
+          <Field id="workflow-code" label={common[locale].code} required><input id="workflow-code" name="code" required pattern="[a-z][a-z0-9_]+" /></Field>
+          <Field id="workflow-name" label={common[locale].name} required><input id="workflow-name" name="name" required /></Field>
+          <Button type="submit" disabled={submitting}>{submitting ? common[locale].publishing : common[locale].create}</Button>
+        </form>
+      ) : null}
+      {feedback && <div className={`status-message ${feedback.kind === 'error' ? 'error' : 'success'}`} role={feedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{feedback.message}</div>}
       <ScreenState locale={locale} state={state} retry={() => void load()} />
-      {state === 'ready' && (
-        <PanelGrid>
-          <Panel id="workflow-definitions-heading" title={common[locale].publishedDefinitions} level={2}>
-            <p className="status-message" aria-live="polite">{common[locale].countLabel(definitions.length)}</p>
-            <EntityTable locale={locale} items={definitions} />
-          </Panel>
-          <Panel id="workflow-instances-heading" title={common[locale].runningInstancesAndSteps} level={2}>
-            <p className="status-message" aria-live="polite">{common[locale].countLabel(instances.length)}</p>
-            <EntityTable locale={locale} items={instances} />
-          </Panel>
-        </PanelGrid>
-      )}
+      {state === 'ready' && <PanelGrid>
+        <Panel id="workflow-definitions-heading" title={common[locale].publishedDefinitions} level={2}><p className="status-message" aria-live="polite">{common[locale].countLabel(definitions.length)}</p><EntityTable locale={locale} items={definitions} /></Panel>
+        <Panel id="workflow-instances-heading" title={common[locale].runningInstancesAndSteps} level={2}><p className="status-message" aria-live="polite">{common[locale].countLabel(instances.length)}</p><EntityTable locale={locale} items={instances} /></Panel>
+      </PanelGrid>}
     </section>
   )
 }
+
 
 export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
   const locale = useLocale()
@@ -602,7 +598,7 @@ export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
   )
 }
 
-export function ReportsScreen() {
+export function ReportsScreen({ capabilities }: R1CapabilityProps) {
   const locale = useLocale()
   const token = useToken()
   const [report, setReport] = useState<R1Collection | null>(null)
@@ -669,7 +665,7 @@ export function ReportsScreen() {
   }
 
   async function createExport() {
-    if (exporting) return
+    if (!mutationAllowed(capabilities, 'reporting.export') || exporting) return
     const selectedId = selection.startsWith('report:') ? selection.slice('report:'.length) : ''
     if (!selectedId || selectedKind !== 'report') return
     setExporting(true)
@@ -764,7 +760,7 @@ export function ReportsScreen() {
             </article>
           </div>
           <EntityTable locale={locale} items={report.items ?? []} />
-          {selectedKind === 'report' && <Panel id="export-card-heading" title={common[locale].exportReport} level={2}>
+          {selectedKind === 'report' && mutationAllowed(capabilities, 'reporting.export') && <Panel id="export-card-heading" title={common[locale].exportReport} level={2}>
             <Button onClick={() => void createExport()} disabled={exporting}>
               {exporting ? (common[locale].requestingExport) : (common[locale].requestExport)}
             </Button>
@@ -772,12 +768,8 @@ export function ReportsScreen() {
             {exportItem && (
               <div className="status-message" role="status" aria-live="polite">
                 {common[locale].exportStatus}: <strong>{String(exportItem.status ?? 'queued')}</strong>
-                {exportInProgress && (
-                  <progress aria-label={common[locale].processing} />
-                )}
-                {exportReady && Boolean(exportItem.download_url) && (
-                  <> — <a href={String(exportItem.download_url)}>{common[locale].download}</a></>
-                )}
+                {exportInProgress && <progress aria-label={common[locale].processing} />}
+                {exportReady && Boolean(exportItem.download_url) && <> — <a href={String(exportItem.download_url)}>{common[locale].download}</a></>}
               </div>
             )}
             {exportError && <Button variant="secondary" onClick={() => void createExport()} disabled={exporting}>{common[locale].exportRetry}</Button>}

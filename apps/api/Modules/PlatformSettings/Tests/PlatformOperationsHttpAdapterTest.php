@@ -122,6 +122,59 @@ final class PlatformOperationsHttpAdapterTest extends TestCase
         $this->assertSame(0, DB::table('platform_maintenance_windows')->count());
     }
 
+    public function test_maintenance_cancel_requires_idempotency_key(): void
+    {
+        $windowId = '0197f0e0-0000-7000-8000-000000000830';
+        DB::table('platform_maintenance_windows')->insert([
+            'id' => $windowId,
+            'status' => 'scheduled',
+            'reason' => json_encode(['ar' => 'صيانة', 'en' => 'maintenance']),
+            'starts_at' => '2026-07-23 10:00:00',
+            'ends_at' => '2026-07-23 11:00:00',
+            'created_by' => '0197f0e0-0000-7000-8000-000000000821',
+            'lock_version' => 1,
+            'created_at' => '2026-07-23 09:00:00',
+            'updated_at' => '2026-07-23 09:00:00',
+        ]);
+        $request = $this->request('POST', '/platform-operations/maintenance-windows/'.$windowId.'/cancel');
+        $request->headers->set('If-Match', '"1"');
+        $response = (new MaintenanceWindowsController($this->api(), $this->maintenance()))->cancel($request, $windowId);
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('https://cluster.example/problems/invalid-idempotency-key', $response->getData(true)['type']);
+        $this->assertSame('scheduled', DB::table('platform_maintenance_windows')->where('id', $windowId)->value('status'));
+    }
+
+    public function test_maintenance_cancel_replays_and_rejects_conflicting_key_reuse(): void
+    {
+        $windowId = '0197f0e0-0000-7000-8000-000000000832';
+        DB::table('platform_maintenance_windows')->insert([
+            'id' => $windowId,
+            'status' => 'scheduled',
+            'reason' => json_encode(['ar' => 'صيانة', 'en' => 'maintenance']),
+            'starts_at' => '2026-07-23 10:00:00',
+            'ends_at' => '2026-07-23 11:00:00',
+            'created_by' => '0197f0e0-0000-7000-8000-000000000821',
+            'lock_version' => 1,
+            'created_at' => '2026-07-23 09:00:00',
+            'updated_at' => '2026-07-23 09:00:00',
+        ]);
+        $controller = new MaintenanceWindowsController($this->api(), $this->maintenance());
+        $request = $this->request('POST', '/platform-operations/maintenance-windows/'.$windowId.'/cancel');
+        $request->headers->set('If-Match', '"1"');
+        $request->headers->set('Idempotency-Key', 'maintenance-cancel-replay');
+        $first = $controller->cancel($request, $windowId);
+        $replay = $controller->cancel($request, $windowId);
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame(200, $replay->getStatusCode());
+        $this->assertSame($first->getData(true), $replay->getData(true));
+        $conflict = clone $request;
+        $conflict->headers->set('If-Match', '"2"');
+        $response = $controller->cancel($conflict, $windowId);
+        $this->assertSame(409, $response->getStatusCode());
+        $this->assertSame('https://cluster.example/problems/idempotency-conflict', $response->getData(true)['type']);
+    }
+
     public function test_maintenance_cancel_returns_412_when_lock_version_is_stale(): void
     {
         DB::table('platform_maintenance_windows')->insert([

@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler;
 use Tests\TestCase;
@@ -89,7 +90,14 @@ final class ListAuthorizedWorkRecordsFieldMaskingTest extends TestCase
     {
         $decider = new ListFieldPolicyDecider;
         $ancestry = new ListSingleAncestry(self::CLUSTER_ID, self::FACILITY_ID);
-        $handler = new ListAuthorizedWorkRecordsHandler($decider, $ancestry);
+        $facilityScopes = new class implements ResolveActiveFacilityScopesForUser
+        {
+            public function facilityScopeIds(string $userId, ?string $atIso8601 = null): array
+            {
+                return [];
+            }
+        };
+        $handler = new ListAuthorizedWorkRecordsHandler($decider, $ancestry, $facilityScopes);
 
         $page = $handler->handle(['user_id' => self::PRINCIPAL_ID, 'facility_id' => self::FACILITY_ID], null, 10, 'confidential');
 

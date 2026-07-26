@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler;
 use Tests\TestCase;
@@ -96,7 +97,8 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
                 return new AccessDecision('allow', $capability, 'work_record', [], 'test', 'test', 'internal');
             }
         };
-        $handler = new ListAuthorizedWorkRecordsHandler($access, $ancestry);
+        $facilityScopes = $this->app->make(ResolveActiveFacilityScopesForUser::class);
+        $handler = new ListAuthorizedWorkRecordsHandler($access, $ancestry, $facilityScopes);
 
         DB::flushQueryLog();
         DB::enableQueryLog();
@@ -138,7 +140,9 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
                 return ['cluster_id' => null, 'facility_id' => $scopeId, 'unit_id' => null];
             }
         };
-        $handler = new ListAuthorizedWorkRecordsHandler($access, $ancestry);
+
+        $facilityScopes = $this->app->make(ResolveActiveFacilityScopesForUser::class);
+        $handler = new ListAuthorizedWorkRecordsHandler($access, $ancestry, $facilityScopes);
 
         for ($i = 0; $i < 12; $i++) {
             DB::table('work_records')->insert([

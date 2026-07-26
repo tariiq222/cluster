@@ -1,11 +1,12 @@
 <?php
 
-namespace Modules\Reporting\Http;
+namespace Modules\Reporting\Features\Exports\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Reporting\Features\DownloadExportArtifact\Handler\DownloadExportArtifactHandler;
+use Modules\Reporting\Http\ReportingApi;
 
 final class DownloadExportController
 {

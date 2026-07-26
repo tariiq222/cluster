@@ -4,32 +4,41 @@ declare(strict_types=1);
 
 namespace Modules\Organization\Infrastructure\Outbox;
 
-use DateTimeImmutable;
-use Illuminate\Support\Facades\DB;
-use Shared\Infrastructure\Outbox\OutboxEventType;
+use Shared\Contracts\TransactionalOutboxEnvelope;
 
+/**
+ * Module-owned outbox façade for Organization producers.
+ *
+ * Owns the producer-side CloudEvent assembly (event-id derivation,
+ * cloud_event payload, time-stamping) and forwards the verbatim
+ * envelope to the Shared {@see TransactionalOutboxEnvelope}
+ * implementation. Direct `DB::table('outbox_events')` access is
+ * intentionally absent: the architecture scanner
+ * (`Tests\Architecture\ModuleBoundariesTest`) flags any producer
+ * module that bypasses the Shared contract.
+ *
+ * Event-catalog validation is owned by the Shared adapter boundary; this
+ * façade only assembles and forwards the producer's envelope.
+ */
 final class OrganizationOutbox
 {
+    public function __construct(
+        private readonly TransactionalOutboxEnvelope $outbox,
+    ) {}
+
     /** @param array<string, mixed> $cloudEvent */
     public function insert(array $cloudEvent, string $aggregateId): void
     {
-        // Validate the event type at the boundary so a producer-side
-        // typo cannot silently land a string that the Redis relay
-        // (and the schema catalogue) does not know about. This is a
-        // cheap invariant that complements the architecture test;
-        // OutboxEventType::from throws ValueError on an unknown value.
-        OutboxEventType::from($cloudEvent['type']);
 
-        DB::table('outbox_events')->insert([
-            'event_id' => $cloudEvent['id'],
-            'aggregate_id' => $aggregateId,
-            'event_type' => $cloudEvent['type'],
-            'cloud_event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR),
-            'occurred_at' => (new DateTimeImmutable($cloudEvent['time']))->format('Y-m-d H:i:s'),
-            'published_at' => null,
-            'delivery_attempts' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $occurredAt = isset($cloudEvent['time']) && is_string($cloudEvent['time'])
+            ? $cloudEvent['time']
+            : now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+
+        $this->outbox->appendEnvelope(
+            (string) $cloudEvent['id'],
+            $aggregateId,
+            $cloudEvent,
+            $occurredAt,
+        );
     }
 }

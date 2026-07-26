@@ -1,15 +1,33 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Modules\Identity\Infrastructure\Outbox;
 
-use DateTimeImmutable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Shared\Contracts\TransactionalOutboxEnvelope;
 use Shared\Infrastructure\Outbox\OutboxEventType;
 
+/**
+ * Module-owned outbox façade for Identity producers.
+ *
+ * Owns the producer-side CloudEvent assembly (UUIDv7 generation,
+ * security-event payload allow-list, time-stamping) and forwards the
+ * verbatim envelope to the Shared
+ * {@see TransactionalOutboxEnvelope} implementation. Direct
+ * `DB::table('outbox_events')` access is intentionally absent: the
+ * architecture scanner
+ * (`Tests\Architecture\ModuleBoundariesTest`) flags any producer
+ * module that bypasses the Shared contract.
+ *
+ * `OutboxEventType::from` is invoked here so a producer-side typo on
+ * `type` fails fast (ValueError on an unknown case) before the
+ * envelope reaches the Shared adapter.
+ */
 final class IdentityOutbox
 {
     public function __construct(
+        private readonly TransactionalOutboxEnvelope $outbox,
         private readonly IdentitySecurityEventRegistry $securityEventRegistry = new IdentitySecurityEventRegistry,
     ) {}
 
@@ -18,17 +36,16 @@ final class IdentityOutbox
     {
         OutboxEventType::from($cloudEvent['type']);
 
-        DB::table('outbox_events')->insert([
-            'event_id' => $cloudEvent['id'],
-            'aggregate_id' => $aggregateId,
-            'event_type' => $cloudEvent['type'],
-            'cloud_event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR),
-            'occurred_at' => (new DateTimeImmutable($cloudEvent['time']))->format('Y-m-d H:i:s'),
-            'published_at' => null,
-            'delivery_attempts' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $occurredAt = isset($cloudEvent['time']) && is_string($cloudEvent['time'])
+            ? $cloudEvent['time']
+            : now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+
+        $this->outbox->appendEnvelope(
+            (string) $cloudEvent['id'],
+            $aggregateId,
+            $cloudEvent,
+            $occurredAt,
+        );
     }
 
     /**

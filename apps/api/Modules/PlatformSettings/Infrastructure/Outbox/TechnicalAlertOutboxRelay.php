@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Modules\PlatformSettings\Infrastructure\Outbox;
 
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
+use Shared\Contracts\PendingOutboxStore;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 
 final class TechnicalAlertOutboxRelay
@@ -14,25 +16,25 @@ final class TechnicalAlertOutboxRelay
 
     private const MAX_BATCH_SIZE = 100;
 
-    public function __construct(private readonly RedisStreamTransport $transport) {}
+    public function __construct(
+        private readonly PendingOutboxStore $outbox,
+        private readonly RedisStreamTransport $transport,
+    ) {}
 
     public function relayPending(int $limit = 100): int
     {
-        $events = DB::table('platform_settings_outbox')
-            ->whereNull('published_at')
-            ->where('event_type', self::EVENT_TYPE)
-            ->orderBy('occurred_at')
-            ->orderBy('id')
-            ->limit(max(1, min($limit, self::MAX_BATCH_SIZE)))
-            ->get();
+        $events = $this->outbox->pending(
+            [self::EVENT_TYPE],
+            max(1, min($limit, self::MAX_BATCH_SIZE)),
+        );
 
         $published = 0;
         foreach ($events as $event) {
             /** @var array{alert_code: string, severity: string, recipient_capability: string, occurred_at: string, correlation_id: string} $payload */
-            $payload = json_decode((string) $event->payload, true, 512, JSON_THROW_ON_ERROR);
+            $payload = $event->payload;
             $cloudEvent = [
                 'specversion' => '1.0',
-                'id' => (string) $event->id,
+                'id' => $event->eventId,
                 'source' => '/platform-settings',
                 'type' => self::EVENT_TYPE,
                 'subject' => '/technical-alerts/'.rawurlencode($payload['alert_code']),
@@ -41,10 +43,10 @@ final class TechnicalAlertOutboxRelay
                 'data' => $payload,
             ];
             $this->transport->xadd(self::STREAM, ['event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR)]);
-            $published += DB::table('platform_settings_outbox')
-                ->where('id', $event->id)
-                ->whereNull('published_at')
-                ->update(['published_at' => now(), 'updated_at' => now()]);
+
+            if ($this->outbox->markPublished($event->eventId)) {
+                $published++;
+            }
         }
 
         return $published;

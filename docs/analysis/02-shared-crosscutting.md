@@ -1,5 +1,8 @@
 # 02 · Shared + App (Crosscutting Analysis)
 
+> **خط أساس تاريخي — 2026-07-25.** الوصف التفصيلي مفيد، لكن المقاييس
+> والمخاطر الحالية تؤخذ من [`SUMMARY.md`](SUMMARY.md) و[`17-cross-cutting-risks.md`](17-cross-cutting-risks.md).
+
 ## 1 · `Shared/` Kernel
 
 ### 1.1 `Shared/Contracts/TransactionalOutbox.php` (10 أسطر)

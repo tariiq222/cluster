@@ -2,14 +2,17 @@
 
 namespace Modules\Documents\Infrastructure\Persistence;
 
-use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\AccessDecision;
+use Modules\Authorization\Contracts\RecordSensitiveAccessEvent;
 use Modules\Documents\Application\DocumentAccessRequest;
 use Modules\Documents\Contracts\SensitiveAccessEventRecorder;
-use Modules\Documents\Domain\UuidV7;
 
 final class DatabaseSensitiveAccessEventRecorder implements SensitiveAccessEventRecorder
 {
+    public function __construct(
+        private readonly RecordSensitiveAccessEvent $authorizationRecorder,
+    ) {}
+
     public function recordDownload(
         string $documentId,
         string $versionId,
@@ -20,31 +23,23 @@ final class DatabaseSensitiveAccessEventRecorder implements SensitiveAccessEvent
         if (! in_array($classification, ['confidential', 'top_secret'], true)) {
             return;
         }
-        $hash = hash('sha256', $request->idempotencyKey ?? implode('|', [$request->principalId, $documentId, $versionId, $request->correlationId]));
-        if (DB::table('sensitive_access_events')
-            ->where('idempotency_key_hash', $hash)
-            ->where('resource_type', 'document')
-            ->where('resource_id', $documentId)
-            ->where('action', 'download')
-            ->exists()) {
-            return;
-        }
-        $id = UuidV7::generate();
-        DB::table('sensitive_access_events')->insert([
-            'id' => $id,
-            'access_decision_id' => UuidV7::generate(),
-            'actor_user_id' => $request->principalId,
-            'original_actor_user_id' => $request->principalId,
+
+        $this->authorizationRecorder->record([
+            'idempotency_key' => $request->idempotencyKey ?? implode('|', [
+                $request->principalId,
+                $documentId,
+                $versionId,
+                $request->correlationId,
+            ]),
+            'principal_id' => $request->principalId,
+            'source_ip' => $request->sourceIp,
+            'device_fingerprint_hash' => $request->deviceFingerprintHash,
+            'correlation_id' => $request->correlationId,
+            'classification_code' => $classification,
             'resource_type' => 'document',
             'resource_id' => $documentId,
             'action' => 'download',
-            'classification_code' => $classification,
-            'correlation_id' => $request->correlationId,
-            'source_ip' => $request->sourceIp,
-            'device_fingerprint_hash' => $request->deviceFingerprintHash,
-            'idempotency_key_hash' => $hash,
-            'occurred_at' => now('UTC'),
-            'recorded_at' => now('UTC'),
+            'access_decision_id' => null,
         ]);
     }
 }

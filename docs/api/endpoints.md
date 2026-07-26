@@ -102,7 +102,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_authorization_access_decisions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-authorization-access-decisions:post:decideaccesscontroller`](rbac-matrix.md#row-250); principal required: `yes`.
+- **RBAC row:** [`api-v1-authorization-access-decisions:post:decideaccesscontroller`](rbac-matrix.md#row-251); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_authorization_access_decisions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_authorization_access_decisions_response` (schema placeholder).
 - **Status codes:** `400, 401, 403, 422, 500`.
@@ -110,7 +110,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Authorization\Features\DecideAccess\Http\DecideAccessController`.
 - **Controller source:** `apps/api/Modules/Authorization/Features/DecideAccess/Http/DecideAccessController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/authorization/access-decisions.post`.
-- **Route source:** `apps/api/routes/web.php:250`.
+- **Route source:** `apps/api/routes/web.php:251`.
 
 ### `POST /api/v1/authorization/bootstrap/complete`
 
@@ -118,7 +118,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_authorization_bootstrap_complete`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-authorization-bootstrap-complete:post:completeauthorizationbootstrapcontroller`](rbac-matrix.md#row-251); principal required: `yes`.
+- **RBAC row:** [`api-v1-authorization-bootstrap-complete:post:completeauthorizationbootstrapcontroller`](rbac-matrix.md#row-252); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_authorization_bootstrap_complete_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_authorization_bootstrap_complete_response` (schema placeholder).
 - **Status codes:** `200, 400, 401, 403, 409, 422`.
@@ -126,7 +126,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Authorization\Features\Bootstrap\Http\CompleteAuthorizationBootstrapController`.
 - **Controller source:** `apps/api/Modules/Authorization/Features/Bootstrap/Http/CompleteAuthorizationBootstrapController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/authorization/bootstrap/complete.post`.
-- **Route source:** `apps/api/routes/web.php:251`.
+- **Route source:** `apps/api/routes/web.php:252`.
 
 ### `POST /api/v1/authorization/{adminResource}`
 
@@ -134,7 +134,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_authorization_adminResource`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-authorization-adminResource:post:authorizationadmincontroller`](rbac-matrix.md#row-252); principal required: `yes`.
+- **RBAC row:** [`api-v1-authorization-adminResource:post:authorizationadmincontroller`](rbac-matrix.md#row-253); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_authorization_adminResource_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_authorization_adminResource_response` (schema placeholder).
 - **Status codes:** `400, 401, 403, 404, 409, 412, 422, 500`.
@@ -142,7 +142,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Authorization\Features\Administration\Http\AuthorizationAdminController`.
 - **Controller source:** `apps/api/Modules/Authorization/Features/Administration/Http/AuthorizationAdminController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/authorization/{adminResource}.post`.
-- **Route source:** `apps/api/routes/web.php:252`.
+- **Route source:** `apps/api/routes/web.php:253`.
 
 ### `PATCH /api/v1/authorization/{adminResource}/{resourceId}`
 
@@ -150,7 +150,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `patch_api_v1_authorization_adminResource_resourceId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-authorization-adminResource-resourceId:patch:authorizationadmincontroller`](rbac-matrix.md#row-253); principal required: `yes`.
+- **RBAC row:** [`api-v1-authorization-adminResource-resourceId:patch:authorizationadmincontroller`](rbac-matrix.md#row-254); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/patch_api_v1_authorization_adminResource_resourceId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/patch_api_v1_authorization_adminResource_resourceId_response` (schema placeholder).
 - **Status codes:** `400, 401, 403, 404, 409, 412, 422, 500`.
@@ -158,7 +158,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Authorization\Features\Administration\Http\AuthorizationAdminController`.
 - **Controller source:** `apps/api/Modules/Authorization/Features/Administration/Http/AuthorizationAdminController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/authorization/{adminResource}/{resourceId}.patch`.
-- **Route source:** `apps/api/routes/web.php:253`.
+- **Route source:** `apps/api/routes/web.php:254`.
 
 ### `POST /api/v1/authorization/{adminResource}/{resourceId}/{authorizationAction}`
 
@@ -166,7 +166,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_authorization_adminResource_resourceId_authorizationAction`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-authorization-adminResource-resourceId-authorizationAction:post:authorizationadmincontroller`](rbac-matrix.md#row-254); principal required: `yes`.
+- **RBAC row:** [`api-v1-authorization-adminResource-resourceId-authorizationAction:post:authorizationadmincontroller`](rbac-matrix.md#row-255); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_authorization_adminResource_resourceId_authorizationAction_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_authorization_adminResource_resourceId_authorizationAction_response` (schema placeholder).
 - **Status codes:** `400, 401, 403, 404, 409, 412, 422, 500`.
@@ -174,7 +174,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Authorization\Features\Administration\Http\AuthorizationAdminController`.
 - **Controller source:** `apps/api/Modules/Authorization/Features/Administration/Http/AuthorizationAdminController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/authorization/{adminResource}/{resourceId}/{authorizationAction}.post`.
-- **Route source:** `apps/api/routes/web.php:254`.
+- **Route source:** `apps/api/routes/web.php:255`.
 
 **Documents**
 
@@ -248,7 +248,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_documents`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents:get:listdocumentscontroller`](rbac-matrix.md#row-270); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents:get:listdocumentscontroller`](rbac-matrix.md#row-271); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_documents_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_documents_response` (schema placeholder).
 - **Status codes:** `400`.
@@ -256,7 +256,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentLifecycle\Http\ListDocumentsController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentLifecycle/Http/ListDocumentsController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents.get`.
-- **Route source:** `apps/api/routes/web.php:270`.
+- **Route source:** `apps/api/routes/web.php:271`.
 
 ### `GET /api/v1/documents/{documentId}`
 
@@ -264,7 +264,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_documents_documentId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents-documentId:get:getdocumentcontroller`](rbac-matrix.md#row-271); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents-documentId:get:getdocumentcontroller`](rbac-matrix.md#row-272); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_documents_documentId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_documents_documentId_response` (schema placeholder).
 - **Status codes:** `400, 404`.
@@ -272,7 +272,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentLifecycle\Http\GetDocumentController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentLifecycle/Http/GetDocumentController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents/{documentId}.get`.
-- **Route source:** `apps/api/routes/web.php:271`.
+- **Route source:** `apps/api/routes/web.php:272`.
 
 ### `GET /api/v1/documents/{documentId}/versions`
 
@@ -280,7 +280,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_documents_documentId_versions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents-documentId-versions:get:listdocumentversionscontroller`](rbac-matrix.md#row-272); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents-documentId-versions:get:listdocumentversionscontroller`](rbac-matrix.md#row-273); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_documents_documentId_versions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_documents_documentId_versions_response` (schema placeholder).
 - **Status codes:** `400, 404`.
@@ -288,7 +288,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentVersion\Http\ListDocumentVersionsController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentVersion/Http/ListDocumentVersionsController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents/{documentId}/versions.get`.
-- **Route source:** `apps/api/routes/web.php:272`.
+- **Route source:** `apps/api/routes/web.php:273`.
 
 ### `GET /api/v1/documents/{documentId}/links`
 
@@ -296,7 +296,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_documents_documentId_links`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents-documentId-links:get:listdocumentlinkscontroller`](rbac-matrix.md#row-273); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents-documentId-links:get:listdocumentlinkscontroller`](rbac-matrix.md#row-274); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_documents_documentId_links_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_documents_documentId_links_response` (schema placeholder).
 - **Status codes:** `400, 404`.
@@ -304,7 +304,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentLink\Http\ListDocumentLinksController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentLink/Http/ListDocumentLinksController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents/{documentId}/links.get`.
-- **Route source:** `apps/api/routes/web.php:273`.
+- **Route source:** `apps/api/routes/web.php:274`.
 
 ### `POST /api/v1/documents`
 
@@ -312,7 +312,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_documents`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents:post:createdocumentcontroller`](rbac-matrix.md#row-298); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents:post:createdocumentcontroller`](rbac-matrix.md#row-299); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_documents_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_documents_response` (schema placeholder).
 - **Status codes:** `201, 400, 403, 409`.
@@ -320,7 +320,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentLifecycle\Http\CreateDocumentController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentLifecycle/Http/CreateDocumentController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents.post`.
-- **Route source:** `apps/api/routes/web.php:298`.
+- **Route source:** `apps/api/routes/web.php:299`.
 
 ### `PATCH /api/v1/documents/{documentId}`
 
@@ -328,7 +328,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `patch_api_v1_documents_documentId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents-documentId:patch:updatedocumentcontroller`](rbac-matrix.md#row-299); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents-documentId:patch:updatedocumentcontroller`](rbac-matrix.md#row-300); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/patch_api_v1_documents_documentId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/patch_api_v1_documents_documentId_response` (schema placeholder).
 - **Status codes:** `400, 404, 409, 412`.
@@ -336,7 +336,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentLifecycle\Http\UpdateDocumentController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentLifecycle/Http/UpdateDocumentController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents/{documentId}.patch`.
-- **Route source:** `apps/api/routes/web.php:299`.
+- **Route source:** `apps/api/routes/web.php:300`.
 
 ### `POST /api/v1/documents/{documentId}/versions`
 
@@ -344,7 +344,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_documents_documentId_versions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents-documentId-versions:post:adddocumentversioncontroller`](rbac-matrix.md#row-300); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents-documentId-versions:post:adddocumentversioncontroller`](rbac-matrix.md#row-301); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_documents_documentId_versions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_documents_documentId_versions_response` (schema placeholder).
 - **Status codes:** `201, 400, 403, 404`.
@@ -352,7 +352,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentVersion/Http/AddDocumentVersionController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents/{documentId}/versions.post`.
-- **Route source:** `apps/api/routes/web.php:300`.
+- **Route source:** `apps/api/routes/web.php:301`.
 
 ### `POST /api/v1/documents/{documentId}/links`
 
@@ -360,7 +360,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_documents_documentId_links`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents-documentId-links:post:documentlinkcontroller`](rbac-matrix.md#row-301); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents-documentId-links:post:documentlinkcontroller`](rbac-matrix.md#row-302); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_documents_documentId_links_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_documents_documentId_links_response` (schema placeholder).
 - **Status codes:** `201`.
@@ -368,7 +368,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `DocumentLinkController`.
 - **Controller source:** `controller source unresolved`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents/{documentId}/links.post`.
-- **Route source:** `apps/api/routes/web.php:301`.
+- **Route source:** `apps/api/routes/web.php:302`.
 
 ### `POST /api/v1/documents/{documentId}/{documentAction}`
 
@@ -376,7 +376,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_documents_documentId_documentAction`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents-documentId-documentAction:post:transitiondocumentcontroller`](rbac-matrix.md#row-302); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents-documentId-documentAction:post:transitiondocumentcontroller`](rbac-matrix.md#row-303); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_documents_documentId_documentAction_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_documents_documentId_documentAction_response` (schema placeholder).
 - **Status codes:** `400, 404, 409, 412`.
@@ -384,7 +384,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentLifecycle\Http\TransitionDocumentController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentLifecycle/Http/TransitionDocumentController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents/{documentId}/{documentAction}.post`.
-- **Route source:** `apps/api/routes/web.php:302`.
+- **Route source:** `apps/api/routes/web.php:303`.
 
 ### `POST /api/v1/documents/{documentId}/{documentGrantType}-grant`
 
@@ -392,7 +392,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_documents_documentId_documentGrantType_grant`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-documents-documentId-documentGrantType-grant:post:createdocumentgrantcontroller`](rbac-matrix.md#row-303); principal required: `yes`.
+- **RBAC row:** [`api-v1-documents-documentId-documentGrantType-grant:post:createdocumentgrantcontroller`](rbac-matrix.md#row-304); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_documents_documentId_documentGrantType_grant_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_documents_documentId_documentGrantType_grant_response` (schema placeholder).
 - **Status codes:** `201, 400, 404, 409, 503, 512`.
@@ -400,7 +400,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Documents\Features\DocumentGrant\Http\CreateDocumentGrantController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentGrant/Http/CreateDocumentGrantController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/documents/{documentId}/{documentGrantType}-grant.post`.
-- **Route source:** `apps/api/routes/web.php:303`.
+- **Route source:** `apps/api/routes/web.php:304`.
 
 **Identity**
 
@@ -705,7 +705,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-notifications-notificationId-read:post:marknotificationreadcontroller`](rbac-matrix.md#row-153); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_notifications_notificationId_read_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_notifications_notificationId_read_response` (schema placeholder).
-- **Status codes:** `400, 401, 404`.
+- **Status codes:** `201`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Notifications\Features\ListMyNotifications\Http\MarkNotificationReadController`.
 - **Controller source:** `apps/api/Modules/Notifications/Features/ListMyNotifications/Http/MarkNotificationReadController.php`.
@@ -931,7 +931,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-organization-units-reorder:post:reorderorganizationunitscontroller`](rbac-matrix.md#row-178); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_organization_units_reorder_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_organization_units_reorder_response` (schema placeholder).
-- **Status codes:** `400, 401, 403`.
+- **Status codes:** `400, 401, 403, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Organization\Features\OrganizationUnit\Http\ReorderOrganizationUnitsController`.
 - **Controller source:** `apps/api/Modules/Organization/Features/OrganizationUnit/Http/ReorderOrganizationUnitsController.php`.
@@ -1301,7 +1301,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-operations-maintenance-windows-index:get:maintenancewindowscontroller::index`](rbac-matrix.md#row-208); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_platform_operations_maintenance_windows_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_platform_operations_maintenance_windows_response` (schema placeholder).
-- **Status codes:** `200, 201, 400, 404, 412`.
+- **Status codes:** `200, 201, 400, 404, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Maintenance\Http\MaintenanceWindowsController::index`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Maintenance/Http/MaintenanceWindowsController.php::index`.
@@ -1445,7 +1445,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-operations-maintenance-windows-store:post:maintenancewindowscontroller::store`](rbac-matrix.md#row-239); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_platform_operations_maintenance_windows_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_platform_operations_maintenance_windows_response` (schema placeholder).
-- **Status codes:** `200, 201, 400, 404, 412`.
+- **Status codes:** `200, 201, 400, 404, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Maintenance\Http\MaintenanceWindowsController::store`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Maintenance/Http/MaintenanceWindowsController.php::store`.
@@ -1461,7 +1461,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-operations-maintenance-windows-windowId-cancel-cancel:post:maintenancewindowscontroller::cancel`](rbac-matrix.md#row-240); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_platform_operations_maintenance_windows_windowId_cancel_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_platform_operations_maintenance_windows_windowId_cancel_response` (schema placeholder).
-- **Status codes:** `200, 201, 400, 404, 412`.
+- **Status codes:** `200, 201, 400, 404, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Maintenance\Http\MaintenanceWindowsController::cancel`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Maintenance/Http/MaintenanceWindowsController.php::cancel`.
@@ -1543,7 +1543,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-settings-calendars-index:get:businesscalendarcontroller::index`](rbac-matrix.md#row-212); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_platform_settings_calendars_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_platform_settings_calendars_response` (schema placeholder).
-- **Status codes:** `200, 201, 400, 404, 412`.
+- **Status codes:** `200, 201, 400, 404, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Calendars\Http\BusinessCalendarController::index`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Calendars/Http/BusinessCalendarController.php::index`.
@@ -1591,7 +1591,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-settings-versions-versionId-validate:post:validatesettingsversioncontroller`](rbac-matrix.md#row-230); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_platform_settings_versions_versionId_validate_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_platform_settings_versions_versionId_validate_response` (schema placeholder).
-- **Status codes:** `200, 412`.
+- **Status codes:** `200, 400, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Settings\Http\ValidateSettingsVersionController`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Settings/Http/ValidateSettingsVersionController.php`.
@@ -1607,7 +1607,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-settings-versions-versionId-publish:post:publishsettingsversioncontroller`](rbac-matrix.md#row-231); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_platform_settings_versions_versionId_publish_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_platform_settings_versions_versionId_publish_response` (schema placeholder).
-- **Status codes:** `200, 412`.
+- **Status codes:** `200, 400, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Settings\Http\PublishSettingsVersionController`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Settings/Http/PublishSettingsVersionController.php`.
@@ -1623,7 +1623,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-settings-calendars-store:post:businesscalendarcontroller::store`](rbac-matrix.md#row-232); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_platform_settings_calendars_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_platform_settings_calendars_response` (schema placeholder).
-- **Status codes:** `200, 201, 400, 404, 412`.
+- **Status codes:** `200, 201, 400, 404, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Calendars\Http\BusinessCalendarController::store`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Calendars/Http/BusinessCalendarController.php::store`.
@@ -1639,7 +1639,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-settings-calendars-calendarId-weekdays-weekday-setweekday:put:businesscalendarcontroller::setweekday`](rbac-matrix.md#row-233); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/put_api_v1_platform_settings_calendars_calendarId_weekdays_weekday_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/put_api_v1_platform_settings_calendars_calendarId_weekdays_weekday_response` (schema placeholder).
-- **Status codes:** `200, 201, 400, 404, 412`.
+- **Status codes:** `200, 201, 400, 404, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Calendars\Http\BusinessCalendarController::setWeekday`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Calendars/Http/BusinessCalendarController.php::setWeekday`.
@@ -1655,7 +1655,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-settings-calendars-calendarId-exceptions-date-setexception:put:businesscalendarcontroller::setexception`](rbac-matrix.md#row-234); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/put_api_v1_platform_settings_calendars_calendarId_exceptions_date_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/put_api_v1_platform_settings_calendars_calendarId_exceptions_date_response` (schema placeholder).
-- **Status codes:** `200, 201, 400, 404, 412`.
+- **Status codes:** `200, 201, 400, 404, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Calendars\Http\BusinessCalendarController::setException`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Calendars/Http/BusinessCalendarController.php::setException`.
@@ -1671,7 +1671,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-platform-settings-calendars-calendarId-publish-publish:post:businesscalendarcontroller::publish`](rbac-matrix.md#row-235); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_platform_settings_calendars_calendarId_publish_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_platform_settings_calendars_calendarId_publish_response` (schema placeholder).
-- **Status codes:** `200, 201, 400, 404, 412`.
+- **Status codes:** `200, 201, 400, 404, 409, 412`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\PlatformSettings\Features\Calendars\Http\BusinessCalendarController::publish`.
 - **Controller source:** `apps/api/Modules/PlatformSettings/Features/Calendars/Http/BusinessCalendarController.php::publish`.
@@ -1691,8 +1691,8 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Response `$ref`:** `#/components/schemas/get_api_v1_reports_reportId_response` (schema placeholder).
 - **Status codes:** `200, 400`.
 - **Throttle:** `default / none declared`.
-- **Controller FQCN:** `Modules\Reporting\Http\GetReportController`.
-- **Controller source:** `apps/api/Modules/Reporting/Http/GetReportController.php`.
+- **Controller FQCN:** `Modules\Reporting\Features\Reports\Http\GetReportController`.
+- **Controller source:** `apps/api/Modules/Reporting/Features/Reports/Http/GetReportController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/reports/{reportId}.get`.
 - **Route source:** `apps/api/routes/web.php:157`.
 
@@ -1707,8 +1707,8 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Response `$ref`:** `#/components/schemas/get_api_v1_exports_exportId_response` (schema placeholder).
 - **Status codes:** `200, 400, 404`.
 - **Throttle:** `default / none declared`.
-- **Controller FQCN:** `Modules\Reporting\Http\DownloadExportController`.
-- **Controller source:** `apps/api/Modules/Reporting/Http/DownloadExportController.php`.
+- **Controller FQCN:** `Modules\Reporting\Features\Exports\Http\DownloadExportController`.
+- **Controller source:** `apps/api/Modules/Reporting/Features/Exports/Http/DownloadExportController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/exports/{exportId}.get`.
 - **Route source:** `apps/api/routes/web.php:158`.
 
@@ -1723,8 +1723,8 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Response `$ref`:** `#/components/schemas/get_api_v1_dashboards_dashboardId_response` (schema placeholder).
 - **Status codes:** `200, 400`.
 - **Throttle:** `default / none declared`.
-- **Controller FQCN:** `Modules\Reporting\Http\GetDashboardController`.
-- **Controller source:** `apps/api/Modules/Reporting/Http/GetDashboardController.php`.
+- **Controller FQCN:** `Modules\Reporting\Features\Dashboards\Http\GetDashboardController`.
+- **Controller source:** `apps/api/Modules/Reporting/Features/Dashboards/Http/GetDashboardController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/dashboards/{dashboardId}.get`.
 - **Route source:** `apps/api/routes/web.php:159`.
 
@@ -1737,10 +1737,10 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-reports-reportId-exports:post:createreportexportcontroller`](rbac-matrix.md#row-166); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_reports_reportId_exports_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_reports_reportId_exports_response` (schema placeholder).
-- **Status codes:** `202, 400`.
+- **Status codes:** `202, 400, 403, 409`.
 - **Throttle:** `default / none declared`.
-- **Controller FQCN:** `Modules\Reporting\Http\CreateReportExportController`.
-- **Controller source:** `apps/api/Modules/Reporting/Http/CreateReportExportController.php`.
+- **Controller FQCN:** `Modules\Reporting\Features\Exports\Http\CreateReportExportController`.
+- **Controller source:** `apps/api/Modules/Reporting/Features/Exports/Http/CreateReportExportController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/reports/{reportId}/exports.post`.
 - **Route source:** `apps/api/routes/web.php:166`.
 
@@ -1750,7 +1750,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_reports`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-reports:get:listreportscontroller`](rbac-matrix.md#row-274); principal required: `yes`.
+- **RBAC row:** [`api-v1-reports:get:listreportscontroller`](rbac-matrix.md#row-275); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_reports_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_reports_response` (schema placeholder).
 - **Status codes:** `200, 400, 403`.
@@ -1758,7 +1758,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Reporting\Features\ListReports\Http\ListReportsController`.
 - **Controller source:** `apps/api/Modules/Reporting/Features/ListReports/Http/ListReportsController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/reports.get`.
-- **Route source:** `apps/api/routes/web.php:274`.
+- **Route source:** `apps/api/routes/web.php:275`.
 
 ### `GET /api/v1/dashboards`
 
@@ -1766,7 +1766,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_dashboards`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-dashboards:get:listdashboardscontroller`](rbac-matrix.md#row-275); principal required: `yes`.
+- **RBAC row:** [`api-v1-dashboards:get:listdashboardscontroller`](rbac-matrix.md#row-276); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_dashboards_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_dashboards_response` (schema placeholder).
 - **Status codes:** `200, 400, 403`.
@@ -1774,7 +1774,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Reporting\Features\ListDashboards\Http\ListDashboardsController`.
 - **Controller source:** `apps/api/Modules/Reporting/Features/ListDashboards/Http/ListDashboardsController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/dashboards.get`.
-- **Route source:** `apps/api/routes/web.php:275`.
+- **Route source:** `apps/api/routes/web.php:276`.
 
 **Search**
 
@@ -1789,8 +1789,8 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Response `$ref`:** `#/components/schemas/get_api_v1_search_response` (schema placeholder).
 - **Status codes:** `200, 400`.
 - **Throttle:** `default / none declared`.
-- **Controller FQCN:** `Modules\Search\Http\SearchController`.
-- **Controller source:** `apps/api/Modules/Search/Http/SearchController.php`.
+- **Controller FQCN:** `Modules\Search\Features\Search\Http\SearchController`.
+- **Controller source:** `apps/api/Modules/Search/Features/Search/Http/SearchController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/search.get`.
 - **Route source:** `apps/api/routes/web.php:154`.
 
@@ -1802,7 +1802,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_tasks`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-index:get:taskcontroller::index`](rbac-matrix.md#row-267); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-index:get:taskcontroller::index`](rbac-matrix.md#row-268); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_tasks_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_tasks_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1810,7 +1810,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskController::index`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php::index`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks.get`.
-- **Route source:** `apps/api/routes/web.php:267`.
+- **Route source:** `apps/api/routes/web.php:268`.
 
 ### `GET /api/v1/tasks/{taskId}/comments`
 
@@ -1818,7 +1818,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_tasks_taskId_comments`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-taskId-comments-listcomments:get:taskengagementcontroller::listcomments`](rbac-matrix.md#row-268); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-taskId-comments-listcomments:get:taskengagementcontroller::listcomments`](rbac-matrix.md#row-269); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_tasks_taskId_comments_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_tasks_taskId_comments_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1826,7 +1826,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskEngagementController::listComments`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php::listComments`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks/{taskId}/comments.get`.
-- **Route source:** `apps/api/routes/web.php:268`.
+- **Route source:** `apps/api/routes/web.php:269`.
 
 ### `GET /api/v1/tasks/{taskId}`
 
@@ -1834,7 +1834,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_tasks_taskId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-taskId-show:get:taskcontroller::show`](rbac-matrix.md#row-269); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-taskId-show:get:taskcontroller::show`](rbac-matrix.md#row-270); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_tasks_taskId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_tasks_taskId_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1842,7 +1842,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskController::show`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php::show`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks/{taskId}.get`.
-- **Route source:** `apps/api/routes/web.php:269`.
+- **Route source:** `apps/api/routes/web.php:270`.
 
 ### `POST /api/v1/tasks`
 
@@ -1850,7 +1850,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_tasks`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-store:post:taskcontroller::store`](rbac-matrix.md#row-289); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-store:post:taskcontroller::store`](rbac-matrix.md#row-290); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_tasks_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_tasks_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1858,7 +1858,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskController::store`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php::store`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks.post`.
-- **Route source:** `apps/api/routes/web.php:289`.
+- **Route source:** `apps/api/routes/web.php:290`.
 
 ### `PATCH /api/v1/tasks/{taskId}`
 
@@ -1866,7 +1866,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `patch_api_v1_tasks_taskId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-taskId-update:patch:taskcontroller::update`](rbac-matrix.md#row-290); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-taskId-update:patch:taskcontroller::update`](rbac-matrix.md#row-291); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/patch_api_v1_tasks_taskId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/patch_api_v1_tasks_taskId_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1874,7 +1874,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskController::update`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php::update`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks/{taskId}.patch`.
-- **Route source:** `apps/api/routes/web.php:290`.
+- **Route source:** `apps/api/routes/web.php:291`.
 
 ### `POST /api/v1/tasks/from-step/{stepId}`
 
@@ -1882,7 +1882,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_tasks_from_step_stepId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-from-step-stepId-fromstep:post:taskcontroller::fromstep`](rbac-matrix.md#row-291); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-from-step-stepId-fromstep:post:taskcontroller::fromstep`](rbac-matrix.md#row-292); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_tasks_from_step_stepId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_tasks_from_step_stepId_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1890,7 +1890,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskController::fromStep`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php::fromStep`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks/from-step/{stepId}.post`.
-- **Route source:** `apps/api/routes/web.php:291`.
+- **Route source:** `apps/api/routes/web.php:292`.
 
 ### `POST /api/v1/tasks/{taskId}/participants`
 
@@ -1898,7 +1898,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_tasks_taskId_participants`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-taskId-participants-addparticipant:post:taskengagementcontroller::addparticipant`](rbac-matrix.md#row-292); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-taskId-participants-addparticipant:post:taskengagementcontroller::addparticipant`](rbac-matrix.md#row-293); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_tasks_taskId_participants_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_tasks_taskId_participants_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1906,7 +1906,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskEngagementController::addParticipant`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php::addParticipant`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks/{taskId}/participants.post`.
-- **Route source:** `apps/api/routes/web.php:292`.
+- **Route source:** `apps/api/routes/web.php:293`.
 
 ### `POST /api/v1/tasks/{taskId}/comments`
 
@@ -1914,7 +1914,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_tasks_taskId_comments`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-taskId-comments-addcomment:post:taskengagementcontroller::addcomment`](rbac-matrix.md#row-293); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-taskId-comments-addcomment:post:taskengagementcontroller::addcomment`](rbac-matrix.md#row-294); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_tasks_taskId_comments_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_tasks_taskId_comments_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1922,7 +1922,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskEngagementController::addComment`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php::addComment`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks/{taskId}/comments.post`.
-- **Route source:** `apps/api/routes/web.php:293`.
+- **Route source:** `apps/api/routes/web.php:294`.
 
 ### `POST /api/v1/tasks/{taskId}/{workflowTaskAction}`
 
@@ -1930,7 +1930,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_tasks_taskId_workflowTaskAction`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-tasks-taskId-workflowTaskAction-transition:post:taskcontroller::transition`](rbac-matrix.md#row-294); principal required: `yes`.
+- **RBAC row:** [`api-v1-tasks-taskId-workflowTaskAction-transition:post:taskcontroller::transition`](rbac-matrix.md#row-295); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_tasks_taskId_workflowTaskAction_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_tasks_taskId_workflowTaskAction_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1938,7 +1938,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Tasks\Features\Http\TaskController::transition`.
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php::transition`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/tasks/{taskId}/{workflowTaskAction}.post`.
-- **Route source:** `apps/api/routes/web.php:294`.
+- **Route source:** `apps/api/routes/web.php:295`.
 
 **Work Definition Versions**
 
@@ -1948,7 +1948,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_work_definition_versions_versionId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-work-definition-versions-versionId-showversionroute:get:workdefinitioncontroller::showversionroute`](rbac-matrix.md#row-260); principal required: `yes`.
+- **RBAC row:** [`api-v1-work-definition-versions-versionId-showversionroute:get:workdefinitioncontroller::showversionroute`](rbac-matrix.md#row-261); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_work_definition_versions_versionId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_work_definition_versions_versionId_response` (schema placeholder).
 - **Status codes:** `201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1956,7 +1956,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::showVersionRoute`.
 - **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php::showVersionRoute`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/work-definition-versions/{versionId}.get`.
-- **Route source:** `apps/api/routes/web.php:260`.
+- **Route source:** `apps/api/routes/web.php:261`.
 
 ### `POST /api/v1/work-definition-versions/{versionId}/{versionAction}`
 
@@ -1964,7 +1964,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_work_definition_versions_versionId_versionAction`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-work-definition-versions-versionId-versionAction-transition:post:workdefinitioncontroller::transition`](rbac-matrix.md#row-284); principal required: `yes`.
+- **RBAC row:** [`api-v1-work-definition-versions-versionId-versionAction-transition:post:workdefinitioncontroller::transition`](rbac-matrix.md#row-285); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_work_definition_versions_versionId_versionAction_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_work_definition_versions_versionId_versionAction_response` (schema placeholder).
 - **Status codes:** `201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1972,7 +1972,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::transition`.
 - **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php::transition`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/work-definition-versions/{versionId}/{versionAction}.post`.
-- **Route source:** `apps/api/routes/web.php:284`.
+- **Route source:** `apps/api/routes/web.php:285`.
 
 **Work Definitions**
 
@@ -1982,7 +1982,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_work_definitions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-work-definitions-index:get:workdefinitioncontroller::index`](rbac-matrix.md#row-257); principal required: `yes`.
+- **RBAC row:** [`api-v1-work-definitions-index:get:workdefinitioncontroller::index`](rbac-matrix.md#row-258); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_work_definitions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_work_definitions_response` (schema placeholder).
 - **Status codes:** `201, 400, 401, 403, 404, 409, 412, 422`.
@@ -1990,7 +1990,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::index`.
 - **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php::index`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/work-definitions.get`.
-- **Route source:** `apps/api/routes/web.php:257`.
+- **Route source:** `apps/api/routes/web.php:258`.
 
 ### `GET /api/v1/work-definitions/{definitionId}`
 
@@ -1998,7 +1998,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_work_definitions_definitionId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-work-definitions-definitionId-show:get:workdefinitioncontroller::show`](rbac-matrix.md#row-258); principal required: `yes`.
+- **RBAC row:** [`api-v1-work-definitions-definitionId-show:get:workdefinitioncontroller::show`](rbac-matrix.md#row-259); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_work_definitions_definitionId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_work_definitions_definitionId_response` (schema placeholder).
 - **Status codes:** `201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2006,7 +2006,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::show`.
 - **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php::show`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/work-definitions/{definitionId}.get`.
-- **Route source:** `apps/api/routes/web.php:258`.
+- **Route source:** `apps/api/routes/web.php:259`.
 
 ### `GET /api/v1/work-definitions/{definitionId}/versions`
 
@@ -2014,7 +2014,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_work_definitions_definitionId_versions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-work-definitions-definitionId-versions-versions:get:workdefinitioncontroller::versions`](rbac-matrix.md#row-259); principal required: `yes`.
+- **RBAC row:** [`api-v1-work-definitions-definitionId-versions-versions:get:workdefinitioncontroller::versions`](rbac-matrix.md#row-260); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_work_definitions_definitionId_versions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_work_definitions_definitionId_versions_response` (schema placeholder).
 - **Status codes:** `201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2022,7 +2022,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::versions`.
 - **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php::versions`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/work-definitions/{definitionId}/versions.get`.
-- **Route source:** `apps/api/routes/web.php:259`.
+- **Route source:** `apps/api/routes/web.php:260`.
 
 ### `POST /api/v1/work-definitions`
 
@@ -2030,7 +2030,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_work_definitions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-work-definitions-store:post:workdefinitioncontroller::store`](rbac-matrix.md#row-282); principal required: `yes`.
+- **RBAC row:** [`api-v1-work-definitions-store:post:workdefinitioncontroller::store`](rbac-matrix.md#row-283); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_work_definitions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_work_definitions_response` (schema placeholder).
 - **Status codes:** `201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2038,7 +2038,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::store`.
 - **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php::store`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/work-definitions.post`.
-- **Route source:** `apps/api/routes/web.php:282`.
+- **Route source:** `apps/api/routes/web.php:283`.
 
 ### `POST /api/v1/work-definitions/{definitionId}/versions`
 
@@ -2046,7 +2046,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_work_definitions_definitionId_versions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-work-definitions-definitionId-versions-versions:post:workdefinitioncontroller::versions`](rbac-matrix.md#row-283); principal required: `yes`.
+- **RBAC row:** [`api-v1-work-definitions-definitionId-versions-versions:post:workdefinitioncontroller::versions`](rbac-matrix.md#row-284); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_work_definitions_definitionId_versions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_work_definitions_definitionId_versions_response` (schema placeholder).
 - **Status codes:** `201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2054,7 +2054,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::versions`.
 - **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php::versions`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/work-definitions/{definitionId}/versions.post`.
-- **Route source:** `apps/api/routes/web.php:283`.
+- **Route source:** `apps/api/routes/web.php:284`.
 
 **Work Records**
 
@@ -2110,7 +2110,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 
 - **Summary (EN / AR):** Create or execute work records/{recordId}/{recordAction}. `{{AR:post_api_v1_work_records_recordId_recordAction}}`
 - **Operation key:** `post_api_v1_work_records_recordId_recordAction`
-- **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
+- **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf → project_work_record_read_models`
 - **CSRF required:** `yes`
 - **RBAC row:** [`api-v1-work-records-recordId-recordAction-transition:post:workrecordlifecyclecontroller::transition`](rbac-matrix.md#row-247); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_work_records_recordId_recordAction_request` (schema placeholder).
@@ -2128,7 +2128,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_work_records_recordId_documents`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-work-records-recordId-documents:post:workrecorddocumentlinkcontroller`](rbac-matrix.md#row-249); principal required: `yes`.
+- **RBAC row:** [`api-v1-work-records-recordId-documents:post:workrecorddocumentlinkcontroller`](rbac-matrix.md#row-250); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_work_records_recordId_documents_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_work_records_recordId_documents_response` (schema placeholder).
 - **Status codes:** `201, 401, 404, 422`.
@@ -2136,7 +2136,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\WorkRecords\Features\DocumentLink\Http\WorkRecordDocumentLinkController`.
 - **Controller source:** `apps/api/Modules/WorkRecords/Features/DocumentLink/Http/WorkRecordDocumentLinkController.php`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/work-records/{recordId}/documents.post`.
-- **Route source:** `apps/api/routes/web.php:249`.
+- **Route source:** `apps/api/routes/web.php:250`.
 
 **Workflow**
 
@@ -2146,7 +2146,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_workflow_definitions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-definitions-definitions:get:workflowcontroller::definitions`](rbac-matrix.md#row-261); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-definitions-definitions:get:workflowcontroller::definitions`](rbac-matrix.md#row-262); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_workflow_definitions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_workflow_definitions_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2154,7 +2154,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::definitions`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::definitions`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/definitions.get`.
-- **Route source:** `apps/api/routes/web.php:261`.
+- **Route source:** `apps/api/routes/web.php:262`.
 
 ### `GET /api/v1/workflow/definitions/{definitionId}/versions`
 
@@ -2162,7 +2162,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_workflow_definitions_definitionId_versions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-definitions-definitionId-versions-versions:get:workflowcontroller::versions`](rbac-matrix.md#row-262); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-definitions-definitionId-versions-versions:get:workflowcontroller::versions`](rbac-matrix.md#row-263); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_workflow_definitions_definitionId_versions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_workflow_definitions_definitionId_versions_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2170,7 +2170,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::versions`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::versions`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/definitions/{definitionId}/versions.get`.
-- **Route source:** `apps/api/routes/web.php:262`.
+- **Route source:** `apps/api/routes/web.php:263`.
 
 ### `GET /api/v1/workflow/instances`
 
@@ -2178,7 +2178,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_workflow_instances`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-instances-instances:get:workflowcontroller::instances`](rbac-matrix.md#row-263); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-instances-instances:get:workflowcontroller::instances`](rbac-matrix.md#row-264); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_workflow_instances_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_workflow_instances_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2186,7 +2186,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::instances`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::instances`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/instances.get`.
-- **Route source:** `apps/api/routes/web.php:263`.
+- **Route source:** `apps/api/routes/web.php:264`.
 
 ### `GET /api/v1/workflow/instances/{instanceId}`
 
@@ -2194,7 +2194,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_workflow_instances_instanceId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-instances-instanceId-showinstance:get:workflowcontroller::showinstance`](rbac-matrix.md#row-264); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-instances-instanceId-showinstance:get:workflowcontroller::showinstance`](rbac-matrix.md#row-265); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_workflow_instances_instanceId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_workflow_instances_instanceId_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2202,7 +2202,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::showInstance`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::showInstance`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/instances/{instanceId}.get`.
-- **Route source:** `apps/api/routes/web.php:264`.
+- **Route source:** `apps/api/routes/web.php:265`.
 
 ### `GET /api/v1/workflow/steps`
 
@@ -2210,7 +2210,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_workflow_steps`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-steps-listinbox:get:workflowcontroller::listinbox`](rbac-matrix.md#row-265); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-steps-listinbox:get:workflowcontroller::listinbox`](rbac-matrix.md#row-266); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_workflow_steps_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_workflow_steps_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2218,7 +2218,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::listInbox`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::listInbox`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/steps.get`.
-- **Route source:** `apps/api/routes/web.php:265`.
+- **Route source:** `apps/api/routes/web.php:266`.
 
 ### `GET /api/v1/workflow/steps/{stepId}`
 
@@ -2226,7 +2226,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `get_api_v1_workflow_steps_stepId`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-steps-stepId-showstep:get:workflowcontroller::showstep`](rbac-matrix.md#row-266); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-steps-stepId-showstep:get:workflowcontroller::showstep`](rbac-matrix.md#row-267); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_workflow_steps_stepId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_workflow_steps_stepId_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2234,7 +2234,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::showStep`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::showStep`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/steps/{stepId}.get`.
-- **Route source:** `apps/api/routes/web.php:266`.
+- **Route source:** `apps/api/routes/web.php:267`.
 
 ### `POST /api/v1/workflow/definitions`
 
@@ -2242,7 +2242,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_workflow_definitions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-definitions-definitions:post:workflowcontroller::definitions`](rbac-matrix.md#row-285); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-definitions-definitions:post:workflowcontroller::definitions`](rbac-matrix.md#row-286); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_workflow_definitions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_workflow_definitions_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2250,7 +2250,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::definitions`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::definitions`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/definitions.post`.
-- **Route source:** `apps/api/routes/web.php:285`.
+- **Route source:** `apps/api/routes/web.php:286`.
 
 ### `POST /api/v1/workflow/definitions/{definitionId}/versions`
 
@@ -2258,7 +2258,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_workflow_definitions_definitionId_versions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-definitions-definitionId-versions-versions:post:workflowcontroller::versions`](rbac-matrix.md#row-286); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-definitions-definitionId-versions-versions:post:workflowcontroller::versions`](rbac-matrix.md#row-287); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_workflow_definitions_definitionId_versions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_workflow_definitions_definitionId_versions_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2266,7 +2266,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::versions`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::versions`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/definitions/{definitionId}/versions.post`.
-- **Route source:** `apps/api/routes/web.php:286`.
+- **Route source:** `apps/api/routes/web.php:287`.
 
 ### `POST /api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}`
 
@@ -2274,7 +2274,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_workflow_versions_versionId_workflowLifecycleAction`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-versions-versionId-workflowLifecycleAction-publish:post:workflowcontroller::publish`](rbac-matrix.md#row-287); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-versions-versionId-workflowLifecycleAction-publish:post:workflowcontroller::publish`](rbac-matrix.md#row-288); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_workflow_versions_versionId_workflowLifecycleAction_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_workflow_versions_versionId_workflowLifecycleAction_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2282,7 +2282,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::publish`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::publish`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}.post`.
-- **Route source:** `apps/api/routes/web.php:287`.
+- **Route source:** `apps/api/routes/web.php:288`.
 
 ### `POST /api/v1/workflow/instances`
 
@@ -2290,7 +2290,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_workflow_instances`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-instances-instances:post:workflowcontroller::instances`](rbac-matrix.md#row-288); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-instances-instances:post:workflowcontroller::instances`](rbac-matrix.md#row-289); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_workflow_instances_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_workflow_instances_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2298,7 +2298,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::instances`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::instances`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/instances.post`.
-- **Route source:** `apps/api/routes/web.php:288`.
+- **Route source:** `apps/api/routes/web.php:289`.
 
 ### `POST /api/v1/workflow/steps/{stepId}/decisions`
 
@@ -2306,7 +2306,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_workflow_steps_stepId_decisions`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-steps-stepId-decisions-decidestep:post:workflowcontroller::decidestep`](rbac-matrix.md#row-295); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-steps-stepId-decisions-decidestep:post:workflowcontroller::decidestep`](rbac-matrix.md#row-296); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_workflow_steps_stepId_decisions_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_workflow_steps_stepId_decisions_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2314,7 +2314,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::decideStep`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::decideStep`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/steps/{stepId}/decisions.post`.
-- **Route source:** `apps/api/routes/web.php:295`.
+- **Route source:** `apps/api/routes/web.php:296`.
 
 ### `POST /api/v1/workflow/steps/{stepId}/{stepAction}`
 
@@ -2322,7 +2322,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_workflow_steps_stepId_stepAction`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-steps-stepId-stepAction-actonstep:post:workflowcontroller::actonstep`](rbac-matrix.md#row-296); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-steps-stepId-stepAction-actonstep:post:workflowcontroller::actonstep`](rbac-matrix.md#row-297); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_workflow_steps_stepId_stepAction_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_workflow_steps_stepId_stepAction_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2330,7 +2330,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::actOnStep`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::actOnStep`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/steps/{stepId}/{stepAction}.post`.
-- **Route source:** `apps/api/routes/web.php:296`.
+- **Route source:** `apps/api/routes/web.php:297`.
 
 ### `POST /api/v1/workflow/instances/{instanceId}/cancel`
 
@@ -2338,7 +2338,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Operation key:** `post_api_v1_workflow_instances_instanceId_cancel`
 - **Middleware chain:** `identity_session → require_identity_session_principal → identity_csrf`
 - **CSRF required:** `yes`
-- **RBAC row:** [`api-v1-workflow-instances-instanceId-cancel-cancelinstance:post:workflowcontroller::cancelinstance`](rbac-matrix.md#row-297); principal required: `yes`.
+- **RBAC row:** [`api-v1-workflow-instances-instanceId-cancel-cancelinstance:post:workflowcontroller::cancelinstance`](rbac-matrix.md#row-298); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_workflow_instances_instanceId_cancel_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_workflow_instances_instanceId_cancel_response` (schema placeholder).
 - **Status codes:** `200, 201, 400, 401, 403, 404, 409, 412, 422`.
@@ -2346,7 +2346,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **Controller FQCN:** `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::cancelInstance`.
 - **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php::cancelInstance`.
 - **OpenAPI pointer:** `docs/contracts/api/openapi.yaml#paths./api/v1/workflow/instances/{instanceId}/cancel.post`.
-- **Route source:** `apps/api/routes/web.php:297`.
+- **Route source:** `apps/api/routes/web.php:298`.
 
 ## RBAC Matrix
 
@@ -2449,7 +2449,7 @@ The detailed row pointer on each card corresponds to the generated `rbac-matrix.
 | PATCH | `/api/v1/platform-operations/alert-policies/{policyId}` | `identity_session → require_identity_session_principal → identity_csrf` | yes | yes | yes | `none` |
 | POST | `/api/v1/platform-operations/technical-logs/restore` | `identity_session → require_identity_session_principal → identity_csrf` | yes | yes | yes | `none` |
 | POST | `/api/v1/work-records` | `identity_session → require_identity_session_principal → identity_csrf` | yes | yes | yes | `none` |
-| POST | `/api/v1/work-records/{recordId}/{recordAction}` | `identity_session → require_identity_session_principal → identity_csrf` | yes | yes | yes | `none` |
+| POST | `/api/v1/work-records/{recordId}/{recordAction}` | `identity_session → require_identity_session_principal → identity_csrf → project_work_record_read_models` | yes | yes | yes | `none` |
 | POST | `/api/v1/work-records/{recordId}/documents` | `identity_session → require_identity_session_principal → identity_csrf` | yes | yes | yes | `none` |
 | POST | `/api/v1/authorization/access-decisions` | `identity_session → require_identity_session_principal → identity_csrf` | yes | yes | yes | `none` |
 | POST | `/api/v1/authorization/bootstrap/complete` | `identity_session → require_identity_session_principal → identity_csrf` | yes | yes | yes | `none` |

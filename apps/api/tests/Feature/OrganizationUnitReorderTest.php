@@ -153,6 +153,46 @@ final class OrganizationUnitReorderTest extends TestCase
         );
     }
 
+    public function test_reorder_requires_idempotency_key_and_if_match(): void
+    {
+        $headers = [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'X-CSRF-Token' => $this->adminCsrf,
+        ];
+        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+            ->withCredentials()
+            ->postJson('/api/v1/organization/units/reorder', [], $headers + ['If-Match' => '"1"'])
+            ->assertBadRequest()
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-idempotency-key');
+        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+            ->withCredentials()
+            ->postJson('/api/v1/organization/units/reorder', [], $headers + ['Idempotency-Key' => 'missing-if-match'])
+            ->assertStatus(412)
+            ->assertJsonPath('type', 'https://cluster.example/problems/precondition-required');
+    }
+
+    public function test_reorder_replays_and_rejects_conflicting_key_reuse(): void
+    {
+        $version = (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
+        $first = $this->postAsAdmin('/api/v1/organization/units/reorder', [], 'reorder-replay', $version)->assertOk();
+        $outboxCount = DB::table('outbox_events')->count();
+        $replay = $this->postAsAdmin('/api/v1/organization/units/reorder', [], 'reorder-replay', $version)->assertOk();
+        $this->assertSame($first->json('data'), $replay->json('data'));
+        $this->assertSame($outboxCount, DB::table('outbox_events')->count());
+        $this->postAsAdmin('/api/v1/organization/units/reorder', ['unexpected' => true], 'reorder-replay', $version)
+            ->assertConflict()
+            ->assertJsonPath('type', 'https://cluster.example/problems/idempotency-conflict');
+    }
+
+    public function test_reorder_rejects_stale_if_match_without_changes(): void
+    {
+        $before = DB::table('organization_units')->orderBy('id')->pluck('sort_order', 'id')->all();
+        $this->postAsAdmin('/api/v1/organization/units/reorder', [], 'reorder-stale', 99)
+            ->assertStatus(412)
+            ->assertJsonPath('type', 'https://cluster.example/problems/precondition-failed');
+        $this->assertSame($before, DB::table('organization_units')->orderBy('id')->pluck('sort_order', 'id')->all());
+    }
+
     public function test_reorder_requires_organization_unit_manage(): void
     {
         DB::table('role_assignments')->where('user_id', DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_ID)->delete();
@@ -177,14 +217,17 @@ final class OrganizationUnitReorderTest extends TestCase
         return $response->json('data.items') ?? [];
     }
 
-    private function postAsAdmin(string $uri, array $payload): TestResponse
+    private function postAsAdmin(string $uri, array $payload, ?string $idempotencyKey = null, ?int $ifMatch = null): TestResponse
     {
+        $version = $ifMatch ?? (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
+
         return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
             ->withCredentials()
             ->postJson($uri, $payload, [
                 'X-Correlation-ID' => self::CORRELATION_ID,
                 'X-CSRF-Token' => $this->adminCsrf,
-                'Idempotency-Key' => $this->nextKey(),
+                'Idempotency-Key' => $idempotencyKey ?? $this->nextKey(),
+                'If-Match' => '"'.$version.'"',
             ]);
     }
 

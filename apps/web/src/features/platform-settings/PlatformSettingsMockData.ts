@@ -76,8 +76,8 @@ function entity(
 const bySection: Record<PlatformSettingsSection, PlatformSettingsFixture> = {
   overview: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd701', DomainResourceResourceType.platform_settings_version, ['platform_operations.health.read', 'platform_operations.backup.run'], { health: 'degraded', services: 7 }), serverActions: ['platform_operations.health.read', 'platform_operations.backup.run'] },
   security: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd702', DomainResourceResourceType.platform_settings_version, ['platform_settings.manage', 'platform_settings.publish']), serverActions: ['platform_settings.manage', 'platform_settings.publish'] },
-  calendars: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd703', DomainResourceResourceType.business_calendar, ['platform_settings.calendar.override_official_holiday']), serverActions: ['platform_settings.calendar.override_official_holiday'] },
-  backups: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd704', DomainResourceResourceType.platform_settings_version, ['platform_operations.backup.run', 'platform_operations.restore.request']), serverActions: ['platform_operations.backup.run', 'platform_operations.restore.request'] },
+  calendars: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd703', DomainResourceResourceType.business_calendar, ['platform_settings.calendar.manage', 'platform_settings.calendar.publish', 'platform_settings.calendar.override_official_holiday']), serverActions: ['platform_settings.calendar.manage', 'platform_settings.calendar.publish', 'platform_settings.calendar.override_official_holiday'] },
+  backups: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd704', DomainResourceResourceType.platform_settings_version, ['platform_operations.backup.run', 'platform_operations.restore.request', 'platform_operations.restore.confirm']), serverActions: ['platform_operations.backup.run', 'platform_operations.restore.request', 'platform_operations.restore.confirm'] },
   logs: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd705', DomainResourceResourceType.audit_event, ['platform_operations.logs.restore']), serverActions: ['platform_operations.logs.restore'] },
   health: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd706', DomainResourceResourceType.platform_settings_version, ['platform_operations.alerts.manage']), serverActions: ['platform_operations.alerts.manage'] },
   maintenance: { resource: entity('019f8e3b-3368-7192-85a6-3da3949fd707', DomainResourceResourceType.platform_settings_version, ['platform_operations.maintenance.manage', 'platform_operations.maintenance.cancel']), serverActions: ['platform_operations.maintenance.manage', 'platform_operations.maintenance.cancel'] },
@@ -102,6 +102,7 @@ const actionCapability: Record<string, string> = {
   'platform_operations.health.read': 'platform_operations.health.read',
   'platform_operations.backup.run': 'platform_operations.backup.run',
   'platform_operations.restore.request': 'platform_operations.restore.request',
+  'platform_operations.restore.confirm': 'platform_operations.restore.confirm',
   'platform_operations.logs.restore': 'platform_operations.logs.restore',
   'platform_operations.alerts.manage': 'platform_operations.alerts.manage',
   'platform_operations.maintenance.manage': 'platform_operations.maintenance.manage',

@@ -50,6 +50,7 @@ export type AccessWorkspaceProps = {
   navigate: (path: string) => void
   scopeReady?: boolean
   scopeEpoch?: number
+  capabilities?: readonly string[]
 }
 
 const governanceTabs: Array<{
@@ -88,12 +89,12 @@ function tabLabel(locale: Locale, ar: string, en: string): string {
   return locale === 'ar' ? ar : en
 }
 
-function screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch }: Pick<AccessWorkspaceProps, 'activeRoute' | 'locale' | 'scopeReady' | 'scopeEpoch'>) {
+function screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch, capabilities }: Pick<AccessWorkspaceProps, 'activeRoute' | 'locale' | 'scopeReady' | 'scopeEpoch' | 'capabilities'>) {
   switch (activeRoute.name) {
     case 'identity-accounts':
       return <IdentityAccounts />
     case 'authorization':
-      return <AuthorizationAdmin resource={activeRoute.resource as AdminResource} />
+      return <AuthorizationAdmin resource={activeRoute.resource as AdminResource} capabilities={capabilities ?? []} />
     case 'access-scopes':
       return <AccessScopesScreen locale={locale} scopeReady={scopeReady ?? false} scopeEpoch={scopeEpoch ?? 0} />
     case 'access-explanation':
@@ -107,7 +108,7 @@ function screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch }: Pick<Ac
   }
 }
 
-export function AccessWorkspace({ locale, activeRoute, navigate, scopeReady, scopeEpoch }: AccessWorkspaceProps) {
+export function AccessWorkspace({ locale, activeRoute, navigate, scopeReady, scopeEpoch, capabilities }: AccessWorkspaceProps) {
   const isAccessRoute = ['identity-accounts', 'authorization', 'access-scopes', 'access-explanation', 'access-context'].includes(activeRoute.name)
   const allTabs = [...governanceTabs, ...diagnosticTabs].map((tab) => ({
     key: tab.key,
@@ -117,7 +118,7 @@ export function AccessWorkspace({ locale, activeRoute, navigate, scopeReady, sco
     icon: tab.icon,
     route: tab.route,
   }))
-  const currentScreen = screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch })
+  const currentScreen = screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch, capabilities })
 
   return (
     <section className="access-workspace" dir={directionForLocale(locale)} aria-labelledby="access-workspace-heading">

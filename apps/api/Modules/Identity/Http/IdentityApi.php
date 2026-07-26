@@ -5,6 +5,7 @@ namespace Modules\Identity\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Shared\Http\ProblemEnvelope;
 
 final class IdentityApi
 {
@@ -45,15 +46,10 @@ final class IdentityApi
 
     public static function problem(int $status, string $type, string $title, string $detail, ?string $correlationId = null): JsonResponse
     {
-        $responseCorrelationId = $correlationId ?? Str::uuid7()->toString();
-        $response = response()->json([
-            'type' => "https://cluster.example/problems/{$type}",
-            'title' => $title,
-            'status' => $status,
-            'detail' => $detail,
-        ], $status)->header('Content-Type', 'application/problem+json');
+        $resolvedCorrelationId = $correlationId ?? Str::uuid7()->toString();
 
-        return $response->header('X-Correlation-ID', $responseCorrelationId);
+        return ProblemEnvelope::make($status, $type, $title, $resolvedCorrelationId, ['detail' => $detail])
+            ->header('X-Correlation-ID', $resolvedCorrelationId);
     }
 
     /**

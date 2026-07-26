@@ -2,16 +2,20 @@
 
 namespace Modules\Organization\Features\CreateCluster\Handler;
 
-use DateTimeImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use JsonException;
 use Modules\Organization\Domain\Cluster;
+use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
 use stdClass;
 use UnexpectedValueException;
 
 final class CreateClusterHandler
 {
+    public function __construct(
+        private readonly OrganizationOutbox $outbox,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $cloudEvent
      * @param  array{principal_id: string, operation: string, key_hash: string, request_hash: string}  $idempotency
@@ -64,7 +68,7 @@ final class CreateClusterHandler
                 'response_payload' => json_encode($data, JSON_THROW_ON_ERROR),
                 'updated_at' => now(),
             ]);
-            $this->insertOutbox($cloudEvent, $cluster->id);
+            $this->outbox->insert($cloudEvent, $cluster->id);
 
             return ['created' => true, 'request_hash_matches' => true, 'cluster' => $data];
         });
@@ -128,21 +132,5 @@ final class CreateClusterHandler
             'status' => $row->status,
             'lock_version' => (int) $row->lock_version,
         ];
-    }
-
-    /** @param array<string, mixed> $cloudEvent */
-    private function insertOutbox(array $cloudEvent, string $aggregateId): void
-    {
-        DB::table('outbox_events')->insert([
-            'event_id' => $cloudEvent['id'],
-            'aggregate_id' => $aggregateId,
-            'event_type' => $cloudEvent['type'],
-            'cloud_event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR),
-            'occurred_at' => (new DateTimeImmutable($cloudEvent['time']))->format('Y-m-d H:i:s'),
-            'published_at' => null,
-            'delivery_attempts' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
     }
 }

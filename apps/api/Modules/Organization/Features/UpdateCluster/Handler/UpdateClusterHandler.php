@@ -3,14 +3,18 @@
 namespace Modules\Organization\Features\UpdateCluster\Handler;
 
 use Closure;
-use DateTimeImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
 use stdClass;
 
 final class UpdateClusterHandler
 {
+    public function __construct(
+        private readonly OrganizationOutbox $outbox,
+    ) {}
+
     /**
      * @param  array{name: string}  $changes
      * @param  Closure(array<string, mixed>): array<string, mixed>  $eventFactory
@@ -52,25 +56,9 @@ final class UpdateClusterHandler
                 'status' => $row->status,
                 'lock_version' => $version,
             ];
-            $this->insertOutbox($eventFactory($cluster), $row->id);
+            $this->outbox->insert($eventFactory($cluster), $row->id);
 
             return $cluster;
         });
-    }
-
-    /** @param array<string, mixed> $cloudEvent */
-    private function insertOutbox(array $cloudEvent, string $aggregateId): void
-    {
-        DB::table('outbox_events')->insert([
-            'event_id' => $cloudEvent['id'],
-            'aggregate_id' => $aggregateId,
-            'event_type' => $cloudEvent['type'],
-            'cloud_event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR),
-            'occurred_at' => (new DateTimeImmutable($cloudEvent['time']))->format('Y-m-d H:i:s'),
-            'published_at' => null,
-            'delivery_attempts' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
     }
 }

@@ -6,9 +6,12 @@ use App\Http\Middleware\IdentityCsrfMiddleware;
 use App\Http\Middleware\IdentitySessionMiddleware;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use Modules\Identity\Contracts\PrincipalContext;
+use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Identity\Features\Activation\Contracts\IssueActivationToken;
 use Modules\Identity\Features\Activation\Handler\ActivationHandler;
 use Modules\Identity\Features\Activation\Http\ConsumeActivationController;
@@ -101,6 +104,100 @@ class IdentityCredentialHttpAdapterTest extends TestCase
             'X-CSRF-Token' => $csrf,
         ])->assertNoContent();
         $this->assertNotNull(DB::table('identity_sessions')->where('token_hash', hash('sha256', $cookie))->value('revoked_at'));
+    }
+
+    public function test_current_identity_is_an_authenticated_self_bound_bootstrap_and_records_sensitive_access(): void
+    {
+        [$cookie, , $userId] = $this->loginUser('http.current.identity');
+
+        $response = $this->withUnencryptedCookie($this->cookieName(), $cookie)
+            ->getJson('/api/v1/identity/me?user_id=018f6f7d-0c00-7000-8000-000000000999', $this->headers())
+            ->assertOk()
+            ->assertJsonPath('data.principal.user_id', $userId)
+            ->assertJsonPath('data.account.username', 'http.current.identity');
+
+        $response->assertJsonMissingPath('subject_id');
+        $this->assertDatabaseHas('sensitive_access_events', [
+            'actor_user_id' => $userId,
+            'original_actor_user_id' => $userId,
+            'resource_type' => 'identity_current_projection',
+            'resource_id' => $userId,
+            'action' => 'read',
+            'classification_code' => 'confidential',
+            'correlation_id' => self::CORRELATION_ID,
+        ]);
+
+        $this->withUnencryptedCookie($this->cookieName(), '')->getJson('/api/v1/identity/me', $this->headers())
+            ->assertUnauthorized()
+            ->assertJsonPath('type', 'https://cluster.example/problems/authentication-required')
+            ->assertJsonMissingPath('data');
+        $this->getJson('/api/v1/identity/me/018f6f7d-0c00-7000-8000-000000000999', $this->headers())
+            ->assertNotFound();
+    }
+
+    public function test_identity_me_and_me_are_intentionally_non_equivalent_production_projections(): void
+    {
+        [$cookie, , $userId] = $this->loginUser('http.distinct.projections');
+        $this->app->instance(ResolvePrincipalContext::class, new class($userId) implements ResolvePrincipalContext
+        {
+            public function __construct(private readonly string $userId) {}
+
+            public function resolve(Request $request): PrincipalContext
+            {
+                return new PrincipalContext(
+                    userId: $this->userId,
+                    personId: null,
+                    accountStatus: 'active',
+                    clusterIds: ['cluster-self-read'],
+                    facilityIds: [],
+                    organizationUnitIds: ['unit-self-read'],
+                    primaryOrganizationUnitId: 'unit-self-read',
+                    selectedScope: null,
+                    sessionRestricted: false,
+                );
+            }
+
+            public function resolveSelectedScope(Request $request): ?array
+            {
+                return null;
+            }
+
+            public function persistSelectedScope(Request $request, string $scopeType, string $scopeId): void {}
+        });
+
+        $identity = $this->withUnencryptedCookie($this->cookieName(), $cookie)
+            ->getJson('/api/v1/identity/me', $this->headers())
+            ->assertOk()
+            ->assertJsonPath('data.principal.user_id', $userId)
+            ->assertJsonPath('data.account.username', 'http.distinct.projections')
+            ->assertJsonMissingPath('subject_id');
+
+        $principal = $this->withUnencryptedCookie($this->cookieName(), $cookie)
+            ->getJson('/api/v1/me', $this->headers())
+            ->assertOk()
+            ->assertJsonPath('subject_id', $userId)
+            ->assertJsonPath('tenant_id', 'cluster-self-read')
+            ->assertJsonPath('organization_unit_ids.0', 'unit-self-read')
+            ->assertJsonMissingPath('data.account');
+
+        $this->assertNotSame($identity->json(), $principal->json());
+    }
+
+    public function test_anonymous_activation_and_worker_document_routes_validate_correlation_without_session_authentication(): void
+    {
+        $headers = ['X-Correlation-ID' => 'malformed'];
+        $versionId = '018f6f7d-0c00-7000-8000-000000000777';
+
+        foreach ([
+            '/api/v1/identity/activation',
+            '/api/v1/internal/documents/versions/'.$versionId.'/scan',
+            '/api/v1/internal/documents/versions/'.$versionId.'/reconcile-promotion',
+        ] as $path) {
+            $this->postJson($path, [], $headers)
+                ->assertStatus(400)
+                ->assertHeader('Content-Type', 'application/problem+json')
+                ->assertJsonPath('type', 'https://cluster.example/problems/invalid-correlation-id');
+        }
     }
 
     public function test_login_surfaces_the_core_rate_limit_as_a_generic_429(): void

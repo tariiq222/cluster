@@ -10,8 +10,8 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Search\Features\IndexSourceEvent\Handler\IndexSourceEventHandler;
+use Modules\Search\Features\Search\Http\SearchController;
 use Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler;
-use Modules\Search\Http\SearchController;
 use Tests\TestCase;
 
 final class SearchHttpAdapterTest extends TestCase

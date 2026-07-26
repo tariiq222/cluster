@@ -88,11 +88,13 @@ final class RequireIdentitySessionPrincipalTest extends TestCase
     {
         $this->assertSame(401, $response->getStatusCode());
         $this->assertSame('application/problem+json', $response->headers->get('Content-Type'));
-        $this->assertSame([
-            'type' => 'https://cluster.example/problems/authentication-required',
-            'title' => 'Unauthorized',
-            'status' => 401,
-            'detail' => 'Authentication is required.',
-        ], $response->getData(true));
+        $body = $response->getData(true);
+        $this->assertSame('https://cluster.example/problems/authentication-required', $body['type']);
+        $this->assertSame('Unauthorized', $body['title']);
+        $this->assertSame(401, $body['status']);
+        $this->assertSame('Authentication is required.', $body['detail']);
+        $this->assertIsString($body['correlation_id'] ?? null);
+        $this->assertMatchesRegularExpression('/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $body['correlation_id']);
+        $this->assertSame($body['correlation_id'], $response->headers->get('X-Correlation-ID'));
     }
 }

@@ -126,6 +126,21 @@ def run_rbac_mode(args, summary: InventorySummary) -> int:
     return 0
 
 
+def run_rbac_markdown_mode(args, summary: InventorySummary) -> int:
+    from markdown_renderer import write_rbac_markdown  # type: ignore
+    from rbac import build_matrix  # type: ignore
+
+    matrix = build_matrix(REPO_ROOT, summary)
+    output_dir = pathlib.Path(args.json or REPO_ROOT / "docs/api")
+    target = write_rbac_markdown(REPO_ROOT, summary, output_dir)
+    catalog = matrix["catalog"]
+    counts = catalog["classification_counts"]
+    print(f"catalog_count={catalog['actual_count']}")
+    print(f"classifications=used:{counts['used']},intentional-ui-only:{counts['intentional-ui-only']},deprecated:{counts['deprecated']}")
+    print(f"rbac_markdown={target}")
+    return 0
+
+
 def run_markdown_mode(args, summary: InventorySummary) -> int:
     from markdown_renderer import write_markdown  # type: ignore
 
@@ -389,9 +404,9 @@ def main(argv: Iterable[str] | None = None) -> int:
     mode.add_argument("--dry-run", action="store_true", help="Alias for --check (no writes)")
     parser.add_argument(
         "--mode",
-        choices=["inspect", "rbac", "md", "reconcile", "translate"],
+        choices=["inspect", "rbac", "rbac-md", "md", "reconcile", "translate"],
         default="inspect",
-        help="Output mode: inspect (default print) | rbac (JSON matrix) | md (markdown skeleton) | reconcile (redocly bundle refresh) | translate (Arabic overlay on endpoints.md)",
+        help="Output mode: inspect | rbac (JSON) | rbac-md (RBAC markdown only) | md (all API markdown) | reconcile | translate",
     )
     parser.add_argument(
         "--bundle",
@@ -401,7 +416,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument(
         "--json",
         metavar="DIR",
-        help="When mode=rbac|md, write JSON/MD output to the given directory",
+        help="When mode=rbac|rbac-md|md, write output to the given directory",
     )
     parser.add_argument(
         "--md-path",
@@ -453,6 +468,8 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     if args.mode == "rbac":
         return run_rbac_mode(args, summary)
+    if args.mode == "rbac-md":
+        return run_rbac_markdown_mode(args, summary)
     if args.mode == "md":
         return run_markdown_mode(args, summary)
 

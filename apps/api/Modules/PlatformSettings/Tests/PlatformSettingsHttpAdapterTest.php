@@ -12,7 +12,9 @@ use Modules\PlatformSettings\Features\Calendars\Http\BusinessCalendarController;
 use Modules\PlatformSettings\Features\Settings\Handler\PlatformSettingsHandler;
 use Modules\PlatformSettings\Features\Settings\Http\CreateSettingsVersionController;
 use Modules\PlatformSettings\Features\Settings\Http\GetCurrentPlatformSettingsController;
+use Modules\PlatformSettings\Features\Settings\Http\PublishSettingsVersionController;
 use Modules\PlatformSettings\Features\Settings\Http\UpdateSettingsValueController;
+use Modules\PlatformSettings\Features\Settings\Http\ValidateSettingsVersionController;
 use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 use Modules\PlatformSettings\Infrastructure\Persistence\DatabaseBusinessCalendars;
 use Tests\TestCase;
@@ -83,6 +85,158 @@ final class PlatformSettingsHttpAdapterTest extends TestCase
 
         $this->assertSame(422, $response->getStatusCode());
         $this->assertSame('https://cluster.example/problems/validation-failed', $response->getData(true)['type']);
+    }
+
+    public function test_settings_validate_publish_and_calendar_publish_require_idempotency_key(): void
+    {
+        $versionId = $this->createVersion()->getData(true)['id'];
+        $handler = new PlatformSettingsHandler(new PlatformSettingsOutbox);
+        foreach ([
+            new ValidateSettingsVersionController($this->api(), $handler),
+            new PublishSettingsVersionController($this->api(), $handler),
+        ] as $controller) {
+            $request = $this->request('POST', '/platform-settings/versions/'.$versionId.'/lifecycle');
+            $request->headers->set('If-Match', '"1"');
+            $response = $controller($request, $versionId);
+            $this->assertSame(400, $response->getStatusCode());
+            $this->assertSame('https://cluster.example/problems/invalid-idempotency-key', $response->getData(true)['type']);
+        }
+
+        $calendarId = '0197f0e0-0000-7000-8000-000000000874';
+        DB::table('business_calendars')->insert([
+            'id' => $calendarId,
+            'scope_type' => 'platform',
+            'scope_id' => null,
+            'parent_calendar_id' => null,
+            'status' => 'draft',
+            'timezone' => 'Asia/Riyadh',
+            'lock_version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $request = $this->request('POST', '/platform-settings/calendars/'.$calendarId.'/publish');
+        $request->headers->set('If-Match', '"1"');
+        $response = (new BusinessCalendarController(
+            $this->api(),
+            new BusinessCalendarHandler(new DatabaseBusinessCalendars(static fn (): ?array => null)),
+        ))->publish($request, $calendarId);
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('https://cluster.example/problems/invalid-idempotency-key', $response->getData(true)['type']);
+    }
+
+    public function test_lifecycle_commands_replay_and_reject_conflicting_key_reuse(): void
+    {
+        $versionId = $this->createVersion()->getData(true)['id'];
+        $handler = new PlatformSettingsHandler(new PlatformSettingsOutbox);
+        $validate = new ValidateSettingsVersionController($this->api(), $handler);
+        $validateRequest = $this->request('POST', '/platform-settings/versions/'.$versionId.'/validate');
+        $validateRequest->headers->set('If-Match', '"1"');
+        $validateRequest->headers->set('Idempotency-Key', 'settings-validate-replay');
+        $firstValidate = $validate($validateRequest, $versionId);
+        $replayValidate = $validate($validateRequest, $versionId);
+        $this->assertSame($firstValidate->getData(true), $replayValidate->getData(true));
+        $this->assertSame(200, $firstValidate->getStatusCode());
+        $this->assertSame(200, $replayValidate->getStatusCode());
+        $conflictValidate = clone $validateRequest;
+        $conflictValidate->headers->set('If-Match', '"2"');
+        $this->assertSame(409, $validate($conflictValidate, $versionId)->getStatusCode());
+
+        $publish = new PublishSettingsVersionController($this->api(), $handler);
+        $publishRequest = $this->request('POST', '/platform-settings/versions/'.$versionId.'/publish');
+        $publishRequest->headers->set('If-Match', '"2"');
+        $publishRequest->headers->set('Idempotency-Key', 'settings-publish-replay');
+        $firstPublish = $publish($publishRequest, $versionId);
+        $replayPublish = $publish($publishRequest, $versionId);
+        $this->assertSame($firstPublish->getData(true), $replayPublish->getData(true));
+        $conflictPublish = clone $publishRequest;
+        $this->assertSame(200, $firstPublish->getStatusCode());
+        $this->assertSame(200, $replayPublish->getStatusCode());
+        $conflictPublish->headers->set('If-Match', '"3"');
+        $this->assertSame(409, $publish($conflictPublish, $versionId)->getStatusCode());
+
+        $calendarId = '0197f0e0-0000-7000-8000-000000000875';
+        DB::table('business_calendars')->insert([
+            'id' => $calendarId,
+            'scope_type' => 'platform',
+            'scope_id' => null,
+            'parent_calendar_id' => null,
+            'status' => 'draft',
+            'timezone' => 'Asia/Riyadh',
+            'lock_version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $calendar = new BusinessCalendarController(
+            $this->api(),
+            new BusinessCalendarHandler(new DatabaseBusinessCalendars(static fn (): ?array => null)),
+        );
+        $calendarRequest = $this->request('POST', '/platform-settings/calendars/'.$calendarId.'/publish');
+        $calendarRequest->headers->set('If-Match', '"1"');
+        $calendarRequest->headers->set('Idempotency-Key', 'calendar-publish-replay');
+        $firstCalendar = $calendar->publish($calendarRequest, $calendarId);
+        $replayCalendar = $calendar->publish($calendarRequest, $calendarId);
+        $this->assertSame(200, $firstCalendar->getStatusCode());
+        $this->assertSame(200, $replayCalendar->getStatusCode());
+        $this->assertSame($firstCalendar->getData(true), $replayCalendar->getData(true));
+        $conflictCalendar = clone $calendarRequest;
+        $conflictCalendar->headers->set('If-Match', '"2"');
+        $this->assertSame(409, $calendar->publish($conflictCalendar, $calendarId)->getStatusCode());
+    }
+
+    public function test_business_calendar_live_routes_are_authoritative_and_planned_alias_is_absent(): void
+    {
+        $routes = collect(app('router')->getRoutes()->getRoutes());
+        $expected = [
+            'GET' => ['api/v1/platform-settings/calendars'],
+            'POST' => ['api/v1/platform-settings/calendars', 'api/v1/platform-settings/calendars/{calendarId}/publish'],
+            'PUT' => [
+                'api/v1/platform-settings/calendars/{calendarId}/weekdays/{weekday}',
+                'api/v1/platform-settings/calendars/{calendarId}/exceptions/{date}',
+            ],
+        ];
+
+        foreach ($expected as $method => $uris) {
+            foreach ($uris as $uri) {
+                $this->assertTrue(
+                    $routes->contains(fn ($route): bool => in_array($method, $route->methods(), true) && $route->uri() === $uri),
+                    "Missing {$method} {$uri}",
+                );
+            }
+        }
+
+        $this->assertFalse($routes->contains(fn ($route): bool => str_contains($route->uri(), 'business-calendars')));
+        $this->getJson('/api/v1/business-calendars')->assertNotFound();
+    }
+
+    public function test_calendar_weekday_route_accepts_iso_sunday_and_rejects_zero(): void
+    {
+        $routes = collect(app('router')->getRoutes()->getRoutes());
+        $route = $routes->first(fn ($candidate): bool => $candidate->uri() === 'api/v1/platform-settings/calendars/{calendarId}/weekdays/{weekday}');
+
+        $this->assertNotNull($route);
+        $this->assertSame('[1-7]', $route->wheres['weekday'] ?? null);
+
+        $calendarId = '0197f0e0-0000-7000-8000-000000000890';
+        $this->assertTrue($route->matches(Request::create("/api/v1/platform-settings/calendars/{$calendarId}/weekdays/7", 'PUT')));
+        $this->assertFalse($route->matches(Request::create("/api/v1/platform-settings/calendars/{$calendarId}/weekdays/0", 'PUT')));
+    }
+
+    public function test_calendar_domain_accepts_every_contract_exception_type(): void
+    {
+        $accepted = ['official_holiday', 'local_closure', 'local_hours', 'official_holiday_work_override', 'ramadan'];
+
+        foreach ($accepted as $type) {
+            $exception = \Modules\PlatformSettings\Domain\CalendarException::forRange(
+                $type,
+                new \DateTimeImmutable('2026-07-26'),
+                null,
+                true,
+                '08:00',
+                '16:00',
+            );
+
+            $this->assertSame($type, $exception->type);
+        }
     }
 
     public function test_calendar_weekday_rejects_a_stale_etag_without_overwriting_the_calendar(): void

@@ -314,13 +314,17 @@ Rank │ Module              │ ملكية الجداول                      
      │                     │ export_artifacts, read_models                    │
 ```
 
-> **ديْن معماري موثَّق:** `audit_events` مُسجَّل حالياً تحت `Authorization` وينتظر نقله
-> إلى الوحدة المخططة `Audit` (rank 3). انظر `module-catalog.md` §1.
-> **ديْن آخر:** الجدول `authorizations` كان "ghost" — موجود في الكود دون هجرة؛ نُظِّف في مرحلة سابقة
-> لكن `module-catalog.md` لا يزال يذكره في §2.1.4 ضمن الحسابات التاريخية.
+> **ديْن معماري موثَّق:** موديول `Audit` ما زال مخططاً ولا توجد حالياً
+> هجرة أو ملكية لجدول `audit_events`. سجلات الوصول الحساسة باقية تحت
+> `Authorization`. كما تم تحديث `TABLE_OWNERS` في موجة Task 4
+> (2026-07-26): المفتاح الزائد `project_work_record_read_models` حُذِفَ
+> لأنه لا يقابل أي `Schema::create`، وأصبح السجل يطابق 96 جدولاً
+> مُهاجَراً بالضبط. الحارس الآن يرفض أي مفتاح زائد برسالة مستقلة.
+> لمزيد من التفاصيل، راجع `module-catalog.md §4·قاعدة 2` (مرجع
+> Task 4: `apps/api/tests/Architecture/ModuleBoundariesTest.php` و
+> `apps/api/tests/Architecture/ModulePlacementInventory.php`).
 
 ---
-
 ## 4 · تشريح وحدة (مثال Identity، من `find` الفعلي)
 
 ```
@@ -795,13 +799,14 @@ Download
 ```
 
 **ثغرات موثَّقة يجب الإشارة إليها في تقييم مخاطر:**
-
+- **دقة `TABLE_OWNERS`**: بعد موجة Task 4 (2026-07-26) أصبحت السجلات
+  تطابق الجداول المُهاجرة بالضبط (96 لـ 96)، والمفتاح الزائد
+  `project_work_record_read_models` حُذِفَ مع توثيق السياسة في تعليق
+  رأس `ModuleBoundariesTest.php`. أي مفتاح زائد مستقبلي يُرفض الآن
+  برسالة مستقلة عبر `test_every_migrated_table_has_an_owner_and_owners_match_actual_module_layout`.
+- **Work-record sync الإسقاط داخل HTTP** (§7.1): يطيل زمن استجابة POST.
 - **N+1 authorization في Search** (§7.3): لا تخفيف مؤقت؛ مع نمو البيانات ستظهر
   bottleneck واضح.
-- **Work-record sync الإسقاط داخل HTTP** (§7.1): يطيل زمن استجابة POST.
-- **`audit_events` لا يزال تحت Authorization** (module-catalog §1): فصله للوحدة
-  المخططة Audit يحتاج migration.
-
 ---
 
 ## 9 · خريطة التخزين (مُحقَّقة)
@@ -1061,7 +1066,7 @@ docs/analysis/                    تعمّق في كل موديول (12 وثيق
 | ما هي الوحدات ورتبها؟ | `docs/architecture/module-catalog.md` |
 | من يملك جدول `xyz`؟ | `apps/api/tests/Architecture/ModuleBoundariesTest.php` → `TABLE_OWNERS` |
 | الـ middleware على route ما؟ | `apps/api/routes/web.php` ثم افتح `app/Http/Middleware/` |
-| كيف يُحقن DI؟ | `apps/api/app/Providers/AppServiceProvider.php` |
+| كيف يُحقن DI؟ | `apps/api/app/Providers/AppServiceProvider.php` للتجميع المشترك + `apps/api/Modules/*/Providers/*ServiceProvider.php` لملكية كل موديول |
 | كيف يُنشر حدث outbox؟ | `Shared/Infrastructure/Outbox/` + `Modules/<Name>/Infrastructure/Outbox/Relay/` |
 | كيف يستهلك Stream؟ | `Modules/<Name>/Features/*/Worker/*.php` |
 | كيف يحلّ الويب الخطأ؟ | `apps/web/src/api/http.ts` (`ApiError`, `stateFromError`, `unwrap`) |

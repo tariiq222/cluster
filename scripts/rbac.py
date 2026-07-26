@@ -43,6 +43,9 @@ INLINE_WITHOUT_MIDDLEWARE_RE = re.compile(r"->withoutMiddleware\(([^)]*)\)")
 
 CLOSE_TOKEN_RE = re.compile(r"^\s*\}[\);]*\s*$")
 CLOSE_CHAINED_RE = re.compile(r"^\s*\)\s*\}\s*->")
+CAPABILITY_LITERAL_RE = re.compile(r"'([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+)'")
+
+
 
 
 @dataclass
@@ -70,6 +73,11 @@ class RbacRow:
     endpoint_tag: str
     method: str
     path: str
+    controller: str | None
+    controller_source: str | None
+    controller_method: str | None
+    capabilities: list[str]
+    capability_check: str
     middleware: list[str]
     requires_session: bool
     requires_principal: bool
@@ -346,6 +354,115 @@ def _consume_route_statement(
     )
 
 
+def _catalog_capabilities(repo_root: pathlib.Path) -> list[str]:
+    source = (
+        repo_root
+        / "apps/api/Modules/Authorization/Contracts/CapabilityCatalog.php"
+    ).read_text(encoding="utf-8")
+    try:
+        payload = source.split("private const CAPABILITIES = [", 1)[1].split("];", 1)[0]
+    except IndexError as error:
+        raise ValueError("CapabilityCatalog::CAPABILITIES could not be parsed") from error
+    capabilities = CAPABILITY_LITERAL_RE.findall(payload)
+    if len(capabilities) != len(set(capabilities)):
+        raise ValueError("CapabilityCatalog contains duplicate capability codes")
+    return capabilities
+
+
+def _production_php_sources(repo_root: pathlib.Path) -> list[tuple[pathlib.Path, str]]:
+    sources: list[tuple[pathlib.Path, str]] = []
+    roots = (
+        repo_root / "apps/api/Modules",
+        repo_root / "apps/api/app",
+        repo_root / "apps/api/routes",
+        repo_root / "apps/api/config",
+    )
+    for source_root in roots:
+        for path in sorted(source_root.rglob("*.php")):
+            relative = path.relative_to(repo_root)
+            if "Tests" in relative.parts or "tests" in relative.parts:
+                continue
+            if path.name == "CapabilityCatalog.php":
+                continue
+            sources.append((relative, path.read_text(encoding="utf-8")))
+    return sources
+
+
+def _web_sources(repo_root: pathlib.Path) -> list[tuple[pathlib.Path, str]]:
+    source_root = repo_root / "apps/web/src"
+    paths = sorted([*source_root.rglob("*.ts"), *source_root.rglob("*.tsx")])
+    return [
+        (path.relative_to(repo_root), path.read_text(encoding="utf-8"))
+        for path in paths
+        if "generated" not in path.parts
+        and ".test." not in path.name
+        and ".spec." not in path.name
+    ]
+
+
+def _classify_catalog(repo_root: pathlib.Path, capabilities: list[str]) -> list[dict]:
+    """Classify catalog entries from production and web callsite evidence.
+
+    The catalog is authoritative; this function never adds or mutates entries.
+    A capability referenced by API PHP is ``used``. A capability referenced only
+    by the non-generated web source is ``intentional-ui-only``. An unreferenced
+    entry is ``deprecated`` unless a future route/catalog helper explicitly
+    references it, in which case generation reports ``Unknown`` for review.
+    """
+    production = _production_php_sources(repo_root)
+    web = _web_sources(repo_root)
+    classified: list[dict] = []
+    for capability in capabilities:
+        production_refs = sorted(str(path) for path, text in production if capability in text)
+        web_refs = sorted(str(path) for path, text in web if capability in text)
+        if production_refs:
+            classification = "used"
+            evidence = production_refs
+        elif web_refs:
+            classification = "intentional-ui-only"
+            evidence = web_refs
+        else:
+            classification = "deprecated"
+            evidence = ["no production API or web callsite reference"]
+        classified.append({
+            "capability": capability,
+            "classification": classification,
+            "evidence": evidence,
+        })
+    unknown = [item for item in classified if item["classification"] == "Unknown"]
+    if unknown:
+        names = ", ".join(item["capability"] for item in unknown)
+        raise ValueError(f"Unknown catalog classifications require follow-up: {names}")
+    return classified
+
+
+def _controller_metadata(
+    repo_root: pathlib.Path,
+    statements: list[RouteStatement],
+    capabilities: list[str],
+) -> dict[str, dict]:
+    controller_names = {statement.controller.split("\\")[-1] for statement in statements if statement.controller}
+    candidates: dict[str, list[pathlib.Path]] = {}
+    for path in sorted((repo_root / "apps/api/Modules").rglob("*.php")):
+        if "Tests" in path.parts or "tests" in path.parts:
+            continue
+        if path.stem in controller_names:
+            candidates.setdefault(path.stem, []).append(path)
+    metadata: dict[str, dict] = {}
+    for controller in sorted(controller_names):
+        paths = candidates.get(controller, [])
+        if len(paths) != 1:
+            metadata[controller] = {"source": None, "capabilities": [], "calls": [], "attributes": [], "check": "missing-controller-source" if not paths else "ambiguous-controller-source"}
+            continue
+        path = paths[0]
+        text = path.read_text(encoding="utf-8")
+        literals = sorted({capability for capability in capabilities if capability in text})
+        calls = sorted(set(re.findall(r"->(?:decide|evaluateOnly|authorize|allowed|principalAccess|decideAccess)\s*\(", text)))
+        attributes = sorted(set(re.findall(r"#\[([^]]+)\]", text)))
+        metadata[controller] = {"source": str(path.relative_to(repo_root)), "capabilities": literals, "calls": calls, "attributes": attributes, "check": "controller-local" if literals else "controller-dynamic" if calls else "missing-controller-local-check"}
+    return metadata
+
+
 def _normalize_middleware_alias(name: str) -> str:
     name = name.strip().strip("-")
     if name == "":
@@ -362,18 +479,14 @@ def _normalize_middleware_alias(name: str) -> str:
 def _effective_middleware(parent_middleware: list[str], inline_middleware: list[str]) -> list[str]:
     explicit_remove = {m.lstrip("-") for m in inline_middleware if m.startswith("-")}
     additions = [m for m in inline_middleware if not m.startswith("-")]
-
     combined: list[str] = []
     for mw in [*parent_middleware, *additions]:
         norm = _normalize_middleware_alias(mw)
-        if not norm or norm in combined:
-            continue
-        combined.append(norm)
-
+        if norm and norm not in combined:
+            combined.append(norm)
     if explicit_remove:
         normalized_remove = {_normalize_middleware_alias(m) for m in explicit_remove}
         combined = [m for m in combined if m not in normalized_remove]
-
     return combined
 
 
@@ -386,49 +499,33 @@ def _build_endpoint_tag(stmt: RouteStatement) -> str:
     slug = stmt.path.strip("/").replace("/", "-")
     slug = re.sub(r"\{[^}]+\}", lambda m: m.group(0).strip("{}"), slug)
     name = _controller_short_name(stmt.controller, stmt.controller_method)
-    if stmt.controller_method:
-        tag = f"{slug}-{stmt.controller_method.lower()}"
-    else:
-        tag = slug
+    tag = f"{slug}-{stmt.controller_method.lower()}" if stmt.controller_method else slug
     return f"{tag}:{stmt.method.lower()}:{name.lower()}"
-
 
 def build_matrix(repo_root: pathlib.Path, summary) -> dict:
     routes_text = (repo_root / "apps/api/routes/web.php").read_text(encoding="utf-8")
     statements = parse_routes(routes_text)
-
+    catalog = _catalog_capabilities(repo_root)
+    classifications = _classify_catalog(repo_root, catalog)
+    controller_metadata = _controller_metadata(repo_root, statements, catalog)
     rows: list[RbacRow] = []
     for stmt in statements:
         effective = _effective_middleware(stmt.parent_middleware, stmt.inline_middleware)
-        throttle = _derive_throttle(stmt.raw_statement)
-        if throttle is None:
-            throttle = _derive_throttle(" ".join(stmt.parent_middleware))
-
-        security_warning: str | None = None
-        if "/internal/" in stmt.path:
-            security_warning = "internal-worker"
-
-        rows.append(
-            RbacRow(
-                endpoint_tag=_build_endpoint_tag(stmt),
-                method=stmt.method,
-                path=stmt.path,
-                middleware=effective,
-                requires_session="identity_session" in effective,
-                requires_principal="require_identity_session_principal" in effective,
-                requires_csrf="identity_csrf" in effective or "identity_csrf_middleware" in effective or any(m.endswith("IdentityCsrfMiddleware") for m in stmt.parent_middleware + stmt.inline_middleware),
-                throttle=throttle,
-                security_warning=security_warning,
-                source_line=stmt.line_number,
-            )
-        )
-
-    middleware_tuples = sorted({tuple(row.middleware) for row in rows})
-
-    return {
-        "rows": [_row_to_dict(row) for row in rows],
-        "middleware_tuples": [list(t) for t in middleware_tuples],
-    }
+        throttle = _derive_throttle(stmt.raw_statement) or _derive_throttle(" ".join(stmt.parent_middleware))
+        controller_name = stmt.controller.split("\\")[-1] if stmt.controller else None
+        metadata = controller_metadata.get(controller_name or "", {"source": None, "capabilities": [], "check": "missing-controller-source"})
+        rows.append(RbacRow(
+            endpoint_tag=_build_endpoint_tag(stmt), method=stmt.method, path=stmt.path,
+            controller=controller_name, controller_source=metadata["source"], controller_method=stmt.controller_method,
+            capabilities=metadata["capabilities"], capability_check=metadata["check"], middleware=effective,
+            requires_session="identity_session" in effective,
+            requires_principal="require_identity_session_principal" in effective,
+            requires_csrf="identity_csrf" in effective or "identity_csrf_middleware" in effective or any(m.endswith("IdentityCsrfMiddleware") for m in stmt.parent_middleware + stmt.inline_middleware),
+            throttle=throttle, security_warning="internal-worker" if "/internal/" in stmt.path else None, source_line=stmt.line_number,
+        ))
+    classification_counts = {classification: sum(1 for row in classifications if row["classification"] == classification) for classification in ("used", "intentional-ui-only", "deprecated", "Unknown")}
+    controllers_without_checks = sorted({row.controller for row in rows if row.controller and row.capability_check not in {"controller-local", "controller-dynamic"}})
+    return {"catalog": {"actual_count": len(catalog), "historical_expected_count": 110, "count_mismatch": len(catalog) != 110, "classification_counts": classification_counts, "classifications": classifications}, "rows": [_row_to_dict(row) for row in rows], "controllers_without_capability_checks": controllers_without_checks, "middleware_tuples": [list(t) for t in sorted({tuple(row.middleware) for row in rows})]}
 
 
 def _row_to_dict(row: RbacRow) -> dict:

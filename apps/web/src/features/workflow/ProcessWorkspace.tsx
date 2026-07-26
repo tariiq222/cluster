@@ -14,6 +14,7 @@ export type ProcessWorkspaceProps = {
   session: Session
   activeRouteName: ProcessRoute
   navigate: (path: string) => void
+  capabilities?: readonly string[]
 }
 
 /**
@@ -26,6 +27,7 @@ export function ProcessWorkspace({
   session,
   activeRouteName,
   navigate,
+  capabilities = [],
 }: ProcessWorkspaceProps) {
   const tabs = [
     {
@@ -66,9 +68,9 @@ export function ProcessWorkspace({
       {activeRouteName === 'workflow-day2' ? (
         <Day2Workflow session={session} />
       ) : activeRouteName === 'work-definitions' ? (
-        <WorkDefinitionsScreen />
+        <WorkDefinitionsScreen capabilities={capabilities} />
       ) : (
-        <WorkflowAdminScreen />
+        <WorkflowAdminScreen capabilities={capabilities} />
       )}
     </div>
   )

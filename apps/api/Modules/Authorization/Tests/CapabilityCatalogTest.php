@@ -66,7 +66,6 @@ class CapabilityCatalogTest extends TestCase
             'reporting.download',
             'reporting.dashboard',
             'notifications.read',
-            'notifications.list',
             'notifications.manage',
             'identity.account.read',
             'identity.account.manage',

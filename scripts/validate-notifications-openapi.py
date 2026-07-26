@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse
 import sys
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -15,11 +13,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parent.parent
 OPENAPI_PATH = ROOT / "docs/contracts/api/openapi.yaml"
-PAGE_PATH = ROOT / "docs/contracts/api/notifications.md"
-CATALOG_PATH = ROOT / "docs/catalog.yaml"
-MKDOCS_PATH = ROOT / "mkdocs.yml"
-PAGE_CATALOG_PATH = "contracts/api/notifications.md"
-PROBLEM_SCHEMA_REF = "../schemas/problem-details.schema.json"
+PROBLEM_SCHEMA_REF = "#/components/schemas/problem-details.schema"
 CORRELATION_HEADER_REF = "#/components/headers/Correlation"
 NOTIFICATION_FIELDS = {
   "id",
@@ -27,12 +21,6 @@ NOTIFICATION_FIELDS = {
   "source",
   "is_read",
   "created_at",
-}
-EXPECTED_MISSING = {
-  "notifications_path",
-  "notifications_page",
-  "catalog_entry",
-  "nav_entry",
 }
 
 
@@ -285,118 +273,11 @@ def validate_openapi(document: Any, failures: list[ValidationFailure]) -> None:
   )
 
 
-def parse_frontmatter(path: Path) -> dict[str, Any]:
-  try:
-    lines = path.read_text(encoding="utf-8").splitlines()
-  except OSError as error:
-    print(f"ERROR: cannot read {path.relative_to(ROOT)}: {error}", file=sys.stderr)
-    raise SystemExit(2)
-  if not lines or lines[0] != "---":
-    return {}
-  try:
-    closing = lines.index("---", 1)
-    return mapping(yaml.safe_load("\n".join(lines[1:closing])))
-  except (ValueError, yaml.YAMLError) as error:
-    print(f"ERROR: invalid front matter in {path.relative_to(ROOT)}: {error}", file=sys.stderr)
-    raise SystemExit(2)
-
-
-def walk_nav(node: Any) -> list[str]:
-  paths: list[str] = []
-  if isinstance(node, str):
-    paths.append(node)
-  elif isinstance(node, list):
-    for item in node:
-      paths.extend(walk_nav(item))
-  elif isinstance(node, dict):
-    for item in node.values():
-      paths.extend(walk_nav(item))
-  return paths
-
-
-def validate_discoverability(
-  catalog: Any,
-  mkdocs: Any,
-  failures: list[ValidationFailure],
-) -> None:
-  if not PAGE_PATH.is_file():
-    failures.append(ValidationFailure("notifications_page", "docs/contracts/api/notifications.md is required"))
-  else:
-    metadata = parse_frontmatter(PAGE_PATH)
-    expected_metadata = {
-      "title": "عقد واجهة الإشعارات",
-      "type": "contracts",
-      "status": "accepted",
-      "owner": "مسؤول هندسة البرمجيات",
-    }
-    for field, expected in expected_metadata.items():
-      require(
-        failures,
-        metadata.get(field) == expected,
-        f"notifications_page_{field}",
-        f"Notifications page {field} must be {expected}",
-      )
-
-  documents = sequence(mapping(catalog).get("documents"))
-  catalog_entries = [
-    item
-    for item in documents
-    if isinstance(item, dict) and item.get("path") == PAGE_CATALOG_PATH
-  ]
-  require(
-    failures,
-    len(catalog_entries) == 1,
-    "catalog_entry",
-    f"{PAGE_CATALOG_PATH} must appear in docs/catalog.yaml exactly once",
-  )
-  if len(catalog_entries) == 1:
-    entry = catalog_entries[0]
-    require(
-      failures,
-      entry.get("title") == "عقد واجهة الإشعارات"
-      and entry.get("category") == "contract-api"
-      and entry.get("status") == "accepted"
-      and entry.get("owner") == "مسؤول هندسة البرمجيات"
-      and entry.get("source_of_truth") is True
-      and entry.get("generated") is False,
-      "catalog_entry_metadata",
-      "Notifications catalog metadata must match the governed contract page",
-    )
-
-  nav_counts = Counter(walk_nav(mapping(mkdocs).get("nav")))
-  require(
-    failures,
-    nav_counts[PAGE_CATALOG_PATH] == 1,
-    "nav_entry",
-    f"{PAGE_CATALOG_PATH} must appear in mkdocs.yml navigation exactly once",
-  )
 
 
 def main() -> int:
-  parser = argparse.ArgumentParser(description="Validate the canonical Notifications OpenAPI contract.")
-  parser.add_argument(
-    "--expect-missing",
-    action="store_true",
-    help="pass only while the precise pre-contract Notifications assertions are missing",
-  )
-  args = parser.parse_args()
-
   failures: list[ValidationFailure] = []
   validate_openapi(load_yaml(OPENAPI_PATH), failures)
-  validate_discoverability(load_yaml(CATALOG_PATH), load_yaml(MKDOCS_PATH), failures)
-
-  failure_codes = {failure.code for failure in failures}
-  if args.expect_missing:
-    if failure_codes == EXPECTED_MISSING:
-      print("Notifications contract RED baseline confirmed: canonical path, page, catalog, and nav are missing.")
-      return 0
-    for failure in failures:
-      print(f"ERROR [{failure.code}]: {failure.message}", file=sys.stderr)
-    print(
-      f"ERROR: expected only missing assertions {sorted(EXPECTED_MISSING)}, got {sorted(failure_codes)}",
-      file=sys.stderr,
-    )
-    return 1
 
   if failures:
     for failure in failures:
@@ -404,7 +285,7 @@ def main() -> int:
     print(f"Notifications OpenAPI validation failed with {len(failures)} error(s).", file=sys.stderr)
     return 1
 
-  print("Notifications OpenAPI contract and discoverability validation passed.")
+  print("Notifications OpenAPI contract validation passed.")
   return 0
 
 

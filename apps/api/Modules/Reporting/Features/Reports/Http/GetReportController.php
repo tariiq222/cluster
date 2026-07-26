@@ -1,11 +1,12 @@
 <?php
 
-namespace Modules\Reporting\Http;
+namespace Modules\Reporting\Features\Reports\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Reporting\Features\RunAuthorizedReport\Handler\RunAuthorizedReportHandler;
+use Modules\Reporting\Http\ReportingApi;
 
 final class GetReportController
 {

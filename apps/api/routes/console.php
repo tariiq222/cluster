@@ -9,7 +9,7 @@ use Modules\Notifications\Features\ConsumeTechnicalAlert\Worker\NotificationsTec
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use Modules\Organization\Infrastructure\Outbox\Relay\OrganizationPersonOutboxRelay;
 use Modules\PlatformSettings\Infrastructure\Outbox\TechnicalAlertOutboxRelay;
-use Modules\WorkRecords\Infrastructure\Outbox\Relay\RedisOutboxRelay;
+use Shared\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use Symfony\Component\Console\Command\Command;
 
 Artisan::command('inspire', function () {

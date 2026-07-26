@@ -457,16 +457,38 @@ final class OrganizationUnitHandler
         ];
     }
 
+    /** @return array<string, mixed>|null */
+    public function findReorderReplay(string $principalId, string $idempotencyKey, string $requestHash): ?array
+    {
+        $existing = DB::table('organization_idempotency_keys')
+            ->where('principal_id', $principalId)
+            ->where('operation', 'organization.units.reorder')
+            ->where('idempotency_key_hash', hash('sha256', $idempotencyKey))
+            ->first();
+        if ($existing === null || ! is_string($existing->response_payload)) {
+            return null;
+        }
+
+        return [
+            'request_hash_matches' => hash_equals((string) $existing->request_hash, $requestHash),
+            ...json_decode($existing->response_payload, true, 32, JSON_THROW_ON_ERROR),
+        ];
+    }
+
     /**
      * Canonical sibling rebalance: assign each unit a fresh sort_order inside
      * its parent group, ordered by (type priority, code). Idempotent — two
      * consecutive runs produce the same ordering for the same input.
      *
-     * @param  Closure(array<string, mixed>): array<string, mixed>  $eventFactory
-     * @return array{updated: int, by_parent: list<string>}
+     * @return array{updated: int, by_parent: list<string>, lock_version: int, request_hash_matches: bool}
      */
-    public function reorderAll(Closure $eventFactory): array
-    {
+    public function reorderAll(
+        Closure $eventFactory,
+        int $expectedVersion,
+        string $principalId,
+        string $idempotencyKey,
+        string $requestHash,
+    ): array {
         $typePriority = [
             'sector' => 1,
             'department' => 2,
@@ -475,7 +497,49 @@ final class OrganizationUnitHandler
             'committee' => 5,
         ];
 
-        return DB::transaction(function () use ($eventFactory, $typePriority): array {
+        return DB::transaction(function () use ($eventFactory, $typePriority, $expectedVersion, $principalId, $idempotencyKey, $requestHash): array {
+            $idempotency = [
+                'principal_id' => (string) $principalId,
+                'operation' => 'organization.units.reorder',
+                'key_hash' => hash('sha256', (string) $idempotencyKey),
+                'request_hash' => $requestHash,
+            ];
+            $keyQuery = DB::table('organization_idempotency_keys')
+                ->where('principal_id', $idempotency['principal_id'])
+                ->where('operation', $idempotency['operation'])
+                ->where('idempotency_key_hash', $idempotency['key_hash']);
+            $existing = $keyQuery->lockForUpdate()->first();
+            if ($existing !== null && is_string($existing->response_payload)) {
+                return [
+                    'request_hash_matches' => hash_equals((string) $existing->request_hash, $idempotency['request_hash']),
+                    ...json_decode($existing->response_payload, true, 32, JSON_THROW_ON_ERROR),
+                ];
+            }
+            $claimed = DB::table('organization_idempotency_keys')->insertOrIgnore([
+                'principal_id' => $idempotency['principal_id'],
+                'operation' => $idempotency['operation'],
+                'idempotency_key_hash' => $idempotency['key_hash'],
+                'request_hash' => $idempotency['request_hash'],
+                'resource_type' => 'organization_unit_collection',
+                'resource_id' => 'organization',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            if ($claimed !== 1) {
+                $concurrent = $keyQuery->lockForUpdate()->first();
+                if ($concurrent === null || ! is_string($concurrent->response_payload)) {
+                    throw new UnexpectedValueException('Stored reorder idempotency state is incomplete.');
+                }
+
+                return [
+                    'request_hash_matches' => hash_equals((string) $concurrent->request_hash, $idempotency['request_hash']),
+                    ...json_decode($concurrent->response_payload, true, 32, JSON_THROW_ON_ERROR),
+                ];
+            }
+            $cluster = DB::table('clusters')->lockForUpdate()->first();
+            if ($cluster === null || (int) $cluster->lock_version !== $expectedVersion) {
+                throw new \Symfony\Component\HttpKernel\Exception\HttpException(412, 'If-Match does not match the current organization version.');
+            }
             $rows = DB::table('organization_units as ou')
                 ->join('unit_types as ut', 'ut.id', '=', 'ou.unit_type_id')
                 ->where('ou.status', '!=', 'archived')
@@ -519,15 +583,26 @@ final class OrganizationUnitHandler
                 }
                 $affectedParentKeys[] = $parentKey;
             }
-
             $payload = [
                 'updated' => $updated,
                 'by_parent' => $affectedParentKeys,
                 'policy' => 'type-priority-then-code',
+                'lock_version' => (int) $cluster->lock_version + 1,
             ];
+            $advanced = DB::table('clusters')
+                ->where('id', $cluster->id)
+                ->where('lock_version', $expectedVersion)
+                ->update(['lock_version' => $expectedVersion + 1, 'updated_at' => now()]);
+            if ($advanced !== 1) {
+                throw new \Symfony\Component\HttpKernel\Exception\HttpException(412, 'If-Match does not match the current organization version.');
+            }
+            $keyQuery->update([
+                'response_payload' => json_encode($payload, JSON_THROW_ON_ERROR),
+                'updated_at' => now(),
+            ]);
             $this->outbox->insert($eventFactory($payload), 'organization.units.reordered');
 
-            return $payload;
+            return ['request_hash_matches' => true, ...$payload];
         });
     }
 }

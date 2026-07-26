@@ -5,28 +5,49 @@
  * owns session-bound request options, response unwrapping, and stable names for
  * the feature. Screens must not build HTTP headers themselves.
  */
-import * as generated from './generated/cluster'
+import {
+  createPlatformSettingsCalendar,
+  createPlatformSettingsDraft as createGeneratedPlatformSettingsDraft,
+  getCurrentPlatformSettings as getGeneratedCurrentPlatformSettings,
+  getPlatformBackups as getGeneratedPlatformBackups,
+  getPlatformHealth as getGeneratedPlatformHealth,
+  getPlatformOperationsOverview as getGeneratedPlatformOperationsOverview,
+  listPlatformSettingsCalendars,
+  listPlatformSettingsVersions as listGeneratedPlatformSettingsVersions,
+  publishPlatformSettingsCalendar,
+  setPlatformSetting as setGeneratedPlatformSetting,
+  setPlatformSettingsCalendarException,
+  setPlatformSettingsCalendarWeekday,
+  transitionPlatformSettingsVersion,
+  type BusinessCalendarCreate,
+  type BusinessCalendarException,
+  type BusinessCalendarWeekday,
+  type CollectionResponse,
+  type EntityResponse,
+  type ListPlatformSettingsCalendarsParams,
+  type SettingValue,
+} from './generated/cluster'
 import { requestInit, unwrap } from './http'
 
-export type PlatformSettingsEntity = generated.EntityResponse
-export type PlatformSettingValue = generated.SettingValue
-export type PlatformSettingsCollection = generated.CollectionResponse
+export type PlatformSettingsEntity = EntityResponse
+export type PlatformSettingValue = SettingValue
+export type PlatformSettingsCollection = CollectionResponse
 
 export async function listPlatformSettingsVersions(token: string): Promise<PlatformSettingsCollection> {
   return unwrap<PlatformSettingsCollection>(
-    await generated.listPlatformSettingsVersions({ limit: 50 }, requestInit(token)),
+    await listGeneratedPlatformSettingsVersions({ limit: 50 }, requestInit(token)),
   )
 }
 
 export async function getCurrentPlatformSettings(token: string): Promise<PlatformSettingsEntity> {
   return unwrap<PlatformSettingsEntity>(
-    await generated.getCurrentPlatformSettings(requestInit(token)),
+    await getGeneratedCurrentPlatformSettings(requestInit(token)),
   )
 }
 
 export async function createPlatformSettingsDraft(token: string): Promise<PlatformSettingsEntity> {
   return unwrap<PlatformSettingsEntity>(
-    await generated.createPlatformSettingsDraft(
+    await createGeneratedPlatformSettingsDraft(
       { name: 'Platform settings draft' },
       requestInit(token, { command: true, idempotency: 'platform-settings-draft' }),
     ),
@@ -41,7 +62,7 @@ export async function setPlatformSetting(
   lockVersion: number,
 ): Promise<PlatformSettingsEntity> {
   return unwrap<PlatformSettingsEntity>(
-    await generated.setPlatformSetting(
+    await setGeneratedPlatformSetting(
       versionId,
       settingKey,
       value,
@@ -56,7 +77,7 @@ export async function validatePlatformSettingsVersion(
   lockVersion: number,
 ): Promise<PlatformSettingsEntity> {
   return unwrap<PlatformSettingsEntity>(
-    await generated.transitionPlatformSettingsVersion(
+    await transitionPlatformSettingsVersion(
       versionId,
       'validate',
       requestInit(token, { mutation: true, lockVersion }),
@@ -70,7 +91,7 @@ export async function publishPlatformSettingsVersion(
   lockVersion: number,
 ): Promise<PlatformSettingsEntity> {
   return unwrap<PlatformSettingsEntity>(
-    await generated.transitionPlatformSettingsVersion(
+    await transitionPlatformSettingsVersion(
       versionId,
       'publish',
       requestInit(token, { command: true, idempotency: 'platform-settings-publish', lockVersion }),
@@ -80,36 +101,37 @@ export async function publishPlatformSettingsVersion(
 
 export async function getPlatformOperationsOverview(token: string): Promise<PlatformSettingsEntity> {
   return unwrap<PlatformSettingsEntity>(
-    await generated.getPlatformOperationsOverview(requestInit(token)),
+    await getGeneratedPlatformOperationsOverview(requestInit(token)),
   )
 }
 
 export async function getPlatformHealth(token: string): Promise<PlatformSettingsEntity> {
-  return unwrap<PlatformSettingsEntity>(await generated.getPlatformHealth(requestInit(token)))
+  return unwrap<PlatformSettingsEntity>(await getGeneratedPlatformHealth(requestInit(token)))
 }
 
 export async function getPlatformBackups(token: string): Promise<PlatformSettingsEntity> {
-  return unwrap<PlatformSettingsEntity>(await generated.getPlatformBackups(requestInit(token)))
+  return unwrap<PlatformSettingsEntity>(await getGeneratedPlatformBackups(requestInit(token)))
 }
 
-export type BusinessCalendar = generated.EntityResponse
-export type BusinessCalendarList = generated.CollectionResponse
+export type BusinessCalendar = EntityResponse
+export type BusinessCalendarList = CollectionResponse
+export type BusinessCalendarCreateInput = BusinessCalendarCreate
 
 export async function listBusinessCalendars(
   token: string,
-  params: { scope?: 'platform' | 'cluster' | 'facility'; cursor?: string } = {},
+  params: ListPlatformSettingsCalendarsParams = {},
 ): Promise<BusinessCalendarList> {
   return unwrap<BusinessCalendarList>(
-    await generated.listPlatformSettingsCalendars(params, requestInit(token)),
+    await listPlatformSettingsCalendars(params, requestInit(token)),
   )
 }
 
 export async function createBusinessCalendar(
   token: string,
-  body: generated.BusinessCalendarCreate,
+  body: BusinessCalendarCreate,
 ): Promise<BusinessCalendar> {
   return unwrap<BusinessCalendar>(
-    await generated.createPlatformSettingsCalendar(
+    await createPlatformSettingsCalendar(
       body,
       requestInit(token, { command: true, idempotency: 'business-calendar-create' }),
     ),
@@ -120,11 +142,11 @@ export async function setBusinessCalendarWeekday(
   token: string,
   calendarId: string,
   weekday: number,
-  body: generated.BusinessCalendarWeekday,
+  body: BusinessCalendarWeekday,
   lockVersion: number,
 ): Promise<BusinessCalendar> {
   return unwrap<BusinessCalendar>(
-    await generated.setPlatformSettingsCalendarWeekday(
+    await setPlatformSettingsCalendarWeekday(
       calendarId,
       weekday,
       body,
@@ -137,11 +159,11 @@ export async function setBusinessCalendarException(
   token: string,
   calendarId: string,
   date: string,
-  body: generated.BusinessCalendarException,
+  body: BusinessCalendarException,
   lockVersion: number,
 ): Promise<BusinessCalendar> {
   return unwrap<BusinessCalendar>(
-    await generated.setPlatformSettingsCalendarException(
+    await setPlatformSettingsCalendarException(
       calendarId,
       date,
       body,
@@ -156,7 +178,7 @@ export async function publishBusinessCalendar(
   lockVersion: number,
 ): Promise<BusinessCalendar> {
   return unwrap<BusinessCalendar>(
-    await generated.publishPlatformSettingsCalendar(
+    await publishPlatformSettingsCalendar(
       calendarId,
       requestInit(token, { command: true, idempotency: 'business-calendar-publish', lockVersion }),
     ),

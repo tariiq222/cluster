@@ -1,5 +1,8 @@
 # 01 · البنية العامة والمعمارية (Cluster R3)
 
+> **خط أساس تاريخي — 2026-07-25.** الوصف التفصيلي مفيد، لكن المقاييس
+> والمخاطر الحالية تؤخذ من [`SUMMARY.md`](SUMMARY.md) و[`17-cross-cutting-risks.md`](17-cross-cutting-risks.md).
+
 ## 1 · ملخّص معماري
 
 Cluster مبنيّ كـ **Laravel 13.8 Modular Monolith** على نمط **Module Layered Architecture** يفصل كل موديول إلى خمس طبقات:

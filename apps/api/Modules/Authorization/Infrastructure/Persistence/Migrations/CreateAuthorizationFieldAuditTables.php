@@ -36,7 +36,7 @@ return new class extends Migration
 
         Schema::create('sensitive_access_events', function (Blueprint $table): void {
             $table->uuid('id')->primary();
-            $table->uuid('access_decision_id');
+            $table->uuid('access_decision_id')->nullable();
             $table->uuid('actor_user_id');
             $table->uuid('original_actor_user_id');
             $table->string('resource_type', 64);

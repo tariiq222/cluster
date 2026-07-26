@@ -93,13 +93,13 @@ use Modules\PlatformSettings\Features\Settings\Http\ListSettingsVersionsControll
 use Modules\PlatformSettings\Features\Settings\Http\PublishSettingsVersionController;
 use Modules\PlatformSettings\Features\Settings\Http\UpdateSettingsValueController;
 use Modules\PlatformSettings\Features\Settings\Http\ValidateSettingsVersionController;
+use Modules\Reporting\Features\Dashboards\Http\GetDashboardController;
+use Modules\Reporting\Features\Exports\Http\CreateReportExportController;
+use Modules\Reporting\Features\Exports\Http\DownloadExportController;
 use Modules\Reporting\Features\ListDashboards\Http\ListDashboardsController;
 use Modules\Reporting\Features\ListReports\Http\ListReportsController;
-use Modules\Reporting\Http\CreateReportExportController;
-use Modules\Reporting\Http\DownloadExportController;
-use Modules\Reporting\Http\GetDashboardController;
-use Modules\Reporting\Http\GetReportController;
-use Modules\Search\Http\SearchController;
+use Modules\Reporting\Features\Reports\Http\GetReportController;
+use Modules\Search\Features\Search\Http\SearchController;
 use Modules\Tasks\Features\Http\TaskController;
 use Modules\Tasks\Features\Http\TaskEngagementController;
 use Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController;
@@ -160,8 +160,8 @@ Route::prefix('api/v1')->group(function (): void {
     });
     Route::middleware([
         IdentitySessionMiddleware::class,
-        IdentityCsrfMiddleware::class,
         RequireIdentitySessionPrincipal::class,
+        IdentityCsrfMiddleware::class,
     ])->group(function (): void {
         Route::post('reports/{reportId}/exports', CreateReportExportController::class);
     });
@@ -230,7 +230,7 @@ Route::prefix('api/v1')->group(function (): void {
         Route::post('platform-settings/versions/{versionId}/validate', ValidateSettingsVersionController::class);
         Route::post('platform-settings/versions/{versionId}/publish', PublishSettingsVersionController::class);
         Route::post('platform-settings/calendars', [BusinessCalendarController::class, 'store']);
-        Route::put('platform-settings/calendars/{calendarId}/weekdays/{weekday}', [BusinessCalendarController::class, 'setWeekday'])->where('weekday', '[0-6]');
+        Route::put('platform-settings/calendars/{calendarId}/weekdays/{weekday}', [BusinessCalendarController::class, 'setWeekday'])->where('weekday', '[1-7]');
         Route::put('platform-settings/calendars/{calendarId}/exceptions/{date}', [BusinessCalendarController::class, 'setException'])->where('date', '\d{4}-\d{2}-\d{2}');
         Route::post('platform-settings/calendars/{calendarId}/publish', [BusinessCalendarController::class, 'publish']);
         Route::post('platform-operations/backups', DispatchBackupController::class);

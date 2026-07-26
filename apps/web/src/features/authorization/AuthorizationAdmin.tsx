@@ -105,6 +105,12 @@ export function authorizationTransitionForStatus(resource: AuthorizationResource
   return STATUS_TRANSITIONS[nextStatus] ?? null
 }
 
+export function canMutateAuthorizationResource(resource: AdminResource, capabilities: readonly string[]): boolean {
+  if (resource === 'role-assignments') return capabilities.includes('authorization.assignment.manage')
+  if (resource === 'delegations') return capabilities.includes('authorization.delegation.manage')
+  return false
+}
+
 
 function StatusPanel({ state, text, retry }: { state: AdminState; text: Labels; retry: () => void }) {
   if (state === 'loading') return <SkeletonList label={text.loading} />
@@ -292,19 +298,54 @@ export function RoleCapabilityMatrix({ items, locale }: { items: AuthorizationIt
   const text = labels[locale]
   return <Panel id="role-capability-heading" title={text.roleMatrix} level={2}><p>{screenCopy[locale].readOnlyServerDataPolicy}</p><ItemTable items={items} locale={locale} /></Panel>
 }
-
-export function AuthorizationState({ state, locale, onRetry }: { state: AdminState; locale: Locale; onRetry: () => void }) {
-  return <StatusPanel state={state} text={labels[locale]} retry={onRetry} />
-}
-
-export function AuthorizationAdmin({ resource }: { resource: AdminResource }) {
+export function AuthorizationAdmin({ resource, capabilities }: { resource: AdminResource; capabilities: readonly string[] }) {
   const locale = useLocale()
   const token = useToken()
-  const text = labels[locale]; const [items, setItems] = useState<AuthorizationItem[]>([]); const [state, setState] = useState<AdminState>('loading'); const [selected, setSelected] = useState<AuthorizationItem | null>(null)
-  const load = useCallback(async () => { setState('loading'); setSelected(null); try { const result = resource === 'supervisory' ? await listSupervisoryRelationships(token) : await listAuthorization(resource, token); setItems(result); setState(result.length ? 'ready' : 'empty') } catch (error) { setState(stateFromError(error)) } }, [resource, token])
+  const [state, setState] = useState<AdminState>('loading')
+  const [items, setItems] = useState<AuthorizationItem[]>([])
+  const [selected, setSelected] = useState<AuthorizationItem | null>(null)
+  const load = useCallback(async () => {
+    setState('loading')
+    try {
+      const result = resource === 'supervisory' ? await listSupervisoryRelationships(token) : await listAuthorization(resource, token)
+      setItems(result.items ?? [])
+      setSelected(null)
+      setState(result.items?.length ? 'ready' : 'empty')
+    } catch (caught) {
+      setState(stateFromError(caught) as AdminState)
+    }
+  }, [resource, token])
   useEffect(() => { void load() }, [load])
-  const title = text[resource]; const matrix = useMemo(() => resource === 'roles' || resource === 'capabilities', [resource])
-  return <div dir={directionForLocale(locale)} aria-labelledby="authorization-heading"><Page className="authorization-page"><PageHeader id="authorization-heading" title={title} description={text.intro} />{(resource === 'role-assignments' || resource === 'delegations') && <Panel id="authorization-wizard-heading" title={text.wizard} level={2}><AdminForm resource={resource} locale={locale} token={token} onSaved={load} /></Panel>}{state === 'loading' || state === 'empty' || state === 'forbidden' || state === 'not-found' || state === 'conflict' || state === 'stale' || state === 'error' ? <StatusPanel state={state} text={text} retry={() => void load()} /> : <><ItemTable items={items} locale={locale} onSelect={setSelected} />{selected && resource !== 'supervisory' && <Panel id="authorization-edit-heading" title={text.update} level={2}><EditPanel resource={resource} item={selected} locale={locale} token={token} onSaved={load} /></Panel>}{matrix && <RoleCapabilityMatrix items={items} locale={locale} />}</>}</Page></div>
+  const canMutate = canMutateAuthorizationResource(resource, capabilities)
+  const text = labels[locale]
+  const matrix = resource === 'roles' || resource === 'capabilities'
+  const terminalState = state === 'loading' || state === 'empty' || state === 'forbidden' || state === 'not-found' || state === 'conflict' || state === 'stale' || state === 'error'
+  return (
+    <div dir={directionForLocale(locale)} aria-labelledby="authorization-heading">
+      <Page className="authorization-page">
+        <PageHeader id="authorization-heading" title={text[resource]} description={screenCopy[locale].intro} />
+        {canMutate && (resource === 'role-assignments' || resource === 'delegations') ? (
+          <Panel id="authorization-wizard-heading" title={text.wizard} level={2}>
+            <AdminForm resource={resource} locale={locale} token={token} onSaved={load} />
+          </Panel>
+        ) : null}
+        {terminalState ? (
+          <StatusPanel state={state} text={text} retry={() => void load()} />
+        ) : matrix ? (
+          <RoleCapabilityMatrix items={items} locale={locale} />
+        ) : (
+          <>
+            <ItemTable items={items} locale={locale} onSelect={canMutate ? setSelected : undefined} />
+            {selected && canMutate && resource !== 'supervisory' ? (
+              <Panel id="authorization-edit-heading" title={text.update} level={2}>
+                <EditPanel resource={resource} item={selected} locale={locale} token={token} onSaved={load} />
+              </Panel>
+            ) : null}
+          </>
+        )}
+      </Page>
+    </div>
+  )
 }
 
 export function AccessExplanation({ decisionId }: { decisionId?: string }) {

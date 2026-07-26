@@ -12,6 +12,7 @@ use Modules\PlatformSettings\Domain\CalendarException;
 use Modules\PlatformSettings\Domain\CalendarScope;
 use Modules\PlatformSettings\Domain\WorkingWeek;
 use Modules\PlatformSettings\Features\Calendars\Handler\BusinessCalendarHandler;
+use Modules\PlatformSettings\Infrastructure\Persistence\PlatformSettingsIdempotency;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\PreconditionFailedHttpException;
 use Throwable;
@@ -97,17 +98,48 @@ final class BusinessCalendarController
             if ($etag === null) {
                 return $this->api->problem(412, 'precondition-required', 'Precondition Failed', 'If-Match is required.', $context['correlation_id']);
             }
-            $updated = DB::table('business_calendars')->where('id', $calendarId)->where('lock_version', $etag)->where('status', 'draft')->update(['status' => 'published', 'lock_version' => $etag + 1, 'updated_at' => now()]);
-            if ($updated !== 1) {
-                return $this->api->problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current calendar.', $context['correlation_id']);
+            $key = $this->api->idempotencyKey($request);
+            if ($key === null) {
+                return $this->api->problem(400, 'invalid-idempotency-key', 'Bad Request', 'Idempotency-Key is required.', $context['correlation_id']);
             }
+            $result = PlatformSettingsIdempotency::run(
+                $context['principal']['user_id'],
+                'platform_settings.calendar.publish',
+                $key,
+                hash('sha256', json_encode(['calendar_id' => $calendarId, 'if_match' => $etag], JSON_THROW_ON_ERROR)),
+                function () use ($calendarId, $etag): array {
+                    $updated = DB::table('business_calendars')
+                        ->where('id', $calendarId)
+                        ->where('lock_version', $etag)
+                        ->where('status', 'draft')
+                        ->update([
+                            'status' => 'published',
+                            'lock_version' => $etag + 1,
+                            'updated_at' => now(),
+                        ]);
+                    if ($updated !== 1) {
+                        throw new PreconditionFailedHttpException('If-Match does not match the current calendar.');
+                    }
 
-            return $this->calendarResponse($calendarId, $context);
+                    return $this->present(DB::table('business_calendars')->where('id', $calendarId)->first(), []);
+                },
+            );
+            if (! $result['request_hash_matches']) {
+                return $this->api->problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $context['correlation_id']);
+            }
+            $body = $result['payload'];
+            $body['allowed_actions'] = $context['decision']->allowedActions;
+
+            return $this->api->response($body, 200, $context['correlation_id'], (int) $body['lock_version']);
         });
     }
 
     private function mutate(Request $request, string $calendarId, string $capability, \Closure $callback): JsonResponse
     {
+        $gate = $this->api->authorize($request, $capability, $this->api->facts('business_calendar', $calendarId));
+        if ($gate instanceof JsonResponse) {
+            return $gate;
+        }
         $calendar = DB::table('business_calendars')->where('id', $calendarId)->first();
         if ($calendar === null) {
             return $this->api->problem(404, 'resource-not-found', 'Not Found', 'Business calendar was not found.', $this->api->correlationId($request));

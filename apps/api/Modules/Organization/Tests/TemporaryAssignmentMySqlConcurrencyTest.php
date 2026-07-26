@@ -61,7 +61,7 @@ final class TemporaryAssignmentMySqlConcurrencyTest extends TestCase
 
         try {
             $result = (new ExpireTemporaryAssignmentsHandler(
-                new OrganizationOutbox,
+                $this->app->make(OrganizationOutbox::class),
                 new TemporaryAssignmentEventFactory,
             ))->handle(1, self::ACTOR_ID, self::CORRELATION_ID);
 
@@ -201,7 +201,7 @@ final class TemporaryAssignmentMySqlConcurrencyTest extends TestCase
             ];
             try {
                 (new TemporaryAssignmentHandler(
-                    new OrganizationOutbox,
+                    $this->app->make(OrganizationOutbox::class),
                     new TemporaryAssignmentEventFactory,
                     new AlwaysActiveTemporaryAssignmentCapabilityValidator,
                 ))->create(

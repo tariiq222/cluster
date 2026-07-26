@@ -4,7 +4,9 @@ namespace Modules\Reporting\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Shared\Http\ProblemEnvelope;
 
 final class ReportingApi
 {
@@ -25,10 +27,10 @@ final class ReportingApi
 
     public static function problem(int $status, string $type, string $title, string $detail, ?string $correlationId = null): JsonResponse
     {
-        $response = response()->json(['type' => "https://cluster.example/problems/{$type}", 'title' => $title, 'status' => $status, 'detail' => $detail], $status)
-            ->header('Content-Type', 'application/problem+json');
+        $resolvedCorrelationId = $correlationId ?? Str::uuid7()->toString();
 
-        return $correlationId === null ? $response : $response->header('X-Correlation-ID', $correlationId);
+        return ProblemEnvelope::make($status, $type, $title, $resolvedCorrelationId, ['detail' => $detail])
+            ->header('X-Correlation-ID', $resolvedCorrelationId);
     }
 
     /** @param array<string, mixed> $body */

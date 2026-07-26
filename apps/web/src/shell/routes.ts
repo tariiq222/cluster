@@ -56,7 +56,6 @@ export const PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES = [
   'platform_settings.calendar.read',
   'platform_operations.backup.read',
   'platform_operations.health.read',
-  'platform_operations.maintenance.manage',
 ] as const
 
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -341,9 +340,10 @@ function routeCapabilities(route: AppRoute): readonly string[] | null {
     case 'access-context':
     case 'personal-security':
     case 'notifications':
-    case 'search':
     case 'not-found':
       return null
+    case 'search':
+      return ['search.query']
     case 'documents':
     case 'document-detail':
       return ['documents.read', 'documents.list']

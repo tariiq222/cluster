@@ -36,6 +36,11 @@ npm --prefix apps/web run api:lint       # redocly lint on every source
 npm --prefix apps/web run api:check      # lint + check-generated-api (drift guard)
 ```
 
+Run `make docs-validate` to execute the focused Notifications,
+Authentication, WorkRecords, W1.1, and W1.2 validators plus YAML/JSON and
+Markdown-link checks. The repository intentionally uses a lean documentation
+tree; the removed catalog/MkDocs registry is not a prerequisite.
+
 ## Editing rules
 
 1. **Edit the source here**, never the intermediate bundle in `apps/web/.orval/`.

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Authorization\Contracts\RecordSensitiveAccessEvent;
 use Modules\Documents\Application\AuthorizedDocumentActor;
 use Modules\Documents\Application\CompleteDocumentUpload;
 use Modules\Documents\Application\DocumentAccessRequest;
@@ -245,7 +246,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
                     return new DocumentDownloadGrant($documentId, $versionId, 'https://download.invalid/'.$versionId, new DateTimeImmutable('+5 minutes'), 'test-correlation');
                 }
             },
-            new DatabaseSensitiveAccessEventRecorder,
+            new DatabaseSensitiveAccessEventRecorder($this->app->make(RecordSensitiveAccessEvent::class)),
         );
     }
 

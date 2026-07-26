@@ -4,10 +4,15 @@ namespace Modules\Tasks\Infrastructure\Persistence;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Workflow\Contracts\WorkflowStepExists;
 use stdClass;
 
 final class TaskHttpStore
 {
+    public function __construct(
+        private readonly WorkflowStepExists $workflowStepExists,
+    ) {}
+
     /** @return list<stdClass> */
     public function listForAssignee(string $userId): array
     {
@@ -57,7 +62,7 @@ final class TaskHttpStore
 
     public function workflowStepExists(string $stepId): bool
     {
-        return DB::table('workflow_step_instances')->where('id', $stepId)->exists();
+        return $this->workflowStepExists->exists($stepId);
     }
 
     public function transition(string $taskId, int $expectedVersion, string $status): ?stdClass

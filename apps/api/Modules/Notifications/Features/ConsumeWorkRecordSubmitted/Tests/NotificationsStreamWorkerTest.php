@@ -233,7 +233,7 @@ class NotificationsStreamWorkerTest extends TestCase
     private function requireAsyncImplementation(): void
     {
         if (! interface_exists(RedisStreamTransport::class)
-            || ! class_exists('Modules\\WorkRecords\\Infrastructure\\Outbox\\Relay\\RedisOutboxRelay')
+            || ! class_exists('Shared\\Infrastructure\\Outbox\\Relay\\RedisOutboxRelay')
             || ! class_exists(ConsumeWorkRecordSubmittedHandler::class)
             || ! class_exists(NotificationsStreamWorker::class)) {
             $this->markTestSkipped('The relay suite owns the deliberate missing-implementation RED marker.');

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../api'
 import * as api from '../../api/platform-settings'
 import { BusinessCalendarsScreen } from './BusinessCalendarsScreen'
@@ -8,6 +8,9 @@ import type { CollectionResponse } from '../../api/generated/cluster'
 
 afterEach(cleanup)
 afterEach(() => vi.restoreAllMocks())
+beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() })
+})
 
 describe('BusinessCalendarsScreen', () => {
   it('shows the empty state and hides official-holiday override without resource data', () => {
@@ -66,18 +69,78 @@ describe('BusinessCalendarsScreen', () => {
     expect(screen.getAllByText('مصدر: الخادم').length).toBe(2)
   })
 
-  it('calls the real create endpoint when the create button is pressed', async () => {
+  it('creates a platform calendar with the canonical literal scope id', async () => {
     const createSpy = vi.spyOn(api, 'createBusinessCalendar').mockResolvedValue({} as never)
     render(
       <BusinessCalendarsScreen
         locale="en"
-        allowedActions={['platform_settings.calendar.publish']}
+        allowedActions={['platform_settings.calendar.manage']}
         token="csrf-token"
       />,
     )
+    expect(screen.queryByLabelText('Scope ID')).toBeNull()
     screen.getByRole('button', { name: 'Create calendar' }).click()
     await waitFor(() => expect(createSpy).toHaveBeenCalledTimes(1))
-    expect(createSpy).toHaveBeenCalledWith('csrf-token', expect.objectContaining({ scope_type: 'platform' }))
+    expect(createSpy).toHaveBeenCalledWith('csrf-token', {
+      scope_type: 'platform',
+      scope_id: 'platform',
+      parent_calendar_id: null,
+    })
+  })
+
+  it('requires a valid UUID and sends the entered cluster scope id', async () => {
+    const createSpy = vi.spyOn(api, 'createBusinessCalendar').mockResolvedValue({} as never)
+    render(
+      <BusinessCalendarsScreen
+        locale="en"
+        allowedActions={['platform_settings.calendar.manage']}
+        token="csrf-token"
+      />,
+    )
+
+    screen.getByRole('button', { name: 'Calendar scope' }).click()
+    fireEvent.click(await screen.findByRole('option', { name: 'Cluster' }))
+    const scopeId = screen.getByRole('textbox', { name: /^Scope ID/ })
+    const createButton = screen.getByRole('button', { name: 'Create calendar' }) as HTMLButtonElement
+    expect(createButton.disabled).toBe(true)
+
+    fireEvent.change(scopeId, { target: { value: 'cluster' } })
+    expect(createButton.disabled).toBe(true)
+    const clusterId = '01980f50-5f0d-7000-8000-000000000912'
+    fireEvent.change(scopeId, { target: { value: clusterId } })
+    expect(createButton.disabled).toBe(false)
+    createButton.click()
+
+    await waitFor(() => expect(createSpy).toHaveBeenCalledTimes(1))
+    expect(createSpy).toHaveBeenCalledWith('csrf-token', {
+      scope_type: 'cluster',
+      scope_id: clusterId,
+      parent_calendar_id: null,
+    })
+  })
+
+  it('shows a labeled facility scope id input and sends its UUID', async () => {
+    const createSpy = vi.spyOn(api, 'createBusinessCalendar').mockResolvedValue({} as never)
+    render(
+      <BusinessCalendarsScreen
+        locale="en"
+        allowedActions={['platform_settings.calendar.manage']}
+        token="csrf-token"
+      />,
+    )
+
+    screen.getByRole('button', { name: 'Calendar scope' }).click()
+    fireEvent.click(await screen.findByRole('option', { name: 'Facility' }))
+    const facilityId = '01980f50-5f0d-7000-8000-000000000913'
+    fireEvent.change(screen.getByRole('textbox', { name: /^Scope ID/ }), { target: { value: facilityId } })
+    screen.getByRole('button', { name: 'Create calendar' }).click()
+
+    await waitFor(() => expect(createSpy).toHaveBeenCalledTimes(1))
+    expect(createSpy).toHaveBeenCalledWith('csrf-token', {
+      scope_type: 'facility',
+      scope_id: facilityId,
+      parent_calendar_id: null,
+    })
   })
 
   it('surfaces the API error message when calendar creation fails', async () => {
@@ -90,7 +153,7 @@ describe('BusinessCalendarsScreen', () => {
     render(
       <BusinessCalendarsScreen
         locale="en"
-        allowedActions={['platform_settings.calendar.publish']}
+        allowedActions={['platform_settings.calendar.manage']}
         token="csrf-token"
       />,
     )
@@ -98,7 +161,7 @@ describe('BusinessCalendarsScreen', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Scope id is required.'))
   })
 
-  it('calls setBusinessCalendarWeekday with the displayed lock version and weekday payload', async () => {
+  it('uses ISO Sunday 7 when marking Sunday off', async () => {
     const weekdaySpy = vi.spyOn(api, 'setBusinessCalendarWeekday').mockResolvedValue({} as never)
     const collection: CollectionResponse = {
       items: [
@@ -124,13 +187,13 @@ describe('BusinessCalendarsScreen', () => {
         token="csrf-token"
       />,
     )
-    screen.getByRole('button', { name: 'Mark Monday working' }).click()
+    screen.getByRole('button', { name: 'Mark Sunday off' }).click()
     await waitFor(() => expect(weekdaySpy).toHaveBeenCalledTimes(1))
     expect(weekdaySpy).toHaveBeenCalledWith(
       'csrf-token',
       '01980f50-5f0d-7000-8000-000000000911',
-      1,
-      expect.objectContaining({ is_working_day: true, starts_at: '08:00', ends_at: '16:00' }),
+      7,
+      expect.objectContaining({ is_working_day: false, starts_at: '', ends_at: '' }),
       3,
     )
   })
@@ -193,11 +256,8 @@ describe('BusinessCalendarsScreen', () => {
       />,
     )
     screen.getByRole('button', { name: 'Request official-holiday work' }).click()
-    await waitFor(() => {
-      const input = document.getElementById('calendar-exception-date') as HTMLInputElement | null
-      expect(input, 'date input must be present in the drawer').toBeTruthy()
-    })
-    const dateInput = document.getElementById('calendar-exception-date') as HTMLInputElement
+    const dateInput = await screen.findByLabelText('Date')
+    expect(screen.getByRole('button', { name: 'Exception type' }).textContent).toContain('Official-holiday work override')
     fireEvent.change(dateInput, { target: { value: '2099-06-15' } })
     screen.getByRole('button', { name: 'Confirm request' }).click()
     await waitFor(() => expect(exceptionSpy).toHaveBeenCalledTimes(1))
@@ -205,7 +265,7 @@ describe('BusinessCalendarsScreen', () => {
       'csrf-token',
       '01980f50-5f0d-7000-8000-000000000911',
       '2099-06-15',
-      expect.objectContaining({ type: 'official_holiday', is_working_day: true, starts_at: '08:00', ends_at: '16:00' }),
+      expect.objectContaining({ type: 'official_holiday_work_override', is_working_day: true, starts_at: '08:00', ends_at: '16:00' }),
       5,
     )
   })
@@ -219,7 +279,7 @@ describe('BusinessCalendarsScreen', () => {
     render(
       <BusinessCalendarsScreen
         locale="en"
-        allowedActions={['platform_settings.calendar.publish']}
+        allowedActions={['platform_settings.calendar.manage']}
         token="csrf-token"
       />,
     )

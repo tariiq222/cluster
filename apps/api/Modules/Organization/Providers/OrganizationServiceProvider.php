@@ -8,6 +8,7 @@ use Modules\Organization\Contracts\GetDefaultClusterId;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use Modules\Organization\Contracts\ResolveQuarantinedImport;
+use Modules\Organization\Contracts\ResolveScopeDescendants;
 use Modules\Organization\Contracts\ValidatePersonReference;
 use Modules\Organization\Features\TemporaryAssignment\Console\HandlerTemporaryAssignmentExpiration;
 use Modules\Organization\Features\TemporaryAssignment\Console\RunTemporaryAssignmentExpiration;
@@ -22,6 +23,7 @@ use Modules\Organization\Infrastructure\Persistence\DatabaseGetActiveSupervisory
 use Modules\Organization\Infrastructure\Persistence\DatabaseGetDefaultClusterId;
 use Modules\Organization\Infrastructure\Persistence\DatabaseResolveOrganizationScopeAncestry;
 use Modules\Organization\Infrastructure\Persistence\DatabaseResolvePersonOrganizationScope;
+use Modules\Organization\Infrastructure\Persistence\DatabaseResolveScopeDescendants;
 use Modules\Organization\Infrastructure\Persistence\ValidatePersonReferenceFromPersistence;
 
 final class OrganizationServiceProvider extends ServiceProvider
@@ -34,6 +36,7 @@ final class OrganizationServiceProvider extends ServiceProvider
         $this->app->bind(GetDefaultClusterId::class, DatabaseGetDefaultClusterId::class);
         $this->app->bind(ResolvePersonOrganizationScope::class, DatabaseResolvePersonOrganizationScope::class);
         $this->app->bind(ResolveOrganizationScopeAncestry::class, DatabaseResolveOrganizationScopeAncestry::class);
+        $this->app->bind(ResolveScopeDescendants::class, DatabaseResolveScopeDescendants::class);
         $this->app->bind(TemporaryAssignmentHttpGateway::class, DatabaseTemporaryAssignmentHttpGateway::class);
         $this->app->bind(RunTemporaryAssignmentExpiration::class, HandlerTemporaryAssignmentExpiration::class);
         $this->app->bind(BuildTemporaryAssignmentEvent::class, TemporaryAssignmentEventFactory::class);

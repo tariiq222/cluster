@@ -72,7 +72,7 @@ class TemporaryAssignmentTest extends TestCase
             'records.read',
         ]);
         $this->handler = new TemporaryAssignmentHandler(
-            new OrganizationOutbox,
+            $this->app->make(OrganizationOutbox::class),
             new TemporaryAssignmentEventFactory,
             $this->capabilityValidator,
         );
@@ -425,7 +425,7 @@ class TemporaryAssignmentTest extends TestCase
             'state' => 'active',
         ]);
 
-        $expirer = new ExpireTemporaryAssignmentsHandler(new OrganizationOutbox, new TemporaryAssignmentEventFactory);
+        $expirer = new ExpireTemporaryAssignmentsHandler($this->app->make(OrganizationOutbox::class), new TemporaryAssignmentEventFactory);
         $firstBatch = $expirer->handle(1, self::ACTOR_ID, self::CORRELATION_ID);
         $this->assertSame(1, $firstBatch['expired_count']);
         $this->assertTrue($firstBatch['has_more']);
@@ -503,7 +503,7 @@ class TemporaryAssignmentTest extends TestCase
     {
         $eventId = Str::uuid7()->toString();
         $handler = new TemporaryAssignmentHandler(
-            new OrganizationOutbox,
+            $this->app->make(OrganizationOutbox::class),
             new FixedTemporaryAssignmentEventFactory($eventId),
             $this->capabilityValidator,
         );

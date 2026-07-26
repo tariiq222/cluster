@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Modules\Organization\Infrastructure\Outbox\Relay;
 
-use Illuminate\Support\Facades\DB;
+use Shared\Contracts\OutboxRelayStore;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 
 final class OrganizationPersonOutboxRelay
@@ -16,29 +18,28 @@ final class OrganizationPersonOutboxRelay
 
     private const MAX_BATCH_SIZE = 100;
 
-    public function __construct(private readonly RedisStreamTransport $transport) {}
+    public function __construct(
+        private readonly OutboxRelayStore $outbox,
+        private readonly RedisStreamTransport $transport,
+    ) {}
 
     public function relayPending(int $limit = 100): int
     {
-        $events = DB::table('outbox_events')
-            ->whereNull('published_at')
-            ->whereIn('event_type', array_keys(self::STREAMS))
-            ->orderBy('occurred_at')
-            ->orderBy('event_id')
-            ->limit(max(1, min($limit, self::MAX_BATCH_SIZE)))
-            ->get();
+        $events = $this->outbox->pending(
+            array_keys(self::STREAMS),
+            max(1, min($limit, self::MAX_BATCH_SIZE)),
+        );
 
         $published = 0;
         foreach ($events as $event) {
-            DB::table('outbox_events')->where('event_id', $event->event_id)->whereNull('published_at')->increment('delivery_attempts');
-            $cloudEvent = json_decode((string) $event->cloud_event, true, 512, JSON_THROW_ON_ERROR);
-            $this->transport->xadd(self::STREAMS[$event->event_type], [
-                'event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR),
+            $this->outbox->recordAttempt($event->eventId);
+            $this->transport->xadd(self::STREAMS[$event->eventType], [
+                'event' => json_encode($event->payload, JSON_THROW_ON_ERROR),
             ]);
-            $published += DB::table('outbox_events')->where('event_id', $event->event_id)->whereNull('published_at')->update([
-                'published_at' => now(),
-                'updated_at' => now(),
-            ]);
+
+            if ($this->outbox->markPublished($event->eventId)) {
+                $published++;
+            }
         }
 
         return $published;

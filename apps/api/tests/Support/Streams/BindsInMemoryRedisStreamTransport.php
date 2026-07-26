@@ -3,7 +3,7 @@
 namespace Tests\Support\Streams;
 
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
-use Modules\WorkRecords\Infrastructure\Outbox\Relay\RedisOutboxRelay;
+use Shared\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 
 trait BindsInMemoryRedisStreamTransport

@@ -1,5 +1,8 @@
 # 10 · موديول Notifications (التنبيهات)
 
+> **خط أساس تاريخي — 2026-07-25.** الوصف التفصيلي مفيد، لكن المقاييس
+> والمخاطر الحالية تؤخذ من [`SUMMARY.md`](SUMMARY.md) و[`17-cross-cutting-risks.md`](17-cross-cutting-risks.md).
+
 > **المسار:** `apps/api/Modules/Notifications/`
 > **Rank:** 11
 > **عدد الملفات:** 15 PHP

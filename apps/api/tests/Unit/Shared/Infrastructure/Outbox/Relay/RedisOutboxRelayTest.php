@@ -1,12 +1,12 @@
 <?php
 
-namespace Modules\WorkRecords\Infrastructure\Outbox\Relay\Tests;
+namespace Tests\Unit\Shared\Infrastructure\Outbox\Relay;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Mockery;
-use Modules\WorkRecords\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use RuntimeException;
+use Shared\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\TestCase;
 

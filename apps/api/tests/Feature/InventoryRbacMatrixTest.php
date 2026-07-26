@@ -24,8 +24,47 @@ class InventoryRbacMatrixTest extends TestCase
         $this->assertArrayHasKey('rows', $payload);
         $this->assertArrayHasKey('middleware_tuples', $payload);
         $this->assertCount(143, $payload['rows']);
+        // Catalog authoritative count is 128 after F072 (notifications.list
+        // removal) — see docs/architecture/architecture-closure-register.yaml.
+        // Hardcoded here deliberately: if the catalog legitimately changes,
+        // this test forces an explicit update rather than silently passing.
+        $this->assertSame(128, (int) $payload['catalog']['actual_count']);
+        $this->assertTrue($payload['catalog']['count_mismatch']);
+        $this->assertCount(128, $payload['catalog']['classifications']);
+        $this->assertSame(
+            128,
+            array_sum($payload['catalog']['classification_counts']),
+            'Every catalog capability must have exactly one classification (F072).'
+        );
+        $this->assertSame(
+            [],
+            array_values(array_filter(
+                $payload['catalog']['classifications'],
+                fn (array $row): bool => ! in_array(
+                    $row['classification'],
+                    ['used', 'intentional-ui-only', 'deprecated'],
+                    true
+                )
+            ))
+        );
+        $this->assertContains('SearchController', $payload['controllers_without_capability_checks']);
         $this->assertGreaterThanOrEqual(5, count($payload['middleware_tuples']));
         $this->assertLessThanOrEqual(8, count($payload['middleware_tuples']));
+    }
+
+    public function test_rbac_markdown_is_reproducible_from_runtime_sources(): void
+    {
+        $tmp = $this->inventoryDir('rbac-markdown');
+
+        [$exitCode, $output] = $this->runCommand(
+            sprintf('python3 scripts/inventory-routes.py --mode rbac-md --json %s', escapeshellarg($tmp))
+        );
+
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertFileEquals(
+            base_path('../../docs/api/rbac-matrix.md'),
+            $tmp.'/rbac-matrix.md'
+        );
     }
 
     public function test_s2_internal_routes_carry_internal_worker_security_warning(): void

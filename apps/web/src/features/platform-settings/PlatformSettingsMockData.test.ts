@@ -65,6 +65,31 @@ describe('platformSettings data sources', () => {
     expect(result.allowedActions).toEqual(['platform_operations.health.read', 'platform_operations.backup.run'])
   })
 
+  it('projects mutation actions only when the principal holds each exact capability', () => {
+    expect(platformSettingsMockFor('security', ['platform_settings.read']).allowedActions).toEqual([])
+    expect(platformSettingsMockFor('security', ['platform_settings.read', 'platform_settings.manage']).allowedActions)
+      .toEqual(['platform_settings.manage'])
+
+    expect(platformSettingsMockFor('calendars', ['platform_settings.calendar.read']).allowedActions).toEqual([])
+    expect(platformSettingsMockFor('calendars', ['platform_settings.calendar.read', 'platform_settings.calendar.manage']).allowedActions)
+      .toContain('platform_settings.calendar.manage')
+
+    expect(platformSettingsMockFor('backups', ['platform_operations.backup.read']).allowedActions).toEqual([])
+    const restore = platformSettingsMockFor('backups', [
+      'platform_operations.backup.read',
+      'platform_operations.restore.request',
+      'platform_operations.restore.confirm',
+    ])
+    expect(restore.allowedActions).toEqual([
+      'platform_operations.restore.request',
+      'platform_operations.restore.confirm',
+    ])
+
+    expect(platformSettingsMockFor('health', ['platform_operations.health.read']).allowedActions).toEqual([])
+    expect(platformSettingsMockFor('health', ['platform_operations.health.read', 'platform_operations.alerts.manage']).allowedActions)
+      .toEqual(['platform_operations.alerts.manage'])
+  })
+
   // RED: audit claim — inconsistent policy projection across sections.
   // Maintenance has a sub-gated `cancel` action that the mock maps to the
   // broader `manage` capability. The cancel capability alone, however, is

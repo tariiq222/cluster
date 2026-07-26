@@ -55,28 +55,57 @@ final class CiMakeSurfaceTest extends TestCase
         [$exitCode, $output] = $this->runMake('-n', 'docs-validate');
 
         $this->assertSame(0, $exitCode, $output);
-        // The target must probe every required input (validator, python3,
-        // PyYAML, docs/catalog.yaml) and route to scripts/validate-docs.sh
-        // when all are present. No silent fallback path is allowed.
+        // The target must probe the validator and runtime dependencies, then
+        // validate the lean documentation tree directly. The legacy
+        // docs/catalog.yaml registry was removed with the old docs portal.
         $this->assertStringContainsString(
             'scripts/validate-docs.sh',
             $output,
             'docs-validate must wire to scripts/validate-docs.sh',
         );
-        $this->assertStringContainsString(
+        $this->assertStringNotContainsString(
             'docs/catalog.yaml',
             $output,
-            'docs-validate must probe docs/catalog.yaml as a hard prereq',
+            'docs-validate must not require the removed legacy catalog',
         );
         $this->assertStringContainsString(
-            'docs/validate-docs.sh is missing',
+            'scripts/validate-docs.sh is missing',
             $output,
             'docs-validate must surface a missing validator as a labeled failure',
         );
         $this->assertStringContainsString(
-            'docs/catalog.yaml is missing',
+            'PyYAML is missing',
             $output,
-            'docs-validate must surface a missing catalog as a labeled failure',
+            'docs-validate must surface a missing parser dependency',
+        );
+    }
+
+    public function test_task1_docs_validate_runs_the_architecture_closure_validator(): void
+    {
+        // Task 1 wires the architecture-closure validator into the docs
+        // documentation gate. The register and validator must both exist on
+        // disk, the Makefile must expose the docs-validate target, and the
+        // validator entry point must be invoked from scripts/validate-docs.sh.
+        $makefile = (string) file_get_contents($this->repoRoot.'/Makefile');
+        $validator = (string) file_get_contents($this->repoRoot.'/scripts/validate-docs.sh');
+
+        $this->assertStringContainsString(
+            'docs-validate:',
+            $makefile,
+            'Makefile must expose a docs-validate target',
+        );
+        $this->assertStringContainsString(
+            'scripts/validate-architecture-closure.py',
+            $validator,
+            'validate-docs.sh must invoke the architecture-closure validator',
+        );
+        $this->assertFileExists(
+            $this->repoRoot.'/scripts/validate-architecture-closure.py',
+            'closure validator script must exist',
+        );
+        $this->assertFileExists(
+            $this->repoRoot.'/docs/architecture/architecture-closure-register.yaml',
+            'closure register YAML must exist',
         );
     }
 
@@ -85,13 +114,15 @@ final class CiMakeSurfaceTest extends TestCase
         [$exitCode, $output] = $this->runMake('-n', 'docs-validate-fast');
 
         $this->assertSame(0, $exitCode, $output);
-        // docs-validate-fast is now a strict alias of docs-validate (same
-        // prereq chain). CI uses it to surface every missing input rather
-        // than silently passing.
         $this->assertStringContainsString(
-            'docs/catalog.yaml is missing',
+            'scripts/validate-docs.sh',
             $output,
-            'docs-validate-fast must apply the same prereq checks as docs-validate',
+            'docs-validate-fast must run the same validator as docs-validate',
+        );
+        $this->assertStringNotContainsString(
+            'docs/catalog.yaml',
+            $output,
+            'docs-validate-fast must not restore the removed legacy catalog prerequisite',
         );
     }
 
@@ -414,6 +445,282 @@ final class CiMakeSurfaceTest extends TestCase
             $usageCount,
             'Makefile must reference $(PYTHON_BINARY) at least 3 times (resolution + 2 targets)',
         );
+    }
+
+    public function test_task1_closure_validator_rejects_missing_required_f_and_c_findings(): void
+    {
+        $base = self::validClosurePayload();
+
+        foreach (['F020', 'C128'] as $missingId) {
+            $payload = $base;
+            $payload['findings'] = array_values(array_filter(
+                $payload['findings'],
+                static fn (array $finding): bool => $finding['id'] !== $missingId,
+            ));
+
+            [$exit, , $stderr] = $this->validateClosurePayload($payload);
+            $this->assertSame(1, $exit, "validator must reject deletion of {$missingId}: {$stderr}");
+            $this->assertStringContainsString($missingId, $stderr);
+            $this->assertStringContainsString('required', $stderr);
+        }
+    }
+
+    public function test_task1_closure_validator_rejects_malformed_or_pre_129_cycle_ids(): void
+    {
+        foreach (['C001', 'C123', 'C0128'] as $invalidId) {
+            $payload = self::validClosurePayload();
+            $payload['findings'][] = self::finding($invalidId, 1);
+
+            [$exit, , $stderr] = $this->validateClosurePayload($payload);
+            $this->assertSame(1, $exit, "validator must reject {$invalidId}: {$stderr}");
+            $this->assertStringContainsString($invalidId, $stderr);
+            $this->assertStringContainsString('C129', $stderr);
+        }
+    }
+
+    public function test_task1_closure_validator_rejects_invalid_terminal_evidence_items(): void
+    {
+        $invalidEvidenceSets = [
+            ['plain string'],
+            [[]],
+            [['kind' => 'baseline', 'value' => 'irrelevant']],
+            [['kind' => 'source']],
+            [['kind' => 'command', 'value' => '   ']],
+        ];
+
+        foreach ($invalidEvidenceSets as $evidence) {
+            $payload = self::validClosurePayload();
+            $payload['findings'][0]['status'] = 'closed';
+            $payload['findings'][0]['evidence'] = $evidence;
+
+            [$exit, , $stderr] = $this->validateClosurePayload($payload);
+            $this->assertSame(1, $exit, 'validator must reject malformed terminal evidence: '.$stderr);
+            $this->assertStringContainsString('F020', $stderr);
+            $this->assertStringContainsString('evidence', $stderr);
+        }
+    }
+
+    public function test_task1_closure_validator_requires_non_empty_c129_evidence_and_accepts_valid_extra(): void
+    {
+        foreach ([[['kind' => 'source']], [['kind' => 'command', 'value' => '']]] as $evidence) {
+            $payload = self::validClosurePayload();
+            $payload['findings'][] = self::finding('C129', 1, $evidence);
+
+            [$exit, , $stderr] = $this->validateClosurePayload($payload);
+            $this->assertSame(1, $exit, 'validator must reject empty C129 evidence value: '.$stderr);
+            $this->assertStringContainsString('C129', $stderr);
+            $this->assertStringContainsString('non-empty', $stderr);
+        }
+
+        $payload = self::validClosurePayload();
+        $payload['findings'][] = self::finding('C129', 14);
+        [$exit, , $stderr] = $this->validateClosurePayload($payload);
+        $this->assertSame(0, $exit, 'validator must permit a valid C129+ extra: '.$stderr);
+    }
+
+    public function test_task1_closure_validator_rejects_terminal_sourced_false_entry(): void
+    {
+        $payload = self::validClosurePayload();
+        $payload['findings'][0]['sourced'] = false;
+        $payload['findings'][0]['status'] = 'closed';
+        $payload['findings'][0]['claim'] = 'UNSOURCED — synthetic fixture.';
+
+        [$exit, , $stderr] = $this->validateClosurePayload($payload);
+        $this->assertSame(1, $exit, 'validator must reject terminal sourced:false entry: '.$stderr);
+        $this->assertStringContainsString('F020', $stderr);
+        $this->assertStringContainsString('sourced: false entries cannot be terminal', $stderr);
+    }
+
+    public function test_task1_closure_validator_rejects_owner_mapping_type_and_range_violations(): void
+    {
+        $fixtures = [
+            ['index' => 0, 'owner' => 7, 'message' => 'owner_task must equal 6'],
+            ['index' => 19, 'owner' => 12, 'message' => 'owner_task must equal 2'],
+            ['index' => 20, 'owner' => 0, 'message' => 'owner_task must be an integer from 1 to 14'],
+            ['index' => 21, 'owner' => 15, 'message' => 'owner_task must be an integer from 1 to 14'],
+            ['index' => 22, 'owner' => '5', 'message' => 'owner_task must be an integer from 1 to 14'],
+        ];
+
+        foreach ($fixtures as $fixture) {
+            $payload = self::validClosurePayload();
+            $payload['findings'][$fixture['index']]['owner_task'] = $fixture['owner'];
+            $findingId = $payload['findings'][$fixture['index']]['id'];
+
+            [$exit, , $stderr] = $this->validateClosurePayload($payload);
+            $this->assertSame(1, $exit, "validator must reject owner for {$findingId}: {$stderr}");
+            $this->assertStringContainsString($findingId, $stderr);
+            $this->assertStringContainsString($fixture['message'], $stderr);
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private static function validClosurePayload(): array
+    {
+        $owners = [
+            'F020' => 6, 'F023' => 8, 'F030' => 7, 'F033' => 8, 'F035' => 8,
+            'F044' => 12, 'F046' => 12, 'F059' => 8, 'F067' => 8, 'F072' => 9,
+            'F076' => 8, 'F078' => 4, 'F087' => 10, 'F089' => 10,
+            'F112' => 10, 'F113' => 10, 'F115' => 10, 'F116' => 10,
+            'F117' => 11, 'C124' => 2, 'C125' => 3, 'C126' => 4,
+            'C127' => 5, 'C128' => 13,
+        ];
+
+        return [
+            'version' => 3,
+            'scope' => self::scopeBlock(),
+            'findings' => array_map(
+                static fn (string $id, int $owner): array => self::finding($id, $owner),
+                array_keys($owners),
+                array_values($owners),
+            ),
+        ];
+    }
+
+    /**
+     * @param  array<int,mixed>  $evidence
+     * @return array<string,mixed>
+     */
+    private static function finding(string $id, int $owner, array $evidence = [['kind' => 'source', 'value' => 'plan#1']]): array
+    {
+        return [
+            'id' => $id,
+            'domain' => 'contracts',
+            'priority' => 'P2',
+            'sourced' => true,
+            'status' => 'open',
+            'claim' => 'Synthetic behavioral fixture.',
+            'exit_criteria' => 'Pass the focused validator fixture.',
+            'owner_task' => $owner,
+            'evidence' => $evidence,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private static function scopeBlock(): array
+    {
+        return [
+            'decision' => 'user-approved scope amendment',
+            'decision_date' => '2026-07-26',
+            'historical_findings_tracked' => 19,
+            'historical_findings_unrecoverable' => 104,
+            'approved_historical_ids' => [
+                'F020', 'F023', 'F030', 'F033', 'F035', 'F044', 'F046', 'F059',
+                'F067', 'F072', 'F076', 'F078', 'F087', 'F089', 'F112', 'F113',
+                'F115', 'F116', 'F117',
+            ],
+            'closure_wording' => 'Closure tracks the 19 documentable historical IDs and the C124-C128 cycle findings.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private static function buildSyntheticYaml(array $payload): string
+    {
+        // Lightweight YAML emitter for synthetic test payloads — the
+        // `yaml` extension is not always installed, so we build the
+        // scalar/sequence payload by hand. Inputs are well-known.
+        $out = '';
+        $scope = $payload['scope'] ?? [];
+        $out .= 'scope:'."\n";
+        foreach ($scope as $key => $value) {
+            if (is_array($value)) {
+                $out .= '  '.$key.':'."\n";
+                foreach ($value as $item) {
+                    $out .= '    - '.$item."\n";
+                }
+            } elseif (is_bool($value)) {
+                $out .= '  '.$key.': '.($value ? 'true' : 'false')."\n";
+            } elseif (is_int($value)) {
+                $out .= '  '.$key.': '.$value."\n";
+            } else {
+                $escaped = str_replace("'", "''", (string) $value);
+                $out .= '  '.$key.": '".$escaped."'"."\n";
+            }
+        }
+        $out .= 'findings:'."\n";
+        foreach ($payload['findings'] as $finding) {
+            $out .= '  - id: '.$finding['id']."\n";
+            $out .= '    domain: '.$finding['domain']."\n";
+            $out .= '    priority: '.$finding['priority']."\n";
+            $out .= '    sourced: '.($finding['sourced'] ? 'true' : 'false')."\n";
+            $out .= '    status: '.$finding['status']."\n";
+            $claim = str_replace("'", "''", $finding['claim']);
+            $out .= "    claim: '".$claim."'"."\n";
+            $exit = str_replace("'", "''", $finding['exit_criteria']);
+            $out .= "    exit_criteria: '".$exit."'"."\n";
+            $owner = $finding['owner_task'];
+            $out .= '    owner_task: '.(is_int($owner) ? (string) $owner : "'".str_replace("'", "''", (string) $owner)."'")."\n";
+            if (empty($finding['evidence'])) {
+                $out .= '    evidence: []'."\n";
+            } else {
+                $out .= '    evidence:'."\n";
+                foreach ($finding['evidence'] as $item) {
+                    if (! is_array($item)) {
+                        $out .= "      - '".str_replace("'", "''", (string) $item)."'\n";
+
+                        continue;
+                    }
+                    if ($item === []) {
+                        $out .= '      - {}'."\n";
+
+                        continue;
+                    }
+                    $out .= '      - kind: '.$item['kind']."\n";
+                    if (array_key_exists('value', $item)) {
+                        $val = str_replace("'", "''", (string) $item['value']);
+                        $out .= "        value: '".$val."'"."\n";
+                    }
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array{0:int,1:string,2:string}
+     */
+    private function validateClosurePayload(array $payload): array
+    {
+        $temp = tempnam(sys_get_temp_dir(), 'closure_register_');
+        $this->assertNotFalse($temp);
+
+        try {
+            file_put_contents($temp, 'version: 3'."\n".self::buildSyntheticYaml($payload));
+
+            return $this->runClosureValidator(
+                PythonBinary::resolve(),
+                $this->repoRoot.'/scripts/validate-architecture-closure.py',
+                $temp,
+            );
+        } finally {
+            @unlink($temp);
+        }
+    }
+
+    /**
+     * @return array{0:int,1:string,2:string}
+     */
+    private function runClosureValidator(string $python, string $validator, string $register): array
+    {
+        $descriptors = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $process = proc_open([$python, $validator, $register], $descriptors, $pipes, $this->repoRoot);
+        if (! is_resource($process)) {
+            $this->fail('Unable to start validator: '.$python.' '.escapeshellarg($validator).' '.escapeshellarg($register));
+        }
+        $stdout = (string) stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exit = proc_close($process);
+
+        return [$exit, $stdout, $stderr];
     }
 
     /**

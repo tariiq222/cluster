@@ -12,6 +12,7 @@ use JsonException;
 use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use stdClass;
 
@@ -20,6 +21,7 @@ final class ListAuthorizedWorkRecordsHandler
     public function __construct(
         private readonly DecideAccess $access,
         private readonly ResolveOrganizationScopeAncestry $ancestry,
+        private readonly ResolveActiveFacilityScopesForUser $facilityScopes,
     ) {}
 
     /**
@@ -38,16 +40,7 @@ final class ListAuthorizedWorkRecordsHandler
         $query = DB::table('work_records')->orderBy('id');
         // Scope predicate before pagination: the principal's facility scopes
         // bound the SQL read; the central decision still authorizes each row.
-        $facilityScopes = DB::table('role_assignments')
-            ->where('user_id', $principal['user_id'])
-            ->where('scope_type', 'facility')
-            ->where('status', 'active')
-            ->where('start_at', '<=', now()->utc())
-            ->where(fn ($query) => $query->whereNull('end_at')->orWhere('end_at', '>', now()->utc()))
-            ->pluck('scope_id')
-            ->filter(static fn (mixed $id): bool => is_string($id) && $id !== '')
-            ->values()
-            ->all();
+        $facilityScopes = $this->facilityScopes->facilityScopeIds($principal['user_id']);
         // Legacy fixture principals carry their home facility directly and
         // have no role assignments yet; keep them on their home scope until
         // the real grant catalog covers them.

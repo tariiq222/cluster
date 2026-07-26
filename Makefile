@@ -98,12 +98,12 @@ verify-mysql-integration:
 		exit 1; \
 	fi
 
-# Documentation validation is deliberately strict: missing tools or catalog
-# input are setup failures, never a fallback to a reduced validation path.
+# Documentation validation is deliberately strict about the validator runtime.
+# The current lean docs tree has no catalog or MkDocs registry.
 docs-validate:
 	@failed=0; \
 	if [ ! -x "$(DOCS_VALIDATOR)" ]; then \
-		printf '%s\n' 'ERROR: docs/validate-docs.sh is missing; validator required at scripts/validate-docs.sh.' >&2; \
+		printf '%s\n' 'ERROR: scripts/validate-docs.sh is missing.' >&2; \
 		failed=1; \
 	fi; \
 	if ! "$(PYTHON_BINARY)" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 0) else 1)' >/dev/null 2>&1; then \
@@ -112,10 +112,6 @@ docs-validate:
 	fi; \
 	if ! "$(PYTHON_BINARY)" -c 'import yaml' >/dev/null 2>&1; then \
 		printf '%s\n' 'ERROR: PyYAML is missing; install the documentation validator dependency.' >&2; \
-		failed=1; \
-	fi; \
-	if [ ! -f docs/catalog.yaml ]; then \
-		printf '%s\n' 'ERROR: docs/catalog.yaml is missing.' >&2; \
 		failed=1; \
 	fi; \
 	if [ "$$failed" -ne 0 ]; then exit 2; fi; \

@@ -32,11 +32,10 @@ order is enforced by `test_detects_a_cross_module_domain_import` in
 | 10 | — | `Risk` | Risk register (planned). |
 | 11 | `Notifications`, `Search`, `Reporting` | `Workspace` | Side-channel read models and notifications. |
 
-**`Audit` is the only planned module with a concrete migration already in
-place**: `audit_events` is currently registered as `Authorization`-owned in
-`TABLE_OWNERS` but the `Audit` module directory has not been created yet. This
-is the first planned module to materialise; see Phase 4 of the architecture
-roadmap in `docs/analysis/18-architecture-deep-review.md`.
+`Audit` remains planned and has no implementation directory or migration.
+The historical `audit_events` table entry was removed. Sensitive-access
+records remain owned by `Authorization` until an explicit Audit migration is
+designed and delivered.
 
 ## 2 · Implemented modules
 
@@ -48,9 +47,9 @@ lists the canonical tables, contracts, and HTTP routes.
 - **Purpose.** Owns the cluster tenant data: cluster, facilities, units,
   positions, people, assignments, supervisory relationships, job titles,
   import jobs, and temporary assignments with concurrency-safe revocation.
-- **Tables.** `clusters`, `facilities`, `facility_types`, `units`,
-  `unit_types`, `organization_units`, `positions`, `job_titles`, `people`,
-  `assignments`, `temporary_assignments`, `temporary_assignment_capabilities`,
+- **Tables.** `clusters`, `facilities`, `facility_types`, `unit_types`,
+  `organization_units`, `positions`, `job_titles`, `people`, `assignments`,
+  `temporary_assignments`, `temporary_assignment_capabilities`,
   `supervisory_relationships`, `relationship_capabilities`, `import_jobs`,
   `import_rows`, `organization_idempotency_keys`,
   `organization_development_facilities`.
@@ -58,9 +57,9 @@ lists the canonical tables, contracts, and HTTP routes.
   `ResolvePersonOrganizationScope`, `ResolveOrganizationScopeAncestry`,
   `ValidatePersonReference`, `ResolveQuarantinedImport`,
   `ValidateTemporaryAssignmentCapabilities`, `BuildTemporaryAssignmentEvent`.
-- **HTTP.** 35 controllers currently misplaced under
-  `app/Http/Controllers/Organization/`. Tracked in
-  `tests/Architecture/ModulePlacementInventory.php`.
+- **HTTP.** 35 controllers are module-owned under
+  `Modules/Organization/Features/*/Http/`; none remain under
+  `app/Http/Controllers/Organization/`.
 
 ### `PlatformSettings` (rank 0)
 
@@ -85,12 +84,12 @@ lists the canonical tables, contracts, and HTTP routes.
 - **Purpose.** Authenticated principals: login, logout, sessions, TOTP,
   password rotation, activation tokens, identity inbox (streams from
   Organization person events), development fixture principal (local only).
-- **Tables.** `identities`, `users`, `identity_sessions`,
-  `identity_person_account_claims`, `identity_idempotency_keys`,
-  `identity_inbox`, `identity_person_event_watermarks`,
-  `identity_person_provisioning`, `identity_development_fixture_accounts`,
-  `credentials`, `identity_password_history`, `identity_activation_tokens`,
-  `identity_totp`, `identity_auth_attempt_ledgers`.
+- **Tables.** `users`, `identity_sessions`, `identity_person_account_claims`,
+  `identity_idempotency_keys`, `identity_inbox`,
+  `identity_person_event_watermarks`, `identity_person_provisioning`,
+  `identity_development_fixture_accounts`, `credentials`,
+  `identity_password_history`, `identity_activation_tokens`, `identity_totp`,
+  `identity_auth_attempt_ledgers`.
 - **Contracts.** `ResolvePrincipalContext`, `ResolveAccountEntitlement`,
   `ResolveUserForPerson`, `ResolveDevelopmentFixturePrincipal`,
   `AuthenticateUser`, `PreAuthThrottle`, `IssueActivationToken`,
@@ -101,8 +100,8 @@ lists the canonical tables, contracts, and HTTP routes.
 - **Purpose.** RBAC + ABAC decision engine, role / capability / delegation /
   classification / field-access templates, explicit deny, sensitive access
   event recorder, operations-office member counter, simulation facts.
-- **Tables.** `authorizations` *(ghost — see Phase 2)*, `roles`,
-  `capabilities`, `role_capabilities`, `role_assignments`, `delegations`,
+- **Tables.** `access_decisions`, `roles`, `capabilities`,
+  `role_capabilities`, `role_assignments`, `delegations`,
   `delegation_capabilities`, `explicit_denies`, `classification_policies`,
   `field_access_templates`, `sensitive_access_events`,
   `authorization_bootstrap`, `authorization_idempotency_keys`.
@@ -158,9 +157,12 @@ lists the canonical tables, contracts, and HTTP routes.
 - **Purpose.** Realisations of work: submit, list authorised records, get
   authorised record, lifecycle transitions (submit / return / complete /
   cancel / archive), idempotency.
-- **Tables.** `work_records`, `work_record_idempotency_keys`,
-  `outbox_events` *(shared transactional outbox, owned by WorkRecords and
-  reused by other modules; see `Shared/Infrastructure/Outbox`)*.
+- **Tables.** `work_records`, `work_record_idempotency_keys`, `outbox_events`.
+  As of the Task 4 inventory refresh (2026-07-26), the previous
+  `project_work_record_read_models` extra `TABLE_OWNERS` key has been
+  removed because no `Schema::create` migration declares it; if the
+  projection becomes a real table it must be added back via a migration,
+  not as an inventory string.
 
 ### `Notifications` (rank 11)
 
@@ -203,22 +205,42 @@ them accidentally gains a directory.
 1. **Rank ordering.** A module may only depend on strictly lower-rank modules,
    and only through the dependency's `Contracts/` or `Events/` namespace.
    `test_detects_a_cross_module_domain_import` enforces this.
-2. **Table ownership.** Every database table has exactly one owning module
-   recorded in `TABLE_OWNERS` of `ModuleBoundariesTest.php`. A module may not
-   reference another module's table from a migration, an SQL literal, or a
-   `DB::table(...)` call. The catalogue is enforced by
-   `test_every_migrated_table_has_an_owner_and_owners_match_actual_module_layout`
-   and currently covers all 96 migrated tables. Ghosts (entries declared in
-   docs without a corresponding `Schema::create` migration) are not
-   permitted: the historical `identities` and `audit_events` ghosts were
-   removed in the table-ownership cleanup; if either table is reintroduced
-   the architecture test will fail until the migration lands and the
-   owner column is set correctly.
-3. **Controller placement.** Business HTTP controllers must live inside their
-   owning module at `Modules/<Name>/Features/*/Http/`. Controllers under
-   `app/Http/Controllers/` are tolerated only when listed in
-   `tests/Architecture/ModulePlacementInventory.php`; that list shrinks over
-   time and is bounded by an expiry date.
+2. **Table ownership.** Every migrated table must have exactly one owning
+   module in `TABLE_OWNERS`, and `TABLE_OWNERS` must contain exactly the
+   set of tables declared by `Schema::create` migrations under
+   `apps/api/Modules/*/Infrastructure/Persistence/Migrations/` and
+   `apps/api/Modules/*/Infrastructure/Outbox/Migrations/`. As of the
+   Task 4 inventory refresh (2026-07-26) the registry holds **96 entries
+   for 96 distinct migrated table names**, and no extra key remains.
+   Virtual resources must never enter `TABLE_OWNERS`; if a future virtual
+   resource requires an inventory, register it in a sibling constant
+   `VIRTUAL_RESOURCES` (see the header comment on
+   `apps/api/tests/Architecture/ModuleBoundariesTest.php`). The four
+   architecture tests that enforce exactness are:
+   - `test_every_migrated_table_has_an_owner_and_owners_match_actual_module_layout`
+     — TABLE_OWNERS has no extra keys, no missing keys, and no owner/module
+     mismatches.
+   - `test_every_misplaced_file_has_a_reason_a_non_past_expiry_and_an_existing_path`
+     — every `ModulePlacementInventory` entry carries a non-empty `reason`,
+     a non-past `expires_on`, and a path that still exists on disk.
+   - `test_planned_modules_have_no_implementation_directory_yet`.
+   - `test_current_module_tree_obeys_the_repository_boundary_rules`.
+   This catalog line was refreshed by Task 4 (Task 4 source:
+   `apps/api/tests/Architecture/ModuleBoundariesTest.php` and
+   `apps/api/tests/Architecture/ModulePlacementInventory.php` on
+   2026-07-26).
+3. **Controller placement.** Business controllers under
+   `app/Http/Controllers/` are prohibited except for the Laravel base
+   `Controller.php`; this part currently passes. Five controllers still sit in
+   module-level `Http/` directories instead of
+   `Modules/<Name>/Features/*/Http/` (four Reporting and one Search), and the
+   current guard does not detect that shape. `ModulePlacementInventory` no
+   longer carries the two stale Reporting paths that previously referenced
+   the deleted `Modules/Reporting/Http/List{Dashboards,Reports}Controller.php`
+   files; the controllers now live under `Features/List{Dashboards,Reports}/Http/`
+   and comply with the placement rule, so no exception is required. The
+   remaining five module-level `Http/` controllers are out of scope for
+   Task 4 and are tracked as Task 5 work.
 3a. **Outbox event types.** Every `com.cluster.*.v<n>` literal that appears
    in producer code must be a case on `Shared\Infrastructure\Outbox\OutboxEventType`
    and must have a corresponding JSON schema file under
@@ -420,39 +442,34 @@ authorization decisions (Stage 3)
   `apps/api/Modules/Identity/Infrastructure/Outbox/IdentityOutbox.php` (call site),
   `apps/api/tests/Unit/Shared/Infrastructure/Outbox/IdentitySecurityEventRegistryTest.php`.
 
-### 6.8 Legacy controller migration (Stages 16, 17)
+### 6.8 Legacy controller migration completed for `app/Http/Controllers`
 
-- **What.** apps/api/app/Http/Controllers/Organization/ held 35 controllers and
-  apps/api/Modules/Reporting/Http/ held 2 controllers that the architecture
-  test requires inside `Modules/<Name>/Features/<Feature>/Http/`. Migrate
-  12 Organization controllers (GetCluster, GetImportJob, ListImportJobRows,
-  GetOrganizationUnit, ReorderOrganizationUnits, GetPerson, GetPersonReference,
-  GetPosition, GetTemporaryAssignment, GetFacility, ListFacilities,
-  ListAssignments) and 2 Reporting controllers (ListReports,
-  ListDashboards) to their owning `apps/api/Modules/<Module>/Features/<Feature>/Http/`
-  directories, update the namespace declaration in each, point the route
-  binding in apps/api/routes/web.php at the new namespace, and remove
-  the corresponding entry from
-  apps/api/tests/Architecture/ModulePlacementInventory.php. The legacy
-  files in app/Http/Controllers/ stay on disk because the remaining ~74
-  legacy paths have a 2027-04-25 expiry.
-- **Why.** ModuleBoundariesTest::test_detects_a_business_controller_outside_its_module
-  flags every controller outside `Modules/<Name>/Features/<Feature>/Http/`
-  as a violation. The 12 Organization migrations and 2 Reporting
-  migrations reduce the inventory from 89 to 74 entries and demonstrate
-  that the migration pattern is repeatable: pick the smallest
-  single-method controller, copy to the matching Features/Http/ folder,
-  update the namespace and the route binding, remove the inventory entry.
-- **Tests.** composer test verifies that the existing 12 organization
-  feature tests and 2 reporting feature tests still pass after the
-  migration; the architecture test
-  test_current_module_tree_obeys_the_repository_boundary_rules now sees
-  0 controllers in app/Http/Controllers/ for the migrated module/feature
-  combinations.
-- **Where.** `apps/api/Modules/Organization/Features/*/Http/*.php` (12 files),
-  `apps/api/Modules/Reporting/Features/ListReports/Http/ListReportsController.php`
-  and `apps/api/Modules/Reporting/Features/ListDashboards/Http/ListDashboardsController.php`,
-  `apps/api/routes/web.php` (route bindings), and
-  `apps/api/tests/Architecture/ModulePlacementInventory.php` (3 inventory
-  removals, 12 Organisation inventory entries shortened to the new
-  Modules/ path).
+- **What.** The migration expanded from the initial 14-controller slice to the
+  full legacy application-controller tree. The only remaining file under
+  `apps/api/app/Http/Controllers/` is Laravel's base `Controller.php`.
+  Organization now owns 35 controllers under
+  `Modules/Organization/Features/*/Http/`; Identity, Authorization, Documents,
+  Workflow, WorkDefinitions, WorkRecords, Tasks, Notifications, Platform
+  Settings, Reporting, and Search routes now bind module-owned controllers.
+- **Residual debt.** Four Reporting controllers remain under
+  `Modules/Reporting/Http/` and `SearchController` remains under
+  `Modules/Search/Http/`. They are module-owned but do not follow the preferred
+  feature-folder layout. The current architecture test only catches
+  application-level placement and therefore needs an explicit module-level
+  placement assertion.
+- **Evidence.** `apps/api/routes/web.php`, the module controller tree, and
+  `make verify-boundaries` (12 tests, 53 assertions, passed on 2026-07-26).
+
+### 6.9 Composition root split into module providers
+
+- **What.** `AppServiceProvider` now registers 12 module service providers and
+  retains only shared bindings, migration loading, commands, and production
+  safety checks. It is 106 lines; module-specific bindings live in
+  `Modules/<Name>/Providers/<Name>ServiceProvider.php`.
+- **Why.** This restores module ownership without creating a second global
+  composition root. Production still fails closed unless Authorization uses
+  `BootstrapGatedDecideAccess` with the production engine and Identity resolves
+  principals from sessions.
+- **Evidence.** `apps/api/app/Providers/AppServiceProvider.php`,
+  `apps/api/Modules/*/Providers/*ServiceProvider.php`, `make analyse-api`, and
+  `make lint-api`.

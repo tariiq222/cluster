@@ -3,15 +3,19 @@
 namespace Modules\Organization\Features\UpdateFacility\Handler;
 
 use Closure;
-use DateTimeImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
 use stdClass;
 use UnexpectedValueException;
 
 final class UpdateFacilityHandler
 {
+    public function __construct(
+        private readonly OrganizationOutbox $outbox,
+    ) {}
+
     /** @return array<string, mixed>|null */
     public function find(string $facilityId): ?array
     {
@@ -80,7 +84,7 @@ final class UpdateFacilityHandler
                 'status' => $status,
                 'lock_version' => $version,
             ];
-            $this->insertOutbox($eventFactory($facility, $row->status), $facilityId);
+            $this->outbox->insert($eventFactory($facility, $row->status), $facilityId);
 
             return $facility;
         });
@@ -112,21 +116,5 @@ final class UpdateFacilityHandler
             'status' => $row->status,
             'lock_version' => (int) $row->lock_version,
         ];
-    }
-
-    /** @param array<string, mixed> $cloudEvent */
-    private function insertOutbox(array $cloudEvent, string $aggregateId): void
-    {
-        DB::table('outbox_events')->insert([
-            'event_id' => $cloudEvent['id'],
-            'aggregate_id' => $aggregateId,
-            'event_type' => $cloudEvent['type'],
-            'cloud_event' => json_encode($cloudEvent, JSON_THROW_ON_ERROR),
-            'occurred_at' => (new DateTimeImmutable($cloudEvent['time']))->format('Y-m-d H:i:s'),
-            'published_at' => null,
-            'delivery_attempts' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
     }
 }

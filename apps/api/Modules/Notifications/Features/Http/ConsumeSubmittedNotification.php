@@ -1,17 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Modules\Notifications\Features\Http;
 
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWorkRecordSubmittedHandler;
+use Shared\Contracts\OutboxEventLookup;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ConsumeSubmittedNotification
 {
-    public function __construct(private readonly ConsumeWorkRecordSubmittedHandler $notifications) {}
+    public function __construct(
+        private readonly OutboxEventLookup $outbox,
+        private readonly ConsumeWorkRecordSubmittedHandler $notifications,
+    ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -27,16 +32,13 @@ final class ConsumeSubmittedNotification
         if (! is_string($recordId)) {
             return $response;
         }
-        $event = DB::table('outbox_events')
-            ->where('aggregate_id', $recordId)
-            ->where('event_type', 'com.cluster.workrecord.submitted.v1')
-            ->orderBy('occurred_at')
-            ->value('cloud_event');
-        if (is_string($event)) {
-            $decoded = json_decode($event, true);
-            if (is_array($decoded)) {
-                $this->notifications->handle($decoded);
-            }
+
+        $event = $this->outbox->findCloudEvent(
+            $recordId,
+            'com.cluster.workrecord.submitted.v1',
+        );
+        if ($event !== null) {
+            $this->notifications->handle($event);
         }
 
         return $response;

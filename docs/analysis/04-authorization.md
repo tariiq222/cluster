@@ -1,5 +1,8 @@
 # 04 · موديول Authorization (RBAC + ABAC + Decisions)
 
+> **خط أساس تاريخي — 2026-07-25.** الوصف التفصيلي مفيد، لكن المقاييس
+> والمخاطر الحالية تؤخذ من [`SUMMARY.md`](SUMMARY.md) و[`17-cross-cutting-risks.md`](17-cross-cutting-risks.md).
+
 > **المسار:** `apps/api/Modules/Authorization/`
 > **Rank:** 2
 > **عدد الملفات:** 61 PHP

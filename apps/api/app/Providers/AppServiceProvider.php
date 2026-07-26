@@ -13,7 +13,15 @@ use Modules\Documents\Infrastructure\Storage\S3\S3CompatibleConfiguration;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\TemporaryAssignment\Console\ExpireTemporaryAssignmentsCommand;
 use Modules\PlatformSettings\Features\Operations\Console\RunPlatformOperationsDispatchCommand;
+use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutboxStore;
+use Modules\PlatformSettings\Infrastructure\Outbox\TechnicalAlertOutboxRelay;
+use Shared\Contracts\OutboxEventLookup;
+use Shared\Contracts\OutboxRelayStore;
+use Shared\Contracts\PendingOutboxStore;
 use Shared\Contracts\TransactionalOutbox;
+use Shared\Contracts\TransactionalOutboxEnvelope;
+use Shared\Contracts\TransactionalOutboxReplayable;
+use Shared\Infrastructure\Outbox\DatabaseOutboxRelayStore;
 use Shared\Infrastructure\Outbox\DatabaseTransactionalOutbox;
 use Shared\Infrastructure\Streams\LaravelRedisStreamTransport;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
@@ -29,7 +37,15 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(TransactionalOutbox::class, DatabaseTransactionalOutbox::class);
+        $this->app->bind(TransactionalOutboxReplayable::class, DatabaseTransactionalOutbox::class);
+        $this->app->bind(TransactionalOutboxEnvelope::class, DatabaseTransactionalOutbox::class);
+        $this->app->bind(OutboxRelayStore::class, DatabaseOutboxRelayStore::class);
+        $this->app->bind(OutboxEventLookup::class, DatabaseOutboxRelayStore::class);
+        $this->app->when(TechnicalAlertOutboxRelay::class)
+            ->needs(PendingOutboxStore::class)
+            ->give(PlatformSettingsOutboxStore::class);
         $this->app->singleton(SessionPrincipalResolver::class);
+        $this->app->bind(\Shared\Contracts\RecordSensitiveAccessEvent::class, \Modules\Authorization\Infrastructure\Persistence\DatabaseRecordSensitiveAccessEvent::class);
         $this->app->bind(\Modules\PlatformSettings\Contracts\ResolveOrganizationScopeAncestry::class, \Modules\Organization\Infrastructure\Persistence\DatabaseResolveOrganizationScopeAncestry::class);
         $this->app->singleton(RedisStreamTransport::class, function (): RedisStreamTransport {
             $connection = $this->app->make('redis')->connection();

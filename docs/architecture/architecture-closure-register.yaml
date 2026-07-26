@@ -1,0 +1,530 @@
+version: 3
+baseline_date: '2026-07-26'
+source_commit: be9dd40
+findings:
+- id: F020
+  domain: contracts
+  priority: P2
+  sourced: true
+  status: not-a-defect
+  claim: Absence of Contracts/ in Tasks, WorkRecords, Search, Reporting is not itself a rule violation; create contracts only when a module publishes a cross-module API.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#43
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#170
+  owner_task: 6
+  exit_criteria: Verify no module publishes a cross-module API without an accompanying Contracts/ surface.
+- id: F023
+  domain: security
+  priority: P2
+  sourced: true
+  status: not-a-defect
+  claim: identity/me and me are distinct projections, not duplicate aliases.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#44
+  - kind: source
+    value: apps/api/Modules/Identity/Tests/IdentityCredentialHttpAdapterTest.php::test_identity_me_and_me_are_intentionally_non_equivalent_production_projections
+    observed: '2026-07-26'
+  - kind: command
+    value: php artisan test Modules/Identity/Tests/IdentityCredentialHttpAdapterTest.php --filter='current_identity|non_equivalent|anonymous_activation' => 3 passed, 40 assertions
+    observed: '2026-07-26'
+  owner_task: 8
+  exit_criteria: Document the distinct projection boundaries and add a test asserting both endpoints return non-equivalent payloads.
+- id: F030
+  domain: tooling
+  priority: P1
+  sourced: true
+  status: open
+  claim: WorkDefinition show paths are enveloped; only Workflow show-instance/show-step paths are non-conformant.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#45
+  owner_task: 7
+  exit_criteria: 'Confirm every Workflow show-instance/show-step response uses the canonical {data: ...} envelope and add regression coverage.'
+- id: F033
+  domain: security
+  priority: P1
+  sourced: true
+  status: open
+  claim: Four named Organization endpoints are PATCH+If-Match-only; reorder is POST and still lacks both If-Match and idempotency.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#46
+  owner_task: 8
+  exit_criteria: Add If-Match and Idempotency-Key enforcement to Organization reorder and prove it via a focused regression test.
+- id: F035
+  domain: security
+  priority: P1
+  sourced: true
+  status: open
+  claim: Four lifecycle mutations still lack idempotency (calendar create already checks the header).
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#47
+  owner_task: 8
+  exit_criteria: Extend Idempotency-Key enforcement to the four remaining lifecycle mutations and prove idempotent replay.
+- id: F044
+  domain: contracts
+  priority: P1
+  sourced: true
+  status: open
+  claim: Current drift is 50 spec-only paths / 69 spec-only operations, not 50 equivalent live endpoints.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#48
+  owner_task: 12
+  exit_criteria: Reconcile the spec-only paths and operations against the live route inventory and surface the delta in docs/analysis.
+- id: F046
+  domain: contracts
+  priority: P1
+  sourced: true
+  status: open
+  claim: W1.2 has 2 planned operations; R1 has 7. The defect is exact route/status governance, not absence of behavior.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#49
+  owner_task: 12
+  exit_criteria: Implement exact route/status governance for the W1.2/R1 frozen-vs-append-only paths.
+- id: F059
+  domain: security
+  priority: P2
+  sourced: true
+  status: not-a-defect
+  claim: Anonymous/worker routes intentionally omit session middleware and still validate correlation locally.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#50
+  - kind: source
+    value: apps/api/Modules/Identity/Tests/IdentityCredentialHttpAdapterTest.php::test_anonymous_activation_and_worker_document_routes_validate_correlation_without_session_authentication
+    observed: '2026-07-26'
+  - kind: source
+    value: 'apps/api/routes/web.php:118,149-150 — anonymous activation and internal document worker routes intentionally remain outside IdentitySessionMiddleware; each controller validates X-Correlation-ID locally before authentication.'
+    observed: '2026-07-26'
+  owner_task: 8
+  exit_criteria: Document and test the boundary that proves correlation is validated without identity-session middleware.
+- id: F067
+  domain: web
+  priority: P1
+  sourced: true
+  status: open
+  claim: CapabilityCatalog currently has 110 entries, not 129.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#51
+  owner_task: 8
+  exit_criteria: Reconcile the actual catalog count of 110 entries with the published matrix and update the generator.
+- id: F072
+  domain: web
+  priority: P1
+  sourced: true
+  status: open
+  claim: Seven .list codes exist; only notifications.list is fully dead. Others are used by backend or web route gates.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#52
+  - kind: source
+    value: apps/api/Modules/Authorization/Contracts/CapabilityCatalog.php (notifications.list removed)
+  - kind: source
+    value: apps/api/Modules/Authorization/Tests/CapabilityCatalogTest.php::test_all_returns_complete_fixture_capability_set (fixture now matches catalog)
+  - kind: source
+    value: 'docs/api/rbac-matrix.md — remaining six .list rows already carry classifications: work_record.list=used, work_definition.list=intentional-ui-only, workflow.list=intentional-ui-only, tasks.list=intentional-ui-only, documents.list=intentional-ui-only, reporting.list=used. Only notifications.list was dead.'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'grep -rn "notifications\.list" apps/ docs/ scripts/ -> 6 matches: 2 in catalog+test (now removed), 1 in rbac-matrix.md (regen drops it), 3 in plan text'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'cd apps/api && php artisan test Modules/Authorization/Tests/CapabilityCatalogTest.php --filter=test_all_returns_complete_fixture_capability_set -> RED: 1 failed (fixtures still contain notifications.list while catalog does not)'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'cd apps/api && php artisan test Modules/Authorization/Tests/CapabilityCatalogTest.php -> GREEN: 5/5 tests, 157 assertions, 14ms'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'cd apps/api && php artisan test Modules/Authorization -> GREEN: 101/101 tests, 590 assertions, 31.6s'
+    observed: '2026-07-26'
+  - kind: command
+    value: "python3 scripts/inventory-routes.py --mode rbac-md --json /tmp/inventory-rbac -> catalog_count=128, classifications=used:82,intentional-ui-only:13,deprecated:33; matrix regen diff vs /tmp/rbac-before.md is 3 lines: header count 129->128, classifications 34->33, notifications.list row dropped. No other deltas. Re-regen is stable (byte-identical)."
+    observed: '2026-07-26'
+  - kind: command
+    value: 'python3 scripts/validate-architecture-closure.py docs/architecture/architecture-closure-register.yaml -> exit 0 (register schema valid)'
+    observed: '2026-07-26'
+  blocker: Status remains open because no commit is authorized and closed_by cannot be fabricated; the implementation, focused red/green test pair, matrix regen, and Authorization module suite are all green on the working tree.
+  owner_task: 9
+  exit_criteria: Remove the dead notifications.list capability; classify the remaining six as used, intentional UI-only, or deprecated.
+- id: F076
+  domain: web
+  priority: P1
+  sourced: true
+  status: open
+  claim: Current-identity is an authenticated session-bound self projection with no cross-user selector; ordinary users may restore their own session projection and each successful confidential read records a sensitive-access event.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#53
+  - kind: source
+    value: apps/api/Modules/Identity/Features/Sessions/Http/GetCurrentIdentityController.php
+    observed: '2026-07-26'
+  - kind: source
+    value: apps/api/Modules/Identity/Tests/IdentityCredentialHttpAdapterTest.php::test_current_identity_is_an_authenticated_self_bound_bootstrap_and_records_sensitive_access
+    observed: '2026-07-26'
+  blocker: Status remains open because no commit is authorized and closed_by cannot be fabricated; the implementation and focused tests are complete.
+  owner_task: 8
+  exit_criteria: Keep the endpoint bound to the authenticated session principal with no cross-user selector, record every successful confidential self-read through Authorization's sensitive-access contract, and prove allow/audit plus unauthenticated denial via focused production-route tests.
+- id: F078
+  domain: migrations
+  priority: P2
+  sourced: true
+  status: not-a-defect
+  claim: audit_events is stale documentation; no implementation table currently exists.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#54
+  - kind: source
+    value: docs/analysis/SUMMARY.md
+  - kind: source
+    value: 'apps/api/tests/Architecture/ModuleBoundariesTest.php::TABLE_OWNERS — no `audit_events` array key exists; the token `audit_events` only appears in explanatory comments (lines ~116-117) that document why the table is not registered. Sensitive-access records remain owned by `Authorization` (`sensitive_access_events` key) until the planned Audit migration is delivered.'
+    observed: '2026-07-26'
+  - kind: source
+    value: "apps/api/Modules/**/Migrations/**/*.php — `Schema::create('audit_events', ...)` is not declared in any migration under apps/api/Modules; only `sensitive_access_events` is created in apps/api/Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php (lines ~37-...). Verified by `grep -rE \"Schema::create\\\\s*\\\\(\\\\s*'audit_events'\" apps/api/Modules` -> no matches on 2026-07-26."
+    observed: '2026-07-26'
+  - kind: source
+    value: 'docs/architecture/ARCHITECTURE.md §3 debt note — stale `audit_events` paragraph remains explicit until the planned Audit migration lands; F078 stays `not-a-defect` until that migration exists.'
+    observed: '2026-07-26'
+  owner_task: 4
+  exit_criteria: Confirm no migration declares audit_events and remove the stale references from docs/architecture/ARCHITECTURE.md.
+- id: F087
+  domain: data-integrity
+  priority: P1
+  sourced: true
+  status: open
+  claim: Gateway methods lack an internal transaction, but the current HTTP caller wraps them. Keep atomicity at the application-handler boundary and remove unsafe standalone assumptions.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#55
+  owner_task: 10
+  exit_criteria: Move every gateway call under an application-handler-owned transaction and prove atomicity with a focused concurrency test.
+- id: F089
+  domain: data-integrity
+  priority: P1
+  sourced: true
+  status: open
+  claim: Bootstrap role grants have no domain audit; the existing access_decisions row records bootstrap completion, not each assignment.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#56
+  owner_task: 10
+  exit_criteria: Record an audit row per role-grant assignment during bootstrap and prove it via a focused regression test.
+- id: F112
+  domain: data-integrity
+  priority: P1
+  sourced: true
+  status: open
+  claim: TransactionDocumentController is a typo/ambiguous reference. Concrete affected file is TransitionDocumentController plus non-transactional Workflow command paths.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#57
+  owner_task: 10
+  exit_criteria: Wrap the named transition command paths in module-owned transactions with a regression test for atomicity.
+- id: F113
+  domain: data-integrity
+  priority: P1
+  sourced: true
+  status: open
+  claim: CreateDocumentGrant performs two DB writes, not three; grant issuance is an external/read-only presign operation.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#58
+  owner_task: 10
+  exit_criteria: Make the two remaining writes atomic with idempotency replay durability and add a focused regression test.
+- id: F115
+  domain: data-integrity
+  priority: P1
+  sourced: true
+  status: open
+  claim: Standalone Task PATCH is an atomic CAS. The real defect is transition state commit followed by outbox append outside one transaction.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#59
+  owner_task: 10
+  exit_criteria: Wrap transition state commit + outbox append in one handler-owned transaction and prove it with a regression test.
+- id: F116
+  domain: data-integrity
+  priority: P1
+  sourced: true
+  status: open
+  claim: Maintenance cancel is POST, not PATCH. Both named controllers have atomic CAS updates but non-isolated update->re-read.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#60
+  owner_task: 10
+  exit_criteria: Wrap the update + response re-read in a handler transaction and add a concurrency regression test.
+- id: F117
+  domain: data-integrity
+  priority: P2
+  sourced: true
+  status: not-a-defect
+  claim: Reject the proposed row-lock fix. Existing conditional CAS is concurrency-correct; add a real concurrent test and address idempotency separately.
+  evidence:
+  - kind: source
+    value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#61
+  owner_task: 11
+  exit_criteria: Add a concurrent regression test proving one winner/one 412 and address idempotency as a separate work item.
+- id: C124
+  domain: contracts
+  priority: P0
+  sourced: true
+  status: open
+  claim: Resolve the generated-API-client staleness vs Business Calendar wrappers so api:check and the web build pass on the same tree without restoring the previous committed client.
+  evidence:
+  - kind: command
+    value: npm --prefix apps/web run api:check -> FAIL (stale generated clients per contract bundle 151 paths/202 operations)
+    observed: '2026-07-26'
+  - kind: command
+    value: npm --prefix apps/web run build -> FAIL (missing calendar operations/types plus scope_type)
+    observed: '2026-07-26'
+  - kind: source
+    value: docs/contracts/api/openapi.yaml now defines only the five live /platform-settings/calendars operations; generated cluster.ts exposes the matching operationIds and schemas.
+    observed: '2026-07-26'
+  - kind: command
+    value: cd apps/api && php artisan test Modules/PlatformSettings/Tests/PlatformSettingsHttpAdapterTest.php -> PASS (12 tests, 32 assertions)
+    observed: '2026-07-26'
+  - kind: command
+    value: npm --prefix apps/web run test:unit -- BusinessCalendarsScreen.test.tsx -> PASS (1 file, 10 tests)
+    observed: '2026-07-26'
+  - kind: command
+    value: npm --prefix apps/web run api:generate twice -> PASS; cluster.ts SHA-256 stable at 4725c1192932e2e135459e9203a62dc7f46446a56c35e736d9d6aab0df73c493
+    observed: '2026-07-26'
+  - kind: command
+    value: npm --prefix apps/web run api:check -> PASS (152 paths, 203 operations; generated client matches; existing Redocly warnings only)
+    observed: '2026-07-26'
+  - kind: command
+    value: npm --prefix apps/web run build -> PASS (existing >500kB chunk warning only)
+    observed: '2026-07-26'
+  - kind: command
+    value: npm --prefix apps/web run build -> PASS after the discriminated BusinessCalendarCreate caller fix (existing >500kB chunk warning only)
+    observed: '2026-07-26'
+  blocker: Status remains open because no commit is authorized and closed_by cannot be fabricated.
+  exit_criteria: make api:check and npm --prefix apps/web run build both pass on a fresh regeneration without manual restore.
+  owner_task: 2
+- id: C125
+  domain: web
+  priority: P0
+  sourced: true
+  status: open
+  claim: Repair the eight failing Organization drawer tests so 409/412 feedback is visible to the user, or prove the tests are stale and update them to match intended behavior.
+  evidence:
+  - kind: source
+    value: 'apps/web/src/features/organization/organization-mutation-error.ts:3-15 — 412 is stale, 409 preserves problem.detail with problem.title fallback, and all other failures use save.'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'Fresh RED preserved at artifact://194: npm --prefix apps/web run test:unit -- OrganizationDrawers.test.tsx -> FAIL (1 file; 8/8 tests failed; org-drawer-alert missing; tests 8.347s).'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'Helper RED: npm --prefix apps/web run test:unit -- organization-mutation-error.test.ts -> FAIL (module ./organization-mutation-error not found; 1 failed suite, no tests).'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'Helper GREEN: npm --prefix apps/web run test:unit -- organization-mutation-error.test.ts -> PASS (1 file, 5/5 tests; duration 1.54s).'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'Focused GREEN: npm --prefix apps/web run test:unit -- organization-mutation-error.test.ts OrganizationDrawers.test.tsx -> PASS (2 files, 13/13 tests; drawer file 7.65s with stateful harness; helper 1.54s).'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'Full web suite after stateless-harness rewrite: npm --prefix apps/web run test:unit -> PASS (73 files, 435/435 tests; duration 16.66s, transform 18.27s).'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'Production web build with four ReactElement harness signatures: npm --prefix apps/web run build -> PASS (existing >500kB chunk warning only).'
+    observed: '2026-07-26'
+  blocker: Status remains open because no commit is authorized and closed_by cannot be fabricated. The full web suite PASS and build PASS have been re-verified after the stateless-harness rewrite; only an authorized commit can supply closed_by.
+  exit_criteria: npm --prefix apps/web run test:unit passes with zero failures across Organization drawer specs.
+  owner_task: 3
+- id: C126
+  domain: boundaries
+  priority: P1
+  sourced: true
+  status: open
+  claim: 'Make TABLE_OWNERS an exact inventory: reject entries without a migration and reject migrations without an owner.'
+  evidence:
+  - kind: source
+    value: docs/analysis/17-cross-cutting-risks.md:17 — 97 TABLE_OWNERS entries versus 96 distinct Schema::create names; ghost key project_work_record_read_models has no migration.
+  - kind: command
+    value: make verify-boundaries -> PASS (12 tests, 53 assertions; broad baseline context only)
+    observed: '2026-07-26'
+  - kind: source
+    value: 'apps/api/tests/Architecture/ModuleBoundariesTest.php — extra-owners assertion added in test_every_migrated_table_has_an_owner_and_owners_match_actual_module_layout; TABLE_OWNERS now has 96 keys matching 96 distinct Schema::create declarations (was 97/96); ghost key project_work_record_read_models removed.'
+    observed: '2026-07-26'
+  - kind: source
+    value: 'apps/api/tests/Architecture/ModulePlacementInventory.php — both stale Modules/Reporting/Http/List{Dashboards,Reports}Controller.php entries deleted (their real files live under Features/List{Dashboards,Reports}/Http/ and already comply); remaining 4 entries each carry non-empty `reason` and canonical `expires_on`.'
+    observed: '2026-07-26'
+  - kind: source
+    value: 'apps/api/tests/Architecture/ModuleBoundariesTest.php — test_every_misplaced_file_has_a_reason_a_non_past_expiry_and_an_existing_path now asserts (a) `reason` key + non-empty value, (b) canonical `expires_on` key with valid non-past ISO-8601 date, (c) `assertFileExists(base_path($path))`.'
+    observed: '2026-07-26'
+  - kind: source
+    value: 'docs/architecture/module-catalog.md §4 rule 2 and ARCHITECTURE.md §3/§7.1 — historical 97/96 numbers removed; current count reads "96 entries for 96 distinct migrated table names" with Task 4 source citation.'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'make verify-boundaries -> PASS (21 tests, 38 assertions; extra-owners + reason/expires_on/path-existence live tests + 9 focused negative-fixture tests proving each rejection class returns a distinct discriminator-prefixed message)'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'python3 scripts/validate-architecture-closure.py -> PASS (register schema/contents validated; exit 0)'
+    observed: '2026-07-26'
+  - kind: command
+    value: 'make docs-validate -> FAIL (exit 2; 114 missing-document-reference errors). All 114 errors reference planned-artifact paths inside docs/superpowers/plans/2026-07-26-cluster-{records-governance,risk,strategy,portfolio-projects,workspace,audit,collaboration}-module.md and cluster-accessibility-wcag.md — concrete targets include docs/contracts/schemas/com-cluster-recordsgovernance-*.schema.json, docs/architecture/evidence/M0X/*, and docs/architecture/planned-module-contracts.yaml. Task 4 did not write or edit any of those plan files in this transcript (`git status --porcelain docs/superpowers/plans/` lists them as untracked baseline; no edits were issued to them). These references are pre-existing baseline drift outside Task 4 scope (Task 4 non-goals explicitly exclude route/contract changes and planned-module work); no Task 4-introduced violation exists in `make docs-validate`.'
+    observed: '2026-07-26'
+  blocker: 'Two blockers keep C126 `open`: (1) no commit/`closed_by` is authorized in this session, so the exactness guard cannot be formally closed; (2) the brief requires `make docs-validate` PASS but the command fails on 114 pre-existing planned-artifact references in untracked plan files outside Task 4 scope — the FAIL is honest and not introduced by Task 4, but it remains a failing acceptance gate that the parent must either (a) re-authorize after fixing the planned-artifact drift, (b) re-scope the gate to `python3 scripts/validate-architecture-closure.py` only, or (c) explicitly accept the FAIL as out-of-scope baseline drift. The exactness guard itself rejects extra TABLE_OWNERS keys, missing TABLE_OWNERS keys, owner/module mismatches, missing `reason`, missing/invalid/expired `expires_on`, and nonexistent inventory paths.'
+  exit_criteria: ModuleBoundariesTest asserts every TABLE_OWNERS key maps to a registered migration and every migration is owned.
+  owner_task: 4
+- id: C127
+  domain: boundaries
+  priority: P1
+  sourced: true
+  status: open
+  claim: Move the five module-owned controllers in Modules/Reporting/Http and Modules/Search/Http under Features/*/Http, or codify the exception and extend the placement guard to match.
+  evidence:
+  - kind: source
+    value: apps/api/Modules/Reporting/Features/Exports/Http/DownloadExportController.php — moved from Modules/Reporting/Http/
+  - kind: source
+    value: apps/api/Modules/Reporting/Features/Exports/Http/CreateReportExportController.php — moved from Modules/Reporting/Http/
+  - kind: source
+    value: apps/api/Modules/Reporting/Features/Reports/Http/GetReportController.php — moved from Modules/Reporting/Http/
+  - kind: source
+    value: apps/api/Modules/Reporting/Features/Dashboards/Http/GetDashboardController.php — moved from Modules/Reporting/Http/
+  - kind: source
+    value: apps/api/Modules/Search/Features/Search/Http/SearchController.php — moved from Modules/Search/Http/
+  - kind: source
+    value: apps/api/routes/web.php — Reporting/Search controller imports updated to the new namespaced paths
+  - kind: source
+    value: apps/api/Modules/Reporting/Tests/ReportingHttpAdapterTest.php — imports updated; bodies reused byte-for-byte from the originals
+  - kind: source
+    value: apps/api/Modules/Search/Tests/SearchHttpAdapterTest.php — import updated; body reused byte-for-byte from the original
+  - kind: source
+    value: apps/api/tests/Feature/SecurityJourneyW13Test.php — imports updated
+  - kind: source
+    value: apps/api/tests/Architecture/ModuleBoundariesTest.php — new test_rejects_a_business_controller_under_a_module_top_level_http_directory fixture proves the guard rejects future regressions; migrations-outbox guard reattached
+  - kind: command
+    value: make verify-boundaries -> PASS (22 tests, 39 assertions; existing 21 tests plus the new misplaced-controller fixture)
+    observed: '2026-07-26'
+  - kind: command
+    value: cd apps/api && php artisan test Modules/Reporting/Tests/ReportingHttpAdapterTest.php Modules/Search/Tests/SearchHttpAdapterTest.php -> PASS (2 tests, 8 assertions)
+    observed: '2026-07-26'
+  - kind: command
+    value: cd apps/api && php artisan test tests/Feature/SecurityJourneyW13Test.php -> PASS (15 tests, 334 assertions)
+    observed: '2026-07-26'
+  - kind: command
+    value: cd apps/api && php artisan route:list --path=api/v1 -> reporting/search paths now resolve to Modules\\Reporting\\Features\\* and Modules\\Search\\Features\\Search\\Http\\SearchController (no controller left in Modules/Reporting/Http or Modules/Search/Http)
+    observed: '2026-07-26'
+  - kind: command
+    value: 'python3 scripts/validate-architecture-closure.py -> PASS (exit 0)'
+    observed: '2026-07-26'
+  blocker: Status remains open because no commit is authorized; `closed_by` cannot be fabricated. All five controllers physically moved, references rewritten, focused tests green, and the placement guard now codifies the rule.
+  exit_criteria: ModulePlacementInventory asserts each entry path exists on disk and every module controller lives under the documented layout. The plan calls for an exit; this commit is the natural one to flip C127 closed once authorized.
+  owner_task: 5
+- id: C128
+  domain: tooling
+  priority: P2
+  sourced: true
+  status: open
+  claim: Capture fresh E2E evidence for the critical journeys (session/CSRF/API/UI integration) after the migration wave.
+  evidence:
+  - kind: source
+    value: docs/analysis/17-cross-cutting-risks.md:23 — ci-e2e workflow exists, but no browser/production-bundle E2E was run in this evaluation.
+  - kind: command
+    value: make analyse-api -> PASS (0 errors; broad baseline context only)
+    observed: '2026-07-26'
+  exit_criteria: infra/dev runner logs from cluster-e2e (or equivalent) attached to the closure report with timestamps.
+  owner_task: 13
+- id: C129
+  domain: contracts
+  priority: P2
+  sourced: true
+  status: open
+  claim: Align the Business Calendar weekday route and OpenAPI with the ISO-8601 1..7 domain invariant, including Sunday=7 and rejecting zero.
+  evidence:
+  - kind: source
+    value: agent://Task2Verdict finding "Weekday path parameter 0..6 conflicts with domain WorkingWeek 1..7"
+    observed: '2026-07-26'
+  - kind: source
+    value: apps/api/Modules/PlatformSettings/Domain/WorkingWeek.php requires weekday 1..7.
+    observed: '2026-07-26'
+  - kind: command
+    value: cd apps/api && php artisan test Modules/PlatformSettings/Tests/PlatformSettingsHttpAdapterTest.php -> PASS (15 tests, 47 assertions; ISO route and OpenAPI bounds covered)
+    observed: '2026-07-26'
+  exit_criteria: Route regex is [1-7], OpenAPI minimum/maximum are 1/7, and focused tests prove Sunday 7 is accepted while zero is rejected.
+  owner_task: 2
+- id: C130
+  domain: contracts
+  priority: P2
+  sourced: true
+  status: open
+  claim: Align BusinessCalendarException.type exactly with the five values accepted by CalendarException::forRange.
+  evidence:
+  - kind: source
+    value: agent://Task2Verdict finding "BusinessCalendarException.type enum diverges from CalendarException::forRange"
+    observed: '2026-07-26'
+  - kind: source
+    value: apps/api/Modules/PlatformSettings/Domain/CalendarException.php accepts official_holiday, local_closure, local_hours, official_holiday_work_override, and ramadan.
+    observed: '2026-07-26'
+  - kind: command
+    value: npm --prefix apps/web run test:unit -- BusinessCalendarsScreen.test.tsx -> PASS (12 tests; exact enum/default covered); npm --prefix apps/web run build -> PASS
+    observed: '2026-07-26'
+  exit_criteria: OpenAPI, generated client, UI options/default, and focused tests contain exactly the runtime exception values; official-holiday work defaults to official_holiday_work_override.
+  owner_task: 2
+- id: C131
+  domain: contracts
+  priority: P2
+  sourced: true
+  status: open
+  claim: Require and correlate Business Calendar scope_id with scope_type, and make cluster/facility UI send an entered UUID rather than a scope-type literal.
+  evidence:
+  - kind: source
+    value: agent://Task2Verdict finding "BusinessCalendarCreate.scope_id declared optional but CalendarScope requires non-empty"
+    observed: '2026-07-26'
+  - kind: source
+    value: apps/api/Modules/PlatformSettings/Domain/CalendarScope.php requires literal platform for platform and a non-empty id for cluster/facility.
+    observed: '2026-07-26'
+  - kind: command
+    value: npm --prefix apps/web run test:unit -- BusinessCalendarsScreen.test.tsx -> PASS (12 tests; correlated scope payloads covered); npm --prefix apps/web run build -> PASS after typed union caller fix
+    observed: '2026-07-26'
+  exit_criteria: OpenAPI and generated types require correlated scope fields; the accessible UI conditionally requires a valid UUID for cluster/facility and focused tests prove the entered UUID is sent.
+  owner_task: 2
+scope:
+  decision: user-approved scope amendment
+  decision_date: '2026-07-26'
+  historical_findings_tracked: 19
+  historical_findings_unrecoverable: 104
+  approved_historical_ids:
+  - F020
+  - F023
+  - F030
+  - F033
+  - F035
+  - F044
+  - F046
+  - F059
+  - F067
+  - F072
+  - F076
+  - F078
+  - F087
+  - F089
+  - F112
+  - F113
+  - F115
+  - F116
+  - F117
+  closure_wording: Closure reflects the 19 documentable historical findings (F020/F023/F030/F033/F035/F044/F046/F059/F067/F072/F076/F078/F087/F089/F112/F113/F115/F116/F117) plus the C124-C131 cycle findings. The 104 unreachable findings from F001-F123 are NOT tracked and not claimed as covered by this closure.
+historical_findings_explicitly_out_of_scope:
+  decision: 'Task 4 was asked to append evidence for F003, F016, F019, F078, F123. F078 is the only ID present in the canonical F set; evidence is appended above (status unchanged). F003, F016, F019, and F123 are not in CANONICAL_F_SET (see scripts/validate-architecture-closure.py:51-56) and are not tracked in this register; no closed_by mutation was applied to any ID.'
+  decision_date: '2026-07-26'
+  asked_ids:
+  - F003
+  - F016
+  - F019
+  - F078
+  - F123
+  present_in_canonical_set:
+  - F078
+  absent_from_canonical_set:
+  - F003
+  - F016
+  - F019
+  - F123
