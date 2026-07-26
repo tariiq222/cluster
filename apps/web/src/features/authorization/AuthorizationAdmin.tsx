@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { directionForLocale } from '../../app/copy'
 import { useLocale, useToken } from '../../app/session-context'
 import { FolderSearch } from 'lucide-react'
@@ -308,9 +308,9 @@ export function AuthorizationAdmin({ resource, capabilities }: { resource: Admin
     setState('loading')
     try {
       const result = resource === 'supervisory' ? await listSupervisoryRelationships(token) : await listAuthorization(resource, token)
-      setItems(result.items ?? [])
+      setItems(result)
       setSelected(null)
-      setState(result.items?.length ? 'ready' : 'empty')
+      setState(result.length ? 'ready' : 'empty')
     } catch (caught) {
       setState(stateFromError(caught) as AdminState)
     }
@@ -323,7 +323,7 @@ export function AuthorizationAdmin({ resource, capabilities }: { resource: Admin
   return (
     <div dir={directionForLocale(locale)} aria-labelledby="authorization-heading">
       <Page className="authorization-page">
-        <PageHeader id="authorization-heading" title={text[resource]} description={screenCopy[locale].intro} />
+        <PageHeader id="authorization-heading" title={text[resource]} description={text.intro} />
         {canMutate && (resource === 'role-assignments' || resource === 'delegations') ? (
           <Panel id="authorization-wizard-heading" title={text.wizard} level={2}>
             <AdminForm resource={resource} locale={locale} token={token} onSaved={load} />

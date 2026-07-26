@@ -84,7 +84,6 @@ describe('BusinessCalendarsScreen', () => {
     expect(createSpy).toHaveBeenCalledWith('csrf-token', {
       scope_type: 'platform',
       scope_id: 'platform',
-      parent_calendar_id: null,
     })
   })
 
@@ -115,7 +114,6 @@ describe('BusinessCalendarsScreen', () => {
     expect(createSpy).toHaveBeenCalledWith('csrf-token', {
       scope_type: 'cluster',
       scope_id: clusterId,
-      parent_calendar_id: null,
     })
   })
 
@@ -139,7 +137,6 @@ describe('BusinessCalendarsScreen', () => {
     expect(createSpy).toHaveBeenCalledWith('csrf-token', {
       scope_type: 'facility',
       scope_id: facilityId,
-      parent_calendar_id: null,
     })
   })
 
