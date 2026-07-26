@@ -223,7 +223,11 @@ final class CiMakeSurfaceTest extends TestCase
 
         $content = (string) file_get_contents($path);
 
-        // Required gate presence
+        // Required hosted-CI gate presence. Documentation validation is
+        // deliberately local-only: commit 3cae5ee removed it from hosted CI
+        // because the runner lacks the complete docs prerequisite surface.
+        // Makefile keeps docs-validate/docs-validate-fast, verify-w1-1 still
+        // depends on docs-validate, and focused tests above guard that wiring.
         $requiredSteps = [
             'make verify-boundaries',
             'make api:check',
