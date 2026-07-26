@@ -14,6 +14,7 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Documents\Application\StoredObjectProperties;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
+use Modules\Documents\Domain\Contracts\DocumentsOutbox;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\DocumentVersion\Http\AddDocumentVersionController;
@@ -96,6 +97,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
             $this->scanner,
             DocumentUploadPolicy::fromConfig(config('documents')),
             DocumentRetentionPolicy::fromConfig(config('documents')),
+            $this->app->make(DocumentsOutbox::class),
         );
         $principals = $this->documentPrincipals();
         $access = $this->documentAccess();

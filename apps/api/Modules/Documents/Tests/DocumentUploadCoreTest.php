@@ -15,6 +15,7 @@ use Modules\Documents\Application\InitiateDocumentUpload;
 use Modules\Documents\Application\RetryableStorageException;
 use Modules\Documents\Application\StoredObjectProperties;
 use Modules\Documents\Application\UploadFileMetadata;
+use Modules\Documents\Domain\Contracts\DocumentsOutbox;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\Spreadsheet\CleanSpreadsheetReferenceService;
@@ -55,6 +56,7 @@ final class DocumentUploadCoreTest extends TestCase
             $this->scanner,
             DocumentUploadPolicy::fromConfig(config('documents')),
             DocumentRetentionPolicy::fromConfig(config('documents')),
+            $this->app->make(DocumentsOutbox::class),
         );
     }
 
@@ -571,6 +573,19 @@ final class DocumentUploadCoreTest extends TestCase
     private function hashFor(string $filename, int $sizeBytes): string
     {
         return hash('sha256', $filename.':'.$sizeBytes);
+    }
+
+    public function test_upload_initiated_through_handler_writes_document_outbox_events_row(): void
+    {
+        $started = $this->initiate('outbox-event.pdf', 'application/pdf', 512, 'outbox');
+
+        $internalId = (string) DB::table('documents')->where('public_id', $started->documentId)->value('id');
+        $row = DB::table('document_outbox_events')->where('aggregate_id', $internalId)->first();
+
+        $this->assertNotNull($row, 'document_outbox_events must carry a row for the initiated document aggregate.');
+        $this->assertSame('com.cluster.documents.uploadinitiated.v1', $row->event_type);
+        $this->assertNotEmpty($row->payload);
+        $this->assertNull($row->published_at, 'relay is deferred; published_at must remain null.');
     }
 
     private static function uuidV7Pattern(): string

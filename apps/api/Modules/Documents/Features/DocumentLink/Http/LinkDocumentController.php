@@ -12,6 +12,8 @@ use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Application\DocumentLinkService;
 use Modules\Documents\Contracts\DocumentSourceReference;
+use Modules\Documents\Domain\Contracts\DocumentsOutbox;
+use Modules\Documents\Domain\UuidV7;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
@@ -24,6 +26,7 @@ final class LinkDocumentController
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
         private readonly DocumentLinkService $links,
+        private readonly DocumentsOutbox $outbox,
     ) {}
 
     public function __invoke(Request $request, string $documentId): JsonResponse
@@ -125,11 +128,19 @@ final class LinkDocumentController
                     'resource_id' => $linkId, 'response_payload' => json_encode($resource, JSON_THROW_ON_ERROR),
                     'created_at' => $now, 'updated_at' => $now,
                 ]);
-                DB::table('document_outbox_events')->insert([
-                    'id' => Str::uuid7()->toString(), 'aggregate_id' => $document->id, 'event_type' => 'com.cluster.documents.linked.v1',
-                    'payload' => json_encode(['document_id' => $document->public_id, 'link_id' => $linkId, 'relation_type' => $validated['relation_type'], 'constraint_policy_key' => $constraintPolicyKey, 'correlation_id' => $correlationId], JSON_THROW_ON_ERROR),
-                    'occurred_at' => $now, 'published_at' => null, 'created_at' => $now, 'updated_at' => $now,
-                ]);
+                $this->outbox->append(
+                    UuidV7::generate(),
+                    $document->id,
+                    'com.cluster.documents.linked.v1',
+                    [
+                        'document_id' => $document->public_id,
+                        'link_id' => $linkId,
+                        'relation_type' => $validated['relation_type'],
+                        'constraint_policy_key' => $constraintPolicyKey,
+                        'correlation_id' => $correlationId,
+                    ],
+                    $now,
+                );
 
                 return $resource;
             });

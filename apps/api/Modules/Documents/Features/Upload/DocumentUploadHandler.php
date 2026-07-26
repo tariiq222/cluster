@@ -51,6 +51,7 @@ final class DocumentUploadHandler
         private readonly MalwareScanner $scanner,
         private readonly DocumentUploadPolicy $uploadPolicy,
         private readonly DocumentRetentionPolicy $retentionPolicy,
+        private readonly \Modules\Documents\Domain\Contracts\DocumentsOutbox $outbox,
     ) {}
 
     public function initiate(
@@ -223,7 +224,7 @@ final class DocumentUploadHandler
                 'signed_intent_payload' => Crypt::encryptString(json_encode($uploadIntent->toArray(), JSON_THROW_ON_ERROR)),
                 'updated_at' => $this->databaseTimestamp($now),
             ]);
-            $this->writeOutbox($documentId, 'com.cluster.documents.uploadinitiated.v1', [
+            $this->outbox->append(UuidV7::generate(), $documentId, 'com.cluster.documents.uploadinitiated.v1', [
                 'document_id' => $documentPublicId,
                 'version_id' => $versionPublicId,
                 'upload_intent_id' => $uploadIntentId,
@@ -336,7 +337,7 @@ final class DocumentUploadHandler
                 $failureCodes,
             );
             $this->storeIdempotencyResponse($idempotency, 'document_version', (string) $upload->version_public_id, $result->toArray(), $now);
-            $this->writeOutbox((string) $upload->document_id, $accepted
+            $this->outbox->append(UuidV7::generate(), (string) $upload->document_id, $accepted
                 ? 'com.cluster.documents.versionuploaded.v1'
                 : 'com.cluster.documents.versionrejected.v1', [
                     'document_id' => $upload->document_public_id,
@@ -430,7 +431,7 @@ final class DocumentUploadHandler
                 $availabilityStatus->value,
             );
             $this->storeIdempotencyResponse($idempotency, 'document_version', (string) $version->version_public_id, $result->toArray(), $now);
-            $this->writeOutbox((string) $version->document_id, match ($availabilityStatus) {
+            $this->outbox->append(UuidV7::generate(), (string) $version->document_id, match ($availabilityStatus) {
                 DocumentVersionAvailabilityStatus::PromotionPending => 'com.cluster.documents.versionpromotionrequested.v1',
                 DocumentVersionAvailabilityStatus::Rejected => 'com.cluster.documents.versionrejected.v1',
                 default => 'com.cluster.documents.versionquarantined.v1',
@@ -528,7 +529,7 @@ final class DocumentUploadHandler
                 DocumentVersionAvailabilityStatus::Available->value,
             );
             $this->storeIdempotencyResponse($idempotency, 'document_version', (string) $version->version_public_id, $result->toArray(), $now);
-            $this->writeOutbox((string) $version->document_id, 'com.cluster.documents.versionavailable.v1', [
+            $this->outbox->append(UuidV7::generate(), (string) $version->document_id, 'com.cluster.documents.versionavailable.v1', [
                 'document_id' => $version->document_public_id,
                 'version_id' => $version->version_public_id,
                 'availability_status' => DocumentVersionAvailabilityStatus::Available->value,
@@ -858,16 +859,6 @@ final class DocumentUploadHandler
         }
 
         return $payload[$key];
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function writeOutbox(string $documentId, string $type, array $payload, DateTimeImmutable $now): void
-    {
-        DB::table('document_outbox_events')->insert([
-            'id' => UuidV7::generate(), 'aggregate_id' => $documentId, 'event_type' => $type,
-            'payload' => json_encode($payload, JSON_THROW_ON_ERROR), 'occurred_at' => $this->databaseTimestamp($now),
-            'published_at' => null, 'created_at' => $this->databaseTimestamp($now), 'updated_at' => $this->databaseTimestamp($now),
-        ]);
     }
 
     private function now(): DateTimeImmutable

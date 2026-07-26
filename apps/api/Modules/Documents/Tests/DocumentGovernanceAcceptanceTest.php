@@ -25,6 +25,7 @@ use Modules\Documents\Application\UploadFileMetadata;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\DocumentSourceReference;
 use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
+use Modules\Documents\Domain\Contracts\DocumentsOutbox;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\Upload\DocumentUploadHandler;
@@ -252,7 +253,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
 
     private function handler(InMemoryPrivateObjectStorage $storage, InMemoryMalwareScanner $scanner): DocumentUploadHandler
     {
-        return new DocumentUploadHandler($storage, $scanner, DocumentUploadPolicy::fromConfig(config('documents')), DocumentRetentionPolicy::fromConfig(config('documents')));
+        return new DocumentUploadHandler($storage, $scanner, DocumentUploadPolicy::fromConfig(config('documents')), DocumentRetentionPolicy::fromConfig(config('documents')), $this->app->make(DocumentsOutbox::class));
     }
 
     private function initiate(DocumentUploadHandler $handler, string $filename, string $mime, string $key, string $classification = 'internal'): object

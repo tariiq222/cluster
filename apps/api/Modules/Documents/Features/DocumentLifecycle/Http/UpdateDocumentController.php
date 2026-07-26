@@ -7,8 +7,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Documents\Domain\Contracts\DocumentsOutbox;
+use Modules\Documents\Domain\UuidV7;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
@@ -20,6 +21,7 @@ final class UpdateDocumentController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
+        private readonly DocumentsOutbox $outbox,
     ) {}
 
     public function __invoke(Request $request, string $documentId): JsonResponse
@@ -86,22 +88,19 @@ final class UpdateDocumentController
                 if ($updated !== 1) {
                     throw new \DomainException('precondition_failed');
                 }
-                DB::table('document_outbox_events')->insert([
-                    'id' => Str::uuid7()->toString(),
-                    'aggregate_id' => $document->id,
-                    'event_type' => 'com.cluster.documents.metadataupdated.v1',
-                    'payload' => json_encode([
+                $this->outbox->append(
+                    UuidV7::generate(),
+                    $document->id,
+                    'com.cluster.documents.metadataupdated.v1',
+                    [
                         'document_id' => $document->public_id,
                         'changed_fields' => array_keys($changes),
                         'classification_change_reason' => $validated['classification_change_reason'] ?? null,
                         'correlation_id' => $correlationId,
                         'actor_user_id' => $principal['user_id'],
-                    ], JSON_THROW_ON_ERROR),
-                    'occurred_at' => $now,
-                    'published_at' => null,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
+                    ],
+                    $now,
+                );
 
                 return DB::table('documents')->where('id', $document->id)->first();
             });

@@ -16,6 +16,7 @@ use Modules\Documents\Application\StoredObjectProperties;
 use Modules\Documents\Application\VerifiedQuarantineObject;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\WorkerPrincipalResolver;
+use Modules\Documents\Domain\Contracts\DocumentsOutbox;
 use Modules\Documents\Domain\DocumentRetentionPolicy;
 use Modules\Documents\Domain\DocumentUploadPolicy;
 use Modules\Documents\Features\DocumentGrant\Http\CreateDocumentGrantController;
@@ -84,6 +85,7 @@ final class DocumentsHttpControllerTest extends TestCase
             $this->scanner,
             DocumentUploadPolicy::fromConfig(config('documents')),
             DocumentRetentionPolicy::fromConfig(config('documents')),
+            $this->app->make(DocumentsOutbox::class),
         );
         $this->resolvedPrincipal = ['user_id' => self::PRINCIPAL_ID, 'facility_id' => self::FACILITY_ID];
         $this->principals = new class($this) implements WorkerPrincipalResolver
@@ -333,6 +335,7 @@ final class DocumentsHttpControllerTest extends TestCase
             new InMemoryMalwareScanner,
             DocumentUploadPolicy::fromConfig(config('documents')),
             DocumentRetentionPolicy::fromConfig(config('documents')),
+            $this->app->make(DocumentsOutbox::class),
         );
         $userOnlyPrincipal = new class implements ResolveDevelopmentFixturePrincipal
         {

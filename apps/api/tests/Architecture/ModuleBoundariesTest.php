@@ -523,6 +523,14 @@ PHP);
                 ) {
                     $violations[] = "{$module} must access Shared-owned outbox_events only through Shared\Contracts.";
                 }
+                if (
+                    $module === 'Documents'
+                    && ! str_contains($relativePath, '/Tests/')
+                    && ! str_ends_with($relativePath, '/Infrastructure/Outbox/DocumentsTransactionalOutbox.php')
+                    && in_array('document_outbox_events', $this->tablesInDatabaseCalls($source), true)
+                ) {
+                    $violations[] = 'Documents must access document_outbox_events only through Modules\\Documents\\Domain\\Contracts\\DocumentsOutbox.';
+                }
 
                 foreach ($this->businessIdentifiersFrom($source) as $identifier) {
                     if (str_starts_with($identifier, 'Request')) {
@@ -859,6 +867,60 @@ PHP);
         }
 
         rmdir($path);
+    }
+
+    public function test_rejects_raw_document_outbox_access_outside_the_documents_adapter(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/Documents/Features/Upload/Handler.php', <<<'PHP'
+<?php
+namespace Modules\Documents\Features\Upload;
+use Illuminate\Support\Facades\DB;
+final class Handler
+{
+    public function handle(): void
+    {
+        DB::table('document_outbox_events')->insert(['id' => 'duplicate']);
+    }
+}
+PHP);
+
+        try {
+            $this->assertContains(
+                'Documents must access document_outbox_events only through Modules\\Documents\\Domain\\Contracts\\DocumentsOutbox.',
+                $this->violationsIn($root),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_allows_raw_document_outbox_access_inside_the_documents_adapter(): void
+    {
+        $root = $this->fixtureRoot();
+        $this->writeFixture($root, 'Modules/Documents/Infrastructure/Outbox/DocumentsTransactionalOutbox.php', <<<'PHP'
+<?php
+namespace Modules\Documents\Infrastructure\Outbox;
+use Illuminate\Support\Facades\DB;
+final class DocumentsTransactionalOutbox
+{
+    public function append(): void
+    {
+        DB::table('document_outbox_events')->insert(['id' => '1']);
+    }
+}
+PHP);
+
+        try {
+            $violations = $this->violationsIn($root);
+            $this->assertNotContains(
+                'Documents must access document_outbox_events only through Modules\\Documents\\Domain\\Contracts\\DocumentsOutbox.',
+                $violations,
+                'Documents-owned outbox adapter must be allowed to write to its own table without flagging: '.implode(' | ', $violations),
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
     }
 
     public function test_every_misplaced_file_has_a_reason_a_non_past_expiry_and_an_existing_path(): void
