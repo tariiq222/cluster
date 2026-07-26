@@ -3907,16 +3907,24 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /business-calendars:
+  /platform-settings/calendars:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     get:
       tags:
         - PlatformSettings
       summary: List business calendars
-      operationId: listBusinessCalendars
+      operationId: listPlatformSettingsCalendars
       parameters:
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum:
+              - platform
+              - cluster
+              - facility
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -3929,8 +3937,8 @@ paths:
     post:
       tags:
         - PlatformSettings
-      summary: Create a Draft business calendar
-      operationId: createBusinessCalendar
+      summary: Create a draft business calendar
+      operationId: createPlatformSettingsCalendar
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -3950,15 +3958,59 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
-  /business-calendars/{calendarId}/days/{date}:
+  /platform-settings/calendars/{calendarId}/weekdays/{weekday}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     put:
       tags:
         - PlatformSettings
-      summary: Set a Draft calendar day
-      operationId: setBusinessCalendarDay
+      summary: Set a draft calendar weekday
+      operationId: setPlatformSettingsCalendarWeekday
+      parameters:
+        - name: calendarId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUIDv7'
+        - name: weekday
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 7
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessCalendarWeekday'
+      responses:
+        '200':
+          $ref: '#/components/responses/Entity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /platform-settings/calendars/{calendarId}/exceptions/{date}:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    x-implementation-status: implemented
+    put:
+      tags:
+        - PlatformSettings
+      summary: Set a draft calendar exception
+      operationId: setPlatformSettingsCalendarException
       parameters:
         - name: calendarId
           in: path
@@ -3977,7 +4029,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BusinessCalendarDay'
+              $ref: '#/components/schemas/BusinessCalendarException'
       responses:
         '200':
           $ref: '#/components/responses/Entity'
@@ -3993,15 +4045,15 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
-  /business-calendars/{calendarId}/publish:
+  /platform-settings/calendars/{calendarId}/publish:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     post:
       tags:
         - PlatformSettings
-      summary: Publish an immutable business calendar
-      operationId: publishBusinessCalendar
+      summary: Publish a business calendar
+      operationId: publishPlatformSettingsCalendar
       parameters:
         - name: calendarId
           in: path
@@ -9300,26 +9352,19 @@ components:
       type: object
       additionalProperties: false
       required:
-        - code
-        - name
-        - timezone
-        - year
+        - scope_type
+        - scope_id
       properties:
-        code:
+        scope_type:
           type: string
-          pattern: ^[A-Z0-9_-]{2,64}$
-        name:
+          enum:
+            - platform
+            - cluster
+            - facility
+        scope_id:
           type: string
           minLength: 1
-          maxLength: 255
-        timezone:
-          type: string
-          const: Asia/Riyadh
-        year:
-          type: integer
-          minimum: 2000
-          maximum: 2200
-    BusinessCalendarDay:
+    BusinessCalendarWeekday:
       type: object
       additionalProperties: false
       required:
@@ -9327,13 +9372,53 @@ components:
       properties:
         is_working_day:
           type: boolean
-        working_minutes:
-          type: integer
-          minimum: 0
-          maximum: 1440
-        label:
+        starts_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+        ends_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+    BusinessCalendarException:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - is_working_day
+      properties:
+        type:
           type: string
-          maxLength: 255
+          enum:
+            - official_holiday
+            - local_closure
+            - local_hours
+            - official_holiday_work_override
+            - ramadan
+        ends_on:
+          type:
+            - string
+            - 'null'
+          format: date
+        is_working_day:
+          type: boolean
+        starts_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+        ends_at:
+          type:
+            - string
+            - 'null'
+          pattern: ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+        reason:
+          type:
+            - string
+            - 'null'
+          maxLength: 2000
     StrategyResourceCreate:
       type: object
       additionalProperties: false

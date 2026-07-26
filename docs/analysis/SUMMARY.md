@@ -1,75 +1,90 @@
-# ملخّص تنفيذي لحالة Cluster
+# ملخّص تنفيذي (بالعربية)
 
-> **آخر تحديث:** 2026-07-26
-> **المنهجية:** repository state + change history + source inspection + fresh quality gates
-> **المرحلة الحالية:** stabilization بعد integration/architecture migration
-> **readiness_state:** `unassessable` — لم يُعتمد goal charter رسمي للحكم على الإغلاق.
+> **التاريخ:** 2026-07-26 (إعادة كتابة بعد تحديث drift)
+> **الحالة:** تحليل evidence-first لـ Cluster (R3).
+> **الفهرس الكامل:** [`00-overview.md`](00-overview.md)
 
-## الخلاصة
 
-التغييرات الأخيرة حسّنت البنية بوضوح ولم تعد مجرد ترحيل أولي: موجة العمل من `14d5032` إلى `be9dd40` غيّرت 262 ملفاً (`+14880/-1919`)، قسمت composition root، نقلت شجرة المتحكمات القديمة إلى الموديولات، أصلحت حدوداً وعقوداً وfixtures، وأعادت بوابات CI. الفرع الحالي لا يبتعد عن `origin/main`; التغيير غير الملتزم عند بداية هذا التقييم كان تحديث `docs/api/endpoints.md` و`docs/api/rbac-matrix.md` الناتج عن route inventory.
+## النتيجة في 60 ثانية
 
-الوضع أقوى معمارياً، لكنه ليس أخضر بالكامل: API static/boundary checks تمر، وPHPUnit المباشر نجح في 724 اختباراً (716 ناجحاً، 8 متجاوزة، 5050 assertion)، وأُصلحت بوابة توثيق محلية كانت تعتمد ملفات catalog/MkDocs محذوفة. في المقابل، اختبارات الويب تحتوي 8 حالات فاشلة في Organization drawers، والعميل المولّد لا يطابق العقد الحالي: baseline `api:check` يكتشف staleness، بينما regeneration يجعل الفحص يمر لكنه يكسر TypeScript build بسبب اختفاء عمليات وأنواع Business Calendar التي تعتمد عليها wrappers اليدوية. أُعيد ملف العميل إلى حالته السابقة حتى لا تُترك الشجرة في حالة لا تُبنى. هدف Composer تجاوز مهلة 300 ثانية، لكن تشغيل PHPUnit المباشر أكمل بنجاح خلال نحو 380 ثانية؛ المشكلة هنا مهلة البوابة لا صحة اختبارات API.
+Cluster مبنيّ كـ **Laravel 13.8 Modular Monolith** بـ 12 موديول أعمال + Shared kernel + Web client (React 19 + Vite 8). النمط المعماري (Contracts → Domain → Features → Infrastructure → Http) مطبَّق بقوة، والـ `ModuleBoundariesTest` يفرض ranks وملكية الجداول.
 
-## ماذا تغيّر فعلياً
+## المرحلة الحالية (ما تم إنجازه)
 
-| المحور | قبل الموجة | الآن | الدليل |
-|---|---|---|---|
-| Composition root | `AppServiceProvider` مركزي وضخم | 106 أسطر + 12 module service providers | `AppServiceProvider.php`, `Modules/*/Providers/` |
-| Controllers | 89 مسار legacy ثم 14 منقول | لا يبقى تحت `app/Http/Controllers/` إلا base `Controller.php`; 102 controller داخل الموديولات | file tree + routes |
-| Organization HTTP | 35 controller في app سابقاً | 35 controller داخل `Modules/Organization/Features/*/Http/` | module tree |
-| CSRF للوثائق | `UpdateDocumentController` موثق كفجوة | داخل session + principal + CSRF mutation group | `routes/web.php:278-305` |
-| Table ownership | 39 entries ووثائق تدّعي جداول ناقصة | 97 entries تغطي كل 96 migrated table names | `ModuleBoundariesTest.php` + migration scan |
-| DI guards | خطر فقدان production engine أثناء التقسيم | `assertAuthorizationRuntimeSafe()` يفرض production engine + session principal resolver | `AppServiceProvider.php:84-97` |
-| API docs | route rows/middleware قديمة | endpoints/RBAC أُعيد توليدهما؛ WorkRecord route يوثق `project_work_record_read_models` | `docs/api/` diff |
-| Generated client | Orval output الملتزم stale | regeneration يطابق 151 path و202 operation لكنه يحذف Business Calendar surface ويكسر TypeScript build؛ أُعيد العميل السابق | `api:check` + `build` |
+منذ التحليل الأول، تمّت المراحل التالية:
 
-## الحالة المعمارية الحالية
+1. **`RequireIdentitySessionPrincipal` أُعيد تنفيذه** (Stage 6.5) — enforcer حقيقي يفحص تماسك `session.user_id === principal.user_id` ويعيد 401 عند الفشل. الـ flag الميت `identity.session_only` لم يعد موجوداً.
+2. **`docs/contracts/api/` مُستعاد** — `openapi.yaml` (10380 سطر) + `w1-1` + `w1-2` + `r1-screens` موجودة ومذكورة في `docs/contracts/api/README.md`.
+3. **`docs/architecture/module-catalog.md` مُنشَأ** (المرجع الأعلى للـ ranks والحدود).
+4. **`IdentitySecurityEventRegistry`** (Stage 6.7) — مركز موحَّد لتعيين الـ 12 suffix للـ security events.
+5. **Self-hosted E2E CI workflow** (`.github/workflows/ci-e2e.yml`) — قالب جاهز ينتظر provisioning لـ runner مع label `cluster-e2e`.
+6. **Legacy controller migration** (Stage 6.8) — لا تبقى business controllers في `app/Http/Controllers/`; المجلد يحوي `Controller.php` الأساسي فقط.
+7. **`AppWorkspace.tsx` مُفكَّك** — الآن 1 سطر (re-export)؛ التقطيع تم في `AppWorkspaceShell.tsx` (271 سطر) + `WorkspaceContent.tsx` (271) + `WorkspaceHeader.tsx` (90) + `WorkspaceSidebar.tsx` (64) + `WorkspaceTabs.tsx` (54) = **750 سطر موزعة على 5 مكونات**.
+8. **الحارس الإنتاجي على `RequireIdentitySessionPrincipal`** — قرار 6.5 موثَّق في `module-catalog.md` §6.5.
 
-- 12 موديول منفّذ + 7 موديولات مخططة.
-- `make verify-boundaries`: 12 اختباراً، 53 assertion، ناجحة.
-- 49 ملف migration يعلن 97 `Schema::create` call تمثل 96 اسماً مميزاً.
-- لا يوجد migrated table بلا owner.
-- توجد مشكلة exactness واحدة: `project_work_record_read_models` في `TABLE_OWNERS` وليس جدولاً مهاجراً.
-- `ModulePlacementInventory` يحتوي 6 entries: 4 موجودة و2 Reporting paths قديمة غير موجودة.
-- توجد 5 module-owned controllers خارج النمط المفضّل `Features/*/Http/`: أربعة Reporting وواحد Search. الحارس الحالي لا يرفضها.
-- `Audit` ما زال مخططاً فقط؛ لا توجد هجرة `audit_events`. `sensitive_access_events` ملك Authorization حالياً.
+## المخاطر الحرجة المتبقية (P0)
 
-## نتائج التحقق الحديثة
+1. **CSRF gap** — `UpdateDocumentController` لا يستخدم `IdentityCsrfMiddleware` رغم كونه mutation.
+2. **9 جداول ناقصة** في `TABLE_OWNERS` (`work_definition_versions`, `search_index_entries`, `platform_settings_outbox`, `notification_inbox`, إلخ).
+3. **`audit_events` ownership drift** — مُسجَّل لـ Authorization لكن Audit مُخطَّط (rank 3).
+## ما تبقّى من Quick Wins (الأسبوع 1)
 
-| الفحص | النتيجة | النطاق/الملاحظة |
-|---|---|---|
-| `make verify-boundaries` | ناجح | 12 tests / 53 assertions |
-| `make lint-api` | ناجح | Pint |
-| `make analyse-api` | ناجح | PHPStan، 0 errors |
-| `make docs-validate` | ناجح | Notifications/Auth/WorkRecords/W1.1/W1.2 + YAML/JSON/links |
-| `npm --prefix apps/web run build` | ناجح بتحذير | chunks رئيسية 1.24 MB وSwagger 1.35 MB قبل gzip |
-| `npm --prefix apps/web run lint` | ناجح بتحذيرات | 60 warning في 16 ملفاً |
-| `npm --prefix apps/web run api:check` | فاشل تكاملياً | baseline stale؛ regeneration يمر على 151 path / 202 operation ثم يفشل web build بسبب Business Calendar exports/types المفقودة |
-| `npm --prefix apps/web run test:unit` | فاشل | 71 files passed، 1 failed؛ 8 اختبارات Organization drawer فشلت |
-| API PHPUnit مباشر | ناجح | 724 tests: 716 passed، 8 skipped، 5050 assertions؛ نحو 380 ثانية. `make test-api` نفسه انتهى بمهلة Composer عند 300 ثانية |
-| E2E | غير مُشغّل | لا يوجد browser/runtime evidence حديث في هذا التقييم |
+1. ✅ **`docs/contracts/api/openapi.yaml`** — **مُنجَز** (10380 سطر، مع snapshots `w1-1`, `w1-2`, `r1-screens`).
+2. ✅ **`docs/architecture/module-catalog.md`** — **مُنجَز** (الـ 12 موديول + 7 مخطَّط + قرارات 6.5–6.8).
+3. **إصلاح CSRF** في `UpdateDocumentController` (إضافة `IdentityCsrfMiddleware`) — **لم يُنجَز بعد**.
+4. ✅ **`RequireIdentitySessionPrincipal`** — **مُنجَز** (تحويله لـ enforcer حقيقي بدل حذفه — Stage 6.5).
+5. **تحديث `TABLE_OWNERS`** بإضافة الجداول الـ 9 الناقصة — **لم يُنجَز بعد**.
 
-## الفجوات ذات الأولوية
+## الـ 12 موديول — في جملة واحدة لكل واحد
 
-1. **P0 — contract/client integration:** حسم مصدر الحقيقة لعمليات وأنواع Business Calendar؛ يجب أن يمر `api:check` ثم `build` على الناتج نفسه بلا استعادة ملف قديم.
-2. **P0 — بوابة web unit:** إصلاح حالات 409/412 الثمانية في `OrganizationDrawers.test.tsx` أو إثبات أن الاختبارات هي القديمة وتحديثها وفق السلوك المقصود.
-3. **P1 — inventory exactness:** رفض مفاتيح `TABLE_OWNERS` الزائدة والتحقق من وجود كل path في `ModulePlacementInventory`.
-4. **P1 — controller layout:** نقل 5 controllers إلى `Features/*/Http/` أو اعتماد استثناء صريح وحارس يطابق القرار.
-5. **P2 — gate timeout:** رفع مهلة `make test-api` أو إزالة طبقة المهلة؛ PHPUnit المباشر سليم لكنه يحتاج نحو 380 ثانية في هذه البيئة.
-6. **P2 — quality warnings:** 60 lint warnings، Redocly ambiguity/unused component warnings، وتحذير Vite عن chunks الكبيرة.
-7. **P2 — runtime evidence:** تشغيل E2E بعد إغلاق unit/contract gates.
+| الموديول | Rank | الحالة | في جملة |
+|---------|------|--------|---------|
+| **Identity** | 1 | ✅ production | مصادقة بـ session + TOTP + Idempotency + Stream Worker لـ 3 تيارات من Organization |
+| **Authorization** | 2 | ✅ production | RBAC + ABAC + Classification + Delegation + ExplicitDeny + FieldAccess + SensitiveAccess |
+| **Organization** | 0 | ✅ production | Cluster/Facility/Unit/Person/Position/Assignment + Import Excel + TemporaryAssignment مع concurrency + 4 Person-event outbox types |
+| **WorkRecords** | 8 | ✅ production | Submit/List/Get + envelope + Idempotency-Key + outbox `com.cluster.workrecord.submitted.v1` |
+| **WorkDefinitions** | 5 | ✅ minimal | تعريفات + fixture + Idempotency-Key (HTTP layer legacy) |
+| **Documents** | 5 | ✅ production | Quarantine → ClamAV → S3 SigV4 presigned + Clean Spreadsheet Parser (HTTP layer legacy) |
+| **Tasks** | 7 | ✅ production | CreateFromWorkflowStep/Complete/Transition + Engagement (HTTP layer ضمن module) |
+| **Notifications** | 11 | ✅ production | Inbox + Workers مع reclaim/DLQ + cursor masked (HTTP layer ضمن module) |
+| **Workflow** | 4 | ✅ production | Engine (Decision → Advance) + Approval Inbox + Assignment Rules (HTTP layer legacy) |
+| **Reporting** | 11 | ✅ production | CQRS read-models + Refresh/Rebuild + Export (HTTP layer ضمن module) |
+| **Search** | 11 | ✅ production | Indexer + Rebuild + DecideAccess per row (HTTP layer ضمن module) |
+| **PlatformSettings** | 0 | ✅ production | Settings versions + Alerts outbox + Calendars + Maintenance + Backup + Technical Logs (DEFERRED) |
+## خارطة طريق (7 مراحل، 10 أسابيع) — محدَّثة
 
-## وضع الوثائق بعد التحديث
+1. **الأسبوع 1:** إصلاحات حرجة متبقية — CSRF gap + `TABLE_OWNERS`.
+2. **الأسبوع 2-3:** تنظيف Architecture — الحفاظ على نقل controllers الحالي وإزالة integrations وseeders المتبقية من طبقة التطبيق.
+3. **الأسبوع 4:** ملكية الجداول — إضافة 9 جداول ناقصة.
+4. **الأسبوع 5-6:** تحسينات الإنتاج — Outbox typed + Dead path cleanup + retry/timeout.
+5. **الأسبوع 7:** إنشاء موديول `Audit` (rank 3) ونقل `audit_events`.
+6. **الأسبوع 8-9:** Web client — تفكيك `AppShell.tsx` (583 سطر) و `AppShell.css` (864 سطر) لاستخراج design system موحَّد.
+7. **الأسبوع 10:** CI + Tooling — تفكيك `openapi_reconciler.py` (51KB) + cache + `make docs:validate`.
 
-- [`00-overview.md`](00-overview.md) صار فهرساً واضحاً بين الحالة الحالية وخط الأساس التاريخي.
-- هذه الوثيقة هي الملخص التنفيذي الحالي.
-- [`17-cross-cutting-risks.md`](17-cross-cutting-risks.md) يحتوي سجل المخاطر مع evidence/impact/confidence/action.
-- [`../architecture/module-catalog.md`](../architecture/module-catalog.md) يعكس provider split، اكتمال ترحيل app controllers، وديون exactness الحالية.
-- [`../architecture/ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) لم يعد يدّعي وجود `audit_events`.
-- ملفات التحليل `01`–`16` موسومة بوضوح كخط أساس تاريخي بتاريخ 2026-07-25.
-- [`../contracts/api/README.md`](../contracts/api/README.md) يوثق مسار `make docs-validate` الحالي بدون catalog/MkDocs المحذوفين.
+## مؤشرات النجاح — محدَّثة (2026-07-26)
 
-## القرار العملي
+| المؤشر | الحالي | المستهدف |
+|--------|--------|----------|
+| `misplacedBusinessFiles` count | 0 (لا تبقى business controllers خارج الموديولات) | 0 ✅ |
+| `TABLE_OWNERS` entries | 39 (ناقصة) | 50+ (نظيف) |
+| Web client unit tests | 212 ملف `.test.{ts,tsx}` | تغطية features متكافئة |
+| `AppWorkspace.tsx` LOC | 1 (re-export لـ `AppWorkspaceShell`) | 1 ✅ |
+| `AppWorkspaceShell.tsx` LOC | 271 | < 300 |
+| `AppShell.tsx` LOC | 583 | < 300 |
+| `AppShell.css` LOC | 864 | < 200 |
+| OpenAPI source | `docs/contracts/api/openapi.yaml` ✅ | — |
+| CSRF gaps | 1 (`UpdateDocumentController`) | 0 |
+| Dead code paths | 2 (`ResolveAuthorizationSimulationFacts`, `ConsumeSubmittedNotification`) | 0 |
+| Outbox events typed | 100% (`OutboxEventType` enum + matching schema) | 100% ✅ |
+| Self-hosted E2E CI | قالب جاهز في `ci-e2e.yml` | provisioning runner |
 
-المشروع في **مرحلة تثبيت، لا مرحلة توسعة ميزات**. الأولوية الصحيحة الآن: توحيد عقد Business Calendar والعميل المولّد حتى يمر `api:check` و`build` على الشجرة نفسها، ثم جعل web unit خضراء، ثم تشديد inventory guards، ثم E2E. API tests نفسها خضراء، لكن مهلة بوابة Composer أقصر من زمنها الفعلي في هذه البيئة. أي roadmap أقدم يتكلم عن “75 legacy controller” أو “9 جداول ناقصة” أو “CSRF gap في UpdateDocumentController” أصبح تاريخياً ولا يمثل الوضع الحالي.
+- **Audit first-class module** (rank 3) — استخراج audit_events.
+- **Outbox events as Contracts** — تحويل النصوص الخام إلى typed contracts.
+- **CI E2E** (self-hosted runner) — لسد فجوة localhost-only.
+- **Web client feature-first** — تفكيك AppWorkspace.
+- **Documentation as Code** — OpenAPI + catalog.
+- **Single Composition Root** — ModuleServiceProvider لكل موديول.
+
+## الفهرس الكامل
+
+راجع [`00-overview.md`](00-overview.md) للجدول الكامل بـ 17 وثيقة تحليلية.

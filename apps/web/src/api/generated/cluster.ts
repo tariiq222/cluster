@@ -2226,57 +2226,55 @@ export const BusinessCalendarCreateScopeType = {
 
 export interface BusinessCalendarCreate {
   scope_type: BusinessCalendarCreateScopeType
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
+  /** @minLength 1 */
   scope_id: string
-  /** @nullable */
-  parent_calendar_id?: string | null
-}
-
-export interface BusinessCalendarDay {
-  is_working_day: boolean
-  /**
-   * @minimum 0
-   * @maximum 1440
-   */
-  working_minutes?: number
-  /** @maxLength 255 */
-  label?: string
 }
 
 export interface BusinessCalendarWeekday {
   is_working_day: boolean
-  /** Civil Riyadh clock time (HH:MM) when the day opens, only meaningful when is_working_day is true. */
-  starts_at: string
-  /** Civil Riyadh clock time (HH:MM) when the day closes. */
-  ends_at: string
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  starts_at?: string | null
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  ends_at?: string | null
 }
 
-/**
- * Exception category. official_holiday_work_override requires the platform_settings.calendar.override_official_holiday capability.
- */
 export type BusinessCalendarExceptionType =
   (typeof BusinessCalendarExceptionType)[keyof typeof BusinessCalendarExceptionType]
 
 export const BusinessCalendarExceptionType = {
   official_holiday: 'official_holiday',
-  ad_hoc_holiday: 'ad_hoc_holiday',
-  seasonal_period: 'seasonal_period',
+  local_closure: 'local_closure',
+  local_hours: 'local_hours',
   official_holiday_work_override: 'official_holiday_work_override',
+  ramadan: 'ramadan',
 } as const
 
 export interface BusinessCalendarException {
-  /** Exception category. official_holiday_work_override requires the platform_settings.calendar.override_official_holiday capability. */
   type: BusinessCalendarExceptionType
+  /** @nullable */
+  ends_on?: string | null
   is_working_day: boolean
-  starts_at: string
-  ends_at: string
-  /** Optional inclusive end date for multi-day exceptions; omit for single-day entries. */
-  ends_on?: string
-  /** @maxLength 1024 */
-  reason?: string
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  starts_at?: string | null
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  ends_at?: string | null
+  /**
+   * @maxLength 2000
+   * @nullable
+   */
+  reason?: string | null
 }
 
 export type StrategyResourceCreateResourceType =
@@ -2555,49 +2553,6 @@ export interface DispositionConfirmation {
   detail?: string
 }
 
-export interface PlatformAlertPolicyUpdate {
-  /** @maxLength 64 */
-  status?: string
-  /** @maxLength 64 */
-  severity?: string
-  /** @maxLength 64 */
-  channel?: string
-}
-
-export interface PlatformMaintenanceWindowCreate {
-  starts_at: UtcDateTime
-  /** @nullable */
-  ends_at?: string | null
-  /**
-   * @minLength 1
-   * @maxLength 1024
-   */
-  message_ar: string
-  /**
-   * @minLength 1
-   * @maxLength 1024
-   */
-  message_en: string
-}
-
-export interface PlatformRestoreRequestCreate {
-  backup_id: UUIDv7
-  /**
-   * @minLength 1
-   * @maxLength 2048
-   */
-  reason: string
-}
-
-export interface PlatformTechnicalLogsRestoreRequest {
-  manifest_id: UUIDv7
-  /**
-   * @minLength 1
-   * @maxLength 2048
-   */
-  reason: string
-}
-
 /**
  * Invalid request (RFC 7807)
  */
@@ -2818,11 +2773,6 @@ export type UserAccountCollectionResponse = UserAccountCollection
  * User account summary without credentials or tokens
  */
 export type UserAccountEntityResponse = UserAccount
-
-/**
- * The requested platform operation is not available in this environment (RFC 7807)
- */
-export type ServiceUnavailableResponse = ProblemDetailsSchema
 
 /**
  * Cursor-paginated workflow step instances assigned to the current principal
@@ -3389,6 +3339,7 @@ export type ListPlatformSettingsVersionsParams = {
 }
 
 export type ListPlatformSettingsCalendarsParams = {
+  scope?: ListPlatformSettingsCalendarsScope
   /**
    * @minLength 1
    */
@@ -3400,17 +3351,14 @@ export type ListPlatformSettingsCalendarsParams = {
   limit?: LimitParameter
 }
 
-export type ListBusinessCalendarsParams = {
-  /**
-   * @minLength 1
-   */
-  cursor?: CursorParameter
-  /**
-   * @minimum 1
-   * @maximum 100
-   */
-  limit?: LimitParameter
-}
+export type ListPlatformSettingsCalendarsScope =
+  (typeof ListPlatformSettingsCalendarsScope)[keyof typeof ListPlatformSettingsCalendarsScope]
+
+export const ListPlatformSettingsCalendarsScope = {
+  platform: 'platform',
+  cluster: 'cluster',
+  facility: 'facility',
+} as const
 
 export type ListStrategyResourcesParams = {
   /**
@@ -3650,6 +3598,15 @@ export type ListPlatformAlertPoliciesParams = {
   limit?: LimitParameter
 }
 
+export type UpdatePlatformAlertPolicyBody = {
+  /** @maxLength 64 */
+  status?: string
+  /** @maxLength 64 */
+  severity?: string
+  /** @maxLength 64 */
+  channel?: string
+}
+
 export type ListPlatformMaintenanceWindowsParams = {
   /**
    * @minLength 1
@@ -3662,6 +3619,31 @@ export type ListPlatformMaintenanceWindowsParams = {
   limit?: LimitParameter
 }
 
+export type SchedulePlatformMaintenanceWindowBody = {
+  starts_at: UtcDateTime
+  /** @nullable */
+  ends_at?: string | null
+  /**
+   * @minLength 1
+   * @maxLength 1024
+   */
+  message_ar: string
+  /**
+   * @minLength 1
+   * @maxLength 1024
+   */
+  message_en: string
+}
+
+export type RequestPlatformRestoreBody = {
+  backup_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  reason: string
+}
+
 export type ListPlatformTechnicalLogsParams = {
   /**
    * @minLength 1
@@ -3672,6 +3654,15 @@ export type ListPlatformTechnicalLogsParams = {
    * @maximum 100
    */
   limit?: LimitParameter
+}
+
+export type RequestPlatformTechnicalLogsRestoreBody = {
+  manifest_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 2048
+   */
+  reason: string
 }
 
 export type loginW12Response200 = {
@@ -12974,7 +12965,7 @@ export const getCreatePlatformSettingsCalendarUrl = () => {
 }
 
 /**
- * @summary Create a Draft business calendar
+ * @summary Create a draft business calendar
  */
 export const createPlatformSettingsCalendar = async (
   businessCalendarCreate: BusinessCalendarCreate,
@@ -13053,7 +13044,7 @@ export const getSetPlatformSettingsCalendarWeekdayUrl = (
 }
 
 /**
- * @summary Set a Draft calendar weekday (working day and hours)
+ * @summary Set a draft calendar weekday
  */
 export const setPlatformSettingsCalendarWeekday = async (
   calendarId: UUIDv7,
@@ -13134,7 +13125,7 @@ export const getSetPlatformSettingsCalendarExceptionUrl = (
 }
 
 /**
- * @summary Set a Draft calendar exception (holiday or seasonal period) for a date or date range
+ * @summary Set a draft calendar exception
  */
 export const setPlatformSettingsCalendarException = async (
   calendarId: UUIDv7,
@@ -13206,7 +13197,7 @@ export const getPublishPlatformSettingsCalendarUrl = (calendarId: UUIDv7) => {
 }
 
 /**
- * @summary Publish an immutable business calendar
+ * @summary Publish a business calendar
  */
 export const publishPlatformSettingsCalendar = async (
   calendarId: UUIDv7,
@@ -13214,278 +13205,6 @@ export const publishPlatformSettingsCalendar = async (
 ): Promise<publishPlatformSettingsCalendarResponse> => {
   return customFetch<publishPlatformSettingsCalendarResponse>(
     getPublishPlatformSettingsCalendarUrl(calendarId),
-    {
-      ...options,
-      method: 'POST',
-    },
-  )
-}
-
-export type listBusinessCalendarsResponse200 = {
-  data: CollectionResponse
-  status: 200
-}
-
-export type listBusinessCalendarsResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type listBusinessCalendarsResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type listBusinessCalendarsResponseSuccess =
-  listBusinessCalendarsResponse200 & {
-    headers: Headers
-  }
-export type listBusinessCalendarsResponseError = (
-  listBusinessCalendarsResponse401 | listBusinessCalendarsResponse403
-) & {
-  headers: Headers
-}
-
-export type listBusinessCalendarsResponse =
-  listBusinessCalendarsResponseSuccess | listBusinessCalendarsResponseError
-
-export const getListBusinessCalendarsUrl = (
-  params?: ListBusinessCalendarsParams,
-) => {
-  const normalizedParams = new URLSearchParams()
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  })
-
-  const stringifiedParams = normalizedParams.toString()
-
-  return stringifiedParams.length > 0
-    ? `/api/v1/business-calendars?${stringifiedParams}`
-    : `/api/v1/business-calendars`
-}
-
-/**
- * @summary List business calendars
- */
-export const listBusinessCalendars = async (
-  params?: ListBusinessCalendarsParams,
-  options?: RequestInit,
-): Promise<listBusinessCalendarsResponse> => {
-  return customFetch<listBusinessCalendarsResponse>(
-    getListBusinessCalendarsUrl(params),
-    {
-      ...options,
-      method: 'GET',
-    },
-  )
-}
-
-export type createBusinessCalendarResponse201 = {
-  data: EntityResponse
-  status: 201
-}
-
-export type createBusinessCalendarResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type createBusinessCalendarResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type createBusinessCalendarResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type createBusinessCalendarResponse409 = {
-  data: ConflictResponse
-  status: 409
-}
-
-export type createBusinessCalendarResponseSuccess =
-  createBusinessCalendarResponse201 & {
-    headers: Headers
-  }
-export type createBusinessCalendarResponseError = (
-  | createBusinessCalendarResponse400
-  | createBusinessCalendarResponse401
-  | createBusinessCalendarResponse403
-  | createBusinessCalendarResponse409
-) & {
-  headers: Headers
-}
-
-export type createBusinessCalendarResponse =
-  createBusinessCalendarResponseSuccess | createBusinessCalendarResponseError
-
-export const getCreateBusinessCalendarUrl = () => {
-  return `/api/v1/business-calendars`
-}
-
-/**
- * @summary Create a Draft business calendar
- */
-export const createBusinessCalendar = async (
-  businessCalendarCreate: BusinessCalendarCreate,
-  options?: RequestInit,
-): Promise<createBusinessCalendarResponse> => {
-  return customFetch<createBusinessCalendarResponse>(
-    getCreateBusinessCalendarUrl(),
-    {
-      ...options,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(businessCalendarCreate),
-    },
-  )
-}
-
-export type setBusinessCalendarDayResponse200 = {
-  data: EntityResponse
-  status: 200
-}
-
-export type setBusinessCalendarDayResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type setBusinessCalendarDayResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type setBusinessCalendarDayResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type setBusinessCalendarDayResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type setBusinessCalendarDayResponse409 = {
-  data: ConflictResponse
-  status: 409
-}
-
-export type setBusinessCalendarDayResponse412 = {
-  data: PreconditionFailedResponse
-  status: 412
-}
-
-export type setBusinessCalendarDayResponseSuccess =
-  setBusinessCalendarDayResponse200 & {
-    headers: Headers
-  }
-export type setBusinessCalendarDayResponseError = (
-  | setBusinessCalendarDayResponse400
-  | setBusinessCalendarDayResponse401
-  | setBusinessCalendarDayResponse403
-  | setBusinessCalendarDayResponse404
-  | setBusinessCalendarDayResponse409
-  | setBusinessCalendarDayResponse412
-) & {
-  headers: Headers
-}
-
-export type setBusinessCalendarDayResponse =
-  setBusinessCalendarDayResponseSuccess | setBusinessCalendarDayResponseError
-
-export const getSetBusinessCalendarDayUrl = (
-  calendarId: UUIDv7,
-  date: string,
-) => {
-  return `/api/v1/business-calendars/${encodeURIComponent(String(calendarId))}/days/${encodeURIComponent(String(date))}`
-}
-
-/**
- * @summary Set a Draft calendar day
- */
-export const setBusinessCalendarDay = async (
-  calendarId: UUIDv7,
-  date: string,
-  businessCalendarDay: BusinessCalendarDay,
-  options?: RequestInit,
-): Promise<setBusinessCalendarDayResponse> => {
-  return customFetch<setBusinessCalendarDayResponse>(
-    getSetBusinessCalendarDayUrl(calendarId, date),
-    {
-      ...options,
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(businessCalendarDay),
-    },
-  )
-}
-
-export type publishBusinessCalendarResponse200 = {
-  data: EntityResponse
-  status: 200
-}
-
-export type publishBusinessCalendarResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type publishBusinessCalendarResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type publishBusinessCalendarResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type publishBusinessCalendarResponse409 = {
-  data: ConflictResponse
-  status: 409
-}
-
-export type publishBusinessCalendarResponse412 = {
-  data: PreconditionFailedResponse
-  status: 412
-}
-
-export type publishBusinessCalendarResponseSuccess =
-  publishBusinessCalendarResponse200 & {
-    headers: Headers
-  }
-export type publishBusinessCalendarResponseError = (
-  | publishBusinessCalendarResponse401
-  | publishBusinessCalendarResponse403
-  | publishBusinessCalendarResponse404
-  | publishBusinessCalendarResponse409
-  | publishBusinessCalendarResponse412
-) & {
-  headers: Headers
-}
-
-export type publishBusinessCalendarResponse =
-  publishBusinessCalendarResponseSuccess | publishBusinessCalendarResponseError
-
-export const getPublishBusinessCalendarUrl = (calendarId: UUIDv7) => {
-  return `/api/v1/business-calendars/${encodeURIComponent(String(calendarId))}/publish`
-}
-
-/**
- * @summary Publish an immutable business calendar
- */
-export const publishBusinessCalendar = async (
-  calendarId: UUIDv7,
-  options?: RequestInit,
-): Promise<publishBusinessCalendarResponse> => {
-  return customFetch<publishBusinessCalendarResponse>(
-    getPublishBusinessCalendarUrl(calendarId),
     {
       ...options,
       method: 'POST',
@@ -17106,7 +16825,7 @@ export const getUpdatePlatformAlertPolicyUrl = (policyId: UUIDv7) => {
  */
 export const updatePlatformAlertPolicy = async (
   policyId: UUIDv7,
-  platformAlertPolicyUpdate: PlatformAlertPolicyUpdate,
+  updatePlatformAlertPolicyBody: UpdatePlatformAlertPolicyBody,
   options?: RequestInit,
 ): Promise<updatePlatformAlertPolicyResponse> => {
   return customFetch<updatePlatformAlertPolicyResponse>(
@@ -17115,7 +16834,7 @@ export const updatePlatformAlertPolicy = async (
       ...options,
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(platformAlertPolicyUpdate),
+      body: JSON.stringify(updatePlatformAlertPolicyBody),
     },
   )
 }
@@ -17228,7 +16947,7 @@ export const getSchedulePlatformMaintenanceWindowUrl = () => {
  * @summary Schedule a platform maintenance window
  */
 export const schedulePlatformMaintenanceWindow = async (
-  platformMaintenanceWindowCreate: PlatformMaintenanceWindowCreate,
+  schedulePlatformMaintenanceWindowBody: SchedulePlatformMaintenanceWindowBody,
   options?: RequestInit,
 ): Promise<schedulePlatformMaintenanceWindowResponse> => {
   return customFetch<schedulePlatformMaintenanceWindowResponse>(
@@ -17237,7 +16956,7 @@ export const schedulePlatformMaintenanceWindow = async (
       ...options,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(platformMaintenanceWindowCreate),
+      body: JSON.stringify(schedulePlatformMaintenanceWindowBody),
     },
   )
 }
@@ -17347,7 +17066,7 @@ export const getRequestPlatformRestoreUrl = () => {
  * @summary Request a platform restore operation
  */
 export const requestPlatformRestore = async (
-  platformRestoreRequestCreate: PlatformRestoreRequestCreate,
+  requestPlatformRestoreBody: RequestPlatformRestoreBody,
   options?: RequestInit,
 ): Promise<requestPlatformRestoreResponse> => {
   return customFetch<requestPlatformRestoreResponse>(
@@ -17356,7 +17075,7 @@ export const requestPlatformRestore = async (
       ...options,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(platformRestoreRequestCreate),
+      body: JSON.stringify(requestPlatformRestoreBody),
     },
   )
 }
@@ -17432,7 +17151,7 @@ export type listPlatformTechnicalLogsResponse403 = {
 }
 
 export type listPlatformTechnicalLogsResponse503 = {
-  data: ServiceUnavailableResponse
+  data: InternalServerErrorResponse
   status: 503
 }
 
@@ -17507,7 +17226,7 @@ export type requestPlatformTechnicalLogsRestoreResponse403 = {
 }
 
 export type requestPlatformTechnicalLogsRestoreResponse503 = {
-  data: ServiceUnavailableResponse
+  data: InternalServerErrorResponse
   status: 503
 }
 
@@ -17536,7 +17255,7 @@ export const getRequestPlatformTechnicalLogsRestoreUrl = () => {
  * @summary Request restoration of archived platform technical logs
  */
 export const requestPlatformTechnicalLogsRestore = async (
-  platformTechnicalLogsRestoreRequest: PlatformTechnicalLogsRestoreRequest,
+  requestPlatformTechnicalLogsRestoreBody: RequestPlatformTechnicalLogsRestoreBody,
   options?: RequestInit,
 ): Promise<requestPlatformTechnicalLogsRestoreResponse> => {
   return customFetch<requestPlatformTechnicalLogsRestoreResponse>(
@@ -17545,7 +17264,7 @@ export const requestPlatformTechnicalLogsRestore = async (
       ...options,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(platformTechnicalLogsRestoreRequest),
+      body: JSON.stringify(requestPlatformTechnicalLogsRestoreBody),
     },
   )
 }
