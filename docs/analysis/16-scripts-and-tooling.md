@@ -49,6 +49,15 @@ deploy-vps             : validate-production-bundle
 | `render-diagrams.sh` | 1KB | Mermaid rendering |
 | `verify-inventory.sh` | 10KB | Inventory verification |
 
+### 2.1 · مصالحة route/OpenAPI الحالية (Task 12، 2026-07-26)
+
+- السطح الحي: `144` عملية (`143` تصريحاً داخل `routes/web.php` + `GET /up` من `bootstrap/app.php`).
+- الـ master OpenAPI: `203` عملية. المقارنة الحرفية تعرض `64` عملية spec-only عبر `50` path و`5` تصريحات runtime-only.
+- `12` من عمليات spec-only تقابل بدقة قوالب runtime (`documentGrantType`، و`settingsAction`، و`versionAction`، و`recordAction`)؛ المتبقي الحقيقي المخطط هو `52` عملية عبر `38` path، وكلها مصنفة `planned`.
+- تصريحات runtime-only الخمسة كلها intentional template equivalences؛ `unresolved=0`. الفجوة الحقيقية السابقة `POST /platform-operations/backups` أضيفت إلى العقد بـ`operationId: dispatchPlatformBackup`.
+- semantics والملكية لم تُدمج: `GET /platform-operations/backups` يعيد status entity ويتطلب `platform_operations.backup.read`، بينما POST ينشئ async operation (`202`) ويتطلب `platform_operations.backup.run`.
+- الدليل القابل لإعادة التوليد: `scripts/openapi_reconciler.py`، و`docs/api/endpoints.md#contract-diff`، و`.minimax-flow/reconcile-summary.json`.
+
 ## 3 · Infra
 
 ### 3.1 dev/

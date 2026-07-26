@@ -70,10 +70,23 @@ findings:
   priority: P1
   sourced: true
   status: open
-  claim: Current drift is 50 spec-only paths / 69 spec-only operations, not 50 equivalent live endpoints.
+  claim: Raw exact reconciliation is 50 spec-only paths / 64 operations and 5 runtime-only literal declarations; 12 exact template-equivalent spec operations leave 52 planned-only operations across 38 paths, with no unresolved real delta.
   evidence:
   - kind: source
     value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#48
+  - kind: source
+    value: docs/api/endpoints.md#contract-diff
+    observed: '2026-07-26'
+  - kind: source
+    value: docs/analysis/16-scripts-and-tooling.md#21--مصالحة-routeopenapi-الحالية-task-12-2026-07-26
+    observed: '2026-07-26'
+  - kind: command
+    value: python3 scripts/inventory-routes.py --mode reconcile --write -> PASS (144 live operations; 203 spec operations; 64 raw spec-only operations/50 paths; 5 runtime-only declarations all exact intentional equivalences; unresolved=0; unclassified=0)
+    observed: '2026-07-26'
+  - kind: command
+    value: second reconciliation run -> PASS and byte-stable SHA-256 (openapi 542a1b3cf0d697d6e1099c1f16239041a71c67c40d06ae8755d1766dd80a2aa0; r1-screens 98a6a4aa168a7b272aa9d353255dc642a9b798a2074cc3efbbe02a89e57147de)
+    observed: '2026-07-26'
+  blocker: Status remains open because no commit is authorized and closed_by cannot be fabricated; exact reconciliation and generated endpoint evidence are complete on the working tree.
   owner_task: 12
   exit_criteria: Reconcile the spec-only paths and operations against the live route inventory and surface the delta in docs/analysis.
 - id: F046
@@ -81,10 +94,23 @@ findings:
   priority: P1
   sourced: true
   status: open
-  claim: W1.2 has 2 planned operations; R1 has 7. The defect is exact route/status governance, not absence of behavior.
+  claim: W1.2 retains 2 genuinely planned operations; R1's 7 formerly planned operations are implemented through exact whereIn/parameter-name equivalences and are now classified implemented.
   evidence:
   - kind: source
     value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#49
+  - kind: source
+    value: scripts/openapi_reconciler.py (INTENTIONAL_RUNTIME_EQUIVALENCES and SPEC_ONLY_METHODS)
+    observed: '2026-07-26'
+  - kind: source
+    value: docs/contracts/api/r1-screens.openapi.yaml (0 planned statuses after exact-equivalence reclassification); docs/contracts/api/w1-2.openapi.yaml (2 planned statuses retained)
+    observed: '2026-07-26'
+  - kind: source
+    value: 'apps/api/routes/web.php:236 and apps/api/Modules/PlatformSettings/Features/Operations/Http/DispatchBackupController.php — POST /platform-operations/backups is live, returns 202, and owns platform_operations.backup.run; GET remains a single status entity owned by platform_operations.backup.read.'
+    observed: '2026-07-26'
+  - kind: command
+    value: cd apps/api && php artisan test tests/Feature/InventoryMarkdownTest.php tests/Feature/InventoryReconcileTest.php -> PASS (10 tests, 80 assertions)
+    observed: '2026-07-26'
+  blocker: Status remains open because no commit is authorized and closed_by cannot be fabricated; route/status governance is complete on the working tree.
   owner_task: 12
   exit_criteria: Implement exact route/status governance for the W1.2/R1 frozen-vs-append-only paths.
 - id: F059
@@ -267,6 +293,12 @@ findings:
   evidence:
   - kind: source
     value: docs/superpowers/plans/2026-07-25-cluster-architecture-security-remediation.md#61
+  - kind: source
+    value: apps/api/Modules/PlatformSettings/Tests/BusinessCalendarMySqlConcurrencyTest.php proves two different weekday child mutations racing on one ETag produce one 200, one 412, one lock-version increment, and exactly one child row.
+    observed: '2026-07-26'
+  - kind: source
+    value: F035 separately tracks the remaining lifecycle idempotency work.
+    observed: '2026-07-26'
   owner_task: 11
   exit_criteria: Add a concurrent regression test proving one winner/one 412 and address idempotency as a separate work item.
 - id: C124

@@ -4,7 +4,7 @@ title: RBAC Matrix
 type: engineering
 status: accepted
 version: 1.0.0
-date: 2026-07-26
+date: 2026-07-27
 owner: مكتب هندسة البرمجيات
 reviewers:
   - مكتب هندسة المنصة
@@ -27,13 +27,13 @@ references:
 
 - **Actual runtime catalog count:** `128`
 - **Historical F067 expectation:** `110` — **mismatch; the runtime catalog is authoritative.**
-- **Classifications:** `82` used, `13` intentional UI-only, `33` deprecated.
+- **Classifications:** `85` used, `12` intentional UI-only, `31` deprecated.
 - Generation fails if any catalog entry is duplicated or left unclassified.
 
 | Capability | Classification | Evidence |
 | --- | --- | --- |
 | `work_record.create` | `intentional-ui-only` | `apps/web/src/app/WorkspaceContent.tsx`<br>`apps/web/src/shell/routes.ts` |
-| `work_record.read` | `used` | `apps/api/Modules/Documents/Application/DocumentDownloadService.php`<br>`apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Notifications/Features/ListMyNotifications/Http/ListMyNotificationsController.php`<br>`apps/api/Modules/Reporting/Features/DownloadExportArtifact/Handler/DownloadExportArtifactHandler.php`<br>`apps/api/Modules/Reporting/Features/ExportAuthorizedReport/Handler/ExportAuthorizedReportHandler.php`<br>`apps/api/Modules/Reporting/Features/GetAuthorizedDashboard/Handler/GetAuthorizedDashboardHandler.php`<br>`apps/api/Modules/Reporting/Features/RunAuthorizedReport/Handler/RunAuthorizedReportHandler.php`<br>`apps/api/Modules/Search/Features/SearchAccessibleRecords/Handler/SearchAccessibleRecordsHandler.php`<br>`apps/api/Modules/WorkRecords/Features/GetAuthorizedWorkRecord/Handler/GetAuthorizedWorkRecordHandler.php`<br>`apps/api/Modules/WorkRecords/Features/SubmitWorkRecord/Http/SubmitWorkRecordController.php` |
+| `work_record.read` | `used` | `apps/api/Modules/Documents/Application/DocumentDownloadService.php`<br>`apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Notifications/Features/ListMyNotifications/Http/ListMyNotificationsController.php`<br>`apps/api/Modules/Reporting/Features/RunAuthorizedReport/Handler/RunAuthorizedReportHandler.php`<br>`apps/api/Modules/WorkRecords/Features/GetAuthorizedWorkRecord/Handler/GetAuthorizedWorkRecordHandler.php`<br>`apps/api/Modules/WorkRecords/Features/SubmitWorkRecord/Http/SubmitWorkRecordController.php` |
 | `work_record.list` | `used` | `apps/api/Modules/WorkRecords/Features/ListAuthorizedWorkRecords/Handler/ListAuthorizedWorkRecordsHandler.php` |
 | `work_record.update` | `deprecated` | `no production API or web callsite reference` |
 | `work_record.submit` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php`<br>`apps/api/Modules/WorkRecords/Features/SubmitWorkRecord/Http/SubmitWorkRecordController.php` |
@@ -66,7 +66,7 @@ references:
 | `tasks.cancel` | `used` | `apps/api/Modules/Tasks/Features/Http/TaskController.php` |
 | `tasks.comment` | `used` | `apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php` |
 | `tasks.participant-manage` | `used` | `apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php` |
-| `documents.create` | `used` | `apps/api/Modules/Documents/Features/DocumentLifecycle/Http/CreateDocumentController.php`<br>`apps/api/Modules/Documents/Features/Spreadsheet/CleanSpreadsheetReferenceService.php` |
+| `documents.create` | `used` | `apps/api/Modules/Documents/Application/DocumentMutationHandler.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/CreateDocumentController.php`<br>`apps/api/Modules/Documents/Features/Spreadsheet/CleanSpreadsheetReferenceService.php` |
 | `documents.update` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/UpdateDocumentController.php` |
 | `documents.read` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/GetDocumentController.php`<br>`apps/api/Modules/Documents/Features/DocumentLink/Http/ListDocumentLinksController.php`<br>`apps/api/Modules/Documents/Features/DocumentVersion/Http/ListDocumentVersionsController.php` |
 | `documents.list` | `intentional-ui-only` | `apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
@@ -75,18 +75,18 @@ references:
 | `documents.get-upload-status` | `used` | `apps/api/Modules/Documents/Contracts/DocumentUploadStatusReader.php` |
 | `documents.scan-version` | `used` | `apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php` |
 | `documents.reconcile-promotion` | `used` | `apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php` |
-| `documents.link` | `used` | `apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLink/Http/LinkDocumentController.php` |
+| `documents.link` | `used` | `apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Documents/Application/DocumentMutationHandler.php`<br>`apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLink/Http/LinkDocumentController.php` |
 | `documents.download` | `used` | `apps/api/Modules/Documents/Application/DocumentDownloadService.php`<br>`apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentGrant/Http/CreateDocumentGrantController.php` |
 | `documents.archive` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/TransitionDocumentController.php` |
 | `documents.hold` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/TransitionDocumentController.php` |
-| `documents.grant` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentGrant/Http/CreateDocumentGrantController.php` |
-| `search.query` | `intentional-ui-only` | `apps/web/src/shell/routes.ts` |
+| `documents.grant` | `used` | `apps/api/Modules/Documents/Application/DocumentMutationHandler.php`<br>`apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentGrant/Http/CreateDocumentGrantController.php` |
+| `search.query` | `used` | `apps/api/Modules/Search/Features/SearchAccessibleRecords/Handler/SearchAccessibleRecordsHandler.php` |
 | `reporting.read` | `deprecated` | `no production API or web callsite reference` |
 | `reporting.list` | `used` | `apps/api/Modules/Reporting/Features/ListReports/Http/ListReportsController.php` |
-| `reporting.run` | `deprecated` | `no production API or web callsite reference` |
+| `reporting.run` | `used` | `apps/api/Modules/Reporting/Features/RunAuthorizedReport/Handler/RunAuthorizedReportHandler.php` |
 | `reporting.export` | `used` | `apps/api/Modules/Reporting/Features/ExportAuthorizedReport/Handler/ExportAuthorizedReportHandler.php` |
-| `reporting.download` | `deprecated` | `no production API or web callsite reference` |
-| `reporting.dashboard` | `used` | `apps/api/Modules/Reporting/Features/ListDashboards/Http/ListDashboardsController.php` |
+| `reporting.download` | `used` | `apps/api/Modules/Reporting/Features/DownloadExportArtifact/Handler/DownloadExportArtifactHandler.php` |
+| `reporting.dashboard` | `used` | `apps/api/Modules/Reporting/Features/GetAuthorizedDashboard/Handler/GetAuthorizedDashboardHandler.php`<br>`apps/api/Modules/Reporting/Features/ListDashboards/Http/ListDashboardsController.php` |
 | `notifications.read` | `deprecated` | `no production API or web callsite reference` |
 | `notifications.manage` | `deprecated` | `no production API or web callsite reference` |
 | `identity.account.read` | `used` | `apps/api/Modules/Authorization/Adapter/AuthorizeIdentityManagementAdapter.php` |
