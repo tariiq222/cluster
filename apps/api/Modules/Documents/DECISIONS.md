@@ -42,8 +42,7 @@ The contract lives in `Modules/Documents/Domain/Contracts/`; the implementation 
 - `composer --working-dir=apps/api test` against the working tree containing this slice → 788 tests, 777 passed, 9 skipped, **2 failed**. Both failures are pre-existing on the un-modified baseline (verified by `git stash -u` + re-run):
   1. `Tests\Feature\CiMakeSurfaceTest::test_s9_docs_validate_target_surfaces_missing_prereqs`
   2. `Tests\Feature\CiMakeSurfaceTest::test_s9_docs_validate_fast_target_is_strict_prereq_alias_for_docs_validate`
-
-  Both belong to `make docs-validate` and are tracked as T4 deferred (114 unfound references in untracked plan files); this slice neither caused nor worsened them. No increase in failure count over baseline.
+  Both are pre-existing on the un-modified baseline (verified by `git stash -u` + re-run). Cause is contract drift between `Makefile:103-118` and the test surface: the test demands `make -n docs-validate` reference `docs/catalog.yaml` (not present in the tree) and emit the message `docs/validate-docs.sh is missing`; the Makefile emits `scripts/validate-docs.sh is missing` and never references `docs/catalog.yaml`. Closing this is its own slice (S9 surface contract + catalog prereq), separate from DOCUMENTS-OUTBOX. The 114 unfound references in deferred plans are a different problem that the validator carve-out in this slice already addresses.
 
 ### Open gaps (must be tracked explicitly)
 

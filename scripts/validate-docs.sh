@@ -177,9 +177,22 @@ for path in markdown_paths:
         add_error(f"deprecated doc/ reference in {relative(path)}; use docs/")
     for match in MARKDOWN_LINK.finditer(content):
         validate_link(path, match.group(1) or match.group(2), anchor_cache)
+    # Decide on a per-document basis whether the source file is a plan describing future
+    # artifacts that have not yet been produced. Only skip DOC_REFERENCE for plans with
+    # `status: planned` or `status: blocked` in their YAML frontmatter; everything else
+    # (including in-progress, complete, not-a-defect, and pre-frontmatter archives) keeps
+    # the strict check so real documentation drift surfaces when those plans progress.
+    source_relative = relative(path)
+    is_deferred_plan = False
+    if source_relative.startswith("docs/superpowers/plans/"):
+        plan_status = re.search(r"^status:\s*(\S+)\s*$", content, re.MULTILINE)
+        if plan_status and plan_status.group(1) in ("planned", "blocked"):
+            is_deferred_plan = True
     for target in HTML_LINK.findall(content):
         validate_link(path, target, anchor_cache)
     for reference in DOC_REFERENCE.findall(content):
+        if is_deferred_plan:
+            continue
         clean_reference = reference.rstrip(".,;:)")
         if not (ROOT / clean_reference).is_file():
             add_error(f"missing document reference in {relative(path)}: {clean_reference}")

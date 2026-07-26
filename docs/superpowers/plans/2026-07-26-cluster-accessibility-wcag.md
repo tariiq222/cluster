@@ -746,7 +746,7 @@ Expected: each new regression test fails for its confirmed behavior before imple
 
 - [ ] **Step 3: Implement the smallest semantic fixes**
 
-Prefer `<a href="#main-content">`, `<main id="main-content" tabIndex={-1}>`, headings, buttons, links, and disclosure semantics. Keep one focus-management utility only if at least two shell surfaces need identical route/restore behavior. Localize all new visible and accessible copy in `copy.ts`; do not embed Arabic-only fallback labels in shared primitives used by English.
+Prefer HTML patterns such as a skip-to-content link and a labelled main landmark (see generated artifacts for the exact markup), headings, buttons, headings, buttons, links, and disclosure semantics. Keep one focus-management utility only if at least two shell surfaces need identical route/restore behavior. Localize all new visible and accessible copy in `copy.ts`; do not embed Arabic-only fallback labels in shared primitives used by English.
 
 - [ ] **Step 4: Make shell/component tests green**
 
