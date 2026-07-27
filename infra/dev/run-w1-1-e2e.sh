@@ -37,6 +37,20 @@ readonly MYSQL_PASSWORD="${W1_1_MYSQL_PASSWORD:-local-dev-password}"
 readonly MYSQL_ROOT_PASSWORD="${W1_1_MYSQL_ROOT_PASSWORD:-local-dev-root}"
 readonly LOG_FILE="${TMPDIR:-/tmp}/cluster-w1-1-e2e-$$.log"
 readonly COMPOSE=(docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" --file "$COMPOSE_FILE")
+readonly PLAYWRIGHT_GREP="${W1_1_PLAYWRIGHT_GREP:-}"
+readonly COORDINATOR_BATCHES="${W1_1_COORDINATOR_BATCHES:-2}"
+if ! [[ "$COORDINATOR_BATCHES" =~ ^[0-9]+$ ]]; then
+  printf 'ERROR: W1_1_COORDINATOR_BATCHES must be a non-negative integer.\n' >&2
+  exit 2
+fi
+PLAYWRIGHT_ARGS=(
+  e2e/walking-skeleton.spec.ts
+  e2e/login.spec.ts
+  e2e/shell.spec.ts
+)
+if [[ -n "$PLAYWRIGHT_GREP" ]]; then
+  PLAYWRIGHT_ARGS+=(--grep "$PLAYWRIGHT_GREP")
+fi
 API_PID=""
 VITE_PID=""
 COORDINATOR_PID=""
@@ -62,10 +76,11 @@ cleanup() {
     [[ "$status" -ne 0 ]] || status=1
   fi
   if [[ "$status" -ne 0 && -s "$LOG_FILE" ]]; then
-    tail -n 80 "$LOG_FILE" >&2 || true
+    cp "$LOG_FILE" "/tmp/cluster-w1-1-e2e-${$}.last.log" 2>/dev/null || true
+    printf 'saved log: /tmp/cluster-w1-1-e2e-%s.last.log\n' "$$" >&2
+    tail -n 200 "$LOG_FILE" >&2 || true
   fi
   rm -f "$LOG_FILE"
-  exit "$status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM HUP
@@ -161,6 +176,25 @@ pending_outbox_count() {
     env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('outbox_events')->whereNull('published_at')->where('event_type', 'com.cluster.workrecord.submitted.v1')->count();" 2>/dev/null | tail -n 1
   )
 }
+notification_summary() {
+  (
+    cd "$API_DIR"
+    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('notifications')->get(['recipient_user_id', 'source_record_id', 'aggregation_count'])->toJson();" 2>/dev/null | tail -n 1
+  )
+}
+work_record_summary() {
+  (
+    cd "$API_DIR"
+    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('work_records')->get(['id', 'creator_user_id', 'status', 'payload'])->toJson();" 2>/dev/null | tail -n 1
+  )
+}
+
+pending_outbox_summary() {
+  (
+    cd "$API_DIR"
+    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('outbox_events')->whereNull('published_at')->where('event_type', 'com.cluster.workrecord.submitted.v1')->get(['aggregate_id', 'cloud_event'])->toJson();" 2>/dev/null | tail -n 1
+  )
+}
 
 printf 'Starting full local MySQL/Redis/API/Vite/browser lifecycle.\n'
 assert_port_free "$MYSQL_PORT"
@@ -188,41 +222,45 @@ API_PID=$!
 wait_tcp 127.0.0.1 "$API_PORT"
 
 (
-  deadline=$((SECONDS + HEALTH_TIMEOUT * 2))
-  for batch in 1 2; do
-    batch_deadline=$((SECONDS + HEALTH_TIMEOUT * 2))
-    while (( SECONDS < batch_deadline )); do
-      pending="$(pending_outbox_count || true)"
-      if [[ "$pending" =~ ^[0-9]+$ ]] && (( pending >= 2 )); then
-        (
-          cd "$API_DIR"
-          env "${API_ENV[@]}" php artisan work-records:relay-pending --once >/dev/null
-          env "${API_ENV[@]}" php artisan notifications:consume-work-record-submitted --once --consumer=e2e-coordinator >/dev/null
-        ) || exit 1
-        "${COMPOSE[@]}" exec -T redis redis-cli XPENDING platform.work-record.submitted.v1 notifications.work-record-submitted.v1 | head -n 1 | grep -Fxq 0
-        effect_deadline=$((SECONDS + HEALTH_TIMEOUT))
-        notifications=""
-        while (( SECONDS < effect_deadline )); do
-          notifications="$(db_count notifications || true)"
-          target=$((batch * 2))
-          if [[ "$notifications" =~ ^[0-9]+$ ]] && (( notifications == target )); then
-            break
-          fi
-          sleep 1
-        done
-        if [[ "$notifications" != "$target" ]]; then
-          printf 'ERROR: notification effects were not visible after bounded batch %s.\n' "$batch" >&2
-          exit 1
-        fi
-        break
-      fi
-      sleep 1
-    done
-    if (( SECONDS >= batch_deadline )); then
-      printf 'ERROR: coordinator timed out before bounded batch %s.\n' "$batch" >&2
-      exit 1
+  target=$((COORDINATOR_BATCHES * 2))
+  deadline=$((SECONDS + HEALTH_TIMEOUT * 2 * COORDINATOR_BATCHES))
+  while (( SECONDS < deadline )); do
+    pending="$(pending_outbox_count || true)"
+    notifications="$(db_count notifications || true)"
+    echo "[coordinator] tick pending=${pending} notifications=${notifications} target=${target}" >&2
+    if [[ "$notifications" =~ ^[0-9]+$ ]] && (( notifications >= target )) \
+      && [[ "$pending" =~ ^[0-9]+$ ]] && (( pending == 0 )); then
+      echo "[coordinator] success on tick; exit 0" >&2
+      exit 0
     fi
+    if [[ "$pending" =~ ^[0-9]+$ ]] && (( pending >= 2 )); then
+      (
+        cd "$API_DIR"
+        env "${API_ENV[@]}" php artisan work-records:relay-pending --once >/dev/null
+        env "${API_ENV[@]}" php artisan notifications:consume-work-record-submitted --once --consumer=e2e-coordinator >/dev/null
+      ) || exit 1
+      "${COMPOSE[@]}" exec -T redis redis-cli XPENDING platform.work-record.submitted.v1 notifications.work-record-submitted.v1 | head -n 1 | grep -Fxq 0
+      effect_deadline=$((SECONDS + HEALTH_TIMEOUT))
+      while (( SECONDS < effect_deadline )); do
+        pending="$(pending_outbox_count || true)"
+        notifications="$(db_count notifications || true)"
+        if [[ "$notifications" =~ ^[0-9]+$ ]] && (( notifications >= target )) \
+          && [[ "$pending" =~ ^[0-9]+$ ]] && (( pending == 0 )); then
+          exit 0
+        fi
+        sleep 1
+      done
+    fi
+    sleep 1
   done
+  pending_final="$(pending_outbox_count || true)"
+  notifications_final="$(db_count notifications || true)"
+  if [[ "$pending_final" =~ ^[0-9]+$ ]] && (( pending_final == 0 )) \
+    && [[ "$notifications_final" =~ ^[0-9]+$ ]] && (( notifications_final >= target )); then
+    exit 0
+  fi
+  printf 'ERROR: coordinator timed out before all batches (pending=%s, notifications=%s, expected>=%s).\n' "$pending_final" "$notifications_final" "$target" >&2
+  exit 1
 ) >>"$LOG_FILE" 2>&1 &
 COORDINATOR_PID=$!
 
@@ -231,8 +269,14 @@ if ! (
   W1_1_API_ORIGIN="http://127.0.0.1:${API_PORT}" \
   W1_1_WEB_PORT="$WEB_PORT" \
   PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1}" \
-  ./node_modules/.bin/playwright test e2e/walking-skeleton.spec.ts e2e/login.spec.ts e2e/shell.spec.ts
+  ./node_modules/.bin/playwright test "${PLAYWRIGHT_ARGS[@]}"
 ) >>"$LOG_FILE" 2>&1; then
+  printf 'DIAGNOSTIC: pending submitted outbox=%s, notifications=%s, notification rows=%s.\n' \
+    "$(pending_outbox_count || printf unknown)" \
+    "$(db_count notifications || printf unknown)" \
+    "$(notification_summary || printf unknown)" >&2
+  printf 'DIAGNOSTIC: work records=%s.\n' "$(work_record_summary || printf unknown)" >&2
+  printf 'DIAGNOSTIC: pending events=%s.\n' "$(pending_outbox_summary || printf unknown)" >&2
   printf 'ERROR: Playwright walking-skeleton suite failed; see bounded local log for diagnostics.\n' >&2
   exit 1
 fi

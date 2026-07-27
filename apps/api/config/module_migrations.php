@@ -1,6 +1,7 @@
 <?php
 
 return [
+    base_path('Modules/Audit/Infrastructure/Persistence/Migrations/CreateAuditTables.php'),
     base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationCoreTables.php'),
     base_path('Modules/Organization/Infrastructure/Persistence/Migrations/SeedOrganizationFacilityTypes.php'),
     base_path('Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationTreeTables.php'),

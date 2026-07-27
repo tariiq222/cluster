@@ -43,7 +43,6 @@ class ModuleBoundariesTest extends TestCase
      * @var list<string>
      */
     private const PLANNED_MODULES = [
-        'Audit',
         'RecordsGovernance',
         'Collaboration',
         'Workspace',
@@ -132,7 +131,11 @@ class ModuleBoundariesTest extends TestCase
         'authorization_bootstrap' => 'Authorization',
         'authorization_idempotency_keys' => 'Authorization',
         // Authorization owns access_decisions AND sensitive_access_events (cross-cutting audit-events table is planned, not migrated)
-        // (audit_events has no Schema::create migration; declared only in docs)
+        // Audit (rank 3)
+        'audit_events' => 'Audit',
+        'audit_export_jobs' => 'Audit',
+        'audit_integrity_checkpoints' => 'Audit',
+        'audit_idempotency_keys' => 'Audit',
         'sensitive_access_events' => 'Authorization',
         // Workflow (rank 4)
         'workflow_definitions' => 'Workflow',

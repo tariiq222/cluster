@@ -4,6 +4,7 @@ use App\Support\OrganizationHierarchyDemoSeeder;
 use App\Support\W12E2EFixtureSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Modules\Documents\Infrastructure\Outbox\Relay\DocumentsOutboxRelay;
 use Modules\Identity\Features\ConsumeOrganizationPersonEvents\Worker\IdentityPersonStreamWorker;
 use Modules\Notifications\Features\ConsumeTechnicalAlert\Worker\NotificationsTechnicalAlertWorker;
@@ -12,6 +13,31 @@ use Modules\Organization\Infrastructure\Outbox\Relay\OrganizationPersonOutboxRel
 use Modules\PlatformSettings\Infrastructure\Outbox\TechnicalAlertOutboxRelay;
 use Shared\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use Symfony\Component\Console\Command\Command;
+
+Artisan::command('db:audit-enforce-append-only', function (): int {
+    if (! app()->environment('production')) {
+        $this->error('Audit append-only enforcement is available only in production.');
+
+        return Command::FAILURE;
+    }
+
+    try {
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            $this->error('Audit append-only enforcement requires MySQL.');
+
+            return Command::FAILURE;
+        }
+
+        DB::statement('REVOKE UPDATE, DELETE ON audit_events FROM PUBLIC');
+        $this->info('Audit append-only privileges enforced.');
+
+        return Command::SUCCESS;
+    } catch (Throwable $exception) {
+        $this->error('Audit append-only enforcement failed: '.$exception->getMessage());
+
+        return Command::FAILURE;
+    }
+})->purpose('Revoke UPDATE and DELETE on audit_events from PUBLIC');
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

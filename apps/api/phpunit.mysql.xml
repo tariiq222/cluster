@@ -11,6 +11,7 @@
             <file>tests/Feature/BusinessCalendarMySqlConcurrencyTest.php</file>
             <file>Modules/WorkDefinitions/Tests/WorkDefinitionMySqlConcurrencyTest.php</file>
             <file>Modules/Workflow/Tests/WorkflowVersionMySqlConcurrencyTest.php</file>
+            <file>Modules/Audit/Tests/AuditMySqlConcurrencyTest.php</file>
         </testsuite>
     </testsuites>
     <source>

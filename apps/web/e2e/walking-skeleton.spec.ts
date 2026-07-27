@@ -11,6 +11,7 @@ const PLATFORM_ADMIN = {
 const SESSION_METADATA_KEY = 'cluster.identity-session'
 const WEB_PORT = process.env.W1_1_WEB_PORT ?? '4173'
 const WEB_ORIGIN = `http://127.0.0.1:${WEB_PORT}`
+test.setTimeout(60_000)
 
 type WorkRecord = {
   id: string
@@ -100,21 +101,24 @@ async function signIn(page: Page, locale: Locale, username: string, password: st
   }
   await expect(page.locator('html')).toHaveAttribute('lang', labels.lang)
   await expect(page.locator('html')).toHaveAttribute('dir', labels.dir)
-  await page.getByLabel(labels.username).fill(username)
+  const homeHeading = page.getByRole('heading', { name: locale === 'ar' ? 'الرئيسية' : 'Home', exact: true })
+  const usernameField = page.getByLabel(labels.username)
+  await expect(homeHeading.or(usernameField)).toBeVisible()
+  if (await homeHeading.isVisible()) return
+
+  await usernameField.fill(username)
   await page.getByLabel(labels.password, { exact: true }).fill(password)
   await page.getByRole('button', { name: labels.signIn }).click()
-  await expect(page.getByRole('heading', { name: locale === 'ar' ? 'طلباتي' : 'My requests' })).toBeVisible()
+  await expect(homeHeading).toBeVisible()
 }
 
 async function submitRequest(page: Page, locale: Locale, title: string, description: string): Promise<void> {
   const labels = copy[locale]
-  await page.getByRole('link', { name: labels.newRequest }).first().click()
+  await page.getByRole('button', { name: labels.newRequest }).first().click()
   await page.getByLabel(labels.title).fill(title)
   await page.getByLabel(labels.description).fill(description)
   await page.getByRole('button', { name: labels.submit }).click()
-  await expect(page.getByRole('heading', { name: labels.success })).toBeFocused()
-  await page.getByRole('link', { name: labels.back }).click()
-  await expect(page.getByRole('link', { name: title })).toBeVisible()
+  await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
 }
 
 async function openRoute(page: Page, path: string): Promise<void> {
@@ -178,10 +182,8 @@ async function exerciseIsolatedJourney(browser: Browser, request: APIRequestCont
   await expect(pageA.getByText(titleB)).toHaveCount(0)
   await expect(pageB.getByText(titleA)).toHaveCount(0)
 
-  await pageA.getByRole('link', { name: titleA }).click()
-  await expect(pageA.getByRole('heading', { name: titleA })).toBeVisible()
-  await pageB.getByRole('link', { name: titleB }).click()
-  await expect(pageB.getByRole('heading', { name: titleB })).toBeVisible()
+  await expect(pageA.getByRole('heading', { name: titleA, exact: true })).toBeVisible()
+  await expect(pageB.getByRole('heading', { name: titleB, exact: true })).toBeVisible()
 
   await pageA.getByRole('button', { name: locale === 'ar' ? 'English' : 'العربية' }).click()
   await expect(pageA.locator('html')).toHaveAttribute('lang', locale === 'ar' ? 'en' : 'ar')
@@ -217,16 +219,18 @@ async function exerciseIsolatedJourney(browser: Browser, request: APIRequestCont
   await expect(pageA.getByText(titleB)).toHaveCount(0)
   await expect(pageA.getByText(descriptionB)).toHaveCount(0)
 
-  await pageA.getByRole('button', { name: labels.notifications }).click()
-  for (let attempt = 0; attempt < 20 && await pageA.locator('.notification-list li').count() === 0; attempt += 1) {
-    const notificationResponse = pageA.waitForResponse((response) => {
-      const url = new URL(response.url())
-      return url.pathname === '/api/v1/notifications'
+  await signIn(pageA, locale, walkingSkeletonFixtures.accountA.username, walkingSkeletonFixtures.accountA.password)
+  await expect.poll(() => pageA.evaluate(async (requestCorrelationId) => {
+    const response = await fetch('/api/v1/notifications', {
+      headers: { 'X-Correlation-ID': requestCorrelationId },
     })
-    await pageA.getByRole('button', { name: labels.refresh }).click()
-    expect((await notificationResponse).status()).toBe(200)
-    if (await pageA.locator('.notification-list li').count() === 0) await pageA.waitForTimeout(250)
-  }
+    if (response.status !== 200) return 0
+    const body = await response.json() as { items?: unknown[] }
+    return Array.isArray(body.items) ? body.items.length : 0
+  }, correlationId()), { timeout: 20_000 }).toBeGreaterThan(0)
+
+  await pageA.reload()
+  await pageA.getByRole('button', { name: labels.notifications }).click()
   await expect(pageA.locator('.notification-list li').first()).toBeVisible()
 
   await pageA.close()

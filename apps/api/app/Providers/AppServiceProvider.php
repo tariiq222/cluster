@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
     private const MODULE_PROVIDERS = [
         \Modules\PlatformSettings\Providers\PlatformSettingsServiceProvider::class, \Modules\Identity\Providers\IdentityServiceProvider::class, \Modules\Authorization\Providers\AuthorizationServiceProvider::class, \Modules\Organization\Providers\OrganizationServiceProvider::class,
         \Modules\Documents\Providers\DocumentsServiceProvider::class, \Modules\Workflow\Providers\WorkflowServiceProvider::class, \Modules\Tasks\Providers\TasksServiceProvider::class, \Modules\Notifications\Providers\NotificationsServiceProvider::class,
-        \Modules\Search\Providers\SearchServiceProvider::class, \Modules\Reporting\Providers\ReportingServiceProvider::class, \Modules\WorkRecords\Providers\WorkRecordsServiceProvider::class, \Modules\WorkDefinitions\Providers\WorkDefinitionsServiceProvider::class];
+        \Modules\Search\Providers\SearchServiceProvider::class, \Modules\Reporting\Providers\ReportingServiceProvider::class, \Modules\WorkRecords\Providers\WorkRecordsServiceProvider::class, \Modules\WorkDefinitions\Providers\WorkDefinitionsServiceProvider::class, \Modules\Audit\Providers\AuditServiceProvider::class];
 
     public function register(): void
     {

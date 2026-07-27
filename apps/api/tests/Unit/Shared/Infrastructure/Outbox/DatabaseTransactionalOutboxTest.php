@@ -98,4 +98,14 @@ final class DatabaseTransactionalOutboxTest extends TestCase
             $this->assertSame(1, DB::table('outbox_events')->count());
         }
     }
+    public function test_base_append_preserves_the_database_unique_constraint_failure(): void
+    {
+        $outbox = $this->app->make(DatabaseTransactionalOutbox::class);
+        $payload = ['status' => 'submitted'];
+        $outbox->append(self::EVENT_ID, self::AGGREGATE_ID, self::EVENT_TYPE, $payload);
+
+        $this->expectException(UniqueConstraintViolationException::class);
+        $outbox->append(self::EVENT_ID, self::AGGREGATE_ID, self::EVENT_TYPE, $payload);
+    }
+
 }

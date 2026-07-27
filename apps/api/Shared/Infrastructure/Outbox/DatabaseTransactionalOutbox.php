@@ -16,22 +16,22 @@ use Shared\Contracts\TransactionalOutboxReplayable;
 /**
  * The sole writer for the shared `outbox_events` table.
  *
- * The base append method intentionally preserves its original
- * insert-or-ignore behaviour because existing Tasks and Workflow callers use
- * deterministic event IDs. Policy-aware writes use strict or replayable
- * duplicate handling, while envelope writes preserve producer-supplied
- * CloudEvent extensions such as `correlationid` and `time`.
+ * The base append method is strict: duplicate event IDs surface the database
+ * unique-constraint failure so the caller's transaction rolls back. Producers
+ * that need replay-safe behavior must opt in through
+ * TransactionalOutboxReplayable::appendWithPolicy().
  */
 final class DatabaseTransactionalOutbox implements TransactionalOutbox, TransactionalOutboxEnvelope, TransactionalOutboxReplayable
 {
     /** @param array<string, mixed> $payload */
     public function append(string $eventId, string $aggregateId, string $eventType, array $payload): void
     {
-        $occurredAt = now();
-        $cloudEvent = $this->cloudEvent($eventId, $aggregateId, $eventType, $payload, $occurredAt);
-
-        DB::table('outbox_events')->insertOrIgnore(
-            $this->row($eventId, $aggregateId, $cloudEvent, $occurredAt, $occurredAt),
+        $this->appendWithPolicy(
+            $eventId,
+            $aggregateId,
+            $eventType,
+            $payload,
+            OutboxDuplicatePolicy::Strict,
         );
     }
 
