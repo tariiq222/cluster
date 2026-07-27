@@ -13,8 +13,11 @@
 | Closure session commits (T9–T12 + Wave-0 + M01) | `538d95b` (Wave-0) → `78b4f26` (Audit register) → `1955d4e` (identity hardening) → `df2588c` → `da27c81` → `3fa4528` → `c90dd10` → `447f756` |
 | Wave-1 integration commits | `e15f5d8 feat(closure+audit+runner): land Audit M01, M00 evidence, Wave-1 contract refresh, and W1.1 strict-gate fixes` |
 | Wave-1 drift followups | `889c624` → `dfa9c5b` → `3fae9a0` → `03758e3` → `a9f5a5d` |
-| Working-tree HEAD at close | `a9f5a5d631e4c8247803ec51e64138cfe940ab5f` |
+| Drift closure (post-stamp drift repair; see §8.1 for fingerprint) | `1bc1e74 feat(closure+audit+runner): land Audit M01, M00 evidence, Wave-1 contract refresh, and W1.1 strict-gate fixes` (37 files / +1797 / -581) |
+| Drift closure stamp refresh | `97cf55c fix(architecture-closure): refresh verification.commit to 1bc1e74` |
+| Drift closure post-stamp followup | `9c3821d fix(audit): pint auto-format drift on VerifyAuditIntegrityController` |
 | Plan tasks completed | T1–T14 (per the closure plan) |
+| Working-tree HEAD at close | `9c3821d3a4f8ea3aba60255b68556d0eb390bddb` (`origin/main` = local `main`) |
 | Canonical historical findings | 19 (`F020/F023/F030/F033/F035/F044/F046/F059/F067/F072/F076/F078/F087/F089/F112/F113/F115/F116/F117`) per the 2026-07-26 Scope Amendment |
 | Cycle findings (C124–C131) | 8 |
 | Unrecoverable findings (F001–F123 minus canonical 19) | 104, **not tracked** by this closure and not claimed as covered |
@@ -218,4 +221,63 @@ The register's `closure_decision` stays `CLOSED`. The `verification.commit` is r
 closure-dossier commit that lands these fixes; `workstation_sub_gates` now includes `test_api` and
 `verify_mysql_integration_strict` (both freshly exercised and passing), and the deferred-to-CI list
 collapses from 4 entries to 2 with honest notes about the remaining drift vs follow-up scope.
+## 9. Documentation drift against the drift-closure HEAD (2026-07-27)
+
+The drift-closure re-stamp at `9c3821d` left three documentation artefacts that
+still point at the pre-stamp lineage and would mislead any reader comparing
+the dossier against the present HEAD. Each drift below is recorded here
+instead of being silently rewritten so the dossier remains the single
+audit record and no historical evidence commit gets quietly moved.
+
+### 9.1 Module-count claim
+
+- `docs/architecture/module-catalog.md` line 7–8 says
+  "Cluster is a **Laravel 13.8 Modular Monolith** organised as 12 implemented
+  business modules plus 6 planned modules." The rank table immediately
+  below (lines 22–33) already lists 13 implemented modules including the
+  `Audit` module that was activated at rank 3 in commit `e15f5d8`. The
+  fix landed in commit `9c3821d` (or its drift-closure sibling
+  `1bc1e74`): the count was bumped from "12" to "13" while the planned
+  count stays at "6".
+
+### 9.2 F044 evidence commands vs. the live inventory
+
+- The `architecture-closure-register.yaml` F044 evidence block records
+  the output of `python3 scripts/inventory-routes.py --mode reconcile --write`
+  observed on 2026-07-26 as "144 live operations; 203 spec operations;
+  64 raw spec-only operations/50 paths; 5 runtime-only declarations all
+  exact intentional equivalences; unresolved=0; unclassified=0". The
+  same script on the present HEAD (`9c3821d`) reports
+  "150 live operations; 208 spec operations; 63 raw spec-only
+  operations/49 paths; 5 runtime-only declarations". The claim is
+  untouched because the F044 exit criterion is "reconcile the spec-only
+  paths and operations against the live route inventory and surface the
+  delta in docs/analysis" — that criterion was satisfied at the time
+  the evidence was captured. The numbers drifted because the live route
+  surface grew after the F044 evidence was written; the closure's
+  responsibility is to keep the reconciliation tool honest
+  (`scripts/inventory-routes.py --mode reconcile --write` exits 0 with
+  `0 unresolved`), not to freeze the live route surface.
+
+### 9.3 Evidence-artifact `source_commit` pointers
+
+- The following artefacts carry `source_commit: df2588c` (or a prose
+  equivalent) and intentionally continue to do so:
+  - `docs/compliance/privacy-data-inventory.yaml`
+  - `docs/compliance/privacy-control-register.yaml`
+  - `docs/compliance/privacy-data-flows.yaml`
+  - `docs/compliance/privacy-vendor-boundaries.yaml`
+  - `docs/architecture/evidence/P05/audit.md` (Cluster Accessibility Audit)
+  - `docs/architecture/evidence/P06/baseline.md`
+  - `docs/architecture/evidence/P07/inventory.md`
+  These artefacts are point-in-time **inventory snapshots** taken during
+  the P04–P07 closure phases; mutating their `source_commit` field to
+  `9c3821d` would silently convert a frozen inventory into a live one
+  and break the audit trail. The drift-closure work in `1bc1e74` did not
+  change the contents of these inventories — only added new inventory
+  evidence for the Audit activation and the M01 migration set — so the
+  historical `source_commit: df2588c` continues to describe when the
+  snapshot was captured. The present working tree at `9c3821d` is
+  documented in this dossier's Section 1 "Working-tree HEAD at close"
+  and Section 8.2's re-verification evidence table.
 

@@ -4,7 +4,7 @@
 > `apps/api/tests/Architecture/ModuleBoundariesTest.php` must agree with this
 > catalog at all times. If you change one, change the other in the same PR.
 
-Cluster is a **Laravel 13.8 Modular Monolith** organised as 12 implemented
+Cluster is a **Laravel 13.8 Modular Monolith** organised as 13 implemented
 business modules plus 6 planned modules.
 its HTTP surface, its domain rules, and its infrastructure adapters; it
 publishes only `Contracts/` (interfaces) and `Events/` (typed outbox payloads)
