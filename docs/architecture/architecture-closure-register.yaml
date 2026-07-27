@@ -829,7 +829,7 @@ historical_findings_explicitly_out_of_scope:
   - F123
 closure_decision: CLOSED
 verification:
-  commit: PENDING_DRIFT_COMMIT
+  commit: 1bc1e74
   command: make verify-architecture-closure
   result: passed
   observed: '2026-07-27'
