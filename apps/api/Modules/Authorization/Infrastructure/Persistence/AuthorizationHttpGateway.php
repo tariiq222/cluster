@@ -15,6 +15,7 @@ use Modules\Authorization\Domain\ExplicitDeny;
 use Modules\Authorization\Domain\Role;
 use Modules\Authorization\Domain\RoleAssignment;
 use Modules\Authorization\Domain\UuidV7;
+use Modules\Organization\Contracts\GetDefaultClusterId;
 use Modules\Organization\Contracts\ResolveScopeDescendants;
 
 final class AuthorizationHttpGateway
@@ -38,6 +39,7 @@ final class AuthorizationHttpGateway
         private readonly ValidateDelegationAuthority $delegationAuthority,
         private readonly ValidateGrantAuthority $grantAuthority,
         private readonly ResolveScopeDescendants $descendants,
+        private readonly GetDefaultClusterId $defaultClusterId,
     ) {}
 
     /** @return list<string> */
@@ -144,7 +146,7 @@ final class AuthorizationHttpGateway
         $row = match ($resource) {
             'roles' => $this->role($id, $input, $now),
             'capabilities' => $this->capability($id, $input, $now),
-            'role-capabilities' => $this->roleCapability($input, $now),
+            'role-capabilities' => $this->roleCapability($input, $now, $principalId),
             'role-assignments' => $this->roleAssignment($id, $input, $principalId, $now),
             'delegations' => $this->delegation($id, $input, $principalId, $now),
             'explicit-denies' => $this->explicitDeny($id, $input, $principalId, $now),
@@ -206,6 +208,29 @@ final class AuthorizationHttpGateway
         }
         if ($resource === 'role-capabilities') {
             [$roleId, $capabilityId] = $this->splitRoleCapabilityId($id);
+            $rowExists = DB::table($table)->where('role_id', $roleId)->where('capability_id', $capabilityId);
+            $this->applyActorScope($rowExists, $resource, $actorUserId);
+            if (! $rowExists->exists()) {
+                return null;
+            }
+            if (array_key_exists('effect', $changes)) {
+                $capabilityCode = DB::table('capabilities')->where('id', $capabilityId)->value('capability_code');
+                if (! is_string($capabilityCode)) {
+                    throw new InvalidArgumentException('authorization_capability_not_found');
+                }
+                $clusterId = $this->defaultClusterId->resolve();
+                if (! is_string($clusterId)) {
+                    throw new InvalidArgumentException('authorization_grant_exceeds_actor_authority');
+                }
+                $this->grantAuthority->assertCovered(
+                    $actorUserId,
+                    [$capabilityCode],
+                    'cluster',
+                    $clusterId,
+                    now()->utc()->format('Y-m-d\TH:i:s.v\Z'),
+                    null,
+                );
+            }
             $changes['lock_version'] = $expectedVersion + 1;
             $changes['updated_at'] = now()->utc()->format('Y-m-d H:i:s.v');
             $query = DB::table($table)->where('role_id', $roleId)->where('capability_id', $capabilityId)->where('lock_version', $expectedVersion);
@@ -273,6 +298,13 @@ final class AuthorizationHttpGateway
             if (! in_array($action, ['revoke', 'expire'], true)) {
                 throw new InvalidArgumentException('authorization_action_unsupported');
             }
+            $existingRow = DB::table('explicit_denies')->where('id', $id)->first();
+            if ($existingRow === null) {
+                return null;
+            }
+            if (! (bool) $existingRow->revocable) {
+                throw new InvalidArgumentException('explicit_deny_not_revocable');
+            }
 
             return $this->update($resource, $id, ['expires_at' => now()->utc()->format('Y-m-d\TH:i:s.v\Z')], $expectedVersion, $actorUserId);
         }
@@ -319,7 +351,7 @@ final class AuthorizationHttpGateway
 
     /** @param array<string,mixed> $input */
     /** @return array<string,mixed> */
-    private function roleCapability(array $input, string $now): array
+    private function roleCapability(array $input, string $now, string $principalId): array
     {
         $roleId = (string) ($input['role_id'] ?? '');
         UuidV7::assert($roleId, 'Role capability role id');
@@ -328,18 +360,20 @@ final class AuthorizationHttpGateway
         }
 
         $capabilityId = null;
+        $capabilityCode = null;
         if (is_string($input['capability_id'] ?? null) && $input['capability_id'] !== '') {
             $capabilityId = $input['capability_id'];
             UuidV7::assert($capabilityId, 'Role capability capability id');
-            if (! DB::table('capabilities')->where('id', $capabilityId)->exists()) {
+            $capabilityCode = DB::table('capabilities')->where('id', $capabilityId)->value('capability_code');
+            if (! is_string($capabilityCode)) {
                 throw new InvalidArgumentException('authorization_capability_not_found');
             }
         } else {
-            $code = (string) ($input['capability_code'] ?? $input['code'] ?? '');
-            if (! CapabilityCatalog::supports($code)) {
+            $capabilityCode = (string) ($input['capability_code'] ?? $input['code'] ?? '');
+            if (! CapabilityCatalog::supports($capabilityCode)) {
                 throw new InvalidArgumentException('capability_code_not_in_catalog');
             }
-            $capabilityId = DB::table('capabilities')->where('capability_code', $code)->value('id');
+            $capabilityId = DB::table('capabilities')->where('capability_code', $capabilityCode)->value('id');
             if (! is_string($capabilityId)) {
                 throw new InvalidArgumentException('authorization_capability_not_found');
             }
@@ -349,6 +383,19 @@ final class AuthorizationHttpGateway
         if (! in_array($effect, ['allow', 'deny'], true)) {
             throw new InvalidArgumentException('authorization_effect_invalid');
         }
+
+        $clusterId = $this->defaultClusterId->resolve();
+        if (! is_string($clusterId)) {
+            throw new InvalidArgumentException('authorization_grant_exceeds_actor_authority');
+        }
+        $this->grantAuthority->assertCovered(
+            $principalId,
+            [$capabilityCode],
+            'cluster',
+            $clusterId,
+            now()->utc()->format('Y-m-d\TH:i:s.v\Z'),
+            null,
+        );
 
         return ['role_id' => $roleId, 'capability_id' => $capabilityId, 'effect' => $effect, 'created_at' => $now, 'updated_at' => $now, 'lock_version' => 1];
     }
@@ -421,12 +468,22 @@ final class AuthorizationHttpGateway
             throw new InvalidArgumentException('authorization_scope_required');
         }
         $roleId = (string) ($input['role_id'] ?? '');
+        $roleRow = DB::table('roles')->where('id', $roleId)->first();
+        if ($roleRow === null) {
+            throw new InvalidArgumentException('authorization_role_not_found');
+        }
+        if ((string) $roleRow->status !== 'active') {
+            throw new InvalidArgumentException('authorization_role_not_active');
+        }
         $capabilityCodes = DB::table('role_capabilities')
             ->join('capabilities', 'capabilities.id', '=', 'role_capabilities.capability_id')
             ->where('role_capabilities.role_id', $roleId)
             ->where('role_capabilities.effect', 'allow')
             ->where('capabilities.status', 'active')
             ->pluck('capabilities.capability_code')->all();
+        if ($capabilityCodes === []) {
+            throw new InvalidArgumentException('authorization_role_has_no_capabilities');
+        }
         $startAt = $this->domainUtc((string) ($input['start_at'] ?? ''));
         $endAt = array_key_exists('end_at', $input) && $input['end_at'] !== null ? $this->domainUtc((string) $input['end_at']) : null;
         $this->grantAuthority->assertCovered($principalId, $capabilityCodes, $scopeType, $scopeId, $startAt, $endAt);
@@ -455,10 +512,14 @@ final class AuthorizationHttpGateway
     /** @return array<string,mixed> */
     private function delegation(string $id, array $input, string $principalId, string $now): array
     {
-        /** @var list<string> $codes */
-        $codes = array_values($input['capability_codes'] ?? []);
+        $capabilityCodesInput = $input['capability_codes'] ?? null;
+        if (! is_array($capabilityCodesInput)) {
+            throw new InvalidArgumentException('authorization_payload_invalid');
+        }
+        /** @var list<mixed> $codes */
+        $codes = array_values($capabilityCodesInput);
         foreach ($codes as $code) {
-            if (! CapabilityCatalog::supports($code)) {
+            if (! is_string($code) || ! CapabilityCatalog::supports($code)) {
                 throw new InvalidArgumentException('capability_code_not_in_catalog');
             }
         }
@@ -510,20 +571,35 @@ final class AuthorizationHttpGateway
     {
         $document = is_array($input['policy_document'] ?? null) ? $input['policy_document'] : $input;
         $classification = (string) ($document['classification'] ?? $document['classification_code'] ?? 'internal');
+        if (! in_array($classification, ['public', 'internal', 'confidential', 'top_secret'], true)) {
+            throw new InvalidArgumentException('classification_policy_classification_invalid');
+        }
+        $exportPolicy = (string) ($document['export_policy'] ?? 'deny');
+        if (! in_array($exportPolicy, ['deny', 'audit', 'allow'], true)) {
+            throw new InvalidArgumentException('classification_policy_transfer_invalid');
+        }
+        $downloadPolicy = (string) ($document['download_policy'] ?? 'deny');
+        if (! in_array($downloadPolicy, ['deny', 'audit', 'allow'], true)) {
+            throw new InvalidArgumentException('classification_policy_transfer_invalid');
+        }
+        $minimumCapability = (string) ($document['minimum_capability'] ?? $input['code'] ?? '');
+        if ($minimumCapability === '') {
+            throw new InvalidArgumentException('classification_policy_capability_required');
+        }
+        if (! CapabilityCatalog::supports($minimumCapability)) {
+            throw new InvalidArgumentException('capability_code_not_in_catalog');
+        }
         $row = [
             'classification_code' => $classification,
-            'minimum_capability' => (string) ($document['minimum_capability'] ?? $input['code'] ?? ''),
-            'export_policy' => (string) ($document['export_policy'] ?? 'deny'),
-            'download_policy' => (string) ($document['download_policy'] ?? 'deny'),
+            'minimum_capability' => $minimumCapability,
+            'export_policy' => $exportPolicy,
+            'download_policy' => $downloadPolicy,
             'policy_version' => (string) ($document['policy_version'] ?? 'v1'),
             'is_active' => (bool) ($document['is_active'] ?? true),
             'created_at' => $now,
             'updated_at' => $now,
             'lock_version' => 1,
         ];
-        if ($row['minimum_capability'] === '') {
-            throw new InvalidArgumentException('classification_policy_capability_required');
-        }
 
         return $row;
     }
@@ -532,14 +608,35 @@ final class AuthorizationHttpGateway
     /** @return array<string,mixed> */
     private function fieldTemplate(string $id, array $input, string $now): array
     {
+        $fieldPolicyKey = (string) ($input['field_policy_key'] ?? $input['code'] ?? '');
+        $fieldPolicyKey = trim($fieldPolicyKey);
+        if ($fieldPolicyKey === '' || mb_strlen($fieldPolicyKey) > 128) {
+            throw new InvalidArgumentException('field_access_template_key_invalid');
+        }
+        $moduleCode = (string) ($input['module_code'] ?? '');
+        if ($moduleCode === '' || preg_match('/\A[a-z][a-z0-9_-]{0,63}\z/', $moduleCode) !== 1) {
+            throw new InvalidArgumentException('field_access_template_module_invalid');
+        }
         $document = $input['policy_document'] ?? null;
         if (! is_array($document) || $document === []) {
             throw new InvalidArgumentException('field_access_template_policy_required');
         }
+        if (array_key_exists('fields', $document) && $document['fields'] !== null) {
+            $fields = $document['fields'];
+            if (! is_array($fields)) {
+                throw new InvalidArgumentException('field_access_template_policy_invalid');
+            }
+            $allowedRules = ['edit', 'read', 'mask', 'hide'];
+            foreach ($fields as $path => $rule) {
+                if (! is_string($path) || $path === '' || ! is_string($rule) || ! in_array($rule, $allowedRules, true)) {
+                    throw new InvalidArgumentException('field_access_template_policy_invalid');
+                }
+            }
+        }
 
         return [
-            'field_policy_key' => (string) ($input['field_policy_key'] ?? $input['code'] ?? ''),
-            'module_code' => (string) ($input['module_code'] ?? ''),
+            'field_policy_key' => $fieldPolicyKey,
+            'module_code' => $moduleCode,
             'policy_definition' => json_encode($document, JSON_THROW_ON_ERROR),
             'policy_version' => (string) ($input['policy_version'] ?? 'v1'),
             'is_active' => (bool) ($input['is_active'] ?? true),
@@ -571,20 +668,61 @@ final class AuthorizationHttpGateway
         if (array_key_exists('effect', $changes) && ! in_array($changes['effect'], ['allow', 'deny'], true)) {
             throw new InvalidArgumentException('authorization_effect_invalid');
         }
+        if (array_key_exists('status', $changes)) {
+            $status = $changes['status'];
+            $allowedStatus = match ($resource) {
+                'roles', 'capabilities', 'classification-policies', 'field-access-templates' => ['active', 'archived'],
+                'role-assignments', 'delegations' => ['pending', 'active', 'revoked', 'expired'],
+                default => null,
+            };
+            if ($allowedStatus === null) {
+                throw new InvalidArgumentException('authorization_status_invalid');
+            }
+            if (! is_string($status) || ! in_array($status, $allowedStatus, true)) {
+                throw new InvalidArgumentException('authorization_status_invalid');
+            }
+        }
         if (array_key_exists('classification', $changes) && $changes['classification'] !== null && ! in_array($changes['classification'], ['public', 'internal', 'confidential', 'top_secret'], true)) {
             throw new InvalidArgumentException('explicit_deny_classification_invalid');
         }
         if (array_key_exists('resource_pattern', $changes) && $changes['resource_pattern'] !== null && ! ExplicitDeny::isValidResourcePattern((string) $changes['resource_pattern'])) {
             throw new InvalidArgumentException('explicit_deny_resource_pattern_invalid');
         }
+        if (array_key_exists('export_policy', $changes) && ! in_array($changes['export_policy'], ['deny', 'audit', 'allow'], true)) {
+            throw new InvalidArgumentException('classification_policy_transfer_invalid');
+        }
+        if (array_key_exists('download_policy', $changes) && ! in_array($changes['download_policy'], ['deny', 'audit', 'allow'], true)) {
+            throw new InvalidArgumentException('classification_policy_transfer_invalid');
+        }
         if (array_key_exists('name', $changes)) {
             $changes['name_ar'] = $changes['name'];
             unset($changes['name']);
         }
         if (array_key_exists('policy_document', $changes)) {
-            $changes[$resource === 'field-access-templates' ? 'policy_definition' : 'minimum_capability'] = $resource === 'field-access-templates'
-                ? json_encode($changes['policy_document'], JSON_THROW_ON_ERROR)
-                : (string) (($changes['policy_document']['minimum_capability'] ?? ''));
+            if ($resource === 'field-access-templates') {
+                $fields = $changes['policy_document']['fields'] ?? null;
+                if ($fields !== null) {
+                    if (! is_array($fields)) {
+                        throw new InvalidArgumentException('field_access_template_policy_invalid');
+                    }
+                    $allowedRules = ['edit', 'read', 'mask', 'hide'];
+                    foreach ($fields as $path => $rule) {
+                        if (! is_string($path) || $path === '' || ! is_string($rule) || ! in_array($rule, $allowedRules, true)) {
+                            throw new InvalidArgumentException('field_access_template_policy_invalid');
+                        }
+                    }
+                }
+                $changes['policy_definition'] = json_encode($changes['policy_document'], JSON_THROW_ON_ERROR);
+            } else {
+                $minimumCapability = (string) ($changes['policy_document']['minimum_capability'] ?? '');
+                if ($minimumCapability === '') {
+                    throw new InvalidArgumentException('classification_policy_capability_required');
+                }
+                if (! CapabilityCatalog::supports($minimumCapability)) {
+                    throw new InvalidArgumentException('capability_code_not_in_catalog');
+                }
+                $changes['minimum_capability'] = $minimumCapability;
+            }
             unset($changes['policy_document']);
         }
         if (array_key_exists('end_at', $changes) && $changes['end_at'] !== null) {
@@ -659,10 +797,13 @@ final class AuthorizationHttpGateway
         $now = now()->utc();
 
         return DB::table('role_assignments')
-            ->where('user_id', $actorUserId)->where('status', 'active')
-            ->where('start_at', '<=', $now)
-            ->where(fn (Builder $query) => $query->whereNull('end_at')->orWhere('end_at', '>', $now))
-            ->get(['scope_type', 'scope_id'])->map(static fn (object $row): array => [
+            ->join('roles', 'roles.id', '=', 'role_assignments.role_id')
+            ->where('role_assignments.user_id', $actorUserId)
+            ->where('role_assignments.status', 'active')
+            ->where('roles.status', 'active')
+            ->where('role_assignments.start_at', '<=', $now)
+            ->where(fn (Builder $query) => $query->whereNull('role_assignments.end_at')->orWhere('role_assignments.end_at', '>', $now))
+            ->get(['role_assignments.scope_type', 'role_assignments.scope_id'])->map(static fn (object $row): array => [
                 'scope_type' => (string) $row->scope_type, 'scope_id' => (string) $row->scope_id,
             ])->all();
     }
@@ -705,6 +846,7 @@ final class AuthorizationHttpGateway
         $query->whereExists(function (Builder $subquery) use ($scopes): void {
             $subquery->selectRaw('1')->from('role_assignments as scoped_assignments')->whereColumn('scoped_assignments.role_id', 'roles.id');
             $this->applyDirectScopePredicate($subquery, $scopes);
+            $subquery->where('scoped_assignments.status', 'active');
         });
     }
 

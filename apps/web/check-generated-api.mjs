@@ -37,4 +37,4 @@ for (const generatedClient of generatedClients) {
   }
 }
 
-console.log('Generated API client matches the merged client surface contract.')
+console.log('Generated API client matches docs/contracts/api/openapi.yaml.')

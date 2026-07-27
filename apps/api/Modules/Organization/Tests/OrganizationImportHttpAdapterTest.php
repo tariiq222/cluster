@@ -146,6 +146,36 @@ class OrganizationImportHttpAdapterTest extends TestCase
         $this->assertDatabaseHas('import_rows', ['import_job_id' => $jobId, 'decision' => 'accepted']);
     }
 
+    public function test_submitter_cannot_approve_their_own_import_job(): void
+    {
+        $submitter = $this->loginToken();
+        $positionId = $this->positionReference($submitter);
+        $this->bindSource([$this->validRow($positionId, 'EMP-IMPORT-SELF-APPROVE')]);
+        $jobId = $this->submit($submitter, 'import-self-approve-submit');
+
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-self-approve-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'validated');
+
+        // The dual-approval guard is enforced at the approve transition only;
+        // the submitter approving their own job must be rejected with the
+        // mapped 409 problem type (controller: import_dual_approval_required).
+        $this->withToken($submitter)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/approve", [], $this->actionHeaders('"2"', 'import-self-approve'))
+            ->assertStatus(409)
+            ->assertJsonPath('type', 'https://cluster.example/problems/import-dual-approval-required');
+
+        // The job must remain validated, no approval side-effects must leak.
+        $this->assertDatabaseHas('import_jobs', ['id' => $jobId, 'status' => 'validated', 'approved_by_user_id' => null]);
+        $this->assertDatabaseMissing('outbox_events', [
+            'aggregate_id' => $jobId,
+            'event_type' => 'com.cluster.organization.importjobapproved.v1',
+        ]);
+        $this->assertDatabaseCount('people', 0);
+        $this->assertDatabaseCount('assignments', 0);
+    }
+
     public function test_critical_validation_failure_is_terminal_and_fail_closed(): void
     {
         $token = $this->loginToken();

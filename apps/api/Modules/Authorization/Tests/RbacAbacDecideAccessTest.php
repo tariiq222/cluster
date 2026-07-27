@@ -804,6 +804,47 @@ class RbacAbacDecideAccessTest extends TestCase
         $this->assertSame(['read', 'submit'], $decision->allowedActions);
     }
 
+    public function test_allowed_actions_excludes_a_capability_with_an_active_explicit_deny(): void
+    {
+        $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit');
+        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'work_record.submit');
+        $this->seedRoleCapabilityRow(self::ROLE_ID, self::SUBMIT_CAPABILITY_ID, 'allow');
+        $this->seedExplicitDeny(
+            userId: self::USER_ID,
+            organizationUnitId: self::ORGANIZATION_UNIT_A,
+            capabilityCode: 'work_record.submit',
+        );
+
+        $decision = $this->decider()->decide(
+            ['user_id' => self::USER_ID],
+            'work_record.read',
+            $this->facts('internal', self::ORGANIZATION_UNIT_A),
+        );
+
+        $this->assertTrue($decision->isAllowed());
+        $this->assertSame(['read'], $decision->allowedActions);
+    }
+
+    public function test_allowed_actions_excludes_a_capability_with_an_active_role_deny(): void
+    {
+        $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit');
+        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'work_record.submit');
+        $this->seedRoleCapabilityRow(self::ROLE_ID, self::SUBMIT_CAPABILITY_ID, 'allow');
+
+        $this->seedRoleRow(self::DENY_ROLE_ID, 'rbac_abac_submit_denier');
+        $this->seedRoleCapabilityRow(self::DENY_ROLE_ID, self::SUBMIT_CAPABILITY_ID, 'deny');
+        $this->seedAssignmentRow(self::USER_ID, self::DENY_ROLE_ID, self::ORGANIZATION_UNIT_A, 'unit');
+
+        $decision = $this->decider()->decide(
+            ['user_id' => self::USER_ID],
+            'work_record.read',
+            $this->facts('internal', self::ORGANIZATION_UNIT_A),
+        );
+
+        $this->assertTrue($decision->isAllowed());
+        $this->assertSame(['read'], $decision->allowedActions);
+    }
+
     private function decider(): RbacAbacDecideAccess
     {
         return new RbacAbacDecideAccess($this->supervisoryRelationships);
@@ -949,11 +990,12 @@ class RbacAbacDecideAccessTest extends TestCase
         ?string $organizationUnitId,
         ?Carbon $expiresAt = null,
         ?string $classification = null,
+        string $capabilityCode = 'work_record.read',
     ): void {
         DB::table('explicit_denies')->insert([
             'id' => self::EXPLICIT_DENY_ID,
             'user_id' => $userId,
-            'capability_code' => 'work_record.read',
+            'capability_code' => $capabilityCode,
             'classification' => $classification,
             'organization_unit_id' => $organizationUnitId,
             'resource_pattern' => 'work_*',

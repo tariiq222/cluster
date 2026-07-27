@@ -15,6 +15,7 @@ use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\Persistence\AuthorizationHttpGateway;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Contracts\GetDefaultClusterId;
 use Throwable;
 
 final class AuthorizationAdminController
@@ -23,6 +24,7 @@ final class AuthorizationAdminController
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
         private readonly AuthorizationHttpGateway $gateway,
+        private readonly GetDefaultClusterId $defaultClusterId,
     ) {}
 
     public function __invoke(Request $request, string $adminResource, ?string $resourceId = null, ?string $authorizationAction = null): JsonResponse
@@ -46,10 +48,12 @@ final class AuthorizationAdminController
         if ($capability === null) {
             return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
         }
+        $clusterId = $this->defaultClusterId->resolve();
         $facts = new RecordFacts(
             ownerFacilityId: $this->principalFacilityId($principal),
             resourceType: 'authorization_'.$adminResource,
             classification: 'internal',
+            clusterId: is_string($clusterId) ? $clusterId : null,
         );
         $decision = $this->access instanceof RbacAbacDecideAccess || $this->access instanceof BootstrapGatedDecideAccess
             ? $this->access->evaluateOnly($principal, $capability, $facts)
@@ -104,6 +108,11 @@ final class AuthorizationAdminController
         return is_string($principal['facility_id'] ?? null) ? $principal['facility_id'] : null;
     }
 
+    private static function basePath(): string
+    {
+        return '/api/v1/authorization/';
+    }
+
     private function list(Request $request, string $resource, string $correlationId, string $principalId): JsonResponse
     {
         $query = $request->query();
@@ -117,10 +126,10 @@ final class AuthorizationAdminController
         $validated = $validator->validated();
         $limit = (int) ($validated['limit'] ?? 25);
         $page = $this->gateway->list($resource, $validated['cursor'] ?? null, $limit, $principalId);
-        $link = $page['next_cursor'] === null ? null : '/api/v1/authorization/'.$resource.'?'.http_build_query([
+        $link = $page['next_cursor'] === null ? null : '<'.self::basePath().$resource.'?'.http_build_query([
             'cursor' => $page['next_cursor'],
             'limit' => $limit,
-        ], '', '&', PHP_QUERY_RFC3986).'; rel="next"';
+        ], '', '&', PHP_QUERY_RFC3986).'>; rel="next"';
 
         return AuthorizationApi::collection($page, $correlationId, $link);
     }
@@ -265,8 +274,14 @@ final class AuthorizationAdminController
             'field-access-templates' => 'field_access_template',
             default => null,
         };
+        if (($input['resource_type'] ?? null) !== $expected) {
+            return false;
+        }
+        if ($resource === 'delegations' && array_key_exists('capability_codes', $input) && ! is_array($input['capability_codes'])) {
+            return false;
+        }
 
-        return ($input['resource_type'] ?? null) === $expected;
+        return true;
     }
 
     /** @param array<string,mixed> $entity */

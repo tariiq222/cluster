@@ -4,6 +4,7 @@ namespace Modules\Organization\Tests;
 
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Organization\Features\Person\Handler\PersonHandler;
@@ -95,10 +96,9 @@ class OrganizationPersonHttpAdapterTest extends TestCase
             ->postJson('/api/v1/organization/people', $body, $this->writeHeaders('stable-person'))
             ->assertCreated();
         $personId = (string) $first->json('data.id');
-        $storedReplay = (string) DB::table('organization_idempotency_keys')->value('response_payload');
-        $this->assertStringNotContainsString('EMP-001', $storedReplay);
-        $this->assertStringNotContainsString('موظف الاختبار', $storedReplay);
-        $this->assertStringNotContainsString('Test Employee', $storedReplay);
+        $storedReplay = DB::table('organization_idempotency_keys')->value('response_payload');
+        $this->assertIsString($storedReplay);
+        $this->assertSame($first->json('data'), json_decode($storedReplay, true, 32, JSON_THROW_ON_ERROR));
 
         $this->withToken($token)
             ->patchJson("/api/v1/organization/people/{$personId}", ['display_name_ar' => 'اسم محدث'], $this->patchHeaders('"1"'))
@@ -119,6 +119,36 @@ class OrganizationPersonHttpAdapterTest extends TestCase
             ->postJson('/api/v1/organization/people', $body, $this->writeHeaders('duplicate-person'))
             ->assertConflict()
             ->assertJsonPath('type', 'https://cluster.example/problems/person-already-exists');
+
+        $this->assertDatabaseCount('people', 1);
+        $this->assertDatabaseCount('organization_idempotency_keys', 1);
+    }
+
+    public function test_person_create_replays_a_legacy_encrypted_snapshot_from_before_the_plain_json_cutover(): void
+    {
+        $token = $this->loginToken();
+        $body = $this->personBody();
+        $first = $this->withToken($token)
+            ->postJson('/api/v1/organization/people', $body, $this->writeHeaders('legacy-person'))
+            ->assertCreated();
+        $personId = (string) $first->json('data.id');
+
+        // Rewrite the stored snapshot into the pre-cutover format:
+        // json_encode(Crypt::encryptString(json_encode($person))).
+        DB::table('organization_idempotency_keys')->update([
+            'response_payload' => json_encode(
+                Crypt::encryptString(json_encode($first->json('data'), JSON_THROW_ON_ERROR)),
+                JSON_THROW_ON_ERROR,
+            ),
+        ]);
+
+        $this->withToken($token)
+            ->postJson('/api/v1/organization/people', $body, $this->writeHeaders('legacy-person'))
+            ->assertCreated()
+            ->assertHeader('ETag', '"1"')
+            ->assertJsonPath('data.id', $personId)
+            ->assertJsonPath('data.display_name_ar', 'موظف الاختبار')
+            ->assertJsonPath('data.person_version', 1);
 
         $this->assertDatabaseCount('people', 1);
         $this->assertDatabaseCount('organization_idempotency_keys', 1);

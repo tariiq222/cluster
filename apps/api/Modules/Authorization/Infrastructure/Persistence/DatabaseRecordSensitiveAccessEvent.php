@@ -2,6 +2,7 @@
 
 namespace Modules\Authorization\Infrastructure\Persistence;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\RecordSensitiveAccessEvent;
 use Modules\Authorization\Domain\UuidV7;
@@ -26,22 +27,30 @@ final class DatabaseRecordSensitiveAccessEvent implements RecordSensitiveAccessE
         }
 
         $now = now('UTC');
-        DB::table('sensitive_access_events')->insert([
-            'id' => UuidV7::generate(),
-            'access_decision_id' => $event['access_decision_id'],
-            'actor_user_id' => $event['principal_id'],
-            'original_actor_user_id' => $event['principal_id'],
-            'resource_type' => $event['resource_type'],
-            'resource_id' => $event['resource_id'],
-            'action' => $event['action'],
-            'classification_code' => $event['classification_code'],
-            'correlation_id' => $event['correlation_id'],
-            'source_ip' => $event['source_ip'],
-            'device_fingerprint_hash' => $event['device_fingerprint_hash'],
-            'idempotency_key_hash' => $hash,
-            'occurred_at' => $now,
-            'recorded_at' => $now,
-        ]);
+        try {
+            DB::table('sensitive_access_events')->insert([
+                'id' => UuidV7::generate(),
+                'access_decision_id' => $event['access_decision_id'],
+                'actor_user_id' => $event['principal_id'],
+                'original_actor_user_id' => $event['principal_id'],
+                'resource_type' => $event['resource_type'],
+                'resource_id' => $event['resource_id'],
+                'action' => $event['action'],
+                'classification_code' => $event['classification_code'],
+                'correlation_id' => $event['correlation_id'],
+                'source_ip' => $event['source_ip'],
+                'device_fingerprint_hash' => $event['device_fingerprint_hash'],
+                'idempotency_key_hash' => $hash,
+                'occurred_at' => $now,
+                'recorded_at' => $now,
+            ]);
+        } catch (QueryException $exception) {
+            if ((string) $exception->getCode() !== '23000') {
+                throw $exception;
+            }
+
+            return false;
+        }
 
         return true;
     }

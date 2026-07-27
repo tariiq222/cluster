@@ -47,7 +47,7 @@ Cluster مبنيّ كـ **Laravel 13.8 Modular Monolith** بـ 12 موديول �
 | **Documents** | 5 | ✅ production | Quarantine → ClamAV → S3 SigV4 presigned + Clean Spreadsheet Parser (HTTP layer legacy) |
 | **Tasks** | 7 | ✅ production | CreateFromWorkflowStep/Complete/Transition + Engagement (HTTP layer ضمن module) |
 | **Notifications** | 11 | ✅ production | Inbox + Workers مع reclaim/DLQ + cursor masked (HTTP layer ضمن module) |
-| **Workflow** | 4 | ✅ production | Engine (Decision → Advance) + Approval Inbox + Assignment Rules (HTTP layer legacy) |
+| **Workflow** | 4 | ✅ production | Engine (Decision → Advance) + Approval Inbox + Assignment Rules (HTTP layer في الموضع المعياري `Features/WorkflowLifecycle/Http`) |
 | **Reporting** | 11 | ✅ production | CQRS read-models + Refresh/Rebuild + Export (HTTP layer ضمن module) |
 | **Search** | 11 | ✅ production | Indexer + Rebuild + DecideAccess per row (HTTP layer ضمن module) |
 | **PlatformSettings** | 0 | ✅ production | Settings versions + Alerts outbox + Calendars + Maintenance + Backup + Technical Logs (DEFERRED) |

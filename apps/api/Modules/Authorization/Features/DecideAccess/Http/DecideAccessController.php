@@ -9,8 +9,6 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
 use Modules\Authorization\Http\AuthorizationApi;
-use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
-use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
 final class DecideAccessController
@@ -87,10 +85,6 @@ final class DecideAccessController
     /** @param array<string, mixed> $principal */
     private function authorizeWithoutPersistence(array $principal, RecordFacts $facts): bool
     {
-        if ($this->access instanceof RbacAbacDecideAccess || $this->access instanceof BootstrapGatedDecideAccess) {
-            return $this->access->evaluateOnly($principal, 'authorization.decision.read', $facts)->isAllowed();
-        }
-
-        return $this->access->decide($principal, 'authorization.decision.read', $facts)->isAllowed();
+        return $this->access->evaluateOnly($principal, 'authorization.decision.read', $facts)->isAllowed();
     }
 }

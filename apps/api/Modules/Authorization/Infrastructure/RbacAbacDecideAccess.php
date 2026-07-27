@@ -636,6 +636,12 @@ final class RbacAbacDecideAccess implements DecideAccess
             if ($clearance === null || ! $clearance->isAtLeast($requiredClearance)) {
                 continue;
             }
+            if ($this->hasActiveExplicitDeny($userId, $capabilityCode, $facts)) {
+                continue;
+            }
+            if ($this->hasCoveringRoleDeny($userId, $capabilityCode, $facts)) {
+                continue;
+            }
             $actions[] = explode('.', $capabilityCode, 2)[1] ?? $capabilityCode;
         }
 

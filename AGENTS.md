@@ -24,8 +24,8 @@ Cluster is a healthcare-cluster administrative platform implemented as a Laravel
 - `apps/api/tests/` — PHPUnit unit/feature/security tests and architecture guards.
 - `apps/web/src/` — React/Vite application, shell, routes, API wrappers, generated clients, and feature screens.
 - `apps/web/e2e/` — Playwright browser journeys (`*.spec.ts`).
-- `apps/web/.orval/` — bundled contract inputs/generated artifacts; do not hand-edit generated output.
-- `docs/contracts/api/` — authoritative OpenAPI contract sources when present; frozen W1.1/W1.2 snapshots must not be changed casually.
+- `apps/web/.orval/` — generated API reference output; do not hand-edit generated output.
+- `docs/contracts/api/openapi.yaml` — the single authoritative OpenAPI contract; Orval consumes it directly.
 - `scripts/` — documentation/contract validation, route inventory, reconciliation, security and production checks.
 - `infra/` — local development and production Docker/Compose workflows.
 

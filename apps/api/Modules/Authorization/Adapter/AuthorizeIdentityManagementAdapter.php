@@ -7,6 +7,7 @@ use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Infrastructure\Persistence\ListActiveRoleSummariesForUser;
 use Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser;
 use Modules\Identity\Contracts\AuthorizeIdentityManagement;
+use Modules\Organization\Contracts\GetDefaultClusterId;
 
 final readonly class AuthorizeIdentityManagementAdapter implements AuthorizeIdentityManagement
 {
@@ -14,6 +15,7 @@ final readonly class AuthorizeIdentityManagementAdapter implements AuthorizeIden
         private DecideAccess $access,
         private ListActiveRoleSummariesForUser $roleSummaries,
         private ListEffectiveCapabilitiesForUser $capabilities,
+        private GetDefaultClusterId $defaultClusterId,
     ) {}
 
     public function canReadAccounts(array $principal): bool
@@ -35,6 +37,7 @@ final readonly class AuthorizeIdentityManagementAdapter implements AuthorizeIden
                 ownerFacilityId: null,
                 resourceType: 'identity_activation',
                 classification: 'confidential',
+                clusterId: $this->defaultClusterId->resolve(),
             ),
         )->isAllowed();
     }
@@ -53,13 +56,14 @@ final readonly class AuthorizeIdentityManagementAdapter implements AuthorizeIden
     /** @param array{facility_id: ?string} $principal */
     private function decideForAccounts(array $principal, string $capability): bool
     {
-        return $this->access->decide(
+        return $this->access->evaluateOnly(
             $principal,
             $capability,
             new RecordFacts(
                 ownerFacilityId: null,
                 resourceType: 'identity_account',
                 classification: 'confidential',
+                clusterId: $this->defaultClusterId->resolve(),
             ),
         )->isAllowed();
     }

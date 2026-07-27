@@ -5,12 +5,11 @@ namespace Modules\Organization\Features\Assignment\Handler;
 use Carbon\CarbonImmutable;
 use Closure;
 use DomainException;
-use Illuminate\Contracts\Encryption\DecryptException;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use JsonException;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
+use Modules\Organization\Infrastructure\Persistence\EncryptedCursor;
+use Modules\Organization\Infrastructure\Persistence\OrganizationIdempotencyStore;
 use stdClass;
 use UnexpectedValueException;
 
@@ -18,7 +17,11 @@ final class AssignmentHandler
 {
     private const FAR_FUTURE = '9999-12-31 23:59:59.999';
 
-    public function __construct(private readonly OrganizationOutbox $outbox) {}
+    public function __construct(
+        private readonly OrganizationOutbox $outbox,
+        private readonly OrganizationIdempotencyStore $idempotency,
+        private readonly EncryptedCursor $cursor,
+    ) {}
 
     /**
      * @param  array{person_id: string, position_id: string, start_at: string, end_at?: string|null, is_primary?: bool}  $input
@@ -35,7 +38,7 @@ final class AssignmentHandler
         }
 
         return DB::transaction(function () use ($assignmentId, $input, $idempotency, $eventFactory, $start, $end): array {
-            $existing = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            $existing = $this->idempotency->query($idempotency)->lockForUpdate()->first();
             if ($existing instanceof stdClass) {
                 return $this->replay($existing, $idempotency['request_hash']);
             }
@@ -69,7 +72,7 @@ final class AssignmentHandler
                 'updated_at' => now(),
             ]);
             $assignment = $this->findRow($assignmentId);
-            $this->storeReplay($idempotency, $assignment);
+            $this->idempotency->storeResponse($idempotency, $assignment);
             $this->outbox->insert($eventFactory($assignment, $clusterId), $assignmentId);
 
             return ['request_hash_matches' => true, 'assignment' => $assignment];
@@ -93,7 +96,7 @@ final class AssignmentHandler
         $effectiveEnd = $this->timestamp($endAt);
 
         return DB::transaction(function () use ($assignmentId, $expectedVersion, $effectiveEnd, $reason, $principalId, $idempotency, $eventFactory): array {
-            $existing = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            $existing = $this->idempotency->query($idempotency)->lockForUpdate()->first();
             if ($existing instanceof stdClass) {
                 return $this->replay($existing, $idempotency['request_hash']);
             }
@@ -140,7 +143,7 @@ final class AssignmentHandler
                 throw new DomainException('precondition_failed');
             }
             $assignment = $this->findRow($assignmentId);
-            $this->storeReplay($idempotency, $assignment);
+            $this->idempotency->storeResponse($idempotency, $assignment);
             $clusterId = $this->clusterIdForPosition((string) $row->position_id);
             $this->outbox->insert($eventFactory($assignment, $clusterId), $assignmentId);
 
@@ -232,20 +235,10 @@ final class AssignmentHandler
     /** @return array{request_hash_matches: bool, assignment: array<string, mixed>}|null */
     private function claimIdempotency(string $assignmentId, array $idempotency): ?array
     {
-        $claimed = DB::table('organization_idempotency_keys')->insertOrIgnore([
-            'principal_id' => $idempotency['principal_id'],
-            'operation' => $idempotency['operation'],
-            'idempotency_key_hash' => $idempotency['key_hash'],
-            'request_hash' => $idempotency['request_hash'],
-            'resource_type' => 'assignment',
-            'resource_id' => $assignmentId,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        if ($claimed) {
+        if ($this->idempotency->claim($idempotency, 'assignment', $assignmentId)) {
             return null;
         }
-        $concurrent = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+        $concurrent = $this->idempotency->query($idempotency)->lockForUpdate()->first();
         if (! $concurrent instanceof stdClass) {
             throw new UnexpectedValueException('The assignment idempotency claim could not be resolved.');
         }
@@ -253,41 +246,13 @@ final class AssignmentHandler
         return $this->replay($concurrent, $idempotency['request_hash']);
     }
 
-    /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency */
-    private function idempotencyQuery(array $idempotency): mixed
-    {
-        return DB::table('organization_idempotency_keys')
-            ->where('principal_id', $idempotency['principal_id'])
-            ->where('operation', $idempotency['operation'])
-            ->where('idempotency_key_hash', $idempotency['key_hash']);
-    }
-
-    /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency @param array<string, mixed> $assignment */
-    private function storeReplay(array $idempotency, array $assignment): void
-    {
-        $this->idempotencyQuery($idempotency)->update([
-            'response_payload' => json_encode($assignment, JSON_THROW_ON_ERROR),
-            'updated_at' => now(),
-        ]);
-    }
-
     /** @return array{request_hash_matches: bool, assignment: array<string, mixed>} */
     private function replay(stdClass $key, string $requestHash): array
     {
-        if (! is_string($key->response_payload)) {
-            throw new UnexpectedValueException('Stored assignment idempotency state is incomplete.');
-        }
-        try {
-            $assignment = json_decode($key->response_payload, true, 32, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new UnexpectedValueException('Stored assignment idempotency response is invalid.');
-        }
-        if (! is_array($assignment)) {
-            throw new UnexpectedValueException('Stored assignment idempotency response is invalid.');
-        }
+        $assignment = $this->idempotency->decodeResponse($key, 'assignment');
 
         return [
-            'request_hash_matches' => is_string($key->request_hash) && hash_equals($key->request_hash, $requestHash),
+            'request_hash_matches' => $this->idempotency->hashMatches($key, $requestHash),
             'assignment' => $assignment,
         ];
     }
@@ -348,25 +313,21 @@ final class AssignmentHandler
     /** @param array{user_id: string, facility_id: string} $principal */
     private function encodeCursor(string $assignmentId, array $principal, int $limit, ?string $personId): string
     {
-        return Crypt::encryptString(json_encode([
+        return $this->cursor->encrypt([
             'version' => 1,
             'resource' => 'assignment',
             'after_id' => $assignmentId,
             'limit' => $limit,
             'person_id' => $personId,
             'principal_id' => $principal['user_id'],
-        ], JSON_THROW_ON_ERROR));
+        ]);
     }
 
     /** @param array{user_id: string, facility_id: string} $principal */
     private function decodeCursor(string $cursor, array $principal, int $limit, ?string $personId): string
     {
-        try {
-            $payload = json_decode(Crypt::decryptString($cursor), true, 8, JSON_THROW_ON_ERROR);
-        } catch (DecryptException|JsonException) {
-            throw new InvalidArgumentException('The assignment cursor is invalid.');
-        }
-        if (! is_array($payload)
+        $payload = $this->cursor->tryDecrypt($cursor);
+        if ($payload === null
             || ($payload['version'] ?? null) !== 1
             || ($payload['resource'] ?? null) !== 'assignment'
             || ($payload['limit'] ?? null) !== $limit

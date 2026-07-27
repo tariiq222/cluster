@@ -2640,17 +2640,16 @@ These operational and reporting surfaces are called out separately from their en
 Run the inventory and contract checks from the repository root:
 
 ```shell
-python3 scripts/inventory-routes.py --mode reconcile --write
 python3 scripts/inventory-routes.py --mode md --json docs/api
+./scripts/validate-docs.sh
 npm --prefix apps/web run api:generate
 npm --prefix apps/web run api:check
 ```
 
 ### Orval
 
-`apps/web/orval.config.ts` generates one client from `.orval/cluster-client.openapi.yaml`.
-`apps/web/build-client-contract.mjs` builds that contract from the authoritative master
-`docs/contracts/api/openapi.yaml` plus the governed W1.1, W1.2, and R1 split surfaces.
+`apps/web/orval.config.ts` generates one client directly from the single authoritative contract
+`docs/contracts/api/openapi.yaml`.
 
 ### Coverage
 
@@ -2658,13 +2657,10 @@ npm --prefix apps/web run api:check
 - Bootstrap-only health route represented in the dedicated operational section: `/up`.
 - Arabic summary placeholders intentionally remain for S6.
 
-### Contract Diff
+### Contract Source
 
-- Spec-only operations: `63` across `49` paths by raw literal comparison.
-- Exact template equivalences cover `12` of those operations; planned-only remainder: `51` operations across `37` paths; unclassified: `0`.
-- Runtime-only literal declarations: `5`; intentional template equivalences: `5`; unresolved: `0`.
+- `docs/contracts/api/openapi.yaml` is the single authoritative API contract.
+- Operations tagged `x-implementation-status: planned` are documented but not live; every untagged operation must be wired.
 - The previous real gap, `POST /api/v1/platform-operations/backups`, is now declared by the master contract as `dispatchPlatformBackup`; it returns an asynchronous entity (`202`) and is owned by `platform_operations.backup.run`.
 - `GET /api/v1/platform-operations/backups` remains a single backup-status entity owned by `platform_operations.backup.read`; it is not a collection route.
-- Runtime template equivalences are exact: document grant parameter naming; platform-settings `settingsAction` (`validate|publish`); work-definition `versionAction` (four verbs); and work-record `recordAction` (six verbs).
-- Operation-only planned exclusions on live item paths are `POST /authorization/bootstrap` plus PATCH for work-definition, work-definition-version, and work-record items.
-- Source evidence: `apps/api/routes/web.php`, `scripts/openapi_reconciler.py`, and `docs/contracts/api/openapi.yaml`.
+- Source evidence: `apps/api/routes/web.php` and `docs/contracts/api/openapi.yaml`.

@@ -6,11 +6,11 @@ use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use JsonException;
 use Modules\Organization\Features\TemporaryAssignment\Contracts\ValidateTemporaryAssignmentCapabilities;
 use Modules\Organization\Features\TemporaryAssignment\Events\BuildTemporaryAssignmentEvent;
 use Modules\Organization\Features\TemporaryAssignment\Exceptions\TemporaryAssignmentIdempotencyConflict;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
+use Modules\Organization\Infrastructure\Persistence\OrganizationIdempotencyStore;
 use stdClass;
 use Throwable;
 use UnexpectedValueException;
@@ -25,6 +25,7 @@ final class TemporaryAssignmentHandler
         private readonly OrganizationOutbox $outbox,
         private readonly BuildTemporaryAssignmentEvent $events,
         private readonly ValidateTemporaryAssignmentCapabilities $capabilities,
+        private readonly OrganizationIdempotencyStore $idempotency,
     ) {}
 
     /**
@@ -74,18 +75,19 @@ final class TemporaryAssignmentHandler
             $correlationId,
             $idempotency,
         ): array {
-            $existing = $this->idempotencyQuery($idempotency)->first();
+            $existing = $this->idempotency->query($idempotency)->first();
             if ($existing instanceof stdClass) {
                 return $this->replay($existing, $idempotency['request_hash'], 'create');
             }
 
+            // This time-relative invariant is handler-enforced by design because deterministic DB CHECKs cannot use CURRENT_TIMESTAMP; direct-insert paths must enforce it too.
             $now = $this->now();
             if ($start->lessThan($now)) {
                 throw new InvalidArgumentException('temporary_assignment_backdated');
             }
 
             $scope = $this->assertReferences($personId, $organizationUnitId);
-            $serializedReplay = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            $serializedReplay = $this->idempotency->query($idempotency)->lockForUpdate()->first();
             if ($serializedReplay instanceof stdClass) {
                 return $this->replay($serializedReplay, $idempotency['request_hash'], 'create');
             }
@@ -128,7 +130,7 @@ final class TemporaryAssignmentHandler
             ));
 
             $temporaryAssignment = $this->findRequired($temporaryAssignmentId);
-            $this->storeReplay($idempotency, $temporaryAssignment);
+            $this->idempotency->storeResponse($idempotency, $temporaryAssignment);
             $this->outbox->insert($this->events->make(
                 'com.cluster.organization.temporaryassignmentcreated.v1',
                 $temporaryAssignment,
@@ -169,7 +171,7 @@ final class TemporaryAssignmentHandler
             $correlationId,
             $idempotency,
         ): array {
-            $existing = $this->idempotencyQuery($idempotency)->first();
+            $existing = $this->idempotency->query($idempotency)->first();
             if ($existing instanceof stdClass) {
                 return $this->replay($existing, $idempotency['request_hash'], 'revoke');
             }
@@ -181,7 +183,7 @@ final class TemporaryAssignmentHandler
             if (! $row instanceof stdClass) {
                 throw new DomainException('temporary_assignment_not_found');
             }
-            $serializedReplay = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            $serializedReplay = $this->idempotency->query($idempotency)->lockForUpdate()->first();
             if ($serializedReplay instanceof stdClass) {
                 return $this->replay($serializedReplay, $idempotency['request_hash'], 'revoke');
             }
@@ -218,7 +220,7 @@ final class TemporaryAssignmentHandler
             }
 
             $temporaryAssignment = $this->findRequired($temporaryAssignmentId);
-            $this->storeReplay($idempotency, $temporaryAssignment);
+            $this->idempotency->storeResponse($idempotency, $temporaryAssignment);
             $tenantId = $this->clusterIdForUnit((string) $row->organization_unit_id);
             $this->outbox->insert($this->events->make(
                 'com.cluster.organization.temporaryassignmentrevoked.v1',
@@ -467,21 +469,11 @@ final class TemporaryAssignmentHandler
     /** @return array{created: bool, temporary_assignment: array<string, mixed>}|array{changed: bool, temporary_assignment: array<string, mixed>}|null */
     private function claimIdempotency(string $temporaryAssignmentId, array $idempotency, string $action): ?array
     {
-        $claimed = DB::table('organization_idempotency_keys')->insertOrIgnore([
-            'principal_id' => $idempotency['principal_id'],
-            'operation' => $idempotency['operation'],
-            'idempotency_key_hash' => $idempotency['key_hash'],
-            'request_hash' => $idempotency['request_hash'],
-            'resource_type' => 'temporary_assignment',
-            'resource_id' => $temporaryAssignmentId,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        if ($claimed) {
+        if ($this->idempotency->claim($idempotency, 'temporary_assignment', $temporaryAssignmentId)) {
             return null;
         }
 
-        $concurrent = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+        $concurrent = $this->idempotency->query($idempotency)->lockForUpdate()->first();
         if (! $concurrent instanceof stdClass) {
             throw new UnexpectedValueException('The temporary assignment idempotency claim could not be resolved.');
         }
@@ -489,42 +481,22 @@ final class TemporaryAssignmentHandler
         return $this->replay($concurrent, $idempotency['request_hash'], $action);
     }
 
-    /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency */
-    private function idempotencyQuery(array $idempotency): mixed
-    {
-        return DB::table('organization_idempotency_keys')
-            ->where('principal_id', $idempotency['principal_id'])
-            ->where('operation', $idempotency['operation'])
-            ->where('idempotency_key_hash', $idempotency['key_hash']);
-    }
-
-    /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency */
-    /** @param array<string, mixed> $temporaryAssignment */
-    private function storeReplay(array $idempotency, array $temporaryAssignment): void
-    {
-        $this->idempotencyQuery($idempotency)->update([
-            'response_payload' => json_encode($temporaryAssignment, JSON_THROW_ON_ERROR),
-            'updated_at' => now(),
-        ]);
-    }
-
     /**
+     * TempAssignment uses a distinct replay shape: a mismatching request_hash
+     * raises the dedicated TemporaryAssignmentIdempotencyConflict instead of
+     * silently flipping request_hash_matches to false. The decode + hash check
+     * remain the work of the shared store; the conflict exception + per-action
+     * key stay here to keep the divergence honest.
+     *
      * @return array{created: bool, temporary_assignment: array<string, mixed>}|array{changed: bool, temporary_assignment: array<string, mixed>}
      */
     private function replay(stdClass $key, string $requestHash, string $action): array
     {
-        if ($key->resource_type !== 'temporary_assignment' || ! is_string($key->response_payload)) {
+        if ($key->resource_type !== 'temporary_assignment') {
             throw new UnexpectedValueException('Stored temporary assignment idempotency state is incomplete.');
         }
-        try {
-            $temporaryAssignment = json_decode($key->response_payload, true, 32, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new UnexpectedValueException('Stored temporary assignment idempotency response is invalid.');
-        }
-        if (! is_array($temporaryAssignment)) {
-            throw new UnexpectedValueException('Stored temporary assignment idempotency response is invalid.');
-        }
-        if (! is_string($key->request_hash) || ! hash_equals($key->request_hash, $requestHash)) {
+        $temporaryAssignment = $this->idempotency->decodeResponse($key, 'temporary assignment');
+        if (! $this->idempotency->hashMatches($key, $requestHash)) {
             throw new TemporaryAssignmentIdempotencyConflict;
         }
 

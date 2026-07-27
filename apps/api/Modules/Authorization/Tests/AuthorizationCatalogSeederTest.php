@@ -6,6 +6,7 @@ use Database\Seeders\AuthorizationCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\CapabilityCatalog;
+use Modules\Authorization\Features\OperationsOffice\OperationsOfficeRoleCatalog;
 use Tests\TestCase;
 
 class AuthorizationCatalogSeederTest extends TestCase
@@ -66,6 +67,24 @@ class AuthorizationCatalogSeederTest extends TestCase
             'capability_code' => 'audit.integrity.verify',
             'sensitivity' => 'critical',
         ]);
+    }
+
+    public function test_seeder_and_operations_office_catalog_agree_on_every_capability_sensitivity(): void
+    {
+        $catalog = new OperationsOfficeRoleCatalog;
+        $seeder = new AuthorizationCatalogSeeder;
+
+        $catalog->sync();
+        $seeder->run();
+        $catalog->sync();
+
+        $sensitivities = DB::table('capabilities')
+            ->whereIn('capability_code', CapabilityCatalog::all())
+            ->pluck('sensitivity', 'capability_code');
+
+        foreach (CapabilityCatalog::all() as $code) {
+            $this->assertSame(CapabilityCatalog::sensitivity($code), $sensitivities->get($code), $code);
+        }
     }
 
     public function test_seeder_is_idempotent_and_never_duplicates_rows(): void

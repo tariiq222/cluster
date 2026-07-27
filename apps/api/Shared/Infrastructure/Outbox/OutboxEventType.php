@@ -59,6 +59,7 @@ enum OutboxEventType: string
     case OrganizationImportJobRejected = 'com.cluster.organization.importjobrejected.v1';
     case OrganizationImportJobCancelled = 'com.cluster.organization.importjobcancelled.v1';
     case OrganizationImportJobFailed = 'com.cluster.organization.importjobfailed.v1';
+    case OrganizationSupervisoryRelationshipCreated = 'com.cluster.organization.supervisoryrelationshipcreated.v1';
 
     // ── Identity ──────────────────────────────────────────────────────────
     case IdentityUserAccountCreated = 'com.cluster.identity.useraccountcreated.v1';

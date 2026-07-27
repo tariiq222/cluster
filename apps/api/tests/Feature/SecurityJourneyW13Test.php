@@ -136,6 +136,22 @@ final class SecurityJourneyW13Test extends TestCase
             'updated_at' => now(),
         ]);
         DB::table('role_assignments')->whereIn('user_id', [DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_ID])->whereIn('role_id', DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::ROLE_CODE)->pluck('id'))->delete();
+        // The administrator proves grant authority at cluster scope (required for
+        // role-capability attach and cluster-wide administration); operational
+        // journeys still grant USER_B at facility scope only.
+        DB::table('role_assignments')->insertOrIgnore([
+            'id' => Str::uuid7()->toString(),
+            'user_id' => self::ADMIN_ID,
+            'role_id' => (string) DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::AUTHORIZATION_ROLE_CODE)->value('id'),
+            'scope_type' => 'cluster',
+            'scope_id' => self::CLUSTER,
+            'start_at' => '2026-01-01 00:00:00.000',
+            'end_at' => null,
+            'status' => 'active',
+            'granted_by_user_id' => self::ADMIN_ID,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $this->seedOrganizationTree();
         [$this->adminCookie, $this->adminCsrf] = $this->loginSession(
             DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_USERNAME,

@@ -5,6 +5,7 @@ namespace Modules\Authorization\Infrastructure\Persistence;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 
 final class DatabaseResolveActiveFacilityScopesForUser implements ResolveActiveFacilityScopesForUser
@@ -15,8 +16,9 @@ final class DatabaseResolveActiveFacilityScopesForUser implements ResolveActiveF
         $at = $atIso8601 === null
             ? now()->utc()
             : DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s.v\Z', $atIso8601, new DateTimeZone('UTC'));
-        if ($at === false) {
-            $at = now()->utc();
+        $errors = DateTimeImmutable::getLastErrors();
+        if ($at === false || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+            throw new InvalidArgumentException('authorization_timestamp_invalid');
         }
 
         return DB::table('role_assignments')
@@ -25,6 +27,7 @@ final class DatabaseResolveActiveFacilityScopesForUser implements ResolveActiveF
             ->where('status', 'active')
             ->where('start_at', '<=', $at)
             ->where(fn ($query) => $query->whereNull('end_at')->orWhere('end_at', '>', $at))
+            ->distinct()
             ->pluck('scope_id')
             ->filter(static fn (mixed $id): bool => is_string($id) && $id !== '')
             ->values()

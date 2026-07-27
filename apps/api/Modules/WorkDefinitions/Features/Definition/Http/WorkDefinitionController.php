@@ -10,11 +10,12 @@ use InvalidArgumentException;
 use JsonException;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\WorkDefinitions\Features\Definition\Handler\WorkDefinitionMutator;
+use Shared\Http\HttpSupport;
 use stdClass;
 
 final class WorkDefinitionController
 {
-    use \Modules\Workflow\Features\HttpSupport\HttpSupport;
+    use HttpSupport;
 
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $resolver,

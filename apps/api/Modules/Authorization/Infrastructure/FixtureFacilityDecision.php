@@ -15,6 +15,15 @@ final class FixtureFacilityDecision implements DecideAccess
 
     private const IMPORT_APPROVER_USER_ID = '018f6f7d-0c00-7000-8000-000000000022';
 
+    /**
+     * The fixture engine never persists access_decisions or
+     * sensitive_access_events, so the read-side evaluation IS decide().
+     */
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
+    }
+
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
         if ($facts === null) {

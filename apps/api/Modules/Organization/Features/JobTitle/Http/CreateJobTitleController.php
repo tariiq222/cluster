@@ -32,8 +32,8 @@ final class CreateJobTitleController
         if ($correlationId === null) {
             return OrganizationApi::problem(400, 'invalid-correlation-id', 'Bad Request', 'X-Correlation-ID must be a lowercase UUIDv7.');
         }
-        $idempotencyKey = $request->header('Idempotency-Key');
-        if (! is_string($idempotencyKey) || trim($idempotencyKey) === '') {
+        $idempotencyKey = OrganizationApi::idempotencyKey($request);
+        if ($idempotencyKey === null) {
             return OrganizationApi::problem(400, 'invalid-idempotency-key', 'Bad Request', 'Idempotency-Key is required.', $correlationId);
         }
         $principal = $this->principalResolver->resolve($request);

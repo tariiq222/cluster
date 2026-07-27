@@ -25,6 +25,7 @@ return [
     base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/W13CreateAuthorizationBootstrapTable.php'),
     base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/W13AddExplicitDenyLockVersion.php'),
     base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/W15CreateOperationsOffice.php'),
+    base_path('Modules/Authorization/Infrastructure/Persistence/Migrations/W23HardenAuthorizationPersistence.php'),
     base_path('Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php'),
     base_path('Modules/Documents/Infrastructure/Persistence/Migrations/HardenDocumentUploadSecurityTables.php'),
     base_path('Modules/Documents/Infrastructure/Persistence/Migrations/ZZAddDocumentUploadPurpose.php'),

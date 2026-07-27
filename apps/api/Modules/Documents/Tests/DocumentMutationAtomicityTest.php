@@ -381,6 +381,14 @@ final class DocumentMutationAtomicityTest extends TestCase
     {
         return new class implements DecideAccess
         {
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
+
             public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
             {
                 if ($facts === null) {

@@ -4,19 +4,24 @@ namespace Modules\Organization\Features\Position\Handler;
 
 use Closure;
 use DomainException;
-use Illuminate\Contracts\Encryption\DecryptException;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use JsonException;
 use Modules\Organization\Domain\Position;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
+use Modules\Organization\Infrastructure\Persistence\EncryptedCursor;
+use Modules\Organization\Infrastructure\Persistence\OrganizationIdempotencyStore;
 use stdClass;
 use UnexpectedValueException;
 
 final class PositionHandler
 {
-    public function __construct(private readonly OrganizationOutbox $outbox) {}
+    private const MAX_MANAGER_HOPS = 32;
+
+    public function __construct(
+        private readonly OrganizationOutbox $outbox,
+        private readonly OrganizationIdempotencyStore $idempotency,
+        private readonly EncryptedCursor $cursor,
+    ) {}
 
     /**
      * @param  array{organization_unit_id: string, code: string, title?: string, job_title_id?: string|null, manager_position_id?: string|null}  $input
@@ -27,7 +32,7 @@ final class PositionHandler
     public function create(string $positionId, array $input, array $idempotency, Closure $eventFactory): array
     {
         return DB::transaction(function () use ($positionId, $input, $idempotency, $eventFactory): array {
-            $existingKey = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            $existingKey = $this->idempotency->query($idempotency)->lockForUpdate()->first();
             if ($existingKey instanceof stdClass) {
                 return $this->replayResult($existingKey, $idempotency['request_hash']);
             }
@@ -42,18 +47,8 @@ final class PositionHandler
             $titleInput = $input['title'] ?? null;
             $resolvedTitle = $this->resolveTitle($jobTitleId, is_string($titleInput) ? $titleInput : null);
 
-            $claimed = DB::table('organization_idempotency_keys')->insertOrIgnore([
-                'principal_id' => $idempotency['principal_id'],
-                'operation' => $idempotency['operation'],
-                'idempotency_key_hash' => $idempotency['key_hash'],
-                'request_hash' => $idempotency['request_hash'],
-                'resource_type' => 'position',
-                'resource_id' => $positionId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            if (! $claimed) {
-                $concurrent = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            if (! $this->idempotency->claim($idempotency, 'position', $positionId)) {
+                $concurrent = $this->idempotency->query($idempotency)->lockForUpdate()->first();
                 if (! $concurrent instanceof stdClass) {
                     throw new UnexpectedValueException('The position idempotency claim could not be resolved.');
                 }
@@ -82,10 +77,7 @@ final class PositionHandler
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            $this->idempotencyQuery($idempotency)->update([
-                'response_payload' => json_encode($data, JSON_THROW_ON_ERROR),
-                'updated_at' => now(),
-            ]);
+            $this->idempotency->storeResponse($idempotency, $data);
             $this->outbox->insert($eventFactory($data, (string) $unit->cluster_id), $positionId);
 
             return ['created' => true, 'request_hash_matches' => true, 'position' => $data];
@@ -238,7 +230,12 @@ final class PositionHandler
             throw new InvalidArgumentException('Manager position is invalid.');
         }
         $visited = [];
+        $hops = 0;
         while ($candidate->manager_position_id !== null) {
+            if ($hops >= self::MAX_MANAGER_HOPS) {
+                throw new DomainException('position_manager_cycle');
+            }
+            $hops++;
             $nextId = (string) $candidate->manager_position_id;
             if ($nextId === $positionId || isset($visited[$nextId])) {
                 throw new DomainException('position_manager_cycle');
@@ -292,33 +289,14 @@ final class PositionHandler
         return (string) $row->title_ar;
     }
 
-    /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency */
-    private function idempotencyQuery(array $idempotency): mixed
-    {
-        return DB::table('organization_idempotency_keys')
-            ->where('principal_id', $idempotency['principal_id'])
-            ->where('operation', $idempotency['operation'])
-            ->where('idempotency_key_hash', $idempotency['key_hash']);
-    }
-
     /** @return array{created: bool, request_hash_matches: bool, position: array<string, mixed>} */
     private function replayResult(stdClass $key, string $requestHash): array
     {
-        if (! is_string($key->response_payload)) {
-            throw new UnexpectedValueException('Stored position idempotency state is incomplete.');
-        }
-        try {
-            $position = json_decode($key->response_payload, true, 32, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new UnexpectedValueException('Stored position idempotency response is invalid.');
-        }
-        if (! is_array($position)) {
-            throw new UnexpectedValueException('Stored position idempotency response is invalid.');
-        }
+        $position = $this->idempotency->decodeResponse($key, 'position');
 
         return [
             'created' => false,
-            'request_hash_matches' => is_string($key->request_hash) && hash_equals($key->request_hash, $requestHash),
+            'request_hash_matches' => $this->idempotency->hashMatches($key, $requestHash),
             'position' => $position,
         ];
     }
@@ -326,25 +304,21 @@ final class PositionHandler
     /** @param array{user_id: string, facility_id: string} $principal */
     private function encodeCursor(string $positionId, array $principal, int $limit, ?string $unitId): string
     {
-        return Crypt::encryptString(json_encode([
+        return $this->cursor->encrypt([
             'version' => 1,
             'resource' => 'position',
             'after_id' => $positionId,
             'limit' => $limit,
             'unit_id' => $unitId,
             'principal_id' => $principal['user_id'],
-        ], JSON_THROW_ON_ERROR));
+        ]);
     }
 
     /** @param array{user_id: string, facility_id: string} $principal */
     private function decodeCursor(string $cursor, array $principal, int $limit, ?string $unitId): string
     {
-        try {
-            $payload = json_decode(Crypt::decryptString($cursor), true, 8, JSON_THROW_ON_ERROR);
-        } catch (DecryptException|JsonException) {
-            throw new InvalidArgumentException('The position cursor is invalid.');
-        }
-        if (! is_array($payload)
+        $payload = $this->cursor->tryDecrypt($cursor);
+        if ($payload === null
             || ($payload['version'] ?? null) !== 1
             || ($payload['resource'] ?? null) !== 'position'
             || ($payload['limit'] ?? null) !== $limit

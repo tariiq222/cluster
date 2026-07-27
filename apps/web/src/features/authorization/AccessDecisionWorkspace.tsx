@@ -5,6 +5,8 @@ import type { Locale } from '../../app/copy'
 import { directionForLocale } from '../../app/copy'
 import { useToken } from '../../app/session-context'
 import { ApiError } from '../../api'
+import { explainAccessDecision } from '../../api/r1'
+import type { AccessDecision } from '../../api/r1'
 import { EmptyState, Field, InlineError, Page, PageHeader, Panel, SkeletonList } from '../../ui'
 
 const copy = {
@@ -34,7 +36,7 @@ export function AccessDecisionWorkspace({ locale, decisionId }: { locale: Locale
   const t = copy[locale]
   const token = useToken()
   const [state, setState] = useState<'loading' | 'ready' | 'denied' | 'error' | 'empty'>('empty')
-  const [explanation, setExplanation] = useState<string>('')
+  const [decision, setDecision] = useState<AccessDecision | null>(null)
 
   const load = useCallback(async () => {
     if (!decisionId) {
@@ -43,15 +45,7 @@ export function AccessDecisionWorkspace({ locale, decisionId }: { locale: Locale
     }
     setState('loading')
     try {
-      const headers: Record<string, string> = { 'Accept': 'application/json', 'Authorization': `Bearer ${token}` }
-      const response = await fetch(`/api/v1/access/decisions/${encodeURIComponent(decisionId)}`, { headers })
-      if (response.status === 403) {
-        setState('denied')
-        return
-      }
-      if (!response.ok) throw new ApiError(response.status, { type: 'about:blank', title: 'Failed', status: response.status })
-      const body = await response.json()
-      setExplanation(typeof body?.explanation === 'string' ? body.explanation : JSON.stringify(body))
+      setDecision(await explainAccessDecision(decisionId, token))
       setState('ready')
     } catch (error) {
       setState(error instanceof ApiError && error.status === 403 ? 'denied' : 'error')
@@ -70,10 +64,12 @@ export function AccessDecisionWorkspace({ locale, decisionId }: { locale: Locale
         {state === 'empty' ? <EmptyState icon={<Search aria-hidden="true" />} title={t.empty} /> : null}
         {state === 'denied' ? <Panel id="access-decision-denied" title="403" level={2}><p>{t.error}</p></Panel> : null}
         {state === 'error' ? <InlineError message={t.error} retryLabel={t.retry} onRetry={() => void load()} /> : null}
-        {state === 'ready' ? (
+        {state === 'ready' && decision ? (
           <Panel id="access-decision-panel" title={t.explanation} level={2}>
-            <Field id="access-decision-id" label={t.decisionId}><code dir="ltr">{decisionId}</code></Field>
-            <p>{explanation}</p>
+            <Field id="access-decision-id" label={t.decisionId}><code dir="ltr">{decision.decision_id}</code></Field>
+            <p>{`${decision.decision} — ${decision.action} (${decision.resource_type})`}</p>
+            <p>{decision.reason_codes.join(', ')}</p>
+            <p dir="ltr">{decision.evaluated_at}</p>
           </Panel>
         ) : null}
       </Page>

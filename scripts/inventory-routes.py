@@ -152,20 +152,6 @@ def run_markdown_mode(args, summary: InventorySummary) -> int:
     return 0
 
 
-def _load_bundle_runner():
-    module_path = REPO_ROOT / "scripts" / "bundle_runner.py"
-    if not module_path.exists():
-        raise FileNotFoundError(module_path)
-    spec = importlib.util.spec_from_file_location("bundle_runner", module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load bundle_runner from {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    # register before exec so dataclasses can resolve PEP 563 annotations
-    sys.modules.setdefault(spec.name, module)
-    spec.loader.exec_module(module)
-    return module
-
-
 def _split_md_into_cards(markdown: str) -> list[tuple[str, str, str, str]]:
     """Return a list of (method, path, controller_fqcn, card_body) tuples.
 
@@ -319,83 +305,6 @@ def run_translate_mode(args, summary: InventorySummary) -> int:
     return 0
 
 
-def run_reconcile_mode(args) -> int:
-    if not args.write:
-        print("--mode reconcile requires --write", file=sys.stderr)
-        return 2
-
-    # S4 mode (--mode reconcile --write): canonical openapi.yaml reconciliation
-    # via openapi_reconciler.reconcile. S5 mode (--mode reconcile --write
-    # --bundle): bundle regeneration via bundle_runner. The two compose cleanly:
-    # S4 mutates the source spec, S5 then refreshes the bundle outputs.
-    if args.bundle:
-        return _run_reconcile_with_bundle(args)
-    return _run_reconcile_s4(args)
-
-
-def _load_openapi_reconciler():
-    module_path = REPO_ROOT / "scripts" / "openapi_reconciler.py"
-    if not module_path.exists():
-        raise FileNotFoundError(module_path)
-    spec = importlib.util.spec_from_file_location("openapi_reconciler", module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load openapi_reconciler from {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault(spec.name, module)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _run_reconcile_s4(args) -> int:
-    reconciler = _load_openapi_reconciler()
-    try:
-        summary = reconciler.reconcile(REPO_ROOT)
-    except RuntimeError as exc:
-        print(f"reconcile failed: {exc}", file=sys.stderr)
-        return 1
-    except FileNotFoundError as exc:
-        print(f"missing source for reconcile: {exc}", file=sys.stderr)
-        return 2
-
-    paths_added = summary.get("paths_added", [])
-    planned_count = summary.get("planned_count", 0)
-    r1_added = summary.get("r1_screen_refs_added", [])
-    preservation = summary.get("preservation_check", {})
-
-    print(f"reconcile ok: paths_added={len(paths_added)} planned_tags={planned_count}")
-    print(f"  preservation_pass={preservation.get('pass')}")
-    print(f"  r1_screen_refs_added={r1_added}")
-    summary_path = REPO_ROOT / reconciler.SUMMARY_PATH
-    print(f"summary_written={summary_path}")
-    return 0
-
-
-def _run_reconcile_with_bundle(args) -> int:
-    bundle_runner = _load_bundle_runner()
-
-    try:
-        summary = bundle_runner.reconcile(REPO_ROOT)
-    except RuntimeError as exc:
-        print(f"reconcile failed: {exc}", file=sys.stderr)
-        return 1
-    except FileNotFoundError as exc:
-        print(f"missing source for reconcile: {exc}", file=sys.stderr)
-        return 2
-
-    bundles = summary["bundles"]
-    print(f"reconcile ok: bundled={len(bundles)}")
-    for name in sorted(bundles):
-        info = bundles[name]
-        marker = "frozen" if info["frozen"] else "refresh"
-        print(
-            f"  {name} ({marker}): size {info['pre_size']}->{info['post_size']}B, "
-            f"paths={info['path_count']}"
-        )
-    summary_path = REPO_ROOT / bundle_runner.SUMMARY_PATH
-    print(f"summary_written={summary_path}")
-    return 0
-
-
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
@@ -404,14 +313,9 @@ def main(argv: Iterable[str] | None = None) -> int:
     mode.add_argument("--dry-run", action="store_true", help="Alias for --check (no writes)")
     parser.add_argument(
         "--mode",
-        choices=["inspect", "rbac", "rbac-md", "md", "reconcile", "translate"],
+        choices=["inspect", "rbac", "rbac-md", "md", "translate"],
         default="inspect",
-        help="Output mode: inspect | rbac (JSON) | rbac-md (RBAC markdown only) | md (all API markdown) | reconcile | translate",
-    )
-    parser.add_argument(
-        "--bundle",
-        action="store_true",
-        help="With --mode reconcile, run npm run api:bundle and verify $ref freshness",
+        help="Output mode: inspect | rbac (JSON) | rbac-md (RBAC markdown only) | md (all API markdown) | translate",
     )
     parser.add_argument(
         "--json",
@@ -430,8 +334,6 @@ def main(argv: Iterable[str] | None = None) -> int:
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    if args.mode == "reconcile":
-        return run_reconcile_mode(args)
 
     if args.mode == "translate":
         # Translate operates purely on the markdown file; the routes summary

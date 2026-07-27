@@ -47,7 +47,7 @@ final class ListJobTitlesController
             return OrganizationApi::problem(400, 'invalid-pagination', 'Bad Request', 'The collection parameters are invalid.', $correlationId);
         }
         $validated = $validator->validated();
-        $limit = (int) ($validated['limit'] ?? 50);
+        $limit = (int) ($validated['limit'] ?? 25);
         try {
             $page = $this->handler->list($principal, $validated['cursor'] ?? null, $limit);
         } catch (InvalidArgumentException) {

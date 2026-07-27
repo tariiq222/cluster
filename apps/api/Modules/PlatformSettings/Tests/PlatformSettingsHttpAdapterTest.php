@@ -371,6 +371,14 @@ final class PlatformSettingsHttpDecider implements DecideAccess
 {
     public function __construct(private readonly bool $deny) {}
 
+    /**
+     * Test doubles persist nothing, so the read-side evaluation IS decide().
+     */
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
+    }
+
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
         return new AccessDecision(
@@ -389,6 +397,14 @@ final class PlatformSettingsHttpDecider implements DecideAccess
 final class PlatformSettingsScopeDecider implements DecideAccess
 {
     public function __construct(private readonly ?string $blockedFacility, private readonly bool $denyOverride = false) {}
+
+    /**
+     * Test doubles persist nothing, so the read-side evaluation IS decide().
+     */
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
+    }
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {

@@ -148,7 +148,7 @@ lists the canonical tables, contracts, and HTTP routes.
   `workflow_instances`, `workflow_step_instances`, `workflow_decisions`,
   `workflow_idempotency_keys`.
 - **Contracts.** `AdvanceWorkflowStep`, `ResolveStepAssignee`,
-  `ResolveWorkflowSourceAuthorizationFacts`.
+  `ResolveWorkflowSourceAuthorizationFacts`, `WorkflowStepExists`.
 
 ### `WorkDefinitions` (rank 5)
 

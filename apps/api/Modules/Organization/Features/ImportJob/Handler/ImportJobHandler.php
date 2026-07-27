@@ -23,6 +23,8 @@ use Modules\Organization\Features\OrganizationUnit\Handler\OrganizationUnitHandl
 use Modules\Organization\Features\Person\Handler\PersonHandler;
 use Modules\Organization\Features\Position\Handler\PositionHandler;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
+use Modules\Organization\Infrastructure\Persistence\EncryptedCursor;
+use Modules\Organization\Infrastructure\Persistence\OrganizationIdempotencyStore;
 use stdClass;
 use UnexpectedValueException;
 
@@ -38,6 +40,8 @@ final class ImportJobHandler
         private readonly OrganizationUnitHandler $units,
         private readonly PositionHandler $positions,
         private readonly OrganizationOutbox $outbox,
+        private readonly OrganizationIdempotencyStore $idempotency,
+        private readonly EncryptedCursor $cursor,
     ) {}
 
     /**
@@ -49,7 +53,7 @@ final class ImportJobHandler
     public function submit(string $jobId, array $input, array $idempotency, Closure $eventFactory): array
     {
         return DB::transaction(function () use ($jobId, $input, $idempotency, $eventFactory): array {
-            $existing = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            $existing = $this->idempotency->query($idempotency)->lockForUpdate()->first();
             if ($existing instanceof stdClass) {
                 return $this->replay($existing, $idempotency['request_hash']);
             }
@@ -80,7 +84,7 @@ final class ImportJobHandler
             if ($job === null) {
                 throw new UnexpectedValueException('The import job write could not be read back.');
             }
-            $this->storeReplay($idempotency, $job);
+            $this->idempotency->storeResponse($idempotency, $job);
             $this->outbox->insert($eventFactory(
                 'com.cluster.organization.importjobsubmitted.v1',
                 '/organization/import-jobs/'.$jobId,
@@ -140,7 +144,7 @@ final class ImportJobHandler
         array $idempotency,
         Closure $eventFactory,
     ): array {
-        $existing = $this->idempotencyQuery($idempotency)->first();
+        $existing = $this->idempotency->query($idempotency)->first();
         if ($existing instanceof stdClass) {
             return $this->replay($existing, $idempotency['request_hash']);
         }
@@ -158,7 +162,7 @@ final class ImportJobHandler
         }
 
         return DB::transaction(function () use ($jobId, $action, $expectedVersion, $principalId, $reason, $idempotency, $eventFactory, $resolved): array {
-            $existing = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            $existing = $this->idempotency->query($idempotency)->lockForUpdate()->first();
             if ($existing instanceof stdClass) {
                 return $this->replay($existing, $idempotency['request_hash']);
             }
@@ -186,7 +190,7 @@ final class ImportJobHandler
             if ($job === null) {
                 throw new UnexpectedValueException('The import job transition could not be read back.');
             }
-            $this->storeReplay($idempotency, $job);
+            $this->idempotency->storeResponse($idempotency, $job);
             $this->outbox->insert($eventFactory(
                 $eventType,
                 '/organization/import-jobs/'.$jobId,
@@ -406,20 +410,10 @@ final class ImportJobHandler
     /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency @return array{request_hash_matches: bool, job: array<string, mixed>}|null */
     private function claimIdempotency(string $jobId, array $idempotency): ?array
     {
-        $claimed = DB::table('organization_idempotency_keys')->insertOrIgnore([
-            'principal_id' => $idempotency['principal_id'],
-            'operation' => $idempotency['operation'],
-            'idempotency_key_hash' => $idempotency['key_hash'],
-            'request_hash' => $idempotency['request_hash'],
-            'resource_type' => 'import_job',
-            'resource_id' => $jobId,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        if ($claimed) {
+        if ($this->idempotency->claim($idempotency, 'import_job', $jobId)) {
             return null;
         }
-        $concurrent = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+        $concurrent = $this->idempotency->query($idempotency)->lockForUpdate()->first();
         if (! $concurrent instanceof stdClass) {
             throw new UnexpectedValueException('The import idempotency claim could not be resolved.');
         }
@@ -427,41 +421,13 @@ final class ImportJobHandler
         return $this->replay($concurrent, $idempotency['request_hash']);
     }
 
-    /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency */
-    private function idempotencyQuery(array $idempotency): mixed
-    {
-        return DB::table('organization_idempotency_keys')
-            ->where('principal_id', $idempotency['principal_id'])
-            ->where('operation', $idempotency['operation'])
-            ->where('idempotency_key_hash', $idempotency['key_hash']);
-    }
-
-    /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency @param array<string, mixed> $job */
-    private function storeReplay(array $idempotency, array $job): void
-    {
-        $this->idempotencyQuery($idempotency)->update([
-            'response_payload' => json_encode($job, JSON_THROW_ON_ERROR),
-            'updated_at' => now(),
-        ]);
-    }
-
     /** @return array{request_hash_matches: bool, job: array<string, mixed>} */
     private function replay(stdClass $key, string $requestHash): array
     {
-        if (! is_string($key->response_payload)) {
-            throw new UnexpectedValueException('Stored import idempotency state is incomplete.');
-        }
-        try {
-            $job = json_decode($key->response_payload, true, 32, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new UnexpectedValueException('Stored import idempotency response is invalid.');
-        }
-        if (! is_array($job)) {
-            throw new UnexpectedValueException('Stored import idempotency response is invalid.');
-        }
+        $job = $this->idempotency->decodeResponse($key, 'import');
 
         return [
-            'request_hash_matches' => is_string($key->request_hash) && hash_equals($key->request_hash, $requestHash),
+            'request_hash_matches' => $this->idempotency->hashMatches($key, $requestHash),
             'job' => $job,
         ];
     }
@@ -502,23 +468,19 @@ final class ImportJobHandler
 
     private function encodeCursor(int $rowNumber, string $jobId, int $limit): string
     {
-        return Crypt::encryptString(json_encode([
+        return $this->cursor->encrypt([
             'version' => 1,
             'resource' => 'import_row',
             'after' => $rowNumber,
             'job_id' => $jobId,
             'limit' => $limit,
-        ], JSON_THROW_ON_ERROR));
+        ]);
     }
 
     private function decodeCursor(string $cursor, string $jobId, int $limit): int
     {
-        try {
-            $payload = json_decode(Crypt::decryptString($cursor), true, 8, JSON_THROW_ON_ERROR);
-        } catch (DecryptException|JsonException) {
-            throw new InvalidArgumentException('The import row cursor is invalid.');
-        }
-        if (! is_array($payload)
+        $payload = $this->cursor->tryDecrypt($cursor);
+        if ($payload === null
             || ($payload['version'] ?? null) !== 1
             || ($payload['resource'] ?? null) !== 'import_row'
             || ($payload['job_id'] ?? null) !== $jobId

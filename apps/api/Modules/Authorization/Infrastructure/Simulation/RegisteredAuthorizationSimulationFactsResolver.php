@@ -8,6 +8,22 @@ use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
 use Throwable;
 
+/**
+ * Iterates AuthorizationSimulationFactsProvider implementations registered
+ * under the 'authorization.simulation_facts' container tag and returns the
+ * first non-null RecordFacts whose resourceType/recordId match the
+ * reference. Tagged providers are supplied by each module's own
+ * ServiceProvider, e.g.:
+ *
+ *     $this->app->tag(MyFactsProvider::class, 'authorization.simulation_facts');
+ *     // or equivalently via the array form on bind:
+ *     $this->app->bind(MyFactsProvider::class, fn () => new MyFactsProvider, 'authorization.simulation_facts');
+ *
+ * The AuthorizationServiceProvider wires this resolver into the
+ * ResolveAuthorizationSimulationFacts contract so that DecideAccessController
+ * receives every tagged provider at resolve-time; providers that throw are
+ * swallowed so one misbehaving module cannot break the resolution chain.
+ */
 final class RegisteredAuthorizationSimulationFactsResolver implements ResolveAuthorizationSimulationFacts
 {
     /** @param iterable<AuthorizationSimulationFactsProvider> $providers */

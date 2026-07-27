@@ -27,10 +27,14 @@ class InventoryMarkdownTest extends TestCase
         $this->assertSame(1, preg_match_all('/^## Exports \/ Internal \/ Health$/m', $markdown));
         $this->assertGreaterThanOrEqual(1, substr_count($markdown, 'LinkDocumentController'));
         $this->assertGreaterThanOrEqual(100, substr_count($markdown, '{{AR:'));
-        $this->assertStringContainsString('Spec-only operations: `63` across `49` paths', $markdown);
-        $this->assertStringContainsString('Runtime-only literal declarations: `5`; intentional template equivalences: `5`; unresolved: `0`', $markdown);
         $this->assertStringContainsString('`POST /api/v1/platform-operations/backups`', $markdown);
         $this->assertStringContainsString('`platform_operations.backup.run`', $markdown);
+        $this->assertStringContainsString(
+            '`docs/contracts/api/openapi.yaml` is the single authoritative API contract.',
+            $markdown,
+        );
+        $this->assertStringNotContainsString('scripts/openapi_reconciler.py', $markdown);
+        $this->assertStringNotContainsString('--mode reconcile', $markdown);
     }
 
     /**

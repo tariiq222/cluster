@@ -22,6 +22,9 @@ final class UpdatePositionController
         private readonly PositionHandler $handler,
     ) {}
 
+    /**
+     * PATCH accepts a title only; job_title_id is preserved or nulled by the handler's title resolution semantics.
+     */
     public function __invoke(Request $request, string $positionId): JsonResponse
     {
         $correlationId = OrganizationApi::correlationId($request);

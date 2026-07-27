@@ -145,6 +145,26 @@ final class CapabilityCatalog
         return in_array($capability, self::CAPABILITIES, true);
     }
 
+    public static function sensitivity(string $code): string
+    {
+        if ($code === 'audit.integrity.verify') {
+            return 'critical';
+        }
+
+        $action = substr($code, (int) strrpos($code, '.') + 1);
+
+        return in_array($action, ['manage', 'approve', 'publish', 'accept', 'grant', 'hold'], true)
+            || str_starts_with($code, 'identity.account.')
+            || in_array($code, [
+                'organization.person.read',
+                'organization.person.reference',
+                'organization.import.read',
+                'audit.event.export',
+            ], true)
+            ? 'sensitive'
+            : 'normal';
+    }
+
     public static function adminRead(string $resource): ?string
     {
         return self::adminCapability($resource, false);

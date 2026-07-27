@@ -20,6 +20,7 @@ use Modules\Organization\Features\TemporaryAssignment\Handler\TemporaryAssignmen
 use Modules\Organization\Features\TemporaryAssignment\Handler\TemporaryAssignmentHandler;
 use Modules\Organization\Features\TemporaryAssignment\Query\DatabaseListActiveTemporaryAssignmentFacts;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
+use Modules\Organization\Infrastructure\Persistence\OrganizationIdempotencyStore;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -75,6 +76,7 @@ class TemporaryAssignmentTest extends TestCase
             $this->app->make(OrganizationOutbox::class),
             new TemporaryAssignmentEventFactory,
             $this->capabilityValidator,
+            $this->app->make(OrganizationIdempotencyStore::class),
         );
     }
 
@@ -506,6 +508,7 @@ class TemporaryAssignmentTest extends TestCase
             $this->app->make(OrganizationOutbox::class),
             new FixedTemporaryAssignmentEventFactory($eventId),
             $this->capabilityValidator,
+            $this->app->make(OrganizationIdempotencyStore::class),
         );
         $handler->create(
             Str::uuid7()->toString(),

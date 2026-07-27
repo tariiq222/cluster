@@ -748,7 +748,7 @@ PHP);
             }
 
             foreach (explode(',', $name) as $candidate) {
-                $candidate = trim(explode(' as ', trim($candidate), 2)[0]);
+                $candidate = ltrim(trim(explode(' as ', trim($candidate), 2)[0]), '\\');
                 if ($candidate !== '') {
                     $imports[] = $candidate;
                 }

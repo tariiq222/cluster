@@ -6,7 +6,7 @@ import 'swagger-ui-react/swagger-ui.css'
 import type { Locale } from '../../app/copy'
 import { text } from '../../app/copy'
 
-import openapiYaml from '../../../.orval/cluster.openapi.yaml?raw'
+import openapiYaml from '../../../../../docs/contracts/api/openapi.yaml?raw'
 
 type Props = {
   locale: Locale

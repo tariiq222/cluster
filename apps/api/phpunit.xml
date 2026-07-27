@@ -21,6 +21,7 @@
         </include>
     </source>
     <php>
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_KEY" value="base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>
         <env name="AUDIT_INTEGRITY_KEYS" value="v1:testing-only-32-byte-key-material"/>

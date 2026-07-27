@@ -37,6 +37,20 @@ final class AuthorizationHttpAdapterTest extends TestCase
         $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
         config()->set('identity.session_only', true);
         $this->bindRealAccessDecision();
+        $authorizationRoleId = (string) DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::AUTHORIZATION_ROLE_CODE)->value('id');
+        DB::table('role_assignments')->insertOrIgnore([
+            'id' => Str::uuid7()->toString(),
+            'user_id' => DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID,
+            'role_id' => $authorizationRoleId,
+            'scope_type' => 'cluster',
+            'scope_id' => (string) DB::table('clusters')->where('singleton_key', 1)->value('id'),
+            'start_at' => '2026-01-01 00:00:00.000',
+            'end_at' => null,
+            'status' => 'active',
+            'granted_by_user_id' => DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         DB::table('authorization_bootstrap')->update([
             'state' => 'complete',
             'completed_by_user_id' => DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID,

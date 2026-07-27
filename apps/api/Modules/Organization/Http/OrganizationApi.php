@@ -64,17 +64,6 @@ final class OrganizationApi
         return $response;
     }
 
-    /** @param array<string, mixed> $data */
-    public static function resource(array $data, int $status, string $correlationId, ?int $version = null): JsonResponse
-    {
-        $response = response()->json(['data' => $data], $status)->header('X-Correlation-ID', $correlationId);
-        if ($version !== null) {
-            $response->header('ETag', '"'.$version.'"');
-        }
-
-        return $response;
-    }
-
     /** @param array{items: list<array<string,mixed>>, next_cursor: string|null} $page */
     public static function collection(array $page, string $correlationId, ?string $link = null): JsonResponse
     {

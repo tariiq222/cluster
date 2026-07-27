@@ -90,6 +90,14 @@ final class ListWorkDefinitionsTest extends TestCase
         };
         $access = new class implements \Modules\Authorization\Contracts\DecideAccess
         {
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
+
             public function decide(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
             {
                 return new \Modules\Authorization\Contracts\AccessDecision('allow', $capability, 'work_definition', [], 'test', 'test', 'internal');
@@ -162,6 +170,14 @@ final class ListWorkDefinitionsTest extends TestCase
         };
         $access = new class implements \Modules\Authorization\Contracts\DecideAccess
         {
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
+
             public function decide(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
             {
                 return new \Modules\Authorization\Contracts\AccessDecision('allow', $capability, 'work_definition', [], 'test', 'test', 'internal');
@@ -231,6 +247,14 @@ final class ListWorkDefinitionsTest extends TestCase
         };
         $access = new class implements \Modules\Authorization\Contracts\DecideAccess
         {
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
+
             public function decide(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
             {
                 return new \Modules\Authorization\Contracts\AccessDecision('allow', $capability, 'work_definition', [], 'test', 'test', 'internal');
@@ -269,6 +293,14 @@ final class ListWorkDefinitionsTest extends TestCase
         };
         $access = new class implements \Modules\Authorization\Contracts\DecideAccess
         {
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
+
             public function decide(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
             {
                 return new \Modules\Authorization\Contracts\AccessDecision('allow', $capability, 'work_definition', [], 'test', 'test', 'internal');
@@ -303,6 +335,14 @@ final class ListWorkDefinitionsTest extends TestCase
         };
         $access = new class implements \Modules\Authorization\Contracts\DecideAccess
         {
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
+
             public function decide(array $actor, string $capability, ?\Modules\Authorization\Contracts\RecordFacts $facts): \Modules\Authorization\Contracts\AccessDecision
             {
                 return new \Modules\Authorization\Contracts\AccessDecision('allow', $capability, 'work_definition', [], 'test', 'test', 'internal');

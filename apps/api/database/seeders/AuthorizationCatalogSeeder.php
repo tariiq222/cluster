@@ -9,29 +9,6 @@ use Modules\Authorization\Domain\UuidV7;
 
 final class AuthorizationCatalogSeeder extends Seeder
 {
-    /** @var list<string> */
-    private const SENSITIVE_ACTIONS = ['manage', 'approve', 'publish', 'accept', 'grant', 'hold'];
-
-    /**
-     * Read capabilities whose resources are classified 'confidential' by their
-     * controllers. Grants of these capabilities must convey CONFIDENTIAL
-     * clearance, otherwise the RBAC+ABAC engine permanently denies them with
-     * 'classification_insufficient'.
-     *
-     * @var list<string>
-     */
-    private const SENSITIVE_CAPABILITIES = [
-        'organization.person.read',
-        'organization.person.reference',
-        'organization.import.read',
-        'audit.event.export',
-    ];
-
-    /** @var list<string> */
-    private const CRITICAL_CAPABILITIES = [
-        'audit.integrity.verify',
-    ];
-
     public function run(): void
     {
         $this->syncCapabilities();
@@ -60,13 +37,7 @@ final class AuthorizationCatalogSeeder extends Seeder
                 'module_code' => explode('.', $capabilityCode, 2)[0],
                 'capability_code' => $capabilityCode,
                 'action' => $action,
-                'sensitivity' => in_array($capabilityCode, self::CRITICAL_CAPABILITIES, true)
-                    ? 'critical'
-                    : (in_array($action, self::SENSITIVE_ACTIONS, true)
-                        || str_starts_with($capabilityCode, 'identity.account.')
-                        || in_array($capabilityCode, self::SENSITIVE_CAPABILITIES, true)
-                            ? 'sensitive'
-                            : 'normal'),
+                'sensitivity' => CapabilityCatalog::sensitivity($capabilityCode),
                 'status' => 'active',
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -140,10 +111,10 @@ final class AuthorizationCatalogSeeder extends Seeder
                 && str_ends_with($capabilityCode, '.read'),
         );
 
-        return array_values(array_merge($authorizationReadGrants, [
+        return array_merge([...$authorizationReadGrants], [
             'audit.event.read',
             'audit.event.export',
             'audit.integrity.verify',
-        ]));
+        ]);
     }
 }

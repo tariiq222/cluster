@@ -38,7 +38,7 @@ final class AuthorizationServiceProvider extends ServiceProvider
         ));
         $this->app->bind(DecideAccess::class, BootstrapGatedDecideAccess::class);
         $this->app->bind(AuthorizeIdentityManagement::class, AuthorizeIdentityManagementAdapter::class);
-        $this->app->bind(ResolveAuthorizationSimulationFacts::class, RegisteredAuthorizationSimulationFactsResolver::class);
+        $this->app->bind(ResolveAuthorizationSimulationFacts::class, fn ($app) => new RegisteredAuthorizationSimulationFactsResolver($app->tagged('authorization.simulation_facts')));
         // Bind the Organization-owned contracts to the Authorization-side adapters so
         // lower-ranked controllers never reference Authorization types directly.
         $this->app->bind(OrganizationDecideAccess::class, OrganizationDecideAccessAdapter::class);

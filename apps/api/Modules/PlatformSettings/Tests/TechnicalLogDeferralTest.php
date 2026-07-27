@@ -178,6 +178,14 @@ final class TechnicalLogDeferralFixturePrincipal implements DeferredResolveDevel
 
 final class TechnicalLogDeferralDecider implements DeferredDecideAccess
 {
+    /**
+     * Test doubles persist nothing, so the read-side evaluation IS decide().
+     */
+    public function evaluateOnly(array $actor, string $capability, ?DeferredRecordFacts $facts): DeferredAccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
+    }
+
     public function decide(array $actor, string $capability, ?DeferredRecordFacts $facts): DeferredAccessDecision
     {
         return new DeferredAccessDecision(

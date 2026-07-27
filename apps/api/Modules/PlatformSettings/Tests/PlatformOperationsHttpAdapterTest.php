@@ -332,6 +332,14 @@ final class PlatformOperationsHttpDecider implements OperationsDecideAccess
 {
     public function __construct(private readonly bool $deny) {}
 
+    /**
+     * Test doubles persist nothing, so the read-side evaluation IS decide().
+     */
+    public function evaluateOnly(array $actor, string $capability, ?OperationsRecordFacts $facts): OperationsAccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
+    }
+
     public function decide(array $actor, string $capability, ?OperationsRecordFacts $facts): OperationsAccessDecision
     {
         return new OperationsAccessDecision(

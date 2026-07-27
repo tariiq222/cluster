@@ -170,6 +170,15 @@ class CapabilityCatalogTest extends TestCase
         $this->assertFalse(CapabilityCatalog::supports('work_record.submit '));
     }
 
+    public function test_sensitivity_uses_catalogued_rules_for_known_and_unknown_codes(): void
+    {
+        $this->assertSame('critical', CapabilityCatalog::sensitivity('audit.integrity.verify'));
+        $this->assertSame('sensitive', CapabilityCatalog::sensitivity('audit.event.export'));
+        $this->assertSame('sensitive', CapabilityCatalog::sensitivity('identity.account.read'));
+        $this->assertSame('sensitive', CapabilityCatalog::sensitivity('work_record.manage'));
+        $this->assertSame('normal', CapabilityCatalog::sensitivity('work_record.read'));
+    }
+
     public function test_admin_resources_have_deny_by_default_capability_mappings(): void
     {
         $expected = [

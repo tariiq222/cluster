@@ -57,6 +57,14 @@ final class SearchPrincipalResolver implements ResolveDevelopmentFixturePrincipa
 
 final class SearchAllowingDecider implements DecideAccess
 {
+    /**
+     * Test doubles persist nothing, so the read-side evaluation IS decide().
+     */
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
+    }
+
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
         return new AccessDecision('allow', $capability, $facts === null ? 'work_record' : $facts->resourceType, [], 'test', 'test', $facts === null ? 'internal' : $facts->classification);

@@ -3,19 +3,20 @@
 namespace Modules\Organization\Features\TemporaryAssignment\Http;
 
 use DomainException;
-use Illuminate\Contracts\Encryption\DecryptException;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use JsonException;
 use Modules\Organization\Features\TemporaryAssignment\Handler\TemporaryAssignmentHandler;
+use Modules\Organization\Infrastructure\Persistence\EncryptedCursor;
 use UnexpectedValueException;
 
 final class DatabaseTemporaryAssignmentHttpGateway implements TemporaryAssignmentHttpGateway
 {
     private const MAX_PAGE_SIZE = 100;
 
-    public function __construct(private readonly TemporaryAssignmentHandler $handler) {}
+    public function __construct(
+        private readonly TemporaryAssignmentHandler $handler,
+        private readonly EncryptedCursor $cursor,
+    ) {}
 
     public function create(
         string $temporaryAssignmentId,
@@ -126,22 +127,18 @@ final class DatabaseTemporaryAssignmentHttpGateway implements TemporaryAssignmen
 
     private function encodeCursor(string $after, string $organizationUnitId, int $limit): string
     {
-        return Crypt::encryptString(json_encode([
+        return $this->cursor->encrypt([
             'version' => 1,
             'after' => $after,
             'scope' => ['organization_unit_id' => $organizationUnitId],
             'query' => ['limit' => $limit],
-        ], JSON_THROW_ON_ERROR));
+        ]);
     }
 
     private function decodeCursor(string $cursor, string $organizationUnitId, int $limit): string
     {
-        try {
-            $payload = json_decode(Crypt::decryptString($cursor), true, 16, JSON_THROW_ON_ERROR);
-        } catch (DecryptException|JsonException) {
-            throw new InvalidArgumentException('temporary_assignment_cursor_invalid');
-        }
-        if (! is_array($payload)
+        $payload = $this->cursor->tryDecrypt($cursor, 16);
+        if ($payload === null
             || array_keys($payload) !== ['version', 'after', 'scope', 'query']
             || $payload['version'] !== 1
             || ! is_string($payload['after'] ?? null)

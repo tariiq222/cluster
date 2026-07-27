@@ -20,6 +20,8 @@ class AuthorizationFieldAuditMigrationTest extends TestCase
             $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php';
             $migration->up();
         }
+        $hardeningMigration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/W23HardenAuthorizationPersistence.php';
+        $hardeningMigration->up();
     }
 
     public function test_authorization_owns_classification_field_and_sensitive_audit_tables_without_foreign_keys(): void
@@ -62,11 +64,11 @@ class AuthorizationFieldAuditMigrationTest extends TestCase
         $this->assertSame([], Schema::getForeignKeys('sensitive_access_events'));
     }
 
-    public function test_sensitive_access_events_are_append_only_and_allow_distinct_reads_with_the_same_idempotency_hash(): void
+    public function test_sensitive_access_events_are_append_only_and_reject_duplicate_idempotency_tuples(): void
     {
         $idempotencyHash = str_repeat('a', 64);
         $firstEvent = $this->sensitiveAccessEvent('018f6f7d-0c00-7000-8000-000000000824', $idempotencyHash);
-        $secondEvent = $this->sensitiveAccessEvent('018f6f7d-0c00-7000-8000-000000000825', $idempotencyHash);
+        $secondEvent = $this->sensitiveAccessEvent('018f6f7d-0c00-7000-8000-000000000825', str_repeat('b', 64));
 
         DB::table('sensitive_access_events')->insert([$firstEvent, $secondEvent]);
 

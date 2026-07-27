@@ -46,11 +46,7 @@ final class OperationsOfficeRoleCatalog
                 'module_code' => explode('.', $code, 2)[0],
                 'capability_code' => $code,
                 'action' => $action,
-                'sensitivity' => in_array($action, ['manage', 'approve', 'publish', 'accept', 'grant', 'hold'], true)
-                    || str_starts_with($code, 'identity.account.')
-                    || in_array($code, ['organization.person.read', 'organization.person.reference', 'organization.import.read'], true)
-                    ? 'sensitive'
-                    : 'normal',
+                'sensitivity' => CapabilityCatalog::sensitivity($code),
                 'status' => 'active',
                 'created_at' => $now,
                 'updated_at' => $now,

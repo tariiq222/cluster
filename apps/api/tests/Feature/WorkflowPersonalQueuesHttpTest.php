@@ -403,6 +403,14 @@ final class WorkflowPersonalQueuesHttpTest extends TestCase
             /** @param list<string> $deniedCapabilities */
             public function __construct(private readonly array $deniedCapabilities) {}
 
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
+
             public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
             {
                 return new AccessDecision(
@@ -423,6 +431,14 @@ final class WorkflowPersonalQueuesHttpTest extends TestCase
         return new class($facilityId) implements DecideAccess
         {
             public function __construct(private readonly string $facilityId) {}
+
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
 
             public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
             {

@@ -2,18 +2,20 @@
 
 namespace Modules\Organization\Features\Assignment\Http;
 
+use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use InvalidArgumentException;
 use Modules\Organization\Contracts\AuthorizationIdempotencyKeyLookup;
 use Modules\Organization\Contracts\DecideAccess;
 use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Http\OrganizationApi;
+use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
 use Modules\Organization\Infrastructure\Persistence\SupervisoryRelationshipHttpGateway;
-use Throwable;
 
 final class SupervisoryRelationshipController
 {
@@ -22,6 +24,7 @@ final class SupervisoryRelationshipController
         private readonly DecideAccess $access,
         private readonly SupervisoryRelationshipHttpGateway $gateway,
         private readonly AuthorizationIdempotencyKeyLookup $idempotencyLookup,
+        private readonly OrganizationOutbox $outbox,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -48,7 +51,7 @@ final class SupervisoryRelationshipController
             return $this->list($request, $correlationId);
         }
         if ($request->isMethod('post')) {
-            return $this->create($request, $principal['user_id'], $correlationId);
+            return $this->create($request, $principal, $correlationId);
         }
 
         return OrganizationApi::problem(404, 'resource-not-found', 'Not Found', 'The supervisory relationship is not available.', $correlationId);
@@ -79,8 +82,10 @@ final class SupervisoryRelationshipController
         return OrganizationApi::collection($page, $correlationId, $link);
     }
 
-    private function create(Request $request, string $principalId, string $correlationId): JsonResponse
+    /** @param array{user_id: string, facility_id: string} $principal */
+    private function create(Request $request, array $principal, string $correlationId): JsonResponse
     {
+        $principalId = $principal['user_id'];
         $key = OrganizationApi::idempotencyKey($request);
         if ($key === null) {
             return OrganizationApi::problem(400, 'invalid-idempotency-key', 'Bad Request', 'Idempotency-Key is required.', $correlationId);
@@ -116,13 +121,25 @@ final class SupervisoryRelationshipController
             $payload = json_decode($existing['response_payload'], true);
 
             return is_array($payload['data'] ?? null)
-                ? OrganizationApi::resource($payload['data'], $existing['response_status'], $correlationId, 1)
+                ? OrganizationApi::data($payload['data'], $existing['response_status'], $correlationId, 1)
                 : OrganizationApi::problem(500, 'idempotency-state-unavailable', 'Internal Server Error', 'The request cannot be safely replayed.', $correlationId);
         }
 
         try {
-            return DB::transaction(function () use ($input, $principalId, $correlationId, $operation, $requestHash, $keyHash): JsonResponse {
+            return DB::transaction(function () use ($input, $principal, $principalId, $correlationId, $operation, $requestHash, $keyHash): JsonResponse {
                 $entity = $this->gateway->create($input);
+                $this->outbox->insert(
+                    OrganizationApi::cloudEvent(
+                        'com.cluster.organization.supervisoryrelationshipcreated.v1',
+                        '/organization/supervisory-relationships/'.$entity['id'],
+                        $correlationId,
+                        OrganizationApi::clusterId() ?? $principal['facility_id'],
+                        'supervisory_relationship',
+                        $entity,
+                        $principal,
+                    ),
+                    (string) $entity['id'],
+                );
                 $this->idempotencyLookup->recordKey([
                     'principal_id' => $principalId,
                     'operation' => $operation,
@@ -133,13 +150,13 @@ final class SupervisoryRelationshipController
                     'response_payload' => json_encode(['data' => $entity], JSON_THROW_ON_ERROR),
                 ]);
 
-                return OrganizationApi::resource($entity, 201, $correlationId, 1);
+                return OrganizationApi::data($entity, 201, $correlationId, 1);
             });
         } catch (QueryException $exception) {
             return (string) $exception->getCode() === '23000'
                 ? OrganizationApi::problem(409, 'supervisory-relationship-conflict', 'Conflict', 'The supervisory relationship conflicts with existing state.', $correlationId)
                 : OrganizationApi::problem(500, 'organization-write-failed', 'Internal Server Error', 'The organization change could not be saved.', $correlationId);
-        } catch (Throwable) {
+        } catch (InvalidArgumentException|DomainException) {
             return OrganizationApi::problem(422, 'invalid-supervisory-relationship', 'Unprocessable Entity', 'The supervisory relationship payload is invalid.', $correlationId);
         }
     }

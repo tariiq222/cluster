@@ -92,6 +92,14 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
         };
         $access = new class implements DecideAccess
         {
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
+
             public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
             {
                 return new AccessDecision('allow', $capability, 'work_record', [], 'test', 'test', 'internal');
@@ -125,6 +133,14 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
         $access = new class($seen) implements DecideAccess
         {
             public function __construct(public int &$seen) {}
+
+            /**
+             * Test doubles persist nothing, so the read-side evaluation IS decide().
+             */
+            public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+            {
+                return $this->decide($actor, $capability, $facts);
+            }
 
             public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
             {

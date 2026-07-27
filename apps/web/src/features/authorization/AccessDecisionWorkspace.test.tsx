@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 
 import { SessionProvider } from '../../app/session-context'
 import type { Session } from '../../api'
@@ -13,6 +13,18 @@ const session: Session = {
   expires_at: '2026-07-17T12:00:00Z',
   restricted: false,
   principal: { user_id: '018f6f7d-0c00-7000-8000-000000000021' },
+}
+
+function decisionPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    decision_id: '01980f50-5f0d-7000-8000-000000000001',
+    decision: 'allow',
+    action: 'read',
+    resource_type: 'work_record',
+    reason_codes: ['role.scope.ok'],
+    evaluated_at: '2026-07-27T12:00:00Z',
+    ...overrides,
+  }
 }
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -29,9 +41,9 @@ describe('AccessDecisionWorkspace', () => {
     vi.spyOn(globalThis, 'fetch').mockReset()
   })
 
-  it('renders the decision explanation panel with the loaded explanation when a decision is fetched successfully', async () => {
+  it('renders the structured decision panel when a decision is fetched successfully', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      jsonResponse(200, { explanation: 'Policy match: role.scope.ok' }) as never,
+      jsonResponse(200, { data: decisionPayload() }) as never,
     )
 
     render(
@@ -40,17 +52,18 @@ describe('AccessDecisionWorkspace', () => {
       </SessionProvider>,
     )
 
-    const explanation = await screen.findByText('Policy match: role.scope.ok')
-    expect(explanation).toBeTruthy()
+    expect(await screen.findByText('allow — read (work_record)')).toBeTruthy()
     const panelHeading = document.getElementById('access-decision-panel')
     expect(panelHeading).not.toBeNull()
     expect(panelHeading?.closest('article')).not.toBeNull()
     expect(screen.getByText('01980f50-5f0d-7000-8000-000000000001')).toBeTruthy()
   })
 
-  it('falls back to a JSON string when the response body has no "explanation" field', async () => {
+  it('renders joined reason codes and the evaluation timestamp', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      jsonResponse(200, { decision: 'allow', action: 'read' }) as never,
+      jsonResponse(200, {
+        data: decisionPayload({ reason_codes: ['role.scope.ok', 'classification.match'] }),
+      }) as never,
     )
 
     render(
@@ -59,13 +72,8 @@ describe('AccessDecisionWorkspace', () => {
       </SessionProvider>,
     )
 
-    await waitFor(() => {
-      expect(document.getElementById('access-decision-panel')).not.toBeNull()
-    })
-    const panelHeading = document.getElementById('access-decision-panel')
-    const article = panelHeading?.closest('article') as HTMLElement | null
-    expect(article?.textContent ?? '').toContain('"decision"')
-    expect(article?.textContent ?? '').toContain('"allow"')
+    expect(await screen.findByText('role.scope.ok, classification.match')).toBeTruthy()
+    expect(screen.getByText('2026-07-27T12:00:00Z')).toBeTruthy()
   })
 
   it('shows the empty state when no decision id is provided', () => {

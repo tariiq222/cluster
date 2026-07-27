@@ -286,6 +286,14 @@ final class AcceptanceDecideAccess implements DecideAccess
     /** @param list<string> $deniedCapabilities */
     public function __construct(private readonly array $deniedCapabilities = []) {}
 
+    /**
+     * Test doubles persist nothing, so the read-side evaluation IS decide().
+     */
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
+    }
+
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
         return new AccessDecision(

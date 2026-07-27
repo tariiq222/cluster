@@ -12,6 +12,7 @@ use Modules\Organization\Features\TemporaryAssignment\Events\TemporaryAssignment
 use Modules\Organization\Features\TemporaryAssignment\Handler\ExpireTemporaryAssignmentsHandler;
 use Modules\Organization\Features\TemporaryAssignment\Handler\TemporaryAssignmentHandler;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
+use Modules\Organization\Infrastructure\Persistence\OrganizationIdempotencyStore;
 use PDO;
 use RuntimeException;
 use Tests\TestCase;
@@ -204,6 +205,7 @@ final class TemporaryAssignmentMySqlConcurrencyTest extends TestCase
                     $this->app->make(OrganizationOutbox::class),
                     new TemporaryAssignmentEventFactory,
                     new AlwaysActiveTemporaryAssignmentCapabilityValidator,
+                    $this->app->make(OrganizationIdempotencyStore::class),
                 ))->create(
                     $assignmentId,
                     $input,

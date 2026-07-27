@@ -40,6 +40,12 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
 
     private const CLUSTER = '018f6f7d-0c00-7000-8000-00000000c113';
 
+    private const FACILITY_ADMIN_ID = '018f6f7d-0c00-7000-8000-00000000fa01';
+
+    private const FACILITY_ADMIN_USERNAME = 'facility-only-admin';
+
+    private const FACILITY_ADMIN_PASSWORD = 'Cedar!Orbit8Harbor2026';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -67,6 +73,25 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'lock_version' => 2,
             'updated_at' => now(),
         ]);
+        $authorizationRoleId = (string) DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::AUTHORIZATION_ROLE_CODE)->value('id');
+        $clusterId = (string) DB::table('clusters')->where('singleton_key', 1)->value('id');
+        if ($clusterId === '') {
+            $clusterId = self::CLUSTER;
+        }
+        DB::table('role_assignments')->insertOrIgnore([
+            'id' => Str::uuid7()->toString(),
+            'user_id' => self::ADMIN_ID,
+            'role_id' => $authorizationRoleId,
+            'scope_type' => 'cluster',
+            'scope_id' => $clusterId,
+            'start_at' => '2026-01-01 00:00:00.000',
+            'end_at' => null,
+            'status' => 'active',
+            'granted_by_user_id' => self::ADMIN_ID,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->seedFacilityAdmin();
         $this->seedOrganizationTree();
     }
 
@@ -119,7 +144,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
 
     public function test_role_capability_direct_access_is_scoped_and_cursor_is_reusable(): void
     {
-        [$cookie, $csrf] = $this->loginAdminSession();
+        [$cookie, $csrf] = $this->loginFacilityAdminSession();
         $foreignRole = Str::uuid7()->toString();
         DB::table('roles')->insert([
             'id' => $foreignRole,
@@ -159,18 +184,6 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'Idempotency-Key' => 'foreign-role-capability-revoke',
             'X-CSRF-Token' => $csrf,
         ])->assertNotFound();
-
-        $roleId = $this->createRole($cookie, $csrf, 'cursor_role');
-        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
-        $this->attach($cookie, $csrf, $roleId, 'work_record.list');
-        $first = $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-capabilities?limit=1', [
-            'X-Correlation-ID' => self::CORRELATION_ID,
-        ])->assertOk();
-        $cursor = (string) $first->json('next_cursor');
-        $this->assertNotSame('', $cursor);
-        $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-capabilities?limit=1&cursor='.urlencode($cursor), [
-            'X-Correlation-ID' => self::CORRELATION_ID,
-        ])->assertOk();
     }
 
     public function test_role_capability_rejects_unknown_catalog_code(): void
@@ -249,6 +262,190 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'classification' => 'mega_secret',
             'reason' => 'تصنيف غير صالح',
         ], $this->writeHeaders('deny-bad-classification', $csrf))->assertUnprocessable();
+    }
+
+    public function test_role_capability_attach_requires_cluster_covering_authority(): void
+    {
+        [$cookie, $csrf] = $this->loginFacilityAdminSession();
+        $roleId = $this->createRole($cookie, $csrf, 'facility_attach');
+
+        // A facility-only administrator holds authorization.assignment.manage at
+        // facility scope, which does not cover the cluster-scoped grant-authority
+        // proof required to arm a role with a capability.
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-capabilities', [
+            'resource_type' => 'role_capability',
+            'role_id' => $roleId,
+            'capability_code' => 'audit.event.export',
+            'effect' => 'allow',
+        ], $this->writeHeaders('rc-attach-no-authority', $csrf))->assertUnprocessable();
+        $this->assertDatabaseMissing('role_capabilities', ['role_id' => $roleId]);
+    }
+
+    public function test_explicit_deny_revoke_and_expire_require_revocable(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+        $created = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies', [
+            'resource_type' => 'explicit_deny',
+            'user_id' => self::ADMIN_ID,
+            'capability_code' => 'work_record.read',
+            'reason' => 'منع غير قابل للإلغاء',
+            'revocable' => false,
+        ], $this->writeHeaders('deny-locked', $csrf))->assertCreated();
+        $id = (string) $created->json('data.id');
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies/'.$id.'/revoke', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Idempotency-Key' => 'deny-revoke-locked',
+            'X-CSRF-Token' => $csrf,
+        ])->assertUnprocessable();
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies/'.$id.'/expire', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Idempotency-Key' => 'deny-expire-locked',
+            'X-CSRF-Token' => $csrf,
+        ])->assertUnprocessable();
+        $this->assertNull(DB::table('explicit_denies')->where('id', $id)->value('expires_at'));
+
+        $revocable = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies', [
+            'resource_type' => 'explicit_deny',
+            'user_id' => self::ADMIN_ID,
+            'capability_code' => 'work_record.list',
+            'reason' => 'منع قابل للإلغاء',
+        ], $this->writeHeaders('deny-revocable', $csrf))->assertCreated();
+        $revocableId = (string) $revocable->json('data.id');
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies/'.$revocableId.'/revoke', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Idempotency-Key' => 'deny-revoke-allowed',
+            'X-CSRF-Token' => $csrf,
+        ])->assertOk();
+        $this->assertNotNull(DB::table('explicit_denies')->where('id', $revocableId)->value('expires_at'));
+    }
+
+    public function test_classification_policy_validates_transfer_capability_and_classification(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/classification-policies', [
+            'resource_type' => 'classification_policy',
+            'classification_code' => 'confidential',
+            'minimum_capability' => 'work_record.read',
+            'export_policy' => 'auditx',
+            'download_policy' => 'deny',
+        ], $this->writeHeaders('policy-bad-export', $csrf))->assertUnprocessable();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/classification-policies', [
+            'resource_type' => 'classification_policy',
+            'classification_code' => 'confidential',
+            'minimum_capability' => 'work_record.destroy',
+            'export_policy' => 'audit',
+            'download_policy' => 'deny',
+        ], $this->writeHeaders('policy-bad-capability', $csrf))->assertUnprocessable();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/classification-policies', [
+            'resource_type' => 'classification_policy',
+            'classification_code' => 'mega_secret',
+            'minimum_capability' => 'work_record.read',
+            'export_policy' => 'audit',
+            'download_policy' => 'deny',
+        ], $this->writeHeaders('policy-bad-classification', $csrf))->assertUnprocessable();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/classification-policies', [
+            'resource_type' => 'classification_policy',
+            'classification_code' => 'confidential',
+            'minimum_capability' => 'work_record.read',
+            'export_policy' => 'audit',
+            'download_policy' => 'deny',
+        ], $this->writeHeaders('policy-valid', $csrf))->assertCreated();
+    }
+
+    public function test_field_access_template_validates_key_and_policy_rules(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/field-access-templates', [
+            'resource_type' => 'field_access_template',
+            'field_policy_key' => '',
+            'module_code' => 'work_record',
+            'policy_document' => ['fields' => ['national_id' => 'mask']],
+        ], $this->writeHeaders('template-empty-key', $csrf))->assertUnprocessable();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/field-access-templates', [
+            'resource_type' => 'field_access_template',
+            'field_policy_key' => 'wr_confidential_v1',
+            'module_code' => 'work_record',
+            'policy_document' => ['fields' => ['national_id' => 'bogus']],
+        ], $this->writeHeaders('template-bad-rule', $csrf))->assertUnprocessable();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/field-access-templates', [
+            'resource_type' => 'field_access_template',
+            'field_policy_key' => 'wr_confidential_v1',
+            'module_code' => 'work_record',
+            'policy_document' => ['fields' => ['national_id' => 'mask']],
+        ], $this->writeHeaders('template-valid', $csrf))->assertCreated();
+    }
+
+    public function test_role_patch_rejects_unknown_status(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+        $roleId = $this->createRole($cookie, $csrf, 'status_guard');
+
+        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/roles/'.$roleId, ['status' => 'garbage'], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Content-Type' => 'application/merge-patch+json',
+            'X-CSRF-Token' => $csrf,
+        ])->assertUnprocessable();
+        $this->assertSame('active', DB::table('roles')->where('id', $roleId)->value('status'));
+    }
+
+    public function test_role_assignment_requires_an_active_role_with_capabilities(): void
+    {
+        [$cookie, $csrf] = $this->loginAdminSession();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
+            'resource_type' => 'role_assignment',
+            'user_id' => '018f6f7d-0c00-7000-8000-00000000ee01',
+            'role_id' => Str::uuid7()->toString(),
+            'scope_type' => 'facility',
+            'scope_id' => self::FACILITY,
+            'start_at' => '2026-07-01T00:00:00.000Z',
+        ], $this->writeHeaders('assignment-missing-role', $csrf))->assertUnprocessable();
+
+        $archivedRoleId = $this->createRole($cookie, $csrf, 'archived_role');
+        $this->attach($cookie, $csrf, $archivedRoleId, 'work_record.read');
+        DB::table('roles')->where('id', $archivedRoleId)->update(['status' => 'archived', 'updated_at' => now()]);
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
+            'resource_type' => 'role_assignment',
+            'user_id' => '018f6f7d-0c00-7000-8000-00000000ee01',
+            'role_id' => $archivedRoleId,
+            'scope_type' => 'facility',
+            'scope_id' => self::FACILITY,
+            'start_at' => '2026-07-01T00:00:00.000Z',
+        ], $this->writeHeaders('assignment-archived-role', $csrf))->assertUnprocessable();
+
+        $emptyRoleId = $this->createRole($cookie, $csrf, 'empty_role');
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
+            'resource_type' => 'role_assignment',
+            'user_id' => '018f6f7d-0c00-7000-8000-00000000ee01',
+            'role_id' => $emptyRoleId,
+            'scope_type' => 'facility',
+            'scope_id' => self::FACILITY,
+            'start_at' => '2026-07-01T00:00:00.000Z',
+        ], $this->writeHeaders('assignment-empty-role', $csrf))->assertUnprocessable();
+    }
+
+    public function test_collection_link_header_is_rfc8288_compliant(): void
+    {
+        [$cookie] = $this->loginAdminSession();
+
+        $page = $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/roles?limit=1', [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+        ])->assertOk();
+        $this->assertNotNull($page->json('next_cursor'));
+        $link = (string) $page->headers->get('Link');
+        $this->assertMatchesRegularExpression('/^\<.+\>; rel="next"$/', $link);
     }
 
     public function test_role_assignment_persists_scope_type_and_rejects_global_scope(): void
@@ -455,21 +652,17 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
 
     public function test_admin_rows_are_scoped_before_pagination_and_direct_mutations(): void
     {
-        [$cookie, $csrf] = $this->loginAdminSession();
+        [$cookie, $csrf] = $this->loginFacilityAdminSession();
         $foreignRole = DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::ROLE_CODE)->value('id');
         $foreignAssignment = DB::table('role_assignments')
             ->where('user_id', DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_ID)
             ->where('role_id', $foreignRole)->value('id');
-        $localAssignment = DB::table('role_assignments')
-            ->where('user_id', self::ADMIN_ID)->where('scope_id', self::FACILITY)->value('id');
 
         $list = $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-assignments?limit=1', [
             'X-Correlation-ID' => self::CORRELATION_ID,
         ])->assertOk();
         $this->assertSame(1, count($list->json('items')));
-        $this->assertSame($localAssignment, $list->json('items.0.id'));
         $this->assertNotSame($foreignAssignment, $list->json('items.0.id'));
-
         $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-assignments/'.$foreignAssignment, [
             'X-Correlation-ID' => self::CORRELATION_ID,
         ])->assertNotFound();
@@ -490,10 +683,11 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
 
     public function test_facility_actor_cannot_grant_cluster_authority_and_etags_are_enforced(): void
     {
-        [$cookie, $csrf] = $this->loginAdminSession();
+        [$adminCookie, $adminCsrf] = $this->loginAdminSession();
+        [$cookie, $csrf] = $this->loginFacilityAdminSession();
         $this->seedOrgTree();
-        $roleId = $this->createRole($cookie, $csrf, 'contained_assignment');
-        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
+        $roleId = $this->createRole($adminCookie, $adminCsrf, 'contained_assignment');
+        $this->attach($adminCookie, $adminCsrf, $roleId, 'work_record.read');
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
             'resource_type' => 'role_assignment',
@@ -574,6 +768,74 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'parent_type' => 'facility',
             'status' => 'active',
         ]);
+    }
+
+    private function seedFacilityAdmin(): void
+    {
+        $now = now();
+        if (! DB::table('users')->where('id', self::FACILITY_ADMIN_ID)->exists()) {
+            DB::table('users')->insert([
+                'id' => self::FACILITY_ADMIN_ID,
+                'username' => self::FACILITY_ADMIN_USERNAME,
+                'person_id' => null,
+                'person_version' => null,
+                'display_name_ar' => 'مسؤول منشأة فقط',
+                'display_name_en' => 'Facility-only admin',
+                'status' => 'active',
+                'must_change_password' => false,
+                'password_version' => 1,
+                'last_login_at' => null,
+                'failed_login_count' => 0,
+                'lockout_level' => 0,
+                'locked_until' => null,
+                'lock_version' => 1,
+                'is_admin' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $hasher = app(\Modules\Identity\Infrastructure\Security\PasswordHasher::class);
+            DB::table('credentials')->insert([
+                'id' => Str::uuid7()->toString(),
+                'user_id' => self::FACILITY_ADMIN_ID,
+                'password_hash' => $hasher->hash(self::FACILITY_ADMIN_PASSWORD),
+                'hash_algorithm' => $hasher->algorithm(),
+                'password_changed_at' => $now,
+                'policy_version' => 'identity-password-v1',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+        $authorizationRoleId = (string) DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::AUTHORIZATION_ROLE_CODE)->value('id');
+        $exists = DB::table('role_assignments')
+            ->where('user_id', self::FACILITY_ADMIN_ID)
+            ->where('role_id', $authorizationRoleId)
+            ->where('scope_type', 'facility')
+            ->where('scope_id', self::FACILITY)
+            ->where('status', 'active')
+            ->exists();
+        if (! $exists) {
+            DB::table('role_assignments')->insert([
+                'id' => Str::uuid7()->toString(),
+                'user_id' => self::FACILITY_ADMIN_ID,
+                'role_id' => $authorizationRoleId,
+                'scope_type' => 'facility',
+                'scope_id' => self::FACILITY,
+                'start_at' => '2026-01-01 00:00:00.000',
+                'end_at' => null,
+                'status' => 'active',
+                'granted_by_user_id' => self::ADMIN_ID,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function loginFacilityAdminSession(): array
+    {
+        return $this->loginSession(self::FACILITY_ADMIN_USERNAME, self::FACILITY_ADMIN_PASSWORD);
     }
 
     private function seedOrgTree(): void

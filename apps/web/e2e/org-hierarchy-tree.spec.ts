@@ -41,5 +41,39 @@ test('Organization tree renders the seeded four-layer hierarchy', async ({ page 
   await expect(drawer).toBeVisible()
   await expect(drawer.getByText('مدير وحدة المتابعة', { exact: true })).toBeVisible()
 
+  // The L3 sections seeded under إدارة المشاريع must reach the canvas.
+  await expect(page.getByText('قسم التخطيط', { exact: true })).toBeVisible()
+  await expect(page.getByText('قسم التنفيذ', { exact: true })).toBeVisible()
+  await expect(page.getByText('قسم الجودة', { exact: true })).toBeVisible()
+
+  // The seeded analyst position must appear in the Follow-up unit's drawer,
+  // mirroring the broader coverage the deleted bit-rotted .mjs asserted.
+  await expect(drawer.getByText('محلل بيانات المتابعة', { exact: true })).toBeVisible()
   await page.screenshot({ path: 'test-results/org-hierarchy-tree.png', fullPage: true })
+})
+
+test('Organization tree drawer surfaces every seeded position for the follow-up unit', async ({ page }) => {
+  await signIn(page)
+
+  await page.getByRole('button', { name: 'إدارة المنشآت والموظفين' }).click()
+  await page.getByRole('link', { name: 'الهيكل التنظيمي' }).click()
+  await page.getByRole('link', { name: 'شجرة الهيكل' }).click()
+
+  await expect(page.getByRole('heading', { name: 'الوحدات والمناصب' })).toBeVisible()
+
+  // The L1 sector root must be present alongside the L2 departments.
+  await expect(page.getByText('المكتب التنفيذي للتجمع الصحي', { exact: true })).toBeVisible()
+
+  const followUpCard = page.getByRole('button', {
+    name: 'وحدة المتابعة، رمز UNIT-FOLLOWUP',
+    exact: true,
+  })
+  await expect(followUpCard).toBeVisible()
+  await followUpCard.click()
+
+  const drawer = page.getByRole('dialog', { name: 'وحدة المتابعة', exact: true })
+  await expect(drawer).toBeVisible()
+  await expect(drawer.getByText('مدير وحدة المتابعة', { exact: true })).toBeVisible()
+  await expect(drawer.getByText('محلل بيانات المتابعة', { exact: true })).toBeVisible()
+  await page.screenshot({ path: 'test-results/org-hierarchy-tree-positions.png', fullPage: true })
 })

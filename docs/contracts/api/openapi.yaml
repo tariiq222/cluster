@@ -3990,7 +3990,7 @@ paths:
   /platform-settings/versions:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     get:
       tags:
         - PlatformSettings
@@ -4033,7 +4033,7 @@ paths:
   /platform-settings/versions/{versionId}/settings/{settingKey}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     put:
       tags:
         - PlatformSettings
@@ -4108,7 +4108,7 @@ paths:
   /platform-settings/current:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
+    x-implementation-status: implemented
     get:
       tags:
         - PlatformSettings
@@ -5584,11 +5584,8 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
-      tags:
-        - Reporting
-      x-implementation-status: implemented
-      summary: List published dashboards available to the principal
       operationId: listDashboards
+      summary: List published dashboards available to the principal
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -5603,11 +5600,8 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
-      tags:
-        - Reporting
-      x-implementation-status: implemented
-      summary: Get an adaptive authorization-filtered dashboard
       operationId: getDashboard
+      summary: Get an adaptive authorization-filtered dashboard
       parameters:
         - name: dashboardId
           in: path
@@ -5632,11 +5626,8 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
-      tags:
-        - Notifications
-      x-implementation-status: implemented
-      summary: Mark an authorized inbox notification as read
       operationId: markNotificationRead
+      summary: Mark an authorized inbox notification as read
       parameters:
         - name: notificationId
           in: path
@@ -5697,11 +5688,8 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
-      tags:
-        - Reporting
-      x-implementation-status: implemented
-      summary: Get an authorization-filtered report
       operationId: getReport
+      summary: Get an authorization-filtered report
       parameters:
         - $ref: '#/components/parameters/ReportId'
         - name: scope_id
@@ -5722,11 +5710,8 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
-      tags:
-        - Workflow
-      x-implementation-status: implemented
-      summary: Create the user task for an active workflow step
       operationId: createTaskFromStep
+      summary: Create the user task for an active workflow step
       parameters:
         - name: stepId
           in: path
@@ -5763,11 +5748,8 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
-      tags:
-        - Work Records
-      x-implementation-status: implemented
-      summary: Link an available document to a work record
       operationId: linkWorkRecordDocument
+      summary: Link an available document to a work record
       parameters:
         - $ref: '#/components/parameters/RecordId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -6176,8 +6158,30 @@ paths:
       summary: List platform technical log entries
       operationId: listPlatformTechnicalLogs
       parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: correlation_id
+          in: query
+          required: false
+          schema:
+            type: string
         - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
       responses:
         '200':
           $ref: '#/components/responses/Collection'
@@ -6226,6 +6230,41 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/InternalServerError'
+  /work-records/{recordId}/{recordAction}:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      operationId: transitionWorkRecord
+      summary: Apply an allowed work-record lifecycle action
+      parameters:
+        - $ref: '#/components/parameters/RecordId'
+        - name: recordAction
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - submit
+              - return
+              - complete
+              - complete-submission
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/WorkRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
 components:
   securitySchemes:
     bearerAuth:

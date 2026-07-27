@@ -69,11 +69,25 @@ final class AssignmentRules implements ResolveStepAssignee
         if (! is_string($unitId) || $unitId === '') {
             return null;
         }
-        $managerPersonId = DB::table('assignments as assignment')
+        // The supervisor is the holder of the manager position of the
+        // initiator's own position in their primary unit — not merely any
+        // managed position in the unit. Ordering by is_primary keeps the
+        // pick deterministic when several active rows qualify.
+        $managerPositionId = DB::table('assignments as assignment')
             ->join('positions as position', 'position.id', '=', 'assignment.position_id')
+            ->where('assignment.person_id', $personId)
             ->where('position.organization_unit_id', $unitId)
-            ->whereNotNull('position.manager_position_id')
-            ->value('assignment.person_id');
+            ->whereNull('assignment.end_at')
+            ->orderByDesc('assignment.is_primary')
+            ->value('position.manager_position_id');
+        if (! is_string($managerPositionId) || $managerPositionId === '') {
+            return null;
+        }
+        $managerPersonId = DB::table('assignments')
+            ->where('position_id', $managerPositionId)
+            ->whereNull('end_at')
+            ->orderByDesc('is_primary')
+            ->value('person_id');
 
         return is_string($managerPersonId) ? $this->user->forPerson($managerPersonId) : null;
     }

@@ -298,6 +298,44 @@ class OrganizationTreeHttpAdapterTest extends TestCase
         $this->assertDatabaseCount('positions', 3);
     }
 
+    public function test_position_manager_walk_rejects_chains_deeper_than_thirty_two_hops(): void
+    {
+        $token = $this->loginToken();
+        $clusterId = $this->createCluster($token);
+        $unitId = $this->createUnit($token, $clusterId, null, 'department', 'DEEP', 'سلسلة إدارية عميقة');
+        $now = now();
+        $managerId = null;
+
+        for ($hop = 0; $hop < 34; $hop++) {
+            $positionId = sprintf('018f6f7d-0c00-7%03x-8000-%012x', $hop, $hop + 1);
+            DB::table('positions')->insert([
+                'id' => $positionId,
+                'organization_unit_id' => $unitId,
+                'code' => 'DEEP-'.$hop,
+                'title_ar' => 'مدير '.$hop,
+                'job_title_id' => null,
+                'manager_position_id' => $managerId,
+                'is_active' => true,
+                'lock_version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $managerId = $positionId;
+        }
+
+        $this->withToken($token)
+            ->postJson('/api/v1/organization/positions', [
+                'organization_unit_id' => $unitId,
+                'code' => 'DEPTH-LIMITED',
+                'title' => 'يتجاوز الحد',
+                'manager_position_id' => $managerId,
+            ], $this->writeHeaders('position-depth-limited'))
+            ->assertConflict()
+            ->assertJsonPath('type', 'https://cluster.example/problems/position-manager-cycle');
+
+        $this->assertDatabaseMissing('positions', ['code' => 'DEPTH-LIMITED']);
+    }
+
     public function test_tree_writes_fail_closed_and_roll_back_with_outbox(): void
     {
         $admin = $this->loginToken();

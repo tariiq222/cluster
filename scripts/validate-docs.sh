@@ -18,8 +18,6 @@ fi
 "$python_binary" scripts/validate-notifications-openapi.py
 "$python_binary" scripts/validate-auth-openapi.py
 "$python_binary" scripts/validate-work-records-openapi.py
-"$python_binary" scripts/validate-w1-1-openapi.py
-"$python_binary" scripts/validate-w1-2-contracts.py
 "$python_binary" scripts/validate-architecture-closure.py
 "$python_binary" scripts/validate-planned-module-contracts.py
 "$python_binary" - <<'PY'

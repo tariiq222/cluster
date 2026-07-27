@@ -170,7 +170,7 @@ test('W1.2 web UI uploads and submits a CSV import, then creates and revokes a t
 
   await page.getByRole('link', { name: 'التكليفات المؤقتة' }).click()
   await expect(page.getByRole('heading', { name: 'التكليفات المؤقتة' })).toBeVisible()
-  await page.locator('#temporary-unit').selectOption(required('W1_2_TEMPORARY_ASSIGNMENT_UNIT_ID'))
+  await page.getByLabel('الوحدة التنظيمية').selectOption(required('W1_2_TEMPORARY_ASSIGNMENT_UNIT_ID'))
   const start = new Date(Date.now() + (7 + Number.parseInt(suffix.slice(-4), 16) % 30) * 24 * 60 * 60 * 1000)
   await page.getByLabel('معرف الشخص').fill(required('W1_2_TEMPORARY_ASSIGNMENT_PERSON_ID'))
   await page.getByLabel('رموز الصلاحيات').fill(required('W1_2_TEMPORARY_ASSIGNMENT_CAPABILITY'))

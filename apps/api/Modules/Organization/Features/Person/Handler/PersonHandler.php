@@ -4,19 +4,24 @@ namespace Modules\Organization\Features\Person\Handler;
 
 use Closure;
 use DomainException;
-use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use JsonException;
 use Modules\Organization\Domain\Person;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
+use Modules\Organization\Infrastructure\Persistence\EncryptedCursor;
+use Modules\Organization\Infrastructure\Persistence\OrganizationIdempotencyStore;
 use stdClass;
+use Throwable;
 use UnexpectedValueException;
 
 final class PersonHandler
 {
-    public function __construct(private readonly OrganizationOutbox $outbox) {}
+    public function __construct(
+        private readonly OrganizationOutbox $outbox,
+        private readonly OrganizationIdempotencyStore $idempotency,
+        private readonly EncryptedCursor $cursor,
+    ) {}
 
     /**
      * @param  array{employee_number: string, display_name_ar: string, display_name_en?: string|null, status: string}  $input
@@ -27,7 +32,7 @@ final class PersonHandler
     public function create(string $personId, array $input, array $idempotency, Closure $eventFactory): array
     {
         return DB::transaction(function () use ($personId, $input, $idempotency, $eventFactory): array {
-            $existingKey = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            $existingKey = $this->idempotency->query($idempotency)->lockForUpdate()->first();
             if ($existingKey instanceof stdClass) {
                 return $this->replayResult($existingKey, $idempotency['request_hash']);
             }
@@ -35,18 +40,8 @@ final class PersonHandler
                 throw new DomainException('person_already_exists');
             }
 
-            $claimed = DB::table('organization_idempotency_keys')->insertOrIgnore([
-                'principal_id' => $idempotency['principal_id'],
-                'operation' => $idempotency['operation'],
-                'idempotency_key_hash' => $idempotency['key_hash'],
-                'request_hash' => $idempotency['request_hash'],
-                'resource_type' => 'person',
-                'resource_id' => $personId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            if (! $claimed) {
-                $concurrent = $this->idempotencyQuery($idempotency)->lockForUpdate()->first();
+            if (! $this->idempotency->claim($idempotency, 'person', $personId)) {
+                $concurrent = $this->idempotency->query($idempotency)->lockForUpdate()->first();
                 if (! $concurrent instanceof stdClass) {
                     throw new UnexpectedValueException('The Person idempotency claim could not be resolved.');
                 }
@@ -75,10 +70,7 @@ final class PersonHandler
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            $this->idempotencyQuery($idempotency)->update([
-                'response_payload' => json_encode(Crypt::encryptString(json_encode($person, JSON_THROW_ON_ERROR)), JSON_THROW_ON_ERROR),
-                'updated_at' => now(),
-            ]);
+            $this->idempotency->storeResponse($idempotency, $person);
             foreach ($eventFactory($person) as $event) {
                 $this->outbox->insert($event, $personId);
             }
@@ -218,63 +210,66 @@ final class PersonHandler
         ];
     }
 
-    /** @param array{principal_id: string, operation: string, key_hash: string, request_hash: string} $idempotency */
-    private function idempotencyQuery(array $idempotency): mixed
-    {
-        return DB::table('organization_idempotency_keys')
-            ->where('principal_id', $idempotency['principal_id'])
-            ->where('operation', $idempotency['operation'])
-            ->where('idempotency_key_hash', $idempotency['key_hash']);
-    }
-
     /** @return array{created: bool, request_hash_matches: bool, person: array<string, mixed>} */
     private function replayResult(stdClass $key, string $requestHash): array
     {
-        if (! is_string($key->response_payload)) {
-            throw new UnexpectedValueException('Stored Person idempotency state is incomplete.');
-        }
-        try {
-            $encrypted = json_decode($key->response_payload, true, 4, JSON_THROW_ON_ERROR);
-            if (! is_string($encrypted)) {
-                throw new UnexpectedValueException('Stored Person idempotency response is invalid.');
-            }
-            $person = json_decode(Crypt::decryptString($encrypted), true, 32, JSON_THROW_ON_ERROR);
-        } catch (DecryptException|JsonException) {
-            throw new UnexpectedValueException('Stored Person idempotency response is invalid.');
-        }
-        if (! is_array($person)) {
-            throw new UnexpectedValueException('Stored Person idempotency response is invalid.');
-        }
+        $person = $this->decodeReplayPerson($key);
 
         return [
             'created' => false,
-            'request_hash_matches' => is_string($key->request_hash) && hash_equals($key->request_hash, $requestHash),
+            'request_hash_matches' => $this->idempotency->hashMatches($key, $requestHash),
             'person' => $person,
         ];
+    }
+
+    /**
+     * Legacy rows (pre-2026-07) stored the replay payload double-encoded as
+     * json_encode(Crypt::encryptString(json_encode($person))); current rows
+     * store plain JSON like every sibling handler. Decode both formats so a
+     * pre-cutover idempotency key still replays safely.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeReplayPerson(stdClass $key): array
+    {
+        try {
+            return $this->idempotency->decodeResponse($key, 'Person');
+        } catch (UnexpectedValueException $exception) {
+            if (! is_string($key->response_payload)) {
+                throw $exception;
+            }
+            try {
+                $encrypted = json_decode($key->response_payload, true, 4, JSON_THROW_ON_ERROR);
+                $person = json_decode(Crypt::decryptString((string) $encrypted), true, 32, JSON_THROW_ON_ERROR);
+            } catch (Throwable) {
+                throw $exception;
+            }
+            if (! is_array($person)) {
+                throw $exception;
+            }
+
+            return $person;
+        }
     }
 
     /** @param array{user_id: string, facility_id: string} $principal */
     private function encodeCursor(string $personId, array $principal, int $limit): string
     {
-        return Crypt::encryptString(json_encode([
+        return $this->cursor->encrypt([
             'version' => 1,
             'resource' => 'person',
             'after_id' => $personId,
             'limit' => $limit,
             'principal_id' => $principal['user_id'],
             'facility_id' => $principal['facility_id'],
-        ], JSON_THROW_ON_ERROR));
+        ]);
     }
 
     /** @param array{user_id: string, facility_id: string} $principal */
     private function decodeCursor(string $cursor, array $principal, int $limit): string
     {
-        try {
-            $payload = json_decode(Crypt::decryptString($cursor), true, 8, JSON_THROW_ON_ERROR);
-        } catch (DecryptException|JsonException) {
-            throw new InvalidArgumentException('The Person cursor is invalid.');
-        }
-        if (! is_array($payload)
+        $payload = $this->cursor->tryDecrypt($cursor);
+        if ($payload === null
             || ($payload['version'] ?? null) !== 1
             || ($payload['resource'] ?? null) !== 'person'
             || ($payload['limit'] ?? null) !== $limit
