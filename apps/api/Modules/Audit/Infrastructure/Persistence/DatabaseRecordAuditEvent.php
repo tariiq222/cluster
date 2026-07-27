@@ -355,14 +355,10 @@ final class DatabaseRecordAuditEvent implements RecordAuditEvent
             || in_array($driverCode, [1205, 1213], true)) {
             return true;
         }
-
-        if (! in_array($sqlState, ['23000', '23505'], true)) {
-            return false;
+        if (in_array($sqlState, ['23000', '23505'], true)) {
+            return true;
         }
 
-        $message = strtolower($exception->getMessage());
-
-        return str_contains($message, 'audit_events_stream_sequence_unique')
-            || str_contains($message, 'audit_events.stream_key, audit_events.stream_sequence');
+        return false;
     }
 }
