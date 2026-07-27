@@ -3,6 +3,7 @@
 namespace Modules\Identity\Infrastructure\Security;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Modules\Identity\Features\Authentication\Contracts\PreAuthThrottle;
 use Modules\Identity\Features\Authentication\Contracts\PreAuthThrottleDecision;
@@ -13,6 +14,8 @@ use Throwable;
 
 final class PersistentPreAuthThrottle implements PreAuthThrottle
 {
+    private const PRUNE_BATCH_SIZE = 200;
+
     /** @var array<string, int>|null */
     private ?array $cachedSecurity = null;
 
@@ -22,6 +25,7 @@ final class PersistentPreAuthThrottle implements PreAuthThrottle
     {
         return DB::transaction(function () use ($source, $normalizedUsername): PreAuthThrottleDecision {
             $now = CarbonImmutable::now('UTC');
+            $this->pruneExpiredRows($now);
             $usernameHash = hash('sha256', $normalizedUsername);
             $sourceUsernameHash = hash('sha256', $source."\0".$normalizedUsername);
             $sourceRow = $this->lockOrCreate('source_username', $sourceUsernameHash, $usernameHash, $now);
@@ -100,6 +104,31 @@ final class PersistentPreAuthThrottle implements PreAuthThrottle
         }
 
         return $retryAfter;
+    }
+
+    private function pruneExpiredRows(CarbonImmutable $now): void
+    {
+        $cutoff = $now->subSeconds($this->windowSeconds());
+        $expired = static function (Builder $query) use ($now, $cutoff): void {
+            $query->where('window_started_at', '<=', $cutoff)
+                ->where(function (Builder $blocked) use ($now): void {
+                    $blocked->whereNull('blocked_until')
+                        ->orWhere('blocked_until', '<=', $now);
+                });
+        };
+        $ids = DB::table('identity_auth_attempt_ledgers')
+            ->where($expired)
+            ->orderBy('id')
+            ->limit(self::PRUNE_BATCH_SIZE)
+            ->pluck('id');
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        DB::table('identity_auth_attempt_ledgers')
+            ->whereIn('id', $ids->all())
+            ->where($expired)
+            ->delete();
     }
 
     private function lockOrCreate(string $scope, string $scopeHash, string $usernameHash, CarbonImmutable $now): stdClass

@@ -57,7 +57,6 @@ final class IdentityOutbox
      */
     public function insertSecurityEvent(string $type, string $aggregateId, array $data = []): void
     {
-        $type = preg_match('/\A[a-z][a-z0-9_]{1,63}\z/', $type) === 1 ? $type : 'security_event';
         $aggregateId = $this->isUuidV7($aggregateId) ? $aggregateId : Str::uuid7()->toString();
         $allowed = ['user_id', 'session_id', 'credential_id', 'password_version', 'lockout_level', 'source_hash', 'username_hash'];
         $safeData = [];

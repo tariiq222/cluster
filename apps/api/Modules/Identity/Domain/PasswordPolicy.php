@@ -35,7 +35,7 @@ final class PasswordPolicy
         if ($denylist->contains($password)) {
             $violations[] = 'common_password';
         }
-        if (preg_match('/(.)\1\1\1/', $password) === 1) {
+        if (self::hasRepeatedGrapheme($password)) {
             $violations[] = 'repeated_characters';
         }
 
@@ -61,6 +61,41 @@ final class PasswordPolicy
         if ($violations !== []) {
             throw new WeakPassword($violations);
         }
+    }
+
+    /**
+     * Detect four or more identical grapheme clusters in a row.
+     *
+     * The previous byte-level regex caught four repeated UTF-8 bytes; for
+     * multi-byte scripts (Arabic, CJK, emoji) that flagged words like
+     * "أأأ" (two visible characters) as repeated. Counting grapheme clusters
+     * matches the visible-character definition used by the rest of the policy.
+     */
+    private static function hasRepeatedGrapheme(string $password): bool
+    {
+        if ($password === '') {
+            return false;
+        }
+        $count = preg_match_all('/\X/u', $password, $matches);
+        if ($count === false || $count === 0) {
+            return false;
+        }
+
+        $previous = null;
+        $run = 0;
+        foreach ($matches[0] as $grapheme) {
+            if ($grapheme === $previous) {
+                $run++;
+                if ($run >= 4) {
+                    return true;
+                }
+            } else {
+                $previous = $grapheme;
+                $run = 1;
+            }
+        }
+
+        return false;
     }
 
     /** @return array<string, int> */

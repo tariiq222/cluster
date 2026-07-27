@@ -19,6 +19,7 @@ use Modules\Identity\Infrastructure\Outbox\IdentityOutbox;
 use Modules\Identity\Infrastructure\Security\LocalUsernameDenylist;
 use Modules\Identity\Infrastructure\Security\PasswordHasher;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
+use Shared\Contracts\TransactionalOutboxEnvelope;
 use Symfony\Component\HttpFoundation\Cookie;
 use Tests\TestCase;
 
@@ -336,6 +337,33 @@ class IdentityCredentialCoreTest extends TestCase
         $this->assertNotContains('contains_username', $policy->violations('A safe clinical phrase 2026!', 'Employee.One'));
     }
 
+    public function test_repeated_character_policy_counts_unicode_characters_not_utf8_bytes(): void
+    {
+        config(['identity.password.denylist.path' => __DIR__.'/Fixtures/password-denylist.txt']);
+        $policy = new PasswordPolicy(new LocalUsernameDenylist);
+
+        $this->assertNotContains('repeated_characters', $policy->violations('أأ safe clinical phrase 2026!'));
+        $this->assertContains('repeated_characters', $policy->violations('أأأأ safe clinical phrase 2026!'));
+        $this->assertContains('repeated_characters', $policy->violations('aaaa safe clinical phrase 2026!'));
+        $this->assertNotContains('repeated_characters', $policy->violations("ا\u{0654}ا\u{0654} safe clinical phrase 2026!"));
+        $this->assertContains('repeated_characters', $policy->violations("ا\u{0654}ا\u{0654}ا\u{0654}ا\u{0654} safe clinical phrase 2026!"));
+    }
+
+    public function test_identity_outbox_rejects_an_unknown_security_event_suffix_before_append(): void
+    {
+        $outbox = Mockery::mock(TransactionalOutboxEnvelope::class);
+        $outbox->shouldNotReceive('appendEnvelope');
+        $identityOutbox = new IdentityOutbox($outbox);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown Identity security-event suffix "Invalid Type"');
+
+        $identityOutbox->insertSecurityEvent(
+            'Invalid Type',
+            '018f6f7d-0c00-7000-8000-000000000551',
+        );
+    }
+
     public function test_local_denylist_fails_closed_when_non_testing_corpus_is_missing(): void
     {
         $originalEnvironment = config('app.env');
@@ -372,6 +400,38 @@ class IdentityCredentialCoreTest extends TestCase
         ]);
         $this->assertTrue($throttle->attempt('source-a', 'ledger.user')->allowed);
         $this->assertSame(1, (int) DB::table('identity_auth_attempt_ledgers')->where('scope', 'account')->where('scope_hash', hash('sha256', 'ledger.user'))->value('attempt_count'));
+    }
+
+    public function test_persistent_pre_auth_ledger_prunes_only_expired_inactive_rows(): void
+    {
+        config(['identity.pre_auth_throttle.window_seconds' => 60]);
+        $now = CarbonImmutable::now('UTC');
+        $expired = $now->subMinutes(5);
+        $rows = [
+            ['scope' => 'source_username', 'scope_hash' => hash('sha256', 'expired-unblocked'), 'blocked_until' => null],
+            ['scope' => 'account', 'scope_hash' => hash('sha256', 'expired-block'), 'blocked_until' => $now->subSecond()],
+            ['scope' => 'source_username', 'scope_hash' => hash('sha256', 'active-block'), 'blocked_until' => $now->addMinute()],
+        ];
+        foreach ($rows as $row) {
+            DB::table('identity_auth_attempt_ledgers')->insert([
+                'scope' => $row['scope'],
+                'scope_hash' => $row['scope_hash'],
+                'username_hash' => hash('sha256', 'prune.user'),
+                'window_started_at' => $expired,
+                'attempt_count' => 1,
+                'lock_level' => 1,
+                'blocked_until' => $row['blocked_until'],
+                'last_attempt_at' => $expired,
+                'created_at' => $expired,
+                'updated_at' => $expired,
+            ]);
+        }
+
+        $this->app->make(PersistentPreAuthThrottle::class)->attempt('fresh-source', 'fresh.user');
+
+        $this->assertDatabaseMissing('identity_auth_attempt_ledgers', ['scope_hash' => hash('sha256', 'expired-unblocked')]);
+        $this->assertDatabaseMissing('identity_auth_attempt_ledgers', ['scope_hash' => hash('sha256', 'expired-block')]);
+        $this->assertDatabaseHas('identity_auth_attempt_ledgers', ['scope_hash' => hash('sha256', 'active-block')]);
     }
 
     public function test_persistent_pre_auth_ledger_serializes_concurrent_budget_decisions(): void

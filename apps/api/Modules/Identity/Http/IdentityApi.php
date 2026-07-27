@@ -53,12 +53,17 @@ final class IdentityApi
     }
 
     /**
-     * @param  array{user_id: string, facility_id: string}  $principal
+     * @param  array{user_id: string, facility_id?: string|null, roles?: list<string>, organization_unit_ids?: list<string>, cluster_ids?: list<string>}  $principal
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     public static function cloudEvent(string $type, string $subject, string $correlationId, array $principal, array $data): array
     {
+        $facilityId = $principal['facility_id'] ?? null;
+        $roles = $principal['roles'] ?? [];
+        $organizationUnitIds = $principal['organization_unit_ids'] ?? [];
+        $clusterIds = $principal['cluster_ids'] ?? [];
+
         return [
             'specversion' => '1.0',
             'id' => Str::uuid7()->toString(),
@@ -72,9 +77,10 @@ final class IdentityApi
                 ...$data,
                 'access_context' => [
                     'subject_id' => $principal['user_id'],
-                    'tenant_id' => $principal['facility_id'],
-                    'organization_unit_ids' => [],
-                    'roles' => ['bootstrap_admin'],
+                    'tenant_id' => $facilityId,
+                    'organization_unit_ids' => $organizationUnitIds,
+                    'cluster_ids' => $clusterIds,
+                    'roles' => $roles,
                     'clearance' => 'confidential',
                     'break_glass' => false,
                     'correlation_id' => $correlationId,

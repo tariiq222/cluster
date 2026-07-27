@@ -57,7 +57,7 @@ final readonly class AuthorizeIdentityManagementAdapter implements AuthorizeIden
             $principal,
             $capability,
             new RecordFacts(
-                ownerFacilityId: $principal['facility_id'],
+                ownerFacilityId: null,
                 resourceType: 'identity_account',
                 classification: 'confidential',
             ),

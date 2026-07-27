@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Identity\Features\UserAccount\Handler\UserAccountHandler;
+use Modules\Identity\Http\IdentityApi;
 use Tests\TestCase;
 
 class IdentityAccountHttpAdapterTest extends TestCase
@@ -264,6 +265,21 @@ class IdentityAccountHttpAdapterTest extends TestCase
             'display_name_en' => 'Identity Employee',
             'status' => 'active',
         ], $this->writeHeaders($key))->assertCreated()->json('data.id');
+    }
+
+    public function test_identity_cloud_events_do_not_grant_bootstrap_admin_by_default(): void
+    {
+        $event = IdentityApi::cloudEvent(
+            'com.cluster.identity.useraccountcreated.v1',
+            '/identity/accounts/018f6f7d-0c00-7000-8000-000000000501',
+            self::CORRELATION_ID,
+            ['user_id' => '018f6f7d-0c00-7000-8000-000000000502'],
+            ['account_id' => '018f6f7d-0c00-7000-8000-000000000501'],
+        );
+
+        $this->assertSame([], $event['data']['access_context']['roles']);
+        $this->assertNull($event['data']['access_context']['tenant_id']);
+        $this->assertNotContains('bootstrap_admin', $event['data']['access_context']['roles']);
     }
 
     private function createAccount(

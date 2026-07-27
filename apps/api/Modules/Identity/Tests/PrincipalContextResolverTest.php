@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Identity\Contracts\PrincipalContext;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
+use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
 use Modules\Identity\Infrastructure\SessionPrincipalContextResolver;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use RuntimeException;
@@ -186,6 +187,28 @@ class PrincipalContextResolverTest extends TestCase
     private function fakeScope(): FakePersonOrganizationScope
     {
         return new FakePersonOrganizationScope;
+    }
+
+    public function test_database_account_entitlement_resolves_missing_active_and_administrator_states(): void
+    {
+        $resolver = $this->app->make(DatabaseResolveAccountEntitlement::class);
+
+        $this->assertNull($resolver->resolve(self::USER_ID));
+
+        $this->seedAccount();
+        $this->assertSame(
+            ['active' => true, 'administrator' => false],
+            $resolver->resolve(self::USER_ID),
+        );
+
+        DB::table('users')->where('id', self::USER_ID)->update([
+            'status' => 'disabled',
+            'is_admin' => true,
+        ]);
+        $this->assertSame(
+            ['active' => false, 'administrator' => true],
+            $resolver->resolve(self::USER_ID),
+        );
     }
 
     private function requestWithSession(bool $restricted = false): Request
