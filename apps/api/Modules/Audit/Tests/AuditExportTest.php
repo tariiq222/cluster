@@ -332,8 +332,7 @@ final class AuditExportTest extends TestCase
         $owner = $this->getJson(str_replace('{exportId}', $id, AuditApi::ROUTE_GET_EXPORT), $this->headers())
             ->assertOk()
             ->assertHeader('X-Correlation-ID', self::CORRELATION_ID)
-            ->assertHeader('ETag', '"'.$id.'"');
-
+            ->assertHeader('ETag', '"'.$id.':1"');
         $owner->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.principal_id', self::USER_ID)
             ->assertJsonPath('data.facility_id', self::FACILITY_ID)
@@ -647,6 +646,182 @@ final class AuditExportTest extends TestCase
             ->where('aggregate_id', $descriptorId)
             ->count());
     }
+
+    public function test_malformed_export_id_returns_concealed_404_and_records_attempt_with_null_subject_id(): void
+    {
+        $malformedId = 'not-a-uuid';
+        $this->getJson(str_replace('{exportId}', $malformedId, AuditApi::ROUTE_DOWNLOAD_EXPORT), $this->headers())
+            ->assertNotFound()
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('type', 'https://cluster.example/problems/audit-export-not-found');
+
+        // Exactly one attempt record with subjectId = null and only
+        // a redacted attempt_export_id_invalid flag in the context.
+        $activity = DB::table('audit_events')
+            ->where('action', 'audit.export.downloaded')
+            ->whereNull('subject_id')
+            ->where('subject_type', 'audit_export')
+            ->get();
+        $this->assertCount(1, $activity);
+        $context = json_decode((string) $activity[0]->context, true, 16, JSON_THROW_ON_ERROR);
+        $this->assertSame('not_found', $context['attempt_outcome']);
+        $this->assertTrue($context['attempt_export_id_invalid']);
+        $this->assertSame('invalid', $context['attempt_export_id_reason']);
+
+        // The raw malformed id never appears in the persisted context.
+        $this->assertStringNotContainsString($malformedId, (string) $activity[0]->context);
+
+        // Missing-export 404 has identical bytes.
+        $missing = $this->getJson(
+            str_replace('{exportId}', '018f6f7d-0c00-7000-8000-000000000999', AuditApi::ROUTE_DOWNLOAD_EXPORT),
+            $this->headers(),
+        )->assertNotFound();
+        $malformedResp = $this->getJson(
+            str_replace('{exportId}', $malformedId, AuditApi::ROUTE_DOWNLOAD_EXPORT),
+            $this->headers(idempotencyKey: 'malformed-replay'),
+        )->assertNotFound();
+        $this->assertSame($missing->getContent(), $malformedResp->getContent());
+    }
+
+    public function test_capability_decision_runs_before_expiry_disclosure(): void
+    {
+        $descriptorId = $this->createReadyDescriptor(self::FACILITY_ID);
+        // Force the descriptor into a "ready but expired by clock" state
+        // without ever calling markExpired; the controller must CAS to
+        // expired and still conceal as 404 when capability is denied.
+        DB::table('audit_export_jobs')->where('id', $descriptorId)->update([
+            'expires_at' => '2026-07-26 12:00:00.000',
+            'lock_version' => 1,
+        ]);
+        $this->decisions->allowExport = false;
+
+        $this->getJson(str_replace('{exportId}', $descriptorId, AuditApi::ROUTE_DOWNLOAD_EXPORT), $this->headers())
+            ->assertNotFound()
+            ->assertJsonPath('type', 'https://cluster.example/problems/audit-export-not-found');
+
+        // Capability denial observed exactly once, BEFORE expiry state was
+        // disclosed to the caller.
+        $this->assertCount(1, $this->decisions->calls);
+        $this->assertSame('audit.event.export', $this->decisions->calls[0]['capability']);
+
+        // The 410 attempt outcome must NOT be recorded when capability
+        // is denied — denied remains an attempt_outcome of `forbidden`
+        // so the audit trail cannot leak the descriptor's existence.
+        $attempt = DB::table('audit_events')
+            ->where('action', 'audit.export.downloaded')
+            ->where('subject_id', $descriptorId)
+            ->first();
+        $this->assertNotNull($attempt);
+        $context = json_decode((string) $attempt->context, true, 16, JSON_THROW_ON_ERROR);
+        $this->assertSame('forbidden', $context['attempt_outcome']);
+    }
+
+    public function test_first_observation_cas_advances_status_and_lock_version_and_bumps_etag(): void
+    {
+        $descriptorId = $this->createReadyDescriptor(self::FACILITY_ID);
+        DB::table('audit_export_jobs')->where('id', $descriptorId)->update([
+            'expires_at' => '2026-07-26 12:00:00.000',
+            'lock_version' => 1,
+        ]);
+
+        // First GET: descriptor transitions ready→expired, lock_version
+        // increments to 2, ETag carries the bumped lock_version.
+        $first = $this->getJson(str_replace('{exportId}', $descriptorId, AuditApi::ROUTE_GET_EXPORT), $this->headers())
+            ->assertOk();
+        $row = DB::table('audit_export_jobs')->where('id', $descriptorId)->first();
+        $this->assertSame('expired', $row->status);
+        $this->assertSame(2, (int) $row->lock_version);
+        $expectedEtag = '"'.$descriptorId.':2"';
+        $this->assertSame($expectedEtag, $first->headers->get('ETag'));
+        $first->assertJsonPath('data.status', 'expired');
+
+        // Second GET sees the same bumped state with the same ETag.
+        $second = $this->getJson(str_replace('{exportId}', $descriptorId, AuditApi::ROUTE_GET_EXPORT), $this->headers())
+            ->assertOk();
+        $this->assertSame($expectedEtag, $second->headers->get('ETag'));
+        $row = DB::table('audit_export_jobs')->where('id', $descriptorId)->first();
+        $this->assertSame(2, (int) $row->lock_version, 'Lock version must not advance again.');
+    }
+
+    public function test_cas_predicate_protects_against_concurrent_advance_with_stale_lock_version(): void
+    {
+        $descriptorId = $this->createReadyDescriptor(self::FACILITY_ID);
+        DB::table('audit_export_jobs')->where('id', $descriptorId)->update([
+            'expires_at' => '2026-07-26 12:00:00.000',
+            'lock_version' => 5,
+        ]);
+
+        // Race two CAS attempts with the same expected lock_version:
+        // exactly one must succeed.
+        $repo = $this->app->make(AuditExportRepository::class);
+        $first = $repo->markExpired($descriptorId, 5);
+        $second = $repo->markExpired($descriptorId, 5);
+        $this->assertTrue($first, 'First CAS must succeed.');
+        $this->assertFalse($second, 'Second CAS with stale lock_version must not advance.');
+        $row = DB::table('audit_export_jobs')->where('id', $descriptorId)->first();
+        $this->assertSame('expired', $row->status);
+        $this->assertSame(6, (int) $row->lock_version);
+    }
+
+    public function test_mb_strlen_reason_unicode_characters_are_not_over_bounded(): void
+    {
+        // 500 Unicode characters (1500 bytes) must be accepted; 501 must
+        // be rejected. mb_strlen counts UTF-8 characters, not bytes.
+        $accept = str_repeat('ن', 500); // Arabic "n" — 2 bytes each, 1000 bytes
+        $reject = str_repeat('ن', 501);
+
+        $this->postJson(AuditApi::ROUTE_CREATE_EXPORT, [
+            'format' => 'csv',
+            'filters' => [],
+            'reason' => $accept,
+        ], $this->headers(idempotencyKey: 'unicode-accept'))
+            ->assertCreated();
+
+        $this->postJson(AuditApi::ROUTE_CREATE_EXPORT, [
+            'format' => 'csv',
+            'filters' => [],
+            'reason' => $reject,
+        ], $this->headers(idempotencyKey: 'unicode-reject'))
+            ->assertStatus(422)
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-export-reason')
+            ->assertJsonMissingPath('reason');
+    }
+
+    public function test_csv_cells_with_tab_or_carriage_return_first_byte_are_quote_prefixed(): void
+    {
+        $projection = new AuditExportProjection($this->app->make(SensitiveValueRedactor::class));
+        $row = array_fill_keys(AuditExportSection8Columns::COLUMNS, '');
+        $row['context'] = "\tcmd";
+        $this->assertStringContainsString("'\tcmd", $projection->toCsvLine($row));
+        $row['context'] = "\rdata";
+        $this->assertStringContainsString("'\rdata", $projection->toCsvLine($row));
+        // Pure control character also gets quoted.
+        $row['context'] = "\nplain";
+        $this->assertStringContainsString("\nplain", $projection->toCsvLine($row));
+        $this->assertStringContainsString('"', $projection->toCsvLine($row));
+    }
+
+    public function test_chunked_iteration_is_hard_bounded_for_both_count_and_download(): void
+    {
+        // Insert one event under the bound; confirm chunked count and
+        // stream both succeed.
+        $eventId = '018f6f7d-0c00-7000-8000-000000000671';
+        $this->insertEvent($eventId, 1, '2026-07-27 00:30:00.000');
+
+        $created = $this->postJson(AuditApi::ROUTE_CREATE_EXPORT, [
+            'format' => 'ndjson',
+            'filters' => [],
+            'reason' => 'bounded chunked export',
+        ], $this->headers(idempotencyKey: 'chunked-export'))->assertCreated();
+
+        $streamed = $this->getStreamed(
+            str_replace('{exportId}', (string) $created->json('data.id'), AuditApi::ROUTE_DOWNLOAD_EXPORT),
+            $this->headers(),
+        );
+        $this->assertSame(200, $streamed['status']);
+        $this->assertStringContainsString($eventId, $streamed['body']);
+    }
+
 
     /**
      * @param  list<string>  $organizationUnitIds

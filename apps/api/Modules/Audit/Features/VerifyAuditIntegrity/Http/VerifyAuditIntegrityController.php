@@ -125,17 +125,59 @@ final class VerifyAuditIntegrityController
             );
         }
         catch (InvalidArgumentException $exception) {
-            if ($exception->getMessage() !== 'audit_integrity_key_version_unavailable') {
-                throw $exception;
+            $message = $exception->getMessage();
+            if ($message === 'audit_integrity_key_version_unavailable') {
+                return AuditApi::problem(
+                    503,
+                    'audit-runtime-unavailable',
+                    'Service Unavailable',
+                    'Audit integrity verification is temporarily unavailable.',
+                    $correlationId,
+                );
+            }
+            if ($message === 'audit_stream_key_invalid') {
+                return AuditApi::problem(
+                    400,
+                    'invalid-stream-key',
+                    'Bad Request',
+                    'stream_key is malformed.',
+                    $correlationId,
+                );
+            }
+            if ($message === 'audit_integrity_range_too_large') {
+                return AuditApi::problem(
+                    422,
+                    'range-too-large',
+                    'Unprocessable Entity',
+                    'The requested verification range exceeds the maximum allowed events.',
+                    $correlationId,
+                );
+            }
+            if ($message === 'audit_integrity_chain_gap') {
+                return AuditApi::problem(
+                    409,
+                    'audit-integrity-violation',
+                    'Conflict',
+                    'The audit chain reported a violation.',
+                    $correlationId,
+                );
+            }
+            if (in_array($message, [
+                'audit_integrity_range_invalid',
+                'audit_integrity_first_sequence_invalid',
+                'audit_integrity_last_sequence_invalid',
+                'audit_integrity_range_partial',
+            ], true)) {
+                return AuditApi::problem(
+                    400,
+                    'invalid-pagination-or-range',
+                    'Bad Request',
+                    'first_sequence and last_sequence must both be positive integers in order, and the inclusive range may not exceed 5000 events.',
+                    $correlationId,
+                );
             }
 
-            return AuditApi::problem(
-                503,
-                'audit-runtime-unavailable',
-                'Service Unavailable',
-                'Audit integrity verification is temporarily unavailable.',
-                $correlationId,
-            );
+</input>
         }
 
         $status = $result['status'];
@@ -245,6 +287,18 @@ final class VerifyAuditIntegrityController
                 'invalid-stream-key',
                 'Bad Request',
                 'stream_key exceeds the maximum length.',
+                $correlationId,
+            );
+        }
+        if (preg_match(
+            '/\A[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*:(?:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|global)\z/',
+            $streamKey,
+        ) !== 1) {
+            return AuditApi::problem(
+                400,
+                'invalid-stream-key',
+                'Bad Request',
+                'stream_key is malformed.',
                 $correlationId,
             );
         }

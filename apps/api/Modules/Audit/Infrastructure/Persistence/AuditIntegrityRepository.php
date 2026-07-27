@@ -565,17 +565,34 @@ final class AuditIntegrityRepository
         $terminalHash = null;
         $keyVersion = null;
         $firstMismatchStreamSequence = null;
+        $firstMismatchReason = null;
 
         $expectedSequence = $firstSequence;
         foreach ($rows as $row) {
-            if ((int) $row->stream_sequence !== $expectedSequence) {
-                $firstMismatchStreamSequence = (int) $row->stream_sequence;
+            $actualSequence = (int) $row->stream_sequence;
+
+            while ($expectedSequence < $actualSequence) {
+                $anchor = $this->retentionPurgeTerminalHash(
+                    $streamKey,
+                    $actualSequence - 1,
+                );
+                if ($anchor === null) {
+                    $firstMismatchStreamSequence = $expectedSequence;
+                    $firstMismatchReason = 'stream_sequence_gap';
+                    break 2;
+                }
+                $previousHash = $anchor;
+                $expectedSequence = $actualSequence;
+            }
+
+            if ($firstMismatchStreamSequence !== null) {
                 break;
             }
 
             $stored = $row->previous_hash === null ? null : (string) $row->previous_hash;
             if ($stored !== $previousHash) {
-                $firstMismatchStreamSequence = (int) $row->stream_sequence;
+                $firstMismatchStreamSequence = $actualSequence;
+                $firstMismatchReason = 'chain_mismatch';
                 break;
             }
 
@@ -588,7 +605,8 @@ final class AuditIntegrityRepository
                 $rowKeyVersion,
                 $storedHash,
             )) {
-                $firstMismatchStreamSequence = (int) $row->stream_sequence;
+                $firstMismatchStreamSequence = $actualSequence;
+                $firstMismatchReason = 'chain_mismatch';
                 break;
             }
 
@@ -597,6 +615,14 @@ final class AuditIntegrityRepository
             $keyVersion = $rowKeyVersion;
             $verifiedCount++;
             $expectedSequence++;
+        }
+
+        if ($firstMismatchStreamSequence === null && $expectedSequence <= $lastSequence) {
+            $anchor = $this->retentionPurgeTerminalHash($streamKey, $lastSequence);
+            if ($anchor === null) {
+                $firstMismatchStreamSequence = $expectedSequence;
+                $firstMismatchReason = 'stream_sequence_gap';
+            }
         }
 
         $violated = $firstMismatchStreamSequence !== null;
@@ -614,6 +640,7 @@ final class AuditIntegrityRepository
                 $keyVersion,
                 $violated,
                 $firstMismatchStreamSequence,
+                $firstMismatchReason,
                 $range,
             ): array {
                 $result = $this->writeVerificationCheckpoint(
@@ -629,13 +656,12 @@ final class AuditIntegrityRepository
                     status: $violated ? self::STATUS_VIOLATED : self::STATUS_VERIFIED,
                     details: $violated
                         ? [
-                            'reason' => 'chain_mismatch',
+                            'reason' => $firstMismatchReason ?? 'chain_mismatch',
                             'first_mismatch_stream_sequence' => $firstMismatchStreamSequence,
                             'range_kind' => $range,
                         ]
                         : ['range_kind' => $range],
                 );
-
                 if ($violated && $result['checkpoint_id'] === $verificationId) {
                     $this->outbox->append(
                         $verificationId,
@@ -901,6 +927,91 @@ final class AuditIntegrityRepository
         }
 
         $this->previousRowHash($streamKey, $firstSequence - 1);
+    }
+
+    /**
+     * Return the terminal_event_hash of a verified retention_purge checkpoint
+     * whose last_sequence equals $sequence. This is the chain anchor that
+     * allows a verification walk to skip over a legally purged prefix and
+     * resume at the first surviving row. Returns null when no checkpoint
+     * covers the requested sequence; the caller decides whether the gap is
+     * a real violation or a covered transition.
+     */
+    private function retentionPurgeTerminalHash(string $streamKey, int $sequence): ?string
+    {
+        $anchor = DB::table('audit_integrity_checkpoints')
+            ->where('stream_key', $streamKey)
+            ->where('kind', self::CHECKPOINT_KIND_RETENTION_PURGE)
+            ->where('status', self::STATUS_VERIFIED)
+            ->where('last_sequence', $sequence)
+            ->value('terminal_event_hash');
+
+        return is_string($anchor) && $anchor !== '' ? $anchor : null;
+    }
+
+    /**
+     * Confirm that every requested sequence in [first, last] lies inside one
+     * or more verified retention_purge checkpoints, so an empty-rows result
+     * can be safely reported as verified without writing a false violation
+     * or surfacing the anchor lookup exception as a 500. The caller already
+     * failed to find an exact anchor at first_sequence - 1; this method
+     * walks forward from first_sequence to confirm coverage.
+     */
+    private function isRangeFullyCoveredByRetentionPurge(
+        string $streamKey,
+        int $firstSequence,
+        int $lastSequence,
+    ): bool {
+        $sequence = $firstSequence;
+        $streamLastSequence = (int) DB::table('audit_events')
+            ->where('stream_key', $streamKey)
+            ->max('stream_sequence');
+
+        while ($sequence <= $lastSequence) {
+            $row = DB::table('audit_events')
+                ->where('stream_key', $streamKey)
+                ->where('stream_sequence', $sequence)
+                ->first(['stream_sequence']);
+
+            if ($row !== null) {
+                if ($sequence > $streamLastSequence) {
+                    return false;
+                }
+                $sequence++;
+                continue;
+            }
+
+            $nextSurvivor = DB::table('audit_events')
+                ->where('stream_key', $streamKey)
+                ->where('stream_sequence', '>=', $sequence)
+                ->where('stream_sequence', '<=', $lastSequence)
+                ->orderBy('stream_sequence')
+                ->value('stream_sequence');
+
+            $gapEnd = $nextSurvivor === null
+                ? min($lastSequence, $streamLastSequence === 0 ? $lastSequence : $streamLastSequence)
+                : ((int) $nextSurvivor) - 1;
+
+            if ($gapEnd < $sequence) {
+                return false;
+            }
+
+            $covering = DB::table('audit_integrity_checkpoints')
+                ->where('stream_key', $streamKey)
+                ->where('kind', self::CHECKPOINT_KIND_RETENTION_PURGE)
+                ->where('status', self::STATUS_VERIFIED)
+                ->where('first_sequence', '<=', $sequence)
+                ->where('last_sequence', '>=', $gapEnd)
+                ->first(['id']);
+
+            if ($covering === null) {
+                return false;
+            }
+
+            $sequence = $gapEnd + 1;
+        }
+
+        return true;
     }
 
     private function nowUtc(): DateTimeImmutable

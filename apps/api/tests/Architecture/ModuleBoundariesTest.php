@@ -261,7 +261,16 @@ PHP);
         try {
             $violations = $this->violationsIn($root);
 
-            $this->assertContains('WorkRecords may import Identity only through Contracts or Events.', $violations);
+            $this->assertTrue(
+                (bool) array_filter(
+                    $violations,
+                    static fn (string $violation): bool => str_contains(
+                        $violation,
+                        'WorkRecords may import Identity only through Contracts or Events.',
+                    ),
+                ),
+                'Expected the WorkRecords->Identity surface violation in '.implode(' | ', $violations),
+            );
         } finally {
             $this->removeDirectory($root);
         }

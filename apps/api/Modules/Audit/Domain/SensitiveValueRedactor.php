@@ -131,10 +131,15 @@ final class SensitiveValueRedactor
      */
     private static function keySegments(string $key): array
     {
-        $lowered = strtolower($key);
-        $separated = (string) preg_replace('/([a-z0-9])([A-Z])/', '$1_$2', $lowered);
+        // Apply camelCase boundary insertion BEFORE lowercasing so the
+        // uppercase letters can still be detected. `csrfToken` becomes
+        // `csrf_Token`, then `csrf_token`; `userId` becomes `user_Id`,
+        // then `user_id`; `XMLHttpRequest` becomes `XML_Http_Request`
+        // via the two-pass rule, then `xml_http_request`.
+        $separated = (string) preg_replace('/([a-z0-9])([A-Z])/', '$1_$2', $key);
         $separated = (string) preg_replace('/([A-Z])([A-Z][a-z])/', '$1_$2', $separated);
-        $normalized = (string) preg_replace('/[._\-]+/', '_', $separated);
+        $lowered = strtolower($separated);
+        $normalized = (string) preg_replace('/[._\-]+/', '_', $lowered);
 
         $segments = [];
         foreach (explode('_', $normalized) as $segment) {
