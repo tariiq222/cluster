@@ -757,6 +757,7 @@ PHP);
 
         return $imports;
     }
+
     /**
      * Return the per-file allow-list of cross-module imports from
      * CROSS_MODULE_IMPORT_EXCEPTIONS. The match is exact on `(source,
@@ -782,9 +783,9 @@ PHP);
 
     /**
      * @param  list<string>  $allowedImports  effective allow-list for rank-rule
-     *         exceptions (matches the exception entry's `imports` list when
-     *         the file/path/source/target pair is in CROSS_MODULE_IMPORT_EXCEPTIONS,
-     *         otherwise empty).
+     *                                        exceptions (matches the exception entry's `imports` list when
+     *                                        the file/path/source/target pair is in CROSS_MODULE_IMPORT_EXCEPTIONS,
+     *                                        otherwise empty).
      */
     private function importViolations(string $sourceModule, string $import, string $relativePath = '', array $allowedImports = []): array
     {
@@ -977,7 +978,9 @@ PHP);
     private function writeFixture(string $root, string $relativePath, string $source): void
     {
         $path = $root.'/'.$relativePath;
-        if (! is_dir(dirname($path))) { mkdir(dirname($path), 0700, true); }
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0700, true);
+        }
         file_put_contents($path, $source);
     }
 

@@ -137,7 +137,6 @@ final class GetAuditExportController
         return $fresh ?? $row;
     }
 
-
     private function apiTimestamp(string $value): string
     {
         return (new \DateTimeImmutable($value, new DateTimeZone('UTC')))

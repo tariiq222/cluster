@@ -42,7 +42,6 @@ if ($integrityBatchSize < 1) {
     throw new InvalidArgumentException('audit_integrity_batch_size_invalid');
 }
 
-
 return [
     'streams' => [
         'audit_events_recorded' => 'audit.events.recorded',
@@ -65,6 +64,7 @@ return [
         ],
     ],
 
+    'enforce_revoke' => filter_var(env('AUDIT_ENFORCE_REVOKE', false), FILTER_VALIDATE_BOOL),
     'export' => [
         'max_window_days' => (int) env('AUDIT_EXPORT_MAX_WINDOW_DAYS', 90),
         'expires_after_days' => (int) env('AUDIT_EXPORT_EXPIRES_DAYS', 7),

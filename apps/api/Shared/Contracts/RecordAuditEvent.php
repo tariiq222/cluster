@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Shared\Contracts;
 
-use DateTimeImmutable;
-
 /**
  * Cross-module port for recording a single auditable event. Modules
  * (Authorization, Documents, etc.) depend on this interface in `Shared`

@@ -93,7 +93,7 @@ final class AuditRedactionTest extends TestCase
      * shape-preserving redaction at any nesting depth.
      */
     #[DataProvider('sensitiveBypassProvider')]
-    public function test_sensitive_segment_is_redacted_across_snake_case_camelCase_kebab_and_dotted_forms(string $key, array $context): void
+    public function test_sensitive_segment_is_redacted_across_snake_case_camel_case_kebab_and_dotted_forms(string $key, array $context): void
     {
         $input = [
             'resource_id' => '018f6f7d-0c00-7000-8000-000000000303',

@@ -665,9 +665,9 @@ final class AuditExportTest extends TestCase
         $this->assertCount(1, $activity);
         $context = json_decode((string) $activity[0]->context, true, 16, JSON_THROW_ON_ERROR);
         $this->assertSame('not_found', $context['attempt_outcome']);
-        $this->assertSame(\Modules\Audit\Domain\SensitiveValueRedactor::REDACTED, $context['attempt_export_id_invalid']);
-        $this->assertSame(\Modules\Audit\Domain\SensitiveValueRedactor::REDACTED, $context['attempt_export_id_reason']);
-        $this->assertNotSame('invalid', $context['attempt_export_id_reason']);
+        $this->assertSame(\Modules\Audit\Domain\SensitiveValueRedactor::REDACTED, $context['attempt_export_id_redacted']);
+        $this->assertSame(\Modules\Audit\Domain\SensitiveValueRedactor::REDACTED, $context['attempt_export_id_reason_redacted']);
+        $this->assertNotSame('invalid', $context['attempt_export_id_reason_redacted']);
 
         // Missing-export 404 has identical bytes.
         $missing = $this->getJson(
@@ -819,7 +819,6 @@ final class AuditExportTest extends TestCase
         $this->assertSame(200, $streamed['status']);
         $this->assertStringContainsString($eventId, $streamed['body']);
     }
-
 
     /**
      * @param  list<string>  $organizationUnitIds

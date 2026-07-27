@@ -163,7 +163,6 @@ final class AuditExportRepository
         return (object) (array) $row;
     }
 
-
     private static function databaseTimestamp(DateTimeImmutable $value): string
     {
         return $value->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.v');

@@ -136,12 +136,12 @@ class InventoryReconcileTest extends TestCase
     {
         $reconciliation = $this->loadSummary()['operation_reconciliation'];
 
-        $this->assertSame(144, $reconciliation['live_operation_count']);
-        $this->assertSame(203, $reconciliation['spec_operation_count']);
-        $this->assertSame(64, $reconciliation['spec_only_operation_count']);
-        $this->assertSame(50, $reconciliation['spec_only_path_count']);
-        $this->assertSame(52, $reconciliation['effective_spec_only_operation_count']);
-        $this->assertSame(38, $reconciliation['effective_spec_only_path_count']);
+        $this->assertSame(150, $reconciliation['live_operation_count']);
+        $this->assertSame(208, $reconciliation['spec_operation_count']);
+        $this->assertSame(63, $reconciliation['spec_only_operation_count']);
+        $this->assertSame(49, $reconciliation['spec_only_path_count']);
+        $this->assertSame(51, $reconciliation['effective_spec_only_operation_count']);
+        $this->assertSame(37, $reconciliation['effective_spec_only_path_count']);
         $this->assertSame(5, $reconciliation['runtime_only_literal_count']);
         $this->assertCount(5, $reconciliation['intentional_runtime_only']);
         $this->assertSame([], $reconciliation['unresolved_runtime_only']);

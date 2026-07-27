@@ -185,17 +185,18 @@ final class CreateAuditExportController
     {
         return match ($message) {
             'audit_export_format_invalid' => 'invalid-export-format',
-            'audit_export_reason_required',
-            'audit_export_reason_too_long',
+            'audit_export_reason_required' => 'invalid-export-reason',
+            'audit_export_reason_too_long' => 'invalid-export-reason',
             'audit_export_reason_invalid' => 'invalid-export-reason',
-            'audit_export_filter_value_invalid',
-            'audit_export_filter_range_invalid',
-            'audit_export_snapshot_in_future',
-            'audit_export_snapshot_out_of_window',
-            'audit_export_event_count_invalid',
-            'audit_export_event_count_too_large',
+            'audit_export_filter_value_invalid' => 'invalid-export-payload',
+            'audit_export_filter_range_invalid' => 'invalid-export-payload',
+            'audit_export_snapshot_in_future' => 'invalid-export-payload',
+            'audit_export_snapshot_out_of_window' => 'invalid-export-payload',
+            'audit_export_event_count_invalid' => 'invalid-export-payload',
+            'audit_export_event_count_too_large' => 'invalid-export-payload',
             'audit_export_filter_key_invalid' => 'invalid-export-payload',
             'audit_export_filters_not_object' => 'invalid-export-payload',
+            default => 'invalid-export-payload',
         };
     }
 }

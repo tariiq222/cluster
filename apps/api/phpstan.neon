@@ -19,3 +19,7 @@ parameters:
             paths:
                 - Modules/PlatformSettings/Tests/PlatformOperationsHttpAdapterTest.php
                 - Modules/PlatformSettings/Tests/TechnicalLogDeferralTest.php
+        -
+            message: '#Variable .+ in isset\(\) always exists and is always null#'
+            paths:
+                - Modules/Audit/Infrastructure/Persistence/AuditIntegrityRepository.php

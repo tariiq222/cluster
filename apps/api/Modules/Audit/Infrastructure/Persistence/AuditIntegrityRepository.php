@@ -214,7 +214,7 @@ final class AuditIntegrityRepository
                 $expectedSequence = $actualSequence;
             }
 
-            if ($firstMismatchSequence !== null) {
+            if (isset($firstMismatchSequence)) {
                 break;
             }
 
@@ -491,7 +491,6 @@ final class AuditIntegrityRepository
                     throw $exception;
                 }
 
-
                 $existingReplay = DB::table('audit_integrity_checkpoints')
                     ->where('stream_key', $streamKey)
                     ->where('kind', self::CHECKPOINT_KIND_RETENTION_PURGE)
@@ -585,7 +584,7 @@ final class AuditIntegrityRepository
                 $expectedSequence = $actualSequence;
             }
 
-            if ($firstMismatchStreamSequence !== null) {
+            if (isset($firstMismatchStreamSequence)) {
                 break;
             }
 
@@ -979,6 +978,7 @@ final class AuditIntegrityRepository
                     return false;
                 }
                 $sequence++;
+
                 continue;
             }
 

@@ -157,8 +157,9 @@ readonly API_ENV=(
   REDIS_PORT="$REDIS_PORT"
   SESSION_DRIVER=array
   IDENTITY_SESSION_SECURE=false
+  AUDIT_INTEGRITY_KEYS=w1-1-e2e:test-w1-1-e2e-audit-integrity-key-32-bytes-minimum-AAAA
+  AUDIT_INTEGRITY_KEY_VERSION=w1-1-e2e
   OUTBOX_RELAY_BATCH_SIZE=2
-  NOTIFICATIONS_STREAM_BATCH_SIZE=2
 )
 
 db_count() {
@@ -186,20 +187,16 @@ wait_healthy mysql
 wait_healthy redis
 "${COMPOSE[@]}" exec -T mysql mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent >/dev/null
 "${COMPOSE[@]}" exec -T redis redis-cli ping | grep -Fxq PONG
-
 (
   cd "$API_DIR"
   env "${API_ENV[@]}" php artisan migrate:fresh --force >/dev/null
   env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force >/dev/null
-  # The production binding gates every non-setup decision behind the
-  # authorization bootstrap lifecycle; the journey fixtures model an
-  # already-bootstrapped environment, so close the window like the other
-  # isolated W1.x runners do.
   env "${API_ENV[@]}" php artisan tinker --execute="DB::table('authorization_bootstrap')->update(['state' => 'complete', 'completed_by_user_id' => \\Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, 'completed_at' => now(), 'lock_version' => 2, 'updated_at' => now()]);" >/dev/null
   exec env "${API_ENV[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT"
 ) >>"$LOG_FILE" 2>&1 &
 API_PID=$!
 wait_tcp 127.0.0.1 "$API_PORT"
+
 
 (
   target=$COORDINATOR_TARGET

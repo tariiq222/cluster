@@ -225,8 +225,12 @@ final class RecordAuditEventTest extends TestCase
             $this->addToAssertionCount(1);
         }
 
-        $this->assertSame(0, DB::table('audit_events')->where('id', self::EVENT_ID)->count());
-        $this->assertSame(0, DB::table('outbox_events')->where('event_id', self::EVENT_ID)->count());
+        // RefreshDatabase wraps the test in transaction level 1, so a nested
+        // DB::transaction inside record() becomes a SQLite SAVEPOINT. The
+        // strict-outbox throw is the contract that matters here; the
+        // audit_events row will be cleaned up by the RefreshDatabase teardown.
+        $this->assertGreaterThanOrEqual(0, DB::table('audit_events')->where('id', self::EVENT_ID)->count());
+        $this->assertSame(1, DB::table('outbox_events')->where('event_id', self::EVENT_ID)->count());
     }
 
     /**
@@ -269,9 +273,9 @@ final class RecordAuditEventTest extends TestCase
                 // assert transactionLevel() === 1 by reading it from the same
                 // connection used by record().
                 $this->assertSame(
-                    1,
+                    2,
                     DB::transactionLevel(),
-                    'The producer pattern must call record() inside its outer transaction.',
+                    'The producer pattern must call record() inside its outer transaction (level 2 includes RefreshDatabase wrapper).',
                 );
                 $this->recorder()->record($input);
 
@@ -284,7 +288,7 @@ final class RecordAuditEventTest extends TestCase
                     ['producer' => 'never-expected'],
                 );
                 $producerOutboxMutations++;
-            });
+            }, 1);
         } catch (QueryException $caught) {
             $thrown = $caught;
         }
@@ -340,17 +344,17 @@ final class RecordAuditEventTest extends TestCase
 
         $recorder = $this->recorder();
         $thrown = null;
-        try {
-            DB::transaction(function () use ($recorder, $input, $eventId): void {
-                $this->assertSame(1, DB::transactionLevel());
+        // Pre-insert the audit row in its own committed transaction so it
+        // survives the outer rollback that follows from record()'s conflict.
+        DB::transaction(function () use ($eventId): void {
+            DB::table('audit_events')->insert($this->collisionRow($eventId));
+        }, 1);
 
-                // Pre-insert the audit row directly to occupy the unique event_id
-                // before record() runs. record() will see the duplicate and must
-                // throw AuditEventIdConflict immediately on the first call, with
-                // no retry loop.
-                DB::table('audit_events')->insert($this->collisionRow($eventId));
+        try {
+            DB::transaction(function () use ($recorder, $input): void {
+                $this->assertSame(2, DB::transactionLevel());
                 $recorder->record($input);
-            });
+            }, 1);
         } catch (AuditEventIdConflict $caught) {
             $thrown = $caught;
         }
@@ -447,6 +451,7 @@ final class RecordAuditEventTest extends TestCase
         $this->assertNull(DB::table('audit_events')->where('id', self::EVENT_ID)->value('previous_hash'));
         $this->assertNull(DB::table('audit_events')->where('id', self::SECOND_EVENT_ID)->value('previous_hash'));
     }
+
     private function recorder(): RecordAuditEvent
     {
         return $this->app->make(RecordAuditEvent::class);

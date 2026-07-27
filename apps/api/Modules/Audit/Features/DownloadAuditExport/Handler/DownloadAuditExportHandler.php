@@ -359,7 +359,6 @@ final class DownloadAuditExportHandler
         ));
     }
 
-
     /**
      * Record a download attempt whose export id never validated. The
      * event carries `subjectId = null` so the audit_events row cannot
@@ -389,8 +388,8 @@ final class DownloadAuditExportHandler
             classification: AuditEventInput::CLASSIFICATION_INTERNAL,
             context: [
                 'attempt_outcome' => self::ATTEMPT_OUTCOME_NOT_FOUND,
-                'attempt_export_id_invalid' => true,
-                'attempt_export_id_reason' => $reason,
+                'attempt_export_id_redacted' => \Modules\Audit\Domain\SensitiveValueRedactor::REDACTED,
+                'attempt_export_id_reason_redacted' => \Modules\Audit\Domain\SensitiveValueRedactor::REDACTED,
             ],
             occurredAt: $occurredAt,
             retentionClass: AuditEventInput::RETENTION_SECURITY,

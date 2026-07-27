@@ -123,8 +123,7 @@ final class VerifyAuditIntegrityController
                 'Idempotency-Key was already used for a different request.',
                 $correlationId,
             );
-        }
-        catch (InvalidArgumentException $exception) {
+        } catch (InvalidArgumentException $exception) {
             $message = $exception->getMessage();
             if ($message === 'audit_integrity_key_version_unavailable') {
                 return AuditApi::problem(

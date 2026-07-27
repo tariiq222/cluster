@@ -301,7 +301,7 @@ return new class extends Migration
 
     private function enforceAppendOnlyPrivileges(): void
     {
-        if (! filter_var(env('AUDIT_ENFORCE_REVOKE', false), FILTER_VALIDATE_BOOL)) {
+        if (! config('audit.enforce_revoke')) {
             return;
         }
 

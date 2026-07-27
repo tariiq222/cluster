@@ -1,4 +1,4 @@
-.PHONY: verify-intake python-bin api\:inventory api\:check test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets npm-audit audit-dependencies test-e2e test-e2e-w1-1 test-e2e-w1-1-strict test-w1-1-api-worker-smoke verify-boundaries verify-mysql-integration verify-mysql-integration-strict preflight-mysql-integration-strict preflight-e2e-w1-1-strict preflight-architecture-closure verify-architecture-closure docs-validate docs-validate-fast help verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
+.PHONY: verify-intake python-bin api\:inventory api\:check test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets npm-audit audit-dependencies test-e2e test-e2e-w1-1 test-e2e-w1-1-strict test-w1-1-api-worker-smoke verify-boundaries verify-mysql-integration verify-mysql-integration-strict preflight-mysql-integration-strict preflight-e2e-w1-1-strict preflight-architecture-closure verify-architecture-closure verify-core verify-release docs-validate docs-validate-fast help verify-w1-1 verify-w1-2 verify-w1-3 verify-day2 verify-day3 verify-screens check-day3-migrations validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
@@ -233,6 +233,20 @@ verify-architecture-closure:
 	$(MAKE) test-web
 	$(MAKE) test-e2e-w1-1-strict
 
+# Daily development gate: the fast, deterministic subset of the closure chain
+# (no external services, no browser). Run on every commit; the full closure
+# gate remains the release/milestone gate and is unchanged below as
+# verify-release.
+verify-core:
+	$(MAKE) verify-boundaries
+	$(MAKE) lint-api
+	$(MAKE) analyse-api
+	$(MAKE) test-api
+
+# Release/milestone gate: explicit alias for the full deterministic closure
+# chain so daily work never needs the nine-step serial gate.
+verify-release: verify-architecture-closure
+
 help:
 	@printf '%s\n' \
 		'Public CI gates:' \
@@ -245,6 +259,8 @@ help:
 		'  npm-audit                  Audit production web dependencies.' \
 		'  audit-dependencies         Audit API and web dependencies.' \
 		'  python-bin                 Print the resolved Python 3 binary.' \
+		'  verify-core                Run the daily fast gate (boundaries, lint, analyse, API tests).' \
+		'  verify-release             Alias for the full deterministic architecture closure gate.' \
 		'  verify-architecture-closure Run the strict deterministic architecture closure gate.'
 # البوابة المحلية الكاملة: عقود، جودة، اختبارات، حدود، ورحلة E2E.
 verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies docs-validate test-api test-web verify-boundaries test-w1-1-api-worker-smoke test-e2e-w1-1

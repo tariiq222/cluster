@@ -64,15 +64,10 @@ final class DatabaseRecordAuditEvent implements RecordAuditEvent
         // The outer command must own full-transaction retry; we contribute
         // by failing fast on the first transient error so the outer
         // retry-loop replays the entire effect.
-        $outerTransactionLevel = DB::transactionLevel();
-        if ($outerTransactionLevel !== 0) {
-            return $this->appendOrReplay(
-                $input,
-                $context,
-                $streamKey,
-                $requestHash,
-            );
-        }
+        // Always wrap in DB::transaction (a SAVEPOINT when called inside a
+        // caller's transaction) so the audit_events insert and the outbox
+        // append are atomic. The retry loop catches transient races; the
+        // strict-outbox failure surfaces to the caller.
 
         for ($attempt = 1; $attempt <= self::MAX_TRANSACTION_ATTEMPTS; $attempt++) {
             try {
@@ -358,3 +353,4 @@ final class DatabaseRecordAuditEvent implements RecordAuditEvent
 
         return false;
     }
+}

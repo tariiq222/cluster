@@ -115,7 +115,7 @@ final class AuditExportReadStore
      * sole owner of every materialization.
      *
      * @param  Closure(object): bool  $accept
-     * @param  list<string>           $organizationUnitIds
+     * @param  list<string>  $organizationUnitIds
      */
     public function streamAuthorizedSnapshot(
         Closure $accept,
@@ -153,7 +153,7 @@ final class AuditExportReadStore
 
     /**
      * @param  Closure(object): mixed  $visitor
-     * @param  list<string>           $organizationUnitIds
+     * @param  list<string>  $organizationUnitIds
      */
     private function iterateAuthorizedSnapshot(
         Closure $visitor,
@@ -198,7 +198,7 @@ final class AuditExportReadStore
             if ($occurredTo !== null) {
                 $builder->where('occurred_at', '<=', $this->databaseTimestamp($occurredTo));
             }
-            if ($lastRecordedAt !== null && $lastId !== null) {
+            if (isset($lastRecordedAt, $lastId)) {
                 $builder->where(function ($query) use ($lastRecordedAt, $lastId): void {
                     $query->where('recorded_at', '<', $lastRecordedAt)
                         ->orWhere(function ($nested) use ($lastRecordedAt, $lastId): void {
@@ -232,8 +232,6 @@ final class AuditExportReadStore
             }
         }
     }
-
-
 
     /** @param array<string, mixed> $actor */
     private function authorizeAndProject(object $row, array $actor): ?object

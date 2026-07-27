@@ -496,4 +496,3 @@ final class AuditMigrationTest extends TestCase
         }
     }
 }
-

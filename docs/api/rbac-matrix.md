@@ -25,9 +25,9 @@ references:
 
 ## Capability catalog reconciliation
 
-- **Actual runtime catalog count:** `128`
+- **Actual runtime catalog count:** `131`
 - **Historical F067 expectation:** `110` — **mismatch; the runtime catalog is authoritative.**
-- **Classifications:** `85` used, `12` intentional UI-only, `31` deprecated.
+- **Classifications:** `88` used, `12` intentional UI-only, `31` deprecated.
 - Generation fails if any catalog entry is duplicated or left unclassified.
 
 | Capability | Classification | Evidence |
@@ -123,6 +123,9 @@ references:
 | `authorization.policy.manage` | `deprecated` | `no production API or web callsite reference` |
 | `authorization.audit.read` | `intentional-ui-only` | `apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
 | `authorization.decision.read` | `used` | `apps/api/Modules/Authorization/Features/DecideAccess/Http/DecideAccessController.php`<br>`apps/api/Modules/Authorization/Features/ExplainAccessDecision/Http/ExplainAccessDecisionController.php` |
+| `audit.event.read` | `used` | `apps/api/Modules/Audit/Http/AuditApi.php`<br>`apps/api/Modules/Audit/Infrastructure/Persistence/DatabaseQueryAuditActivity.php` |
+| `audit.event.export` | `used` | `apps/api/Modules/Audit/Features/CreateAuditExport/Http/CreateAuditExportController.php`<br>`apps/api/Modules/Audit/Features/DownloadAuditExport/Handler/DownloadAuditExportHandler.php`<br>`apps/api/Modules/Audit/Features/GetAuditExport/Http/GetAuditExportController.php`<br>`apps/api/Modules/Audit/Infrastructure/Persistence/AuditExportReadStore.php` |
+| `audit.integrity.verify` | `used` | `apps/api/Modules/Audit/Features/VerifyAuditIntegrity/Handler/VerifyAuditIntegrityHandler.php`<br>`apps/api/Modules/Audit/Features/VerifyAuditIntegrity/Http/VerifyAuditIntegrityController.php` |
 | `strategy.plan.read` | `deprecated` | `no production API or web callsite reference` |
 | `strategy.plan.manage` | `deprecated` | `no production API or web callsite reference` |
 | `strategy.indicator.read` | `deprecated` | `no production API or web callsite reference` |
@@ -173,8 +176,10 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - `CreateUserAccountController`
 - `DevelopmentFixtureLoginController`
 - `DocumentLinkController`
+- `DownloadAuditExportController`
 - `DownloadDocumentController`
 - `DownloadExportController`
+- `GetAuditEventController`
 - `GetAuthorizationBootstrapController`
 - `GetAuthorizedWorkRecordController`
 - `GetCurrentIdentityController`
@@ -186,6 +191,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - `IdentityLogoutController`
 - `InitiateDocumentUploadController`
 - `IssueActivationController`
+- `ListAuditEventsController`
 - `ListAuthorizedWorkRecordsController`
 - `ListDocumentsController`
 - `ListMyScopesController`
@@ -202,7 +208,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 
 ## Route matrix
 
-### row-114
+### row-120
 
 - **Method:** `POST`
 - **Path:** `/api/v1/auth/login`
@@ -217,7 +223,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-117
+### row-123
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/login`
@@ -232,7 +238,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-118
+### row-124
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/activation`
@@ -247,7 +253,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `6,1`
 
-### row-119
+### row-125
 
 - **Method:** `GET`
 - **Path:** `/api/v1/identity/me`
@@ -262,7 +268,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-120
+### row-126
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/csrf`
@@ -277,7 +283,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-121
+### row-127
 
 - **Method:** `GET`
 - **Path:** `/api/v1/me`
@@ -292,7 +298,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-122
+### row-128
 
 - **Method:** `GET`
 - **Path:** `/api/v1/me/scopes`
@@ -307,7 +313,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-123
+### row-129
 
 - **Method:** `PUT`
 - **Path:** `/api/v1/me/scope`
@@ -322,7 +328,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-129
+### row-135
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/logout`
@@ -337,7 +343,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-130
+### row-136
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/password`
@@ -352,7 +358,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-131
+### row-137
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/accounts/{accountId}/activation`
@@ -367,7 +373,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-134
+### row-140
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/uploads/{uploadId}`
@@ -382,7 +388,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-135
+### row-141
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}/download`
@@ -397,7 +403,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-136
+### row-142
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/temporary-assignments`
@@ -412,7 +418,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-137
+### row-143
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/temporary-assignments/{temporaryAssignmentId}`
@@ -427,7 +433,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-144
+### row-150
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/uploads`
@@ -442,7 +448,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-145
+### row-151
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/uploads/{uploadId}/complete`
@@ -457,7 +463,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-146
+### row-152
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/temporary-assignments`
@@ -472,7 +478,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-147
+### row-153
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/temporary-assignments/{temporaryAssignmentId}/revoke`
@@ -487,7 +493,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-149
+### row-155
 
 - **Method:** `POST`
 - **Path:** `/api/v1/internal/documents/versions/{versionId}/scan`
@@ -502,7 +508,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `60,1`
 
-### row-150
+### row-156
 
 - **Method:** `POST`
 - **Path:** `/api/v1/internal/documents/versions/{versionId}/reconcile-promotion`
@@ -517,7 +523,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `60,1`
 
-### row-152
+### row-158
 
 - **Method:** `GET`
 - **Path:** `/api/v1/notifications`
@@ -532,7 +538,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-153
+### row-159
 
 - **Method:** `POST`
 - **Path:** `/api/v1/notifications/{notificationId}/read`
@@ -547,7 +553,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-154
+### row-160
 
 - **Method:** `GET`
 - **Path:** `/api/v1/search`
@@ -562,7 +568,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-157
+### row-163
 
 - **Method:** `GET`
 - **Path:** `/api/v1/reports/{reportId}`
@@ -577,7 +583,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-158
+### row-164
 
 - **Method:** `GET`
 - **Path:** `/api/v1/exports/{exportId}`
@@ -592,7 +598,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-159
+### row-165
 
 - **Method:** `GET`
 - **Path:** `/api/v1/dashboards/{dashboardId}`
@@ -607,7 +613,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-166
+### row-172
 
 - **Method:** `POST`
 - **Path:** `/api/v1/reports/{reportId}/exports`
@@ -622,7 +628,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-169
+### row-175
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/cluster`
@@ -637,7 +643,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-170
+### row-176
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/cluster`
@@ -652,7 +658,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-171
+### row-177
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/cluster`
@@ -667,7 +673,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-172
+### row-178
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/facilities`
@@ -682,7 +688,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-173
+### row-179
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/facilities`
@@ -697,7 +703,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-174
+### row-180
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/facilities/{facilityId}`
@@ -712,7 +718,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-175
+### row-181
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/facilities/{facilityId}`
@@ -727,7 +733,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-176
+### row-182
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/units`
@@ -742,7 +748,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-177
+### row-183
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/units`
@@ -757,7 +763,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-178
+### row-184
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/units/reorder`
@@ -772,7 +778,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-179
+### row-185
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/units/{unitId}`
@@ -787,7 +793,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-180
+### row-186
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/units/{unitId}`
@@ -802,7 +808,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-181
+### row-187
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/job-titles`
@@ -817,7 +823,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-182
+### row-188
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/job-titles`
@@ -832,7 +838,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-183
+### row-189
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/positions`
@@ -847,7 +853,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-184
+### row-190
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/positions`
@@ -862,7 +868,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-185
+### row-191
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/positions/{positionId}`
@@ -877,7 +883,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-186
+### row-192
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/positions/{positionId}`
@@ -892,7 +898,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-187
+### row-193
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/people`
@@ -907,7 +913,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-188
+### row-194
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/people`
@@ -922,7 +928,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-189
+### row-195
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/people/{personId}/reference`
@@ -937,7 +943,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-190
+### row-196
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/people/{personId}`
@@ -952,7 +958,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-191
+### row-197
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/people/{personId}`
@@ -967,7 +973,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-192
+### row-198
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/assignments`
@@ -982,7 +988,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-193
+### row-199
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/assignments`
@@ -997,7 +1003,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-194
+### row-200
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/assignments/{assignmentId}/end`
@@ -1012,7 +1018,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-195
+### row-201
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/supervisory-relationships`
@@ -1027,7 +1033,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-196
+### row-202
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/supervisory-relationships`
@@ -1042,7 +1048,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-197
+### row-203
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/import-jobs`
@@ -1057,7 +1063,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-198
+### row-204
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/import-jobs/{jobId}`
@@ -1072,7 +1078,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-199
+### row-205
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/import-jobs/{jobId}/rows`
@@ -1087,7 +1093,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-200
+### row-206
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/import-jobs/{jobId}/{jobAction}`
@@ -1102,7 +1108,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-201
+### row-207
 
 - **Method:** `GET`
 - **Path:** `/api/v1/identity/accounts`
@@ -1117,7 +1123,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-202
+### row-208
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/accounts`
@@ -1132,7 +1138,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-203
+### row-209
 
 - **Method:** `GET`
 - **Path:** `/api/v1/identity/accounts/{accountId}`
@@ -1147,7 +1153,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-204
+### row-210
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/accounts/{accountId}/{accountAction}`
@@ -1162,7 +1168,67 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-207
+### row-213
+
+- **Method:** `GET`
+- **Path:** `/api/v1/audit/events`
+- **Endpoint tag:** `api-v1-audit-events:get:listauditeventscontroller`
+- **Controller:** `ListAuditEventsController`
+- **Controller source:** `apps/api/Modules/Audit/Features/ListAuditEvents/Http/ListAuditEventsController.php`
+- **Capability:** `UNVERIFIED — no controller-local capability check`
+- **Capability check:** `missing-controller-local-check`
+- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
+- **Session:** `yes`
+- **Principal:** `yes`
+- **CSRF:** `yes`
+- **Throttle:** `none`
+
+### row-214
+
+- **Method:** `GET`
+- **Path:** `/api/v1/audit/events/{eventId}`
+- **Endpoint tag:** `api-v1-audit-events-eventId:get:getauditeventcontroller`
+- **Controller:** `GetAuditEventController`
+- **Controller source:** `apps/api/Modules/Audit/Features/GetAuditEvent/Http/GetAuditEventController.php`
+- **Capability:** `UNVERIFIED — no controller-local capability check`
+- **Capability check:** `missing-controller-local-check`
+- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
+- **Session:** `yes`
+- **Principal:** `yes`
+- **CSRF:** `yes`
+- **Throttle:** `none`
+
+### row-215
+
+- **Method:** `GET`
+- **Path:** `/api/v1/audit/exports/{exportId}`
+- **Endpoint tag:** `api-v1-audit-exports-exportId:get:getauditexportcontroller`
+- **Controller:** `GetAuditExportController`
+- **Controller source:** `apps/api/Modules/Audit/Features/GetAuditExport/Http/GetAuditExportController.php`
+- **Capability:** `audit.event.export`
+- **Capability check:** `controller-local`
+- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
+- **Session:** `yes`
+- **Principal:** `yes`
+- **CSRF:** `yes`
+- **Throttle:** `none`
+
+### row-216
+
+- **Method:** `GET`
+- **Path:** `/api/v1/audit/exports/{exportId}/download`
+- **Endpoint tag:** `api-v1-audit-exports-exportId-download:get:downloadauditexportcontroller`
+- **Controller:** `DownloadAuditExportController`
+- **Controller source:** `apps/api/Modules/Audit/Features/DownloadAuditExport/Http/DownloadAuditExportController.php`
+- **Capability:** `UNVERIFIED — no controller-local capability check`
+- **Capability check:** `missing-controller-local-check`
+- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
+- **Session:** `yes`
+- **Principal:** `yes`
+- **CSRF:** `yes`
+- **Throttle:** `none`
+
+### row-217
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-settings/current`
@@ -1177,7 +1243,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-208
+### row-218
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/maintenance-windows`
@@ -1192,7 +1258,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-209
+### row-219
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/alert-policies`
@@ -1207,7 +1273,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-210
+### row-220
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/technical-logs`
@@ -1222,7 +1288,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-211
+### row-221
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-settings/versions`
@@ -1237,7 +1303,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-212
+### row-222
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-settings/calendars`
@@ -1252,7 +1318,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-213
+### row-223
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/overview`
@@ -1267,7 +1333,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-214
+### row-224
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/health`
@@ -1282,7 +1348,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-215
+### row-225
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/backups`
@@ -1297,7 +1363,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-216
+### row-226
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-records`
@@ -1312,7 +1378,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-217
+### row-227
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-records/{recordId}`
@@ -1327,7 +1393,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-218
+### row-228
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/access-decisions/{decisionId}/explanation`
@@ -1342,7 +1408,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-219
+### row-229
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/bootstrap`
@@ -1357,7 +1423,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-220
+### row-230
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/{adminResource}`
@@ -1372,7 +1438,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-221
+### row-231
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/{adminResource}/{resourceId}`
@@ -1387,7 +1453,37 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-228
+### row-238
+
+- **Method:** `POST`
+- **Path:** `/api/v1/audit/exports`
+- **Endpoint tag:** `api-v1-audit-exports:post:createauditexportcontroller`
+- **Controller:** `CreateAuditExportController`
+- **Controller source:** `apps/api/Modules/Audit/Features/CreateAuditExport/Http/CreateAuditExportController.php`
+- **Capability:** `audit.event.export`
+- **Capability check:** `controller-local`
+- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
+- **Session:** `yes`
+- **Principal:** `yes`
+- **CSRF:** `yes`
+- **Throttle:** `none`
+
+### row-239
+
+- **Method:** `POST`
+- **Path:** `/api/v1/audit/integrity-verifications`
+- **Endpoint tag:** `api-v1-audit-integrity-verifications:post:verifyauditintegritycontroller`
+- **Controller:** `VerifyAuditIntegrityController`
+- **Controller source:** `apps/api/Modules/Audit/Features/VerifyAuditIntegrity/Http/VerifyAuditIntegrityController.php`
+- **Capability:** `audit.integrity.verify`
+- **Capability check:** `controller-local`
+- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
+- **Session:** `yes`
+- **Principal:** `yes`
+- **CSRF:** `yes`
+- **Throttle:** `none`
+
+### row-240
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/versions`
@@ -1402,7 +1498,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-229
+### row-241
 
 - **Method:** `PUT`
 - **Path:** `/api/v1/platform-settings/versions/{versionId}/settings/{settingKey}`
@@ -1417,7 +1513,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-230
+### row-242
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/versions/{versionId}/validate`
@@ -1432,7 +1528,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-231
+### row-243
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/versions/{versionId}/publish`
@@ -1447,7 +1543,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-232
+### row-244
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/calendars`
@@ -1462,7 +1558,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-233
+### row-245
 
 - **Method:** `PUT`
 - **Path:** `/api/v1/platform-settings/calendars/{calendarId}/weekdays/{weekday}`
@@ -1477,7 +1573,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-234
+### row-246
 
 - **Method:** `PUT`
 - **Path:** `/api/v1/platform-settings/calendars/{calendarId}/exceptions/{date}`
@@ -1492,7 +1588,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-235
+### row-247
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/calendars/{calendarId}/publish`
@@ -1507,7 +1603,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-236
+### row-248
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/backups`
@@ -1522,7 +1618,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-237
+### row-249
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/restore-requests`
@@ -1537,7 +1633,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-238
+### row-250
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/restore-requests/{requestId}/confirm`
@@ -1552,7 +1648,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-239
+### row-251
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/maintenance-windows`
@@ -1567,7 +1663,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-240
+### row-252
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/maintenance-windows/{windowId}/cancel`
@@ -1582,7 +1678,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-241
+### row-253
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/platform-operations/alert-policies/{policyId}`
@@ -1597,7 +1693,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-242
+### row-254
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/technical-logs/restore`
@@ -1612,7 +1708,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-243
+### row-255
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-records`
@@ -1627,7 +1723,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-247
+### row-259
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-records/{recordId}/{recordAction}`
@@ -1642,7 +1738,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-250
+### row-262
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-records/{recordId}/documents`
@@ -1657,7 +1753,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-251
+### row-263
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/access-decisions`
@@ -1672,7 +1768,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-252
+### row-264
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/bootstrap/complete`
@@ -1687,7 +1783,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-253
+### row-265
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/{adminResource}`
@@ -1702,7 +1798,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-254
+### row-266
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/authorization/{adminResource}/{resourceId}`
@@ -1717,7 +1813,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-255
+### row-267
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/{adminResource}/{resourceId}/{authorizationAction}`
@@ -1732,7 +1828,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-258
+### row-270
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-definitions`
@@ -1747,7 +1843,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-259
+### row-271
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-definitions/{definitionId}`
@@ -1762,7 +1858,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-260
+### row-272
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-definitions/{definitionId}/versions`
@@ -1777,7 +1873,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-261
+### row-273
 
 - **Method:** `GET`
 - **Path:** `/api/v1/work-definition-versions/{versionId}`
@@ -1792,7 +1888,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-262
+### row-274
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/definitions`
@@ -1807,7 +1903,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-263
+### row-275
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/definitions/{definitionId}/versions`
@@ -1822,7 +1918,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-264
+### row-276
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/instances`
@@ -1837,7 +1933,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-265
+### row-277
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/instances/{instanceId}`
@@ -1852,7 +1948,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-266
+### row-278
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/steps`
@@ -1867,7 +1963,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-267
+### row-279
 
 - **Method:** `GET`
 - **Path:** `/api/v1/workflow/steps/{stepId}`
@@ -1882,7 +1978,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-268
+### row-280
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks`
@@ -1897,7 +1993,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-269
+### row-281
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks/{taskId}/comments`
@@ -1912,7 +2008,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-270
+### row-282
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks/{taskId}`
@@ -1927,7 +2023,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-271
+### row-283
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents`
@@ -1942,7 +2038,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-272
+### row-284
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}`
@@ -1957,7 +2053,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-273
+### row-285
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}/versions`
@@ -1972,7 +2068,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-274
+### row-286
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}/links`
@@ -1987,7 +2083,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-275
+### row-287
 
 - **Method:** `GET`
 - **Path:** `/api/v1/reports`
@@ -2002,7 +2098,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-276
+### row-288
 
 - **Method:** `GET`
 - **Path:** `/api/v1/dashboards`
@@ -2017,7 +2113,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-283
+### row-295
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-definitions`
@@ -2032,7 +2128,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-284
+### row-296
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-definitions/{definitionId}/versions`
@@ -2047,7 +2143,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-285
+### row-297
 
 - **Method:** `POST`
 - **Path:** `/api/v1/work-definition-versions/{versionId}/{versionAction}`
@@ -2062,7 +2158,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-286
+### row-298
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/definitions`
@@ -2077,7 +2173,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-287
+### row-299
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/definitions/{definitionId}/versions`
@@ -2092,7 +2188,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-288
+### row-300
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}`
@@ -2107,7 +2203,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-289
+### row-301
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/instances`
@@ -2122,7 +2218,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-290
+### row-302
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks`
@@ -2137,7 +2233,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-291
+### row-303
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/tasks/{taskId}`
@@ -2152,7 +2248,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-292
+### row-304
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/from-step/{stepId}`
@@ -2167,7 +2263,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-293
+### row-305
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/participants`
@@ -2182,7 +2278,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-294
+### row-306
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/comments`
@@ -2197,7 +2293,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-295
+### row-307
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/{workflowTaskAction}`
@@ -2212,7 +2308,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-296
+### row-308
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/steps/{stepId}/decisions`
@@ -2227,7 +2323,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-297
+### row-309
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/steps/{stepId}/{stepAction}`
@@ -2242,7 +2338,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-298
+### row-310
 
 - **Method:** `POST`
 - **Path:** `/api/v1/workflow/instances/{instanceId}/cancel`
@@ -2257,7 +2353,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-299
+### row-311
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents`
@@ -2272,7 +2368,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-300
+### row-312
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/documents/{documentId}`
@@ -2287,7 +2383,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-301
+### row-313
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/versions`
@@ -2302,7 +2398,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-302
+### row-314
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/links`
@@ -2317,7 +2413,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-303
+### row-315
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/{documentAction}`
@@ -2332,7 +2428,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-304
+### row-316
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/{documentGrantType}-grant`
