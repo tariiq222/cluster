@@ -355,10 +355,6 @@ final class DatabaseRecordAuditEvent implements RecordAuditEvent
             || in_array($driverCode, [1205, 1213], true)) {
             return true;
         }
-        if (in_array($sqlState, ['23000', '23505'], true)) {
-            return true;
-        }
 
         return false;
     }
-}
