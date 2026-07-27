@@ -153,6 +153,17 @@ final class AuditExportRepository
         return $affected === 1;
     }
 
+    public function find(string $id): ?object
+    {
+        $row = DB::table('audit_export_jobs')->where('id', $id)->first();
+        if ($row === null) {
+            return null;
+        }
+
+        return (object) (array) $row;
+    }
+
+
     private static function databaseTimestamp(DateTimeImmutable $value): string
     {
         return $value->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.v');

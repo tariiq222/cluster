@@ -1,15 +1,18 @@
 # M00 Manifest — Planned-Module Contracts Baseline
 # Source of truth: docs/architecture/planned-module-contracts.yaml
 # M00 plan: docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md
-# State: blocked. No implementation claim, no recorded commit, no approval yet.
-status: blocked
-m00_state: pending
+status: in_verification
+m00_state: approved
 state_reason: |
-  Per docs/superpowers/evidence/M00/decision-approval.txt:
-  "The current user authorized execution of the M00 and M01 plans, but the
-  exact M01-M07 frozen matrix has not yet been presented and explicitly
-  approved as required by Task 3 Step 3 of the M00 plan. No commit was
-  authorized in the current conversation."
+  Per docs/superpowers/evidence/M00/decision-approval.txt (updated 2026-07-27):
+  "On 2026-07-27, the current user was presented with the canonical exact
+  matrix in docs/architecture/planned-module-contracts.yaml and selected
+  'اعتماد المصفوفة كما هي'. State: APPROVED — VERIFICATION AUTHORIZED.
+  This satisfies M00 plan §3 Task 3 Step 3 (explicit_user_approval_of_exact_matrix)
+  and allows in_progress → verification. No commit, push, or completion
+  authorization was granted; implementation_commit and last_verified_commit
+  therefore remain null until every required gate passes on one
+  user-authorized recorded commit."
 implementation_commit: null
 last_verified_commit: null
 
@@ -177,19 +180,19 @@ requires_for_completed:
 # baseline commit 538d95b); that prior blocker is removed.
 exact_blockers:
   - id: missing_exact_matrix_approval
+    status: cleared
+    cleared_on: 2026-07-27
     description: |
-      explicit_user_approval_of_exact_matrix has not been recorded.
-      The current user authorized execution of the M00 and M01 plans,
-      but the exact M01-M07 frozen matrix has not yet been presented
-      and explicitly approved as required by Task 3 Step 3 of the M00
-      plan.
-    source: docs/superpowers/evidence/M00/decision-approval.txt
+      Cleared 2026-07-27. The current user explicitly approved the exact
+      M01-M07 frozen matrix after presentation of all seven module ranks
+      and the aggregate 51 owned tables, 45 capabilities, and 21 published
+      event types. The approval text and verbatim matrix are retained at
+      docs/superpowers/evidence/M00/decision-approval.txt. The canonical
+      YAML `approval.state` is `approved`; the Markdown §10 reflects the
+      same. Required by M00 plan §3 Task 3 Step 3 (already satisfied).
     cleared_when: |
-      Current user explicitly approves the exact M01-M07 frozen matrix
-      (rank, ordered tables, prefixes, capabilities, public
-      signatures/DTOs, events, classification, idempotency/concurrency,
-      fake restrictions, producer blockers, required tokens) and the
-      approval is retained as evidence.
+      Already cleared 2026-07-27. Evidence path resolves; YAML state and
+      Markdown §10 agree on `approved`.
   - id: missing_authorized_recorded_commit
     description: |
       user_authorized_recorded_commit for this M00 artifact has not been

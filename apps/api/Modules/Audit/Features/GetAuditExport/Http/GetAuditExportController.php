@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Audit\Features\GetAuditExport\Http;
 
+use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

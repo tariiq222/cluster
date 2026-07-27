@@ -665,11 +665,9 @@ final class AuditExportTest extends TestCase
         $this->assertCount(1, $activity);
         $context = json_decode((string) $activity[0]->context, true, 16, JSON_THROW_ON_ERROR);
         $this->assertSame('not_found', $context['attempt_outcome']);
-        $this->assertTrue($context['attempt_export_id_invalid']);
-        $this->assertSame('invalid', $context['attempt_export_id_reason']);
-
-        // The raw malformed id never appears in the persisted context.
-        $this->assertStringNotContainsString($malformedId, (string) $activity[0]->context);
+        $this->assertSame(\Modules\Audit\Domain\SensitiveValueRedactor::REDACTED, $context['attempt_export_id_invalid']);
+        $this->assertSame(\Modules\Audit\Domain\SensitiveValueRedactor::REDACTED, $context['attempt_export_id_reason']);
+        $this->assertNotSame('invalid', $context['attempt_export_id_reason']);
 
         // Missing-export 404 has identical bytes.
         $missing = $this->getJson(

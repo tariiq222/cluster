@@ -14,6 +14,7 @@ use Modules\Audit\Domain\AuditRetentionPolicy;
 use Modules\Audit\Domain\SensitiveValueRedactor;
 use Modules\Audit\Features\Retention\Console\PurgeExpiredAuditEventsCommand;
 use Modules\Audit\Features\Retention\Handler\PurgeExpiredAuditEvents;
+use Modules\Audit\Infrastructure\Persistence\DatabaseQueryAuditActivity;
 use Modules\Audit\Infrastructure\Persistence\AuditExportReadStore;
 use Modules\Audit\Infrastructure\Persistence\AuditExportRepository;
 use Modules\Audit\Infrastructure\Persistence\AuditIdempotencyStore;

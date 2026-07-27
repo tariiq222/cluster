@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Audit\Infrastructure\Persistence;
 
+use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Facades\DB;

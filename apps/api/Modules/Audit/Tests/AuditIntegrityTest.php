@@ -194,6 +194,94 @@ final class AuditIntegrityTest extends TestCase
             ->count());
     }
 
+    public function test_fresh_violation_after_prior_verified_checkpoint_writes_immutable_violated_row_and_outbox(): void
+    {
+        $this->recordThreeEvents();
+
+        $verified = $this->invokeHandler(['stream_key' => self::STREAM_KEY], 'clean-idempotency-key');
+        $this->assertSame(201, $verified['status']);
+        $this->assertFalse($verified['replayed']);
+
+        $tampered = DB::table('audit_events')
+            ->where('stream_key', self::STREAM_KEY)
+            ->orderBy('stream_sequence')
+            ->first();
+        DB::statement('DROP TRIGGER IF EXISTS audit_events_update_prevent');
+        DB::table('audit_events')->where('id', $tampered->id)->update([
+            'context' => json_encode(['method' => 'PATCH'], JSON_THROW_ON_ERROR),
+        ]);
+
+        try {
+            $response = $this->postJson(
+                AuditApi::ROUTE_VERIFY_INTEGRITY,
+                ['stream_key' => self::STREAM_KEY],
+                $this->headers(idempotencyKey: 'fresh-violation-key'),
+            )->assertStatus(409)
+                ->assertHeader('Content-Type', 'application/problem+json')
+                ->assertJsonPath('type', 'https://cluster.example/problems/audit-integrity-violation');
+
+            $content = $response->getContent();
+            $this->assertStringNotContainsString('event_hash', $content);
+            $this->assertStringNotContainsString('previous_hash', $content);
+            $this->assertStringNotContainsString('integrity_key_version', $content);
+
+            $this->assertSame(1, DB::table('audit_integrity_checkpoints')
+                ->where('kind', 'verification')
+                ->where('status', 'verified')
+                ->count());
+            $this->assertSame(1, DB::table('audit_integrity_checkpoints')
+                ->where('kind', 'verification')
+                ->where('status', 'violated')
+                ->count());
+            $this->assertSame(1, DB::table('outbox_events')
+                ->where('event_type', 'com.cluster.audit.auditintegrityviolationdetected.v1')
+                ->count());
+            $this->assertSame(1, DB::table('audit_idempotency_keys')
+                ->where('operation', VerifyAuditIntegrityHandler::OPERATION)
+                ->where('response_status', 409)
+                ->count());
+        } finally {
+            $this->recreateSqliteAppendOnlyGuards();
+        }
+    }
+
+    public function test_replay_with_same_idempotency_key_after_violation_returns_409_without_repeating_outbox(): void
+    {
+        $this->recordThreeEvents();
+
+        $tampered = DB::table('audit_events')
+            ->where('stream_key', self::STREAM_KEY)
+            ->orderBy('stream_sequence')
+            ->first();
+        DB::statement('DROP TRIGGER IF EXISTS audit_events_update_prevent');
+        DB::table('audit_events')->where('id', $tampered->id)->update([
+            'context' => json_encode(['method' => 'PATCH'], JSON_THROW_ON_ERROR),
+        ]);
+
+        try {
+            $first = $this->invokeHandler(['stream_key' => self::STREAM_KEY], 'shared-violation-replay');
+            $second = $this->invokeHandler(['stream_key' => self::STREAM_KEY], 'shared-violation-replay');
+
+            $this->assertSame(409, $first['status']);
+            $this->assertSame(409, $second['status']);
+            $this->assertFalse($first['replayed']);
+            $this->assertTrue($second['replayed']);
+            $this->assertSame($first['result'], $second['result']);
+
+            $this->assertSame(1, DB::table('audit_integrity_checkpoints')
+                ->where('kind', 'verification')
+                ->count());
+            $this->assertSame(1, DB::table('outbox_events')
+                ->where('event_type', 'com.cluster.audit.auditintegrityviolationdetected.v1')
+                ->count());
+            $this->assertSame(1, DB::table('audit_idempotency_keys')
+                ->where('operation', VerifyAuditIntegrityHandler::OPERATION)
+                ->count());
+        } finally {
+            $this->recreateSqliteAppendOnlyGuards();
+        }
+    }
+
     public function test_removed_middle_row_breaks_chain_and_records_zero_terminal_count(): void
     {
         [$first, $second, $third] = $this->recordThreeEvents();
@@ -552,6 +640,63 @@ final class AuditIntegrityTest extends TestCase
             ->assertJsonMissingPath('stream_key');
     }
 
+    public function test_post_handler_rejects_malformed_stream_key_full_grammar_with_400(): void
+    {
+        $this->postJson(
+            AuditApi::ROUTE_VERIFY_INTEGRITY,
+            ['stream_key' => 'documents:not-a-uuid:global-ish'],
+            $this->headers(),
+        )->assertBadRequest()
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-stream-key')
+            ->assertJsonMissingPath('stream_key');
+
+        $this->postJson(
+            AuditApi::ROUTE_VERIFY_INTEGRITY,
+            ['stream_key' => 'documents:document:NOT-A-UUID'],
+            $this->headers(),
+        )->assertBadRequest()
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-stream-key');
+    }
+
+    public function test_post_handler_returns_422_range_too_large_when_stream_exceeds_max_verification_window(): void
+    {
+        $this->recordThreeEvents();
+
+        $template = (array) DB::table('audit_events')
+            ->where('stream_key', self::STREAM_KEY)
+            ->orderByDesc('stream_sequence')
+            ->first();
+
+        $batch = [];
+        for ($sequence = 4; $sequence <= AuditIntegrityRepository::MAX_VERIFICATION_RANGE + 1; $sequence++) {
+            $previousHash = hash('sha256', 'oversized-stream-'.(string) ($sequence - 1));
+            $eventHash = hash('sha256', 'oversized-stream-'.(string) $sequence);
+            $batch[] = [
+                ...$template,
+                'id' => '018f6f7d-0c00-7001-8000-'.str_pad((string) $sequence, 12, '0', STR_PAD_LEFT),
+                'request_hash' => hash('sha256', 'oversized-request-'.(string) $sequence),
+                'stream_sequence' => $sequence,
+                'previous_hash' => $previousHash,
+                'event_hash' => $eventHash,
+            ];
+            if (count($batch) === 25) {
+                DB::table('audit_events')->insert($batch);
+                $batch = [];
+            }
+        }
+        if ($batch !== []) {
+            DB::table('audit_events')->insert($batch);
+        }
+
+        $this->postJson(
+            AuditApi::ROUTE_VERIFY_INTEGRITY,
+            ['stream_key' => self::STREAM_KEY],
+            $this->headers(idempotencyKey: 'oversized-stream-key'),
+        )->assertStatus(422)
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertJsonPath('type', 'https://cluster.example/problems/range-too-large');
+    }
+
     public function test_post_handler_rejects_half_open_or_reversed_range(): void
     {
         $this->postJson(
@@ -792,6 +937,111 @@ final class AuditIntegrityTest extends TestCase
             ->where('kind', 'verification')
             ->where('stream_key', self::STREAM_KEY)
             ->count());
+    }
+
+    public function test_verify_range_resumes_at_first_surviving_sequence_after_legal_retention_purge_gap(): void
+    {
+        $expiredAt = new DateTimeImmutable('2010-01-01T10:11:12.123Z');
+        Carbon::setTestNow('2010-01-01T12:34:56.789Z');
+        $this->recorder()->record($this->input(self::firstEventId(), ['method' => 'POST'], $expiredAt));
+        $this->recorder()->record($this->input(self::secondEventId(), ['method' => 'POST'], $expiredAt));
+        $this->recorder()->record($this->input(self::thirdEventId(), ['method' => 'POST'], $expiredAt));
+        Carbon::setTestNow('2026-07-27T12:34:56.789Z');
+        $this->recorder()->record($this->input('018f6f7d-0c00-7000-8000-000000000613', ['method' => 'POST']));
+
+        $purgeHandler = $this->app->make(\Modules\Audit\Features\Retention\Handler\PurgeExpiredAuditEvents::class);
+        $purge = $purgeHandler->run(self::STREAM_KEY, $this->legalCutoff());
+        $this->assertSame(3, $purge['deleted_event_count']);
+
+        $result = $this->repository()->verifyRange(
+            verificationId: (string) Str::uuid7(),
+            correlationId: self::CORRELATION_ID,
+            streamKey: self::STREAM_KEY,
+            actorId: self::ACTOR_ID,
+            firstSequence: 1,
+            lastSequence: 4,
+        );
+
+        $this->assertSame(AuditIntegrityRepository::STATUS_VERIFIED, $result['status']);
+        $this->assertSame(1, $result['first_sequence']);
+        $this->assertSame(4, $result['last_sequence']);
+        $this->assertSame(1, $result['verified_event_count']);
+
+        $checkpoint = DB::table('audit_integrity_checkpoints')
+            ->where('id', $result['checkpoint_id'])
+            ->first();
+        $this->assertNotNull($checkpoint);
+        $this->assertSame('verification', $checkpoint->kind);
+        $this->assertSame('verified', $checkpoint->status);
+        $purgeCheckpoint = DB::table('audit_integrity_checkpoints')
+            ->where('id', $purge['checkpoint_id'])
+            ->first();
+        $this->assertSame($purgeCheckpoint->checkpoint_hash, $checkpoint->previous_checkpoint_hash);
+    }
+
+    public function test_verify_range_fully_purged_covered_range_writes_safe_verified_checkpoint(): void
+    {
+        $expiredAt = new DateTimeImmutable('2010-01-01T10:11:12.123Z');
+        Carbon::setTestNow('2010-01-01T12:34:56.789Z');
+        $this->recorder()->record($this->input(self::firstEventId(), ['method' => 'POST'], $expiredAt));
+        $this->recorder()->record($this->input(self::secondEventId(), ['method' => 'POST'], $expiredAt));
+        $this->recorder()->record($this->input(self::thirdEventId(), ['method' => 'POST'], $expiredAt));
+        Carbon::setTestNow('2026-07-27T12:34:56.789Z');
+
+        $purgeHandler = $this->app->make(\Modules\Audit\Features\Retention\Handler\PurgeExpiredAuditEvents::class);
+        $purge = $purgeHandler->run(self::STREAM_KEY, $this->legalCutoff());
+        $this->assertSame(3, $purge['deleted_event_count']);
+
+        $result = $this->repository()->verifyRange(
+            verificationId: (string) Str::uuid7(),
+            correlationId: self::CORRELATION_ID,
+            streamKey: self::STREAM_KEY,
+            actorId: self::ACTOR_ID,
+            firstSequence: 1,
+            lastSequence: 3,
+        );
+
+        $this->assertSame(AuditIntegrityRepository::STATUS_VERIFIED, $result['status']);
+        $this->assertSame(0, $result['verified_event_count']);
+
+        $checkpoint = DB::table('audit_integrity_checkpoints')
+            ->where('id', $result['checkpoint_id'])
+            ->first();
+        $this->assertNotNull($checkpoint);
+        $this->assertSame('verified', $checkpoint->status);
+    }
+
+    public function test_verify_range_real_gap_without_retention_purge_anchor_writes_violation(): void
+    {
+        [$first, $second, $third] = $this->recordThreeEvents();
+
+        DB::statement('DROP TRIGGER IF EXISTS audit_events_update_prevent');
+        DB::statement('DELETE FROM audit_events WHERE id = ?', [$second->eventId]);
+
+        $survivor = DB::table('audit_events')
+            ->where('stream_key', self::STREAM_KEY)
+            ->orderBy('stream_sequence')
+            ->first();
+        DB::table('audit_events')->where('id', $survivor->id)->update([
+            'previous_hash' => str_repeat('f', 64),
+        ]);
+
+        try {
+            $result = $this->repository()->verifyRange(
+                verificationId: (string) Str::uuid7(),
+                correlationId: self::CORRELATION_ID,
+                streamKey: self::STREAM_KEY,
+                actorId: self::ACTOR_ID,
+                firstSequence: 1,
+                lastSequence: 3,
+            );
+
+            $this->assertSame(AuditIntegrityRepository::STATUS_VIOLATED, $result['status']);
+            $this->assertSame(1, $result['first_sequence']);
+            $this->assertSame(3, $result['last_sequence']);
+        } finally {
+            $this->recreateSqliteAppendOnlyGuards();
+        }
     }
 
     public function test_verify_stream_above_max_range_without_anchor_throws_range_too_large_without_checkpoint(): void
