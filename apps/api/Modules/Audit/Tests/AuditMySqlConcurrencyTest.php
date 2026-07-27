@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Audit\Tests;
 
-use Illuminate\Database\Migrations\Migration;
+use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Support\Facades\DB;
@@ -28,22 +28,29 @@ final class AuditMySqlConcurrencyTest extends TestCase
 
     private const ACTOR_ID = '018f6f7d-0c00-7000-8000-000000000311';
 
-    private Migration $migration;
+    private Closure $migrationUp;
+
+    private Closure $migrationDown;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->assertSame(
-            'mysql',
-            DB::connection()->getDriverName(),
-            'AuditMySqlConcurrencyTest must run through phpunit.mysql.xml.',
-        );
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            $this->markTestSkipped('Requires the explicit MySQL integration lane.');
+        }
 
-        $this->migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateAuditTables.php';
+        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateAuditTables.php';
+        if (! is_object($migration)
+            || ! method_exists($migration, 'up')
+            || ! method_exists($migration, 'down')) {
+            $this->fail('CreateAuditTables must return a migration with up() and down().');
+        }
+        $this->migrationUp = $migration->up(...);
+        $this->migrationDown = $migration->down(...);
         if (! $this->hasExactAuditTables()) {
-            $this->migration->down();
-            $this->migration->up();
+            ($this->migrationDown)();
+            ($this->migrationUp)();
         }
     }
 
@@ -200,7 +207,7 @@ final class AuditMySqlConcurrencyTest extends TestCase
     {
         $expectedTypes = [
             'audit_events' => [
-                'id' => 'varchar(36)',
+                'id' => 'char(36)',
                 'request_hash' => 'char(64)',
                 'stream_key' => 'varchar(160)',
                 'stream_sequence' => 'bigint unsigned',
@@ -208,11 +215,11 @@ final class AuditMySqlConcurrencyTest extends TestCase
                 'action' => 'varchar(128)',
                 'event_type' => 'varchar(160)',
                 'actor_type' => 'varchar(16)',
-                'actor_id' => 'varchar(36)',
-                'original_actor_id' => 'varchar(36)',
+                'actor_id' => 'char(36)',
+                'original_actor_id' => 'char(36)',
                 'subject_type' => 'varchar(64)',
-                'subject_id' => 'varchar(36)',
-                'correlation_id' => 'varchar(36)',
+                'subject_id' => 'char(36)',
+                'correlation_id' => 'char(36)',
                 'outcome' => 'varchar(16)',
                 'classification' => 'varchar(32)',
                 'context' => 'json',
@@ -226,9 +233,9 @@ final class AuditMySqlConcurrencyTest extends TestCase
                 'integrity_key_version' => 'varchar(32)',
             ],
             'audit_export_jobs' => [
-                'id' => 'varchar(36)',
-                'principal_id' => 'varchar(36)',
-                'facility_id' => 'varchar(36)',
+                'id' => 'char(36)',
+                'principal_id' => 'char(36)',
+                'facility_id' => 'char(36)',
                 'query' => 'json',
                 'query_hash' => 'char(64)',
                 'reason_redacted' => 'varchar(500)',
@@ -242,7 +249,7 @@ final class AuditMySqlConcurrencyTest extends TestCase
                 'updated_at' => 'timestamp(3)',
             ],
             'audit_integrity_checkpoints' => [
-                'id' => 'varchar(36)',
+                'id' => 'char(36)',
                 'stream_key' => 'varchar(160)',
                 'kind' => 'varchar(24)',
                 'first_sequence' => 'bigint unsigned',
@@ -253,21 +260,21 @@ final class AuditMySqlConcurrencyTest extends TestCase
                 'checkpoint_hash' => 'char(64)',
                 'integrity_key_version' => 'varchar(32)',
                 'status' => 'varchar(16)',
-                'actor_id' => 'varchar(36)',
-                'correlation_id' => 'varchar(36)',
+                'actor_id' => 'char(36)',
+                'correlation_id' => 'char(36)',
                 'details' => 'json',
                 'verified_at' => 'datetime(3)',
                 'created_at' => 'datetime(3)',
             ],
             'audit_idempotency_keys' => [
-                'id' => 'varchar(36)',
-                'principal_id' => 'varchar(36)',
+                'id' => 'char(36)',
+                'principal_id' => 'char(36)',
                 'operation' => 'varchar(96)',
                 'key_hash' => 'char(64)',
                 'request_hash' => 'char(64)',
                 'response_status' => 'smallint unsigned',
                 'response_payload' => 'json',
-                'resource_id' => 'varchar(36)',
+                'resource_id' => 'char(36)',
                 'created_at' => 'timestamp(3)',
                 'updated_at' => 'timestamp(3)',
             ],
@@ -340,13 +347,13 @@ final class AuditMySqlConcurrencyTest extends TestCase
     {
         $before = $this->mysqlSchemaSignature();
 
-        $this->migration->down();
+        ($this->migrationDown)();
         foreach (self::auditTables() as $table) {
             $this->assertFalse(Schema::hasTable($table));
         }
         $this->assertFalse(Schema::hasTable('audit_retention_policies'));
 
-        $this->migration->up();
+        ($this->migrationUp)();
 
         $this->assertSame($before, $this->mysqlSchemaSignature());
         foreach (self::auditTables() as $table) {
@@ -374,7 +381,9 @@ final class AuditMySqlConcurrencyTest extends TestCase
                     ->where('stream_sequence', '<=', 2)
                     ->delete();
 
-                throw new RuntimeException('injected_retention_outbox_failure');
+                if (self::shouldInjectRetentionFailure()) {
+                    throw new RuntimeException('injected_retention_outbox_failure');
+                }
             });
             $this->fail('Expected the injected retention failure to roll back.');
         } catch (RuntimeException $exception) {
@@ -548,7 +557,7 @@ final class AuditMySqlConcurrencyTest extends TestCase
     }
 
     /**
-     * @param array{stream_sequence: int, event_hash: string}|null $tail
+     * @param  array{stream_sequence: int, event_hash: string}|null  $tail
      * @return array{sequence: int, previous_hash: ?string, event_hash: string, attempts: int}
      */
     private static function insertEventFromTail(PDO $connection, string $eventId, ?array $tail, int $attempt): array
@@ -858,6 +867,11 @@ final class AuditMySqlConcurrencyTest extends TestCase
             'terminal_event_hash' => $terminalEventHash,
             'previous_checkpoint_hash' => $previousCheckpointHash,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), self::INTEGRITY_KEY);
+    }
+
+    private static function shouldInjectRetentionFailure(): bool
+    {
+        return true;
     }
 
     private function assertMySqlRejected(string $message, callable $callback): void

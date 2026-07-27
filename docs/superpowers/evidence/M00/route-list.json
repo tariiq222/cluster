@@ -1,0 +1,1932 @@
+[
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/login",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\DevelopmentFixtureLogin\\Http\\DevelopmentFixtureLoginController",
+    "middleware": [
+      "api",
+      "web"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/authorization/access-decisions",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\DecideAccess\\Http\\DecideAccessController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/authorization/access-decisions/{decisionId}/explanation",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\ExplainAccessDecision\\Http\\ExplainAccessDecisionController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/authorization/bootstrap",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\Bootstrap\\Http\\GetAuthorizationBootstrapController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/authorization/bootstrap/complete",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\Bootstrap\\Http\\CompleteAuthorizationBootstrapController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/authorization/{adminResource}",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\Administration\\Http\\AuthorizationAdminController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/authorization/{adminResource}",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\Administration\\Http\\AuthorizationAdminController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/authorization/{adminResource}/{resourceId}",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\Administration\\Http\\AuthorizationAdminController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/authorization/{adminResource}/{resourceId}",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\Administration\\Http\\AuthorizationAdminController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/authorization/{adminResource}/{resourceId}/{authorizationAction}",
+    "name": null,
+    "action": "Modules\\Authorization\\Features\\Administration\\Http\\AuthorizationAdminController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/dashboards",
+    "name": null,
+    "action": "Modules\\Reporting\\Features\\ListDashboards\\Http\\ListDashboardsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/dashboards/{dashboardId}",
+    "name": null,
+    "action": "Modules\\Reporting\\Features\\Dashboards\\Http\\GetDashboardController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/documents",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentLifecycle\\Http\\ListDocumentsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/documents",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentLifecycle\\Http\\CreateDocumentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/documents/uploads",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\Upload\\Http\\InitiateDocumentUploadController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/documents/uploads/{uploadId}",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\Upload\\Http\\GetDocumentUploadStatusController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/documents/uploads/{uploadId}/complete",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\Upload\\Http\\CompleteDocumentUploadController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/documents/{documentId}",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentLifecycle\\Http\\GetDocumentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/documents/{documentId}",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentLifecycle\\Http\\UpdateDocumentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/documents/{documentId}/download",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentDownload\\Http\\DownloadDocumentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/documents/{documentId}/links",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentLink\\Http\\ListDocumentLinksController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/documents/{documentId}/links",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentLink\\Http\\LinkDocumentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/documents/{documentId}/versions",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentVersion\\Http\\ListDocumentVersionsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/documents/{documentId}/versions",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentVersion\\Http\\AddDocumentVersionController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/documents/{documentId}/{documentAction}",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentLifecycle\\Http\\TransitionDocumentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/documents/{documentId}/{documentGrantType}-grant",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentGrant\\Http\\CreateDocumentGrantController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/exports/{exportId}",
+    "name": null,
+    "action": "Modules\\Reporting\\Features\\Exports\\Http\\DownloadExportController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/identity/accounts",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\UserAccount\\Http\\ListUserAccountsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/identity/accounts",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\UserAccount\\Http\\CreateUserAccountController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/identity/accounts/{accountId}",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\UserAccount\\Http\\GetUserAccountController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/identity/accounts/{accountId}/activation",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Activation\\Http\\IssueActivationController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/identity/accounts/{accountId}/{accountAction}",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\UserAccount\\Http\\TransitionUserAccountController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/identity/activation",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Activation\\Http\\ConsumeActivationController",
+    "middleware": [
+      "api",
+      "throttle:6,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/identity/csrf",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Sessions\\Http\\RefreshIdentityCsrfController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/identity/login",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Authentication\\Http\\IdentityLoginController",
+    "middleware": [
+      "api"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/identity/logout",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Authentication\\Http\\IdentityLogoutController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/identity/me",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Sessions\\Http\\GetCurrentIdentityController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/identity/password",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Credentials\\Http\\ChangePasswordController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/internal/documents/versions/{versionId}/reconcile-promotion",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentVersion\\Http\\ReconcileDocumentPromotionController",
+    "middleware": [
+      "api",
+      "throttle:60,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/internal/documents/versions/{versionId}/scan",
+    "name": null,
+    "action": "Modules\\Documents\\Features\\DocumentVersion\\Http\\ScanDocumentVersionController",
+    "middleware": [
+      "api",
+      "throttle:60,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/me",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Sessions\\Http\\GetCurrentPrincipalController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/me/scope",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Sessions\\Http\\SelectMyScopeController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/me/scopes",
+    "name": null,
+    "action": "Modules\\Identity\\Features\\Sessions\\Http\\ListMyScopesController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/notifications",
+    "name": null,
+    "action": "Modules\\Notifications\\Features\\ListMyNotifications\\Http\\ListMyNotificationsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/notifications/{notificationId}/read",
+    "name": null,
+    "action": "Modules\\Notifications\\Features\\ListMyNotifications\\Http\\MarkNotificationReadController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/assignments",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Assignment\\Http\\ListAssignmentsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/assignments",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Assignment\\Http\\CreateAssignmentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/assignments/{assignmentId}/end",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Assignment\\Http\\EndAssignmentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/cluster",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\CreateCluster\\Http\\GetClusterController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/cluster",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\CreateCluster\\Http\\CreateClusterController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/organization/cluster",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\UpdateCluster\\Http\\UpdateClusterController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/facilities",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\CreateFacility\\Http\\ListFacilitiesController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/facilities",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\CreateFacility\\Http\\CreateFacilityController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/facilities/{facilityId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\UpdateFacility\\Http\\GetFacilityController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/organization/facilities/{facilityId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\UpdateFacility\\Http\\UpdateFacilityController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/import-jobs",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\ImportJob\\Http\\SubmitImportJobController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/import-jobs/{jobId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\ImportJob\\Http\\GetImportJobController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/import-jobs/{jobId}/rows",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\ImportJob\\Http\\ListImportJobRowsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/import-jobs/{jobId}/{jobAction}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\ImportJob\\Http\\TransitionImportJobController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/job-titles",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\JobTitle\\Http\\ListJobTitlesController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/job-titles",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\JobTitle\\Http\\CreateJobTitleController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/people",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Person\\Http\\ListPeopleController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/people",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Person\\Http\\CreatePersonController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/people/{personId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Person\\Http\\GetPersonController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/organization/people/{personId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Person\\Http\\UpdatePersonController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/people/{personId}/reference",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Person\\Http\\GetPersonReferenceController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/positions",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Position\\Http\\ListPositionsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/positions",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Position\\Http\\CreatePositionController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/positions/{positionId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Position\\Http\\GetPositionController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/organization/positions/{positionId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Position\\Http\\UpdatePositionController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/supervisory-relationships",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Assignment\\Http\\SupervisoryRelationshipController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/supervisory-relationships",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\Assignment\\Http\\SupervisoryRelationshipController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/temporary-assignments",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\TemporaryAssignment\\Http\\ListTemporaryAssignmentsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/temporary-assignments",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\TemporaryAssignment\\Http\\CreateTemporaryAssignmentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/temporary-assignments/{temporaryAssignmentId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\TemporaryAssignment\\Http\\GetTemporaryAssignmentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/temporary-assignments/{temporaryAssignmentId}/revoke",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\TemporaryAssignment\\Http\\RevokeTemporaryAssignmentController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/units",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\OrganizationUnit\\Http\\ListOrganizationUnitsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/units",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\OrganizationUnit\\Http\\CreateOrganizationUnitController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/organization/units/reorder",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\OrganizationUnit\\Http\\ReorderOrganizationUnitsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/organization/units/{unitId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\OrganizationUnit\\Http\\GetOrganizationUnitController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/organization/units/{unitId}",
+    "name": null,
+    "action": "Modules\\Organization\\Features\\OrganizationUnit\\Http\\UpdateOrganizationUnitController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-operations/alert-policies",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Alerts\\Http\\AlertPoliciesController@index",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/platform-operations/alert-policies/{policyId}",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Alerts\\Http\\AlertPoliciesController@update",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-operations/backups",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Operations\\Http\\PlatformOperationsController@backups",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-operations/backups",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Operations\\Http\\DispatchBackupController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-operations/health",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Operations\\Http\\PlatformOperationsController@health",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-operations/maintenance-windows",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Maintenance\\Http\\MaintenanceWindowsController@index",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-operations/maintenance-windows",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Maintenance\\Http\\MaintenanceWindowsController@store",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-operations/maintenance-windows/{windowId}/cancel",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Maintenance\\Http\\MaintenanceWindowsController@cancel",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-operations/overview",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Operations\\Http\\GetPlatformOverviewController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-operations/restore-requests",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Operations\\Http\\PlatformOperationsController@requestRestore",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-operations/restore-requests/{requestId}/confirm",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Operations\\Http\\PlatformOperationsController@confirmRestore",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-operations/technical-logs",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Logs\\Http\\TechnicalLogsController@index",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-operations/technical-logs/restore",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Logs\\Http\\TechnicalLogsController@restore",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-settings/calendars",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Calendars\\Http\\BusinessCalendarController@index",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-settings/calendars",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Calendars\\Http\\BusinessCalendarController@store",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/platform-settings/calendars/{calendarId}/exceptions/{date}",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Calendars\\Http\\BusinessCalendarController@setException",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-settings/calendars/{calendarId}/publish",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Calendars\\Http\\BusinessCalendarController@publish",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/platform-settings/calendars/{calendarId}/weekdays/{weekday}",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Calendars\\Http\\BusinessCalendarController@setWeekday",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-settings/current",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Settings\\Http\\GetCurrentPlatformSettingsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/platform-settings/versions",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Settings\\Http\\ListSettingsVersionsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-settings/versions",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Settings\\Http\\CreateSettingsVersionController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-settings/versions/{versionId}/publish",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Settings\\Http\\PublishSettingsVersionController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/platform-settings/versions/{versionId}/settings/{settingKey}",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Settings\\Http\\UpdateSettingsValueController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/platform-settings/versions/{versionId}/validate",
+    "name": null,
+    "action": "Modules\\PlatformSettings\\Features\\Settings\\Http\\ValidateSettingsVersionController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reports",
+    "name": null,
+    "action": "Modules\\Reporting\\Features\\ListReports\\Http\\ListReportsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reports/{reportId}",
+    "name": null,
+    "action": "Modules\\Reporting\\Features\\Reports\\Http\\GetReportController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/reports/{reportId}/exports",
+    "name": null,
+    "action": "Modules\\Reporting\\Features\\Exports\\Http\\CreateReportExportController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/search",
+    "name": null,
+    "action": "Modules\\Search\\Features\\Search\\Http\\SearchController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/tasks",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskController@index",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/tasks",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskController@store",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/tasks/from-step/{stepId}",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskController@fromStep",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/tasks/{taskId}",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskController@show",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/tasks/{taskId}",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskController@update",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/tasks/{taskId}/comments",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskEngagementController@listComments",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/tasks/{taskId}/comments",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskEngagementController@addComment",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/tasks/{taskId}/participants",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskEngagementController@addParticipant",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/tasks/{taskId}/{workflowTaskAction}",
+    "name": null,
+    "action": "Modules\\Tasks\\Features\\Http\\TaskController@transition",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/work-definition-versions/{versionId}",
+    "name": null,
+    "action": "Modules\\WorkDefinitions\\Features\\Definition\\Http\\WorkDefinitionController@showVersionRoute",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/work-definition-versions/{versionId}/{versionAction}",
+    "name": null,
+    "action": "Modules\\WorkDefinitions\\Features\\Definition\\Http\\WorkDefinitionController@transition",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/work-definitions",
+    "name": null,
+    "action": "Modules\\WorkDefinitions\\Features\\Definition\\Http\\WorkDefinitionController@index",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/work-definitions",
+    "name": null,
+    "action": "Modules\\WorkDefinitions\\Features\\Definition\\Http\\WorkDefinitionController@store",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/work-definitions/{definitionId}",
+    "name": null,
+    "action": "Modules\\WorkDefinitions\\Features\\Definition\\Http\\WorkDefinitionController@show",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/work-definitions/{definitionId}/versions",
+    "name": null,
+    "action": "Modules\\WorkDefinitions\\Features\\Definition\\Http\\WorkDefinitionController@versions",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/work-definitions/{definitionId}/versions",
+    "name": null,
+    "action": "Modules\\WorkDefinitions\\Features\\Definition\\Http\\WorkDefinitionController@versions",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/work-records",
+    "name": null,
+    "action": "Modules\\WorkRecords\\Features\\ListAuthorizedWorkRecords\\Http\\ListAuthorizedWorkRecordsController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/work-records",
+    "name": null,
+    "action": "Modules\\WorkRecords\\Features\\SubmitWorkRecord\\Http\\SubmitWorkRecordController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware",
+      "App\\Http\\Middleware\\ProjectWorkRecordReadModels",
+      "Modules\\Notifications\\Features\\Http\\ConsumeSubmittedNotification"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/work-records/{recordId}",
+    "name": null,
+    "action": "Modules\\WorkRecords\\Features\\GetAuthorizedWorkRecord\\Http\\GetAuthorizedWorkRecordController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/work-records/{recordId}/documents",
+    "name": null,
+    "action": "Modules\\WorkRecords\\Features\\DocumentLink\\Http\\WorkRecordDocumentLinkController",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/work-records/{recordId}/{recordAction}",
+    "name": null,
+    "action": "Modules\\WorkRecords\\Features\\Lifecycle\\Http\\WorkRecordLifecycleController@transition",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware",
+      "App\\Http\\Middleware\\ProjectWorkRecordReadModels"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/workflow/definitions",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@definitions",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/workflow/definitions",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@definitions",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/workflow/definitions/{definitionId}/versions",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@versions",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/workflow/definitions/{definitionId}/versions",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@versions",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/workflow/instances",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@instances",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/workflow/instances",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@instances",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/workflow/instances/{instanceId}",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@showInstance",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/workflow/instances/{instanceId}/cancel",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@cancelInstance",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/workflow/steps",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@listInbox",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/workflow/steps/{stepId}",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@showStep",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/workflow/steps/{stepId}/decisions",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@decideStep",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/workflow/steps/{stepId}/{stepAction}",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@actOnStep",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}",
+    "name": null,
+    "action": "Modules\\Workflow\\Features\\WorkflowLifecycle\\Http\\WorkflowController@publish",
+    "middleware": [
+      "api",
+      "App\\Http\\Middleware\\IdentitySessionMiddleware",
+      "App\\Http\\Middleware\\RequireIdentitySessionPrincipal",
+      "App\\Http\\Middleware\\IdentityCsrfMiddleware"
+    ],
+    "path": null
+  }
+]

@@ -1,0 +1,29 @@
+M00 planned-module contract decision approval
+Date: 2026-07-27
+State: APPROVED — VERIFICATION AUTHORIZED
+
+On 2026-07-27, the current user was presented with the canonical exact matrix
+in docs/architecture/planned-module-contracts.yaml:
+
+- M01 Audit rank 3
+- M02 RecordsGovernance rank 4
+- M03 Collaboration rank 6
+- M04 Strategy rank 8
+- M05 PortfolioProjects rank 9
+- M06 Risk rank 10
+- M07 Workspace rank 11
+- aggregate: 51 owned tables, 45 capabilities, 21 published event types
+
+The user selected the exact approval option:
+"اعتماد المصفوفة كما هي"
+
+This explicitly approves the frozen ranks, ordered tables, API/OpenAPI/web
+prefixes, capabilities, public Contracts/DTOs, event classes and literals,
+classification decisions, idempotency and concurrency modes, migration order,
+test-fake rules, and serialized integration-token queues in the canonical YAML.
+
+Scope of authorization: update M00 approval state, retain this evidence, and run
+the M00/M01 verification gates. No commit, push, merge, or completion
+authorization was granted. M00 must not transition to completed until all named
+gates pass on one user-authorized recorded commit; implementation_commit and
+last_verified_commit remain null.

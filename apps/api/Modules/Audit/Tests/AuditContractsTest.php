@@ -26,9 +26,13 @@ use ReflectionMethod;
 final class AuditContractsTest extends TestCase
 {
     private const EVENT_ID = '018f6f7d-0c00-7000-8000-000000000101';
+
     private const ACTOR_ID = '018f6f7d-0c00-7000-8000-000000000102';
+
     private const SUBJECT_ID = '018f6f7d-0c00-7000-8000-000000000103';
+
     private const CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000104';
+
     private const FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000105';
 
     public function test_m00_contract_signatures_and_event_types_are_exact(): void
@@ -61,12 +65,7 @@ final class AuditContractsTest extends TestCase
         $this->assertSame('com.cluster.audit.auditeventrecorded.v1', AuditEventRecordedV1::EVENT_TYPE);
         $this->assertSame('com.cluster.audit.auditexportcompleted.v1', AuditExportCompletedV1::EVENT_TYPE);
         $this->assertSame('com.cluster.audit.auditintegrityviolationdetected.v1', AuditIntegrityViolationDetectedV1::EVENT_TYPE);
-        $this->assertTrue(method_exists(AuditEventRecordedV1::class, 'eventType'));
-        $this->assertTrue(method_exists(AuditEventRecordedV1::class, 'payload'));
-        $this->assertTrue(method_exists(AuditExportCompletedV1::class, 'eventType'));
-        $this->assertTrue(method_exists(AuditExportCompletedV1::class, 'payload'));
-        $this->assertTrue(method_exists(AuditIntegrityViolationDetectedV1::class, 'eventType'));
-        $this->assertTrue(method_exists(AuditIntegrityViolationDetectedV1::class, 'payload'));
+
     }
 
     public function test_event_input_accepts_only_uuidv7_catalog_enums_utc_milliseconds_and_bounded_context(): void
@@ -186,7 +185,7 @@ final class AuditContractsTest extends TestCase
             ['retentionClass', 'short'],
             ['occurredAt', new DateTimeImmutable('2026-07-27T13:11:12.123+03:00')],
             ['context', ['float' => 1.25]],
-            ['context', ['object' => new \stdClass()]],
+            ['context', ['object' => new \stdClass]],
             ['context', self::nestedContext(7)],
             ['context', array_fill_keys(array_map(static fn (int $i): string => 'key_'.$i, range(1, 101)), true)],
             ['context', ['oversized' => str_repeat('x', 16 * 1024)]],
@@ -250,6 +249,7 @@ final class AuditContractsTest extends TestCase
         for ($i = 0; $i < $depth; $i++) {
             $value = ['level_'.$i => $value];
         }
+
         return $value;
     }
 

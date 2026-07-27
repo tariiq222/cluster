@@ -89,11 +89,11 @@ final class AuthenticatedCursorCodec
 
     /**
      * @return array<int, mixed> The exact sort tuple that was supplied to
-     *                          {@see encode()}. List order is preserved
-     *                          and every element is returned verbatim —
-     *                          the caller receives the same array shape
-     *                          it bound, no canonicalization, no
-     *                          reordering.
+     *                           {@see encode()}. List order is preserved
+     *                           and every element is returned verbatim —
+     *                           the caller receives the same array shape
+     *                           it bound, no canonicalization, no
+     *                           reordering.
      */
     public function decode(string $cursor, string $expectedResourceKey, mixed $expectedBinding): array
     {

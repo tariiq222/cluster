@@ -1,0 +1,153 @@
+# M04 Strategy — cold-start execution packet
+# Source of truth: docs/architecture/planned-module-contracts.yaml (M04 entry)
+# Plan: docs/superpowers/plans/2026-07-26-cluster-strategy-module.md
+# Status: blocked on M00 approval and recorded commit authorization.
+# M00 state per docs/superpowers/evidence/M00/decision-approval.txt: PENDING.
+# implementation_commit and last_verified_commit remain null.
+module: M04
+name: Strategy
+status: blocked
+blocked_reasons:
+  - M00 approval (explicit_user_approval_of_exact_matrix) not recorded
+  - user_authorized_recorded_commit for this M00 artifact not granted
+  - historical pre-M01 route red snapshot not captured
+  - final RecordsGovernance integration remains blocked on M02
+canonical_source: docs/architecture/planned-module-contracts.yaml
+plan: docs/superpowers/plans/2026-07-26-cluster-strategy-module.md
+
+# ---- Rank -------------------------------------------------------------------
+rank: 8
+
+# ---- Prefixes (frozen) ------------------------------------------------------
+prefixes:
+  api: /api/v1/strategy
+  openapi: /strategy
+  web: /strategy
+event_token: strategy
+
+# ---- Owned tables (exact ordered set) ---------------------------------------
+owned_tables:
+  - strategy_periods
+  - strategy_plans
+  - strategy_plan_versions
+  - strategy_objectives
+  - strategy_outcomes
+  - strategy_indicators
+  - strategy_indicator_periods
+  - strategy_target_distributions
+  - strategy_measurements
+  - strategy_progress_evidence
+  - strategy_approvals
+  - strategy_idempotency_keys
+
+# ---- Capabilities (exact set, exact order) ----------------------------------
+capabilities:
+  - strategy.plan.read
+  - strategy.plan.manage
+  - strategy.indicator.read
+  - strategy.indicator.manage
+  - strategy.measurement.submit
+  - strategy.measurement.approve
+  - strategy.impact.read
+
+# ---- Public Contracts (exact signatures) ------------------------------------
+public_contracts:
+  - name: ResolveStrategyReference
+    signature: 'resolve(StrategyAccessContext $context, StrategyResourceType $type, string $id): ?StrategyReference'
+  - name: GetStrategySnapshot
+    signature: 'forOrganizationUnit(StrategyAccessContext $context, string $organizationUnitId, ?string $periodId = null): StrategySnapshot'
+
+# ---- Public DTOs (exact set) ------------------------------------------------
+public_dtos:
+  - StrategyResourceType
+  - StrategyReference
+  - StrategyAccessContext
+  - StrategySnapshot
+
+# ---- Events -----------------------------------------------------------------
+events:
+  - class: StrategyPlanPublishedV1
+    type: com.cluster.strategy.strategyplanpublished.v1
+    schema: docs/contracts/schemas/com-cluster-strategy-strategyplanpublished-v1.schema.json
+  - class: StrategyPlanRetiredV1
+    type: com.cluster.strategy.strategyplanretired.v1
+    schema: docs/contracts/schemas/com-cluster-strategy-strategyplanretired-v1.schema.json
+  - class: StrategyProgressEvidenceApprovedV1
+    type: com.cluster.strategy.strategyprogressevidenceapproved.v1
+    schema: docs/contracts/schemas/com-cluster-strategy-strategyprogressevidenceapproved-v1.schema.json
+
+# ---- Classification ---------------------------------------------------------
+classification:
+  contains_phi: false
+  contains_pii: true
+  label: confidential_business_no_phi
+  rationale: |
+    Strategy metadata is Confidential business data. Direct PHI is
+    prohibited; evidence is an opaque Documents reference and names/notes
+    must reject patient identifiers by product policy.
+
+# ---- Idempotency / concurrency ---------------------------------------------
+idempotency_mode: server_replay_with_idempotency_key
+concurrency_mode: optimistic_lock_version_with_cas
+
+# ---- Test fakes ------------------------------------------------------------
+test_fake_allowed: false
+test_fake_rule: null
+
+# ---- Required integration tokens -------------------------------------------
+required_integration_tokens:
+  - MODULE-REGISTRY
+  - API-ROUTES
+  - OPENAPI
+  - ORVAL
+  - WEB-SHELL
+
+# ---- Canonical signature rule (frozen) -------------------------------------
+canonical_signature_rule: |
+  The fixed canonical M04 signature is
+  GetStrategySnapshot::forOrganizationUnit(StrategyAccessContext $context,
+  string $organizationUnitId, ?string $periodId = null): StrategySnapshot.
+  StrategyAccessContext carries the authenticated principal/scope facts
+  used by M04's record-level authorization. Omitting it, passing a raw
+  principal instead, or reconstructing authorization outside M04 is a
+  blocking contract violation.
+
+# ---- Producer / cross-module blockers --------------------------------------
+producer_blockers:
+  final_records_governance_integration: |
+    Final RecordsGovernance (M02) integration remains blocked on M02.
+
+# ---- Current route snapshot -------------------------------------------------
+# No Strategy routes currently exist in docs/superpowers/evidence/M00/route-list.json.
+current_route_snapshot:
+  source: docs/superpowers/evidence/M00/route-list.json
+  routes: []
+
+# ---- Prerequisite handoff anchor -------------------------------------------
+prerequisite_handoffs_referenced:
+  - id: ARCHITECTURE-CLOSURE:T4
+    grant_token: MODULE-REGISTRY
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T6
+    grant_token: SHARED-OUTBOX
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T7
+    grant_token: SHARED-HTTP
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T12
+    grant_token: ROUTE-OPENAPI
+    state: pending_authorization
+
+# ---- Phase gate (from integration_queues.downstream_phase_gates) ------------
+start_phase_gate: |
+  M00 approved; final RecordsGovernance integration remains blocked on M02.
+
+# ---- Cold-start instruction -------------------------------------------------
+# A cold-start agent must:
+#  1. Treat this packet as the M04 contract; refuse any value not present above.
+#  2. Re-read docs/architecture/planned-module-contracts.yaml lines 354-414
+#     before any edit; if any value here diverges, prefer the YAML.
+#  3. Honor canonical_signature_rule: GetStrategySnapshot must take
+#     StrategyAccessContext; do not omit, replace with raw principal, or
+#     reconstruct authorization outside M04.
+#  4. Wait for M00 approval and a recorded commit before flipping status.

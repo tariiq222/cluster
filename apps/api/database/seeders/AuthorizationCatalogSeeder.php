@@ -24,6 +24,12 @@ final class AuthorizationCatalogSeeder extends Seeder
         'organization.person.read',
         'organization.person.reference',
         'organization.import.read',
+        'audit.event.export',
+    ];
+
+    /** @var list<string> */
+    private const CRITICAL_CAPABILITIES = [
+        'audit.integrity.verify',
     ];
 
     public function run(): void
@@ -54,9 +60,13 @@ final class AuthorizationCatalogSeeder extends Seeder
                 'module_code' => explode('.', $capabilityCode, 2)[0],
                 'capability_code' => $capabilityCode,
                 'action' => $action,
-                'sensitivity' => in_array($action, self::SENSITIVE_ACTIONS, true)
-                    || str_starts_with($capabilityCode, 'identity.account.')
-                    || in_array($capabilityCode, self::SENSITIVE_CAPABILITIES, true) ? 'sensitive' : 'normal',
+                'sensitivity' => in_array($capabilityCode, self::CRITICAL_CAPABILITIES, true)
+                    ? 'critical'
+                    : (in_array($action, self::SENSITIVE_ACTIONS, true)
+                        || str_starts_with($capabilityCode, 'identity.account.')
+                        || in_array($capabilityCode, self::SENSITIVE_CAPABILITIES, true)
+                            ? 'sensitive'
+                            : 'normal'),
                 'status' => 'active',
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -124,10 +134,16 @@ final class AuthorizationCatalogSeeder extends Seeder
     /** @return list<string> */
     private function securityAuditorCapabilities(): array
     {
-        return array_values(array_filter(
+        $authorizationReadGrants = array_filter(
             CapabilityCatalog::all(),
             static fn (string $capabilityCode): bool => str_starts_with($capabilityCode, 'authorization.')
                 && str_ends_with($capabilityCode, '.read'),
-        ));
+        );
+
+        return array_values(array_merge($authorizationReadGrants, [
+            'audit.event.read',
+            'audit.event.export',
+            'audit.integrity.verify',
+        ]));
     }
 }

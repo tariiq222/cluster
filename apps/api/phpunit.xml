@@ -23,6 +23,8 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_KEY" value="base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>
+        <env name="AUDIT_INTEGRITY_KEYS" value="v1:testing-only-32-byte-key-material"/>
+        <env name="AUDIT_INTEGRITY_KEY_VERSION" value="v1"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

@@ -230,7 +230,7 @@ final readonly class AuditEventInput
                     if (! is_string($key) || $key === '' || str_contains($key, "\0")) {
                         throw new InvalidArgumentException('audit_context_key_invalid');
                     }
-                    ++$keyCount;
+                    $keyCount++;
                     if ($keyCount > self::MAX_CONTEXT_KEYS) {
                         throw new InvalidArgumentException('audit_context_key_limit_exceeded');
                     }

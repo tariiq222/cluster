@@ -1,0 +1,142 @@
+# M01 Audit — cold-start execution packet
+# Source of truth: docs/architecture/planned-module-contracts.yaml (M01 entry)
+# Plan: docs/superpowers/plans/2026-07-26-cluster-audit-module.md
+# Status: blocked on M00 approval and recorded commit authorization.
+# M00 state per docs/superpowers/evidence/M00/decision-approval.txt: PENDING.
+# implementation_commit and last_verified_commit remain null.
+module: M01
+name: Audit
+status: blocked
+blocked_reasons:
+  - M00 approval (explicit_user_approval_of_exact_matrix) not recorded
+  - user_authorized_recorded_commit for this M00 artifact not granted
+  - historical pre-M01 route red snapshot not captured
+canonical_source: docs/architecture/planned-module-contracts.yaml
+plan: docs/superpowers/plans/2026-07-26-cluster-audit-module.md
+
+# ---- Rank -------------------------------------------------------------------
+rank: 3
+
+# ---- Prefixes (frozen) ------------------------------------------------------
+prefixes:
+  api: /api/v1/audit
+  openapi: /audit
+  web: /audit
+event_token: audit
+
+# ---- Owned tables (exact ordered set) ---------------------------------------
+owned_tables:
+  - audit_events
+  - audit_export_jobs
+  - audit_integrity_checkpoints
+  - audit_idempotency_keys
+
+# ---- Capabilities (exact set, exact order) ----------------------------------
+capabilities:
+  - audit.event.read
+  - audit.event.export
+  - audit.integrity.verify
+
+# ---- Public Contracts (exact signatures) ------------------------------------
+public_contracts:
+  - name: RecordAuditEvent
+    signature: 'record(AuditEventInput $input): AuditEventReceipt'
+  - name: QueryAuditActivity
+    signature: 'query(AuditActivityQuery $query): AuditActivityPage'
+
+# ---- Public DTOs (exact set) ------------------------------------------------
+public_dtos:
+  - AuditEventInput
+  - AuditEventReceipt
+  - AuditActivityQuery
+  - AuditActivityItem
+  - AuditActivityPage
+
+# ---- Events (literals; see canonical event_types block) ---------------------
+events:
+  - class: AuditEventRecordedV1
+    type: com.cluster.audit.auditeventrecorded.v1
+    schema: docs/contracts/schemas/com-cluster-audit-auditeventrecorded-v1.schema.json
+  - class: AuditExportCompletedV1
+    type: com.cluster.audit.auditexportcompleted.v1
+    schema: docs/contracts/schemas/com-cluster-audit-auditexportcompleted-v1.schema.json
+  - class: AuditIntegrityViolationDetectedV1
+    type: com.cluster.audit.auditintegrityviolationdetected.v1
+    schema: docs/contracts/schemas/com-cluster-audit-auditintegrityviolationdetected-v1.schema.json
+
+# ---- Classification ---------------------------------------------------------
+classification:
+  contains_phi: true
+  contains_pii: true
+  label: confidential_phi_linked
+  rationale: |
+    IDs and access metadata are Confidential and may be PHI-linked.
+    audit_events stores no raw source payload, free-text clinical content,
+    secrets, tokens, or before/after object dumps. Export is capability-
+    gated, audited, time-bounded, and redacted by field policy.
+
+# ---- Idempotency / concurrency ---------------------------------------------
+idempotency_mode: server_replay_with_idempotency_key
+concurrency_mode: append_only_unique_event_id
+
+# ---- Test fakes ------------------------------------------------------------
+test_fake_allowed: false
+test_fake_rule: null
+
+# ---- Required integration tokens -------------------------------------------
+required_integration_tokens:
+  - MODULE-REGISTRY
+  - API-ROUTES
+  - OPENAPI
+  - ORVAL
+  - WEB-SHELL
+
+# ---- Producer / cross-module blockers --------------------------------------
+producer_blockers:
+  sensitive_access_events:
+    description: |
+      M01 does not silently take sensitive_access_events. That table remains
+      Authorization-owned until a separately approved handoff specifies
+      source/target counts, immutable mapping, cutover, rollback, and
+      zero-loss proof.
+    owner: Authorization
+    token_required: separate_approved_handoff
+
+# ---- Current route snapshot (input only; from docs/superpowers/evidence/M00/route-list.json)
+# Snapshot reflects the pre-M01 (red) baseline captured from detached commit 538d95b:
+# 143 API routes, 0 /api/v1/audit routes. This packet does not authorize editing
+# the route file or its snapshot.
+current_route_snapshot:
+  source: docs/superpowers/evidence/M00/route-list.json
+  baseline: pre_M01_red_snapshot
+  source_commit: 538d95b
+  total_routes: 143
+  audit_routes_count: 0
+  routes: []
+# ---- Prerequisite handoff anchor (T4/T6/T7/T12 from YAML prerequisite_handoffs) -
+prerequisite_handoffs_referenced:
+  - id: ARCHITECTURE-CLOSURE:T4
+    grant_token: MODULE-REGISTRY
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T6
+    grant_token: SHARED-OUTBOX
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T7
+    grant_token: SHARED-HTTP
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T12
+    grant_token: ROUTE-OPENAPI
+    state: pending_authorization
+
+# ---- Phase gate (from integration_queues.downstream_phase_gates) ------------
+start_phase_gate: |
+  M00 approved plus ARCHITECTURE-CLOSURE:AUTHORIZATION-OUTBOX;
+  sensitive_access_events transfer remains a distinct explicit handoff.
+
+# ---- Cold-start instruction -------------------------------------------------
+# A cold-start agent must:
+#  1. Treat this packet as the M01 contract; refuse any value not present above.
+#  2. Re-read docs/architecture/planned-module-contracts.yaml lines 184-230
+#     before any edit; if any value here diverges, prefer the YAML.
+#  3. Honor the producer_blockers.sensitive_access_events restriction.
+#  4. Wait for M00 approval and a recorded commit before flipping status.

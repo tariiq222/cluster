@@ -156,6 +156,7 @@ final class DocumentsHttpControllerTest extends TestCase
         $this->assertSame(1, DB::table('document_idempotency_keys')->where('operation', 'documents.download-grant')->count());
         $this->assertSame(1, DB::table('document_access_events')->where('action', 'download-grant')->count());
         $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'com.cluster.documents.grantissued.v1')->count());
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'documents.grant.issued')->count(), 'Controller equal replay must not invoke the Audit recorder again.');
     }
 
     public function test_it_initiates_an_opaque_signed_quarantine_upload_from_the_trusted_principal_only(): void

@@ -1,384 +1,928 @@
 # Cluster Planned-Module Contracts Baseline (M00)
 #
-# Source-grounded freeze of the seven planned modules. Every entry below is
-# derived from current source on the working tree; nothing here is invented.
-# Approved source: docs/superpowers/specs/2026-07-26-cluster-production-and-modules-program-design.md
-# Architecture test surfaces: apps/api/tests/Architecture/ModuleBoundariesTest.php
-#   - MODULE_RANKS         rank per module (Shared=-1, ..., Workspace=11)
-#   - PLANNED_MODULES      list of 7 not-yet-implemented module names
-#   - TABLE_OWNERS         exact migrated-table ownership
+# Normative, machine-readable decision manifest. The M00 plan
+# (docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md)
+# is the authoritative source; sections 7-12 freeze every value copied below.
+# Conflicts with other documentation are resolved in favor of the YAML until
+# an approved mutation updates both artifacts atomically.
 #
 # This file is documentation only. It does not create routes, controllers,
 # migrations, or generated-client output. M00 freezes the contract surface
-# so M01..M07 may implement in parallel without colliding on shared names.
+# so M01-M07 may implement in parallel without colliding on shared names.
+#
+# Required top-level keys (per M00 plan §6, §7, §8, §10, §12, §15):
+#   version, approved_design, prerequisite_handoffs, modules, event_types,
+#   classification, migration_order, integration_queues, approval.
+#
+# The seven planned-module entries are exactly M01-M07. Existing implemented
+# modules (Shared, PlatformSettings, Organization, Identity, Authorization,
+# Workflow, WorkDefinitions, Documents, Tasks, WorkRecords, Notifications,
+# Search, Reporting) appear only as prerequisite facts, not as module entries.
+#
+# Module ranks are mirrored from MODULE_RANKS in
+# apps/api/tests/Architecture/ModuleBoundariesTest.php. A planned module's
+# runtime MODULE-REGISTRY cutover is indivisible: it must add the real module
+# directory, all owned reversible migrations, and migration-manifest entries;
+# prove its MODULE_RANKS value is unchanged; remove only that module from
+# PLANNED_MODULES; and add exactly its actually created frozen tables to
+# TABLE_OWNERS. Premature PLANNED_MODULES removal, ghost table owners, or a
+# registry-only cutover are forbidden.
 
 version: 1
 baseline_date: '2026-07-27'
-source_commit: df2588c  # the architecture-closure verification sha
-provenance:
-  architecture_closure_commit: df2588c
-  prior_closure_commits:
-    - 447f756
-    - c90dd10
-    - a5f1fd2
-  source_files:
-    - apps/api/tests/Architecture/ModuleBoundariesTest.php
-    - docs/architecture/module-catalog.md
-    - docs/architecture/ARCHITECTURE.md
-    - docs/superpowers/plans/2026-07-26-cluster-{audit,records-governance,collaboration,strategy,portfolio-projects,risk,workspace}-module.md
 
 # ----------------------------------------------------------------------------
-# 1. Module registry freeze
+# 1. Approved design (source of truth + plan references)
 # ----------------------------------------------------------------------------
-# Mirror of MODULE_RANKS / PLANNED_MODULES in ModuleBoundariesTest.php. Any
-# change to ranks or planned status must be made through the same constants
-# in the architecture test, not in this file.
+approved_design:
+  approved_source_of_truth: docs/superpowers/specs/2026-07-26-cluster-production-and-modules-program-design.md
+  m00_plan: docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md
+  child_plans:
+    M01: docs/superpowers/plans/2026-07-26-cluster-audit-module.md
+    M02: docs/superpowers/plans/2026-07-26-cluster-records-governance-module.md
+    M03: docs/superpowers/plans/2026-07-26-cluster-collaboration-module.md
+    M04: docs/superpowers/plans/2026-07-26-cluster-strategy-module.md
+    M05: docs/superpowers/plans/2026-07-26-cluster-portfolio-projects-module.md
+    M06: docs/superpowers/plans/2026-07-26-cluster-risk-module.md
+    M07: docs/superpowers/plans/2026-07-26-cluster-workspace-module.md
+  architecture_test_surfaces:
+    - apps/api/tests/Architecture/ModuleBoundariesTest.php::MODULE_RANKS
+    - apps/api/tests/Architecture/ModuleBoundariesTest.php::PLANNED_MODULES
+    - apps/api/tests/Architecture/ModuleBoundariesTest.php::TABLE_OWNERS
+  shared_event_catalogue: apps/api/Shared/Infrastructure/Outbox/OutboxEventType.php
+  schema_directory: docs/contracts/schemas
+  schema_version: CloudEvents-1.0+JSON-Schema-Draft-2020-12
+  master_openapi: docs/contracts/api/openapi.yaml
+  web_client_bundle: apps/web/src/api/generated/cluster.ts
+  web_generation_command: 'npm --prefix apps/web run api:generate'
 
+# ----------------------------------------------------------------------------
+# 2. Prerequisite handoffs (M00 plan §1)
+# ----------------------------------------------------------------------------
+# Each handoff names the releasing task, the full base commit (source commit
+# lineage), the exact surface, the grant time, and the token state. A task
+# completion claim without resolvable evidence is not a handoff. M00 remains
+# blocked until all four handoffs are present on the same approved baseline
+# commit lineage.
+prerequisite_handoffs:
+  - id: ARCHITECTURE-CLOSURE:T4
+    surface: 'apps/api/tests/Architecture/ModuleBoundariesTest.php::MODULE_RANKS; ::PLANNED_MODULES; ::TABLE_OWNERS; docs/architecture/module-catalog.md (post-T4 edit)'
+    required_evidence: |
+      Exact migrated-table set equals TABLE_OWNERS; placement exceptions
+      exist, have a reason, and are unexpired.
+    source_commit_lineage:
+      base_commit: 4c3e22c
+      branch: architecture-closure-2026-07-26
+      cutover_commits:
+        - 4c3e22c
+        - 83b733d
+        - 1fd523b
+        - b031b30
+        - 8bab3a4
+        - 175da30
+        - 8414127
+        - ab9578e
+        - b4a9851
+        - 7889df4
+        - 447f756
+        - 3fa4528
+        - c90dd10
+        - da27c81
+        - df2588c
+    state: pending_authorization
+    grant_token: MODULE-REGISTRY
+  - id: ARCHITECTURE-CLOSURE:T6
+    surface: 'Apps/Api app/Providers/AppServiceProvider.php; apps/api/Shared/Infrastructure/Outbox/OutboxEventType.php (final event catalogue location); Shared\Contracts\TransactionalOutbox ownership'
+    required_evidence: |
+      Published-contract boundary and shared transactional-outbox ownership
+      pass; the final event catalogue location is recorded.
+    source_commit_lineage:
+      base_commit: 4c3e22c
+      branch: architecture-closure-2026-07-26
+      cutover_commits:
+        - 4c3e22c
+        - 83b733d
+        - 1fd523b
+        - b031b30
+        - 8bab3a4
+        - 175da30
+        - 8414127
+        - ab9578e
+        - b4a9851
+        - 7889df4
+        - 447f756
+        - 3fa4528
+        - c90dd10
+        - da27c81
+        - df2588c
+    state: pending_authorization
+    grant_token: SHARED-OUTBOX
+  - id: ARCHITECTURE-CLOSURE:T7
+    surface: 'apps/api/Shared/Http (canonical problem renderer, correlation request attribute, resource envelope, strong ETag parser)'
+    required_evidence: |
+      Canonical problem renderer, correlation request attribute, resource
+      envelope, and strong ETag parsing are integrated.
+    source_commit_lineage:
+      base_commit: 4c3e22c
+      branch: architecture-closure-2026-07-26
+      cutover_commits:
+        - 4c3e22c
+        - 83b733d
+        - 1fd523b
+        - b031b30
+        - 8bab3a4
+        - 175da30
+        - 8414127
+        - ab9578e
+        - b4a9851
+        - 7889df4
+        - 447f756
+        - 3fa4528
+        - c90dd10
+        - da27c81
+        - df2588c
+    state: pending_authorization
+    grant_token: SHARED-HTTP
+  - id: ARCHITECTURE-CLOSURE:T12
+    surface: 'apps/api/routes/web.php; docs/contracts/api/openapi.yaml; apps/web/src/api/generated/cluster.ts; apps/api/Shared/Http/AuthenticatedCursorCodec.php (bounded cursor contract)'
+    required_evidence: |
+      Exact live/planned route reconciliation is approved; master OpenAPI,
+      generated client, and bounded cursor contract are synchronized.
+    source_commit_lineage:
+      base_commit: 4c3e22c
+      branch: architecture-closure-2026-07-26
+      cutover_commits:
+        - 4c3e22c
+        - 83b733d
+        - 1fd523b
+        - b031b30
+        - 8bab3a4
+        - 175da30
+        - 8414127
+        - ab9578e
+        - b4a9851
+        - 7889df4
+        - 447f756
+        - 3fa4528
+        - c90dd10
+        - da27c81
+        - df2588c
+    state: pending_authorization
+    grant_token: ROUTE-OPENAPI
+
+# ----------------------------------------------------------------------------
+# 3. Modules (M00 plan §7.1, §7.2, §8.1, §10, §12)
+# ----------------------------------------------------------------------------
+# Each module entry freezes rank, API/OpenAPI/web prefixes, ordered owned
+# tables, capabilities, public Contract signatures, published DTOs, PHI
+# decision, idempotency mode, concurrency mode, test-fake allowance, and
+# required owning-module integration tokens. The M05/P5 route token is
+# `portfolio`, capability token is `portfolio_projects`, and event token is
+# `portfolioprojects`; this intentional asymmetry is frozen.
 modules:
-  # rank -1
-  - name: Shared
-    rank: -1
-    status: implemented
-    owns_directory: apps/api/Shared
-  # rank 0
-  - name: PlatformSettings
-    rank: 0
-    status: implemented
-    owns_directory: apps/api/Modules/PlatformSettings
-  - name: Organization
-    rank: 0
-    status: implemented
-    owns_directory: apps/api/Modules/Organization
-  # rank 1
-  - name: Identity
-    rank: 1
-    status: implemented
-    owns_directory: apps/api/Modules/Identity
-  # rank 2
-  - name: Authorization
-    rank: 2
-    status: implemented
-    owns_directory: apps/api/Modules/Authorization
-  # rank 3
-  - name: Audit
-    rank: 3
-    status: implementing
-    owns_directory: apps/api/Modules/Audit
-    plan_ref: docs/superpowers/plans/2026-07-26-cluster-audit-module.md
-  # rank 4
-  - name: Workflow
-    rank: 4
-    status: implemented
-    owns_directory: apps/api/Modules/Workflow
-  - name: RecordsGovernance
-    rank: 4
-    status: planned
-    owns_directory: null
-    plan_ref: docs/superpowers/plans/2026-07-26-cluster-records-governance-module.md
-  # rank 5
-  - name: WorkDefinitions
-    rank: 5
-    status: implemented
-    owns_directory: apps/api/Modules/WorkDefinitions
-  - name: Documents
-    rank: 5
-    status: implemented
-    owns_directory: apps/api/Modules/Documents
-  # rank 6
-  - name: Collaboration
-    rank: 6
-    status: planned
-    owns_directory: null
-    plan_ref: docs/superpowers/plans/2026-07-26-cluster-collaboration-module.md
-  # rank 7
-  - name: Tasks
-    rank: 7
-    status: implemented
-    owns_directory: apps/api/Modules/Tasks
-  # rank 8
-  - name: WorkRecords
-    rank: 8
-    status: implemented
-    owns_directory: apps/api/Modules/WorkRecords
-  - name: Strategy
-    rank: 8
-    status: planned
-    owns_directory: null
-    plan_ref: docs/superpowers/plans/2026-07-26-cluster-strategy-module.md
-  # rank 9
-  - name: PortfolioProjects
-    rank: 9
-    status: planned
-    owns_directory: null
-    plan_ref: docs/superpowers/plans/2026-07-26-cluster-portfolio-projects-module.md
-  # rank 10
-  - name: Risk
-    rank: 10
-    status: planned
-    owns_directory: null
-    plan_ref: docs/superpowers/plans/2026-07-26-cluster-risk-module.md
-  # rank 11
-  - name: Notifications
-    rank: 11
-    status: implemented
-    owns_directory: apps/api/Modules/Notifications
-  - name: Search
-    rank: 11
-    status: implemented
-    owns_directory: apps/api/Modules/Search
-  - name: Reporting
-    rank: 11
-    status: implemented
-    owns_directory: apps/api/Modules/Reporting
-  - name: Workspace
-    rank: 11
-    status: planned
-    owns_directory: null
-    plan_ref: docs/superpowers/plans/2026-07-26-cluster-workspace-module.md
 
-# ----------------------------------------------------------------------------
-# 2. Reserved table namespaces (planned, not yet owned)
-# ----------------------------------------------------------------------------
-# Each planned module reserves the table names it will register in
-# TABLE_OWNERS at its implementation cutover. These are NOT in
-# TABLE_OWNERS today; the architecture test would reject a partial
-# addition. Cutover is one atomic step (see Global Constraints in
-# docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md).
-
-reserved_tables:
-  Audit:
-    - audit_events
-    - audit_export_jobs
-    - audit_integrity_checkpoints
-    - audit_idempotency_keys
-  RecordsGovernance:
-    - records_governance_statuses
-    - records_disposition_decisions
-    - records_disposition_executions
-  Collaboration:
-    - collaboration_threads
-    - collaboration_messages
-  Strategy:
-    - strategy_initiatives
-    - strategy_objectives
-  PortfolioProjects:
-    - portfolio_projects
-    - portfolio_project_initiatives
-  Risk:
-    - risk_register
-    - risk_assessments
-  Workspace:
-    - workspace_views
-    - workspace_layouts
-
-# ----------------------------------------------------------------------------
-# 3. Reserved capability codes (planned)
-# ----------------------------------------------------------------------------
-# Each planned module reserves the capability code namespace. A module's
-# implementation registers these in the CapabilityCatalog only at cutover.
-# Today the catalog exposes 128 entries; these reserves are not in the
-# catalog and must not be referenced by any route or test fixture until
-# the module is implemented.
-
-reserved_capabilities:
-  Audit:
-    - audit.event.read
-    - audit.event.export
-    - audit.integrity.verify
-  RecordsGovernance:
-    - records_governance.register
-    - records_governance.read
-    - records_governance.evaluate_disposition
-  Collaboration:
-    - collaboration.read
-    - collaboration.write
-  Strategy:
-    - strategy.read
-    - strategy.write
-  PortfolioProjects:
-    - portfolio_projects.read
-    - portfolio_projects.write
-  Risk:
-    - risk.read
-    - risk.write
-  Workspace:
-    - workspace.read
-    - workspace.write
-
-# ----------------------------------------------------------------------------
-# 4. Reserved route prefixes (planned)
-# ----------------------------------------------------------------------------
-# No planned module may publish a route outside its reserved prefix. The
-# closure task reconciled 144 live operations against 203 spec operations;
-# any future addition must land in these prefixes and through the
-# OPENAPI token owned by the closure plan.
-
-reserved_route_prefixes:
-  Audit: /audit
-  RecordsGovernance: /records-governance
-  Collaboration: /collaboration
-  Strategy: /strategy
-  PortfolioProjects: /portfolio-projects
-  Risk: /risk
-  Workspace: /workspace
-
-# ----------------------------------------------------------------------------
-# 5. Public contracts (frozen signatures)
-# ----------------------------------------------------------------------------
-# Each planned module publishes exactly the Contracts and Events listed
-# below. The signatures are placeholders to be filled in at M0n
-# implementation; the names are frozen now so M0n implementations can
-# be parallel without colliding.
-
-public_contracts:
-  Audit:
-    - name: RecordAuditEvent
-      signature: 'record(AuditEventInput $input): AuditEventReceipt'
-    - name: QueryAuditActivity
-      signature: 'query(AuditActivityQuery $query): AuditActivityPage'
-  RecordsGovernance:
-    - name: RegisterGovernedRecord
-      signature: 'register(GovernedRecordRegistration $r): GovernedRecordStatus'
-    - name: ReadGovernedRecordStatus
-      signature: 'get(RecordSourceReference $ref): ?GovernedRecordStatus'
-    - name: GuardDispositionExecution
-      signature: 'evaluate(RecordSourceReference $ref): DispositionExecutionDecision'
-    - name: QueryRecordsGovernanceSummary
-      signature: 'forScope(RecordsGovernanceSummaryQuery $q): RecordsGovernanceSummary'
-  Collaboration:
-    - name: SubscribeThread
-      signature: 'subscribe(CollaborationThreadRef $ref): CollaborationSubscription'
-    - name: PostMessage
-      signature: 'post(CollaborationMessageInput $input): CollaborationMessage'
-  Strategy:
-    - name: GetInitiative
-      signature: 'get(InitiativeRef $ref): ?StrategyInitiative'
-    - name: UpdateObjective
-      signature: 'update(ObjectiveUpdate $u): StrategyObjective'
-  PortfolioProjects:
-    - name: CreateProject
-      signature: 'create(PortfolioProjectInput $input): PortfolioProject'
-    - name: LinkInitiative
-      signature: 'link(PortfolioInitiativeLink $link): PortfolioProjectLink'
-  Risk:
-    - name: RecordRiskAssessment
-      signature: 'record(RiskAssessmentInput $input): RiskAssessment'
-    - name: QueryRiskRegister
-      signature: 'query(RiskRegisterQuery $q): RiskRegisterPage'
-  Workspace:
-    - name: GetWorkspaceView
-      signature: 'get(WorkspaceRef $ref): WorkspaceView'
-    - name: SaveLayout
-      signature: 'save(WorkspaceLayoutInput $input): WorkspaceLayout'
-
-# ----------------------------------------------------------------------------
-# 6. Integration order
-# ----------------------------------------------------------------------------
-# The integration queue runs in this order, one atomic cutover per step.
-# Cross-module cutovers may not run in parallel.
-
-integration_order:
+  # ---- M01 Audit (rank 3) -------------------------------------------------
   - id: M01
     name: Audit
-    blocks: [M02, P04, P08]
+    rank: 3
+    api_prefix: /api/v1/audit
+    openapi_prefix: /audit
+    web_prefix: /audit
+    event_token: audit
+    owned_tables:
+      - audit_events
+      - audit_export_jobs
+      - audit_integrity_checkpoints
+      - audit_idempotency_keys
+    capabilities:
+      - audit.event.read
+      - audit.event.export
+      - audit.integrity.verify
+    public_contracts:
+      - name: RecordAuditEvent
+        signature: 'record(AuditEventInput $input): AuditEventReceipt'
+      - name: QueryAuditActivity
+        signature: 'query(AuditActivityQuery $query): AuditActivityPage'
+    public_dtos:
+      - AuditEventInput
+      - AuditEventReceipt
+      - AuditActivityQuery
+      - AuditActivityItem
+      - AuditActivityPage
+    events: # see event_types for full literals
+      - AuditEventRecordedV1
+      - AuditExportCompletedV1
+      - AuditIntegrityViolationDetectedV1
+    classification: confidential_phi_linked
+    idempotency_mode: server_replay_with_idempotency_key
+    concurrency_mode: append_only_unique_event_id
+    test_fake_allowed: false
+    required_integration_tokens:
+      - MODULE-REGISTRY
+      - API-ROUTES
+      - OPENAPI
+      - ORVAL
+      - WEB-SHELL
+    block_reason_for_other_modules: |
+      M01 does not silently take sensitive_access_events. That table remains
+      Authorization-owned until a separately approved handoff specifies
+      source/target counts, immutable mapping, cutover, rollback, and
+      zero-loss proof.
+
+  # ---- M02 RecordsGovernance (rank 4) ------------------------------------
   - id: M02
     name: RecordsGovernance
-    blocks: [M03, M04, P04]
+    rank: 4
+    api_prefix: /api/v1/records-governance
+    openapi_prefix: /records-governance
+    web_prefix: /records-governance
+    event_token: recordsgovernance
+    owned_tables:
+      - records_governance_retention_policy_versions
+      - records_governance_retention_policy_rules
+      - records_governance_governed_records
+      - records_governance_holds
+      - records_governance_disposition_reviews
+      - records_governance_evidence
+      - records_governance_idempotency_keys
+    capabilities:
+      - records_governance.retention-policy.read
+      - records_governance.retention-policy.manage
+      - records_governance.retention-policy.publish
+      - records_governance.record.read
+      - records_governance.record.register
+      - records_governance.hold.read
+      - records_governance.hold.manage
+      - records_governance.disposition.read
+      - records_governance.disposition.review
+      - records_governance.disposition.confirm
+    public_contracts:
+      - name: RegisterGovernedRecord
+        signature: 'register(GovernedRecordRegistration $registration): GovernedRecordStatus'
+      - name: ReadGovernedRecordStatus
+        signature: 'get(RecordSourceReference $source): ?GovernedRecordStatus'
+      - name: GuardDispositionExecution
+        signature: 'evaluate(RecordSourceReference $source): DispositionExecutionDecision'
+      - name: QueryRecordsGovernanceSummary
+        signature: 'forScope(RecordsGovernanceSummaryQuery $query): RecordsGovernanceSummary'
+    public_dtos:
+      - GovernedRecordRegistration
+      - GovernedRecordStatus
+      - RecordSourceReference
+      - DispositionExecutionDecision
+      - RecordsGovernanceSummaryQuery
+      - RecordsGovernanceSummary
+    events:
+      - RetentionPolicyVersionPublishedV1
+      - GovernedRecordStatusChangedV1
+      - RecordHoldChangedV1
+      - DispositionExecutionRequestedV1
+      - DispositionOutcomeConfirmedV1
+    classification: confidential_phi_linked
+    idempotency_mode: server_replay_with_idempotency_key
+    concurrency_mode: optimistic_lock_version_with_cas
+    test_fake_allowed: false
+    required_integration_tokens:
+      - MODULE-REGISTRY
+      - API-ROUTES
+      - OPENAPI
+      - ORVAL
+      - WEB-SHELL
+
+  # ---- M03 Collaboration (rank 6) ----------------------------------------
   - id: M03
     name: Collaboration
-    blocks: [M07]
+    rank: 6
+    api_prefix: /api/v1/collaboration
+    openapi_prefix: /collaboration
+    web_prefix: /collaboration
+    event_token: collaboration
+    owned_tables:
+      - collaboration_threads
+      - collaboration_thread_memberships
+      - collaboration_comments
+      - collaboration_mentions
+      - collaboration_comment_revisions
+      - collaboration_moderation_actions
+      - collaboration_idempotency_keys
+    capabilities:
+      - collaboration.thread.create
+      - collaboration.thread.read
+      - collaboration.thread.list
+      - collaboration.thread.update
+      - collaboration.thread.archive
+      - collaboration.membership.manage
+      - collaboration.comment.create
+      - collaboration.comment.edit
+      - collaboration.comment.moderate
+    public_contracts:
+      - name: OpenCollaborationThread
+        signature: 'open(CollaborationThreadRegistration $registration): CollaborationThreadReference'
+      - name: ListVisibleCollaborationThreads
+        signature: 'list(CollaborationThreadQuery $query): CollaborationThreadPage'
+    public_dtos:
+      - CollaborationThreadRegistration
+      - CollaborationThreadReference
+      - CollaborationThreadQuery
+      - CollaborationThreadSummary
+      - CollaborationThreadPage
+    events:
+      - CommentPublishedV1
+      - MentionCreatedV1
+      - ThreadVisibilityChangedV1
+    classification: confidential_phi_capable_free_text
+    idempotency_mode: server_replay_with_idempotency_key
+    concurrency_mode: optimistic_lock_version_with_cas
+    test_fake_allowed: false
+    required_integration_tokens:
+      - MODULE-REGISTRY
+      - API-ROUTES
+      - OPENAPI
+      - ORVAL
+      - WEB-SHELL
+      - DOCUMENTS-LINKED-FACTS
+      - COLLABORATION-SHARED-RELAY
+      - NOTIFICATIONS-COLLABORATION-CONSUMER
+    owning_packets:
+      - |
+        M03 publishes immutable DOCUMENTS-LINKED-FACTS,
+        COLLABORATION-SHARED-RELAY, and NOTIFICATIONS-COLLABORATION-CONSUMER
+        packets. Only the Documents, Shared outbox, and Notifications owners
+        respectively apply them. M03 never edits Documents provider
+        bindings, Shared outbox internals, or Notifications internals.
+
+  # ---- M04 Strategy (rank 8) ---------------------------------------------
   - id: M04
     name: Strategy
-    blocks: [M05, M06, M07]
+    rank: 8
+    api_prefix: /api/v1/strategy
+    openapi_prefix: /strategy
+    web_prefix: /strategy
+    event_token: strategy
+    owned_tables:
+      - strategy_periods
+      - strategy_plans
+      - strategy_plan_versions
+      - strategy_objectives
+      - strategy_outcomes
+      - strategy_indicators
+      - strategy_indicator_periods
+      - strategy_target_distributions
+      - strategy_measurements
+      - strategy_progress_evidence
+      - strategy_approvals
+      - strategy_idempotency_keys
+    capabilities:
+      - strategy.plan.read
+      - strategy.plan.manage
+      - strategy.indicator.read
+      - strategy.indicator.manage
+      - strategy.measurement.submit
+      - strategy.measurement.approve
+      - strategy.impact.read
+    public_contracts:
+      - name: ResolveStrategyReference
+        signature: 'resolve(StrategyAccessContext $context, StrategyResourceType $type, string $id): ?StrategyReference'
+      - name: GetStrategySnapshot
+        signature: 'forOrganizationUnit(StrategyAccessContext $context, string $organizationUnitId, ?string $periodId = null): StrategySnapshot'
+    public_dtos:
+      - StrategyResourceType
+      - StrategyReference
+      - StrategyAccessContext
+      - StrategySnapshot
+    events:
+      - StrategyPlanPublishedV1
+      - StrategyPlanRetiredV1
+      - StrategyProgressEvidenceApprovedV1
+    classification: confidential_business_no_phi
+    idempotency_mode: server_replay_with_idempotency_key
+    concurrency_mode: optimistic_lock_version_with_cas
+    test_fake_allowed: false
+    required_integration_tokens:
+      - MODULE-REGISTRY
+      - API-ROUTES
+      - OPENAPI
+      - ORVAL
+      - WEB-SHELL
+    canonical_signature_rule: |
+      The fixed canonical M04 signature is
+      GetStrategySnapshot::forOrganizationUnit(StrategyAccessContext $context,
+      string $organizationUnitId, ?string $periodId = null): StrategySnapshot.
+      StrategyAccessContext carries the authenticated principal/scope facts
+      used by M04's record-level authorization. Omitting it, passing a raw
+      principal instead, or reconstructing authorization outside M04 is a
+      blocking contract violation.
+
+  # ---- M05 PortfolioProjects (rank 9) ------------------------------------
   - id: M05
     name: PortfolioProjects
-    blocks: [M06, M07]
+    rank: 9
+    # Frozen asymmetry: route token `portfolio`, capability token
+    # `portfolio_projects`, event token `portfolioprojects`. Not normalized.
+    api_prefix: /api/v1/portfolio
+    openapi_prefix: /portfolio
+    web_prefix: /portfolio
+    event_token: portfolioprojects
+    owned_tables:
+      - portfolio_projects_portfolios
+      - portfolio_projects_programs
+      - portfolio_projects_projects
+      - portfolio_projects_project_templates
+      - portfolio_projects_milestones
+      - portfolio_projects_health_snapshots
+      - portfolio_projects_budget_snapshots
+      - portfolio_projects_indicator_links
+      - portfolio_projects_idempotency_keys
+    capabilities:
+      - portfolio_projects.portfolio.read
+      - portfolio_projects.portfolio.manage
+      - portfolio_projects.project.read
+      - portfolio_projects.project.manage
+      - portfolio_projects.milestone.approve
+      - portfolio_projects.impact.submit
+      - portfolio_projects.budget.read
+    public_contracts:
+      - name: ResolveAuthorizedProjectReference
+        signature: 'resolve(ProjectAccessContext $context, string $projectId): ?ProjectReference'
+      - name: ListAuthorizedProjectSummaries
+        signature: 'list(AuthorizedProjectSummaryQuery $query): AuthorizedProjectSummaryPage'
+    public_dtos:
+      - ProjectAccessContext
+      - ProjectReference
+      - AuthorizedProjectSummaryQuery
+      - AuthorizedProjectSummary
+      - AuthorizedProjectSummaryPage
+    events:
+      - ProjectLifecycleChangedV1
+      - ProjectHealthSnapshotRecordedV1
+      - ProjectProgressReportedV1
+      - ProjectIndicatorLinkChangedV1
+    classification: confidential_business_no_phi
+    idempotency_mode: server_replay_with_idempotency_key
+    concurrency_mode: optimistic_lock_version_with_cas
+    test_fake_allowed: true
+    test_fake_rule: |
+      M05 may build module-owned cores against deterministic in-memory fakes
+      for the frozen lower-rank contracts while its producer integrations are
+      blocked. Fakes implement the exact interface and immutable DTOs, expose
+      configured allow/deny/not-found/stale/failure outcomes, perform no
+      network/database access, live under tests, and are bound only in tests
+      (never in production service providers or container verification).
+    required_integration_tokens:
+      - MODULE-REGISTRY
+      - API-ROUTES
+      - OPENAPI
+      - ORVAL
+      - WEB-SHELL
+
+  # ---- M06 Risk (rank 10) ------------------------------------------------
   - id: M06
     name: Risk
-    blocks: [M07]
+    rank: 10
+    api_prefix: /api/v1/risk
+    openapi_prefix: /risk
+    web_prefix: /risk
+    event_token: risk
+    owned_tables:
+      - risk_registers
+      - risk_policy_versions
+      - risks
+      - risk_assessments
+      - risk_controls
+      - risk_treatments
+      - risk_treatment_actions
+      - risk_reviews
+      - risk_indicators
+      - risk_indicator_readings
+      - risk_idempotency_keys
+    capabilities:
+      - risk.risk.read
+      - risk.risk.manage
+      - risk.assess
+      - risk.control.manage
+      - risk.treatment.manage
+      - risk.accept
+      - risk.kri.manage
+    public_contracts:
+      - name: ResolveRiskReference
+        signature: 'resolve(RiskAccessContext $context, string $riskId): ?RiskReference'
+      - name: QueryRiskWorkspaceItems
+        signature: 'query(RiskWorkspaceQuery $query): RiskWorkspacePage'
+    public_dtos:
+      - RiskAccessContext
+      - RiskReference
+      - RiskWorkspaceQuery
+      - RiskWorkspaceItem
+      - RiskWorkspacePage
+    events:
+      - RiskChangedV1
+      - RiskReviewDueV1
+      - RiskTreatmentActionDueV1
+    classification: confidential_business_no_phi
+    idempotency_mode: server_replay_with_idempotency_key
+    concurrency_mode: optimistic_lock_version_with_cas
+    test_fake_allowed: true
+    test_fake_rule: |
+      M06 may build module-owned cores against deterministic in-memory fakes
+      for the frozen lower-rank contracts while its producer integrations are
+      blocked. Same restrictions as M05.
+    required_integration_tokens:
+      - MODULE-REGISTRY
+      - API-ROUTES
+      - OPENAPI
+      - ORVAL
+      - WEB-SHELL
+    no_tasks_public_port: |
+      M06 does not add a Tasks public port under Risk ownership. Due review
+      and treatment-action work remains Risk-owned and is exposed through
+      Risk queries/routes. A future Tasks integration requires a separate
+      approved producer-owned contract amendment and token.
+
+  # ---- M07 Workspace (rank 11) -------------------------------------------
   - id: M07
     name: Workspace
-    blocks: [P07]
+    rank: 11
+    api_prefix: /api/v1/workspace
+    openapi_prefix: /workspace
+    web_prefix: /workspace
+    event_token: workspace
+    owned_tables:
+      - workspace_preferences
+    capabilities:
+      - workspace.read
+      - workspace.preferences.update
+    public_contracts: []   # M07 has no published cross-module Contract.
+    public_dtos: []        # No public cross-module DTO; HTTP view DTOs remain module-internal.
+    events: []             # M07 does not publish a domain Event.
+    classification: pii_no_phi
+    idempotency_mode: none_atomic_if_match_preference_write
+    concurrency_mode: optimistic_lock_version_with_if_match
+    test_fake_allowed: true
+    test_fake_rule: |
+      M07 may use deterministic fakes for exactly the six lower-rank query
+      Contracts (M01 QueryAuditActivity, M02 QueryRecordsGovernanceSummary,
+      M03 ListVisibleCollaborationThreads, M04 GetStrategySnapshot, M05
+      ListAuthorizedProjectSummaries, M06 QueryRiskWorkspaceItems) while
+      final aggregation is blocked. Same binding/lifecycle restrictions as
+      M05/M06.
+    required_integration_tokens:
+      - MODULE-REGISTRY
+      - API-ROUTES
+      - OPENAPI
+      - ORVAL
+      - WEB-SHELL
+    preference_exception: |
+      Workspace preferences are write-only via PUT /api/v1/workspace/preferences
+      and perform a full replacement guarded by If-Match. Workspace is not
+      an event-producing module: the mutation publishes no domain Event and
+      appends no outbox row. M07 retry is at-most-once without server-side
+      replay state. The If-Match predicate enforces optimistic concurrency
+      and the request does not carry Idempotency-Key. A successful write
+      always increments lock_version and writes one M01 audit record; the
+      command is not retry-safe and there is no equal-representation no-op.
+      A retry whose If-Match does not match the current version returns 412
+      and writes nothing (no audit record either). Preference, version, and
+      M01 audit commit atomically.
+    consumer_mapping:
+      - consumer: M07
+        producer_contract: M01::QueryAuditActivity
+        invocation: 'query(AuditActivityQuery $query): AuditActivityPage'
+      - consumer: M07
+        producer_contract: M02::QueryRecordsGovernanceSummary
+        invocation: 'forScope(RecordsGovernanceSummaryQuery $query): RecordsGovernanceSummary'
+      - consumer: M07
+        producer_contract: M03::ListVisibleCollaborationThreads
+        invocation: 'list(CollaborationThreadQuery $query): CollaborationThreadPage'
+      - consumer: M07
+        producer_contract: M04::GetStrategySnapshot
+        invocation: 'forOrganizationUnit(StrategyAccessContext $context, string $organizationUnitId, ?string $periodId = null): StrategySnapshot'
+      - consumer: M07
+        producer_contract: M05::ListAuthorizedProjectSummaries
+        invocation: 'list(AuthorizedProjectSummaryQuery $query): AuthorizedProjectSummaryPage'
+      - consumer: M07
+        producer_contract: M06::QueryRiskWorkspaceItems
+        invocation: 'query(RiskWorkspaceQuery $query): RiskWorkspacePage'
 
 # ----------------------------------------------------------------------------
-# 7. PHI / sensitive-data classification
+# 4. Event types (M00 plan §7.3)
 # ----------------------------------------------------------------------------
-# Each planned module's data is classified for the P04 privacy inventory.
-# This list is exhaustive for the planned modules and does not supersede
-# the per-table classification in P04's evidence.
+# Format: com.cluster.<module-token>.<concatenated-event-name>.v1
+# Module tokens: audit, recordsgovernance, collaboration, strategy,
+# portfolioprojects, risk, workspace. Historical underscore/hyphen variants
+# are not copied. M07 has no event.
+event_types:
+  - owner: M01
+    class: AuditEventRecordedV1
+    type: com.cluster.audit.auditeventrecorded.v1
+    schema: docs/contracts/schemas/com-cluster-audit-auditeventrecorded-v1.schema.json
+  - owner: M01
+    class: AuditExportCompletedV1
+    type: com.cluster.audit.auditexportcompleted.v1
+    schema: docs/contracts/schemas/com-cluster-audit-auditexportcompleted-v1.schema.json
+  - owner: M01
+    class: AuditIntegrityViolationDetectedV1
+    type: com.cluster.audit.auditintegrityviolationdetected.v1
+    schema: docs/contracts/schemas/com-cluster-audit-auditintegrityviolationdetected-v1.schema.json
+  - owner: M02
+    class: RetentionPolicyVersionPublishedV1
+    type: com.cluster.recordsgovernance.retentionpolicyversionpublished.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-retentionpolicyversionpublished-v1.schema.json
+  - owner: M02
+    class: GovernedRecordStatusChangedV1
+    type: com.cluster.recordsgovernance.governedrecordstatuschanged.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-governedrecordstatuschanged-v1.schema.json
+  - owner: M02
+    class: RecordHoldChangedV1
+    type: com.cluster.recordsgovernance.recordholdchanged.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-recordholdchanged-v1.schema.json
+  - owner: M02
+    class: DispositionExecutionRequestedV1
+    type: com.cluster.recordsgovernance.dispositionexecutionrequested.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-dispositionexecutionrequested-v1.schema.json
+  - owner: M02
+    class: DispositionOutcomeConfirmedV1
+    type: com.cluster.recordsgovernance.dispositionoutcomeconfirmed.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-dispositionoutcomeconfirmed-v1.schema.json
+  - owner: M03
+    class: CommentPublishedV1
+    type: com.cluster.collaboration.commentpublished.v1
+    schema: docs/contracts/schemas/com-cluster-collaboration-commentpublished-v1.schema.json
+  - owner: M03
+    class: MentionCreatedV1
+    type: com.cluster.collaboration.mentioncreated.v1
+    schema: docs/contracts/schemas/com-cluster-collaboration-mentioncreated-v1.schema.json
+  - owner: M03
+    class: ThreadVisibilityChangedV1
+    type: com.cluster.collaboration.threadvisibilitychanged.v1
+    schema: docs/contracts/schemas/com-cluster-collaboration-threadvisibilitychanged-v1.schema.json
+  - owner: M04
+    class: StrategyPlanPublishedV1
+    type: com.cluster.strategy.strategyplanpublished.v1
+    schema: docs/contracts/schemas/com-cluster-strategy-strategyplanpublished-v1.schema.json
+  - owner: M04
+    class: StrategyPlanRetiredV1
+    type: com.cluster.strategy.strategyplanretired.v1
+    schema: docs/contracts/schemas/com-cluster-strategy-strategyplanretired-v1.schema.json
+  - owner: M04
+    class: StrategyProgressEvidenceApprovedV1
+    type: com.cluster.strategy.strategyprogressevidenceapproved.v1
+    schema: docs/contracts/schemas/com-cluster-strategy-strategyprogressevidenceapproved-v1.schema.json
+  - owner: M05
+    class: ProjectLifecycleChangedV1
+    type: com.cluster.portfolioprojects.projectlifecyclechanged.v1
+    schema: docs/contracts/schemas/com-cluster-portfolioprojects-projectlifecyclechanged-v1.schema.json
+  - owner: M05
+    class: ProjectHealthSnapshotRecordedV1
+    type: com.cluster.portfolioprojects.projecthealthsnapshotrecorded.v1
+    schema: docs/contracts/schemas/com-cluster-portfolioprojects-projecthealthsnapshotrecorded-v1.schema.json
+  - owner: M05
+    class: ProjectProgressReportedV1
+    type: com.cluster.portfolioprojects.projectprogressreported.v1
+    schema: docs/contracts/schemas/com-cluster-portfolioprojects-projectprogressreported-v1.schema.json
+  - owner: M05
+    class: ProjectIndicatorLinkChangedV1
+    type: com.cluster.portfolioprojects.projectindicatorlinkchanged.v1
+    schema: docs/contracts/schemas/com-cluster-portfolioprojects-projectindicatorlinkchanged-v1.schema.json
+  - owner: M06
+    class: RiskChangedV1
+    type: com.cluster.risk.riskchanged.v1
+    schema: docs/contracts/schemas/com-cluster-risk-riskchanged-v1.schema.json
+  - owner: M06
+    class: RiskReviewDueV1
+    type: com.cluster.risk.riskreviewdue.v1
+    schema: docs/contracts/schemas/com-cluster-risk-riskreviewdue-v1.schema.json
+  - owner: M06
+    class: RiskTreatmentActionDueV1
+    type: com.cluster.risk.risktreatmentactiondue.v1
+    schema: docs/contracts/schemas/com-cluster-risk-risktreatmentactiondue-v1.schema.json
+  - owner: M07
+    class: null
+    type: null
+    schema: null
+    note: M07 has no published domain Event.
 
-phi_classification:
-  Audit:
-    contains_phi: false
-    rationale: Records actor, action, correlation ID, and resource reference; payload bodies are redacted.
-  RecordsGovernance:
+# ----------------------------------------------------------------------------
+# 5. Classification (M00 plan §8.4)
+# ----------------------------------------------------------------------------
+classification:
+  M01_Audit:
     contains_phi: true
-    rationale: Disposition decisions may target PHI rows; retention/disposition fields reference record content.
-  Collaboration:
+    contains_pii: true
+    classification: confidential
+    rationale: |
+      IDs and access metadata are Confidential and may be PHI-linked.
+      audit_events stores no raw source payload, free-text clinical content,
+      secrets, tokens, or before/after object dumps. Export is capability-
+      gated, audited, time-bounded, and redacted by field policy.
+  M02_RecordsGovernance:
     contains_phi: true
-    rationale: Threads may contain free-text discussion referencing patients or restricted content.
-  Strategy:
+    contains_pii: true
+    classification: confidential
+    rationale: |
+      Source references, holds, and disposition state are Confidential and
+      may be PHI-linked. The module stores governance metadata only, never
+      the governed source payload.
+  M03_Collaboration:
+    contains_phi: true
+    contains_pii: true
+    classification: confidential
+    rationale: |
+      Thread/comment classification inherits the subject ceiling. Comment
+      and revision bodies are PHI-capable free text: encrypt at rest, mask
+      by authorization, exclude from Events/logs/errors/browser persistence,
+      and audit every sensitive read/export. Mention events contain IDs and
+      classification only.
+  M04_Strategy:
     contains_phi: false
-    rationale: Initiative and objective records are strategic metadata, not patient content.
-  PortfolioProjects:
+    contains_pii: true
+    classification: confidential
+    rationale: |
+      Strategy metadata is Confidential business data. Direct PHI is
+      prohibited; evidence is an opaque Documents reference and names/notes
+      must reject patient identifiers by product policy.
+  M05_PortfolioProjects:
     contains_phi: false
-    rationale: Project records reference initiatives, not patient content.
-  Risk:
+    contains_pii: true
+    classification: confidential
+    rationale: |
+      Portfolio/project metadata is Confidential business data. Direct PHI
+      is prohibited; evidence is an opaque Documents reference.
+  M06_Risk:
     contains_phi: false
-    rationale: Risk register records are risk metadata, not patient content.
-  Workspace:
+    contains_pii: true
+    classification: confidential
+    rationale: |
+      Enterprise risk metadata is Confidential. Direct patient/case PHI is
+      prohibited; evidence is an opaque Documents reference. Clinical-case
+      tracking requires a separately approved module/contract, not free text
+      in Risk.
+  M07_Workspace:
     contains_phi: false
-    rationale: Workspace views aggregate query outputs; the underlying modules' PHI controls apply.
+    contains_pii: true
+    classification: confidential
+    rationale: |
+      user_id and preferences are PII, not PHI. Workspace stores
+      layout/preferences only and never caches producer facts, PHI, query
+      results, or same-rank module data.
+  global_rule: |
+    PHI/PII never appears in a URL, cursor plaintext, idempotency
+    fingerprint output, problem response, correlation metadata,
+    unsanitized log, browser local/session storage, or event payload.
+    P04 reviews M01/M02/M03 enforcement after their implementation; that is
+    a completion-phase gate for P04, not an M00 start dependency.
 
 # ----------------------------------------------------------------------------
-# 8. Scope and explicit non-goals
+# 6. Migration order (M00 plan §8.3)
 # ----------------------------------------------------------------------------
-
-scope:
-  - Freeze the seven planned module contracts.
-  - Reserve disjoint table, capability, and route namespaces.
-  - Define the integration order.
-  - Record the source-grounded evidence on disk.
-
-non_goals:
-  - Implement any planned module.
-  - Modify apps/api/routes/web.php, docs/contracts/api/openapi.yaml,
-    apps/web/src/api/generated/cluster.ts, web shell files, migrations,
-    module runtime code, Makefile, or CI workflows.
-  - Create empty module directories, empty migrations, placeholder routes,
-    no-op adapters, or compatibility aliases.
-  - Promote any planned module's status from `planned` to `ready` or
-    `in_progress`; that is the M0n plan's exclusive authority.
-  - Run any docker compose, MySQL, Redis, S3, ClamAV, or E2E runner
-    command; this plan is documentation-only.
-
-# ----------------------------------------------------------------------------
-# 9. Validation command
-# ----------------------------------------------------------------------------
-
-validation:
-  - command: 'php -l docs/architecture/planned-module-contracts.yaml 2>/dev/null || true'
-    note: YAML has no PHP lexer; pass-through.
-  - command: 'python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" docs/architecture/planned-module-contracts.yaml'
-    expected: exit 0
-  - command: 'make verify-boundaries'
-    expected: '28 tests / 157 assertions after the atomic M01 Audit registry cutover.'
-  - command: 'make docs-validate'
-    expected: 'PASS — this file is referenced as a normative contract.'
+migration_order:
+  serial_registry_order:
+    - M01
+    - M02
+    - M03
+    - M04
+    - M05
+    - M06
+    - M07
+  within_module_rule: |
+    Create parent/version tables before child/history tables, then
+    idempotency tables; create internal FKs and unique indexes only after
+    both owner-local tables exist.
+  cutover_rule: |
+    A module's runtime MODULE-REGISTRY cutover is indivisible and, in one
+    integration change:
+    1. adds the real module directory and provider/runtime implementation;
+    2. creates all and only its real reversible migrations;
+    3. adds only those migrations to module_migrations.php in owner-local order;
+    4. proves its existing fixed MODULE_RANKS entry is unchanged;
+    5. removes only that module from PLANNED_MODULES;
+    6. adds exactly its frozen, actually created tables to TABLE_OWNERS;
+    7. proves fresh migrate and disposable up/down behavior; and
+    8. rejects missing owners, premature PLANNED_MODULES removal, premature
+       or ghost table owners, a registry-only cutover, a module directory
+       without all owned migrations, and any planned-list/table-owner
+       mutation whose module directory and owned migrations are not present
+       in the same integrated change.
+  parallel_branches_allowed: true
+  registry_token_concurrency: never_concurrent
 
 # ----------------------------------------------------------------------------
-# 10. Approval
+# 7. Integration queues (M00 plan §12)
 # ----------------------------------------------------------------------------
+# One token has one granted holder. A token grant records token, state,
+# requesting plan, releasing owner, full base commit, exact surface, grant
+# evidence, expiry, and merge commit/result. A module is not completed until
+# its required tokens are processed and final tests pass on the integrated
+# commit.
+integration_queues:
+  shared_queue_order: [M01, M02, M03, M04, M05, M06, M07]
+  tokens:
+    - name: MODULE-REGISTRY
+      surface: 'apps/api/tests/Architecture/ModuleBoundariesTest.php::MODULE_RANKS; ::PLANNED_MODULES; ::TABLE_OWNERS; docs/architecture/module-catalog.md; real module directory; real migration manifest'
+      m00_rule: |
+        M00 freezes all seven planned ranks in advance. One module at a time
+        later applies its indivisible directory+migrations+manifest+
+        planned-list removal+table-owner cutover without changing any rank.
+        No premature implementation status or table ownership.
+      holder: rotating
+      granted_to: []
+    - name: API-ROUTES
+      surface: apps/api/routes/web.php
+      m00_rule: |
+        Later module route integration only after active closure route
+        ownership is released.
+      holder: rotating
+      granted_to: []
+    - name: OPENAPI
+      surface: docs/contracts/api/openapi.yaml
+      m00_rule: |
+        Later module reconciles only its frozen namespace after T12 handoff.
+      holder: rotating
+      granted_to: []
+    - name: ORVAL
+      surface: 'generated bundles; apps/web/src/api/generated/cluster.ts'
+      m00_rule: |
+        Same holder as OPENAPI; generation command only, never hand editing.
+      holder: same_as_OPENAPI
+      granted_to: []
+    - name: WEB-SHELL
+      surface: 'typed web routes/navigation'
+      m00_rule: |
+        Serial module queue; M07 owns only the final aggregation token.
+      holder: rotating
+      granted_to: []
+    - name: DOCUMENTS-LINKED-FACTS
+      surface: 'Documents-owned LinkedResourceAuthorizationFacts composite/provider binding'
+      m00_rule: |
+        M03 produces an exact integration packet; the Documents owner alone
+        applies it after current-plan release. M03 never edits Documents
+        provider bindings.
+      holder: documents_owner
+      granted_to: []
+    - name: COLLABORATION-SHARED-RELAY
+      surface: 'Shared-owned bounded relay/command/provider/tests for the three M03 event types'
+      m00_rule: |
+        M03 produces an exact integration packet; the Shared outbox owner
+        alone applies it before Notifications consumes the streams or P01
+        dispatches either command. M03 never edits Shared outbox internals.
+      holder: shared_outbox_owner
+      granted_to: []
+    - name: NOTIFICATIONS-COLLABORATION-CONSUMER
+      surface: 'Notifications-owned Collaboration event consumer/provider binding'
+      m00_rule: |
+        M03 produces an exact integration packet; the Notifications owner
+        alone applies it, then requests PROD-WORKLOAD-REGISTRY. M03 never
+        edits Notifications internals.
+      holder: notifications_owner
+      granted_to: []
+    - name: CLOSURE-CI
+      surface: 'Makefile; .github/workflows/ci.yml; .github/workflows/ci-e2e.yml'
+      m00_rule: |
+        P08 only after Task 13 handoff; M00 never owns it.
+      holder: p08_after_T13_handoff
+      granted_to: []
+  downstream_phase_gates:
+    M01_start: 'M00 approved plus ARCHITECTURE-CLOSURE:AUTHORIZATION-OUTBOX; sensitive_access_events transfer remains a distinct explicit handoff.'
+    M02_core_start: 'M00 approved; final Audit integration remains blocked on M01.'
+    M03_core_start: 'M00 approved; final RecordsGovernance integration remains blocked on M02. M03 publishes immutable DOCUMENTS-LINKED-FACTS, COLLABORATION-SHARED-RELAY, and NOTIFICATIONS-COLLABORATION-CONSUMER packets; only the Documents, Shared outbox, and Notifications owners respectively apply them.'
+    M04_core_start: 'M00 approved; final RecordsGovernance integration remains blocked on M02.'
+    M05_core_start: 'M00 approved with test fakes allowed; final Strategy integration remains blocked on M04.'
+    M06_core_start: 'M00 approved with test fakes allowed; final Strategy/PortfolioProjects integration remains blocked on M04 and M05.'
+    M07_core_start: 'M00 approved with six test fakes allowed; final aggregation remains blocked on M01-M06. Same-rank modules remain web-composed.'
 
+# ----------------------------------------------------------------------------
+# 8. Approval (M00 plan §1, §3, §15)
+# ----------------------------------------------------------------------------
 approval:
-  decision: user-approved-m01-implementation
-  decision_date: '2026-07-27'
-  recorded_in: docs/architecture/planned-module-contracts.yaml
-  approval_evidence:
-    - User selected "M01 Audit module implementation (single module)" after reviewing the Wave 0 inventory.
-  authorized:
-    - Implementing M01 Audit against its frozen plan contract.
-    - Updating M01-owned registry entries required by the atomic Audit cutover.
-  not_authorized:
-    - Implementing M02..M07 modules.
-    - Pushing to a remote.
+  state: approved
+  # The current user explicitly approved the exact frozen M01-M07 matrix on
+  # 2026-07-27 after presentation of all seven module ranks and the aggregate
+  # 51 owned tables, 45 capabilities, and 21 published event types. This
+  # approval authorizes the M00 verification transition and retained approval
+  # evidence only. It does not authorize a commit, push, or completion claim.
+  state_reason: |
+    The four architecture-closure handoffs (T4, T6, T7, T12) are recorded in
+    the source commit lineage above. On 2026-07-27, the current user selected
+    "اعتماد المصفوفة كما هي" after the exact M01-M07 matrix and its canonical
+    YAML/Markdown evidence were presented. M00 may enter verification.
+    Per M00 plan §15, verification -> completed still requires all five zero
+    exit codes and a user-authorized recorded commit. No commit, push, or
+    completion authorization has been granted; implementation_commit and
+    last_verified_commit therefore remain null.
+  requires_for_approved:
+    - explicit_user_approval_of_exact_matrix
+    - retained_approval_evidence
+  requires_for_completed:
+    - approved_state
+    - five_zero_exit_codes
+    - retained_command_outputs
+    - user_authorized_recorded_commit
+  evidence_paths:
+    approval_evidence: docs/superpowers/evidence/M00/decision-approval.txt
+    manifest: docs/superpowers/evidence/M00/manifest.yaml
+    validator_output: docs/superpowers/evidence/M00/planned-contracts-validator.txt
+    docs_validate_output: docs/superpowers/evidence/M00/docs-validate.txt
+    boundaries_output: docs/superpowers/evidence/M00/boundaries.txt
+    api_check_output: docs/superpowers/evidence/M00/api-check.txt
+    route_list: docs/superpowers/evidence/M00/route-list.json
+  implementation_commit: null
+  last_verified_commit: null

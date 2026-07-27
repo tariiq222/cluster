@@ -35,4 +35,9 @@ final readonly class AuditRetentionPolicy
 
         return $recordedAt->modify('+'.max($classDays, $this->floorDays).' days');
     }
+
+    public function floorDays(): int
+    {
+        return $this->floorDays;
+    }
 }

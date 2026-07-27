@@ -53,6 +53,8 @@ compose() {
     DB_ROOT_PASSWORD="$DB_ROOT_PASSWORD" \
     REDIS_HOST=host.docker.internal \
     REDIS_PASSWORD="$REDIS_PASSWORD" \
+    AUDIT_INTEGRITY_KEYS="v1:testing-only-32-byte-key-material" \
+    AUDIT_INTEGRITY_KEY_VERSION=v1 \
     TEST_MYSQL_PORT="$TEST_MYSQL_PORT" \
     TEST_REDIS_PORT="$TEST_REDIS_PORT" \
     HTTP_PORT="$HTTP_PORT" \

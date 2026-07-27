@@ -15,12 +15,16 @@ const PATHS = (...capabilities: string[]): string[] => {
 }
 
 const GROUP_KEYS = (...capabilities: string[] | [null]) => {
-  const groups = buildNavigationGroups({ locale: 'ar', capabilities: capabilities[0] === null ? null : (capabilities as string[]) })
+  const groups = buildNavigationGroups({
+    locale: 'ar',
+    capabilities: capabilities[0] === null ? null : (capabilities as string[]),
+  })
   return groups.map((group) => group.key)
 }
 
 const fullCapabilities = [
   'authorization.audit.read',
+  'audit.event.read',
   'reporting.dashboard',
   'reporting.list',
   'workflow.decide',
@@ -53,7 +57,10 @@ const fullCapabilities = [
 
 describe('navigation registry', () => {
   it('exposes the merged sidebar groups for a full platform owner', () => {
-    const groups = buildNavigationGroups({ locale: 'ar', capabilities: fullCapabilities })
+    const groups = buildNavigationGroups({
+      locale: 'ar',
+      capabilities: fullCapabilities,
+    })
     expect(groups.map((group) => group.key)).toEqual([
       'my-work',
       'organization-workforce',
@@ -69,7 +76,12 @@ describe('navigation registry', () => {
   })
 
   it('keeps the employee sidebar free of governance, reports, and platform tools', () => {
-    const employee = ['work_record.create', 'work_record.read', 'tasks.read', 'documents.read']
+    const employee = [
+      'work_record.create',
+      'work_record.read',
+      'tasks.read',
+      'documents.read',
+    ]
     const paths = PATHS(...employee)
     expect(paths).toContain('/')
     expect(paths).toContain('/tasks')
@@ -82,24 +94,49 @@ describe('navigation registry', () => {
     expect(GROUP_KEYS(...employee)).toEqual(['my-work'])
   })
 
-  it('renders the governance entry exactly once in the sidebar', () => {
-    const groups = buildNavigationGroups({ locale: 'ar', capabilities: fullCapabilities })
-    const governanceItems = groups.find((group) => group.key === 'governance-access')?.items ?? []
-    expect(governanceItems).toHaveLength(1)
-    expect(governanceItems[0]?.path).toBe('/admin/identity/accounts')
+  it('keeps governance and Audit entries in one ordered group', () => {
+    const groups = buildNavigationGroups({
+      locale: 'ar',
+      capabilities: fullCapabilities,
+    })
+    const governanceItems =
+      groups.find((group) => group.key === 'governance-access')?.items ?? []
+    expect(governanceItems).toHaveLength(2)
+    expect(governanceItems.map((item) => item.path)).toEqual([
+      '/admin/identity/accounts',
+      '/audit',
+    ])
+  })
+
+  it('shows Audit navigation only for the ledger read capability', () => {
+    expect(PATHS('audit.event.export')).not.toContain('/audit')
+    expect(PATHS('audit.integrity.verify')).not.toContain('/audit')
+    expect(PATHS('audit.event.read')).toContain('/audit')
   })
 
   it('keeps internal tools separate from governance', () => {
-    const groups = buildNavigationGroups({ locale: 'ar', capabilities: fullCapabilities })
-    const internalItems = groups.find((group) => group.key === 'internal')?.items.map((item) => item.path) ?? []
+    const groups = buildNavigationGroups({
+      locale: 'ar',
+      capabilities: fullCapabilities,
+    })
+    const internalItems =
+      groups
+        .find((group) => group.key === 'internal')
+        ?.items.map((item) => item.path) ?? []
     expect(internalItems).toContain('/coverage')
     expect(internalItems).toContain('/api-docs')
     expect(internalItems).not.toContain('/admin/identity/accounts')
   })
 
   it('keeps platform settings in the platform management group', () => {
-    const groups = buildNavigationGroups({ locale: 'ar', capabilities: ['platform_settings.read'] })
-    const platformItems = groups.find((group) => group.key === 'platform-management')?.items.map((item) => item.path) ?? []
+    const groups = buildNavigationGroups({
+      locale: 'ar',
+      capabilities: ['platform_settings.read'],
+    })
+    const platformItems =
+      groups
+        .find((group) => group.key === 'platform-management')
+        ?.items.map((item) => item.path) ?? []
     expect(platformItems).toContain('/admin/platform')
   })
 
@@ -109,7 +146,11 @@ describe('navigation registry', () => {
   })
 
   it('hides governance and platform management from principals without admin or platform capabilities', () => {
-    const manager = ['reporting.list', 'organization.unit.read', 'identity.account.read']
+    const manager = [
+      'reporting.list',
+      'organization.unit.read',
+      'identity.account.read',
+    ]
     expect(GROUP_KEYS(...manager)).toContain('governance-access')
     expect(GROUP_KEYS(...manager)).not.toContain('platform-management')
     expect(GROUP_KEYS(...manager)).not.toContain('internal')
@@ -117,8 +158,14 @@ describe('navigation registry', () => {
 
   it('keeps the user menu separate from the sidebar with only personal entries', () => {
     const items = buildUserMenuEntries('ar')
-    expect(items.map((item) => item.key).sort()).toEqual(['access-context', 'personal-security'])
-    expect(items.map((item) => item.path).sort()).toEqual(['/me/access', '/me/security'])
+    expect(items.map((item) => item.key).sort()).toEqual([
+      'access-context',
+      'personal-security',
+    ])
+    expect(items.map((item) => item.path).sort()).toEqual([
+      '/me/access',
+      '/me/security',
+    ])
   })
 
   it('classifies every entry with a non-empty label key so the sidebar never renders empty text', () => {
@@ -137,11 +184,15 @@ describe('navigation registry', () => {
   })
 
   it('keeps the approvals entry hidden from read-only principals', () => {
-    const approvals = NAVIGATION_ENTRIES.find((entry) => entry.key === 'approvals')
+    const approvals = NAVIGATION_ENTRIES.find(
+      (entry) => entry.key === 'approvals',
+    )
     expect(approvals).toBeDefined()
     if (approvals) {
       expect(isNavigationEntryVisible(approvals, ['workflow.read'])).toBe(false)
-      expect(isNavigationEntryVisible(approvals, ['workflow.decide'])).toBe(true)
+      expect(isNavigationEntryVisible(approvals, ['workflow.decide'])).toBe(
+        true,
+      )
     }
   })
 })

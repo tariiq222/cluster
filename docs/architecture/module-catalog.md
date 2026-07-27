@@ -5,7 +5,7 @@
 > catalog at all times. If you change one, change the other in the same PR.
 
 Cluster is a **Laravel 13.8 Modular Monolith** organised as 12 implemented
-business modules plus 7 planned modules. Each module owns its database tables,
+business modules plus 6 planned modules.
 its HTTP surface, its domain rules, and its infrastructure adapters; it
 publishes only `Contracts/` (interfaces) and `Events/` (typed outbox payloads)
 to the rest of the system.
@@ -22,7 +22,7 @@ order is enforced by `test_detects_a_cross_module_domain_import` in
 | 0 | `PlatformSettings`, `Organization` | — | Roots: configuration and tenant data. No upward dependencies. |
 | 1 | `Identity` | — | Authenticated principal. May read from rank 0 through Contracts. |
 | 2 | `Authorization` | — | RBAC + ABAC engine. Consumes `Identity` and `Organization` Contracts. |
-| 3 | — | `Audit` | Audit ledger. Must come **after** `Authorization` so it can record access decisions. |
+| 3 | `Audit` | — | Audit ledger. Records access decisions and audit-relevant activity after `Authorization`. |
 | 4 | `Workflow` | `RecordsGovernance` | Cross-cutting business processes. |
 | 5 | `WorkDefinitions`, `Documents` | — | Authoring of work artefacts and documents. |
 | 6 | — | `Collaboration` | Shared collaborative surfaces (planned). |
@@ -32,10 +32,10 @@ order is enforced by `test_detects_a_cross_module_domain_import` in
 | 10 | — | `Risk` | Risk register (planned). |
 | 11 | `Notifications`, `Search`, `Reporting` | `Workspace` | Side-channel read models and notifications. |
 
-`Audit` remains planned and has no implementation directory or migration.
-The historical `audit_events` table entry was removed. Sensitive-access
-records remain owned by `Authorization` until an explicit Audit migration is
-designed and delivered.
+`Audit` is implemented at rank 3 with `apps/api/Modules/Audit/`. It owns the
+four `audit_*` tables declared in
+`apps/api/Modules/Audit/Infrastructure/Persistence/Migrations/CreateAuditTables.php`.
+`Authorization` retains ownership of `sensitive_access_events` (a deliberately cross-cutting access log retained there for delivery reasons; the historical debt note was retired when Audit migrated).
 
 ## 2 · Implemented modules
 
@@ -107,9 +107,38 @@ lists the canonical tables, contracts, and HTTP routes.
   `authorization_bootstrap`, `authorization_idempotency_keys`.
 - **Contracts.** `PersistAccessDecision`, `CountOperationsOfficeMembers`,
   `DecideAccess`, `ResolveAuthorizationSimulationFacts`.
-- **Audit ownership debt.** `sensitive_access_events` logically belongs to
-  the planned `Audit` module; it is currently under `Authorization` for
-  delivery speed. The migration to `Audit` is Phase 4 of the roadmap.
+- **Audit-table interaction.** `sensitive_access_events` is intentionally
+  retained under `Authorization` rather than migrated to the now-implemented
+  `Audit` module: `Audit` exposes the access-event ingest via its Contracts
+  (`RecordAuditEvent`) and `Authorization` keeps the column-rich
+  access-decision history local. The historical debt note was retired on
+  2026-07-27 when `Audit` was activated at rank 3.
+
+### `Audit` (rank 3)
+
+- **Purpose.** Audit ledger: records access decisions, sensitive-resource
+  activity, and audit-relevant platform events; supports tamper-evident
+  integrity verification, export-job lifecycle (create / read / download),
+  retention-driven purge, idempotent ingest, and a redaction policy for
+  sensitive values written into the ledger.
+- **Tables.** `audit_events`, `audit_export_jobs`,
+  `audit_integrity_checkpoints`, `audit_idempotency_keys`. (The
+  cross-cutting `sensitive_access_events` table remains owned by
+  `Authorization` — see above.)
+- **Contracts.** `RecordAuditEvent`, `QueryAuditActivity`,
+  `AuditActivityQuery`, `AuditActivityPage`, `AuditActivityItem`,
+  `AuditEventReceipt`, `AuditEventInput`, `AuditExportDescriptor`.
+- **Events.** `AuditEventRecordedV1`, `AuditExportCompletedV1`,
+  `AuditIntegrityViolationDetectedV1`. Retention purge records a canonical
+  `audit.retention.purged` activity through `RecordAuditEvent`; it does not
+  introduce a fourth outbox event type.
+- **HTTP.** Six routes registered under the `audit.*` name prefix in
+  `apps/api/routes/web.php`: `GET audit/events` (index),
+  `GET audit/events/{eventId}` (show),
+  `POST audit/exports` (create export job),
+  `GET audit/exports/{exportId}` (show export job),
+  `GET audit/exports/{exportId}/download` (download signed export),
+  `POST audit/integrity-verifications` (verify checkpoint chain).
 
 ### `Workflow` (rank 4)
 
@@ -190,9 +219,28 @@ These modules are declared in `PLANNED_MODULES` of
 `test_planned_modules_have_no_implementation_directory_yet` fails if any of
 them accidentally gains a directory.
 
+The M00 plan freezes the exact contract surface for each of these
+modules. The normative decision manifest is the YAML, and the readable
+decision record is the companion Markdown. The two catalogue links below
+must be present exactly as shown; M00 Task 2 Step 1 requires them and
+the docs-validate gate fails on their absence.
+
+- [Planned module contract manifest](planned-module-contracts.yaml)
+- [Planned module contract decision record](planned-module-contracts.md)
+
+M00 defines the decisions; the module registry queue applies them
+**one module at a time**, in the fixed serial order M01 → M02 → M03 →
+M04 → M05 → M06 → M07, through the indivisible `MODULE-REGISTRY`
+cutover (real module directory + all owned reversible migrations +
+migration manifest + planned-list removal + table-owner additions land
+together, with the existing `MODULE_RANKS` value unchanged). Premature
+`PLANNED_MODULES` removal, ghost table owners, or a registry-only
+cutover are forbidden. M00 approval is **pending** and
+`implementation_commit` / `last_verified_commit` remain `null`; no
+approval or completion claim is made by this catalog.
+
 | Name | Planned rank | Notes |
 | --- | --- | --- |
-| `Audit` | 3 | First planned module to materialise. See Phase 4. |
 | `RecordsGovernance` | 4 | Retention and disclosure classification. |
 | `Collaboration` | 6 | Shared collaborative surfaces. |
 | `Strategy` | 8 | Strategic planning. |
@@ -210,8 +258,8 @@ them accidentally gains a directory.
    set of tables declared by `Schema::create` migrations under
    `apps/api/Modules/*/Infrastructure/Persistence/Migrations/` and
    `apps/api/Modules/*/Infrastructure/Outbox/Migrations/`. As of the
-   Task 4 inventory refresh (2026-07-26) the registry holds **96 entries
-   for 96 distinct migrated table names**, and no extra key remains.
+   Task 4 inventory refresh (2026-07-27, Audit activation) the registry holds **99 entries
+   for 99 distinct migrated table names**, and no extra key remains.
    Virtual resources must never enter `TABLE_OWNERS`; if a future virtual
    resource requires an inventory, register it in a sibling constant
    `VIRTUAL_RESOURCES` (see the header comment on

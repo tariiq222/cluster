@@ -6,6 +6,12 @@ use App\Http\Middleware\ProjectWorkRecordReadModels;
 use App\Http\Middleware\RequireIdentitySessionPrincipal;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
+use Modules\Audit\Features\CreateAuditExport\Http\CreateAuditExportController;
+use Modules\Audit\Features\DownloadAuditExport\Http\DownloadAuditExportController;
+use Modules\Audit\Features\GetAuditEvent\Http\GetAuditEventController;
+use Modules\Audit\Features\GetAuditExport\Http\GetAuditExportController;
+use Modules\Audit\Features\ListAuditEvents\Http\ListAuditEventsController;
+use Modules\Audit\Features\VerifyAuditIntegrity\Http\VerifyAuditIntegrityController;
 use Modules\Authorization\Features\Administration\Http\AuthorizationAdminController;
 use Modules\Authorization\Features\Bootstrap\Http\CompleteAuthorizationBootstrapController;
 use Modules\Authorization\Features\Bootstrap\Http\GetAuthorizationBootstrapController;
@@ -204,6 +210,10 @@ Route::prefix('api/v1')->group(function (): void {
         Route::post('identity/accounts/{accountId}/{accountAction}', TransitionUserAccountController::class)->middleware(IdentityCsrfMiddleware::class);
     });
     Route::middleware([IdentitySessionMiddleware::class, RequireIdentitySessionPrincipal::class])->group(function (): void {
+        Route::get('audit/events', ListAuditEventsController::class)->name('audit.events.index');
+        Route::get('audit/events/{eventId}', GetAuditEventController::class)->name('audit.events.show');
+        Route::get('audit/exports/{exportId}', GetAuditExportController::class)->name('audit.exports.show');
+        Route::get('audit/exports/{exportId}/download', DownloadAuditExportController::class)->name('audit.exports.download');
         Route::get('platform-settings/current', GetCurrentPlatformSettingsController::class);
         Route::get('platform-operations/maintenance-windows', [MaintenanceWindowsController::class, 'index']);
         Route::get('platform-operations/alert-policies', [AlertPoliciesController::class, 'index']);
@@ -225,6 +235,8 @@ Route::prefix('api/v1')->group(function (): void {
         RequireIdentitySessionPrincipal::class,
         IdentityCsrfMiddleware::class,
     ])->group(function (): void {
+        Route::post('audit/exports', CreateAuditExportController::class)->name('audit.exports.store');
+        Route::post('audit/integrity-verifications', VerifyAuditIntegrityController::class)->name('audit.integrity-verifications.store');
         Route::post('platform-settings/versions', CreateSettingsVersionController::class);
         Route::put('platform-settings/versions/{versionId}/settings/{settingKey}', UpdateSettingsValueController::class);
         Route::post('platform-settings/versions/{versionId}/validate', ValidateSettingsVersionController::class);

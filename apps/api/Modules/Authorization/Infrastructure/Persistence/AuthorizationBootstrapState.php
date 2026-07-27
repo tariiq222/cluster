@@ -2,9 +2,13 @@
 
 namespace Modules\Authorization\Infrastructure\Persistence;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Modules\Audit\Contracts\AuditEventInput;
+use Modules\Audit\Contracts\RecordAuditEvent;
 use stdClass;
 
 /**
@@ -15,6 +19,10 @@ use stdClass;
 final class AuthorizationBootstrapState
 {
     private const OPERATION = 'authorization.bootstrap.complete';
+
+    private const EVENT_TYPE = 'com.cluster.authorization.bootstrapcompleted.v1';
+
+    public function __construct(private readonly RecordAuditEvent $audit) {}
 
     /** @return array{state: string, completed_at: ?string, completed_by_user_id: ?string, version: int} */
     public function current(): array
@@ -86,6 +94,7 @@ final class AuthorizationBootstrapState
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+            $correlationId = Str::uuid7()->toString();
             DB::table('access_decisions')->insert([
                 'id' => Str::uuid7()->toString(),
                 'decision' => 'allow',
@@ -97,15 +106,44 @@ final class AuthorizationBootstrapState
                 'facts_version' => 'bootstrap-'.((int) $row->lock_version + 1),
                 'authorization_trace_id' => Str::uuid7()->toString(),
                 'evaluated_at' => $now,
-                'correlation_id' => Str::uuid7()->toString(),
+                'correlation_id' => $correlationId,
                 'classification' => 'internal',
                 'access_context' => json_encode(['reason' => $reason], JSON_THROW_ON_ERROR),
                 'actor_user_id' => $principalId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+            $occurredAt = DateTimeImmutable::createFromFormat(
+                'Y-m-d\\TH:i:s.v\\Z',
+                $now->format('Y-m-d\\TH:i:s.v\\Z'),
+                new DateTimeZone('UTC'),
+            );
+            if ($occurredAt === false) {
+                $occurredAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+            }
+            $completedVersion = (int) $row->lock_version + 1;
+            $this->audit->record(new AuditEventInput(
+                eventId: Str::uuid7()->toString(),
+                sourceModule: 'authorization',
+                action: 'authorization.bootstrap.completed',
+                eventType: self::EVENT_TYPE,
+                actorType: AuditEventInput::ACTOR_USER,
+                actorId: $principalId,
+                originalActorId: null,
+                subjectType: 'authorization_bootstrap',
+                subjectId: (string) $row->id,
+                correlationId: $correlationId,
+                outcome: AuditEventInput::OUTCOME_SUCCEEDED,
+                classification: AuditEventInput::CLASSIFICATION_INTERNAL,
+                context: [
+                    'state' => 'complete',
+                    'version' => $completedVersion,
+                ],
+                occurredAt: $occurredAt,
+                retentionClass: AuditEventInput::RETENTION_SECURITY,
+            ));
 
-            return ['status' => 'completed', 'payload' => $payload, 'version' => (int) $row->lock_version + 1];
+            return ['status' => 'completed', 'payload' => $payload, 'version' => $completedVersion];
         });
     }
 

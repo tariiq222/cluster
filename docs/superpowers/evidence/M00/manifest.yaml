@@ -1,0 +1,289 @@
+# M00 Manifest — Planned-Module Contracts Baseline
+# Source of truth: docs/architecture/planned-module-contracts.yaml
+# M00 plan: docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md
+# State: blocked. No implementation claim, no recorded commit, no approval yet.
+status: blocked
+m00_state: pending
+state_reason: |
+  Per docs/superpowers/evidence/M00/decision-approval.txt:
+  "The current user authorized execution of the M00 and M01 plans, but the
+  exact M01-M07 frozen matrix has not yet been presented and explicitly
+  approved as required by Task 3 Step 3 of the M00 plan. No commit was
+  authorized in the current conversation."
+implementation_commit: null
+last_verified_commit: null
+
+# ---- Canonical sources -----------------------------------------------------
+canonical_sources:
+  planned_module_contracts_yaml: docs/architecture/planned-module-contracts.yaml
+  m00_plan: docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md
+  design_doc: docs/superpowers/specs/2026-07-26-cluster-production-and-modules-program-design.md
+  decision_approval: docs/superpowers/evidence/M00/decision-approval.txt
+  route_list_json: docs/superpowers/evidence/M00/route-list.json
+
+# ---- Module ranks (mirrors MODULE_RANKS in apps/api/tests/Architecture/ModuleBoundariesTest.php)
+# Frozen ranks for the seven planned modules. Existing modules appear in the
+# test file but not as planned-module entries in the YAML.
+module_ranks:
+  M01_Audit: 3
+  M02_RecordsGovernance: 4
+  M03_Collaboration: 6
+  M04_Strategy: 8
+  M05_PortfolioProjects: 9
+  M06_Risk: 10
+  M07_Workspace: 11
+
+# ---- Migration order (serial registry order) -------------------------------
+migration_order:
+  serial_registry_order:
+    - M01
+    - M02
+    - M03
+    - M04
+    - M05
+    - M06
+    - M07
+  parallel_branches_allowed: true
+  registry_token_concurrency: never_concurrent
+
+# ---- T4 / T6 / T7 / T12 handoff provenance ----------------------------------
+# Source: prerequisite_handoffs block of docs/architecture/planned-module-contracts.yaml.
+# All four handoffs reference the same architecture-closure source commit lineage
+# (4c3e22c -> df2588c, branch architecture-closure-2026-07-26).
+# State: pending_authorization for every handoff; no token granted yet.
+prerequisite_handoffs:
+  - id: ARCHITECTURE-CLOSURE:T4
+    surface: 'apps/api/tests/Architecture/ModuleBoundariesTest.php::MODULE_RANKS; ::PLANNED_MODULES; ::TABLE_OWNERS; docs/architecture/module-catalog.md (post-T4 edit)'
+    required_evidence: |
+      Exact migrated-table set equals TABLE_OWNERS; placement exceptions
+      exist, have a reason, and are unexpired.
+    source_commit_lineage:
+      base_commit: 4c3e22c
+      branch: architecture-closure-2026-07-26
+      cutover_commits:
+        - 4c3e22c
+        - 83b733d
+        - 1fd523b
+        - b031b30
+        - 8bab3a4
+        - 175da30
+        - 8414127
+        - ab9578e
+        - b4a9851
+        - 7889df4
+        - 447f756
+        - 3fa4528
+        - c90dd10
+        - da27c81
+        - df2588c
+    state: pending_authorization
+    grant_token: MODULE-REGISTRY
+  - id: ARCHITECTURE-CLOSURE:T6
+    surface: 'Apps/Api app/Providers/AppServiceProvider.php; apps/api/Shared/Infrastructure/Outbox/OutboxEventType.php (final event catalogue location); Shared\Contracts\TransactionalOutbox ownership'
+    required_evidence: |
+      Published-contract boundary and shared transactional-outbox ownership
+      pass; the final event catalogue location is recorded.
+    source_commit_lineage:
+      base_commit: 4c3e22c
+      branch: architecture-closure-2026-07-26
+      cutover_commits:
+        - 4c3e22c
+        - 83b733d
+        - 1fd523b
+        - b031b30
+        - 8bab3a4
+        - 175da30
+        - 8414127
+        - ab9578e
+        - b4a9851
+        - 7889df4
+        - 447f756
+        - 3fa4528
+        - c90dd10
+        - da27c81
+        - df2588c
+    state: pending_authorization
+    grant_token: SHARED-OUTBOX
+  - id: ARCHITECTURE-CLOSURE:T7
+    surface: 'apps/api/Shared/Http (canonical problem renderer, correlation request attribute, resource envelope, strong ETag parser)'
+    required_evidence: |
+      Canonical problem renderer, correlation request attribute, resource
+      envelope, and strong ETag parsing are integrated.
+    source_commit_lineage:
+      base_commit: 4c3e22c
+      branch: architecture-closure-2026-07-26
+      cutover_commits:
+        - 4c3e22c
+        - 83b733d
+        - 1fd523b
+        - b031b30
+        - 8bab3a4
+        - 175da30
+        - 8414127
+        - ab9578e
+        - b4a9851
+        - 7889df4
+        - 447f756
+        - 3fa4528
+        - c90dd10
+        - da27c81
+        - df2588c
+    state: pending_authorization
+    grant_token: SHARED-HTTP
+  - id: ARCHITECTURE-CLOSURE:T12
+    surface: 'apps/api/routes/web.php; docs/contracts/api/openapi.yaml; apps/web/src/api/generated/cluster.ts; apps/api/Shared/Http/AuthenticatedCursorCodec.php (bounded cursor contract)'
+    required_evidence: |
+      Exact live/planned route reconciliation is approved; master OpenAPI,
+      generated client, and bounded cursor contract are synchronized.
+    source_commit_lineage:
+      base_commit: 4c3e22c
+      branch: architecture-closure-2026-07-26
+      cutover_commits:
+        - 4c3e22c
+        - 83b733d
+        - 1fd523b
+        - b031b30
+        - 8bab3a4
+        - 175da30
+        - 8414127
+        - ab9578e
+        - b4a9851
+        - 7889df4
+        - 447f756
+        - 3fa4528
+        - c90dd10
+        - da27c81
+        - df2588c
+    state: pending_authorization
+    grant_token: ROUTE-OPENAPI
+
+# ---- Required-for-approved gates (from YAML approval.requires_for_approved) -
+requires_for_approved:
+  - explicit_user_approval_of_exact_matrix
+  - retained_approval_evidence
+
+# ---- Required-for-completed gates (from YAML approval.requires_for_completed) -
+requires_for_completed:
+  - approved_state
+  - five_zero_exit_codes
+  - retained_command_outputs
+  - user_authorized_recorded_commit
+
+# ---- Exact blockers (current) ----------------------------------------------
+# These two blockers are the literal set that must be cleared before M00
+# transitions away from blocked. Each is evidence-grounded, not inferred.
+# The historical pre-M01 route red snapshot is now present at
+# docs/superpowers/evidence/M00/route-list.json (captured from detached
+# baseline commit 538d95b); that prior blocker is removed.
+exact_blockers:
+  - id: missing_exact_matrix_approval
+    description: |
+      explicit_user_approval_of_exact_matrix has not been recorded.
+      The current user authorized execution of the M00 and M01 plans,
+      but the exact M01-M07 frozen matrix has not yet been presented
+      and explicitly approved as required by Task 3 Step 3 of the M00
+      plan.
+    source: docs/superpowers/evidence/M00/decision-approval.txt
+    cleared_when: |
+      Current user explicitly approves the exact M01-M07 frozen matrix
+      (rank, ordered tables, prefixes, capabilities, public
+      signatures/DTOs, events, classification, idempotency/concurrency,
+      fake restrictions, producer blockers, required tokens) and the
+      approval is retained as evidence.
+  - id: missing_authorized_recorded_commit
+    description: |
+      user_authorized_recorded_commit for this M00 artifact has not been
+      granted. No commit was authorized in the current conversation.
+      implementation_commit and last_verified_commit remain null.
+    source: docs/superpowers/evidence/M00/decision-approval.txt
+    cleared_when: |
+      Current user explicitly authorizes the recorded commit for the M00
+      artifact, the commit lands on the approved baseline, and the SHA is
+      recorded as implementation_commit; verification then yields
+      last_verified_commit.
+
+# ---- Artifact paths --------------------------------------------------------
+artifact_paths:
+  decision_approval: docs/superpowers/evidence/M00/decision-approval.txt
+  route_list_json: docs/superpowers/evidence/M00/route-list.json
+  manifest: docs/superpowers/evidence/M00/manifest.yaml
+  packets:
+    M01: docs/superpowers/evidence/M00/packets/M01.yaml
+    M02: docs/superpowers/evidence/M00/packets/M02.yaml
+    M03: docs/superpowers/evidence/M00/packets/M03.yaml
+    M04: docs/superpowers/evidence/M00/packets/M04.yaml
+    M05: docs/superpowers/evidence/M00/packets/M05.yaml
+    M06: docs/superpowers/evidence/M00/packets/M06.yaml
+    M07: docs/superpowers/evidence/M00/packets/M07.yaml
+
+# ---- Current route snapshot summary ----------------------------------------
+# Summary only; full enumeration lives in docs/superpowers/evidence/M00/route-list.json.
+# This manifest does not author or modify the route-list.json snapshot.
+# Snapshot reflects the pre-M01 (red) baseline captured from detached commit 538d95b:
+# 143 API routes, 0 /api/v1/audit routes, 0 routes under any M02-M07 prefix.
+current_route_snapshot:
+  source: docs/superpowers/evidence/M00/route-list.json
+  baseline: pre_M01_red_snapshot
+  source_commit: 538d95b
+  total_routes: 143
+  audit_prefix_count: 0
+  audit_routes: []
+  planned_prefixes_no_routes_yet:
+    - /api/v1/audit
+    - /api/v1/records-governance
+    - /api/v1/collaboration
+    - /api/v1/strategy
+    - /api/v1/portfolio
+    - /api/v1/risk
+    - /api/v1/workspace
+
+# ---- Integration queue ordering (from YAML integration_queues) -------------
+integration_queue:
+  shared_queue_order: [M01, M02, M03, M04, M05, M06, M07]
+  rotating_tokens: [MODULE-REGISTRY, API-ROUTES, OPENAPI, ORVAL, WEB-SHELL]
+  owner_specific_tokens:
+    DOCUMENTS-LINKED-FACTS: documents_owner
+    COLLABORATION-SHARED-RELAY: shared_outbox_owner
+    NOTIFICATIONS-COLLABORATION-CONSUMER: notifications_owner
+    CLOSURE-CI: p08_after_T13_handoff
+  granted_to: []
+
+# ---- Downstream phase gates (from YAML) ------------------------------------
+downstream_phase_gates:
+  M01_start: |
+    M00 approved plus ARCHITECTURE-CLOSURE:AUTHORIZATION-OUTBOX;
+    sensitive_access_events transfer remains a distinct explicit handoff.
+  M02_core_start: |
+    M00 approved; final Audit integration remains blocked on M01.
+  M03_core_start: |
+    M00 approved; final RecordsGovernance integration remains blocked on M02.
+    M03 publishes immutable DOCUMENTS-LINKED-FACTS, COLLABORATION-SHARED-RELAY,
+    and NOTIFICATIONS-COLLABORATION-CONSUMER packets; only the Documents,
+    Shared outbox, and Notifications owners respectively apply them.
+  M04_core_start: |
+    M00 approved; final RecordsGovernance integration remains blocked on M02.
+  M05_core_start: |
+    M00 approved with test fakes allowed; final Strategy integration
+    remains blocked on M04.
+  M06_core_start: |
+    M00 approved with test fakes allowed; final Strategy/PortfolioProjects
+    integration remains blocked on M04 and M05.
+  M07_core_start: |
+    M00 approved with six test fakes allowed; final aggregation remains
+    blocked on M01-M06. Same-rank modules remain web-composed.
+
+# ---- Packet inventory (mirror of artifact_paths.packets) --------------------
+packets:
+  M01_Audit: docs/superpowers/evidence/M00/packets/M01.yaml
+  M02_RecordsGovernance: docs/superpowers/evidence/M00/packets/M02.yaml
+  M03_Collaboration: docs/superpowers/evidence/M00/packets/M03.yaml
+  M04_Strategy: docs/superpowers/evidence/M00/packets/M04.yaml
+  M05_PortfolioProjects: docs/superpowers/evidence/M00/packets/M05.yaml
+  M06_Risk: docs/superpowers/evidence/M00/packets/M06.yaml
+  M07_Workspace: docs/superpowers/evidence/M00/packets/M07.yaml
+
+# ---- Provenance note -------------------------------------------------------
+# This manifest does not author any new approvals, command outputs, hashes,
+# or commit IDs. implementation_commit and last_verified_commit are
+# intentionally null. Approval, commit, and pre-M01 route snapshot remain
+# pending per decision-approval.txt and the YAML approval state.

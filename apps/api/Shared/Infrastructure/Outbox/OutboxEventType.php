@@ -99,6 +99,11 @@ enum OutboxEventType: string
     case PlatformOperationsBackupRequested = 'com.cluster.platform-operations.backup-requested.v1';
     case PlatformOperationsRestoreValidationRequested = 'com.cluster.platform-operations.restore_validation-requested.v1';
 
+    // ── Audit ─────────────────────────────────────────────────────────────
+    case AuditEventRecorded = 'com.cluster.audit.auditeventrecorded.v1';
+    case AuditExportCompleted = 'com.cluster.audit.auditexportcompleted.v1';
+    case AuditIntegrityViolationDetected = 'com.cluster.audit.auditintegrityviolationdetected.v1';
+
     /**
      * Path to the JSON schema document for this event type under the
      * `docs/contracts/schemas/` directory. The architecture test asserts

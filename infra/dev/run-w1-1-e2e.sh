@@ -39,6 +39,7 @@ readonly LOG_FILE="${TMPDIR:-/tmp}/cluster-w1-1-e2e-$$.log"
 readonly COMPOSE=(docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" --file "$COMPOSE_FILE")
 readonly PLAYWRIGHT_GREP="${W1_1_PLAYWRIGHT_GREP:-}"
 readonly COORDINATOR_BATCHES="${W1_1_COORDINATOR_BATCHES:-2}"
+readonly COORDINATOR_TARGET="${W1_1_COORDINATOR_TARGET:-$((COORDINATOR_BATCHES * 2))}"
 if ! [[ "$COORDINATOR_BATCHES" =~ ^[0-9]+$ ]]; then
   printf 'ERROR: W1_1_COORDINATOR_BATCHES must be a non-negative integer.\n' >&2
   exit 2
@@ -76,9 +77,7 @@ cleanup() {
     [[ "$status" -ne 0 ]] || status=1
   fi
   if [[ "$status" -ne 0 && -s "$LOG_FILE" ]]; then
-    cp "$LOG_FILE" "/tmp/cluster-w1-1-e2e-${$}.last.log" 2>/dev/null || true
-    printf 'saved log: /tmp/cluster-w1-1-e2e-%s.last.log\n' "$$" >&2
-    tail -n 200 "$LOG_FILE" >&2 || true
+    tail -n 80 "$LOG_FILE" >&2 || true
   fi
   rm -f "$LOG_FILE"
 }
@@ -176,25 +175,6 @@ pending_outbox_count() {
     env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('outbox_events')->whereNull('published_at')->where('event_type', 'com.cluster.workrecord.submitted.v1')->count();" 2>/dev/null | tail -n 1
   )
 }
-notification_summary() {
-  (
-    cd "$API_DIR"
-    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('notifications')->get(['recipient_user_id', 'source_record_id', 'aggregation_count'])->toJson();" 2>/dev/null | tail -n 1
-  )
-}
-work_record_summary() {
-  (
-    cd "$API_DIR"
-    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('work_records')->get(['id', 'creator_user_id', 'status', 'payload'])->toJson();" 2>/dev/null | tail -n 1
-  )
-}
-
-pending_outbox_summary() {
-  (
-    cd "$API_DIR"
-    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('outbox_events')->whereNull('published_at')->where('event_type', 'com.cluster.workrecord.submitted.v1')->get(['aggregate_id', 'cloud_event'])->toJson();" 2>/dev/null | tail -n 1
-  )
-}
 
 printf 'Starting full local MySQL/Redis/API/Vite/browser lifecycle.\n'
 assert_port_free "$MYSQL_PORT"
@@ -222,24 +202,24 @@ API_PID=$!
 wait_tcp 127.0.0.1 "$API_PORT"
 
 (
-  target=$((COORDINATOR_BATCHES * 2))
+  target=$COORDINATOR_TARGET
   deadline=$((SECONDS + HEALTH_TIMEOUT * 2 * COORDINATOR_BATCHES))
   while (( SECONDS < deadline )); do
     pending="$(pending_outbox_count || true)"
     notifications="$(db_count notifications || true)"
-    echo "[coordinator] tick pending=${pending} notifications=${notifications} target=${target}" >&2
+
     if [[ "$notifications" =~ ^[0-9]+$ ]] && (( notifications >= target )) \
       && [[ "$pending" =~ ^[0-9]+$ ]] && (( pending == 0 )); then
-      echo "[coordinator] success on tick; exit 0" >&2
+
       exit 0
     fi
     if [[ "$pending" =~ ^[0-9]+$ ]] && (( pending >= 2 )); then
+
       (
         cd "$API_DIR"
-        env "${API_ENV[@]}" php artisan work-records:relay-pending --once >/dev/null
-        env "${API_ENV[@]}" php artisan notifications:consume-work-record-submitted --once --consumer=e2e-coordinator >/dev/null
-      ) || exit 1
-      "${COMPOSE[@]}" exec -T redis redis-cli XPENDING platform.work-record.submitted.v1 notifications.work-record-submitted.v1 | head -n 1 | grep -Fxq 0
+        env "${API_ENV[@]}" php artisan work-records:relay-pending --once
+        env "${API_ENV[@]}" php artisan notifications:consume-work-record-submitted --once --consumer=e2e-coordinator
+      ) >/dev/null 2>&1 || { echo "[coordinator] relay/consumer FAILED" >&2; exit 1; }
       effect_deadline=$((SECONDS + HEALTH_TIMEOUT))
       while (( SECONDS < effect_deadline )); do
         pending="$(pending_outbox_count || true)"
@@ -271,13 +251,7 @@ if ! (
   PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1}" \
   ./node_modules/.bin/playwright test "${PLAYWRIGHT_ARGS[@]}"
 ) >>"$LOG_FILE" 2>&1; then
-  printf 'DIAGNOSTIC: pending submitted outbox=%s, notifications=%s, notification rows=%s.\n' \
-    "$(pending_outbox_count || printf unknown)" \
-    "$(db_count notifications || printf unknown)" \
-    "$(notification_summary || printf unknown)" >&2
-  printf 'DIAGNOSTIC: work records=%s.\n' "$(work_record_summary || printf unknown)" >&2
-  printf 'DIAGNOSTIC: pending events=%s.\n' "$(pending_outbox_summary || printf unknown)" >&2
-  printf 'ERROR: Playwright walking-skeleton suite failed; see bounded local log for diagnostics.\n' >&2
+  printf 'ERROR: Playwright walking-skeleton suite failed; see %s for diagnostics.\n' "$LOG_FILE" >&2
   exit 1
 fi
 

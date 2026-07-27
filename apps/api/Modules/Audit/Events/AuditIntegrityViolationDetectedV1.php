@@ -19,7 +19,7 @@ final readonly class AuditIntegrityViolationDetectedV1
         public string $verificationId,
         public string $streamKey,
         public string $correlationId,
-        public int $firstMismatchEventId,
+        public int $firstMismatchStreamSequence,
         public int $verifiedEventCount,
         public DateTimeImmutable $detectedAt,
     ) {
@@ -27,7 +27,7 @@ final readonly class AuditIntegrityViolationDetectedV1
         AuditEventInput::assertUuidV7($verificationId, 'verificationId');
         self::assertStreamKey($streamKey);
         AuditEventInput::assertUuidV7($correlationId, 'correlationId');
-        if ($firstMismatchEventId < 1 || $verifiedEventCount < 0) {
+        if ($firstMismatchStreamSequence < 1 || $verifiedEventCount < 0) {
             throw new InvalidArgumentException('audit_integrity_count_invalid');
         }
         AuditEventInput::assertUtcMilliseconds($detectedAt, 'detectedAt');
@@ -44,7 +44,7 @@ final readonly class AuditIntegrityViolationDetectedV1
      *     verification_id: string,
      *     stream_key: string,
      *     correlation_id: string,
-     *     first_mismatch_event_id: int,
+     *     first_mismatch_stream_sequence: int,
      *     verified_event_count: int,
      *     integrity_status: 'violated',
      *     detected_at: string
@@ -57,7 +57,7 @@ final readonly class AuditIntegrityViolationDetectedV1
             'verification_id' => $this->verificationId,
             'stream_key' => $this->streamKey,
             'correlation_id' => $this->correlationId,
-            'first_mismatch_event_id' => $this->firstMismatchEventId,
+            'first_mismatch_stream_sequence' => $this->firstMismatchStreamSequence,
             'verified_event_count' => $this->verifiedEventCount,
             'integrity_status' => 'violated',
             'detected_at' => $this->detectedAt->format('Y-m-d\TH:i:s.v\Z'),
@@ -67,7 +67,7 @@ final readonly class AuditIntegrityViolationDetectedV1
     private static function assertStreamKey(string $streamKey): void
     {
         if (strlen($streamKey) > 160
-            || preg_match('/\A[a-z][a-z0-9_.-]*\z/', $streamKey) !== 1) {
+            || preg_match('/\A[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*:(?:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|global)\z/', $streamKey) !== 1) {
             throw new InvalidArgumentException('audit_stream_key_invalid');
         }
     }

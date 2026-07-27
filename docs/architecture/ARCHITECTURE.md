@@ -298,6 +298,8 @@ Rank │ Module              │ ملكية الجداول                      
      │                     │ activation, identity_inbox, auth_attempt_ledgers │
   2  │ Authorization       │ roles, capabilities, delegations, denies,        │ Identity.Contracts, Organization
      │                     │ field_access, sensitive_access_events             │
+  3  │ Audit               │ audit_events, exports, integrity checkpoints,    │ Authorization.Contracts
+     │                     │ idempotency keys                                 │
   4  │ Workflow            │ workflow_* (definitions, instances, steps,       │ Identity, Organization, Authorization
      │                     │ decisions)                                       │
   5  │ WorkDefinitions     │ work_definitions + versions                      │ Identity, Authorization
@@ -314,15 +316,12 @@ Rank │ Module              │ ملكية الجداول                      
      │                     │ export_artifacts, read_models                    │
 ```
 
-> **ديْن معماري موثَّق:** موديول `Audit` ما زال مخططاً ولا توجد حالياً
-> هجرة أو ملكية لجدول `audit_events`. سجلات الوصول الحساسة باقية تحت
-> `Authorization`. كما تم تحديث `TABLE_OWNERS` في موجة Task 4
-> (2026-07-26): المفتاح الزائد `project_work_record_read_models` حُذِفَ
-> لأنه لا يقابل أي `Schema::create`، وأصبح السجل يطابق 96 جدولاً
-> مُهاجَراً بالضبط. الحارس الآن يرفض أي مفتاح زائد برسالة مستقلة.
-> لمزيد من التفاصيل، راجع `module-catalog.md §4·قاعدة 2` (مرجع
-> Task 4: `apps/api/tests/Architecture/ModuleBoundariesTest.php` و
-> `apps/api/tests/Architecture/ModulePlacementInventory.php`).
+> **حالة Audit:** أصبح موديول `Audit` مُنفَّذاً في الرتبة 3 بتاريخ
+> 2026-07-27، ويملك `audit_events` و`audit_export_jobs` و
+> `audit_integrity_checkpoints` و`audit_idempotency_keys`. يبقى جدول
+> `sensitive_access_events` تحت ملكية `Authorization` عمداً، بينما تعبر
+> الوحدات الأخرى إلى Audit حصراً عبر `Contracts/` و`Events/`. حارس
+> `ModuleBoundariesTest` يطابق ملكية الهجرات الفعلية ويرفض المفاتيح الزائدة.
 
 ---
 ## 4 · تشريح وحدة (مثال Identity، من `find` الفعلي)

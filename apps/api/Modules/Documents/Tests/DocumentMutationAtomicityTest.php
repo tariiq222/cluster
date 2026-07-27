@@ -6,6 +6,9 @@ use DateTimeImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Modules\Audit\Contracts\AuditEventInput;
+use Modules\Audit\Contracts\AuditEventReceipt;
+use Modules\Audit\Contracts\RecordAuditEvent;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
@@ -154,6 +157,122 @@ final class DocumentMutationAtomicityTest extends TestCase
         $this->assertDatabaseCount('outbox_events', 0);
     }
 
+    public function test_grant_records_one_audit_call_with_exact_input_mapping(): void
+    {
+        $spy = $this->recordingAudit();
+        $handler = $this->mutations($this->app->make(TransactionalOutbox::class), null, $spy);
+        $document = (object) [
+            'id' => self::DOCUMENT_ID,
+            'public_id' => self::DOCUMENT_PUBLIC_ID,
+            'classification' => 'confidential',
+            'owner_organization_unit_id' => self::FACILITY_ID,
+        ];
+        $version = (object) ['id' => self::VERSION_ID, 'public_id' => self::VERSION_PUBLIC_ID];
+
+        $handler->recordGrant(
+            $document,
+            $version,
+            self::PRINCIPAL_ID,
+            'download',
+            'documents.download-grant',
+            hash('sha256', 'grant-success'),
+            hash('sha256', 'payload'),
+            ['grant_type' => 'download'],
+            self::CORRELATION_ID,
+        );
+
+        $this->assertCount(1, $spy->inputs);
+
+        $input = $spy->inputs[0];
+        $this->assertSame('documents', $input->sourceModule);
+        $this->assertSame('documents.grant.issued', $input->action);
+        $this->assertSame('com.cluster.documents.grantissued.v1', $input->eventType);
+        $this->assertSame(AuditEventInput::ACTOR_USER, $input->actorType);
+        $this->assertSame(self::PRINCIPAL_ID, $input->actorId);
+        $this->assertNull($input->originalActorId);
+        $this->assertSame('document', $input->subjectType);
+        $this->assertSame(self::DOCUMENT_PUBLIC_ID, $input->subjectId);
+        $this->assertSame(self::CORRELATION_ID, $input->correlationId);
+        $this->assertSame(AuditEventInput::OUTCOME_SUCCEEDED, $input->outcome);
+        $this->assertSame('confidential', $input->classification);
+        $this->assertSame([
+            'grant_type' => 'download',
+            'version_id' => self::VERSION_PUBLIC_ID,
+            'organization_unit_id' => self::FACILITY_ID,
+        ], $input->context);
+        $this->assertSame(AuditEventInput::RETENTION_REGULATED, $input->retentionClass);
+        $this->assertMatchesRegularExpression('/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $input->eventId);
+        $this->assertSame('UTC', $input->occurredAt->getTimezone()->getName());
+    }
+
+    public function test_grant_equal_replay_does_not_invoke_record_grant_or_audit_again(): void
+    {
+        $spy = $this->recordingAudit();
+        $controller = new CreateDocumentGrantController(
+            $this->principals(),
+            $this->access(),
+            new class implements DocumentDownloadGrantIssuer
+            {
+                public function issue(string $documentId, string $versionId, string $principalId): DocumentDownloadGrant
+                {
+                    return new DocumentDownloadGrant($documentId, $versionId, 'https://download.invalid/replay', new DateTimeImmutable('+5 minutes'), 'grant');
+                }
+            },
+            $this->mutations($this->app->make(TransactionalOutbox::class), null, $spy),
+        );
+
+        $first = $controller(
+            $this->request('POST', ['version_id' => self::VERSION_PUBLIC_ID], ['HTTP_IDEMPOTENCY_KEY' => 'grant-replay']),
+            self::DOCUMENT_PUBLIC_ID,
+            'download',
+        );
+        $this->assertSame(201, $first->getStatusCode());
+        $this->assertCount(1, $spy->inputs);
+
+        $replayed = $controller(
+            $this->request('POST', ['version_id' => self::VERSION_PUBLIC_ID], ['HTTP_IDEMPOTENCY_KEY' => 'grant-replay']),
+            self::DOCUMENT_PUBLIC_ID,
+            'download',
+        );
+        $this->assertSame(201, $replayed->getStatusCode());
+        $this->assertSame($first->getData(true), $replayed->getData(true));
+        $this->assertCount(1, $spy->inputs, 'Equal replay must not invoke the Audit recorder again.');
+        $this->assertSame(1, DB::table('document_idempotency_keys')->count());
+        $this->assertSame(1, DB::table('document_access_events')->count());
+        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'com.cluster.documents.grantissued.v1')->count());
+    }
+
+    public function test_grant_audit_failure_rolls_back_every_producer_effect(): void
+    {
+        $controller = new CreateDocumentGrantController(
+            $this->principals(),
+            $this->access(),
+            new class implements DocumentDownloadGrantIssuer
+            {
+                public function issue(string $documentId, string $versionId, string $principalId): DocumentDownloadGrant
+                {
+                    return new DocumentDownloadGrant($documentId, $versionId, 'https://download.invalid/audit-rollback', new DateTimeImmutable('+5 minutes'), 'grant');
+                }
+            },
+            $this->mutations($this->app->make(TransactionalOutbox::class), null, $this->failingAudit()),
+        );
+
+        try {
+            $controller(
+                $this->request('POST', ['version_id' => self::VERSION_PUBLIC_ID], ['HTTP_IDEMPOTENCY_KEY' => 'grant-audit-rollback']),
+                self::DOCUMENT_PUBLIC_ID,
+                'download',
+            );
+            $this->fail('The injected audit failure must escape the command transaction.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('injected audit failure', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('document_idempotency_keys', 0);
+        $this->assertDatabaseCount('document_access_events', 0);
+        $this->assertDatabaseCount('outbox_events', 0);
+    }
+
     public function test_metadata_update_rolls_back_state_and_audit_when_outbox_append_fails(): void
     {
         $controller = new UpdateDocumentController($this->principals(), $this->access(), $this->mutations($this->failingOutbox()));
@@ -222,8 +341,11 @@ final class DocumentMutationAtomicityTest extends TestCase
         $this->assertDatabaseCount('outbox_events', 0);
     }
 
-    private function mutations(TransactionalOutbox $outbox, ?LinkedResourceAuthorizationFacts $facts = null): DocumentMutationHandler
-    {
+    private function mutations(
+        TransactionalOutbox $outbox,
+        ?LinkedResourceAuthorizationFacts $facts = null,
+        ?RecordAuditEvent $audit = null,
+    ): DocumentMutationHandler {
         $facts ??= new class implements LinkedResourceAuthorizationFacts
         {
             public function resolve(DocumentSourceReference $reference): ?RecordFacts
@@ -232,7 +354,11 @@ final class DocumentMutationAtomicityTest extends TestCase
             }
         };
 
-        return new DocumentMutationHandler(new DocumentLinkService($this->access(), $facts), $outbox);
+        return new DocumentMutationHandler(
+            new DocumentLinkService($this->access(), $facts),
+            $outbox,
+            $audit ?? $this->passingAudit(),
+        );
     }
 
     private function principals(): ResolveDevelopmentFixturePrincipal
@@ -277,6 +403,40 @@ final class DocumentMutationAtomicityTest extends TestCase
         };
     }
 
+    private function passingAudit(): RecordAuditEvent
+    {
+        return new class implements RecordAuditEvent
+        {
+            public function record(AuditEventInput $input): AuditEventReceipt
+            {
+                return new AuditEventReceipt(
+                    eventId: $input->eventId,
+                    streamKey: 'documents:document:'.$input->subjectId,
+                    streamSequence: 1,
+                    eventHash: str_repeat('a', 64),
+                    recordedAt: $input->occurredAt,
+                    replayed: false,
+                );
+            }
+        };
+    }
+
+    private function failingAudit(): RecordAuditEvent
+    {
+        return new class implements RecordAuditEvent
+        {
+            public function record(AuditEventInput $input): AuditEventReceipt
+            {
+                throw new RuntimeException('injected audit failure');
+            }
+        };
+    }
+
+    private function recordingAudit(): DocumentMutationAuditRecorder
+    {
+        return new DocumentMutationAuditRecorder;
+    }
+
     /** @param array<string, mixed> $payload @param array<string, string> $server */
     private function request(string $method, array $payload, array $server = []): Request
     {
@@ -295,5 +455,25 @@ final class DocumentMutationAtomicityTest extends TestCase
         } catch (RuntimeException $exception) {
             $this->assertSame('injected outbox failure', $exception->getMessage());
         }
+    }
+}
+
+final class DocumentMutationAuditRecorder implements RecordAuditEvent
+{
+    /** @var list<AuditEventInput> */
+    public array $inputs = [];
+
+    public function record(AuditEventInput $input): AuditEventReceipt
+    {
+        $this->inputs[] = $input;
+
+        return new AuditEventReceipt(
+            eventId: $input->eventId,
+            streamKey: 'documents:document:'.$input->subjectId,
+            streamSequence: count($this->inputs),
+            eventHash: str_repeat('b', 64),
+            recordedAt: $input->occurredAt,
+            replayed: false,
+        );
     }
 }

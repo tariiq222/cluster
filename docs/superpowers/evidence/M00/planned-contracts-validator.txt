@@ -1,0 +1,2 @@
+Planned-module validator self-check passed: 7/7 negative fixtures rejected.
+Planned-module contract validation passed: 7 modules; ranks, tables, routes, capabilities, contracts, events, and Markdown agree.

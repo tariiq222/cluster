@@ -1,0 +1,160 @@
+# M07 Workspace — cold-start execution packet
+# Source of truth: docs/architecture/planned-module-contracts.yaml (M07 entry)
+# Plan: docs/superpowers/plans/2026-07-26-cluster-workspace-module.md
+# Status: blocked on M00 approval and recorded commit authorization.
+# M00 state per docs/superpowers/evidence/M00/decision-approval.txt: PENDING.
+# implementation_commit and last_verified_commit remain null.
+module: M07
+name: Workspace
+status: blocked
+blocked_reasons:
+  - M00 approval (explicit_user_approval_of_exact_matrix) not recorded
+  - user_authorized_recorded_commit for this M00 artifact not granted
+  - historical pre-M01 route red snapshot not captured
+  - final aggregation remains blocked on M01-M06
+canonical_source: docs/architecture/planned-module-contracts.yaml
+plan: docs/superpowers/plans/2026-07-26-cluster-workspace-module.md
+
+# ---- Rank -------------------------------------------------------------------
+rank: 11
+
+# ---- Prefixes (frozen) ------------------------------------------------------
+prefixes:
+  api: /api/v1/workspace
+  openapi: /workspace
+  web: /workspace
+event_token: workspace
+
+# ---- Owned tables (exact ordered set) ---------------------------------------
+owned_tables:
+  - workspace_preferences
+
+# ---- Capabilities (exact set, exact order) ----------------------------------
+capabilities:
+  - workspace.read
+  - workspace.preferences.update
+
+# ---- Public Contracts (none) ------------------------------------------------
+public_contracts: []
+public_dtos: []
+events: []
+
+# ---- Events (M07 has no published domain Event) -----------------------------
+events_note: |
+  M07 does not publish a domain Event. Per the YAML header note, "M07 has no
+  event" is intentional and not copied from any historical underscore/hyphen
+  variant.
+
+# ---- Classification ---------------------------------------------------------
+classification:
+  contains_phi: false
+  contains_pii: true
+  label: pii_no_phi
+  rationale: |
+    user_id and preferences are PII, not PHI. Workspace stores
+    layout/preferences only and never caches producer facts, PHI, query
+    results, or same-rank module data.
+
+# ---- Idempotency / concurrency ---------------------------------------------
+idempotency_mode: none_atomic_if_match_preference_write
+concurrency_mode: optimistic_lock_version_with_if_match
+
+# ---- Test fakes ------------------------------------------------------------
+test_fake_allowed: true
+test_fake_rule: |
+  M07 may use deterministic fakes for exactly the six lower-rank query
+  Contracts (M01 QueryAuditActivity, M02 QueryRecordsGovernanceSummary,
+  M03 ListVisibleCollaborationThreads, M04 GetStrategySnapshot, M05
+  ListAuthorizedProjectSummaries, M06 QueryRiskWorkspaceItems) while
+  final aggregation is blocked. Same binding/lifecycle restrictions as
+  M05/M06.
+
+# ---- Required integration tokens -------------------------------------------
+required_integration_tokens:
+  - MODULE-REGISTRY
+  - API-ROUTES
+  - OPENAPI
+  - ORVAL
+  - WEB-SHELL
+
+# ---- Preference write exception (frozen) ------------------------------------
+preference_exception: |
+  Workspace preferences are write-only via PUT /api/v1/workspace/preferences
+  and perform a full replacement guarded by If-Match. Workspace is not
+  an event-producing module: the mutation publishes no domain Event and
+  appends no outbox row. M07 retry is at-most-once without server-side
+  replay state. The If-Match predicate enforces optimistic concurrency
+  and the request does not carry Idempotency-Key. A successful write
+  always increments lock_version and writes one M01 audit record; the
+  command is not retry-safe and there is no equal-representation no-op.
+  A retry whose If-Match does not match the current version returns 412
+  and writes nothing (no audit record either). Preference, version, and
+  M01 audit commit atomically.
+
+# ---- Consumer mapping (M07 consumes the six lower-rank Contracts) -----------
+consumer_mapping:
+  - consumer: M07
+    producer_contract: M01::QueryAuditActivity
+    invocation: 'query(AuditActivityQuery $query): AuditActivityPage'
+  - consumer: M07
+    producer_contract: M02::QueryRecordsGovernanceSummary
+    invocation: 'forScope(RecordsGovernanceSummaryQuery $query): RecordsGovernanceSummary'
+  - consumer: M07
+    producer_contract: M03::ListVisibleCollaborationThreads
+    invocation: 'list(CollaborationThreadQuery $query): CollaborationThreadPage'
+  - consumer: M07
+    producer_contract: M04::GetStrategySnapshot
+    invocation: 'forOrganizationUnit(StrategyAccessContext $context, string $organizationUnitId, ?string $periodId = null): StrategySnapshot'
+  - consumer: M07
+    producer_contract: M05::ListAuthorizedProjectSummaries
+    invocation: 'list(AuthorizedProjectSummaryQuery $query): AuthorizedProjectSummaryPage'
+  - consumer: M07
+    producer_contract: M06::QueryRiskWorkspaceItems
+    invocation: 'query(RiskWorkspaceQuery $query): RiskWorkspacePage'
+
+# ---- Producer / cross-module blockers --------------------------------------
+producer_blockers:
+  final_aggregation: |
+    Final aggregation remains blocked on M01-M06. Same-rank modules remain
+    web-composed. While producer integrations are blocked, M07 may use the
+    six deterministic in-memory fakes for the lower-rank query Contracts
+    under tests only.
+
+# ---- Current route snapshot -------------------------------------------------
+# No Workspace routes currently exist in docs/superpowers/evidence/M00/route-list.json.
+current_route_snapshot:
+  source: docs/superpowers/evidence/M00/route-list.json
+  routes: []
+
+# ---- Prerequisite handoff anchor -------------------------------------------
+prerequisite_handoffs_referenced:
+  - id: ARCHITECTURE-CLOSURE:T4
+    grant_token: MODULE-REGISTRY
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T6
+    grant_token: SHARED-OUTBOX
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T7
+    grant_token: SHARED-HTTP
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T12
+    grant_token: ROUTE-OPENAPI
+    state: pending_authorization
+
+# ---- Phase gate (from integration_queues.downstream_phase_gates) ------------
+start_phase_gate: |
+  M00 approved with six test fakes allowed; final aggregation remains
+  blocked on M01-M06. Same-rank modules remain web-composed.
+
+# ---- Cold-start instruction -------------------------------------------------
+# A cold-start agent must:
+#  1. Treat this packet as the M07 contract; refuse any value not present above.
+#  2. Re-read docs/architecture/planned-module-contracts.yaml lines 541-605
+#     before any edit; if any value here diverges, prefer the YAML.
+#  3. Honor test_fake_rule: fakes live only under tests, never in production
+#     service providers or container verification; exactly the six lower-rank
+#     query Contracts are fakeable.
+#  4. Honor preference_exception: write-only PUT, full replacement, If-Match
+#     guarded, no domain Event, no outbox row, no Idempotency-Key, at-most-once
+#     retry; 412 on If-Match mismatch writes nothing.
+#  5. Wait for M00 approval and a recorded commit before flipping status.

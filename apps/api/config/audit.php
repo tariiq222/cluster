@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 $rawIntegrityKeys = trim((string) env('AUDIT_INTEGRITY_KEYS', ''));
 $integrityKeys = [];
 if ($rawIntegrityKeys !== '') {
@@ -42,6 +41,7 @@ $integrityBatchSize = (int) env('AUDIT_INTEGRITY_BATCH_SIZE', 500);
 if ($integrityBatchSize < 1) {
     throw new InvalidArgumentException('audit_integrity_batch_size_invalid');
 }
+
 
 return [
     'streams' => [

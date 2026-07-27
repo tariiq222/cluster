@@ -115,8 +115,8 @@ return new class extends Migration
                 $table->dateTime('created_at', 3);
 
                 $table->unique(
-                    ['stream_key', 'kind', 'last_sequence'],
-                    'audit_integrity_checkpoints_stream_kind_last_unique',
+                    ['stream_key', 'kind', 'last_sequence', 'status'],
+                    'audit_integrity_checkpoints_stream_kind_last_status_unique',
                 );
                 $table->unique(
                     'checkpoint_hash',

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Modules\Documents\Application;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Audit\Contracts\AuditEventInput;
+use Modules\Audit\Contracts\RecordAuditEvent;
 use Modules\Documents\Contracts\DocumentSourceReference;
 use Modules\Documents\Domain\UuidV7;
 use Shared\Contracts\TransactionalOutbox;
@@ -17,6 +21,7 @@ final class DocumentMutationHandler
     public function __construct(
         private readonly DocumentLinkService $links,
         private readonly TransactionalOutbox $outbox,
+        private readonly RecordAuditEvent $audit,
     ) {}
 
     /** @param array<string, mixed> $payload */
@@ -53,6 +58,27 @@ final class DocumentMutationHandler
                 'correlation_id' => $correlationId,
                 'actor_user_id' => $principalId,
             ]);
+            $this->audit->record(new AuditEventInput(
+                eventId: Str::uuid7()->toString(),
+                sourceModule: 'documents',
+                action: 'documents.grant.issued',
+                eventType: 'com.cluster.documents.grantissued.v1',
+                actorType: AuditEventInput::ACTOR_USER,
+                actorId: $principalId,
+                originalActorId: null,
+                subjectType: 'document',
+                subjectId: (string) $document->public_id,
+                correlationId: $correlationId,
+                outcome: AuditEventInput::OUTCOME_SUCCEEDED,
+                classification: (string) $document->classification,
+                context: [
+                    'grant_type' => $grantType,
+                    'version_id' => (string) $version->public_id,
+                    'organization_unit_id' => (string) $document->owner_organization_unit_id,
+                ],
+                occurredAt: new DateTimeImmutable($now->format('Y-m-d H:i:s.u'), new DateTimeZone('UTC')),
+                retentionClass: AuditEventInput::RETENTION_REGULATED,
+            ));
         });
     }
 

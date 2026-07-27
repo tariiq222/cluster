@@ -9,6 +9,27 @@ use Tests\TestCase;
 
 class ModuleBoundariesTest extends TestCase
 {
+    /**
+     * Sole sanctioned path-scoped reverse-edge exception: the Authorization
+     * bootstrap producer packet (`AUTHORIZATION-AUDIT-PRODUCER` token) is
+     * allowed to depend on the Audit Contracts from exactly one file
+     * (AuthorizationBootstrapState). The pair (sourceModule, targetModule)
+     * MUST equal the token contract; any other import from this file, or any
+     * other Authorization file importing Audit, is a contract violation.
+     *
+     * @var list<array{path: string, source: string, target: string, imports: list<string>, token: string, reason: string}>
+     */
+    private const CROSS_MODULE_IMPORT_EXCEPTIONS = [
+        [
+            'path' => 'Modules/Authorization/Infrastructure/Persistence/AuthorizationBootstrapState.php',
+            'source' => 'Authorization',
+            'target' => 'Audit',
+            'imports' => ['Modules\\Audit\\Contracts\\AuditEventInput', 'Modules\\Audit\\Contracts\\RecordAuditEvent'],
+            'token' => 'AUTHORIZATION-AUDIT-PRODUCER',
+            'reason' => 'Bootstrap producer packet (M01 §9 Task 9) is the only sanctioned reverse edge from Authorization(rank2) to Audit(rank3) Contracts; Audit is implemented strictly as a producer consumer.',
+        ],
+    ];
+
     /** @var array<string, int> */
     private const MODULE_RANKS = [
         'Shared' => -1,
@@ -130,8 +151,8 @@ class ModuleBoundariesTest extends TestCase
         'field_access_templates' => 'Authorization',
         'authorization_bootstrap' => 'Authorization',
         'authorization_idempotency_keys' => 'Authorization',
-        // Authorization owns access_decisions AND sensitive_access_events (cross-cutting audit-events table is planned, not migrated)
-        // Audit (rank 3)
+        // Authorization retains ownership of access_decisions and sensitive_access_events. Audit (rank 3) is implemented and owns the four audit_* tables registered below; the historical debt note for sensitive_access_events was retired when Audit migrated.
+        // Audit (rank 3, implemented 2026-07-27)
         'audit_events' => 'Audit',
         'audit_export_jobs' => 'Audit',
         'audit_integrity_checkpoints' => 'Audit',
@@ -553,8 +574,9 @@ PHP);
                 $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
 
                 if ($isKnownModule) {
+                    $allowedImports = $this->allowedImportsForCrossModuleException($module, $relativePath);
                     foreach ($this->importsFrom($source) as $import) {
-                        $violations = [...$violations, ...$this->importViolations($module, $import)];
+                        $violations = [...$violations, ...$this->importViolations($module, $import, $relativePath, $allowedImports)];
                     }
                 }
 
@@ -670,6 +692,21 @@ PHP);
                     }
                 }
 
+                // Suppress the rank-rule violation that is allowed by a
+                // path-scoped CROSS_MODULE_IMPORT_EXCEPTIONS entry,
+                // scoped to the exact (file, source, target) tuple. The
+                // Contracts/Events surface violation is never suppressed
+                // by this filter; only the rank dependency is.
+                foreach (self::CROSS_MODULE_IMPORT_EXCEPTIONS as $entry) {
+                    $source = $entry['source'];
+                    $target = $entry['target'];
+                    $rankMarker = "{$source} cannot depend on same-or-higher-rank module {$target}.";
+                    $pathMarker = "[path:{$entry['path']}]";
+                    if (str_contains($violation, $rankMarker) && str_contains($violation, $pathMarker)) {
+                        return false;
+                    }
+                }
+
                 return true;
             },
         ));
@@ -711,9 +748,36 @@ PHP);
 
         return $imports;
     }
+    /**
+     * Return the per-file allow-list of cross-module imports from
+     * CROSS_MODULE_IMPORT_EXCEPTIONS. The match is exact on `(source,
+     * relativePath)`. A non-empty list means the rank rule is suppressed
+     * for the listed imports only; the imported target module MUST still
+     * equal the exception entry's `target`, and the import MUST already be
+     * a published Contracts/Events surface — this allow-list does not
+     * permit `Infrastructure` or `Domain` imports.
+     *
+     * @return list<string>
+     */
+    private function allowedImportsForCrossModuleException(string $sourceModule, string $relativePath): array
+    {
+        foreach (self::CROSS_MODULE_IMPORT_EXCEPTIONS as $entry) {
+            if ($entry['source'] === $sourceModule
+                && $entry['path'] === $relativePath) {
+                return $entry['imports'];
+            }
+        }
 
-    /** @return list<string> */
-    private function importViolations(string $sourceModule, string $import): array
+        return [];
+    }
+
+    /**
+     * @param  list<string>  $allowedImports  effective allow-list for rank-rule
+     *         exceptions (matches the exception entry's `imports` list when
+     *         the file/path/source/target pair is in CROSS_MODULE_IMPORT_EXCEPTIONS,
+     *         otherwise empty).
+     */
+    private function importViolations(string $sourceModule, string $import, string $relativePath = '', array $allowedImports = []): array
     {
         $parts = explode('\\', $import);
         $targetModule = $parts[1] ?? '';
@@ -727,13 +791,20 @@ PHP);
             return ["{$sourceModule} imports unknown module {$targetModule}."];
         }
 
+        $pathSuffix = $relativePath === '' ? '' : " [path:{$relativePath}]";
         $violations = [];
         if (! in_array($publishedSurface, ['Contracts', 'Events'], true)) {
-            $violations[] = "{$sourceModule} may import {$targetModule} only through Contracts or Events.";
+            $violations[] = "{$sourceModule} may import {$targetModule} only through Contracts or Events.{$pathSuffix}";
         }
 
         if (self::MODULE_RANKS[$targetModule] >= self::MODULE_RANKS[$sourceModule]) {
-            $violations[] = "{$sourceModule} cannot depend on same-or-higher-rank module {$targetModule}.";
+            // The rank rule is suppressed only when the exact (file, source, target, import)
+            // tuple is in CROSS_MODULE_IMPORT_EXCEPTIONS. Any other reverse edge fails closed.
+            $rankExceptionMatch = $allowedImports !== []
+                && in_array($import, $allowedImports, true);
+            if (! $rankExceptionMatch) {
+                $violations[] = "{$sourceModule} cannot depend on same-or-higher-rank module {$targetModule}.{$pathSuffix}";
+            }
         }
 
         return $violations;
@@ -897,7 +968,7 @@ PHP);
     private function writeFixture(string $root, string $relativePath, string $source): void
     {
         $path = $root.'/'.$relativePath;
-        mkdir(dirname($path), 0700, true);
+        if (! is_dir(dirname($path))) { mkdir(dirname($path), 0700, true); }
         file_put_contents($path, $source);
     }
 
@@ -1406,5 +1477,101 @@ PHP);
 
         $this->assertCount(1, $messages);
         $this->assertStringContainsString('missing-path:', $messages[0]);
+    }
+
+    public function test_cross_module_import_exception_admits_exactly_one_producer_packet_and_no_other_edge(): void
+    {
+        $this->assertCount(
+            1,
+            self::CROSS_MODULE_IMPORT_EXCEPTIONS,
+            'The boundary exception must declare exactly one (path, source, target) tuple; '
+            .'broader reverse-edge exceptions weaken the rank rule.',
+        );
+        $entry = self::CROSS_MODULE_IMPORT_EXCEPTIONS[0];
+        $this->assertSame(
+            'Modules/Authorization/Infrastructure/Persistence/AuthorizationBootstrapState.php',
+            $entry['path'],
+            'Exception path must be the exact producer file; no module-wide exception.',
+        );
+        $this->assertSame('Authorization', $entry['source']);
+        $this->assertSame('Audit', $entry['target']);
+        $this->assertSame('AUTHORIZATION-AUDIT-PRODUCER', $entry['token']);
+        $this->assertNotSame('', $entry['reason']);
+        foreach ($entry['imports'] as $import) {
+            $this->assertMatchesRegularExpression(
+                '/\\AModules\\\\Audit\\\\Contracts\\\\[A-Za-z0-9_]+\\z/',
+                $import,
+                'Exception only allows Modules\\Audit\\Contracts\\* imports; Infrastructure/Domain must fail closed.',
+            );
+        }
+    }
+
+    public function test_cross_module_import_exception_does_not_suppress_contracts_surface_violation(): void
+    {
+        $root = $this->fixtureRoot();
+        try {
+            $this->writeFixture(
+                $root,
+                'Modules/Authorization/Infrastructure/Persistence/AuthorizationBootstrapState.php',
+                <<<'PHP'
+<?php
+namespace Modules\Authorization\Infrastructure\Persistence;
+use Modules\Audit\Infrastructure\Persistence\AuditStore;
+final class AuthorizationBootstrapState {}
+PHP,
+            );
+            $this->writeFixture(
+                $root,
+                'Modules/Authorization/Infrastructure/Persistence/AuthorizationIsoEvent.php',
+                <<<'PHP'
+<?php
+namespace Modules\Authorization\Infrastructure\Persistence;
+use Modules\Audit\Infrastructure\Persistence\AuditStore;
+final class AuthorizationIsoEvent {}
+PHP,
+            );
+            $violations = $this->unapprovedViolationsIn($root);
+            $this->assertNotEmpty(
+                $violations,
+                'The exception admits exactly the Audit\\Contracts edge; Infrastructure or '
+                .'Domain imports, or any other Authorization file, must remain violations.',
+            );
+            $this->assertTrue(
+                (bool) array_filter(
+                    $violations,
+                    static fn (string $violation): bool => str_contains(
+                        $violation,
+                        'Authorization may import Audit only through Contracts or Events.',
+                    ),
+                ),
+                'Infrastructure import from the excepted file must still surface as a '
+                .'Contracts/Events surface violation even though the rank rule is suppressed.',
+            );
+            $this->assertTrue(
+                (bool) array_filter(
+                    $violations,
+                    static fn (string $violation): bool => str_contains(
+                        $violation,
+                        'AuthorizationIsoEvent.php',
+                    ),
+                ),
+                'Other Authorization files importing Audit must still be rejected.',
+            );
+            $this->assertTrue(
+                (bool) array_filter(
+                    $violations,
+                    static fn (string $violation): bool => str_contains(
+                        $violation,
+                        'cannot depend on same-or-higher-rank module Audit.',
+                    ) && str_contains(
+                        $violation,
+                        '[path:Modules/Authorization/Infrastructure/Persistence/AuthorizationIsoEvent.php]',
+                    ),
+                ),
+                'Second Authorization file (outside the exception path) must still violate the rank rule.',
+            );
+        } finally {
+            $this->removeDirectory($root);
+        }
     }
 }

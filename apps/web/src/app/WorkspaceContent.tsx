@@ -2,10 +2,7 @@ import type { ReactNode } from 'react'
 
 import type { Locale } from './copy'
 import { usePrincipal } from './principal-context'
-import {
-  pathFromRoute,
-  type AppRoute,
-} from '../shell/routes'
+import { pathFromRoute, type AppRoute } from '../shell/routes'
 import type { Notification, Session } from '../api'
 import { RequestForm } from '../features/requests/RequestForm'
 import {
@@ -30,9 +27,14 @@ import { TaskDetail } from '../features/tasks/TaskDetail'
 import { WorkDashboard } from '../features/dashboard/WorkDashboard'
 import { DashboardsScreen } from '../features/reporting/DashboardsScreen'
 import { AccessWorkspace } from '../features/authorization/AccessWorkspace'
-import { OrganizationWorkspace, PeopleAssignments, TemporaryAssignments } from '../features/organization'
+import {
+  OrganizationWorkspace,
+  PeopleAssignments,
+  TemporaryAssignments,
+} from '../features/organization'
 import { ImportReview } from '../features/imports/ImportReview'
 import { Day2Workflow } from '../features/workflow/Day2Workflow'
+import { AuditWorkspace } from '../features/audit/AuditWorkspace'
 import {
   ApiDocsRoute,
   NotificationsRoute,
@@ -98,19 +100,37 @@ export function WorkspaceContent({
             effectiveScopeLabel={principal.effectiveScope?.label}
             scopeEpoch={principal.scopeEpoch}
             scopeReady={principal.scopeReady}
-            canViewDashboards={principal.capabilities?.includes('reporting.dashboard') === true}
-            canCreateRequest={principal.capabilities?.includes('work_record.create') === true}
-            canBrowseServices={principal.capabilities?.some((capability) => capability === 'work_definition.read' || capability === 'work_definition.list') === true}
+            canViewDashboards={
+              principal.capabilities?.includes('reporting.dashboard') === true
+            }
+            canCreateRequest={
+              principal.capabilities?.includes('work_record.create') === true
+            }
+            canBrowseServices={
+              principal.capabilities?.some(
+                (capability) =>
+                  capability === 'work_definition.read' ||
+                  capability === 'work_definition.list',
+              ) === true
+            }
             onCreateRequest={() => onRouteNavigate({ name: 'create' })}
-            onBrowseServices={() => onRouteNavigate({ name: 'procedure-guide' })}
+            onBrowseServices={() =>
+              onRouteNavigate({ name: 'procedure-guide' })
+            }
             onOpenApprovals={() => onRouteNavigate({ name: 'approval-inbox' })}
             onOpenRequests={() => onRouteNavigate({ name: 'my-requests' })}
             onOpenTasks={() => onRouteNavigate({ name: 'tasks' })}
             onOpenDocuments={() => onRouteNavigate({ name: 'documents' })}
             onOpenDashboards={() => onRouteNavigate({ name: 'dashboards' })}
-            onOpenRequestInstance={(instanceId) => onRouteNavigate({ name: 'my-request-detail', instanceId })}
-            onOpenApprovalStep={(stepId) => onRouteNavigate({ name: 'approval-detail', stepId })}
-            onOpenTask={(taskId) => onRouteNavigate({ name: 'task-detail', taskId })}
+            onOpenRequestInstance={(instanceId) =>
+              onRouteNavigate({ name: 'my-request-detail', instanceId })
+            }
+            onOpenApprovalStep={(stepId) =>
+              onRouteNavigate({ name: 'approval-detail', stepId })
+            }
+            onOpenTask={(taskId) =>
+              onRouteNavigate({ name: 'task-detail', taskId })
+            }
           />
         )
       case 'documents':
@@ -119,7 +139,9 @@ export function WorkspaceContent({
           <DocumentsWorkspace
             locale={locale}
             token={session.access_token}
-            documentId={route.name === 'document-detail' ? route.documentId : undefined}
+            documentId={
+              route.name === 'document-detail' ? route.documentId : undefined
+            }
             onNavigate={navigate}
           />
         )
@@ -158,7 +180,9 @@ export function WorkspaceContent({
         return (
           <ImportReview
             jobId={'jobId' in route ? route.jobId : undefined}
-            onJobOpen={(nextJobId) => onRouteNavigate({ name: 'organization-import', jobId: nextJobId })}
+            onJobOpen={(nextJobId) =>
+              onRouteNavigate({ name: 'organization-import', jobId: nextJobId })
+            }
           />
         )
       case 'identity-accounts':
@@ -166,7 +190,24 @@ export function WorkspaceContent({
       case 'access-scopes':
       case 'access-explanation':
       case 'access-context':
-        return <AccessWorkspace locale={locale} activeRoute={route} navigate={navigate} scopeReady={principal.scopeReady} scopeEpoch={principal.scopeEpoch} capabilities={principal.capabilities ?? undefined} />
+        return (
+          <AccessWorkspace
+            locale={locale}
+            activeRoute={route}
+            navigate={navigate}
+            scopeReady={principal.scopeReady}
+            scopeEpoch={principal.scopeEpoch}
+            capabilities={principal.capabilities ?? undefined}
+          />
+        )
+      case 'audit':
+        return (
+          <AuditWorkspace
+            locale={locale}
+            token={session.access_token}
+            capabilities={principal.capabilities ?? []}
+          />
+        )
       case 'workflow-day2':
         return <Day2Workflow session={session} />
       case 'tasks':
@@ -182,9 +223,13 @@ export function WorkspaceContent({
           />
         )
       case 'work-definitions':
-        return <WorkDefinitionsScreen capabilities={principal.capabilities ?? []} />
+        return (
+          <WorkDefinitionsScreen capabilities={principal.capabilities ?? []} />
+        )
       case 'workflow-admin':
-        return <WorkflowAdminScreen capabilities={principal.capabilities ?? []} />
+        return (
+          <WorkflowAdminScreen capabilities={principal.capabilities ?? []} />
+        )
       case 'reports':
         return <ReportsScreen capabilities={principal.capabilities ?? []} />
       case 'procedure-authoring':
@@ -196,11 +241,20 @@ export function WorkspaceContent({
           <ProcedureGuide
             locale={locale}
             session={session}
-            highlightedProcedureId={route.name === 'procedure-guide' ? route.procedureId : undefined}
+            highlightedProcedureId={
+              route.name === 'procedure-guide' ? route.procedureId : undefined
+            }
           />
         )
       case 'approval-inbox':
-        return <ApprovalInbox locale={locale} session={session} scopeReady={principal.scopeReady} scopeEpoch={principal.scopeEpoch} />
+        return (
+          <ApprovalInbox
+            locale={locale}
+            session={session}
+            scopeReady={principal.scopeReady}
+            scopeEpoch={principal.scopeEpoch}
+          />
+        )
       case 'approval-detail':
         return (
           <ApprovalDetail
@@ -212,7 +266,14 @@ export function WorkspaceContent({
           />
         )
       case 'my-requests':
-        return <MyRequests locale={locale} session={session} scopeReady={principal.scopeReady} scopeEpoch={principal.scopeEpoch} />
+        return (
+          <MyRequests
+            locale={locale}
+            session={session}
+            scopeReady={principal.scopeReady}
+            scopeEpoch={principal.scopeEpoch}
+          />
+        )
       case 'my-request-detail':
         return (
           <MyRequestDetail
@@ -236,7 +297,9 @@ export function WorkspaceContent({
             hasMore={notificationsHasMore}
             loadingMore={notificationsLoadingMore}
             loadMoreError={notificationsLoadMoreError}
-            onLoadMore={() => { void loadMoreNotifications() }}
+            onLoadMore={() => {
+              void loadMoreNotifications()
+            }}
           />
         )
       case 'personal-security':
@@ -257,14 +320,26 @@ export function WorkspaceContent({
           />
         )
       case 'platform-settings':
-        return <PlatformSettingsRoute locale={locale} section={route.section} capabilities={principal.capabilities} navigate={navigate} session={session} />
+        return (
+          <PlatformSettingsRoute
+            locale={locale}
+            section={route.section}
+            capabilities={principal.capabilities}
+            navigate={navigate}
+            session={session}
+          />
+        )
       case 'not-found':
         return <RouteNotFound locale={locale} />
     }
   }
 
   return (
-    <RouteAccessGuard locale={locale} route={route} capabilities={principal.capabilities}>
+    <RouteAccessGuard
+      locale={locale}
+      route={route}
+      capabilities={principal.capabilities}
+    >
       {renderRoute()}
     </RouteAccessGuard>
   )

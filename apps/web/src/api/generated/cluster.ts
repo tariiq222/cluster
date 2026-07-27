@@ -2073,6 +2073,193 @@ export interface OperationsOfficeAuditCollection {
   next_cursor: string | null
 }
 
+export type AuditActorType =
+  (typeof AuditActorType)[keyof typeof AuditActorType]
+
+export const AuditActorType = {
+  user: 'user',
+  service: 'service',
+  system: 'system',
+} as const
+
+export type AuditOutcome = (typeof AuditOutcome)[keyof typeof AuditOutcome]
+
+export const AuditOutcome = {
+  succeeded: 'succeeded',
+  denied: 'denied',
+  failed: 'failed',
+} as const
+
+export type AuditIntegrityStatus =
+  (typeof AuditIntegrityStatus)[keyof typeof AuditIntegrityStatus]
+
+export const AuditIntegrityStatus = {
+  verified: 'verified',
+  violated: 'violated',
+  unverified: 'unverified',
+} as const
+
+export type AuditExportFormat =
+  (typeof AuditExportFormat)[keyof typeof AuditExportFormat]
+
+export const AuditExportFormat = {
+  csv: 'csv',
+  ndjson: 'ndjson',
+} as const
+
+export type AuditExportStatus =
+  (typeof AuditExportStatus)[keyof typeof AuditExportStatus]
+
+export const AuditExportStatus = {
+  ready: 'ready',
+  expired: 'expired',
+} as const
+
+/**
+ * Server-redacted, depth-bounded JSON object. Bytes, raw secrets,
+ * integrity key material, request hashes, and HMAC inputs never appear here.
+ */
+export interface AuditEventContext {
+  [key: string]:
+    string | number | boolean | unknown[] | { [key: string]: unknown } | null
+}
+
+/**
+ * Redacted, projected audit event. Never exposes `event_hash`, `previous_hash`,
+ * `request_hash`, or `integrity_key_version`.
+ */
+export interface AuditEvent {
+  event_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[a-z][a-z0-9_-]*$
+   */
+  source_module: string
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$
+   */
+  action: string
+  /**
+   * @minLength 1
+   * @maxLength 160
+   * @pattern ^com\.cluster\.[a-z][a-z0-9_-]*\.[a-z][a-z0-9]*\.v[1-9][0-9]*$
+   */
+  event_type: string
+  actor_type: AuditActorType
+  actor_id: UUIDv7 | null
+  original_actor_id: UUIDv7 | null
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[a-z][a-z0-9_-]*$
+   */
+  subject_type: string
+  subject_id: UUIDv7 | null
+  correlation_id: UUIDv7
+  outcome: AuditOutcome
+  classification: Classification
+  context: AuditEventContext
+  occurred_at: UtcDateTime
+  recorded_at: UtcDateTime
+  access_decision_id: UUIDv7 | null
+  retention_until: UtcDateTime
+  integrity_status: AuditIntegrityStatus
+  /**
+   * @items.minLength 1
+   * @items.maxLength 96
+   * @items.pattern ^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$
+   */
+  allowed_actions: string[]
+}
+
+export interface AuditEventCollection {
+  items: AuditEvent[]
+  next_cursor: string | null
+}
+
+/**
+ * Snapshot-bound filters captured at creation. Unknown keys are rejected
+ * with `invalid-export-payload`. Allowed keys: `source_module`, `action`,
+ * `correlation_id`, plus `occurred_from` / `occurred_to` bounds.
+ */
+export interface AuditExportFilters {
+  source_module?: string | null
+  action?: string | null
+  correlation_id?: UUIDv7 | null
+  occurred_from?: UtcDateTime | null
+  occurred_to?: UtcDateTime | null
+}
+
+export interface AuditExportCreate {
+  format: AuditExportFormat
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
+  reason: string
+  filters?: AuditExportFilters
+}
+
+export type AuditExportDescriptorQuery = { [key: string]: unknown }
+
+/**
+ * Frozen audit export descriptor. No raw context, no idempotency key,
+ * no request hash, no artifact path or hash ever appears on this DTO.
+ */
+export interface AuditExportDescriptor {
+  id: UUIDv7
+  principal_id: UUIDv7
+  facility_id: UUIDv7 | null
+  query: AuditExportDescriptorQuery
+  format: AuditExportFormat
+  snapshot_recorded_at: UtcDateTime
+  status: AuditExportStatus
+  /** @minimum 0 */
+  event_count: number
+  expires_at: UtcDateTime
+  created_at: UtcDateTime
+}
+
+/**
+ * Verification request payload. `stream_key` is required. The bounded
+ * `first_sequence` / `last_sequence` pair must be supplied together
+ * (both present or both absent) and may not exceed 5000 events.
+ */
+export interface AuditIntegrityRequest {
+  /**
+   * @minLength 1
+   * @maxLength 160
+   * @pattern ^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*:(?:[0-9a-f-]{36}|global)$
+   */
+  stream_key: string
+  first_sequence?: number | null
+  last_sequence?: number | null
+}
+
+/**
+ * Sanitized verification result. Never exposes `event_hash`,
+ * `previous_hash`, `integrity_key_version`, request hash, HMAC key
+ * material, or canonical JSON.
+ */
+export interface AuditIntegrityResult {
+  /**
+   * @minLength 1
+   * @maxLength 160
+   */
+  stream_key: string
+  /** @minimum 1 */
+  first_sequence: number
+  /** @minimum 1 */
+  last_sequence: number
+  /** @minimum 0 */
+  verified_event_count: number
+  integrity_status: AuditIntegrityStatus
+  checkpoint_id: UUIDv7
+}
+
 export type WorkflowStepInboxItemState =
   (typeof WorkflowStepInboxItemState)[keyof typeof WorkflowStepInboxItemState]
 
@@ -2801,6 +2988,51 @@ export type OperationsOfficePublicationResponseResponse =
 export type OperationsOfficeAuditCollectionResponse =
   OperationsOfficeAuditCollection
 
+/**
+ * Single authorized, redacted audit event projection
+ */
+export type AuditEventEntityResponse = AuditEvent
+
+/**
+ * Cursor-paginated authorized audit events
+ */
+export type AuditEventCollectionResponse = AuditEventCollection
+
+export type AuditEventNotFoundResponse = ProblemDetailsSchema & {
+  type: 'https://cluster.example/problems/audit-event-not-found'
+  detail?: 'The audit event was not found.'
+}
+
+/**
+ * Audit export descriptor with frozen snapshot bound and ETag
+ */
+export type AuditExportEntityResponse = AuditExportDescriptor
+
+export type AuditExportNotFoundResponse = ProblemDetailsSchema & {
+  type: 'https://cluster.example/problems/audit-export-not-found'
+  detail?: 'The audit export was not found.'
+}
+
+export type AuditExportExpiredResponse = ProblemDetailsSchema & {
+  type: 'https://cluster.example/problems/audit-export-expired'
+  detail?: 'The audit export has expired and can no longer be downloaded.'
+}
+
+export type AuditIdempotencyConflictResponse = ProblemDetailsSchema & {
+  type: 'https://cluster.example/problems/idempotency-conflict'
+  detail?: 'Idempotency-Key was already used for a different request.'
+}
+
+export type AuditIntegrityConflictResponse = ProblemDetailsSchema & {
+  type: 'https://cluster.example/problems/audit-integrity-violation'
+  detail?: 'The audit chain reported a violation.'
+}
+
+export type AuditRuntimeUnavailableResponse = ProblemDetailsSchema & {
+  type: 'https://cluster.example/problems/audit-runtime-unavailable'
+  detail?: 'Audit integrity verification is temporarily unavailable.'
+}
+
 export type CorrelationIdParameter = UUIDv7
 
 export type IfMatchParameter = string
@@ -2828,6 +3060,24 @@ export type IfNoneMatchParameter = string
  * Current X-Resource-Version value, not the weak ETag representation validator.
  */
 export type TemporaryAssignmentIfMatchParameter = string
+
+export type AuditSourceModuleParameter = string
+
+export type AuditActionParameter = string
+
+export type AuditActorIdParameter = UUIDv7
+
+export type AuditSubjectTypeParameter = string
+
+export type AuditSubjectIdParameter = UUIDv7
+
+export type AuditCorrelationIdQueryParameter = UUIDv7
+
+export type AuditClassificationParameter = Classification
+
+export type AuditOccurredFromParameter = UtcDateTime
+
+export type AuditOccurredToParameter = UtcDateTime
 
 export type RefreshIdentityCsrf200Data = {
   /** @minLength 1 */
@@ -3186,7 +3436,50 @@ export type ListAuditEventsParams = {
    * @maximum 100
    */
   limit?: LimitParameter
-  resource_id?: string
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[a-z][a-z0-9_-]*$
+   */
+  source_module?: AuditSourceModuleParameter
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$
+   */
+  action?: AuditActionParameter
+  /**
+   * Lowercase RFC 9562 UUID version 7
+   * @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+   */
+  actor_id?: AuditActorIdParameter
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[a-z][a-z0-9_-]*$
+   */
+  subject_type?: AuditSubjectTypeParameter
+  /**
+   * Lowercase RFC 9562 UUID version 7
+   * @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+   */
+  subject_id?: AuditSubjectIdParameter
+  /**
+   * Lowercase RFC 9562 UUID version 7
+   * @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+   */
+  correlation_id?: AuditCorrelationIdQueryParameter
+  classification?: AuditClassificationParameter
+  /**
+   * RFC 3339 UTC timestamp ending in Z
+   * @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$
+   */
+  occurred_from?: AuditOccurredFromParameter
+  /**
+   * RFC 3339 UTC timestamp ending in Z
+   * @pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$
+   */
+  occurred_to?: AuditOccurredToParameter
 }
 
 export type ListTemporaryAssignmentsParams = {
@@ -9009,19 +9302,39 @@ export const getExport = async (
 }
 
 export type listAuditEventsResponse200 = {
-  data: CollectionResponse
+  data: AuditEventCollectionResponse
   status: 200
 }
 
+export type listAuditEventsResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type listAuditEventsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
 export type listAuditEventsResponse403 = {
-  data: ProblemResponse
+  data: ForbiddenResponse
   status: 403
+}
+
+export type listAuditEventsResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
 }
 
 export type listAuditEventsResponseSuccess = listAuditEventsResponse200 & {
   headers: Headers
 }
-export type listAuditEventsResponseError = listAuditEventsResponse403 & {
+export type listAuditEventsResponseError = (
+  | listAuditEventsResponse400
+  | listAuditEventsResponse401
+  | listAuditEventsResponse403
+  | listAuditEventsResponse500
+) & {
   headers: Headers
 }
 
@@ -9040,12 +9353,12 @@ export const getListAuditEventsUrl = (params?: ListAuditEventsParams) => {
   const stringifiedParams = normalizedParams.toString()
 
   return stringifiedParams.length > 0
-    ? `/api/v1/audit?${stringifiedParams}`
-    : `/api/v1/audit`
+    ? `/api/v1/audit/events?${stringifiedParams}`
+    : `/api/v1/audit/events`
 }
 
 /**
- * @summary List audit events
+ * @summary List audit events visible to the authenticated principal
  */
 export const listAuditEvents = async (
   params?: ListAuditEventsParams,
@@ -9055,6 +9368,347 @@ export const listAuditEvents = async (
     ...options,
     method: 'GET',
   })
+}
+
+export type getAuditEventResponse200 = {
+  data: AuditEventEntityResponse
+  status: 200
+}
+
+export type getAuditEventResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type getAuditEventResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getAuditEventResponse404 = {
+  data: AuditEventNotFoundResponse
+  status: 404
+}
+
+export type getAuditEventResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type getAuditEventResponseSuccess = getAuditEventResponse200 & {
+  headers: Headers
+}
+export type getAuditEventResponseError = (
+  | getAuditEventResponse400
+  | getAuditEventResponse401
+  | getAuditEventResponse404
+  | getAuditEventResponse500
+) & {
+  headers: Headers
+}
+
+export type getAuditEventResponse =
+  getAuditEventResponseSuccess | getAuditEventResponseError
+
+export const getGetAuditEventUrl = (eventId: string) => {
+  return `/api/v1/audit/events/${encodeURIComponent(String(eventId))}`
+}
+
+/**
+ * @summary Get a single redacted audit event by id
+ */
+export const getAuditEvent = async (
+  eventId: string,
+  options?: RequestInit,
+): Promise<getAuditEventResponse> => {
+  return customFetch<getAuditEventResponse>(getGetAuditEventUrl(eventId), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export type createAuditExportResponse200 = {
+  data: AuditExportDescriptor
+  status: 200
+}
+
+export type createAuditExportResponse201 = {
+  data: AuditExportEntityResponse
+  status: 201
+}
+
+export type createAuditExportResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type createAuditExportResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type createAuditExportResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type createAuditExportResponse409 = {
+  data: AuditIdempotencyConflictResponse
+  status: 409
+}
+
+export type createAuditExportResponse422 = {
+  data: UnprocessableEntityResponse
+  status: 422
+}
+
+export type createAuditExportResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type createAuditExportResponseSuccess = (
+  createAuditExportResponse200 | createAuditExportResponse201
+) & {
+  headers: Headers
+}
+export type createAuditExportResponseError = (
+  | createAuditExportResponse400
+  | createAuditExportResponse401
+  | createAuditExportResponse403
+  | createAuditExportResponse409
+  | createAuditExportResponse422
+  | createAuditExportResponse500
+) & {
+  headers: Headers
+}
+
+export type createAuditExportResponse =
+  createAuditExportResponseSuccess | createAuditExportResponseError
+
+export const getCreateAuditExportUrl = () => {
+  return `/api/v1/audit/exports`
+}
+
+/**
+ * @summary Create a ready-only audit export descriptor for the current scope
+ */
+export const createAuditExport = async (
+  auditExportCreate: AuditExportCreate,
+  options?: RequestInit,
+): Promise<createAuditExportResponse> => {
+  return customFetch<createAuditExportResponse>(getCreateAuditExportUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(auditExportCreate),
+  })
+}
+
+export type getAuditExportResponse200 = {
+  data: AuditExportEntityResponse
+  status: 200
+}
+
+export type getAuditExportResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type getAuditExportResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type getAuditExportResponse404 = {
+  data: AuditExportNotFoundResponse
+  status: 404
+}
+
+export type getAuditExportResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type getAuditExportResponseSuccess = getAuditExportResponse200 & {
+  headers: Headers
+}
+export type getAuditExportResponseError = (
+  | getAuditExportResponse400
+  | getAuditExportResponse401
+  | getAuditExportResponse404
+  | getAuditExportResponse500
+) & {
+  headers: Headers
+}
+
+export type getAuditExportResponse =
+  getAuditExportResponseSuccess | getAuditExportResponseError
+
+export const getGetAuditExportUrl = (exportId: string) => {
+  return `/api/v1/audit/exports/${encodeURIComponent(String(exportId))}`
+}
+
+/**
+ * @summary Get a single audit export descriptor
+ */
+export const getAuditExport = async (
+  exportId: string,
+  options?: RequestInit,
+): Promise<getAuditExportResponse> => {
+  return customFetch<getAuditExportResponse>(getGetAuditExportUrl(exportId), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export type downloadAuditExportResponse200TextCsvCharsetUtf8 = {
+  data: string
+  status: 200
+}
+
+export type downloadAuditExportResponse200ApplicationXNdjsonCharsetUtf8 = {
+  data: string
+  status: 200
+}
+
+export type downloadAuditExportResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type downloadAuditExportResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type downloadAuditExportResponse404 = {
+  data: AuditExportNotFoundResponse
+  status: 404
+}
+
+export type downloadAuditExportResponse410 = {
+  data: AuditExportExpiredResponse
+  status: 410
+}
+
+export type downloadAuditExportResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type downloadAuditExportResponseSuccess = (
+  | downloadAuditExportResponse200TextCsvCharsetUtf8
+  | downloadAuditExportResponse200ApplicationXNdjsonCharsetUtf8
+) & {
+  headers: Headers
+}
+export type downloadAuditExportResponseError = (
+  | downloadAuditExportResponse400
+  | downloadAuditExportResponse401
+  | downloadAuditExportResponse404
+  | downloadAuditExportResponse410
+  | downloadAuditExportResponse500
+) & {
+  headers: Headers
+}
+
+export type downloadAuditExportResponse =
+  downloadAuditExportResponseSuccess | downloadAuditExportResponseError
+
+export const getDownloadAuditExportUrl = (exportId: string) => {
+  return `/api/v1/audit/exports/${encodeURIComponent(String(exportId))}/download`
+}
+
+/**
+ * @summary Stream the frozen audit export as UTF-8 CSV or NDJSON
+ */
+export const downloadAuditExport = async (
+  exportId: string,
+  options?: RequestInit,
+): Promise<downloadAuditExportResponse> => {
+  return customFetch<downloadAuditExportResponse>(
+    getDownloadAuditExportUrl(exportId),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
+export type verifyAuditIntegrityResponse201 = {
+  data: AuditIntegrityResult
+  status: 201
+}
+
+export type verifyAuditIntegrityResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type verifyAuditIntegrityResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type verifyAuditIntegrityResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type verifyAuditIntegrityResponse409 = {
+  data: AuditIntegrityConflictResponse
+  status: 409
+}
+
+export type verifyAuditIntegrityResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type verifyAuditIntegrityResponse503 = {
+  data: AuditRuntimeUnavailableResponse
+  status: 503
+}
+
+export type verifyAuditIntegrityResponseSuccess =
+  verifyAuditIntegrityResponse201 & {
+    headers: Headers
+  }
+export type verifyAuditIntegrityResponseError = (
+  | verifyAuditIntegrityResponse400
+  | verifyAuditIntegrityResponse401
+  | verifyAuditIntegrityResponse403
+  | verifyAuditIntegrityResponse409
+  | verifyAuditIntegrityResponse500
+  | verifyAuditIntegrityResponse503
+) & {
+  headers: Headers
+}
+
+export type verifyAuditIntegrityResponse =
+  verifyAuditIntegrityResponseSuccess | verifyAuditIntegrityResponseError
+
+export const getVerifyAuditIntegrityUrl = () => {
+  return `/api/v1/audit/integrity-verifications`
+}
+
+/**
+ * @summary Verify the integrity of an audit stream or bounded range
+ */
+export const verifyAuditIntegrity = async (
+  auditIntegrityRequest: AuditIntegrityRequest,
+  options?: RequestInit,
+): Promise<verifyAuditIntegrityResponse> => {
+  return customFetch<verifyAuditIntegrityResponse>(
+    getVerifyAuditIntegrityUrl(),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(auditIntegrityRequest),
+    },
+  )
 }
 
 export type listTemporaryAssignmentsResponse200 = {

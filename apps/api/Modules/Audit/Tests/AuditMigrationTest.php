@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Audit\Tests;
 
-use Illuminate\Database\Migrations\Migration;
+use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -22,15 +22,24 @@ final class AuditMigrationTest extends TestCase
         'audit_idempotency_keys',
     ];
 
-    private Migration $migration;
+    private Closure $migrationUp;
+
+    private Closure $migrationDown;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateAuditTables.php';
-        $this->migration->down();
-        $this->migration->up();
+        $migration = require dirname(__DIR__).'/Infrastructure/Persistence/Migrations/CreateAuditTables.php';
+        if (! is_object($migration)
+            || ! method_exists($migration, 'up')
+            || ! method_exists($migration, 'down')) {
+            $this->fail('CreateAuditTables must return a migration with up() and down().');
+        }
+        $this->migrationUp = $migration->up(...);
+        $this->migrationDown = $migration->down(...);
+        ($this->migrationDown)();
+        ($this->migrationUp)();
     }
 
     public function test_sqlite_schema_has_exact_columns_nullability_and_no_foreign_keys(): void
@@ -169,7 +178,7 @@ final class AuditMigrationTest extends TestCase
         $this->assertIndex('audit_export_jobs', 'audit_export_jobs_principal_status_created_index', ['principal_id', 'status', 'created_at'], false);
         $this->assertIndex('audit_export_jobs', 'audit_export_jobs_expires_status_index', ['expires_at', 'status'], false);
 
-        $this->assertIndex('audit_integrity_checkpoints', 'audit_integrity_checkpoints_stream_kind_last_unique', ['stream_key', 'kind', 'last_sequence'], true);
+        $this->assertIndex('audit_integrity_checkpoints', 'audit_integrity_checkpoints_stream_kind_last_status_unique', ['stream_key', 'kind', 'last_sequence', 'status'], true);
         $this->assertIndex('audit_integrity_checkpoints', 'audit_integrity_checkpoints_hash_unique', ['checkpoint_hash'], true);
         $this->assertIndex('audit_integrity_checkpoints', 'audit_integrity_checkpoints_stream_last_index', ['stream_key', 'last_sequence'], false);
         $this->assertIndex('audit_integrity_checkpoints', 'audit_integrity_checkpoints_status_verified_index', ['status', 'verified_at'], false);
@@ -288,14 +297,14 @@ final class AuditMigrationTest extends TestCase
     {
         $before = $this->schemaSignature();
 
-        $this->migration->down();
+        ($this->migrationDown)();
 
         foreach (self::TABLES as $table) {
             $this->assertFalse(Schema::hasTable($table));
         }
         $this->assertFalse(Schema::hasTable('audit_retention_policies'));
 
-        $this->migration->up();
+        ($this->migrationUp)();
 
         $this->assertSame($before, $this->schemaSignature());
         DB::table('audit_events')->insert($this->eventRow());
@@ -314,7 +323,7 @@ final class AuditMigrationTest extends TestCase
         );
         sort($columns);
 
-        return array_values($columns);
+        return $columns;
     }
 
     /** @return array<string, string> */
@@ -487,3 +496,4 @@ final class AuditMigrationTest extends TestCase
         }
     }
 }
+

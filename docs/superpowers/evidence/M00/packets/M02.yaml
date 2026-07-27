@@ -1,0 +1,152 @@
+# M02 RecordsGovernance — cold-start execution packet
+# Source of truth: docs/architecture/planned-module-contracts.yaml (M02 entry)
+# Plan: docs/superpowers/plans/2026-07-26-cluster-records-governance-module.md
+# Status: blocked on M00 approval and recorded commit authorization.
+# M00 state per docs/superpowers/evidence/M00/decision-approval.txt: PENDING.
+# implementation_commit and last_verified_commit remain null.
+module: M02
+name: RecordsGovernance
+status: blocked
+blocked_reasons:
+  - M00 approval (explicit_user_approval_of_exact_matrix) not recorded
+  - user_authorized_recorded_commit for this M00 artifact not granted
+  - historical pre-M01 route red snapshot not captured
+  - final Audit integration remains blocked on M01
+canonical_source: docs/architecture/planned-module-contracts.yaml
+plan: docs/superpowers/plans/2026-07-26-cluster-records-governance-module.md
+
+# ---- Rank -------------------------------------------------------------------
+rank: 4
+
+# ---- Prefixes (frozen) ------------------------------------------------------
+prefixes:
+  api: /api/v1/records-governance
+  openapi: /records-governance
+  web: /records-governance
+event_token: recordsgovernance
+
+# ---- Owned tables (exact ordered set) ---------------------------------------
+owned_tables:
+  - records_governance_retention_policy_versions
+  - records_governance_retention_policy_rules
+  - records_governance_governed_records
+  - records_governance_holds
+  - records_governance_disposition_reviews
+  - records_governance_evidence
+  - records_governance_idempotency_keys
+
+# ---- Capabilities (exact set, exact order) ----------------------------------
+capabilities:
+  - records_governance.retention-policy.read
+  - records_governance.retention-policy.manage
+  - records_governance.retention-policy.publish
+  - records_governance.record.read
+  - records_governance.record.register
+  - records_governance.hold.read
+  - records_governance.hold.manage
+  - records_governance.disposition.read
+  - records_governance.disposition.review
+  - records_governance.disposition.confirm
+
+# ---- Public Contracts (exact signatures) ------------------------------------
+public_contracts:
+  - name: RegisterGovernedRecord
+    signature: 'register(GovernedRecordRegistration $registration): GovernedRecordStatus'
+  - name: ReadGovernedRecordStatus
+    signature: 'get(RecordSourceReference $source): ?GovernedRecordStatus'
+  - name: GuardDispositionExecution
+    signature: 'evaluate(RecordSourceReference $source): DispositionExecutionDecision'
+  - name: QueryRecordsGovernanceSummary
+    signature: 'forScope(RecordsGovernanceSummaryQuery $query): RecordsGovernanceSummary'
+
+# ---- Public DTOs (exact set) ------------------------------------------------
+public_dtos:
+  - GovernedRecordRegistration
+  - GovernedRecordStatus
+  - RecordSourceReference
+  - DispositionExecutionDecision
+  - RecordsGovernanceSummaryQuery
+  - RecordsGovernanceSummary
+
+# ---- Events -----------------------------------------------------------------
+events:
+  - class: RetentionPolicyVersionPublishedV1
+    type: com.cluster.recordsgovernance.retentionpolicyversionpublished.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-retentionpolicyversionpublished-v1.schema.json
+  - class: GovernedRecordStatusChangedV1
+    type: com.cluster.recordsgovernance.governedrecordstatuschanged.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-governedrecordstatuschanged-v1.schema.json
+  - class: RecordHoldChangedV1
+    type: com.cluster.recordsgovernance.recordholdchanged.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-recordholdchanged-v1.schema.json
+  - class: DispositionExecutionRequestedV1
+    type: com.cluster.recordsgovernance.dispositionexecutionrequested.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-dispositionexecutionrequested-v1.schema.json
+  - class: DispositionOutcomeConfirmedV1
+    type: com.cluster.recordsgovernance.dispositionoutcomeconfirmed.v1
+    schema: docs/contracts/schemas/com-cluster-recordsgovernance-dispositionoutcomeconfirmed-v1.schema.json
+
+# ---- Classification ---------------------------------------------------------
+classification:
+  contains_phi: true
+  contains_pii: true
+  label: confidential_phi_linked
+  rationale: |
+    Source references, holds, and disposition state are Confidential and
+    may be PHI-linked. The module stores governance metadata only, never
+    the governed source payload.
+
+# ---- Idempotency / concurrency ---------------------------------------------
+idempotency_mode: server_replay_with_idempotency_key
+concurrency_mode: optimistic_lock_version_with_cas
+
+# ---- Test fakes ------------------------------------------------------------
+test_fake_allowed: false
+test_fake_rule: null
+
+# ---- Required integration tokens -------------------------------------------
+required_integration_tokens:
+  - MODULE-REGISTRY
+  - API-ROUTES
+  - OPENAPI
+  - ORVAL
+  - WEB-SHELL
+
+# ---- Producer / cross-module blockers --------------------------------------
+producer_blockers:
+  final_audit_integration: |
+    Final Audit (M01) integration remains blocked on M01. M02 core may proceed
+    with M00 approval only.
+
+# ---- Current route snapshot -------------------------------------------------
+# No RecordsGovernance routes currently exist in docs/superpowers/evidence/M00/route-list.json.
+current_route_snapshot:
+  source: docs/superpowers/evidence/M00/route-list.json
+  routes: []
+
+# ---- Prerequisite handoff anchor -------------------------------------------
+prerequisite_handoffs_referenced:
+  - id: ARCHITECTURE-CLOSURE:T4
+    grant_token: MODULE-REGISTRY
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T6
+    grant_token: SHARED-OUTBOX
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T7
+    grant_token: SHARED-HTTP
+    state: pending_authorization
+  - id: ARCHITECTURE-CLOSURE:T12
+    grant_token: ROUTE-OPENAPI
+    state: pending_authorization
+
+# ---- Phase gate (from integration_queues.downstream_phase_gates) ------------
+start_phase_gate: |
+  M00 approved; final Audit integration remains blocked on M01.
+
+# ---- Cold-start instruction -------------------------------------------------
+# A cold-start agent must:
+#  1. Treat this packet as the M02 contract; refuse any value not present above.
+#  2. Re-read docs/architecture/planned-module-contracts.yaml lines 232-290
+#     before any edit; if any value here diverges, prefer the YAML.
+#  3. Honor the producer_blockers.final_audit_integration restriction.
+#  4. Wait for M00 approval and a recorded commit before flipping status.

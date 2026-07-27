@@ -2289,26 +2289,284 @@ paths:
           $ref: '#/components/responses/Entity'
         '404':
           $ref: '#/components/responses/Problem'
-  /audit:
+  /audit/events:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
     get:
-      summary: List audit events
+      tags:
+        - Audit
+      summary: List audit events visible to the authenticated principal
       operationId: listAuditEvents
+      security:
+        - identitySession: []
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
-        - name: resource_id
-          in: query
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/AuditSourceModule'
+        - $ref: '#/components/parameters/AuditAction'
+        - $ref: '#/components/parameters/AuditActorId'
+        - $ref: '#/components/parameters/AuditSubjectType'
+        - $ref: '#/components/parameters/AuditSubjectId'
+        - $ref: '#/components/parameters/AuditCorrelationIdQuery'
+        - $ref: '#/components/parameters/AuditClassification'
+        - $ref: '#/components/parameters/AuditOccurredFrom'
+        - $ref: '#/components/parameters/AuditOccurredTo'
       responses:
         '200':
-          $ref: '#/components/responses/Collection'
+          $ref: '#/components/responses/AuditEventCollection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /audit/events/{eventId}:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    get:
+      tags:
+        - Audit
+      summary: Get a single redacted audit event by id
+      operationId: getAuditEvent
+      security:
+        - identitySession: []
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          $ref: '#/components/responses/AuditEventEntity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AuditEventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /audit/exports:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags:
+        - Audit
+      summary: Create a ready-only audit export descriptor for the current scope
+      operationId: createAuditExport
+      security:
+        - identitySession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditExportCreate'
+      responses:
+        '201':
+          description: |
+            Stored descriptor returned on a fresh creation or on an equal
+            idempotent replay (replay path: stored descriptor, ETag, and
+            one immutable Audit creation activity — never a second
+            `AuditExportCompletedV1` outbox event).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditExportDescriptor'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/AuditIdempotencyConflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /audit/exports/{exportId}:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    get:
+      tags:
+        - Audit
+      summary: Get a single audit export descriptor
+      operationId: getAuditExport
+      security:
+        - identitySession: []
+      parameters:
+        - $ref: '#/components/parameters/ExportId'
+      responses:
+        '200':
+          description: |
+            Stored descriptor with frozen snapshot bound and a strong
+            ETag. The ETag embeds the export id and the current
+            `lock_version`, so the unique mutating transition
+            (`ready` → `expired`, which advances `lock_version`)
+            produces a fresh ETag. Repeated reads of an unchanged
+            descriptor return the same ETag; the first observation
+            after the descriptor's `expires_at` is past moves the
+            descriptor to `expired` and bumps the ETag.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditExportDescriptor'
+        '404':
+          $ref: '#/components/responses/AuditExportNotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /audit/exports/{exportId}/download:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    get:
+      tags:
+        - Audit
+      summary: Stream the frozen audit export as UTF-8 CSV or NDJSON
+      operationId: downloadAuditExport
+      security:
+        - identitySession: []
+      parameters:
+        - $ref: '#/components/parameters/ExportId'
+      responses:
+        '200':
+          description: |
+            Streamed, frozen snapshot of audit events covered by the
+            descriptor. The stream is chunked by the server with a
+            fixed, plan-safe maximum number of rows; rows are scanned
+            in `(recorded_at DESC, id DESC)` order and a single
+            chunked `audit_events` cursor. Capability is evaluated
+            before expiry is disclosed so an unauthorized caller
+            cannot distinguish a missing descriptor from a forbidden
+            one — both are concealed as a 404 problem.
+          headers:
+            Content-Type:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - text/csv; charset=utf-8
+                  - application/x-ndjson; charset=utf-8
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+                pattern: ^attachment; filename="audit-export-[0-9a-f-]{36}\.(csv|ndjson)"$
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-store, no-cache, must-revalidate, max-age=0
+            Pragma:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - no-cache
+            Expires:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - '0'
+            X-Audit-Export-Id:
+              required: true
+              schema:
+                $ref: '#/components/schemas/UUIDv7'
+            X-Audit-Export-Expires-At:
+              required: true
+              schema:
+                $ref: '#/components/schemas/UtcDateTime'
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+          content:
+            text/csv; charset=utf-8:
+              schema:
+                type: string
+                description: |
+                  RFC 4180 UTF-8 CSV. The first line is the header in the exact order
+                  `event_id,occurred_at,recorded_at,source_module,action,event_type,actor_type,actor_id,subject_type,subject_id,correlation_id,outcome,classification,retention_until,context`.
+                  Cells whose first byte is `=`, `+`, `-`, `@`, tab (`\t`), or carriage return (`\r`) are prefixed with a single quote so a spreadsheet cannot reinterpret them as a formula. Any cell containing `,`, `"`, `\n`, `\r`, or `\t` is double-quoted and inner `"` are escaped as `""`.
+                  Context is a JSON object serialized in one cell.
+            application/x-ndjson; charset=utf-8:
+              schema:
+                type: string
+                description: |
+                  Newline-delimited JSON. Each line is one projected Audit row with the same columns
+                  documented for the CSV header.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AuditExportNotFound'
+        '410':
+          $ref: '#/components/responses/AuditExportExpired'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /audit/integrity-verifications:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags:
+        - Audit
+      summary: Verify the integrity of an audit stream or bounded range
+      operationId: verifyAuditIntegrity
+      security:
+        - identitySession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditIntegrityRequest'
+      responses:
+        '201':
+          description: Immutable verification checkpoint created; chain verified
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+            ETag:
+              required: true
+              schema:
+                type: string
+            Location:
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditIntegrityResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/AuditIntegrityConflict'
+        '503':
+          $ref: '#/components/responses/AuditRuntimeUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /organization/temporary-assignments:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -6156,6 +6414,78 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/UUIDv7'
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUIDv7'
+    AuditSourceModule:
+      name: source_module
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: '^[a-z][a-z0-9_-]*$'
+    AuditAction:
+      name: action
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: '^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$'
+    AuditActorId:
+      name: actor_id
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/UUIDv7'
+    AuditSubjectType:
+      name: subject_type
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: '^[a-z][a-z0-9_-]*$'
+    AuditSubjectId:
+      name: subject_id
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/UUIDv7'
+      description: |
+        Requires `subject_type`. Sending `subject_id` without `subject_type` returns 400 `invalid-filter`.
+    AuditCorrelationIdQuery:
+      name: correlation_id
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/UUIDv7'
+    AuditClassification:
+      name: classification
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/Classification'
+    AuditOccurredFrom:
+      name: occurred_from
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/UtcDateTime'
+      description: Inclusive lower bound on `occurred_at`; must be ≤ `occurred_to` when both are set.
+    AuditOccurredTo:
+      name: occurred_to
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/UtcDateTime'
   responses:
     ClusterEntity:
       description: Singleton cluster representation
@@ -6695,6 +7025,146 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/OperationsOfficeAuditCollection'
+    AuditEventEntity:
+      description: Single authorized, redacted audit event projection
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuditEvent'
+    AuditEventCollection:
+      description: Cursor-paginated authorized audit events
+      headers:
+        Link:
+          schema:
+            type: string
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuditEventCollection'
+    AuditEventNotFound:
+      description: Audit event not found, out of scope, or concealed (RFC 7807)
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/problem-details.schema'
+              - type: object
+                required:
+                  - type
+                properties:
+                  type:
+                    const: https://cluster.example/problems/audit-event-not-found
+                  detail:
+                    const: The audit event was not found.
+    AuditExportEntity:
+      description: Audit export descriptor with frozen snapshot bound and ETag
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+        ETag:
+          $ref: '#/components/headers/ETag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuditExportDescriptor'
+    AuditExportNotFound:
+      description: Audit export not found, owned by another principal, or concealed (RFC 7807)
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/problem-details.schema'
+              - type: object
+                required:
+                  - type
+                properties:
+                  type:
+                    const: https://cluster.example/problems/audit-export-not-found
+                  detail:
+                    const: The audit export was not found.
+    AuditExportExpired:
+      description: Audit export has expired and can no longer be downloaded (RFC 7807)
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/problem-details.schema'
+              - type: object
+                required:
+                  - type
+                properties:
+                  type:
+                    const: https://cluster.example/problems/audit-export-expired
+                  detail:
+                    const: The audit export has expired and can no longer be downloaded.
+    AuditIdempotencyConflict:
+      description: Idempotency-Key was already used for a different request (RFC 7807)
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/problem-details.schema'
+              - type: object
+                required:
+                  - type
+                properties:
+                  type:
+                    const: https://cluster.example/problems/idempotency-conflict
+                  detail:
+                    const: Idempotency-Key was already used for a different request.
+    AuditIntegrityConflict:
+      description: Audit chain reported an integrity violation (RFC 7807)
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/problem-details.schema'
+              - type: object
+                required:
+                  - type
+                properties:
+                  type:
+                    const: https://cluster.example/problems/audit-integrity-violation
+                  detail:
+                    const: The audit chain reported a violation.
+    AuditRuntimeUnavailable:
+      description: Audit integrity verification runtime is temporarily unavailable (RFC 7807)
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/problem-details.schema'
+              - type: object
+                required:
+                  - type
+                properties:
+                  type:
+                    const: https://cluster.example/problems/audit-runtime-unavailable
+                  detail:
+                    const: Audit integrity verification is temporarily unavailable.
   schemas:
     OperationsOfficeSubmission:
       type: object
@@ -6968,6 +7438,303 @@ components:
           type:
             - string
             - 'null'
+    AuditActorType:
+      type: string
+      enum:
+        - user
+        - service
+        - system
+    AuditOutcome:
+      type: string
+      enum:
+        - succeeded
+        - denied
+        - failed
+    AuditIntegrityStatus:
+      type: string
+      enum:
+        - verified
+        - violated
+        - unverified
+    AuditExportFormat:
+      type: string
+      enum:
+        - csv
+        - ndjson
+    AuditExportStatus:
+      type: string
+      enum:
+        - ready
+        - expired
+    AuditEventContext:
+      description: |
+        Server-redacted, depth-bounded JSON object. Bytes, raw secrets,
+        integrity key material, request hashes, and HMAC inputs never appear here.
+      type: object
+      additionalProperties:
+        type:
+          - string
+          - integer
+          - boolean
+          - 'null'
+          - array
+          - object
+    AuditEvent:
+      description: |
+        Redacted, projected audit event. Never exposes `event_hash`, `previous_hash`,
+        `request_hash`, or `integrity_key_version`.
+      type: object
+      additionalProperties: false
+      required:
+        - event_id
+        - source_module
+        - action
+        - event_type
+        - actor_type
+        - actor_id
+        - original_actor_id
+        - subject_type
+        - subject_id
+        - correlation_id
+        - outcome
+        - classification
+        - context
+        - occurred_at
+        - recorded_at
+        - access_decision_id
+        - retention_until
+        - integrity_status
+        - allowed_actions
+      properties:
+        event_id:
+          $ref: '#/components/schemas/UUIDv7'
+        source_module:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-z][a-z0-9_-]*$'
+        action:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: '^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$'
+        event_type:
+          type: string
+          minLength: 1
+          maxLength: 160
+          pattern: '^com\.cluster\.[a-z][a-z0-9_-]*\.[a-z][a-z0-9]*\.v[1-9][0-9]*$'
+        actor_type:
+          $ref: '#/components/schemas/AuditActorType'
+        actor_id:
+          oneOf:
+            - $ref: '#/components/schemas/UUIDv7'
+            - type: 'null'
+        original_actor_id:
+          oneOf:
+            - $ref: '#/components/schemas/UUIDv7'
+            - type: 'null'
+        subject_type:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-z][a-z0-9_-]*$'
+        subject_id:
+          oneOf:
+            - $ref: '#/components/schemas/UUIDv7'
+            - type: 'null'
+        correlation_id:
+          $ref: '#/components/schemas/UUIDv7'
+        outcome:
+          $ref: '#/components/schemas/AuditOutcome'
+        classification:
+          $ref: '#/components/schemas/Classification'
+        context:
+          $ref: '#/components/schemas/AuditEventContext'
+        occurred_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        recorded_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        access_decision_id:
+          oneOf:
+            - $ref: '#/components/schemas/UUIDv7'
+            - type: 'null'
+        retention_until:
+          $ref: '#/components/schemas/UtcDateTime'
+        integrity_status:
+          $ref: '#/components/schemas/AuditIntegrityStatus'
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 96
+            pattern: '^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$'
+    AuditEventCollection:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+        next_cursor:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 4096
+            - type: 'null'
+    AuditExportFilters:
+      description: |
+        Snapshot-bound filters captured at creation. Unknown keys are rejected
+        with `invalid-export-payload`. Allowed keys: `source_module`, `action`,
+        `correlation_id`, plus `occurred_from` / `occurred_to` bounds.
+      type: object
+      additionalProperties: false
+      properties:
+        source_module:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 64
+              pattern: '^[a-z][a-z0-9_-]*$'
+            - type: 'null'
+        action:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 128
+              pattern: '^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$'
+            - type: 'null'
+        correlation_id:
+          oneOf:
+            - $ref: '#/components/schemas/UUIDv7'
+            - type: 'null'
+        occurred_from:
+          oneOf:
+            - $ref: '#/components/schemas/UtcDateTime'
+            - type: 'null'
+        occurred_to:
+          oneOf:
+            - $ref: '#/components/schemas/UtcDateTime'
+            - type: 'null'
+    AuditExportCreate:
+      type: object
+      additionalProperties: false
+      required:
+        - format
+        - reason
+      properties:
+        format:
+          $ref: '#/components/schemas/AuditExportFormat'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        filters:
+          $ref: '#/components/schemas/AuditExportFilters'
+    AuditExportDescriptor:
+      description: |
+        Frozen audit export descriptor. No raw context, no idempotency key,
+        no request hash, no artifact path or hash ever appears on this DTO.
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - principal_id
+        - facility_id
+        - query
+        - format
+        - snapshot_recorded_at
+        - status
+        - event_count
+        - expires_at
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/UUIDv7'
+        principal_id:
+          $ref: '#/components/schemas/UUIDv7'
+        facility_id:
+          oneOf:
+            - $ref: '#/components/schemas/UUIDv7'
+            - type: 'null'
+        query:
+          type: object
+          additionalProperties: true
+        format:
+          $ref: '#/components/schemas/AuditExportFormat'
+        snapshot_recorded_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        status:
+          $ref: '#/components/schemas/AuditExportStatus'
+        event_count:
+          type: integer
+          minimum: 0
+        expires_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        created_at:
+          $ref: '#/components/schemas/UtcDateTime'
+    AuditIntegrityRequest:
+      description: |
+        Verification request payload. `stream_key` is required. The bounded
+        `first_sequence` / `last_sequence` pair must be supplied together
+        (both present or both absent) and may not exceed 5000 events.
+      type: object
+      additionalProperties: false
+      required:
+        - stream_key
+      properties:
+        stream_key:
+          type: string
+          minLength: 1
+          maxLength: 160
+          pattern: '^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*:(?:[0-9a-f-]{36}|global)$'
+        first_sequence:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        last_sequence:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+    AuditIntegrityResult:
+      description: |
+        Sanitized verification result. Never exposes `event_hash`,
+        `previous_hash`, `integrity_key_version`, request hash, HMAC key
+        material, or canonical JSON.
+      type: object
+      additionalProperties: false
+      required:
+        - stream_key
+        - first_sequence
+        - last_sequence
+        - verified_event_count
+        - integrity_status
+        - checkpoint_id
+      properties:
+        stream_key:
+          type: string
+          minLength: 1
+          maxLength: 160
+        first_sequence:
+          type: integer
+          minimum: 1
+        last_sequence:
+          type: integer
+          minimum: 1
+        verified_event_count:
+          type: integer
+          minimum: 0
+        integrity_status:
+          $ref: '#/components/schemas/AuditIntegrityStatus'
+        checkpoint_id:
+          $ref: '#/components/schemas/UUIDv7'
     WorkflowStepCollection:
       type: object
       additionalProperties: false

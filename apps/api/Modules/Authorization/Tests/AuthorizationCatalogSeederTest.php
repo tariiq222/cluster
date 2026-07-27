@@ -51,6 +51,21 @@ class AuthorizationCatalogSeederTest extends TestCase
             'action' => 'approve',
             'sensitivity' => 'sensitive',
         ]);
+        $this->assertDatabaseHas('capabilities', [
+            'module_code' => 'audit',
+            'capability_code' => 'audit.event.read',
+            'sensitivity' => 'normal',
+        ]);
+        $this->assertDatabaseHas('capabilities', [
+            'module_code' => 'audit',
+            'capability_code' => 'audit.event.export',
+            'sensitivity' => 'sensitive',
+        ]);
+        $this->assertDatabaseHas('capabilities', [
+            'module_code' => 'audit',
+            'capability_code' => 'audit.integrity.verify',
+            'sensitivity' => 'critical',
+        ]);
     }
 
     public function test_seeder_is_idempotent_and_never_duplicates_rows(): void
@@ -103,6 +118,26 @@ class AuthorizationCatalogSeederTest extends TestCase
             ->count();
 
         $this->assertSame(32, $accessAdminCapabilityCount);
-        $this->assertSame(8, $securityAuditorCapabilityCount);
+        $this->assertSame(11, $securityAuditorCapabilityCount);
+
+        $auditGrantsForSecurityAuditor = [
+            'audit.event.read',
+            'audit.event.export',
+            'audit.integrity.verify',
+        ];
+        foreach ($auditGrantsForSecurityAuditor as $auditCapabilityCode) {
+            $auditCapabilityId = DB::table('capabilities')
+                ->where('capability_code', $auditCapabilityCode)
+                ->value('id');
+            $this->assertNotNull(
+                $auditCapabilityId,
+                "Expected capability '{$auditCapabilityCode}' to be present in the capabilities table.",
+            );
+            $this->assertDatabaseHas('role_capabilities', [
+                'role_id' => $securityAuditorRoleId,
+                'capability_id' => (string) $auditCapabilityId,
+                'effect' => 'allow',
+            ]);
+        }
     }
 }

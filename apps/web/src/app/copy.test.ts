@@ -28,26 +28,54 @@ describe('app/copy text parity', () => {
 
   it('falls back to Arabic when localStorage is unavailable', () => {
     const originalWindow = (globalThis as { window?: unknown }).window
-    Object.defineProperty(globalThis, 'window', { value: { localStorage: { getItem: () => { throw new Error('blocked') } } }, configurable: true })
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        localStorage: {
+          getItem: () => {
+            throw new Error('blocked')
+          },
+        },
+      },
+      configurable: true,
+    })
     try {
       expect(initialLocale()).toBe('ar')
     } finally {
-      Object.defineProperty(globalThis, 'window', { value: originalWindow, configurable: true })
+      Object.defineProperty(globalThis, 'window', {
+        value: originalWindow,
+        configurable: true,
+      })
     }
   })
 
   it('reads the persisted English locale on second visit', () => {
     const originalWindow = (globalThis as { window?: unknown }).window
-    Object.defineProperty(globalThis, 'window', { value: { localStorage: { getItem: () => 'en' } }, configurable: true })
+    Object.defineProperty(globalThis, 'window', {
+      value: { localStorage: { getItem: () => 'en' } },
+      configurable: true,
+    })
     try {
       expect(initialLocale()).toBe('en')
     } finally {
-      Object.defineProperty(globalThis, 'window', { value: originalWindow, configurable: true })
+      Object.defineProperty(globalThis, 'window', {
+        value: originalWindow,
+        configurable: true,
+      })
     }
   })
 
   it('labels each known record status in both locales', () => {
-    for (const status of ['draft', 'submitted', 'in_review', 'returned', 'approved', 'rejected', 'completed', 'cancelled', 'archived']) {
+    for (const status of [
+      'draft',
+      'submitted',
+      'in_review',
+      'returned',
+      'approved',
+      'rejected',
+      'completed',
+      'cancelled',
+      'archived',
+    ]) {
       expect(recordStatusLabel(status, 'ar')).toBeTruthy()
       expect(recordStatusLabel(status, 'en')).toBeTruthy()
     }

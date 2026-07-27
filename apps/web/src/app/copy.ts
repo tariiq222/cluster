@@ -59,7 +59,8 @@ export const text = {
     searchScreen: 'البحث',
     reportsScreen: 'التقارير',
     apiDocs: 'Swagger UI',
-    apiDocsBody: 'استعرض العقود التفاعلية من واجهة Swagger UI المبنية من ملف OpenAPI.',
+    apiDocsBody:
+      'استعرض العقود التفاعلية من واجهة Swagger UI المبنية من ملف OpenAPI.',
     notifications: 'الإشعارات',
     profile: 'ملفي',
     personalAccess: 'سياق الوصول الشخصي',
@@ -100,7 +101,8 @@ export const text = {
     notFound: 'الصفحة غير موجودة',
     notFoundBody: 'تحقق من الرابط أو عد إلى طلباتك.',
     accessDenied: 'لا تملك صلاحية فتح هذه الصفحة',
-    accessDeniedBody: 'لا تظهر بيانات هذه الصفحة حتى تتوفر الصلاحية المطلوبة في نطاقك الحالي.',
+    accessDeniedBody:
+      'لا تظهر بيانات هذه الصفحة حتى تتوفر الصلاحية المطلوبة في نطاقك الحالي.',
     openNavigation: 'فتح القائمة الرئيسية',
     closeNavigation: 'إغلاق القائمة الرئيسية',
     navigationTitle: 'التنقل الرئيسي',
@@ -128,7 +130,8 @@ export const text = {
     analytics: 'التحليلات',
     timelineTitle: 'التحليلات الزمنية',
     timelineUnavailableTitle: 'لا تتوفر سلسلة زمنية بعد',
-    timelineUnavailableBody: 'ستظهر اتجاهات الطلبات عند نشر مصدر التجميع الزمني المعتمد.',
+    timelineUnavailableBody:
+      'ستظهر اتجاهات الطلبات عند نشر مصدر التجميع الزمني المعتمد.',
     statusBreakdown: 'الطلبات حسب الحالة',
     activeStatus: 'قيد الإجراء',
     completedStatus: 'مكتملة',
@@ -148,6 +151,7 @@ export const text = {
     coverage: 'تغطية العمليات',
     apiReference: 'مرجع واجهات API',
     platformSettings: 'إعدادات المنصة',
+    auditLedger: 'سجل التدقيق',
     documents: 'المستندات',
     myWork: 'مساحة عملي',
     operations: 'الإدارة والتشغيل',
@@ -167,7 +171,8 @@ export const text = {
     return: 'إعادة',
     complete: 'إكمال',
     linkedDocuments: 'المستندات المرتبطة',
-    aDocumentCannotBeLinked: 'لا يصبح المستند قابلاً للربط والتنزيل حتى يمر بالحجر والفحص ويصبح متاحاً.',
+    aDocumentCannotBeLinked:
+      'لا يصبح المستند قابلاً للربط والتنزيل حتى يمر بالحجر والفحص ويصبح متاحاً.',
     availableDocumentId: 'معرّف المستند المتاح',
     attach: 'إرفاق',
     downloadThroughAccessDecision: 'تنزيل عبر قرار الوصول',
@@ -186,8 +191,10 @@ export const text = {
     processAndWorkflowSections: 'أقسام الإجراءات وسير العمل',
     loadingApiReference: 'جارٍ تحميل مرجع API…',
     searchForARecordTask: 'ابحث عن معاملة، مهمة، شخص أو مستند…',
-    manageFacilitiesStructurePeopleAnd: 'أدر منشآت التجمع وهيكله التنظيمي وموظفيه من مساحة واحدة.',
-    operateWorkThenDefineThe: 'شغّل الأعمال، ثم عرّف البيانات والمسارات التي تحكم انتقالها.',
+    manageFacilitiesStructurePeopleAnd:
+      'أدر منشآت التجمع وهيكله التنظيمي وموظفيه من مساحة واحدة.',
+    operateWorkThenDefineThe:
+      'شغّل الأعمال، ثم عرّف البيانات والمسارات التي تحكم انتقالها.',
     markNotificationRead: (title: string) => `تحديد الإشعار كمقروء: ${title}`,
     myIndicators: 'مؤشراتي',
     indicatorsInScope: 'مؤشرات داخل النطاق',
@@ -200,7 +207,8 @@ export const text = {
     username: 'Username',
     password: 'Password',
     signingIn: 'Signing in…',
-    loginError: 'We could not sign you in. Check your credentials and try again.',
+    loginError:
+      'We could not sign you in. Check your credentials and try again.',
     requiredLogin: 'Complete the required fields, then try again.',
     welcomeBack: 'Welcome back',
     loginGuidance: 'Sign in with your internal platform account.',
@@ -273,9 +281,11 @@ export const text = {
     validationError: 'Complete the required fields, then submit again.',
     titleRequired: 'Request title is required.',
     descriptionRequired: 'Request description is required.',
-    submitError: 'The request was not saved. Check your internal connection and try again.',
+    submitError:
+      'The request was not saved. Check your internal connection and try again.',
     success: 'Your request was submitted',
-    successBody: 'The request was saved. An in-app notification will appear here after processing completes.',
+    successBody:
+      'The request was saved. An in-app notification will appear here after processing completes.',
     backToRequests: 'Back to my requests',
     loadingDetail: 'Loading request…',
     detailError: 'We could not load the request. Try again.',
@@ -290,7 +300,8 @@ export const text = {
     notFound: 'Page not found',
     notFoundBody: 'Check the address or return to your requests.',
     accessDenied: 'You do not have permission to open this page',
-    accessDeniedBody: 'This page stays unavailable until the required capability is available in your current scope.',
+    accessDeniedBody:
+      'This page stays unavailable until the required capability is available in your current scope.',
     openNavigation: 'Open primary navigation',
     closeNavigation: 'Close primary navigation',
     navigationTitle: 'Primary navigation',
@@ -306,7 +317,8 @@ export const text = {
     facilityA: 'Facility A',
     facilityB: 'Facility B',
     dashboardWelcome: 'Welcome',
-    dashboardSummary: 'Here is a summary of requests and notifications in the current facility scope.',
+    dashboardSummary:
+      'Here is a summary of requests and notifications in the current facility scope.',
     dashboardRange: 'Display limit: 20 requests',
     overview: 'Overview',
     loadedRequests: 'Loaded requests',
@@ -318,16 +330,19 @@ export const text = {
     analytics: 'Analytics',
     timelineTitle: 'Timeline analytics',
     timelineUnavailableTitle: 'No timeline is available yet',
-    timelineUnavailableBody: 'Request trends will appear when the governed aggregation source is published.',
+    timelineUnavailableBody:
+      'Request trends will appear when the governed aggregation source is published.',
     statusBreakdown: 'Requests by status',
     activeStatus: 'In progress',
     completedStatus: 'Completed',
     otherStatus: 'Other statuses',
     noStatusTitle: 'No statuses to display',
-    noStatusBody: 'Create the first request to see a concise status distribution here.',
+    noStatusBody:
+      'Create the first request to see a concise status distribution here.',
     recentActivity: 'Available activity',
     openNotifications: 'View notifications',
-    noNotificationBody: 'The latest alerts related to facility requests will appear here.',
+    noNotificationBody:
+      'The latest alerts related to facility requests will appear here.',
     noData: 'No data',
     ltr: 'ltr',
     home: 'Home',
@@ -338,6 +353,7 @@ export const text = {
     coverage: 'Coverage',
     apiReference: 'API reference',
     platformSettings: 'Platform settings',
+    auditLedger: 'Audit ledger',
     documents: 'Documents',
     myWork: 'My work',
     operations: 'Operations',
@@ -345,7 +361,8 @@ export const text = {
     internalTools: 'Internal tools',
     reportsAndIndicators: 'Reports and indicators',
     enGb: 'en-GB',
-    couldNotMarkTheNotification: 'Could not mark the notification as read. Try again.',
+    couldNotMarkTheNotification:
+      'Could not mark the notification as read. Try again.',
     saving: 'Saving…',
     markAsRead: 'Mark as read',
     couldNotLoadMoreNotifications: 'Could not load more notifications.',
@@ -357,7 +374,8 @@ export const text = {
     return: 'Return',
     complete: 'Complete',
     linkedDocuments: 'Linked documents',
-    aDocumentCannotBeLinked: 'A document cannot be linked or downloaded until quarantine and scanning finish and it becomes available.',
+    aDocumentCannotBeLinked:
+      'A document cannot be linked or downloaded until quarantine and scanning finish and it becomes available.',
     availableDocumentId: 'Available document ID',
     attach: 'Attach',
     downloadThroughAccessDecision: 'Download through access decision',
@@ -368,7 +386,8 @@ export const text = {
     submitANewRequest: 'Submit a new request',
     loadingAvailableDocuments: 'Loading available documents…',
     emptyAvailableDocuments: 'No authorized documents are available to link.',
-    forbiddenDocuments: 'You do not have permission to view available documents.',
+    forbiddenDocuments:
+      'You do not have permission to view available documents.',
     documentPickerError: 'Available documents could not be loaded.',
     operationsAndTasks: 'Operations and tasks',
     workDefinitions2: 'Work definitions',
@@ -376,9 +395,12 @@ export const text = {
     processAndWorkflowSections: 'Process and workflow sections',
     loadingApiReference: 'Loading API reference…',
     searchForARecordTask: 'Search for a record, task, person, or document…',
-    manageFacilitiesStructurePeopleAnd: 'Manage cluster facilities, organization structure, and employees from one workspace.',
-    operateWorkThenDefineThe: 'Operate work, then define the data and paths that govern it.',
-    markNotificationRead: (title: string) => `Mark notification as read: ${title}`,
+    manageFacilitiesStructurePeopleAnd:
+      'Manage cluster facilities, organization structure, and employees from one workspace.',
+    operateWorkThenDefineThe:
+      'Operate work, then define the data and paths that govern it.',
+    markNotificationRead: (title: string) =>
+      `Mark notification as read: ${title}`,
     myIndicators: 'My indicators',
     indicatorsInScope: 'Indicators in scope',
     openIndicator: 'Open indicator',

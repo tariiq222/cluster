@@ -273,7 +273,6 @@ final class AuthenticatedCursorCodecTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage(AuthenticatedCursorCodec::INVALID_CURSOR_MESSAGE);
 
-        // @phpstan-ignore-next-line — intentionally invalid input for the assertion.
         $this->codec->decode('any-cursor', $resource, 'not-an-array');
     }
 
@@ -303,7 +302,6 @@ final class AuthenticatedCursorCodecTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage(AuthenticatedCursorCodec::INVALID_CURSOR_MESSAGE);
 
-        // @phpstan-ignore-next-line — intentionally invalid input for the assertion.
         $this->codec->encode('people', 'not-an-array', $binding);
     }
 
@@ -314,7 +312,6 @@ final class AuthenticatedCursorCodecTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage(AuthenticatedCursorCodec::INVALID_CURSOR_MESSAGE);
 
-        // @phpstan-ignore-next-line — intentionally invalid input for the assertion.
         $this->codec->encode('people', $sortTuple, 'not-an-array');
     }
 
