@@ -1,2 +1,2 @@
 cd apps/api && php artisan test tests/Architecture/ModuleBoundariesTest.php
-{"tool":"phpunit","result":"passed","tests":30,"passed":30,"assertions":169,"duration_ms":2324}
+{"tool":"phpunit","result":"passed","tests":30,"passed":30,"assertions":169,"duration_ms":2162}
