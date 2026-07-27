@@ -100,8 +100,39 @@ final class SensitiveValueRedactor
      *   - `headers.Authorization` (split → `headers`, `authorization`)
      *   - `XSRF-TOKEN` (split → `xsrf`, `token`)
      *   - `medical_record_number` (split → `medical`, `record`, `number`
-     *     → entry `medical_record_number` matches `number` containment)
      */
+    /**
+     * @var list<string>
+     */
+    private const SAFE_KEY_SEGMENTS = [
+        'resource',
+        'resources',
+        'id',
+        'ids',
+        'uuid',
+        'correlation',
+        'correlation',
+        'organization',
+        'organization_unit',
+        'organization_units',
+        'unit',
+        'units',
+        'person',
+        'people',
+        'account',
+        'accounts',
+        'actor',
+        'subject',
+        'classification',
+        'outcome',
+        'timestamp',
+        'timestamps',
+        'stream',
+        'sequence',
+        'event',
+        'events',
+    ];
+
     private function isSensitiveKey(string $key): bool
     {
         $segments = self::keySegments($key);
@@ -110,6 +141,9 @@ final class SensitiveValueRedactor
         }
 
         foreach ($segments as $segment) {
+            if (in_array($segment, self::SAFE_KEY_SEGMENTS, true)) {
+                continue;
+            }
             foreach (self::SENSITIVE_KEY_SEGMENTS as $entry) {
                 if ($segment === $entry
                     || str_contains($entry, $segment)

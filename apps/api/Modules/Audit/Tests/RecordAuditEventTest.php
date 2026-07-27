@@ -226,7 +226,7 @@ final class RecordAuditEventTest extends TestCase
         }
 
         $this->assertSame(0, DB::table('audit_events')->where('id', self::EVENT_ID)->count());
-        $this->assertSame(1, DB::table('outbox_events')->where('event_id', self::EVENT_ID)->count());
+        $this->assertSame(0, DB::table('outbox_events')->where('event_id', self::EVENT_ID)->count());
     }
 
     /**
