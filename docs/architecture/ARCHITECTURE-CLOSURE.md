@@ -10,7 +10,10 @@
 | Field | Value |
 |---|---|
 | Plan lineage | `447f756 fix(architecture): Tasks 9-12 closure work` → `c90dd10 docs(architecture-closure): record Task 12 route/openapi reconciliation` |
-| Working-tree HEAD at close | `3fa45284c9f3bd90a56d675dcc7edd0bc1172a24` (test commit) |
+| Closure session commits (T9–T12 + Wave-0 + M01) | `538d95b` (Wave-0) → `78b4f26` (Audit register) → `1955d4e` (identity hardening) → `df2588c` → `da27c81` → `3fa4528` → `c90dd10` → `447f756` |
+| Wave-1 integration commits | `e15f5d8 feat(closure+audit+runner): land Audit M01, M00 evidence, Wave-1 contract refresh, and W1.1 strict-gate fixes` |
+| Wave-1 drift followups | `889c624` → `dfa9c5b` → `3fae9a0` → `03758e3` → `a9f5a5d` |
+| Working-tree HEAD at close | `a9f5a5d631e4c8247803ec51e64138cfe940ab5f` |
 | Plan tasks completed | T1–T14 (per the closure plan) |
 | Canonical historical findings | 19 (`F020/F023/F030/F033/F035/F044/F046/F059/F067/F072/F076/F078/F087/F089/F112/F113/F115/F116/F117`) per the 2026-07-26 Scope Amendment |
 | Cycle findings (C124–C131) | 8 |
@@ -73,9 +76,16 @@ By priority:
 | P2 | 1 (C128) | 5 (F020, F023, F059, F078, F117) |
 
 ## 4. Verification evidence
+The mutation script references the following `closed_by` commits and tests, each of which is on the working tree at `a9f5a5d631e4c8247803ec51e64138cfe940ab5f` and reproducible from the 447f756 closure lineage:
 
-The mutation script references the following `closed_by` commits and tests, each of which is on the working tree at `3fa45284c9f3bd90a56d675dcc7edd0bc1172a24` and reproducible from the 447f756 closure lineage:
+### Wave-1 evidence (Audit M01 + W1.1 strict-gate)
 
+- `apps/api/Modules/Audit/Features/{CreateAuditExport,DownloadAuditExport,GetAuditEvent,GetAuditExport,ListAuditEvents,Retention,VerifyAuditIntegrity}` — full M01 audit feature surface landed in `e15f5d8`.
+- `apps/api/Modules/Audit/Infrastructure/Persistence/{DatabaseQueryAuditActivity,DatabaseRecordAuditEvent,AuditIntegrityRepository,AuditExportRepository,AuditIdempotencyStore}` — strict-outbox, append-only triggers, idempotency keys, and outbox event emission.
+- `apps/api/Modules/Audit/Tests/{AuditAuthorization,AuditContracts,AuditExport,AuditHttpAdapter,AuditIntegrity,AuditMigration,AuditMySqlConcurrency,AuditProductionConfig,AuditRedaction,AuditRetention,RecordAuditEvent}Test.php` — full M01 test surface; 30/30 boundary tests still pass on the working tree.
+- `docs/contracts/api/openapi.yaml` and `apps/web/src/api/generated/cluster.ts` — Wave-1 contract refresh: 7 new audit endpoints (listAuditEvents, getAuditEvent, createAuditExport, downloadAuditExport, getAuditExport, listAuditExports, verifyAuditIntegrity) and the Orval regeneration.
+- `infra/dev/run-w1-1-e2e.sh` — W1.1 strict-gate runner: `W1_1_COORDINATOR_TARGET` env var, rewritten coordinator subshell, removed post-failure tinker dumps.
+- `W1_1_COORDINATOR_TARGET=2 W1_1_PLAYWRIGHT_GREP='Arabic RTL journey' make test-e2e-w1-1-strict` — PASS in ~46s on the closure working tree.
 ### Concurrency / atomicity evidence (T10 / T11 / Task 9–12 closure)
 
 - `apps/api/Modules/Tasks/Features/CompleteTask/Handler/CompleteTaskHandler.php` — handler-owned DB::transaction wrapping state commit + outbox append.
@@ -104,7 +114,7 @@ The mutation script references the following `closed_by` commits and tests, each
 
 ## 5. Closure decision
 
-**`CLOSED`**. The register's `closure_decision: CLOSED` is recorded together with the `verification` block (commit, command, result) at the top level. The 22 implementation-completed findings are flipped to `closed` with concrete source/command evidence and a `closed_by` reference to a real commit in the working tree's lineage (`447f756`, `c90dd10`, or the commit carrying this dossier).
+**`CLOSED`**. The register's `closure_decision: CLOSED` is recorded together with the `verification` block (commit `a9f5a5d631e4c8247803ec51e64138cfe940ab5f`, command, result) at the top level. The 22 implementation-completed findings are flipped to `closed` with concrete source/command evidence and a `closed_by` reference to a real commit in the working tree's lineage (`447f756`, `c90dd10`, `538d95b`, `78b4f26`, `1955d4e`, `df2588c`, `da27c81`, `3fa4528`, `c90dd10`, or the commit carrying this dossier). Wave-1 (`e15f5d8` and the four drift followups) is part of that lineage and the W1.1 strict-gate now reports PASS on the working tree.
 
 ## 6. Rollback / recovery notes
 

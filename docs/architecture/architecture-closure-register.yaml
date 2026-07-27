@@ -829,19 +829,20 @@ historical_findings_explicitly_out_of_scope:
   - F123
 closure_decision: CLOSED
 verification:
-  commit: da27c8158582c0e2402f30d422e15818fb08644d
+  commit: a9f5a5d631e4c8247803ec51e64138cfe940ab5f
   command: make verify-architecture-closure
   result: passed
-  workstation_sub_gates:
-    verify_intake: passed
-    docs_validate: passed
-    verify_boundaries: passed
-    lint_api: passed
-    analyse_api: passed
-    api_check: passed
-  deferred_to_ci:
+  observed: '2026-07-27'
+workstation_sub_gates:
+  verify_intake: passed
+  docs_validate: passed
+  verify_boundaries: passed
+  lint_api: passed
+  analyse_api: passed
+  api_check: passed
+deferred_to_ci:
   - make test-api (composer test, >5min; terminal-level control)
   - make verify-mysql-integration-strict (docker compose required)
   - make test-web (vitest unit + eslint)
   - make test-e2e-w1-1-strict (W1.1 e2e runner required)
-  observed: '2026-07-27'
+observed: '2026-07-27'
