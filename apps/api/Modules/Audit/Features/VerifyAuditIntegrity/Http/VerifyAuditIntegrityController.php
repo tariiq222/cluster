@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Modules\Audit\Features\VerifyAuditIntegrity\Http;
 
-use DateTimeImmutable;
-use DateTimeZone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -328,7 +326,7 @@ final class VerifyAuditIntegrityController
             'stream_key' => $streamKey,
             'first_sequence' => $first,
             'last_sequence' => $last,
-            'occurred_at' => new DateTimeImmutable('now', new DateTimeZone('UTC')),
+            'occurred_at' => now('UTC')->toDateTimeImmutable(),
         ];
     }
 
