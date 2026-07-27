@@ -3,16 +3,19 @@
 
 The validator parses ``docs/architecture/planned-module-contracts.yaml`` and
 ``docs/architecture/planned-module-contracts.md`` rather than sampling source
-text, requires exactly the seven planned modules M01-M07, and compares every
-reserved value with strict equality across seven dimensions:
+text, requires exactly the seven planned modules M01-M07, and enforces seven
+dimensions with the YAML as the single authored source:
 
-  1. exact module rank (per module)
-  2. complete ordered table lists
-  3. full API / OpenAPI / web route prefixes
+  1. exact module rank, cross-checked per module ``name`` against
+     MODULE_RANKS in apps/api/tests/Architecture/ModuleBoundariesTest.php
+  2. complete ordered table lists (YAML and Markdown must agree)
+  3. full API / OpenAPI / web route prefixes (api = "/api/v1" + openapi,
+     web = openapi; YAML and Markdown must agree)
   4. complete capability lists
   5. exact Contract signatures and DTO names, including the canonical
      context-bearing ``GetStrategySnapshot``
-  6. every exact Event class and event-type literal
+  6. every exact Event class and event-type literal (the literal module
+     token must equal the module's declared ``event_token``)
   7. authoritative required-integration-token ownership
 
 The validator exits non-zero on any mismatch. Run with ``--self-check`` to
@@ -59,63 +62,55 @@ EXPECTED_MODULE_IDS: tuple[str, ...] = (
     "M07",
 )
 
-# Frozen module-to-rank mapping from MODULE_RANKS in
-# apps/api/tests/Architecture/ModuleBoundariesTest.php (also sections 7.1
-# and 8.1 of the M00 plan). Used as an independent hard guard so a renamed
-# module cannot drift past the validator.
-EXPECTED_RANKS: dict[str, int] = {
-    "M01": 3,
-    "M02": 4,
-    "M03": 6,
-    "M04": 8,
-    "M05": 9,
-    "M06": 10,
-    "M07": 11,
-}
+# Single-source model: the YAML authors every reserved value exactly once.
+# Ranks are cross-checked against code — MODULE_RANKS in the architecture
+# boundary test — while route prefixes and event tokens are validated for
+# internal derivation and YAML/Markdown agreement (the Markdown decision
+# record is the second authored source for those dimensions).
+BOUNDARY_TEST_PATH = (
+    ROOT
+    / "apps"
+    / "api"
+    / "tests"
+    / "Architecture"
+    / "ModuleBoundariesTest.php"
+)
 
-# Frozen route-prefix matrix per M00 plan §7.1. The validator compares
-# each module's prefixes against these frozen values so the diagnostic
-# format ``expected X, got Y`` is deterministic for the negative fixtures.
-EXPECTED_API_PREFIXES: dict[str, str] = {
-    "M01": "/api/v1/audit",
-    "M02": "/api/v1/records-governance",
-    "M03": "/api/v1/collaboration",
-    "M04": "/api/v1/strategy",
-    "M05": "/api/v1/portfolio",
-    "M06": "/api/v1/risk",
-    "M07": "/api/v1/workspace",
-}
-EXPECTED_OPENAPI_PREFIXES: dict[str, str] = {
-    "M01": "/audit",
-    "M02": "/records-governance",
-    "M03": "/collaboration",
-    "M04": "/strategy",
-    "M05": "/portfolio",
-    "M06": "/risk",
-    "M07": "/workspace",
-}
-EXPECTED_WEB_PREFIXES: dict[str, str] = {
-    "M01": "/audit",
-    "M02": "/records-governance",
-    "M03": "/collaboration",
-    "M04": "/strategy",
-    "M05": "/portfolio",
-    "M06": "/risk",
-    "M07": "/workspace",
-}
+_MODULE_RANKS_BLOCK = re.compile(r"MODULE_RANKS\s*=\s*\[(.*?)\];", re.DOTALL)
+_RANK_ENTRY = re.compile(r"'([A-Za-z][A-Za-z0-9]*)'\s*=>\s*(-?\d+)")
+_OPENAPI_PREFIX_SHAPE = re.compile(r"^/[a-z0-9][a-z0-9-]*$")
+_EVENT_TOKEN_SHAPE = re.compile(r"^[a-z0-9]+$")
 
-# Frozen module-event-token mapping (the intentional M05 asymmetry is part
-# of the freeze). Event-type literals MUST use this token, not the route or
-# capability token. See M00 plan §7.3.
-EXPECTED_EVENT_TOKENS: dict[str, str] = {
-    "M01": "audit",
-    "M02": "recordsgovernance",
-    "M03": "collaboration",
-    "M04": "strategy",
-    "M05": "portfolioprojects",
-    "M06": "risk",
-    "M07": "workspace",
-}
+
+def load_boundary_ranks(path: Path = BOUNDARY_TEST_PATH) -> dict[str, int]:
+    """Parse MODULE_RANKS from the architecture boundary test."""
+
+    if not path.is_file():
+        print(f"ERROR: boundary test is missing: {path}", file=sys.stderr)
+        raise SystemExit(2)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        print(
+            f"ERROR: cannot read boundary test {path}: {error}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from error
+    match = _MODULE_RANKS_BLOCK.search(text)
+    if match is None:
+        print(
+            f"ERROR: MODULE_RANKS block not found in {path}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    ranks = {
+        name: int(rank)
+        for name, rank in _RANK_ENTRY.findall(match.group(1))
+    }
+    if not ranks:
+        print(f"ERROR: MODULE_RANKS is empty in {path}", file=sys.stderr)
+        raise SystemExit(2)
+    return ranks
 
 # Expected passing summary — must match M00 plan §11 expected outcome.
 PASSING_SUMMARY = (
@@ -379,14 +374,23 @@ def _check_modules(yaml_payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
     by_id = _module_by_id(modules)
 
+    boundary_ranks = load_boundary_ranks()
+
     for module_id in EXPECTED_MODULE_IDS:
         entry = by_id[module_id]
 
-        rank = _expect_int(entry.get("rank"), f"{module_id}.rank")
-        if rank != EXPECTED_RANKS[module_id]:
+        name = _expect_str(entry.get("name"), f"{module_id}.name")
+        if name not in boundary_ranks:
             raise ValidationError(
-                f"{module_id} rank mismatch: expected "
-                f"{EXPECTED_RANKS[module_id]}, got {rank}"
+                f"{module_id} name mismatch: {name!r} is not registered in "
+                "ModuleBoundariesTest MODULE_RANKS"
+            )
+        rank = _expect_int(entry.get("rank"), f"{module_id}.rank")
+        code_rank = boundary_ranks[name]
+        if rank != code_rank:
+            raise ValidationError(
+                f"{module_id} rank mismatch: expected {code_rank}, got "
+                f"{rank} (source: ModuleBoundariesTest MODULE_RANKS)"
             )
 
         api_prefix = _expect_str(
@@ -398,21 +402,30 @@ def _check_modules(yaml_payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
         web_prefix = _expect_str(
             entry.get("web_prefix"), f"{module_id}.web_prefix"
         )
-        if api_prefix != EXPECTED_API_PREFIXES[module_id]:
+        if _OPENAPI_PREFIX_SHAPE.fullmatch(openapi_prefix) is None:
+            raise ValidationError(
+                f"{module_id} openapi_prefix mismatch: expected a single "
+                f"lowercase path segment, got {openapi_prefix}"
+            )
+        derived_api_prefix = "/api/v1" + openapi_prefix
+        if api_prefix != derived_api_prefix:
             raise ValidationError(
                 f"{module_id} api_prefix mismatch: expected "
-                f"{EXPECTED_API_PREFIXES[module_id]}, got {api_prefix}"
+                f"{derived_api_prefix}, got {api_prefix}"
             )
-        if openapi_prefix != EXPECTED_OPENAPI_PREFIXES[module_id]:
-            raise ValidationError(
-                f"{module_id} openapi_prefix mismatch: expected "
-                f"{EXPECTED_OPENAPI_PREFIXES[module_id]}, got "
-                f"{openapi_prefix}"
-            )
-        if web_prefix != EXPECTED_WEB_PREFIXES[module_id]:
+        if web_prefix != openapi_prefix:
             raise ValidationError(
                 f"{module_id} web_prefix mismatch: expected "
-                f"{EXPECTED_WEB_PREFIXES[module_id]}, got {web_prefix}"
+                f"{openapi_prefix}, got {web_prefix}"
+            )
+
+        event_token = _expect_str(
+            entry.get("event_token"), f"{module_id}.event_token"
+        )
+        if _EVENT_TOKEN_SHAPE.fullmatch(event_token) is None:
+            raise ValidationError(
+                f"{module_id} event_token mismatch: expected a lowercase "
+                f"alphanumeric token, got {event_token}"
             )
 
         tables = _string_list(entry, "owned_tables")
@@ -503,7 +516,10 @@ def _check_events(
     for module_id in EXPECTED_MODULE_IDS:
         declared_classes = set(_string_list(modules_by_id[module_id], "events"))
         literals = literals_by_owner[module_id]
-        expected_token = EXPECTED_EVENT_TOKENS[module_id]
+        expected_token = _expect_str(
+            modules_by_id[module_id].get("event_token"),
+            f"{module_id}.event_token",
+        )
 
         for literal in literals:
             parts = literal.split(".")
@@ -587,11 +603,15 @@ def _split_csv(cell: str) -> list[str]:
     """Split a Markdown cell on commas, stripping inline backticks.
 
     The M00 decision record lists values either as ``a, b, c`` or as
-    `` `a`, `b`, `c` ``. Both forms normalize to ``[a, b, c]``.
+    `` `a`, `b`, `c` ``. Both forms normalize to ``[a, b, c]``. A leading
+    ``None`` marker (e.g. ``**None** (reason)``) normalizes to ``[]`` — it
+    is the Markdown spelling of an empty YAML list.
     """
 
     cell = cell.strip()
     if not cell:
+        return []
+    if re.match(r"^None\b", cell):
         return []
     raw = [item.strip() for item in cell.split(",")]
     cleaned: list[str] = []
@@ -633,11 +653,19 @@ def _check_markdown(
         column_candidates: tuple[str, ...],
         label: str,
         parser: Callable[[str], Any],
+        include_field_value: bool = True,
     ) -> None:
         matching = [
             row for row in rows
             if row["__module_id__"] == module_id
-            and any(col in row for col in column_candidates)
+            and (
+                any(col in row for col in column_candidates)
+                or (
+                    include_field_value
+                    and row.get("Field") in column_candidates
+                    and "Value" in row
+                )
+            )
         ]
         if not matching:
             return
@@ -646,14 +674,18 @@ def _check_markdown(
                 f"Markdown matrix has multiple {label} rows for {module_id}"
             )
         row = matching[0]
-        column = next(col for col in column_candidates if col in row)
+        if row.get("Field") in column_candidates and "Value" in row:
+            column = row["Field"]
+            cell_value = row["Value"]
+        else:
+            column = next(col for col in column_candidates if col in row)
+            cell_value = row[column]
         key = (module_id, label)
         if key in declarations and declarations[key][0] != column:
             raise ValidationError(
                 f"Markdown matrix declares {label} for {module_id} twice"
             )
-        declarations[key] = (column, row[column])
-        cell_value = row[column]
+        declarations[key] = (column, cell_value)
         try:
             observed = parser(cell_value)
         except ValueError as error:
@@ -662,7 +694,7 @@ def _check_markdown(
                 f"unparsable cell {cell_value!r} ({error})"
             ) from error
         expected = (
-            EXPECTED_RANKS[module_id]
+            modules_by_id[module_id].get("rank")
             if label == "rank"
             else modules_by_id[module_id].get(_label_to_yaml_attr(label))
         )
@@ -674,7 +706,7 @@ def _check_markdown(
                     f"Markdown matrix mismatch for {module_id}.{label}: "
                     f"expected {expected}, got {observed}"
                 )
-        else:
+        elif isinstance(expected, list):
             observed_list = list(observed)
             expected_list = list(expected)
             if observed_list != expected_list:
@@ -682,6 +714,11 @@ def _check_markdown(
                     f"Markdown matrix mismatch for {module_id}.{label}: "
                     f"expected {expected_list}, got {observed_list}"
                 )
+        elif observed != expected:
+            raise ValidationError(
+                f"Markdown matrix mismatch for {module_id}.{label}: "
+                f"expected {expected}, got {observed}"
+            )
 
     heading_rank_re = re.compile(r"\(rank\s+(\d+)\)")
     for module_id in EXPECTED_MODULE_IDS:
@@ -698,7 +735,7 @@ def _check_markdown(
             match = heading_rank_re.search(heading)
             if match is not None:
                 observed_rank = int(match.group(1))
-                expected_rank = EXPECTED_RANKS[module_id]
+                expected_rank = int(modules_by_id[module_id]["rank"])
                 if observed_rank != expected_rank:
                     raise ValidationError(
                         f"Markdown matrix mismatch for {module_id}.rank: "
@@ -745,6 +782,7 @@ def _check_markdown(
             _CONTRACTS_COLUMNS,
             "contracts",
             _split_csv,
+            include_field_value=False,
         )
         _record(
             module_id,
@@ -873,11 +911,14 @@ def _run_self_check(yaml_payload: dict[str, Any]) -> None:
                 entry["web_prefix"] = "/portfolio-projects"
 
     try:
-        validate_payload_only(_mutate_yaml(yaml_payload, _fix_portfolio_prefix))
+        validate(
+            _mutate_yaml(yaml_payload, _fix_portfolio_prefix),
+            MARKDOWN_PATH,
+        )
     except ValidationError as error:
         _expect_diagnostic(
-            "M05 api_prefix mismatch: expected /api/v1/portfolio, "
-            "got /api/v1/portfolio-projects",
+            "Markdown matrix mismatch for M05.api_prefix: expected "
+            "/api/v1/portfolio-projects, got /api/v1/portfolio",
             error,
         )
     else:
@@ -966,20 +1007,20 @@ def _run_self_check(yaml_payload: dict[str, Any]) -> None:
         sections: list[str] = ["# Synthetic M00 matrix for self-check fixture 7"]
         for module_id in EXPECTED_MODULE_IDS:
             entry = modules_by_id[module_id]
-            rank = EXPECTED_RANKS[module_id]
+            rank = int(entry.get("rank", 0))
             if module_id == "M06":
                 rank = 9  # disagreement: YAML expects 10
-            tables = ", ".join(entry.get("owned_tables", []))
+            tables = "`, `".join(entry.get("owned_tables", []))
             api_prefix = entry.get("api_prefix", "")
             openapi_prefix = entry.get("openapi_prefix", "")
-            capabilities = ", ".join(entry.get("capabilities", []))
-            tokens = ", ".join(entry.get("required_integration_tokens", []))
+            capabilities = "`, `".join(entry.get("capabilities", []))
+            tokens = "`, `".join(entry.get("required_integration_tokens", []))
             contracts = "; ".join(
                 c.get("signature", "")
                 for c in entry.get("public_contracts", [])
             )
-            dtos = ", ".join(entry.get("public_dtos", []))
-            events = ", ".join(entry.get("events", []))
+            dtos = "`, `".join(entry.get("public_dtos", []))
+            events = "`, `".join(entry.get("events", []))
             sections.append(
                 f"## Section {module_id}\n\n"
                 f"### {module_id} {entry.get('name', '')} (rank {rank})\n\n"
@@ -1016,9 +1057,9 @@ def _run_self_check(yaml_payload: dict[str, Any]) -> None:
 def validate_payload_only(yaml_payload: dict[str, Any]) -> None:
     """Run only the YAML structural validation.
 
-    Self-check fixtures 1-6 mutate only the YAML, so they exercise this
-    narrower path; the full Markdown-aware ``validate`` is exercised only
-    by fixture 7.
+    Self-check fixtures 1, 2, 4, 5, and 6 mutate only the YAML and exercise
+    this narrower path; fixture 3 (prefix drift) and fixture 7 (rank
+    disagreement) exercise the full Markdown-aware ``validate``.
     """
 
     _check_modules(yaml_payload)
