@@ -1,0 +1,117 @@
+# Cluster PII/PHI Vendor Boundaries (P04 Phase A)
+#
+# Service boundaries and approval evidence references. Agreement contents
+# are intentionally outside the repository; this file records only the
+# boundary contract.
+#
+# Status: inventory only. No code or runtime change.
+
+version: 1
+baseline_date: '2026-07-27'
+source_commit: df2588c
+
+# ----------------------------------------------------------------------------
+# Vendor boundaries
+# ----------------------------------------------------------------------------
+
+vendor_boundaries:
+  - id: VB-001
+    service: object storage (private S3-compatible)
+    classification: confidential
+    contains_phi: true
+    contains_pii: true
+    data_categories: [document objects, encrypted metadata, retention evidence]
+    encryption_at_rest: aws:kms
+    encryption_in_transit: TLS 1.2+
+    access_pattern: signed URL with reauthorization
+    failure_mode: fail-closed; deny promotion if scan/encryption missing
+    approval_evidence:
+      - kind: source
+        value: apps/api/config/filesystems.php
+        observed: '2026-07-27'
+      - kind: source
+        value: apps/api/config/documents.php
+        observed: '2026-07-27'
+    plan_ref: P02 (S3/ClamAV production runtime)
+    notes: full credentials and rotation evidence are P02 deliverables; P04 records the boundary only
+
+  - id: VB-002
+    service: ClamAV malware scanner
+    classification: confidential
+    contains_phi: false
+    contains_pii: false
+    data_categories: [uploaded files, scan results]
+    failure_mode: fail-closed; promote only on clean verdict
+    approval_evidence:
+      - kind: source
+        value: apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php
+        observed: '2026-07-27'
+    plan_ref: P02
+
+  - id: VB-003
+    service: MySQL production database
+    classification: confidential
+    contains_phi: true
+    contains_pii: true
+    data_categories: [operational rows, audit rows, sensitive access events]
+    encryption_at_rest: database-level; encryption keys managed outside repository
+    failure_mode: fail-closed on connection or schema validation
+    approval_evidence:
+      - kind: source
+        value: apps/api/config/database.php
+        observed: '2026-07-27'
+    plan_ref: P01 (Production workers and scheduler)
+
+  - id: VB-004
+    service: Redis (streams and cache)
+    classification: confidential
+    contains_phi: false
+    contains_pii: false
+    data_categories: [stream payloads (consumer contracts), cache values]
+    encryption_in_transit: TLS 1.2+ when not loopback
+    failure_mode: consumer contracts fail closed
+    approval_evidence:
+      - kind: source
+        value: apps/api/config/database.php
+        observed: '2026-07-27'
+    plan_ref: P01
+
+  - id: VB-005
+    service: technical log archive
+    classification: confidential
+    contains_phi: true
+    contains_pii: true
+    data_categories: [redacted log context]
+    redaction: exact keys (password, token, authorization, cookie, document_content, national_id)
+    failure_mode: missing context rows restored only by authorized restore request
+    approval_evidence:
+      - kind: source
+        value: apps/api/Modules/PlatformSettings/Features/Logs/Http/TechnicalLogsController.php
+        observed: '2026-07-27'
+    plan_ref: P04 Phase B redaction broadening
+
+  - id: VB-006
+    service: browser (web client)
+    classification: confidential
+    contains_phi: false
+    contains_pii: true
+    data_categories: [session metadata in memory only; no sessionStorage after P04 Phase B]
+    failure_mode: any sessionStorage usage is treated as a defect
+    approval_evidence:
+      - kind: source
+        value: apps/web/src/api/session.ts (current)
+        observed: '2026-07-27'
+    plan_ref: P04 Phase B
+
+# ----------------------------------------------------------------------------
+# Approval
+# ----------------------------------------------------------------------------
+
+approval:
+  decision: pending-user-authorization
+  recorded_in: docs/compliance/privacy-vendor-boundaries.yaml
+  not_authorized:
+    - Sharing agreement contents
+    - Rotating credentials
+    - Adding or changing vendor services
+    - Implementing P02 ClamAV/MinIO runtime (gated on P01)

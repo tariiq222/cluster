@@ -1,0 +1,228 @@
+# Cluster PII/PHI Control Register (P04 Phase A)
+#
+# Threat cases, control IDs, owners, status, evidence references, and exit
+# criteria. Source-grounded; nothing invented.
+#
+# Status: inventory only. No code or runtime change.
+
+version: 1
+baseline_date: '2026-07-27'
+source_commit: df2588c
+
+# ----------------------------------------------------------------------------
+# Controls (every entry is observed on disk; status reflects current state)
+# ----------------------------------------------------------------------------
+
+controls:
+  - id: PC-001
+    title: identity session token is opaque hash
+    threat: session token replay or theft
+    owner: Identity
+    status: implemented
+    evidence: apps/api/Modules/Identity/Features/Sessions/Handler/SessionHandler.php (SHA-256)
+    exit_criterion: test asserts that the stored session row contains a SHA-256 hash and never a raw token
+
+  - id: PC-002
+    title: HttpOnly identity cookie
+    threat: client-side XSS reading the cookie
+    owner: Identity
+    status: implemented
+    evidence: apps/api/app/Http/Middleware/IdentitySessionMiddleware.php
+    exit_criterion: integration test asserts HttpOnly + SameSite attribute
+
+  - id: PC-003
+    title: session correlation ID is lowercase UUIDv7
+    threat: weak correlation allows log forgery
+    owner: Identity
+    status: implemented
+    evidence: IdentitySessionMiddleware::handle
+    exit_criterion: tests reject non-UUIDv7 correlation IDs
+
+  - id: PC-004
+    title: CSRF proof stored as hash
+    threat: CSRF replay
+    owner: Identity
+    status: implemented
+    evidence: SessionHandler.php
+    exit_criterion: tests assert that mutating endpoints without a valid CSRF proof return 419
+
+  - id: PC-005
+    title: identity credential material stored as ciphertext
+    threat: credential disclosure if database leaks
+    owner: Identity
+    status: implemented
+    evidence: apps/api/Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php
+    exit_criterion: schema-level proof that credential columns are ciphertext, not plaintext
+
+  - id: PC-006
+    title: capability check before detailed validation
+    threat: disclosure of record metadata before authorization
+    owner: Authorization
+    status: implemented
+    evidence: apps/api/Modules/Authorization/Infrastructure/RbacAbacDecideAccess.php
+    exit_criterion: feature tests confirm capability is checked first
+
+  - id: PC-007
+    title: field-level minimum necessary
+    threat: over-disclosure of field content
+    owner: Authorization
+    status: implemented
+    evidence: RbacAbacDecideAccess fail-closed `['*' => 'hidden']`
+    exit_criterion: tests assert hidden fields are absent from response
+
+  - id: PC-008
+    title: sensitive access event is append-only
+    threat: tampering with the audit trail
+    owner: Authorization
+    status: implemented
+    evidence: CreateAuthorizationFieldAuditTables.php + DB triggers
+    exit_criterion: tests assert UPDATE/DELETE on sensitive_access_events are rejected
+
+  - id: PC-009
+    title: persist() failure logged without exception text
+    threat: exception text in logs may leak record facts
+    owner: Authorization
+    status: open
+    evidence: apps/api/Modules/Authorization/Infrastructure/Persistence/DatabasePersistAccessDecision.php
+    exit_criterion: log lines contain opaque error code only; tests assert no payload in logs
+    plan_ref: P04 Phase B remediation
+
+  - id: PC-010
+    title: document object encrypted with KMS at rest
+    threat: object storage leak
+    owner: Documents
+    status: implemented-pending-production-keys
+    evidence: apps/api/config/filesystems.php
+    exit_criterion: P02 evidence manifest; runtime test against real S3/KMS
+
+  - id: PC-011
+    title: document upload fails closed on ClamAV error
+    threat: malicious file promotion
+    owner: Documents
+    status: implemented
+    evidence: DocumentUploadHandler.php
+    exit_criterion: tests assert ClamAV failure blocks promotion
+
+  - id: PC-012
+    title: document download reauthorizes
+    threat: unauthorized read
+    owner: Documents
+    status: implemented
+    evidence: DocumentDownloadService.php
+    exit_criterion: feature test asserts 403 on stale scope
+
+  - id: PC-013
+    title: document classification cannot be silently downgraded
+    threat: classification downgrade bypasses export policy
+    owner: Documents
+    status: open
+    evidence: TransitionDocumentController; handler currently updates hold/archive state without a single enclosing transaction
+    exit_criterion: P04 Phase B rewrap; tests assert the state transition is one transaction with outbox
+    plan_ref: P04 Phase B remediation; depends on T10 handoff
+
+  - id: PC-014
+    title: technical log redaction covers sensitive keys
+    threat: secrets in logs
+    owner: PlatformSettings
+    status: partial
+    evidence: TechnicalLogEntry::redact() recursive redaction of exact keys (password, token, authorization, cookie, document_content, national_id)
+    exit_criterion: P04 Phase B broadens the key set; tests assert no plaintext secrets in retained logs
+
+  - id: PC-015
+    title: notification dead-letter stores original event
+    threat: dead-letter payload may contain PHI
+    owner: Notifications
+    status: open
+    evidence: W18CreateNotificationDeliveryTables.php
+    exit_criterion: P04 Phase B redaction rule applied to dead letters; tests assert no plaintext PHI
+
+  - id: PC-016
+    title: report_runs.result is plaintext duplicate
+    threat: long-lived plaintext PHI in reporting result rows
+    owner: Reporting
+    status: open
+    evidence: ExportAuthorizedReportHandler.php duplicates item arrays into report_runs.result and export_artifacts.safe_result
+    exit_criterion: P04 Phase B encrypts result payload; tests assert reauthorization + classification carry through
+
+  - id: PC-017
+    title: export download hard-codes internal classification
+    threat: export download may leak confidential content
+    owner: Reporting
+    status: open
+    evidence: DownloadExportArtifactHandler.php uses hard-coded 'internal'
+    exit_criterion: P04 Phase B uses stored classification; tests assert 403 on cross-classification download
+
+  - id: PC-018
+    title: search query in URL
+    threat: arbitrary search text in URL may carry PHI/PII
+    owner: Search
+    status: open
+    evidence: SearchController.php uses GET with q parameter
+    exit_criterion: P04 Phase B POST cutover; tests assert no q in URL or referer
+
+  - id: PC-019
+    title: search projection copies WorkRecord title/description
+    threat: secondary PHI store beyond the source record
+    owner: Search
+    status: open
+    evidence: ProjectWorkRecordReadModels.php
+    exit_criterion: P04 Phase B clarifies retention/classification of the projection; tests assert reauthorization at read time
+
+  - id: PC-020
+    title: browser sessionStorage holds CSRF token and user id
+    threat: client-side persistence of credentials/PII
+    owner: Web
+    status: open
+    evidence: apps/web/src/api/session.ts
+    exit_criterion: P04 Phase B removes sessionStorage marker; tests assert session restore works from HttpOnly cookie only
+
+  - id: PC-021
+    title: Audit module parallel audit_events
+    threat: ownership transfer of audit from Authorization
+    owner: M01 (planned)
+    status: planned
+    evidence: docs/architecture/planned-module-contracts.yaml reserved_tables
+    exit_criterion: M01 cutover evidence
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-audit-module.md
+
+  - id: PC-022
+    title: RecordsGovernance retention/disposition
+    threat: missing retention enforcement
+    owner: M02 (planned)
+    status: planned
+    evidence: docs/architecture/planned-module-contracts.yaml reserved_tables
+    exit_criterion: M02 cutover evidence
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-records-governance-module.md
+
+  - id: PC-023
+    title: collaboration free-text may carry PHI
+    threat: free-text discussion references patients
+    owner: M03 (planned)
+    status: planned
+    evidence: docs/architecture/planned-module-contracts.yaml reserved_tables
+    exit_criterion: M03 cutover evidence
+
+# ----------------------------------------------------------------------------
+# Totals
+# ----------------------------------------------------------------------------
+
+totals:
+  controls_total: 23
+  implemented: 8
+  partial: 1
+  open: 9
+  planned: 5
+  plan_ref: docs/superpowers/plans/2026-07-26-cluster-healthcare-privacy-compliance.md
+
+# ----------------------------------------------------------------------------
+# Approval
+# ----------------------------------------------------------------------------
+
+approval:
+  decision: pending-user-authorization
+  recorded_in: docs/compliance/privacy-control-register.yaml
+  not_authorized:
+    - Any Phase B remediation
+    - Modifying TechnicalLogEntry::redact()
+    - Modifying DatabasePersistAccessDecision
+    - Adding test files in apps/api/tests/Feature/Privacy/

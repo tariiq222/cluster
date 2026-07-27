@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "token": "ARCHITECTURE-CLOSURE:AUTHORIZATION-OUTBOX",
+  "requesting_plan": "M01",
+  "releasing_owner": "2026-07-26-cluster-complete-architecture-closure",
+  "releasing_tasks": [6, 9, 10],
+  "base_commit": "df2588c1aad81e506b84c0ecba44c3c5a62dccfc",
+  "grant_time": "2026-07-26T23:48:45Z",
+  "receiving_token": "M01-START",
+  "status": "released",
+  "expiry": "revoked if any released surface changes before M01 integration",
+  "merge_commit": "df2588c1aad81e506b84c0ecba44c3c5a62dccfc",
+  "decisions": {
+    "authorization_contract": "Modules\\Authorization\\Contracts\\DecideAccess::decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision",
+    "authorization_projection": "Modules\\Authorization\\Contracts\\AccessProjection",
+    "event_catalog": "Shared\\Infrastructure\\Outbox\\OutboxEventType is the approved authoritative replacement catalog",
+    "transactional_outbox_duplicate_rule": "Shared\\Contracts\\TransactionalOutbox::append is strict and surfaces duplicate event_id unique-constraint failures; replay-safe callers explicitly use TransactionalOutboxReplayable with OutboxDuplicatePolicy::Replayable",
+    "access_decisions_owner": "Authorization",
+    "sensitive_access_events_owner": "Authorization"
+  },
+  "released_surfaces": [
+    "apps/api/Modules/Authorization/Contracts/DecideAccess.php",
+    "apps/api/Modules/Authorization/Contracts/RecordFacts.php",
+    "apps/api/Modules/Authorization/Contracts/AccessProjection.php",
+    "apps/api/Shared/Contracts/TransactionalOutbox.php",
+    "apps/api/Shared/Contracts/TransactionalOutboxReplayable.php",
+    "apps/api/Shared/Contracts/OutboxDuplicatePolicy.php",
+    "apps/api/Shared/Infrastructure/Outbox/OutboxEventType.php",
+    "apps/api/app/Providers/AppServiceProvider.php",
+    "apps/api/tests/Architecture/ModuleBoundariesTest.php"
+  ],
+  "bindings": {
+    "Shared\\Contracts\\TransactionalOutbox": "Shared\\Infrastructure\\Outbox\\DatabaseTransactionalOutbox",
+    "Shared\\Contracts\\TransactionalOutboxReplayable": "Shared\\Infrastructure\\Outbox\\DatabaseTransactionalOutbox",
+    "Shared\\Contracts\\TransactionalOutboxEnvelope": "Shared\\Infrastructure\\Outbox\\DatabaseTransactionalOutbox"
+  },
+  "retained_outputs": [
+    {
+      "path": ".superpowers/sdd/task-6-report.md",
+      "sha256": "f112a3e140561f85deac2c02c05eb1570dd60526467dc58ef61467ec3701be00"
+    },
+    {
+      "path": "docs/architecture/ARCHITECTURE-CLOSURE.md",
+      "sha256": "ca58dc4824d644fe1e6da0893aa1778ff8e65dd096af2f9c97e9333225ae7c74"
+    },
+    {
+      "path": "docs/architecture/architecture-closure-register.yaml",
+      "sha256": "c6588dc37628ec032fa6b727321db1302aa2c44f66c07dead853726fbaea9f4d"
+    }
+  ],
+  "focused_results": [
+    "Task 6 contract/outbox ownership work is retained in task-6-report.md and integrated in closure lineage",
+    "Tasks 9 and 10 ABAC and atomicity work are integrated in commit 447f756",
+    "Architecture closure decision and verification commit are recorded in df2588c"
+  ]
+}

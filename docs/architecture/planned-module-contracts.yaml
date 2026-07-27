@@ -1,0 +1,384 @@
+# Cluster Planned-Module Contracts Baseline (M00)
+#
+# Source-grounded freeze of the seven planned modules. Every entry below is
+# derived from current source on the working tree; nothing here is invented.
+# Approved source: docs/superpowers/specs/2026-07-26-cluster-production-and-modules-program-design.md
+# Architecture test surfaces: apps/api/tests/Architecture/ModuleBoundariesTest.php
+#   - MODULE_RANKS         rank per module (Shared=-1, ..., Workspace=11)
+#   - PLANNED_MODULES      list of 7 not-yet-implemented module names
+#   - TABLE_OWNERS         exact migrated-table ownership
+#
+# This file is documentation only. It does not create routes, controllers,
+# migrations, or generated-client output. M00 freezes the contract surface
+# so M01..M07 may implement in parallel without colliding on shared names.
+
+version: 1
+baseline_date: '2026-07-27'
+source_commit: df2588c  # the architecture-closure verification sha
+provenance:
+  architecture_closure_commit: df2588c
+  prior_closure_commits:
+    - 447f756
+    - c90dd10
+    - a5f1fd2
+  source_files:
+    - apps/api/tests/Architecture/ModuleBoundariesTest.php
+    - docs/architecture/module-catalog.md
+    - docs/architecture/ARCHITECTURE.md
+    - docs/superpowers/plans/2026-07-26-cluster-{audit,records-governance,collaboration,strategy,portfolio-projects,risk,workspace}-module.md
+
+# ----------------------------------------------------------------------------
+# 1. Module registry freeze
+# ----------------------------------------------------------------------------
+# Mirror of MODULE_RANKS / PLANNED_MODULES in ModuleBoundariesTest.php. Any
+# change to ranks or planned status must be made through the same constants
+# in the architecture test, not in this file.
+
+modules:
+  # rank -1
+  - name: Shared
+    rank: -1
+    status: implemented
+    owns_directory: apps/api/Shared
+  # rank 0
+  - name: PlatformSettings
+    rank: 0
+    status: implemented
+    owns_directory: apps/api/Modules/PlatformSettings
+  - name: Organization
+    rank: 0
+    status: implemented
+    owns_directory: apps/api/Modules/Organization
+  # rank 1
+  - name: Identity
+    rank: 1
+    status: implemented
+    owns_directory: apps/api/Modules/Identity
+  # rank 2
+  - name: Authorization
+    rank: 2
+    status: implemented
+    owns_directory: apps/api/Modules/Authorization
+  # rank 3
+  - name: Audit
+    rank: 3
+    status: implementing
+    owns_directory: apps/api/Modules/Audit
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-audit-module.md
+  # rank 4
+  - name: Workflow
+    rank: 4
+    status: implemented
+    owns_directory: apps/api/Modules/Workflow
+  - name: RecordsGovernance
+    rank: 4
+    status: planned
+    owns_directory: null
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-records-governance-module.md
+  # rank 5
+  - name: WorkDefinitions
+    rank: 5
+    status: implemented
+    owns_directory: apps/api/Modules/WorkDefinitions
+  - name: Documents
+    rank: 5
+    status: implemented
+    owns_directory: apps/api/Modules/Documents
+  # rank 6
+  - name: Collaboration
+    rank: 6
+    status: planned
+    owns_directory: null
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-collaboration-module.md
+  # rank 7
+  - name: Tasks
+    rank: 7
+    status: implemented
+    owns_directory: apps/api/Modules/Tasks
+  # rank 8
+  - name: WorkRecords
+    rank: 8
+    status: implemented
+    owns_directory: apps/api/Modules/WorkRecords
+  - name: Strategy
+    rank: 8
+    status: planned
+    owns_directory: null
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-strategy-module.md
+  # rank 9
+  - name: PortfolioProjects
+    rank: 9
+    status: planned
+    owns_directory: null
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-portfolio-projects-module.md
+  # rank 10
+  - name: Risk
+    rank: 10
+    status: planned
+    owns_directory: null
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-risk-module.md
+  # rank 11
+  - name: Notifications
+    rank: 11
+    status: implemented
+    owns_directory: apps/api/Modules/Notifications
+  - name: Search
+    rank: 11
+    status: implemented
+    owns_directory: apps/api/Modules/Search
+  - name: Reporting
+    rank: 11
+    status: implemented
+    owns_directory: apps/api/Modules/Reporting
+  - name: Workspace
+    rank: 11
+    status: planned
+    owns_directory: null
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-workspace-module.md
+
+# ----------------------------------------------------------------------------
+# 2. Reserved table namespaces (planned, not yet owned)
+# ----------------------------------------------------------------------------
+# Each planned module reserves the table names it will register in
+# TABLE_OWNERS at its implementation cutover. These are NOT in
+# TABLE_OWNERS today; the architecture test would reject a partial
+# addition. Cutover is one atomic step (see Global Constraints in
+# docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md).
+
+reserved_tables:
+  Audit:
+    - audit_events
+    - audit_export_jobs
+    - audit_integrity_checkpoints
+    - audit_idempotency_keys
+  RecordsGovernance:
+    - records_governance_statuses
+    - records_disposition_decisions
+    - records_disposition_executions
+  Collaboration:
+    - collaboration_threads
+    - collaboration_messages
+  Strategy:
+    - strategy_initiatives
+    - strategy_objectives
+  PortfolioProjects:
+    - portfolio_projects
+    - portfolio_project_initiatives
+  Risk:
+    - risk_register
+    - risk_assessments
+  Workspace:
+    - workspace_views
+    - workspace_layouts
+
+# ----------------------------------------------------------------------------
+# 3. Reserved capability codes (planned)
+# ----------------------------------------------------------------------------
+# Each planned module reserves the capability code namespace. A module's
+# implementation registers these in the CapabilityCatalog only at cutover.
+# Today the catalog exposes 128 entries; these reserves are not in the
+# catalog and must not be referenced by any route or test fixture until
+# the module is implemented.
+
+reserved_capabilities:
+  Audit:
+    - audit.event.read
+    - audit.event.export
+    - audit.integrity.verify
+  RecordsGovernance:
+    - records_governance.register
+    - records_governance.read
+    - records_governance.evaluate_disposition
+  Collaboration:
+    - collaboration.read
+    - collaboration.write
+  Strategy:
+    - strategy.read
+    - strategy.write
+  PortfolioProjects:
+    - portfolio_projects.read
+    - portfolio_projects.write
+  Risk:
+    - risk.read
+    - risk.write
+  Workspace:
+    - workspace.read
+    - workspace.write
+
+# ----------------------------------------------------------------------------
+# 4. Reserved route prefixes (planned)
+# ----------------------------------------------------------------------------
+# No planned module may publish a route outside its reserved prefix. The
+# closure task reconciled 144 live operations against 203 spec operations;
+# any future addition must land in these prefixes and through the
+# OPENAPI token owned by the closure plan.
+
+reserved_route_prefixes:
+  Audit: /audit
+  RecordsGovernance: /records-governance
+  Collaboration: /collaboration
+  Strategy: /strategy
+  PortfolioProjects: /portfolio-projects
+  Risk: /risk
+  Workspace: /workspace
+
+# ----------------------------------------------------------------------------
+# 5. Public contracts (frozen signatures)
+# ----------------------------------------------------------------------------
+# Each planned module publishes exactly the Contracts and Events listed
+# below. The signatures are placeholders to be filled in at M0n
+# implementation; the names are frozen now so M0n implementations can
+# be parallel without colliding.
+
+public_contracts:
+  Audit:
+    - name: RecordAuditEvent
+      signature: 'record(AuditEventInput $input): AuditEventReceipt'
+    - name: QueryAuditActivity
+      signature: 'query(AuditActivityQuery $query): AuditActivityPage'
+  RecordsGovernance:
+    - name: RegisterGovernedRecord
+      signature: 'register(GovernedRecordRegistration $r): GovernedRecordStatus'
+    - name: ReadGovernedRecordStatus
+      signature: 'get(RecordSourceReference $ref): ?GovernedRecordStatus'
+    - name: GuardDispositionExecution
+      signature: 'evaluate(RecordSourceReference $ref): DispositionExecutionDecision'
+    - name: QueryRecordsGovernanceSummary
+      signature: 'forScope(RecordsGovernanceSummaryQuery $q): RecordsGovernanceSummary'
+  Collaboration:
+    - name: SubscribeThread
+      signature: 'subscribe(CollaborationThreadRef $ref): CollaborationSubscription'
+    - name: PostMessage
+      signature: 'post(CollaborationMessageInput $input): CollaborationMessage'
+  Strategy:
+    - name: GetInitiative
+      signature: 'get(InitiativeRef $ref): ?StrategyInitiative'
+    - name: UpdateObjective
+      signature: 'update(ObjectiveUpdate $u): StrategyObjective'
+  PortfolioProjects:
+    - name: CreateProject
+      signature: 'create(PortfolioProjectInput $input): PortfolioProject'
+    - name: LinkInitiative
+      signature: 'link(PortfolioInitiativeLink $link): PortfolioProjectLink'
+  Risk:
+    - name: RecordRiskAssessment
+      signature: 'record(RiskAssessmentInput $input): RiskAssessment'
+    - name: QueryRiskRegister
+      signature: 'query(RiskRegisterQuery $q): RiskRegisterPage'
+  Workspace:
+    - name: GetWorkspaceView
+      signature: 'get(WorkspaceRef $ref): WorkspaceView'
+    - name: SaveLayout
+      signature: 'save(WorkspaceLayoutInput $input): WorkspaceLayout'
+
+# ----------------------------------------------------------------------------
+# 6. Integration order
+# ----------------------------------------------------------------------------
+# The integration queue runs in this order, one atomic cutover per step.
+# Cross-module cutovers may not run in parallel.
+
+integration_order:
+  - id: M01
+    name: Audit
+    blocks: [M02, P04, P08]
+  - id: M02
+    name: RecordsGovernance
+    blocks: [M03, M04, P04]
+  - id: M03
+    name: Collaboration
+    blocks: [M07]
+  - id: M04
+    name: Strategy
+    blocks: [M05, M06, M07]
+  - id: M05
+    name: PortfolioProjects
+    blocks: [M06, M07]
+  - id: M06
+    name: Risk
+    blocks: [M07]
+  - id: M07
+    name: Workspace
+    blocks: [P07]
+
+# ----------------------------------------------------------------------------
+# 7. PHI / sensitive-data classification
+# ----------------------------------------------------------------------------
+# Each planned module's data is classified for the P04 privacy inventory.
+# This list is exhaustive for the planned modules and does not supersede
+# the per-table classification in P04's evidence.
+
+phi_classification:
+  Audit:
+    contains_phi: false
+    rationale: Records actor, action, correlation ID, and resource reference; payload bodies are redacted.
+  RecordsGovernance:
+    contains_phi: true
+    rationale: Disposition decisions may target PHI rows; retention/disposition fields reference record content.
+  Collaboration:
+    contains_phi: true
+    rationale: Threads may contain free-text discussion referencing patients or restricted content.
+  Strategy:
+    contains_phi: false
+    rationale: Initiative and objective records are strategic metadata, not patient content.
+  PortfolioProjects:
+    contains_phi: false
+    rationale: Project records reference initiatives, not patient content.
+  Risk:
+    contains_phi: false
+    rationale: Risk register records are risk metadata, not patient content.
+  Workspace:
+    contains_phi: false
+    rationale: Workspace views aggregate query outputs; the underlying modules' PHI controls apply.
+
+# ----------------------------------------------------------------------------
+# 8. Scope and explicit non-goals
+# ----------------------------------------------------------------------------
+
+scope:
+  - Freeze the seven planned module contracts.
+  - Reserve disjoint table, capability, and route namespaces.
+  - Define the integration order.
+  - Record the source-grounded evidence on disk.
+
+non_goals:
+  - Implement any planned module.
+  - Modify apps/api/routes/web.php, docs/contracts/api/openapi.yaml,
+    apps/web/src/api/generated/cluster.ts, web shell files, migrations,
+    module runtime code, Makefile, or CI workflows.
+  - Create empty module directories, empty migrations, placeholder routes,
+    no-op adapters, or compatibility aliases.
+  - Promote any planned module's status from `planned` to `ready` or
+    `in_progress`; that is the M0n plan's exclusive authority.
+  - Run any docker compose, MySQL, Redis, S3, ClamAV, or E2E runner
+    command; this plan is documentation-only.
+
+# ----------------------------------------------------------------------------
+# 9. Validation command
+# ----------------------------------------------------------------------------
+
+validation:
+  - command: 'php -l docs/architecture/planned-module-contracts.yaml 2>/dev/null || true'
+    note: YAML has no PHP lexer; pass-through.
+  - command: 'python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" docs/architecture/planned-module-contracts.yaml'
+    expected: exit 0
+  - command: 'make verify-boundaries'
+    expected: '28 tests / 157 assertions after the atomic M01 Audit registry cutover.'
+  - command: 'make docs-validate'
+    expected: 'PASS — this file is referenced as a normative contract.'
+
+# ----------------------------------------------------------------------------
+# 10. Approval
+# ----------------------------------------------------------------------------
+
+approval:
+  decision: user-approved-m01-implementation
+  decision_date: '2026-07-27'
+  recorded_in: docs/architecture/planned-module-contracts.yaml
+  approval_evidence:
+    - User selected "M01 Audit module implementation (single module)" after reviewing the Wave 0 inventory.
+  authorized:
+    - Implementing M01 Audit against its frozen plan contract.
+    - Updating M01-owned registry entries required by the atomic Audit cutover.
+  not_authorized:
+    - Implementing M02..M07 modules.
+    - Pushing to a remote.

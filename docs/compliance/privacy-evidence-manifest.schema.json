@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cluster.local/schemas/privacy-evidence-manifest.schema.json",
+  "title": "Cluster PII/PHI Privacy Evidence Manifest",
+  "description": "Per-commit retained evidence manifest for P04 Phase D verification. The manifest is produced once a candidate commit has been recorded and is consumed by the P04 validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "commit_sha",
+    "produced_at",
+    "phase",
+    "evidence_root",
+    "controls"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "produced_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["A", "B", "C", "D"]
+    },
+    "evidence_root": {
+      "type": "string",
+      "description": "Workspace-relative path to the directory that contains the evidence files for this commit.",
+      "pattern": "^artifacts/p04/[^/]+/[^/]+/?$"
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["control_id", "status", "evidence_files"],
+        "properties": {
+          "control_id": {
+            "type": "string",
+            "pattern": "^PC-[0-9]{3}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["implemented", "partial", "open", "planned", "remediated"]
+          },
+          "evidence_files": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._/-]+\\.md$"
+            }
+          },
+          "exit_criterion": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

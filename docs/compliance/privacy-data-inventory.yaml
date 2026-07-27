@@ -1,0 +1,225 @@
+# Cluster PII/PHI Data Inventory (P04 Phase A)
+#
+# Source-grounded inventory of every observed PII/PII-adjacent or PHI-bearing
+# column, JSON path, contract field, event payload, and storage object. Items
+# here are observed on the working tree at the architecture-closure commit
+# `df2588c`; nothing is invented.
+#
+# Status: inventory only. No code, route, contract, or runtime change.
+# Approval: pending user authorization before any source remediation.
+
+version: 1
+baseline_date: '2026-07-27'
+source_commit: df2588c
+provenance:
+  plan: docs/superpowers/plans/2026-07-26-cluster-healthcare-privacy-compliance.md
+  architecture_closure: docs/architecture/ARCHITECTURE-CLOSURE.md
+  architecture_register: docs/architecture/architecture-closure-register.yaml
+  module_baseline: docs/architecture/planned-module-contracts.yaml
+
+# ----------------------------------------------------------------------------
+# A. Identity, authorization, and field-minimization inventory
+# ----------------------------------------------------------------------------
+
+identity_and_authorization:
+  - item: identity session token
+    location: apps/api/Modules/Identity/Infrastructure/Persistence/SessionHashStore
+    storage: SHA-256 hash only (32-byte random source)
+    contains_phi: false
+    contains_pii: false
+    rationale: opaque hash; original token held only in HttpOnly cookie
+  - item: identity session/CSRF tokens
+    location: apps/api/Modules/Identity/Features/Sessions/Handler/SessionHandler.php
+    storage: SHA-256 hashes; expiry + idle timeout + binding
+    contains_phi: false
+    contains_pii: false
+    rationale: hash only; no PHI content
+  - item: user national_id
+    location: apps/api/Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationPeopleTable.php
+    storage: ciphertext column
+    contains_phi: false
+    contains_pii: true
+    rationale: ciphertext at rest; readable only via Identity decrypt
+  - item: user email and phone
+    location: apps/api/Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationPeopleTable.php
+    storage: ciphertext columns
+    contains_phi: false
+    contains_pii: true
+    rationale: ciphertext at rest
+  - item: employee number and display name
+    location: apps/api/Modules/Organization/Infrastructure/Persistence/Migrations/CreateOrganizationPeopleTable.php
+    storage: plaintext columns
+    contains_phi: false
+    contains_pii: true
+    rationale: plaintext PII; field-minimization rule pending
+  - item: identity credentials and TOTP secret
+    location: apps/api/Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php
+    storage: ciphertext
+    contains_phi: false
+    contains_pii: false
+    rationale: credential material; ciphertext at rest; rollback forward-only
+  - item: access decision row
+    location: apps/api/Modules/Authorization/Infrastructure/Persistence/DatabasePersistAccessDecision.php
+    storage: access_decisions table; sensitive_access_events append-only
+    contains_phi: false
+    contains_pii: false
+    rationale: opaque decision ID, action, scope, classification; exception text is currently logged on persist failure and needs redaction
+  - item: sensitive access event (Authorization)
+    location: apps/api/Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php
+    storage: sensitive_access_events (append-only with DB triggers)
+    contains_phi: false
+    contains_pii: false
+    rationale: actor + resource reference; payload is redacted
+    notes: planned M01 Audit module adds a parallel audit_events table; ownership transfer is gated on M01 cutover
+
+# ----------------------------------------------------------------------------
+# B. Documents, retention, and storage inventory
+# ----------------------------------------------------------------------------
+
+documents_and_storage:
+  - item: document classification, retention_until, retention_policy_key, hold fields
+    location: apps/api/Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php
+    storage: documents table
+    contains_phi: true
+    contains_pii: true
+    rationale: title/description/classification/hold-reason may carry PHI
+  - item: document version metadata (filename, MIME, checksums, scan state, storage references)
+    location: apps/api/Modules/Documents/Infrastructure/Persistence/Migrations/CreateDocumentsCoreTables.php
+    storage: document_versions table
+    contains_phi: false
+    contains_pii: true
+    rationale: filename may carry PII (e.g. patient name in filename)
+  - item: document links and restriction facts
+    location: apps/api/Modules/Documents/Infrastructure/Persistence/Migrations/W18CreateDocumentGovernanceTables.php
+    storage: document_links, document_access_events
+    contains_phi: false
+    contains_pii: false
+    rationale: opaque references; event payload redacted
+  - item: document object (quarantine, available)
+    location: apps/api/Modules/Documents/Application/DocumentDownloadService.php
+    storage: private S3-compatible storage with aws:kms
+    contains_phi: true
+    contains_pii: true
+    rationale: full document content; encrypted at rest
+  - item: retention policy days per classification
+    location: apps/api/config/documents.php
+    storage: configuration
+    contains_phi: false
+    contains_pii: false
+    rationale: public=2557d, confidential=3653d, top_secret=5479d+hold
+    notes: current configuration values, not approved legal requirements
+
+# ----------------------------------------------------------------------------
+# C. Search, reporting, exports, logging, and browser state
+# ----------------------------------------------------------------------------
+
+search_reporting_exports:
+  - item: search query parameter
+    location: apps/api/Modules/Search/Http/SearchController.php
+    storage: GET query string
+    contains_phi: true
+    contains_pii: true
+    rationale: arbitrary search text in URL; needs cutover to POST body
+  - item: search projection copy
+    location: apps/api/app/Http/Middleware/ProjectWorkRecordReadModels.php
+    storage: search projection rows
+    contains_phi: true
+    contains_pii: true
+    rationale: copies WorkRecord title/description into Search projection fields
+  - item: report run result and export artifact safe_result
+    location: apps/api/Modules/Reporting/Features/ExportAuthorizedReport/Handler/ExportAuthorizedReportHandler.php
+    storage: report_runs.result, export_artifacts.safe_result
+    contains_phi: true
+    contains_pii: true
+    rationale: duplicated plaintext item arrays; one-day logical expiry
+  - item: technical log archive context
+    location: apps/api/Modules/PlatformSettings/Domain/TechnicalLogEntry.php
+    storage: technical_log_archive_batches, technical_log_archive_restore_requests
+    contains_phi: true
+    contains_pii: true
+    rationale: recursively redacts only exact keys (password, token, authorization, cookie, document_content, national_id)
+  - item: notification dead letter
+    location: apps/api/Modules/Notifications/Infrastructure/Persistence/Migrations/W18CreateNotificationDeliveryTables.php
+    storage: notification_dead_letters.original_event
+    contains_phi: true
+    contains_pii: true
+    rationale: original failed event payload
+  - item: sessionStorage CSRF token and user id
+    location: apps/web/src/api/session.ts
+    storage: browser sessionStorage
+    contains_phi: false
+    contains_pii: true
+    rationale: conflicts with program rule that credentials do not enter browser persistence
+
+# ----------------------------------------------------------------------------
+# D. Planned module evidence (reserved, not yet implemented)
+# ----------------------------------------------------------------------------
+
+planned_modules:
+  M01_audit:
+    reserved_tables: [audit_events, audit_export_jobs, audit_integrity_checkpoints, audit_idempotency_keys]
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-audit-module.md
+    contains_phi: false
+    rationale: opaque actor + action + correlation ID; payload redacted
+  M02_records_governance:
+    reserved_tables:
+      - records_governance_retention_policy_versions
+      - records_governance_retention_policy_rules
+      - records_governance_governed_records
+      - records_governance_holds
+      - records_governance_disposition_reviews
+      - records_governance_evidence
+      - records_governance_idempotency_keys
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-records-governance-module.md
+    contains_phi: true
+    rationale: governed records reference PHI rows; retention decisions record disposition rationale
+  M03_collaboration:
+    reserved_tables: [collaboration_threads, collaboration_messages]
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-collaboration-module.md
+    contains_phi: true
+    rationale: free-text may reference patients
+  M04_strategy:
+    reserved_tables: [strategy_initiatives, strategy_objectives]
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-strategy-module.md
+    contains_phi: false
+    rationale: strategic metadata only
+  M05_portfolio_projects:
+    reserved_tables: [portfolio_projects, portfolio_project_initiatives]
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-portfolio-projects-module.md
+    contains_phi: false
+    rationale: project metadata only
+  M06_risk:
+    reserved_tables: [risk_register, risk_assessments]
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-risk-module.md
+    contains_phi: false
+    rationale: risk metadata only
+  M07_workspace:
+    reserved_tables: [workspace_views, workspace_layouts]
+    plan_ref: docs/superpowers/plans/2026-07-26-cluster-workspace-module.md
+    contains_phi: false
+    rationale: aggregated query outputs; underlying module controls apply
+
+# ----------------------------------------------------------------------------
+# E. Inventory totals
+# ----------------------------------------------------------------------------
+
+totals:
+  observed_items: 17
+  contains_phi: 7
+  contains_pii_only: 5
+  planned_module_reserved_tables: 16
+  planned_modules: 7
+  redaction_keys_observed: 6  # password, token, authorization, cookie, document_content, national_id
+
+# ----------------------------------------------------------------------------
+# F. Approval
+# ----------------------------------------------------------------------------
+
+approval:
+  decision: pending-user-authorization
+  recorded_in: docs/compliance/privacy-data-inventory.yaml
+  not_authorized:
+    - Source remediation in Phase B (gated on architecture-closure handoffs)
+    - Creating test files in apps/api/tests/Feature/Privacy/ (Phase B)
+    - Modifying DocumentRetentionPolicy, DatabasePersistAccessDecision, or
+      apps/web/src/api/session.ts (Phase B)

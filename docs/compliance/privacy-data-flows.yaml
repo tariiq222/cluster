@@ -1,0 +1,151 @@
+# Cluster PII/PHI Data Flows (P04 Phase A)
+#
+# Documents the observed end-to-end flow of sensitive data through Cluster
+# from collection to disposition. Each flow lists its stages and the
+# storage/projection/redaction/audit surfaces at each stage.
+#
+# Status: inventory only. No code or runtime change.
+
+version: 1
+baseline_date: '2026-07-27'
+source_commit: df2588c
+
+# ----------------------------------------------------------------------------
+# Flow 1: Identity account creation through session
+# ----------------------------------------------------------------------------
+
+flows:
+  - id: F1
+    name: identity account creation through session
+    stages:
+      - stage: account creation
+        location: apps/api/Modules/Identity/Features/...
+        output: identity_sessions row with SHA-256 hash
+      - stage: session cookie issued
+        location: apps/api/app/Http/Middleware/IdentitySessionMiddleware.php
+        output: HttpOnly cookie; correlation ID validated
+      - stage: CSRF proof
+        location: apps/api/Modules/Identity/Features/Sessions/Handler/SessionHandler.php
+        output: SHA-256 hash
+      - stage: revocation or expiry
+        location: SessionHandler::revoke() or password-version mismatch
+        output: session marked invalid; further requests fail closed
+    contains_phi: false
+    contains_pii: false
+    notes: only opaque hashes; ciphertext for credential material
+
+# ----------------------------------------------------------------------------
+# Flow 2: Document upload through retention
+# ----------------------------------------------------------------------------
+
+  - id: F2
+    name: document upload through retention
+    stages:
+      - stage: upload initiated
+        location: apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php
+        output: document_uploads row; document row inserted in private quarantine
+      - stage: checksum/size/MIME verification
+        location: DocumentUploadHandler
+        output: verification metadata in document_versions
+      - stage: ClamAV scan
+        location: DocumentUploadHandler (fail-closed)
+        output: scan_state in document_versions
+      - stage: promotion to available
+        location: DocumentUploadHandler
+        output: private available S3 object; document_version status=available
+      - stage: reauthorization on download
+        location: apps/api/Modules/Documents/Application/DocumentDownloadService.php
+        output: sensitive download recorded
+      - stage: retention until
+        location: apps/api/Modules/Documents/Domain/DocumentRetentionPolicy.php
+        output: documents.retention_until populated
+      - stage: legal hold
+        location: apps/api/Modules/Documents/Features/DocumentLifecycle/Http/TransitionDocumentController.php
+        output: documents.hold_state updated
+      - stage: disposition (post-M02)
+        location: M02 disposition execution consumer (planned)
+        output: documents archived or destroyed; non-PHI evidence retained
+    contains_phi: true
+    contains_pii: true
+
+# ----------------------------------------------------------------------------
+# Flow 3: Search query through export
+# ----------------------------------------------------------------------------
+
+  - id: F3
+    name: search query through export
+    stages:
+      - stage: search request
+        location: apps/api/Modules/Search/Http/SearchController.php
+        output: GET URL with arbitrary query text
+        issue: search text in URL violates the no-PHI-in-URL rule
+      - stage: search projection read
+        location: apps/api/app/Http/Middleware/ProjectWorkRecordReadModels.php
+        output: WorkRecord title/description copied to projection
+      - stage: per-row reauthorization
+        location: apps/api/Modules/Search/Features/SearchAccessibleRecords/Handler/SearchAccessibleRecordsHandler.php
+        output: filtered list; cursor placeholder
+      - stage: report export initiation
+        location: apps/api/Modules/Reporting/Features/ExportAuthorizedReport/Handler/ExportAuthorizedReportHandler.php
+        output: report_runs.result duplicates item arrays in plaintext
+      - stage: artifact download
+        location: apps/api/Modules/Reporting/Features/DownloadExportArtifact/Handler/DownloadExportArtifactHandler.php
+        output: returns JSON despite csv/xlsx/pdf label
+      - stage: artifact expiry
+        location: report_runs.result and export_artifacts.safe_result 1-day logical expiry
+        output: rows remain; no cleanup
+    contains_phi: true
+    contains_pii: true
+
+# ----------------------------------------------------------------------------
+# Flow 4: Sensitive access audit
+# ----------------------------------------------------------------------------
+
+  - id: F4
+    name: sensitive access audit
+    stages:
+      - stage: access decision persistence
+        location: apps/api/Modules/Authorization/Infrastructure/Persistence/DatabasePersistAccessDecision.php
+        output: access_decisions row + sensitive_access_events row
+      - stage: failure log
+        location: DatabasePersistAccessDecision.php (current)
+        output: raw exception text in logs
+        issue: needs redaction to opaque error code
+      - stage: append-only enforcement
+        location: apps/api/Modules/Authorization/Infrastructure/Persistence/Migrations/CreateAuthorizationFieldAuditTables.php
+        output: DB triggers prevent UPDATE/DELETE
+      - stage: M01 migration
+        location: M01 Audit module (planned)
+        output: parallel audit_events table; ownership transfer gated
+    contains_phi: false
+    contains_pii: false
+
+# ----------------------------------------------------------------------------
+# Flow 5: Browser persistence of session metadata
+# ----------------------------------------------------------------------------
+
+  - id: F5
+    name: browser persistence of session metadata
+    stages:
+      - stage: session restore on app start
+        location: apps/web/src/api/session.ts
+        output: sessionStorage holds CSRF token and user id
+      - stage: HTTP-only cookie restore (planned)
+        location: apps/web/src/App.tsx (post-removal)
+        output: only HttpOnly cookie; no sessionStorage
+    contains_phi: false
+    contains_pii: true
+    issue: sessionStorage violates program rule
+
+# ----------------------------------------------------------------------------
+# Approval
+# ----------------------------------------------------------------------------
+
+approval:
+  decision: pending-user-authorization
+  recorded_in: docs/compliance/privacy-data-flows.yaml
+  not_authorized:
+    - Changing the search controller to use POST
+    - Adding redaction in DatabasePersistAccessDecision
+    - Removing sessionStorage usage
+    - Implementing M01/M02 enforcement
