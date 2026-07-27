@@ -786,12 +786,13 @@ final class AuditIntegrityRepository
             }
 
             $existingReplay = DB::table('audit_integrity_checkpoints')
-                ->where(function ($query) use ($verificationId, $streamKey, $lastSequence): void {
+                ->where(function ($query) use ($verificationId, $streamKey, $lastSequence, $status): void {
                     $query->where('id', $verificationId)
-                        ->orWhere(function ($range) use ($streamKey, $lastSequence): void {
+                        ->orWhere(function ($range) use ($streamKey, $lastSequence, $status): void {
                             $range->where('stream_key', $streamKey)
                                 ->where('kind', self::CHECKPOINT_KIND_VERIFICATION)
-                                ->where('last_sequence', $lastSequence);
+                                ->where('last_sequence', $lastSequence)
+                                ->where('status', $status);
                         });
                 })
                 ->where('kind', self::CHECKPOINT_KIND_VERIFICATION)

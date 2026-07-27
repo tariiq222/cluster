@@ -192,8 +192,8 @@ final class CreateAuditExportController
             'audit_export_filter_range_invalid',
             'audit_export_snapshot_in_future',
             'audit_export_snapshot_out_of_window',
-            'audit_export_event_count_invalid' => 'invalid-export-payload',
-            default => 'invalid-export-payload',
+            'audit_export_event_count_invalid',
+            'audit_export_event_count_too_large' => 'invalid-export-payload',
         };
     }
 }

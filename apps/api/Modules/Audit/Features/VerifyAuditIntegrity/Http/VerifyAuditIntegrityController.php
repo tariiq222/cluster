@@ -177,7 +177,7 @@ final class VerifyAuditIntegrityController
                 );
             }
 
-</input>
+            throw $exception;
         }
 
         $status = $result['status'];

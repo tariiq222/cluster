@@ -9427,13 +9427,8 @@ export const getAuditEvent = async (
   })
 }
 
-export type createAuditExportResponse200 = {
-  data: AuditExportDescriptor
-  status: 200
-}
-
 export type createAuditExportResponse201 = {
-  data: AuditExportEntityResponse
+  data: AuditExportDescriptor
   status: 201
 }
 
@@ -9467,9 +9462,7 @@ export type createAuditExportResponse500 = {
   status: 500
 }
 
-export type createAuditExportResponseSuccess = (
-  createAuditExportResponse200 | createAuditExportResponse201
-) & {
+export type createAuditExportResponseSuccess = createAuditExportResponse201 & {
   headers: Headers
 }
 export type createAuditExportResponseError = (
@@ -9506,18 +9499,8 @@ export const createAuditExport = async (
 }
 
 export type getAuditExportResponse200 = {
-  data: AuditExportEntityResponse
+  data: AuditExportDescriptor
   status: 200
-}
-
-export type getAuditExportResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type getAuditExportResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
 }
 
 export type getAuditExportResponse404 = {
@@ -9534,10 +9517,7 @@ export type getAuditExportResponseSuccess = getAuditExportResponse200 & {
   headers: Headers
 }
 export type getAuditExportResponseError = (
-  | getAuditExportResponse400
-  | getAuditExportResponse401
-  | getAuditExportResponse404
-  | getAuditExportResponse500
+  getAuditExportResponse404 | getAuditExportResponse500
 ) & {
   headers: Headers
 }
