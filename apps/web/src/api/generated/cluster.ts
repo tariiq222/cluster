@@ -1509,7 +1509,7 @@ export interface TaskPatch {
   due_at?: UtcDateTime
 }
 
-export interface TaskAction {
+export interface TaskTransitionRequest {
   /**
    * Required for `block` and `cancel` actions; ignored for other actions.
    * @maxLength 2000
@@ -7946,12 +7946,12 @@ export const getTransitionTaskUrl = (
 }
 
 /**
- * @summary Start, block, unblock, submit completion, complete, return, or cancel a task
+ * @summary Start, block, unblock, complete, or cancel a task
  */
 export const transitionTask = async (
   taskId: string,
   taskAction: 'start' | 'block' | 'unblock' | 'complete' | 'cancel',
-  taskAction?: TaskAction,
+  taskTransitionRequest?: TaskTransitionRequest,
   options?: RequestInit,
 ): Promise<transitionTaskResponse> => {
   return customFetch<transitionTaskResponse>(
@@ -7960,7 +7960,7 @@ export const transitionTask = async (
       ...options,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(taskAction),
+      body: JSON.stringify(taskTransitionRequest),
     },
   )
 }

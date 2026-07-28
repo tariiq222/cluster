@@ -1816,7 +1816,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
-      summary: Start, block, unblock, submit completion, complete, return, or cancel a task
+      summary: Start, block, unblock, complete, or cancel a task
       operationId: transitionTask
       parameters:
         - $ref: '#/components/parameters/TaskId'
@@ -1838,7 +1838,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TaskAction'
+              $ref: '#/components/schemas/TaskTransitionRequest'
       responses:
         '200':
           $ref: '#/components/responses/Entity'
@@ -9407,7 +9407,7 @@ components:
             - critical
         due_at:
           $ref: '#/components/schemas/UtcDateTime'
-    TaskAction:
+    TaskTransitionRequest:
       type: object
       additionalProperties: false
       properties:
