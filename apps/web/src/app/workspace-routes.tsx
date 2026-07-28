@@ -53,14 +53,16 @@ export function RouteAccessGuard({
   locale,
   route,
   capabilities,
+  features = null,
   children,
 }: {
   locale: Locale
   route: AppRoute
   capabilities: readonly string[] | null
+  features?: { work_management: boolean; tasks: boolean } | null
   children: ReactNode
 }) {
-  if (isRouteVisible(route, capabilities)) return children
+  if (isRouteVisible(route, capabilities, features)) return children
 
   const copy = text[locale]
   return (

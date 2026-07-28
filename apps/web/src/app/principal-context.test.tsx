@@ -23,7 +23,7 @@ import { ApiError, parseStrongEtag } from '../api/http'
 const FACILITY_A = '01980f50-5f0d-7000-8000-0000000000a1'
 const UNIT_A = '01980f50-5f0d-7000-8000-0000000000a2'
 
-function principal(capabilities: string[]): { data: { subject_id: string; tenant_id: string; clearance: 'public'; correlation_id: string; capabilities: string[] }; status: 200; headers: Headers } {
+function principal(capabilities: string[]): { data: { subject_id: string; tenant_id: string; clearance: 'public'; correlation_id: string; capabilities: string[]; features: { work_management: boolean; tasks: boolean } }; status: 200; headers: Headers } {
   const headers = new Headers()
   return {
     status: 200,
@@ -34,6 +34,7 @@ function principal(capabilities: string[]): { data: { subject_id: string; tenant
       clearance: 'public',
       correlation_id: '01980f50-5f0d-7000-8000-0000000000f3',
       capabilities,
+      features: { work_management: false, tasks: true },
     },
   }
 }

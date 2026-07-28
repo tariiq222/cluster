@@ -27,6 +27,7 @@ export type WorkspaceSidebarProps = {
   locale: Locale
   route: AppRoute
   capabilities: readonly string[] | null
+  features: { work_management: boolean; tasks: boolean } | null
   onNavigate: (path: string) => void
 }
 
@@ -38,11 +39,12 @@ export function useWorkspaceSidebar({
   locale,
   route,
   capabilities,
+  features,
   onNavigate,
 }: WorkspaceSidebarProps): SidebarNavigationGroup[] {
   const copy = text[locale]
   return useMemo(() => {
-    const built = buildNavigationGroups({ locale, capabilities })
+    const built = buildNavigationGroups({ locale, capabilities, features })
     return built.map((group) => ({
       key: group.key,
       label: copy[group.labelKey],
@@ -60,5 +62,5 @@ export function useWorkspaceSidebar({
         }
       }),
     }))
-  }, [capabilities, copy, locale, onNavigate, route])
+  }, [capabilities, copy, features, locale, onNavigate, route])
 }

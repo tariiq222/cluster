@@ -40,6 +40,7 @@ function renderDashboard(overrides: Partial<React.ComponentProps<typeof WorkDash
     scopeEpoch: 0,
     scopeReady: true,
     effectiveScopeId: 'scope-a',
+    workManagementEnabled: true,
     canViewDashboards: true,
     canCreateRequest: false,
     canBrowseServices: false,
@@ -83,6 +84,19 @@ afterEach(() => {
 })
 
 describe('WorkDashboard', () => {
+  it('loads only tasks and issues zero work-management fetches when the feature is disabled', async () => {
+    renderDashboard({ workManagementEnabled: false })
+
+    // Tasks still load.
+    await waitFor(() => expect(tasksMock).toHaveBeenCalled())
+    // No approvals inbox, no requests, no workflow fetches at all.
+    expect(inboxMock).not.toHaveBeenCalled()
+    expect(requestsMock).not.toHaveBeenCalled()
+    // Approvals/requests items and panels never render.
+    expect(screen.queryByText('طلب اعتماد')).toBeNull()
+    expect(screen.queryByText('request-1')).toBeNull()
+  })
+
   it('keeps work visible when optional dashboard indicators fail', async () => {
     dashboardsMock.mockRejectedValue(new Error('network unavailable'))
 

@@ -20,24 +20,26 @@ import {
  * in sync. Anything visible per the navigation registry must also pass
  * `isRouteVisible` for the same capability set, and vice-versa.
  */
-function pathsFor(capabilities: readonly string[] | null): string[] {
+function pathsFor(capabilities: readonly string[] | null, features: { work_management: boolean; tasks: boolean } | null = null): string[] {
   return primaryRoutes
-    .filter(({ route }) => isRouteVisible(route, capabilities))
+    .filter(({ route }) => isRouteVisible(route, capabilities, features))
     .map(({ path }) => path)
 }
 
-function navigationPathsFor(capabilities: readonly string[] | null): string[] {
-  return buildNavigationGroups({ locale: 'ar', capabilities }).flatMap((group) => group.items.map((item) => item.path))
+function navigationPathsFor(capabilities: readonly string[] | null, features: { work_management: boolean; tasks: boolean } | null = null): string[] {
+  return buildNavigationGroups({ locale: 'ar', capabilities, features }).flatMap((group) => group.items.map((item) => item.path))
 }
 
-function groupKeys(capabilities: readonly string[] | null): string[] {
-  return buildNavigationGroups({ locale: 'ar', capabilities }).map((group) => group.key)
+function groupKeys(capabilities: readonly string[] | null, features: { work_management: boolean; tasks: boolean } | null = null): string[] {
+  return buildNavigationGroups({ locale: 'ar', capabilities, features }).map((group) => group.key)
 }
+
+const ALL_FEATURES = { work_management: true, tasks: true } as const
 
 describe('sidebar navigation by capability', () => {
   it('blocks direct protected-route content with the unified denied state', () => {
     const { rerender } = render(
-      <RouteAccessGuard locale="en" route={{ name: 'api-docs' }} capabilities={null}>
+      <RouteAccessGuard locale="en" route={{ name: 'api-docs' }} capabilities={null} features={null}>
         <span>API contract content</span>
       </RouteAccessGuard>,
     )
@@ -46,7 +48,7 @@ describe('sidebar navigation by capability', () => {
     expect(screen.queryByText('API contract content')).toBeNull()
 
     rerender(
-      <RouteAccessGuard locale="en" route={{ name: 'api-docs' }} capabilities={['authorization.audit.read']}>
+      <RouteAccessGuard locale="en" route={{ name: 'api-docs' }} capabilities={['authorization.audit.read']} features={null}>
         <span>API contract content</span>
       </RouteAccessGuard>,
     )
@@ -100,7 +102,7 @@ describe('sidebar navigation by capability', () => {
       'reporting.list',
     ]
 
-    expect(pathsFor(admin)).toEqual(
+    expect(pathsFor(admin, ALL_FEATURES)).toEqual(
       expect.arrayContaining([
         '/',
         '/tasks',
@@ -124,14 +126,14 @@ describe('sidebar navigation by capability', () => {
     expect(capabilityForRoute({ name: 'procedure-office-review' })).toBe('workflow.approve')
     expect(capabilityForRoute({ name: 'procedure-guide' })).toBe('work_definition.read')
 
-    expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.author'])).toBe(true)
-    expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.approve'])).toBe(false)
-    expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.approve'])).toBe(true)
-    expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.author'])).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.author'], ALL_FEATURES)).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-authoring' }, ['workflow.approve'], ALL_FEATURES)).toBe(false)
+    expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.approve'], ALL_FEATURES)).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-office-review' }, ['workflow.author'], ALL_FEATURES)).toBe(false)
 
     expect(isRouteVisible({ name: 'procedure-guide' }, null)).toBe(false)
     expect(isRouteVisible({ name: 'procedure-guide' }, [])).toBe(false)
-    expect(isRouteVisible({ name: 'procedure-guide' }, ['work_definition.read'])).toBe(true)
+    expect(isRouteVisible({ name: 'procedure-guide' }, ['work_definition.read'], ALL_FEATURES)).toBe(true)
   })
 
   it('keeps the navigation registry and the route registry in sync', () => {

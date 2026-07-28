@@ -18,6 +18,16 @@ export type DashboardSources = {
   requests: Loadable<Array<{ id: string; updated_at?: string | null; state?: string }>>
 }
 
+/**
+ * Feature flags that gate which dashboard sources are allowed. When
+ * `workManagement` is false (or null while loading), the inbox/requests
+ * sources are NOT loaded: their KPIs stay `null` and the UI never issues
+ * any work-management API call. Tasks stays loaded.
+ */
+export type DashboardFeatureFlags = {
+  workManagement: boolean
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
@@ -72,4 +82,20 @@ export function buildDashboardKpis(sources: DashboardSources, now: Date): Dashbo
     overdue: overdueCount,
     activeRequests: requestsCount,
   }
+}
+
+/**
+ * Returns the set of source keys the dashboard should actually fetch given
+ * the feature flags. Treats `workManagement === true` as the full set and
+ * anything else (false or null/missing) as tasks-only. The browser treats
+ * missing/null flags as disabled so the UI fails closed until the server
+ * projection lands.
+ */
+export function enabledDashboardSources(
+  flags: DashboardFeatureFlags | null,
+): Array<'inbox' | 'tasks' | 'requests'> {
+  const workManagement = flags?.workManagement === true
+  return workManagement
+    ? ['inbox', 'tasks', 'requests']
+    : ['tasks']
 }

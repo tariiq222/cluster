@@ -623,18 +623,48 @@ export function capabilityForRoute(route: AppRoute): string | null {
 }
 
 /**
+ * Work-management routes are hidden when the server feature projection says
+ * `work_management === false`. The browser projection is a rendering hint
+ * only; the server enforces the gate independently. A `null` projection
+ * (still loading) is treated as disabled so the shell fails closed.
+ */
+export const WORK_MANAGEMENT_ROUTE_NAMES: Record<string, true> = {
+  'approval-inbox': true,
+  'approval-detail': true,
+  'my-requests': true,
+  'my-request-detail': true,
+  'work-definitions': true,
+  'workflow-admin': true,
+  'procedure-guide': true,
+  'procedure-authoring': true,
+  'procedure-office-review': true,
+  'new-procedure-request': true,
+  'create': true,
+  'detail': true,
+}
+
+export type FeatureProjection = {
+  work_management: boolean
+  tasks: boolean
+}
+
+/**
  * Decides whether a sidebar entry pointing at `route` should render for a
- * principal with the given capabilities.
+ * principal with the given capabilities and server feature projection.
  *
- * `null` means the principal context is still loading; gated routes stay
- * hidden until the context resolves so we never advertise what is withheld.
- * An empty array means the principal context resolved with no capabilities;
- * open routes stay visible and gated routes stay hidden.
+ * `null` capabilities means the principal context is still loading; gated
+ * routes stay hidden until the context resolves so we never advertise what
+ * is withheld. `null` features also fail closed: any route whose surface
+ * is gated by a server feature is hidden until the projection lands.
  */
 export function isRouteVisible(
   route: AppRoute,
   capabilities: readonly string[] | null,
+  features: FeatureProjection | null = null,
 ): boolean {
+  if (WORK_MANAGEMENT_ROUTE_NAMES[route.name]) {
+    if (!features || features.work_management !== true) return false
+  }
   const required = capabilitiesForRoute(route)
   if (required === null) return true
   if (capabilities === null) return false

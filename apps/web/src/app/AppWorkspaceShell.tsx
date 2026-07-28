@@ -205,9 +205,9 @@ function ShellInner({
     locale,
     route,
     capabilities: principal.capabilities,
+    features: principal.features,
     onNavigate: navigate,
   })
-
   const header = WorkspaceHeader({
     locale,
     onUserMenuNavigate: navigate,

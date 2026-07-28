@@ -145,9 +145,10 @@ describe('AccessContext pure view-model helpers', () => {
       breakGlass: true,
       organizationUnitCount: 2,
       correlationId: '018f6f7d-0c00-7000-8000-000000000003',
+      features: null,
     })
     expect(normalizePrincipal(undefined)).toEqual({
-      subjectId: '', tenantId: '', roles: [], capabilities: [], clearance: 'public', breakGlass: false, organizationUnitCount: 0, correlationId: '',
+      subjectId: '', tenantId: '', roles: [], capabilities: [], clearance: 'public', breakGlass: false, organizationUnitCount: 0, correlationId: '', features: null,
     })
   })
 

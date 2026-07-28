@@ -25,6 +25,7 @@ import { text, type Locale } from '../app/copy'
 import {
   pathFromRoute,
   PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES,
+  WORK_MANAGEMENT_ROUTE_NAMES,
   type AppRoute,
 } from './routes'
 
@@ -332,7 +333,11 @@ export const USER_MENU_ENTRIES: readonly UserMenuEntry[] = [
 export function isNavigationEntryVisible(
   entry: NavigationEntry,
   capabilities: readonly string[] | null,
+  features: { work_management: boolean; tasks: boolean } | null = null,
 ): boolean {
+  if (WORK_MANAGEMENT_ROUTE_NAMES[entry.route.name]) {
+    if (!features || features.work_management !== true) return false
+  }
   if (entry.policy.kind === 'authenticated') return true
   if (capabilities === null) return false
   return entry.policy.capabilities.some((code) => capabilities.includes(code))
@@ -388,9 +393,10 @@ const GROUP_ORDER: readonly NavigationGroupKey[] = [
 export function buildNavigationGroups(args: {
   locale: Locale
   capabilities: readonly string[] | null
+  features: { work_management: boolean; tasks: boolean } | null
 }): NavigationGroup[] {
   const visible = NAVIGATION_ENTRIES.filter((entry) =>
-    isNavigationEntryVisible(entry, args.capabilities),
+    isNavigationEntryVisible(entry, args.capabilities, args.features),
   )
   const grouped = new Map<NavigationGroupKey, NavigationGroup>()
   for (const key of GROUP_ORDER) {

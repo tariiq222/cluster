@@ -29,6 +29,7 @@ export type PrincipalView = {
   breakGlass: boolean
   organizationUnitCount: number
   correlationId: string
+  features: { work_management: boolean; tasks: boolean } | null
 }
 
 export type ScopeOptionView = {
@@ -177,7 +178,22 @@ export function normalizePrincipal(input: unknown): PrincipalView {
     breakGlass: source.break_glass === true,
     organizationUnitCount: Array.isArray(source.organization_unit_ids) ? source.organization_unit_ids.length : 0,
     correlationId: typeof source.correlation_id === 'string' ? source.correlation_id : '',
+    features: normalizeFeatures(source.features),
   }
+}
+
+/**
+ * The server's `features` projection is a rendering hint only — the server still
+ * enforces every endpoint. Treat missing or malformed values as null so callers
+ * can fail closed (hide gated UI) until the projection actually arrives.
+ */
+export function normalizeFeatures(input: unknown): { work_management: boolean; tasks: boolean } | null {
+  if (!input || typeof input !== 'object') return null
+  const source = input as Record<string, unknown>
+  const workManagement = source.work_management
+  const tasks = source.tasks
+  if (typeof workManagement !== 'boolean' || typeof tasks !== 'boolean') return null
+  return { work_management: workManagement, tasks }
 }
 
 function normalizeScopeOption(input: unknown): ScopeOptionView | null {

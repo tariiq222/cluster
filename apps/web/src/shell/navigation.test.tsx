@@ -9,8 +9,10 @@ import {
   isNavigationEntryVisible,
 } from './navigation'
 
+const ENABLED = { work_management: true, tasks: true }
+
 const PATHS = (...capabilities: string[]): string[] => {
-  const groups = buildNavigationGroups({ locale: 'ar', capabilities })
+  const groups = buildNavigationGroups({ locale: 'ar', capabilities, features: ENABLED })
   return groups.flatMap((group) => group.items.map((item) => item.path))
 }
 
@@ -18,6 +20,7 @@ const GROUP_KEYS = (...capabilities: string[] | [null]) => {
   const groups = buildNavigationGroups({
     locale: 'ar',
     capabilities: capabilities[0] === null ? null : (capabilities as string[]),
+    features: ENABLED,
   })
   return groups.map((group) => group.key)
 }
@@ -55,11 +58,28 @@ const fullCapabilities = [
   'platform_settings.read',
 ]
 
+const WORK_MANAGEMENT_CAPABILITIES = [
+  'workflow.decide',
+  'workflow.author',
+  'workflow.approve',
+  'workflow.read',
+  'workflow.list',
+  'workflow.reassign',
+  'workflow.escalate',
+  'work_definition.read',
+  'work_definition.list',
+  'tasks.read',
+  'tasks.list',
+  'documents.read',
+  'documents.list',
+]
+
 describe('navigation registry', () => {
   it('exposes the merged sidebar groups for a full platform owner', () => {
     const groups = buildNavigationGroups({
       locale: 'ar',
       capabilities: fullCapabilities,
+      features: ENABLED,
     })
     expect(groups.map((group) => group.key)).toEqual([
       'my-work',
@@ -98,6 +118,7 @@ describe('navigation registry', () => {
     const groups = buildNavigationGroups({
       locale: 'ar',
       capabilities: fullCapabilities,
+      features: ENABLED,
     })
     const governanceItems =
       groups.find((group) => group.key === 'governance-access')?.items ?? []
@@ -118,6 +139,7 @@ describe('navigation registry', () => {
     const groups = buildNavigationGroups({
       locale: 'ar',
       capabilities: fullCapabilities,
+      features: ENABLED,
     })
     const internalItems =
       groups
@@ -132,6 +154,7 @@ describe('navigation registry', () => {
     const groups = buildNavigationGroups({
       locale: 'ar',
       capabilities: ['platform_settings.read'],
+      features: ENABLED,
     })
     const platformItems =
       groups
@@ -173,7 +196,7 @@ describe('navigation registry', () => {
     for (const entry of NAVIGATION_ENTRIES) {
       expect(entry.labelKey).toBeTruthy()
       expect(entry.route).toBeDefined()
-      expect(isNavigationEntryVisible(entry, fullCapabilities)).toBe(true)
+      expect(isNavigationEntryVisible(entry, fullCapabilities, ENABLED)).toBe(true)
     }
     expect(USER_MENU_ENTRIES.length).toBeGreaterThan(0)
   })
@@ -189,10 +212,61 @@ describe('navigation registry', () => {
     )
     expect(approvals).toBeDefined()
     if (approvals) {
-      expect(isNavigationEntryVisible(approvals, ['workflow.read'])).toBe(false)
-      expect(isNavigationEntryVisible(approvals, ['workflow.decide'])).toBe(
+      expect(isNavigationEntryVisible(approvals, ['workflow.read'], ENABLED)).toBe(false)
+      expect(isNavigationEntryVisible(approvals, ['workflow.decide'], ENABLED)).toBe(
         true,
       )
     }
+  })
+
+  it('hides every work-management entry when the work_management feature is disabled', () => {
+    const disabled = { work_management: false, tasks: true }
+    const groups = buildNavigationGroups({
+      locale: 'ar',
+      capabilities: WORK_MANAGEMENT_CAPABILITIES,
+      features: disabled,
+    })
+    const paths = groups.flatMap((group) => group.items.map((item) => item.path))
+    expect(paths).not.toContain('/approvals')
+    expect(paths).not.toContain('/my-requests')
+    expect(paths).not.toContain('/procedures')
+    expect(paths).not.toContain('/admin/procedures/review')
+    expect(paths).not.toContain('/admin/work-definitions')
+    expect(paths).not.toContain('/admin/workflow')
+    expect(paths).not.toContain('/procedures/new')
+    expect(paths).not.toContain('/admin/procedures/authoring')
+    // The processes-workflow group must vanish entirely when disabled.
+    expect(groups.find((group) => group.key === 'processes-workflow')).toBeUndefined()
+    // Tasks/documents/home remain visible.
+    expect(paths).toContain('/')
+    expect(paths).toContain('/tasks')
+    expect(paths).toContain('/documents')
+  })
+
+  it('shows work-management entries again when the feature is enabled', () => {
+    const groups = buildNavigationGroups({
+      locale: 'ar',
+      capabilities: WORK_MANAGEMENT_CAPABILITIES,
+      features: ENABLED,
+    })
+    const paths = groups.flatMap((group) => group.items.map((item) => item.path))
+    expect(paths).toContain('/approvals')
+    expect(paths).toContain('/my-requests')
+    expect(paths).toContain('/admin/procedures/review')
+    expect(paths).toContain('/admin/work-definitions')
+    expect(paths).toContain('/admin/workflow')
+    expect(groups.find((group) => group.key === 'processes-workflow')).toBeDefined()
+  })
+
+  it('treats a null feature projection as disabled for work-management entries', () => {
+    const groups = buildNavigationGroups({
+      locale: 'ar',
+      capabilities: WORK_MANAGEMENT_CAPABILITIES,
+      features: null,
+    })
+    const paths = groups.flatMap((group) => group.items.map((item) => item.path))
+    expect(paths).not.toContain('/approvals')
+    expect(paths).not.toContain('/admin/work-definitions')
+    expect(paths).not.toContain('/admin/workflow')
   })
 })

@@ -18,6 +18,12 @@ export type PrincipalState = 'loading' | 'ready' | 'stale' | 'denied' | 'error'
 export type PrincipalSnapshot = {
   state: PrincipalState
   capabilities: readonly string[] | null
+  /**
+   * Server feature projection: `{ work_management, tasks }`. `null` until the
+   * first `/me` response lands so the shell can fail closed (hide gated UI)
+   * while the principal context is still loading.
+   */
+  features: { work_management: boolean; tasks: boolean } | null
   effectiveScope: ScopeOptionView | null
   availableScopes: readonly ScopeOptionView[]
   revision: number
@@ -75,6 +81,7 @@ function stateFromError(error: unknown): PrincipalState {
 export function PrincipalProvider({ token, children }: { token: string; children: ReactNode }) {
   const [state, setState] = useState<PrincipalState>('loading')
   const [capabilities, setCapabilities] = useState<readonly string[] | null>(null)
+  const [features, setFeatures] = useState<{ work_management: boolean; tasks: boolean } | null>(null)
   const [scopeView, setScopeView] = useState<ScopeSelectionView | null>(null)
   const [scopeLock, setScopeLock] = useState<number | null>(null)
   const [revision, setRevision] = useState(0)
@@ -98,12 +105,14 @@ export function PrincipalProvider({ token, children }: { token: string; children
     const epoch = beginScopeTransition()
     setState('loading')
     setCapabilities(null)
+    setFeatures(null)
     setScopeView(null)
     setScopeLock(null)
     try {
       const [principalView, scopeResult] = await Promise.all([loadPrincipal(token), loadScopeSelection(token)])
       if (scopeEpochRef.current !== epoch) return
       setCapabilities(principalView.capabilities.slice())
+      setFeatures(principalView.features)
       setScopeView(scopeResult.view)
       setScopeLock(scopeResult.lockVersion)
       scopeLockRef.current = scopeResult.lockVersion
@@ -111,11 +120,11 @@ export function PrincipalProvider({ token, children }: { token: string; children
     } catch (error) {
       if (scopeEpochRef.current !== epoch) return
       setCapabilities(null)
+      setFeatures(null)
       setScopeView(null)
       setState(stateFromError(error))
     }
   }, [beginScopeTransition, token])
-
   useEffect(() => {
     void refresh()
   }, [refresh])
@@ -127,6 +136,7 @@ export function PrincipalProvider({ token, children }: { token: string; children
     const expectedLock = scopeLockRef.current
     setState('loading')
     setCapabilities(null)
+    setFeatures(null)
     setScopeView(null)
     setScopeLock(null)
     try {
@@ -144,12 +154,14 @@ export function PrincipalProvider({ token, children }: { token: string; children
         const principalView = await loadPrincipal(token)
         if (scopeEpochRef.current !== epoch) return
         setCapabilities(principalView.capabilities.slice())
+        setFeatures(principalView.features)
         setState('ready')
       } catch (error) {
         // Keep the navigation fail-closed and make the failed refresh visible
         // to the shared selector instead of claiming that the new context is
         // ready with an unknown capability set.
         setCapabilities(null)
+        setFeatures(null)
         setState(stateFromError(error))
       }
     } catch (error) {
@@ -158,13 +170,14 @@ export function PrincipalProvider({ token, children }: { token: string; children
           const [principalView, scopeResult] = await Promise.all([loadPrincipal(token), loadScopeSelection(token)])
           if (scopeEpochRef.current !== epoch) return
           setCapabilities(principalView.capabilities.slice())
+          setFeatures(principalView.features)
           setScopeView(scopeResult.view)
           setScopeLock(scopeResult.lockVersion)
-          scopeLockRef.current = scopeResult.lockVersion
           setRevision((value) => value + 1)
           setState('stale')
         } catch (refreshError) {
           setCapabilities(null)
+          setFeatures(null)
           setScopeView(null)
           setState(stateFromError(refreshError))
         }
@@ -180,6 +193,7 @@ export function PrincipalProvider({ token, children }: { token: string; children
   const value = useMemo<PrincipalSnapshot>(() => ({
     state,
     capabilities,
+    features,
     effectiveScope: scopeView?.effective ?? null,
     availableScopes: scopeView?.options ?? [],
     revision,
@@ -187,7 +201,7 @@ export function PrincipalProvider({ token, children }: { token: string; children
     scopeReady: state === 'ready' && scopeView?.effective != null,
     refresh,
     selectScope,
-  }), [state, capabilities, scopeView, revision, scopeEpoch, refresh, selectScope])
+  }), [state, capabilities, features, scopeView, revision, scopeEpoch, refresh, selectScope])
 
   return <PrincipalContext.Provider value={value}>{children}</PrincipalContext.Provider>
 }

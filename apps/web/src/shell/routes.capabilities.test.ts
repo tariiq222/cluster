@@ -7,6 +7,10 @@ import {
   type AppRoute,
 } from './routes'
 
+const ENABLED = { work_management: true, tasks: true }
+const visible = (route: AppRoute, capabilities: readonly string[] | null) =>
+  isRouteVisible(route, capabilities, ENABLED)
+
 describe('navigation capability gating', () => {
   it('offers the screens that carry no capability of their own to anyone', () => {
     const open: AppRoute[] = [
@@ -78,26 +82,22 @@ describe('navigation capability gating', () => {
     expect(capabilityForRoute({ name: 'procedure-office-review' })).toBe(
       'workflow.approve',
     )
-    expect(capabilityForRoute({ name: 'procedure-guide' })).toBe(
-      'work_definition.read',
-    )
-
     expect(
-      isRouteVisible({ name: 'procedure-authoring' }, ['workflow.author']),
+      visible({ name: 'procedure-authoring' }, ['workflow.author']),
     ).toBe(true)
     expect(
-      isRouteVisible({ name: 'procedure-authoring' }, ['workflow.approve']),
+      visible({ name: 'procedure-authoring' }, ['workflow.approve']),
     ).toBe(false)
     expect(
-      isRouteVisible({ name: 'procedure-office-review' }, ['workflow.approve']),
+      visible({ name: 'procedure-office-review' }, ['workflow.approve']),
     ).toBe(true)
     expect(
-      isRouteVisible({ name: 'procedure-office-review' }, ['workflow.author']),
+      visible({ name: 'procedure-office-review' }, ['workflow.author']),
     ).toBe(false)
-    expect(isRouteVisible({ name: 'procedure-guide' }, [])).toBe(false)
-    expect(isRouteVisible({ name: 'procedure-guide' }, null)).toBe(false)
+    expect(visible({ name: 'procedure-guide' }, [])).toBe(false)
+    expect(visible({ name: 'procedure-guide' }, null)).toBe(false)
     expect(
-      isRouteVisible({ name: 'procedure-guide' }, ['work_definition.list']),
+      visible({ name: 'procedure-guide' }, ['work_definition.list']),
     ).toBe(true)
   })
 
@@ -123,13 +123,13 @@ describe('navigation capability gating', () => {
     )
 
     expect(
-      isRouteVisible({ name: 'approval-inbox' }, ['workflow.decide']),
+      visible({ name: 'approval-inbox' }, ['workflow.decide']),
     ).toBe(true)
-    expect(isRouteVisible({ name: 'approval-inbox' }, ['workflow.read'])).toBe(
+    expect(visible({ name: 'approval-inbox' }, ['workflow.read'])).toBe(
       false,
     )
     expect(
-      isRouteVisible(
+      visible(
         {
           name: 'approval-detail',
           stepId: '01980f50-5f0d-7000-8000-000000000101',
@@ -137,11 +137,11 @@ describe('navigation capability gating', () => {
         ['workflow.decide'],
       ),
     ).toBe(true)
-    expect(isRouteVisible({ name: 'my-requests' }, ['workflow.read'])).toBe(
+    expect(visible({ name: 'my-requests' }, ['workflow.read'])).toBe(
       true,
     )
     expect(
-      isRouteVisible(
+      visible(
         {
           name: 'my-request-detail',
           instanceId: '01980f50-5f0d-7000-8000-000000000102',
@@ -150,10 +150,10 @@ describe('navigation capability gating', () => {
       ),
     ).toBe(true)
     expect(
-      isRouteVisible({ name: 'new-procedure-request' }, ['workflow.author']),
+      visible({ name: 'new-procedure-request' }, ['workflow.author']),
     ).toBe(true)
     expect(
-      isRouteVisible({ name: 'new-procedure-request' }, ['workflow.read']),
+      visible({ name: 'new-procedure-request' }, ['workflow.read']),
     ).toBe(false)
   })
 
@@ -226,5 +226,36 @@ describe('navigation capability gating', () => {
       if (capability === null) continue
       expect(capability).toMatch(/^[a-z][a-z0-9_]*(\.[a-z0-9_-]+)+$/)
     }
+  })
+
+  it('hides work-management routes when the work_management feature is disabled', () => {
+    const disabled = { work_management: false, tasks: true }
+    const workManagementRoutes: AppRoute[] = [
+      { name: 'approval-inbox' },
+      { name: 'my-requests' },
+      { name: 'work-definitions' },
+      { name: 'workflow-admin' },
+      { name: 'procedure-guide' },
+      { name: 'procedure-authoring' },
+      { name: 'procedure-office-review' },
+      { name: 'new-procedure-request' },
+      { name: 'create' },
+      { name: 'detail', recordId: '01980f50-5f0d-7000-8000-000000000001' },
+    ]
+    // Capability check passes — the gate is what blocks these routes while disabled.
+    const allCapabilities = ['workflow.decide', 'workflow.author', 'workflow.approve', 'workflow.read', 'workflow.list', 'workflow.reassign', 'workflow.escalate', 'work_record.create', 'work_record.read', 'work_definition.read', 'work_definition.list']
+    for (const route of workManagementRoutes) {
+      expect(isRouteVisible(route, allCapabilities, disabled)).toBe(false)
+      expect(isRouteVisible(route, allCapabilities, null)).toBe(false)
+      expect(isRouteVisible(route, allCapabilities, { work_management: true, tasks: true })).toBe(true)
+    }
+  })
+
+  it('keeps tasks and documents routes visible regardless of work_management', () => {
+    const disabled = { work_management: false, tasks: true }
+    expect(isRouteVisible({ name: 'tasks' }, ['tasks.read'], disabled)).toBe(true)
+    expect(isRouteVisible({ name: 'task-detail', taskId: '01980f50-5f0d-7000-8000-000000000103' }, ['tasks.read'], disabled)).toBe(true)
+    expect(isRouteVisible({ name: 'documents' }, ['documents.read'], disabled)).toBe(true)
+    expect(isRouteVisible({ name: 'list' }, [], disabled)).toBe(true)
   })
 })

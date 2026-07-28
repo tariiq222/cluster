@@ -8,7 +8,7 @@ import type { Session } from '../../api'
 import { ApiError } from '../../api/http'
 import { Button, EmptyState, InlineError, Page, PageHeader, Panel, SkeletonList } from '../../ui'
 import { PrincipalDashboards } from '../reporting/PrincipalDashboards'
-import { buildDashboardKpis, filterTasksDueToday, type DashboardSources, type Loadable } from './dashboard-model'
+import { buildDashboardKpis, enabledDashboardSources, filterTasksDueToday, type DashboardFeatureFlags, type DashboardSources, type Loadable } from './dashboard-model'
 import { listActionableWorkflowStepsInbox, listTasks, listWorkflowInstances, type Task, type WorkflowInboxItem, type WorkflowInstance } from '../workflow/workflow-api'
 import './WorkDashboard.css'
 
@@ -21,6 +21,13 @@ type WorkDashboardProps = {
   effectiveScopeLabel?: string | null
   scopeEpoch: number
   scopeReady: boolean
+  /**
+   * Whether the principal's tenant has the work_management feature enabled.
+   * Defaults to `false` so the dashboard fails closed until the projection
+   * lands. When false the dashboard drops its inbox/workflow-instances/work-
+   * records fetches and hides the approvals/requests KPIs and panels.
+   */
+  workManagementEnabled?: boolean
   /** Fail closed until the principal snapshot confirms reporting.dashboard. */
   canViewDashboards: boolean
   canCreateRequest: boolean
@@ -36,7 +43,6 @@ type WorkDashboardProps = {
   onOpenApprovalStep: (stepId: string) => void
   onOpenTask: (taskId: string) => void
 }
-
 type SourceKey = keyof DashboardSources
 type DashboardTask = Task & { due_at?: string | null }
 
@@ -66,13 +72,23 @@ function sourceError<T>(error: unknown): Loadable<T> {
 }
 
 export function WorkDashboard(props: WorkDashboardProps) {
-  const { locale, session, principalRevision, effectiveScopeId, effectiveScopeLabel, scopeEpoch, scopeReady, canViewDashboards, canCreateRequest, canBrowseServices, onCreateRequest, onBrowseServices, onOpenApprovals, onOpenRequests, onOpenTasks, onOpenDocuments, onOpenDashboards, onOpenRequestInstance, onOpenApprovalStep, onOpenTask } = props
+  const { locale, session, principalRevision, effectiveScopeId, effectiveScopeLabel, scopeEpoch, scopeReady, workManagementEnabled = false, canViewDashboards, canCreateRequest, canBrowseServices, onCreateRequest, onBrowseServices, onOpenApprovals, onOpenRequests, onOpenTasks, onOpenDocuments, onOpenDashboards, onOpenRequestInstance, onOpenApprovalStep, onOpenTask } = props
   const t = copy[locale]
+  const featureFlags: DashboardFeatureFlags = { workManagement: workManagementEnabled }
+  // Memoized: a fresh array every render would retrigger the loading effect
+  // below in an infinite loop.
+  const enabledSources = useMemo(() => enabledDashboardSources(featureFlags), [workManagementEnabled])
   const [sources, setSources] = useState<DashboardSources>(initialSources)
   const sourceEpoch = useRef(0)
   const sourceRequest = useRef<Record<SourceKey, number>>({ inbox: 0, tasks: 0, requests: 0 })
 
   const loadSource = useCallback(async (source: SourceKey, epoch: number) => {
+    if (source !== 'tasks' && !workManagementEnabled) {
+      // Fail closed: never call the work-management API when the feature is
+      // off. Leave the source in its initial loading state so the KPI stays
+      // null and the panel hides rather than rendering an empty box.
+      return
+    }
     const request = ++sourceRequest.current[source]
     setSources((previous) => ({ ...previous, [source]: { state: 'loading' } }))
     try {
@@ -93,14 +109,15 @@ export function WorkDashboard(props: WorkDashboardProps) {
       if (sourceEpoch.current !== epoch || sourceRequest.current[source] !== request) return
       setSources((previous) => ({ ...previous, [source]: sourceError(error) }))
     }
-  }, [session.access_token])
+  }, [session.access_token, workManagementEnabled])
 
   useEffect(() => {
     const epoch = ++sourceEpoch.current
     setSources(initialSources())
     if (!scopeReady || !effectiveScopeId) return
-    void Promise.allSettled((['inbox', 'tasks', 'requests'] as SourceKey[]).map((source) => loadSource(source, epoch)))
-  }, [effectiveScopeId, loadSource, principalRevision, scopeEpoch, scopeReady])
+    const targets = enabledSources.filter((source): source is SourceKey => source === 'inbox' || source === 'tasks' || source === 'requests')
+    void Promise.allSettled(targets.map((source) => loadSource(source, epoch)))
+  }, [effectiveScopeId, enabledSources, loadSource, principalRevision, scopeEpoch, scopeReady])
 
   const kpis = useMemo(() => buildDashboardKpis(sources, new Date()), [sources])
   const inboxItems = sources.inbox.state === 'ready' ? (sources.inbox.data as WorkflowInboxItem[]) : []
@@ -111,14 +128,31 @@ export function WorkDashboard(props: WorkDashboardProps) {
   return (
     <div dir={directionForLocale(locale)}>
       <Page aria-labelledby="work-dashboard-heading">
-        <PageHeader id="work-dashboard-heading" title={t.title} description={t.subtitle} actions={<div className="work-dashboard-actions"><span className="work-dashboard-scope">{t.currentScope}: {effectiveScopeLabel ?? t.scopeUnavailable}</span>{canCreateRequest ? <Button variant="primary" onClick={onCreateRequest}>{t.newRequest}</Button> : null}{canBrowseServices ? <Button variant="secondary" onClick={onBrowseServices}>{t.browseServices}</Button> : null}</div>} />
+        <PageHeader
+          id="work-dashboard-heading"
+          title={t.title}
+          description={t.subtitle}
+          actions={
+            <div className="work-dashboard-actions">
+              <span className="work-dashboard-scope">{t.currentScope}: {effectiveScopeLabel ?? t.scopeUnavailable}</span>
+              {workManagementEnabled && canCreateRequest ? <Button variant="primary" onClick={onCreateRequest}>{t.newRequest}</Button> : null}
+              {workManagementEnabled && canBrowseServices ? <Button variant="secondary" onClick={onBrowseServices}>{t.browseServices}</Button> : null}
+            </div>
+          }
+        />
         <div className="work-dashboard-content">
-          <section className="work-dashboard-priority" aria-label={t.prioritySummary}><Panel id="work-dashboard-priority-strip" title={t.prioritySummary} level={2}><strong>{kpis.awaitingDecision ?? '…'}</strong><Button variant="primary" onClick={onOpenApprovals}><ClipboardList aria-hidden="true" />{t.priorityCta}</Button></Panel></section>
-          <section className="work-dashboard-kpis" aria-label={t.title}><KpiCard label={t.awaitingDecision} value={kpis.awaitingDecision} onOpen={onOpenApprovals} icon={<ClipboardList aria-hidden="true" />} /><KpiCard label={t.dueToday} value={kpis.dueToday} onOpen={onOpenTasks} icon={<Clock aria-hidden="true" />} /><KpiCard label={t.overdue} value={kpis.overdue} onOpen={onOpenTasks} icon={<Clock aria-hidden="true" />} /><KpiCard label={t.activeRequests} value={kpis.activeRequests} onOpen={onOpenRequests} icon={<Send aria-hidden="true" />} /></section>
-          <section className="work-dashboard-section"><Panel id="work-dashboard-priority-panel" title={t.whatNeedsYou} level={2}><SourceContent source={sources.inbox} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.inboxError} retryLabel={t.retry} onRetry={() => retry('inbox')}>{inboxItems.length === 0 ? <EmptyState icon={<ClipboardList aria-hidden="true" />} title={t.noApprovals} /> : <WorkList items={inboxItems} title={t.whatNeedsYou} onOpen={onOpenApprovalStep} label={(item) => item.source_type ?? item.id} />}</SourceContent></Panel></section>
-          <section className="work-dashboard-section"><Panel id="work-dashboard-requests-panel" title={t.trackRequests} level={2}><SourceContent source={sources.requests} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.requestsError} retryLabel={t.retry} onRetry={() => retry('requests')}>{requestsItems.length === 0 ? <EmptyState icon={<Send aria-hidden="true" />} title={t.noRequests} /> : <WorkList items={requestsItems} title={t.trackRequests} onOpen={onOpenRequestInstance} label={(item) => item.id} />}</SourceContent></Panel></section>
+          {workManagementEnabled ? (
+            <section className="work-dashboard-priority" aria-label={t.prioritySummary}><Panel id="work-dashboard-priority-strip" title={t.prioritySummary} level={2}><strong>{kpis.awaitingDecision ?? '…'}</strong><Button variant="primary" onClick={onOpenApprovals}><ClipboardList aria-hidden="true" />{t.priorityCta}</Button></Panel></section>
+          ) : null}
+          <section className="work-dashboard-kpis" aria-label={t.title}>{workManagementEnabled ? <KpiCard label={t.awaitingDecision} value={kpis.awaitingDecision} onOpen={onOpenApprovals} icon={<ClipboardList aria-hidden="true" />} /> : null}<KpiCard label={t.dueToday} value={kpis.dueToday} onOpen={onOpenTasks} icon={<Clock aria-hidden="true" />} /><KpiCard label={t.overdue} value={kpis.overdue} onOpen={onOpenTasks} icon={<Clock aria-hidden="true" />} />{workManagementEnabled ? <KpiCard label={t.activeRequests} value={kpis.activeRequests} onOpen={onOpenRequests} icon={<Send aria-hidden="true" />} /> : null}</section>
+          {workManagementEnabled ? (
+            <section className="work-dashboard-section"><Panel id="work-dashboard-priority-panel" title={t.whatNeedsYou} level={2}><SourceContent source={sources.inbox} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.inboxError} retryLabel={t.retry} onRetry={() => retry('inbox')}>{inboxItems.length === 0 ? <EmptyState icon={<ClipboardList aria-hidden="true" />} title={t.noApprovals} /> : <WorkList items={inboxItems} title={t.whatNeedsYou} onOpen={onOpenApprovalStep} label={(item) => item.source_type ?? item.id} />}</SourceContent></Panel></section>
+          ) : null}
+          {workManagementEnabled ? (
+            <section className="work-dashboard-section"><Panel id="work-dashboard-requests-panel" title={t.trackRequests} level={2}><SourceContent source={sources.requests} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.requestsError} retryLabel={t.retry} onRetry={() => retry('requests')}>{requestsItems.length === 0 ? <EmptyState icon={<Send aria-hidden="true" />} title={t.noRequests} /> : <WorkList items={requestsItems} title={t.trackRequests} onOpen={onOpenRequestInstance} label={(item) => item.id} />}</SourceContent></Panel></section>
+          ) : null}
           <section className="work-dashboard-section"><Panel id="work-dashboard-today-panel" title={t.today} level={2}><SourceContent source={sources.tasks} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.tasksError} retryLabel={t.retry} onRetry={() => retry('tasks')}>{todayTasks.length === 0 ? <EmptyState icon={<ListTodo aria-hidden="true" />} title={t.noDueTasks} /> : <WorkList items={todayTasks} title={t.today} onOpen={onOpenTask} label={(item) => item.title ?? item.id} />}</SourceContent></Panel></section>
-          {canViewDashboards && scopeReady && effectiveScopeId ? <section className="work-dashboard-section"><PrincipalDashboards scopeId={effectiveScopeId} revision={principalRevision} onOpen={onOpenDashboards} onOpenDocuments={onOpenDocuments} /></section> : null}
+          {workManagementEnabled && canViewDashboards && scopeReady && effectiveScopeId ? <section className="work-dashboard-section"><PrincipalDashboards scopeId={effectiveScopeId} revision={principalRevision} onOpen={onOpenDashboards} onOpenDocuments={onOpenDocuments} /></section> : null}
         </div>
       </Page>
     </div>
