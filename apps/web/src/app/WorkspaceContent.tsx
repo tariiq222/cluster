@@ -100,6 +100,7 @@ export function WorkspaceContent({
             effectiveScopeLabel={principal.effectiveScope?.label}
             scopeEpoch={principal.scopeEpoch}
             scopeReady={principal.scopeReady}
+            workManagementEnabled={principal.features?.work_management === true}
             canViewDashboards={
               principal.capabilities?.includes('reporting.dashboard') === true
             }
