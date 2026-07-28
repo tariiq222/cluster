@@ -49,6 +49,7 @@ return [
     base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W18CreateNotificationDeliveryTables.php'),
     base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W13AddNotificationSourceFacts.php'),
     base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W20UpgradeTechnicalAlertFanoutSchema.php'),
+    base_path('Modules/Notifications/Infrastructure/Persistence/Migrations/W21AddNotificationTypeAndPayload.php'),
     base_path('Modules/Search/Infrastructure/Persistence/Migrations/CreateSearchProjectionTables.php'),
     base_path('Modules/Reporting/Infrastructure/Persistence/Migrations/CreateReportingProjectionTables.php'),
     base_path('Modules/Reporting/Infrastructure/Persistence/Migrations/ZAddReportRunIdempotency.php'),
