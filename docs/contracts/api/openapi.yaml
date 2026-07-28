@@ -8,6 +8,10 @@ info:
   description: Authenticated, authorization-filtered API. IDs are lowercase RFC 9562 UUIDv7 values and timestamps are RFC 3339 UTC values ending in Z.
 servers:
   - url: https://api.cluster.example/api/v1
+x-feature-gates:
+  work-management:
+    description: "Work Definitions, Work Records, request journeys, approvals, and Workflow execution. Operations tagged x-feature-gate: work-management return 409 feature-disabled on mutation and non-disclosing 404 on read while disabled; reads remain available to principals holding work_management.history.read."
+    default: false
 security:
   - bearerAuth: []
 paths:
@@ -312,6 +316,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: List work definitions
       operationId: listWorkDefinitions
       parameters:
@@ -325,6 +330,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
+      x-feature-gate: work-management
       summary: Create a work definition
       operationId: createWorkDefinition
       parameters:
@@ -345,11 +351,16 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
   /work-definitions/{definitionId}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: Get a work definition
       operationId: getWorkDefinition
       parameters:
@@ -364,6 +375,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
+      x-feature-gate: work-management
       x-implementation-status: planned  # [planned: not yet wired — method]
       summary: Update a work definition
       operationId: updateWorkDefinition
@@ -388,13 +400,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-definitions/{definitionId}/versions:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: List immutable work definition versions
       operationId: listWorkDefinitionVersions
       parameters:
@@ -411,6 +428,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     post:
+      x-feature-gate: work-management
       summary: Create a Draft work definition version
       operationId: createWorkDefinitionVersion
       parameters:
@@ -434,11 +452,16 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
   /work-definition-versions/{versionId}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: Get a work definition version
       operationId: getWorkDefinitionVersion
       parameters:
@@ -453,6 +476,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
+      x-feature-gate: work-management
       x-implementation-status: planned  # [planned: not yet wired — method]
       summary: Update a Draft work definition version; Signed and Published versions are immutable
       operationId: updateWorkDefinitionVersionDraft
@@ -477,7 +501,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-definition-versions/{versionId}/test:
@@ -485,6 +513,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: implemented
     post:
+      x-feature-gate: work-management
       summary: Test a Draft version and transition it to Tested
       operationId: testWorkDefinitionVersion
       parameters:
@@ -503,7 +532,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-definition-versions/{versionId}/approve:
@@ -511,6 +544,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: implemented
     post:
+      x-feature-gate: work-management
       summary: Approve a Tested version
       operationId: approveWorkDefinitionVersion
       parameters:
@@ -527,7 +561,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-definition-versions/{versionId}/sign:
@@ -535,6 +573,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: implemented
     post:
+      x-feature-gate: work-management
       summary: Sign an Approved version whose schema hash matches
       operationId: signWorkDefinitionVersion
       parameters:
@@ -559,7 +598,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-definition-versions/{versionId}/publish:
@@ -567,6 +610,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: implemented
     post:
+      x-feature-gate: work-management
       summary: Publish a Signed version as immutable
       operationId: publishWorkDefinitionVersion
       parameters:
@@ -583,13 +627,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-records:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: List authorized work records using opaque cursor pagination
       operationId: listWorkRecords
       parameters:
@@ -604,6 +653,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
+      x-feature-gate: work-management
       summary: Create a work record
       operationId: createWorkRecord
       parameters:
@@ -651,6 +701,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: Get a work record
       operationId: getWorkRecord
       parameters:
@@ -665,6 +716,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
+      x-feature-gate: work-management
       x-implementation-status: planned  # [planned: not yet wired — method]
       summary: Update a work record
       operationId: updateWorkRecord
@@ -697,7 +749,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-records/{recordId}/cancel:
@@ -705,6 +761,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: implemented
     post:
+      x-feature-gate: work-management
       summary: Cancel a work record without physical deletion
       operationId: cancelWorkRecord
       parameters:
@@ -729,7 +786,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-records/{recordId}/archive:
@@ -737,6 +798,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: implemented
     post:
+      x-feature-gate: work-management
       summary: Archive a terminal work record subject to retention and holds
       operationId: archiveWorkRecord
       parameters:
@@ -761,7 +823,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-records/{recordId}/submit:
@@ -769,6 +835,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: implemented
     post:
+      x-feature-gate: work-management
       summary: Submit a work record
       operationId: submitWorkRecord
       parameters:
@@ -798,13 +865,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /workflow/definitions:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: List workflow definitions
       operationId: listWorkflowDefinitions
       parameters:
@@ -818,6 +890,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
+      x-feature-gate: work-management
       summary: Create a workflow definition and its first Draft version
       operationId: createWorkflowDefinition
       parameters:
@@ -838,11 +911,16 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
   /workflow/definitions/{definitionId}/versions:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: List workflow versions
       operationId: listWorkflowVersions
       parameters:
@@ -859,6 +937,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     post:
+      x-feature-gate: work-management
       summary: Create a Draft workflow version
       operationId: createWorkflowVersion
       parameters:
@@ -882,12 +961,17 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
   /workflow/versions/{versionId}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: planned
     get:
+      x-feature-gate: work-management
       summary: Get a workflow version graph
       operationId: getWorkflowVersion
       parameters:
@@ -902,6 +986,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
+      x-feature-gate: work-management
       summary: Update a Draft workflow graph
       operationId: updateWorkflowVersionDraft
       parameters:
@@ -925,13 +1010,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /workflow/versions/{versionId}/{workflowLifecycleAction}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       summary: Test, approve, sign, or publish a workflow version in lifecycle order
       operationId: transitionWorkflowVersion
       parameters:
@@ -966,13 +1056,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /workflow/instances:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       summary: List authorized workflow instances
       operationId: listWorkflowInstances
       parameters:
@@ -994,6 +1089,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
+      x-feature-gate: work-management
       summary: Start a workflow using a Published version
       operationId: startWorkflow
       parameters:
@@ -1016,11 +1112,16 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
   /workflow/instances/{instanceId}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       tags:
         - Requests
         - Workflow
@@ -1045,6 +1146,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       summary: Cancel an active workflow
       operationId: cancelWorkflow
       parameters:
@@ -1073,13 +1175,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /workflow/steps/{stepId}/decisions:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       summary: Record a workflow decision
       operationId: recordWorkflowDecision
       parameters:
@@ -1104,13 +1211,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /workflow/steps/{stepId}/{stepAction}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       summary: Reassign or escalate an active workflow step
       operationId: actOnWorkflowStep
       parameters:
@@ -1143,7 +1255,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /workflow/operations-office/versions/{versionId}/submit:
@@ -1151,6 +1267,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: planned
     post:
+      x-feature-gate: work-management
       tags:
         - Operations Office
         - Workflow
@@ -1221,6 +1338,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: planned
     post:
+      x-feature-gate: work-management
       tags:
         - Operations Office
         - Workflow
@@ -1278,6 +1396,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: planned
     post:
+      x-feature-gate: work-management
       tags:
         - Operations Office
         - Workflow
@@ -1348,6 +1467,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: planned
     post:
+      x-feature-gate: work-management
       tags:
         - Operations Office
         - Workflow
@@ -1418,6 +1538,7 @@ paths:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: planned
     get:
+      x-feature-gate: work-management
       tags:
         - Operations Office
         - Workflow
@@ -1451,6 +1572,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       tags:
         - Approval Inbox
         - Workflow
@@ -1506,6 +1628,21 @@ paths:
           in: query
           schema:
             type: string
+            enum:
+              - open
+              - in_progress
+              - blocked
+              - completed
+              - cancelled
+        - name: relationship
+          in: query
+          schema:
+            type: string
+            enum:
+              - all
+              - assigned
+              - created
+              - participating
       responses:
         '200':
           $ref: '#/components/responses/Collection'
@@ -1585,6 +1722,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     get:
+      x-feature-gate: work-management
       tags:
         - Approval Inbox
         - Workflow
@@ -1674,7 +1812,7 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-  /tasks/{taskId}/{workflowTaskAction}:
+  /tasks/{taskId}/{taskAction}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
@@ -1682,7 +1820,7 @@ paths:
       operationId: transitionTask
       parameters:
         - $ref: '#/components/parameters/TaskId'
-        - name: workflowTaskAction
+        - name: taskAction
           in: path
           required: true
           schema:
@@ -1691,9 +1829,6 @@ paths:
               - start
               - block
               - unblock
-              - submit-completion
-              - accept-completion
-              - return-completion
               - complete
               - cancel
         - $ref: '#/components/parameters/IfMatch'
@@ -1719,6 +1854,43 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+  /tasks/{taskId}/documents:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      summary: Attach a document the actor can access to a task
+      operationId: attachTaskDocument
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [document_id]
+              properties:
+                document_id:
+                  $ref: '#/components/schemas/UUIDv7'
+      responses:
+        '201':
+          $ref: '#/components/responses/Entity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
   /documents/uploads:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -5706,48 +5878,11 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /tasks/from-step/{stepId}:
-    parameters:
-      - $ref: '#/components/parameters/CorrelationId'
-    post:
-      operationId: createTaskFromStep
-      summary: Create the user task for an active workflow step
-      parameters:
-        - name: stepId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/UUIDv7'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                title:
-                  type: string
-                  minLength: 1
-                  maxLength: 255
-      responses:
-        '201':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
   /work-records/{recordId}/documents:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       operationId: linkWorkRecordDocument
       summary: Link an available document to a work record
       parameters:
@@ -5784,11 +5919,16 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
   /work-records/{recordId}/return:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       tags:
         - Work Records
       x-implementation-status: implemented
@@ -5821,13 +5961,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-records/{recordId}/complete:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       tags:
         - Work Records
       x-implementation-status: implemented
@@ -5860,13 +6005,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /work-records/{recordId}/complete-submission:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       tags:
         - Work Records
       x-implementation-status: implemented
@@ -5899,7 +6049,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /up:
@@ -6234,6 +6388,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
+      x-feature-gate: work-management
       operationId: transitionWorkRecord
       summary: Apply an allowed work-record lifecycle action
       parameters:
@@ -6262,7 +6417,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Operation rejected because the requested feature is disabled.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemFeatureDisabled'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
 components:
@@ -6902,6 +7061,15 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/principal-context.schema'
+    ProblemFeatureDisabled:
+      description: Operation rejected because the requested feature is disabled.
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemFeatureDisabled'
     Problem:
       description: RFC 7807 problem details
       headers:
@@ -9185,10 +9353,6 @@ components:
       additionalProperties: false
       required:
         - title
-        - owner_organization_unit_id
-        - priority
-        - due_at
-        - classification
       properties:
         title:
           type: string
@@ -9197,28 +9361,29 @@ components:
         description:
           type: string
           maxLength: 4000
-        owner_organization_unit_id:
-          $ref: '#/components/schemas/UUIDv7'
         assignee_user_id:
           $ref: '#/components/schemas/UUIDv7'
+          description: Defaults to the calling principal when omitted.
         priority:
           type: string
           enum:
             - low
             - normal
             - high
-            - critical
+            - urgent
+          default: normal
         due_at:
           $ref: '#/components/schemas/UtcDateTime'
         classification:
           $ref: '#/components/schemas/Classification'
+          default: internal
+        participant_user_ids:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UUIDv7'
         source:
           $ref: '#/components/schemas/SourceReference'
-        completion_policy:
-          type: string
-          enum:
-            - direct
-            - requires_acceptance
     TaskPatch:
       type: object
       additionalProperties: false
@@ -9249,16 +9414,95 @@ components:
         reason:
           type: string
           maxLength: 2000
+          description: Required for `block` and `cancel` actions; ignored for other actions.
         note:
           type: string
           maxLength: 4000
-        evidence_document_ids:
+          description: Required for the `complete` action; ignored for other actions.
+    Task:
+      type: object
+      additionalProperties: false
+      required: [id, title, state, classification, priority, lock_version, created_at, updated_at, allowed_actions]
+      properties:
+        id:
+          $ref: '#/components/schemas/UUIDv7'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 4000
+        state:
+          type: string
+          enum: [open, in_progress, blocked, completed, cancelled]
+        classification:
+          $ref: '#/components/schemas/Classification'
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        assignee_user_id:
+          $ref: '#/components/schemas/UUIDv7'
+        creator_user_id:
+          $ref: '#/components/schemas/UUIDv7'
+        participant_user_ids:
           type: array
           uniqueItems: true
           items:
             $ref: '#/components/schemas/UUIDv7'
-        decision_id:
+        due_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        source_module:
+          type: string
+          maxLength: 64
+        source_type:
+          type: string
+          maxLength: 64
+        source_id:
           $ref: '#/components/schemas/UUIDv7'
+        workflow_step_id:
+          $ref: '#/components/schemas/UUIDv7'
+        allowed_actions:
+          type: array
+          items:
+            type: string
+            enum:
+              - start
+              - block
+              - unblock
+              - complete
+              - cancel
+              - edit
+              - reassign
+              - add-participant
+              - comment
+              - attach-document
+          uniqueItems: true
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskAttachment'
+        lock_version:
+          type: integer
+          minimum: 0
+        created_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        updated_at:
+          $ref: '#/components/schemas/UtcDateTime'
+    TaskAttachment:
+      type: object
+      additionalProperties: false
+      required: [document_id, linked_by_user_id, created_at]
+      properties:
+        document_id:
+          $ref: '#/components/schemas/UUIDv7'
+        title:
+          type: string
+          maxLength: 255
+        linked_by_user_id:
+          $ref: '#/components/schemas/UUIDv7'
+        created_at:
+          $ref: '#/components/schemas/UtcDateTime'
     ParticipantCreate:
       type: object
       additionalProperties: false
@@ -10800,6 +11044,22 @@ components:
       format: uuid
       pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
       description: Lowercase RFC 9562 UUID version 7
+    ProblemFeatureDisabled:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type:
+          type: string
+          const: 'urn:cluster:problem:feature-disabled'
+        title:
+          type: string
+        status:
+          type: integer
+          const: 409
+        detail:
+          type: string
+        correlation_id:
+          type: string
     problem-details.schema:
       $schema: https://json-schema.org/draft/2020-12/schema
       $id: https://contracts.cluster.example/schemas/problem-details.schema.json
@@ -10860,6 +11120,7 @@ components:
         - tenant_id
         - clearance
         - correlation_id
+        - features
       properties:
         subject_id:
           $ref: '#/components/schemas/uuidv7'
@@ -10893,6 +11154,19 @@ components:
         break_glass:
           type: boolean
           default: false
+        features:
+          type: object
+          additionalProperties: false
+          required:
+            - work_management
+            - tasks
+          properties:
+            work_management:
+              type: boolean
+              description: Whether the work-management feature is enabled for the principal's tenant.
+            tasks:
+              type: boolean
+              description: Whether the tasks feature is enabled for the principal's tenant.
         correlation_id:
           $ref: '#/components/schemas/uuidv7'
       $defs:

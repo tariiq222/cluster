@@ -1466,15 +1466,7 @@ export const TaskCreatePriority = {
   low: 'low',
   normal: 'normal',
   high: 'high',
-  critical: 'critical',
-} as const
-
-export type TaskCreateCompletionPolicy =
-  (typeof TaskCreateCompletionPolicy)[keyof typeof TaskCreateCompletionPolicy]
-
-export const TaskCreateCompletionPolicy = {
-  direct: 'direct',
-  requires_acceptance: 'requires_acceptance',
+  urgent: 'urgent',
 } as const
 
 export interface TaskCreate {
@@ -1485,13 +1477,13 @@ export interface TaskCreate {
   title: string
   /** @maxLength 4000 */
   description?: string
-  owner_organization_unit_id: UUIDv7
+  /** Defaults to the calling principal when omitted. */
   assignee_user_id?: UUIDv7
-  priority: TaskCreatePriority
-  due_at: UtcDateTime
-  classification: Classification
+  priority?: TaskCreatePriority
+  due_at?: UtcDateTime
+  classification?: Classification
+  participant_user_ids?: UUIDv7[]
   source?: SourceReference
-  completion_policy?: TaskCreateCompletionPolicy
 }
 
 export type TaskPatchPriority =
@@ -1518,12 +1510,89 @@ export interface TaskPatch {
 }
 
 export interface TaskAction {
-  /** @maxLength 2000 */
+  /**
+   * Required for `block` and `cancel` actions; ignored for other actions.
+   * @maxLength 2000
+   */
   reason?: string
-  /** @maxLength 4000 */
+  /**
+   * Required for the `complete` action; ignored for other actions.
+   * @maxLength 4000
+   */
   note?: string
-  evidence_document_ids?: UUIDv7[]
-  decision_id?: UUIDv7
+}
+
+export type TaskState = (typeof TaskState)[keyof typeof TaskState]
+
+export const TaskState = {
+  open: 'open',
+  in_progress: 'in_progress',
+  blocked: 'blocked',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const
+
+export type TaskPriority = (typeof TaskPriority)[keyof typeof TaskPriority]
+
+export const TaskPriority = {
+  low: 'low',
+  normal: 'normal',
+  high: 'high',
+  urgent: 'urgent',
+} as const
+
+export type TaskAllowedActionsItem =
+  (typeof TaskAllowedActionsItem)[keyof typeof TaskAllowedActionsItem]
+
+export const TaskAllowedActionsItem = {
+  start: 'start',
+  block: 'block',
+  unblock: 'unblock',
+  complete: 'complete',
+  cancel: 'cancel',
+  edit: 'edit',
+  reassign: 'reassign',
+  'add-participant': 'add-participant',
+  comment: 'comment',
+  'attach-document': 'attach-document',
+} as const
+
+export interface TaskAttachment {
+  document_id: UUIDv7
+  /** @maxLength 255 */
+  title?: string
+  linked_by_user_id: UUIDv7
+  created_at: UtcDateTime
+}
+
+export interface Task {
+  id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  title: string
+  /** @maxLength 4000 */
+  description?: string
+  state: TaskState
+  classification: Classification
+  priority: TaskPriority
+  assignee_user_id?: UUIDv7
+  creator_user_id?: UUIDv7
+  participant_user_ids?: UUIDv7[]
+  due_at?: UtcDateTime
+  /** @maxLength 64 */
+  source_module?: string
+  /** @maxLength 64 */
+  source_type?: string
+  source_id?: UUIDv7
+  workflow_step_id?: UUIDv7
+  allowed_actions: TaskAllowedActionsItem[]
+  attachments?: TaskAttachment[]
+  /** @minimum 0 */
+  lock_version: number
+  created_at: UtcDateTime
+  updated_at: UtcDateTime
 }
 
 export interface ParticipantCreate {
@@ -2606,6 +2675,14 @@ export interface EntityCollection {
   next_cursor: string | null
 }
 
+export interface ProblemFeatureDisabled {
+  type: 'urn:cluster:problem:feature-disabled'
+  title: string
+  status: 409
+  detail: string
+  correlation_id?: string
+}
+
 export type ProblemDetailsSchemaErrorsItem = {
   pointer: string
   code: string
@@ -2637,6 +2714,13 @@ export const PrincipalContextSchemaClearance = {
   top_secret: 'top_secret',
 } as const
 
+export type PrincipalContextSchemaFeatures = {
+  /** Whether the work-management feature is enabled for the principal's tenant. */
+  work_management: boolean
+  /** Whether the tasks feature is enabled for the principal's tenant. */
+  tasks: boolean
+}
+
 /**
  * The server-owned projection of the current principal returned by GET /me. It is the Access Context plus the capability codes the principal currently holds, which the shell uses to decide which navigation entries to render. The list is a navigation hint only: every endpoint still runs its own record-scoped decision.
  */
@@ -2653,6 +2737,7 @@ export interface PrincipalContextSchema {
   capabilities?: string[]
   clearance: PrincipalContextSchemaClearance
   break_glass?: boolean
+  features: PrincipalContextSchemaFeatures
   correlation_id: Uuidv7
 }
 
@@ -2870,6 +2955,11 @@ export type NotificationsResponse = NotificationCollection
  * Current principal
  */
 export type PrincipalResponse = PrincipalContextSchema
+
+/**
+ * Operation rejected because the requested feature is disabled.
+ */
+export type ProblemFeatureDisabledResponse = ProblemFeatureDisabled
 
 /**
  * RFC 7807 problem details
@@ -3279,8 +3369,30 @@ export type ListTasksParams = {
    * @maximum 100
    */
   limit?: LimitParameter
-  state?: string
+  state?: ListTasksState
+  relationship?: ListTasksRelationship
 }
+
+export type ListTasksState =
+  (typeof ListTasksState)[keyof typeof ListTasksState]
+
+export const ListTasksState = {
+  open: 'open',
+  in_progress: 'in_progress',
+  blocked: 'blocked',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const
+
+export type ListTasksRelationship =
+  (typeof ListTasksRelationship)[keyof typeof ListTasksRelationship]
+
+export const ListTasksRelationship = {
+  all: 'all',
+  assigned: 'assigned',
+  created: 'created',
+  participating: 'participating',
+} as const
 
 export type ListTaskCommentsParams = {
   /**
@@ -3292,6 +3404,10 @@ export type ListTaskCommentsParams = {
    * @maximum 100
    */
   limit?: LimitParameter
+}
+
+export type AttachTaskDocumentBody = {
+  document_id: UUIDv7
 }
 
 export type CompleteDocumentUploadBody = {
@@ -3806,14 +3922,6 @@ export type GetReportParams = {
    * @maxLength 128
    */
   scope_id?: string
-}
-
-export type CreateTaskFromStepBody = {
-  /**
-   * @minLength 1
-   * @maxLength 255
-   */
-  title?: string
 }
 
 export type LinkWorkRecordDocumentBodyRelationType =
@@ -4640,7 +4748,7 @@ export type createWorkDefinitionResponse403 = {
 }
 
 export type createWorkDefinitionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -4762,7 +4870,7 @@ export type updateWorkDefinitionResponse404 = {
 }
 
 export type updateWorkDefinitionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -4913,7 +5021,7 @@ export type createWorkDefinitionVersionResponse404 = {
 }
 
 export type createWorkDefinitionVersionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5040,7 +5148,7 @@ export type updateWorkDefinitionVersionDraftResponse404 = {
 }
 
 export type updateWorkDefinitionVersionDraftResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5120,7 +5228,7 @@ export type testWorkDefinitionVersionResponse404 = {
 }
 
 export type testWorkDefinitionVersionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5189,7 +5297,7 @@ export type approveWorkDefinitionVersionResponse404 = {
 }
 
 export type approveWorkDefinitionVersionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5262,7 +5370,7 @@ export type signWorkDefinitionVersionResponse404 = {
 }
 
 export type signWorkDefinitionVersionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5334,7 +5442,7 @@ export type publishWorkDefinitionVersionResponse404 = {
 }
 
 export type publishWorkDefinitionVersionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5651,7 +5759,7 @@ export type updateWorkRecordResponse404 = {
 }
 
 export type updateWorkRecordResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5729,7 +5837,7 @@ export type cancelWorkRecordResponse404 = {
 }
 
 export type cancelWorkRecordResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5804,7 +5912,7 @@ export type archiveWorkRecordResponse404 = {
 }
 
 export type archiveWorkRecordResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -5879,7 +5987,7 @@ export type submitWorkRecordResponse404 = {
 }
 
 export type submitWorkRecordResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -6011,7 +6119,7 @@ export type createWorkflowDefinitionResponse403 = {
 }
 
 export type createWorkflowDefinitionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -6151,7 +6259,7 @@ export type createWorkflowVersionResponse404 = {
 }
 
 export type createWorkflowVersionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -6276,7 +6384,7 @@ export type updateWorkflowVersionDraftResponse404 = {
 }
 
 export type updateWorkflowVersionDraftResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -6356,7 +6464,7 @@ export type transitionWorkflowVersionResponse404 = {
 }
 
 export type transitionWorkflowVersionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -6499,7 +6607,7 @@ export type startWorkflowResponse404 = {
 }
 
 export type startWorkflowResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -6619,7 +6727,7 @@ export type cancelWorkflowResponse404 = {
 }
 
 export type cancelWorkflowResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -6691,7 +6799,7 @@ export type recordWorkflowDecisionResponse404 = {
 }
 
 export type recordWorkflowDecisionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -6767,7 +6875,7 @@ export type actOnWorkflowStepResponse404 = {
 }
 
 export type actOnWorkflowStepResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -7832,17 +7940,9 @@ export type transitionTaskResponse =
 
 export const getTransitionTaskUrl = (
   taskId: string,
-  workflowTaskAction:
-    | 'start'
-    | 'block'
-    | 'unblock'
-    | 'submit-completion'
-    | 'accept-completion'
-    | 'return-completion'
-    | 'complete'
-    | 'cancel',
+  taskAction: 'start' | 'block' | 'unblock' | 'complete' | 'cancel',
 ) => {
-  return `/api/v1/tasks/${encodeURIComponent(String(taskId))}/${encodeURIComponent(String(workflowTaskAction))}`
+  return `/api/v1/tasks/${encodeURIComponent(String(taskId))}/${encodeURIComponent(String(taskAction))}`
 }
 
 /**
@@ -7850,25 +7950,99 @@ export const getTransitionTaskUrl = (
  */
 export const transitionTask = async (
   taskId: string,
-  workflowTaskAction:
-    | 'start'
-    | 'block'
-    | 'unblock'
-    | 'submit-completion'
-    | 'accept-completion'
-    | 'return-completion'
-    | 'complete'
-    | 'cancel',
+  taskAction: 'start' | 'block' | 'unblock' | 'complete' | 'cancel',
   taskAction?: TaskAction,
   options?: RequestInit,
 ): Promise<transitionTaskResponse> => {
   return customFetch<transitionTaskResponse>(
-    getTransitionTaskUrl(taskId, workflowTaskAction),
+    getTransitionTaskUrl(taskId, taskAction),
     {
       ...options,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(taskAction),
+    },
+  )
+}
+
+export type attachTaskDocumentResponse201 = {
+  data: EntityResponse
+  status: 201
+}
+
+export type attachTaskDocumentResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type attachTaskDocumentResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type attachTaskDocumentResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type attachTaskDocumentResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type attachTaskDocumentResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type attachTaskDocumentResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type attachTaskDocumentResponse422 = {
+  data: UnprocessableEntityResponse
+  status: 422
+}
+
+export type attachTaskDocumentResponseSuccess =
+  attachTaskDocumentResponse201 & {
+    headers: Headers
+  }
+export type attachTaskDocumentResponseError = (
+  | attachTaskDocumentResponse400
+  | attachTaskDocumentResponse401
+  | attachTaskDocumentResponse403
+  | attachTaskDocumentResponse404
+  | attachTaskDocumentResponse409
+  | attachTaskDocumentResponse412
+  | attachTaskDocumentResponse422
+) & {
+  headers: Headers
+}
+
+export type attachTaskDocumentResponse =
+  attachTaskDocumentResponseSuccess | attachTaskDocumentResponseError
+
+export const getAttachTaskDocumentUrl = (taskId: string) => {
+  return `/api/v1/tasks/${encodeURIComponent(String(taskId))}/documents`
+}
+
+/**
+ * @summary Attach a document the actor can access to a task
+ */
+export const attachTaskDocument = async (
+  taskId: string,
+  attachTaskDocumentBody: AttachTaskDocumentBody,
+  options?: RequestInit,
+): Promise<attachTaskDocumentResponse> => {
+  return customFetch<attachTaskDocumentResponse>(
+    getAttachTaskDocumentUrl(taskId),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(attachTaskDocumentBody),
     },
   )
 }
@@ -16960,76 +17134,6 @@ export const getReport = async (
   })
 }
 
-export type createTaskFromStepResponse201 = {
-  data: EntityResponse
-  status: 201
-}
-
-export type createTaskFromStepResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type createTaskFromStepResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type createTaskFromStepResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type createTaskFromStepResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type createTaskFromStepResponse409 = {
-  data: ConflictResponse
-  status: 409
-}
-
-export type createTaskFromStepResponseSuccess =
-  createTaskFromStepResponse201 & {
-    headers: Headers
-  }
-export type createTaskFromStepResponseError = (
-  | createTaskFromStepResponse400
-  | createTaskFromStepResponse401
-  | createTaskFromStepResponse403
-  | createTaskFromStepResponse404
-  | createTaskFromStepResponse409
-) & {
-  headers: Headers
-}
-
-export type createTaskFromStepResponse =
-  createTaskFromStepResponseSuccess | createTaskFromStepResponseError
-
-export const getCreateTaskFromStepUrl = (stepId: UUIDv7) => {
-  return `/api/v1/tasks/from-step/${encodeURIComponent(String(stepId))}`
-}
-
-/**
- * @summary Create the user task for an active workflow step
- */
-export const createTaskFromStep = async (
-  stepId: UUIDv7,
-  createTaskFromStepBody?: CreateTaskFromStepBody,
-  options?: RequestInit,
-): Promise<createTaskFromStepResponse> => {
-  return customFetch<createTaskFromStepResponse>(
-    getCreateTaskFromStepUrl(stepId),
-    {
-      ...options,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(createTaskFromStepBody),
-    },
-  )
-}
-
 export type linkWorkRecordDocumentResponse201 = {
   data: EntityResponse
   status: 201
@@ -17056,7 +17160,7 @@ export type linkWorkRecordDocumentResponse404 = {
 }
 
 export type linkWorkRecordDocumentResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -17126,7 +17230,7 @@ export type transitionWorkRecordReturnResponse404 = {
 }
 
 export type transitionWorkRecordReturnResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -17203,7 +17307,7 @@ export type transitionWorkRecordCompleteResponse404 = {
 }
 
 export type transitionWorkRecordCompleteResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -17280,7 +17384,7 @@ export type transitionWorkRecordCompleteSubmissionResponse404 = {
 }
 
 export type transitionWorkRecordCompleteSubmissionResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
@@ -17960,7 +18064,7 @@ export type transitionWorkRecordResponse404 = {
 }
 
 export type transitionWorkRecordResponse409 = {
-  data: ConflictResponse
+  data: ProblemFeatureDisabled
   status: 409
 }
 
