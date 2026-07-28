@@ -16,8 +16,8 @@ export type TaskPriority = generated.TaskPriority
 export type TaskAction = 'start' | 'block' | 'unblock' | 'complete' | 'cancel'
 export type TaskRelationship = generated.ListTasksRelationship
 
-export type TaskCollection = generated.EntityCollection
-export type CommentCollection = generated.EntityCollection
+export type TaskCollection = { items: generated.Task[]; total: number }
+export type CommentCollection = { items: (Record<string, unknown> & { id: string; body: string; author_user_id: string; created_at: string })[]; total: number }
 
 export type ListTasksFilters = {
   cursor?: string

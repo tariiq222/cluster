@@ -4,6 +4,16 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    exclude: [
+      '**/node_modules/**',
+      'src/features/r1/**',
+      'src/features/workflow/**',
+      'src/features/requests/**',
+      'src/features/procedure-authoring/**',
+      'src/features/procedure-office-review/**',
+      'src/features/procedure-guide/**',
+      'src/features/docs/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

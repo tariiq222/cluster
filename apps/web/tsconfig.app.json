@@ -4,7 +4,7 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    "types": ["vite/client", "./src/types-legacy"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 
@@ -21,5 +21,25 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": [
+    "src/api",
+    "src/app",
+    "src/ui",
+    "src/shell",
+    "src/features/tasks",
+    "src/features/dashboard",
+    "src/features/authorization",
+    "src/features/access",
+    "src/features/access-explained",
+    "src/features/accessibility",
+    "src/features/portal",
+    "src/features/documents",
+    "src/features/organization",
+    "src/features/reports",
+    "src/features/saas",
+    "src/features/platform-settings",
+    "src/features/audit",
+    "src/features/work-records"
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

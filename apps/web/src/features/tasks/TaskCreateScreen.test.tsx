@@ -148,7 +148,7 @@ describe('TaskCreateScreen', () => {
   })
 
   it('renders Arabic copy and sets dir="rtl" on the wrapper', () => {
-    const { promise } = Promise.withResolvers<tasksApi.Task>()
+    let resolve!: (v: tasksApi.Task) => void; const promise = new Promise<tasksApi.Task>((r) => { resolve = r })
     createTaskMock.mockReturnValue(promise as unknown as Promise<tasksApi.Task>)
     const { container } = render(<TaskCreateScreen locale="ar" session={session} />)
     expect(container.firstChild && (container.firstChild as HTMLElement).getAttribute('dir')).toBe('rtl')

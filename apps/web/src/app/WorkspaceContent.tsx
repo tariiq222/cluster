@@ -34,7 +34,6 @@ import {
   TemporaryAssignments,
 } from '../features/organization'
 import { ImportReview } from '../features/imports/ImportReview'
-import { Day2Workflow } from '../features/workflow/Day2Workflow'
 import { AuditWorkspace } from '../features/audit/AuditWorkspace'
 import {
   ApiDocsRoute,

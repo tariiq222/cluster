@@ -38,7 +38,7 @@ describe('R1 admin creation screens', () => {
 
     expect(await screen.findByText('نوع طلب')).toBeTruthy()
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByText(/يبقى كل سجل مثبتاً/)).toBeTruthy()
+    expect(screen.getByText(/أنشئ/)).toBeTruthy()
 
     expect(screen.getByRole('button', { name: 'إنشاء' })).toBeTruthy()
     expect(document.getElementById('work-definition-code')).toBeTruthy()

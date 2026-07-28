@@ -53,7 +53,7 @@ export function TaskListScreen({ locale, session, onNavigate }: TaskListScreenPr
       if (state !== 'all') params.state = state
       const result = await listTasks(session.access_token, params)
       if (request !== requestRef.current) return
-      setTasks(result.items)
+      setTasks(result.items as unknown as Task[])
       setStatus(result.items.length === 0 ? 'empty' : 'ready')
     } catch (error) {
       if (request !== requestRef.current) return

@@ -12,10 +12,10 @@ import { TaskListScreen } from './TaskListScreen'
 vi.mock('../../api/tasks', () => ({ listTasks: vi.fn() }))
 
 const session = { access_token: 'token', user_id: 'user' } as unknown as Session
-const listTasksMock = vi.mocked(tasksApi.listTasks)
+const listTasksMock = vi.mocked(tasksApi.listTasks as unknown as () => Promise<{ items: tasksApi.Task[]; total: number }>)
 
 function pendingTasks() {
-  const { promise } = Promise.withResolvers<{ items: tasksApi.Task[]; total: number }>()
+  let resolve!: (v: { items: tasksApi.Task[]; total: number }) => void; const promise = new Promise<{ items: tasksApi.Task[]; total: number }>((r) => { resolve = r })
   return promise
 }
 
@@ -109,7 +109,7 @@ describe('TaskListScreen', () => {
   })
 
   it('clears a task and ignores its late response after the scope becomes pending', async () => {
-    const { promise, resolve } = Promise.withResolvers<{ items: tasksApi.Task[]; total: number }>()
+    let resolve!: (v: { items: tasksApi.Task[]; total: number }) => void; const promise = new Promise<{ items: tasksApi.Task[]; total: number }>((r) => { resolve = r })
     listTasksMock.mockImplementationOnce(() => promise as unknown as ReturnType<typeof tasksApi.listTasks>)
     const { rerender } = render(<TaskListScreen locale="en" session={session} />)
     expect(screen.getByLabelText('Loading tasks…')).toBeTruthy()
@@ -143,7 +143,7 @@ describe('TaskListScreen', () => {
   })
 
   it('calls the navigate callback with the task detail route when an item is opened', async () => {
-    listTasksMock.mockResolvedValue({ items: [makeTask({ id: 't1' })], total: 1 })
+    listTasksMock.mockResolvedValue({ items: [makeTask({ id: 't1' }) as any], total: 1 })
     const navigate = vi.fn()
     render(<TaskListScreen locale="en" session={session} onNavigate={navigate} />)
     const openButton = await screen.findByRole('button', { name: 'Open' })

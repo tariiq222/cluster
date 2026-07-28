@@ -61,6 +61,8 @@ export type TasksCopy = {
   filterAll: string
   filterRelationshipLabel: string
   filterAssigned: string
+  filterCreated: string
+  filterParticipating: string
   filterStateOpen: string
   filterStateBlocked: string
   filterStateCompleted: string
@@ -349,6 +351,7 @@ export const tasksCopy: Record<Locale, TasksCopy> = {
     filterAll: 'All',
     filterRelationshipLabel: 'Filter by relationship',
     filterAssigned: 'Assigned to me',
+    filterCreated: 'Created by me',
     filterParticipating: 'I participate',
     filterStateOpen: 'Open',
     filterStateBlocked: 'Blocked',

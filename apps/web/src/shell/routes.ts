@@ -30,6 +30,7 @@ export type AppRoute =
   | { name: 'audit' }
   | { name: 'workflow-day2' }
   | { name: 'tasks' }
+  | { name: 'task-create' }
   | { name: 'task-detail'; taskId: string }
   | { name: 'work-definitions' }
   | { name: 'workflow-admin' }
@@ -127,6 +128,7 @@ const ROUTE_WORKSPACE: Record<AppRoute['name'], RouteWorkspace | null> = {
   create: null,
   detail: null,
   tasks: null,
+  'task-create': null,
   'task-detail': null,
   search: null,
   reports: null,
@@ -314,6 +316,8 @@ export function pathFromRoute(route: AppRoute): string {
       return '/admin/workflow/day2'
     case 'tasks':
       return '/tasks'
+    case 'task-create':
+      return '/tasks/new'
     case 'task-detail':
       return `/tasks/${route.taskId}`
     case 'work-definitions':
@@ -415,6 +419,7 @@ export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/audit') return { name: 'audit' }
   if (pathname === '/admin/workflow/day2') return { name: 'workflow-day2' }
   if (pathname === '/tasks') return { name: 'tasks' }
+  if (pathname === '/tasks/new') return { name: 'task-create' }
   if (pathname === '/admin/work-definitions')
     return { name: 'work-definitions' }
   if (pathname === '/admin/workflow') return { name: 'workflow-admin' }
@@ -590,6 +595,8 @@ function routeCapabilities(route: AppRoute): readonly string[] | null {
     case 'tasks':
     case 'task-detail':
       return ['tasks.read', 'tasks.list']
+    case 'task-create':
+      return ['tasks.create']
     case 'reports':
       return ['reporting.list']
     case 'dashboards':

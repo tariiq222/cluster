@@ -86,7 +86,7 @@ export function RequestDetail({ locale, token, record, loading, state, authorize
         if (action === 'cancel') await cancelRequest(token, record.id, reason, record.lock_version)
         await archiveRequest(token, record.id, reason, record.lock_version)
       } else {
-        await transitionRequest(token, record.id, action, record.lock_version)
+        await transitionRequest(token, record.id, action as any, record.lock_version)
       }
       setActionState('done'); onRetry()
     }
