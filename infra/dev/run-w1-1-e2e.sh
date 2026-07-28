@@ -264,6 +264,11 @@ if ! (
     printf '%s\n' '--- e2e runner log (tail 200) ---' >&2
     tail -n 200 "$LOG_FILE" >&2 || true
     printf '%s\n' '--- end e2e runner log ---' >&2
+    # The API's real exceptions land in the Laravel log, not artisan serve's
+    # stdout; surface them too.
+    printf '%s\n' '--- laravel.log (tail 120) ---' >&2
+    tail -n 120 "$API_DIR/storage/logs/laravel.log" >&2 || true
+    printf '%s\n' '--- end laravel.log ---' >&2
   fi
   exit 1
 fi
