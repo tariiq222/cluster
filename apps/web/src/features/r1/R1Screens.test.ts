@@ -33,24 +33,6 @@ describe('R1Screens common translations', () => {
     expect(arKeys).toEqual(enKeys)
   })
 
-  it('does not leave empty values for the new filter labels', () => {
-    expect(__test.common.ar.filterOpen).toBeTruthy()
-    expect(__test.common.ar.filterDone).toBeTruthy()
-    expect(__test.common.ar.filterAll).toBeTruthy()
-    expect(__test.common.en.filterOpen).toBeTruthy()
-    expect(__test.common.en.filterDone).toBeTruthy()
-    expect(__test.common.en.filterAll).toBeTruthy()
-  })
-
-  it('exposes confirm and refresh labels in both locales', () => {
-    expect(__test.common.ar.confirmComplete).toMatch(/[?؟]$/)
-    expect(__test.common.en.confirmComplete).toMatch(/[?؟]$/)
-    expect(__test.common.ar.confirmReturn).toMatch(/[?؟]$/)
-    expect(__test.common.en.confirmReturn).toMatch(/[?؟]$/)
-    expect(__test.common.ar.refresh).toBeTruthy()
-    expect(__test.common.en.refresh).toBeTruthy()
-  })
-
   it('uses Arabic-default copy for headings', () => {
     expect(__test.common.ar.loading).toBe('جارٍ التحميل…')
     expect(__test.common.en.loading).toBe('Loading…')

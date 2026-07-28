@@ -1,5 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
-import { formattingLocale } from '../../app/copy'
+import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { useLocale, useToken } from '../../app/session-context'
 import { Inbox } from 'lucide-react'
 import { stateFromError } from '../../api'
@@ -12,7 +11,6 @@ import {
   getReportExport,
   listDashboards,
   listReports,
-  listTasks,
   listWorkDefinitions,
   listWorkflowDefinitions,
   listWorkflowInstances,
@@ -20,7 +18,6 @@ import {
   publishWorkflowVersion,
   requestReportExport,
   searchRecords,
-  transitionTask,
   type R1Collection,
   type R1Entity,
 } from '../../api/r1'
@@ -42,32 +39,7 @@ const common = {
     name: 'الاسم',
     code: 'الرمز',
     updated: 'آخر تحديث',
-    confirmComplete: 'هل تريد إكمال هذه المهمة؟',
-    confirmReturn: 'هل تريد إعادة المهمة للمراجعة؟',
-    cancel: 'إلغاء',
-    filterAll: 'الكل',
-    filterOpen: 'المفتوحة',
-    filterDone: 'المكتملة',
-    refresh: 'تحديث',
-    dueAt: 'تاريخ الاستحقاق',
-    linkedRecord: 'السجل المرتبط',
-    openRecord: 'فتح السجل',
-    completedAt: 'وقت الإكمال',
-    exportFailed: 'فشل تصدير التقرير. يمكنك إعادة المحاولة.',
-    exportRetry: 'إعادة تصدير',
-    actions: 'الإجراءات',
-    actionAppliedSuccessfully: 'تم تنفيذ العملية بنجاح.',
-    myTasks: 'مهامي',
-    filterTasks: 'تصفية المهام',
-    open: 'فتح',
-    complete: 'إكمال',
-    return: 'إعادة',
-    noDescription: 'لا يوجد وصف',
-    status2: 'الحالة',
-    workflowStep: 'خطوة المسار',
-    applying: 'جارٍ التنفيذ…',
     workDefinitionAdministration: 'إدارة تعريفات العمل',
-    existingRecordsRemainPinnedToThe: 'يبقى كل سجل مثبتاً على الإصدار الذي بدأ به عند نشر إصدار أحدث.',
     createADefinitionTheSystemPublishes: 'أنشئ تعريفاً ثم ينشر النظام الإصدار الأول تلقائياً.',
     lowercaseLatinLettersDigitsAndDashes: 'أحرف لاتينية صغيرة وأرقام وشرطات فقط.',
     publishing: 'جارٍ النشر…',
@@ -114,32 +86,7 @@ const common = {
     name: 'Name',
     code: 'Code',
     updated: 'Last refreshed',
-    confirmComplete: 'Complete this task?',
-    confirmReturn: 'Return this task for revision?',
-    cancel: 'Cancel',
-    filterAll: 'All',
-    filterOpen: 'Open',
-    filterDone: 'Done',
-    refresh: 'Refresh',
-    dueAt: 'Due',
-    linkedRecord: 'Linked record',
-    openRecord: 'Open record',
-    completedAt: 'Completed at',
-    exportFailed: 'Report export failed. You can try again.',
-    exportRetry: 'Retry export',
-    actions: 'Actions',
-    actionAppliedSuccessfully: 'Action applied successfully.',
-    myTasks: 'My tasks',
-    filterTasks: 'Filter tasks',
-    open: 'Open',
-    complete: 'Complete',
-    return: 'Return',
-    noDescription: 'No description',
-    status2: 'Status',
-    workflowStep: 'Workflow step',
-    applying: 'Applying…',
     workDefinitionAdministration: 'Work definition administration',
-    existingRecordsRemainPinnedToThe: 'Existing records remain pinned to the version on which they started.',
     createADefinitionTheSystemPublishes: 'Create a definition; the system publishes its first version automatically.',
     lowercaseLatinLettersDigitsAndDashes: 'Lowercase Latin letters, digits, and dashes only.',
     publishing: 'Publishing…',
@@ -205,160 +152,6 @@ function mutationAllowed(capabilities: readonly string[], capability: string): b
 }
 
 type R1CapabilityProps = { capabilities: readonly string[] }
-
-export function TasksScreen({ capabilities }: R1CapabilityProps) {
-  const locale = useLocale()
-  const token = useToken()
-  const [items, setItems] = useState<R1Entity[]>([])
-  const [state, setState] = useState<State>('loading')
-  const [selected, setSelected] = useState<R1Entity | null>(null)
-  const [filter, setFilter] = useState<'all' | 'open' | 'done'>('open')
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null)
-  const [pendingAction, setPendingAction] = useState<{ item: R1Entity; action: 'complete' | 'return-completion' } | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const canComplete = mutationAllowed(capabilities, 'tasks.complete')
-  const canReturnCompletion = mutationAllowed(capabilities, 'tasks.update')
-  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
-  /**
-   * Track in-flight load and mutation requests so superseded calls cannot
-   * overwrite the freshest snapshot. The unmount cleanup bumps the refs so no
-   * async callback writes after the tasks route is torn down.
-   */
-  const activeRef = useRef(true)
-  const loadRequestRef = useRef(0)
-  const mutationEpochRef = useRef(0)
-  useEffect(() => () => {
-    activeRef.current = false
-    loadRequestRef.current += 1
-    mutationEpochRef.current += 1
-  }, [])
-
-  const load = useCallback(async () => {
-    const epoch = ++loadRequestRef.current
-    activeRef.current = true
-    setState('loading')
-    try {
-      const result = await listTasks(token)
-      if (!activeRef.current || epoch !== loadRequestRef.current) return
-      setItems(result.items ?? [])
-      setLastRefreshedAt(new Date())
-      setState(result.items?.length ? 'ready' : 'empty')
-    } catch (error) {
-      if (!activeRef.current || epoch !== loadRequestRef.current) return
-      setState(stateFrom(error))
-    }
-  }, [token])
-
-  useEffect(() => { void load() }, [load])
-
-  const filtered = items.filter((item) => {
-    const status = String(item.status ?? '').toLowerCase()
-    if (filter === 'open') return status !== 'completed' && status !== 'done'
-    if (filter === 'done') return status === 'completed' || status === 'done'
-    return true
-  })
-
-  async function confirmAction() {
-    if (!pendingAction) return
-    const requiredCapability = pendingAction.action === 'complete' ? 'tasks.complete' : 'tasks.update'
-    if (!mutationAllowed(capabilities, requiredCapability)) {
-      setPendingAction(null)
-      return
-    }
-    setSubmitting(true)
-    try {
-      await transitionTask(token, String(pendingAction.item.id), pendingAction.action, Number(pendingAction.item.lock_version ?? 1))
-      setFeedback({ kind: 'success', message: common[locale].actionAppliedSuccessfully })
-      setPendingAction(null)
-      await load()
-    } catch (error) {
-      setFeedback({ kind: 'error', message: stateFrom(error) === 'stale' ? common[locale].stale : common[locale].error })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const t = common[locale]
-  return (
-    <section className="ui-page" aria-labelledby="tasks-heading">
-      <PageHeader id="tasks-heading" title={common[locale].myTasks} />
-      {lastRefreshedAt && <p className="status-message">{t.updated}: {lastRefreshedAt.toLocaleTimeString(formattingLocale(locale))}</p>}
-      <div className="filter-bar" role="group" aria-label={common[locale].filterTasks}>
-        {(['open', 'done', 'all'] as const).map((value) => (
-          <Button
-            key={value}
-            variant={filter === value ? 'primary' : 'secondary'}
-            aria-pressed={filter === value}
-            onClick={() => setFilter(value)}
-          >
-            {value === 'open' ? t.filterOpen : value === 'done' ? t.filterDone : t.filterAll}
-          </Button>
-        ))}
-        <Button variant="quiet" onClick={() => void load()} aria-label={t.refresh}>{t.refresh}</Button>
-      </div>
-      {feedback && (
-        <div className={`status-message ${feedback.kind === 'error' ? 'error' : 'success'}`} role={feedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">
-          {feedback.message}
-        </div>
-      )}
-      <ScreenState locale={locale} state={state === 'ready' && filtered.length === 0 ? 'empty' : state} retry={() => void load()} />
-      {state === 'ready' && filtered.length > 0 && (
-        <EntityTable locale={locale} items={filtered} actions={(item) => {
-          const status = String(item.status ?? '').toLowerCase()
-          const isDone = status === 'completed' || status === 'done'
-          return (
-            <div className="table-actions">
-              <Button variant="quiet" onClick={() => setSelected(item)}>{common[locale].open}</Button>
-              {!isDone && canComplete && (
-                <Button onClick={() => setPendingAction({ item, action: 'complete' })} disabled={submitting}>{common[locale].complete}</Button>
-              )}
-              {!isDone && canReturnCompletion && (
-                <Button variant="secondary" onClick={() => setPendingAction({ item, action: 'return-completion' })} disabled={submitting}>{common[locale].return}</Button>
-              )}
-            </div>
-          )
-        }} />
-      )}
-      {selected && (
-        <div className="surface-card" aria-live="polite">
-          <h2>{String(selected.title ?? selected.id)}</h2>
-          <p>{String(selected.description ?? (common[locale].noDescription))}</p>
-          <dl className="record-summary">
-            <div><dt>{common[locale].status2}</dt><dd>{String(selected.status ?? '—')}</dd></div>
-            <div><dt>{common[locale].workflowStep}</dt><dd>{String(selected.workflow_step_id ?? '—')}</dd></div>
-            {selected.due_at != null && <div><dt>{t.dueAt}</dt><dd>{String(selected.due_at)}</dd></div>}
-            {selected.completed_at != null && <div><dt>{t.completedAt}</dt><dd>{String(selected.completed_at)}</dd></div>}
-            {selected.work_record_id != null && (
-              <div>
-                <dt>{t.linkedRecord}</dt>
-                <dd>
-                  <a href={`/work-records/${String(selected.work_record_id)}`} onClick={(event) => { event.preventDefault(); window.history.pushState({}, '', `/work-records/${String(selected.work_record_id)}`); window.dispatchEvent(new PopStateEvent('popstate')) }}>
-                    {t.openRecord}
-                  </a>
-                </dd>
-              </div>
-            )}
-          </dl>
-          <Button variant="secondary" onClick={() => setSelected(null)}>{t.cancel}</Button>
-        </div>
-      )}
-      {pendingAction && (
-        <div className="surface-card" role="dialog" aria-labelledby="task-confirm-heading" aria-describedby="task-confirm-body">
-          <h2 id="task-confirm-heading">{pendingAction.action === 'complete' ? t.confirmComplete : t.confirmReturn}</h2>
-          <p id="task-confirm-body">{String(pendingAction.item.title ?? pendingAction.item.id)}</p>
-          <div className="table-actions">
-            <Button onClick={() => void confirmAction()} disabled={submitting}>
-              {submitting
-                ? (common[locale].applying)
-                : (pendingAction.action === 'complete' ? t.confirmComplete : t.confirmReturn).split('?')[0]}
-            </Button>
-            <Button variant="secondary" onClick={() => setPendingAction(null)} disabled={submitting}>{t.cancel}</Button>
-          </div>
-        </div>
-      )}
-    </section>
-  )
-}
 
 export function WorkDefinitionsScreen({ capabilities }: R1CapabilityProps) {
   const locale = useLocale()

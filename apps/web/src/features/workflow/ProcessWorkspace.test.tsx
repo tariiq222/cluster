@@ -9,7 +9,6 @@ vi.mock('./Day2Workflow', () => ({
 }))
 
 vi.mock('../r1/R1Screens', () => ({
-  TasksScreen: () => <div>Tasks screen</div>,
   WorkDefinitionsScreen: () => <div>Request types screen</div>,
   WorkflowAdminScreen: () => <div>Approval paths screen</div>,
 }))

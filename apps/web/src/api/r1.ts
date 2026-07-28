@@ -14,7 +14,6 @@ export type AuthorizationResource =
 export type AuthorizationItem = R1Entity & { name?: string; code?: string; status?: string }
 export type Day2Entity = R1Entity
 export type WorkflowAction = 'publish' | 'test' | 'approve' | 'sign'
-export type TaskAction = 'start' | 'return-completion' | 'submit-completion' | 'complete'
 export type AllowedAction = string
 export type FieldAccessState = 'hidden' | 'masked' | 'readonly' | 'editable'
 export type FieldAccess = Record<string, FieldAccessState>
@@ -73,18 +72,13 @@ export const listWorkflowInstances = async (token: string) => unwrap<R1Collectio
 export const startWorkflow = async (token: string, input: generated.WorkflowStart) => unwrap<R1Entity>(await generated.startWorkflow(input, requestInit(token, { command: true })))
 export const getWorkflowInstance = async (token: string, id: string) => unwrap<{ instance: R1Entity; steps: R1Entity[] }>(await generated.getWorkflowInstance(id, requestInit(token)))
 
-export const createTaskFromStep = async (token: string, stepId: string, title?: string) => unwrap<R1Entity>(await generated.createTaskFromStep(stepId, title ? { title } : undefined, requestInit(token, { command: true })))
-export const listTasks = async (token: string) => unwrap<R1Collection>(await generated.listTasks({ limit: 50 }, requestInit(token)))
-export const transitionTask = async (token: string, id: string, action: TaskAction, lock = 1) => unwrap<R1Entity>(await generated.transitionTask(id, action, undefined, requestInit(token, { command: true, lockVersion: lock })))
-
 export const createRequest = async (token: string, input: Record<string, unknown>) => unwrap<R1Entity>(await generated.createWorkRecord(input as unknown as generated.WorkRecordCreate, requestInit(token, { command: true })))
 export const listR1WorkRecords = async (token: string) => unwrap<R1Collection>(await generated.listWorkRecords({ limit: 50 }, requestInit(token)))
 export const listAuthorizedWorkRecords = async (token: string): Promise<R1Collection<AuthorizedWorkRecord>> => unwrap<R1Collection<AuthorizedWorkRecord>>(await generated.listWorkRecords({ limit: 50 }, requestInit(token)))
 export const getR1WorkRecord = async (token: string, id: string) => unwrap<AuthorizedWorkRecord>(await generated.getWorkRecord(id, requestInit(token)))
 export const getAuthorizedWorkRecord = getR1WorkRecord
-export const transitionRequest = async (token: string, id: string, action: 'submit' | 'return' | 'complete' | 'complete-submission', lock = 1) => unwrap<R1Entity>(await generated.transitionWorkRecord(id, action, requestInit(token, { command: true, lockVersion: lock })))
+export const transitionRequest = async (token: string, id: string, action: 'submit' | 'complete', lock = 1) => unwrap<R1Entity>(await generated.transitionWorkRecord(id, action, requestInit(token, { command: true, lockVersion: lock })))
 export const submitRequest = (token: string, id: string, lock = 1) => transitionRequest(token, id, 'submit', lock)
-export const returnRequest = (token: string, id: string, lock = 1) => transitionRequest(token, id, 'return', lock)
 export const completeRequest = (token: string, id: string, lock = 1) => transitionRequest(token, id, 'complete', lock)
 export type GovernedWorkRecordAction = 'cancel' | 'archive'
 

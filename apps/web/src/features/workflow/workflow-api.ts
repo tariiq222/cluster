@@ -164,15 +164,6 @@ export async function listTasks(token: string): Promise<R1Collection<Task>> {
   return unwrap<R1Collection<Task>>(await generated.listTasks({ limit: 100 }, requestInit(token)))
 }
 
-export async function getTask(token: string, taskId: string): Promise<Task> {
-  return unwrap<Task>(await generated.getTask(taskId, requestInit(token)))
-}
-
-export async function getTaskComments(token: string, taskId: string): Promise<R1Collection<R1Entity>> {
-  const collection = unwrap<{ items: R1Entity[]; next_cursor?: string | null }>(await generated.listTaskComments(taskId, { limit: 100 }, requestInit(token)))
-  return { ...collection, total: collection.items?.length ?? 0 }
-}
-
 export function workflowLockVersion(value: unknown): number {
   if (typeof value === 'number' && value > 0) return value
   if (typeof value === 'string') return parseStrongEtag(value) ?? 1

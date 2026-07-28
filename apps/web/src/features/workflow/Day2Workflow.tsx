@@ -14,11 +14,9 @@ import {
   publishWorkflowVersion,
   startWorkflow,
   getWorkflowInstance,
-  createTaskFromStep,
   submitRequest,
   returnRequest,
   completeRequest,
-  transitionTask,
   type Day2Entity,
 } from '../../api/r1'
 import { Button, Field, Page, PageHeader, Panel, PanelGrid } from '../../ui'
@@ -170,16 +168,6 @@ export function Day2Workflow({
         session.access_token,
         String(instance.id),
       )
-      const step =
-        detail.steps.find((item) => item.status === 'active') ?? detail.steps[0]
-      if (step?.id)
-        setTask(
-          await createTaskFromStep(
-            session.access_token,
-            String(step.id),
-            title,
-          ),
-        )
     }, t.done)
   }
   return (
@@ -229,25 +217,6 @@ export function Day2Workflow({
               <Button
                 variant="secondary"
                 disabled={busy}
-                onClick={() =>
-                  void run(async () => {
-                    const returnedTask = await transitionTask(
-                      session.access_token,
-                      String(task.id),
-                      'return-completion',
-                      Number(task.lock_version ?? 1),
-                    )
-                    setTask(returnedTask)
-                    if (record)
-                      setRecord(
-                        await returnRequest(
-                          session.access_token,
-                          String(record.id),
-                          Number(record.lock_version ?? 1),
-                        ),
-                      )
-                  }, t.done)
-                }
               >
                 {t.returned}
               </Button>

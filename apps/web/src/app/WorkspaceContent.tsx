@@ -8,7 +8,6 @@ import { RequestForm } from '../features/requests/RequestForm'
 import {
   ReportsScreen,
   SearchScreen,
-  TasksScreen,
   WorkDefinitionsScreen,
   WorkflowAdminScreen,
 } from '../features/r1/R1Screens'
@@ -24,6 +23,8 @@ import { NewProcedureRequest } from '../features/workflow/NewProcedureRequest'
 import { ApprovalDetail } from '../features/workflow/ApprovalDetail'
 import { MyRequestDetail } from '../features/workflow/MyRequestDetail'
 import { TaskDetail } from '../features/tasks/TaskDetail'
+import { TaskListScreen } from '../features/tasks/TaskListScreen'
+import { TaskCreateScreen } from '../features/tasks/TaskCreateScreen'
 import { WorkDashboard } from '../features/dashboard/WorkDashboard'
 import { DashboardsScreen } from '../features/reporting/DashboardsScreen'
 import { AccessWorkspace } from '../features/authorization/AccessWorkspace'
@@ -208,20 +209,12 @@ export function WorkspaceContent({
             capabilities={principal.capabilities ?? []}
           />
         )
-      case 'workflow-day2':
-        return <Day2Workflow session={session} />
       case 'tasks':
-        return <TasksScreen capabilities={principal.capabilities ?? []} />
+        return <TaskListScreen locale={locale} session={session} onNavigate={navigate} />
+      case 'task-create':
+        return <TaskCreateScreen locale={locale} session={session} onNavigate={navigate} />
       case 'task-detail':
-        return (
-          <TaskDetail
-            locale={locale}
-            session={session}
-            taskId={route.taskId}
-            scopeReady={principal.scopeReady}
-            scopeEpoch={principal.scopeEpoch}
-          />
-        )
+        return <TaskDetail locale={locale} session={session} taskId={route.taskId} scopeReady={principal.scopeReady} scopeEpoch={principal.scopeEpoch} />
       case 'work-definitions':
         return (
           <WorkDefinitionsScreen capabilities={principal.capabilities ?? []} />
