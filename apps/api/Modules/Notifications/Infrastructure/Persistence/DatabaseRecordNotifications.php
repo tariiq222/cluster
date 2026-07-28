@@ -6,9 +6,15 @@ namespace Modules\Notifications\Infrastructure\Persistence;
 
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Str;
-use Modules\Notifications\Contracts\RecordNotifications;
+use Modules\Tasks\Contracts\RecordTaskNotifications;
 
-final class DatabaseRecordNotifications implements RecordNotifications
+/**
+ * Notifications-table writer. Bound from NotificationsServiceProvider to the
+ * Tasks-owned mirror contract RecordTaskNotifications (Tasks cannot import
+ * Notifications directly — see ModuleBoundariesTest). Defensive dedupe of
+ * recipients; caller participates in the active transaction.
+ */
+final class DatabaseRecordNotifications implements RecordTaskNotifications
 {
     public function __construct(private readonly ConnectionInterface $database)
     {
@@ -18,7 +24,7 @@ final class DatabaseRecordNotifications implements RecordNotifications
     {
         $recipients = array_values(array_unique(array_filter(
             $recipientUserIds,
-            static fn (mixed $userId): bool => is_string($userId) && $userId !== '',
+            static fn (string $userId): bool => $userId !== '',
         )));
         if ($recipients === []) {
             return;
@@ -52,7 +58,7 @@ final class DatabaseRecordNotifications implements RecordNotifications
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function resolveTitle(string $type, array $payload): string
     {
@@ -65,7 +71,7 @@ final class DatabaseRecordNotifications implements RecordNotifications
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function resolveSourceRecordId(array $payload): ?string
     {
@@ -75,7 +81,7 @@ final class DatabaseRecordNotifications implements RecordNotifications
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function resolveGroupKey(string $type, array $payload): ?string
     {

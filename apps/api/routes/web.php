@@ -107,6 +107,7 @@ use Modules\Reporting\Features\ListDashboards\Http\ListDashboardsController;
 use Modules\Reporting\Features\ListReports\Http\ListReportsController;
 use Modules\Reporting\Features\Reports\Http\GetReportController;
 use Modules\Search\Features\Search\Http\SearchController;
+use Modules\Tasks\Features\DocumentLink\Http\TaskDocumentController;
 use Modules\Tasks\Features\Http\TaskController;
 use Modules\Tasks\Features\Http\TaskEngagementController;
 use Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController;
@@ -303,10 +304,11 @@ Route::prefix('api/v1')->group(function (): void {
         Route::post('workflow/instances', [WorkflowController::class, 'instances'])->middleware(EnforceWorkManagementFeature::class);
         Route::post('tasks', [TaskController::class, 'store']);
         Route::patch('tasks/{taskId}', [TaskController::class, 'update']);
-        Route::post('tasks/from-step/{stepId}', [TaskController::class, 'fromStep']);
+        // removed: POST /tasks/from-step/{stepId}
         Route::post('tasks/{taskId}/participants', [TaskEngagementController::class, 'addParticipant']);
         Route::post('tasks/{taskId}/comments', [TaskEngagementController::class, 'addComment']);
-        Route::post('tasks/{taskId}/{workflowTaskAction}', [TaskController::class, 'transition'])->whereIn('workflowTaskAction', ['start', 'return', 'return-completion', 'submit-completion', 'complete', 'cancel']);
+        Route::post('tasks/{taskId}/documents', [TaskDocumentController::class, 'attach']);
+        Route::post('tasks/{taskId}/{taskAction}', [TaskController::class, 'transition'])->whereIn('taskAction', ['start', 'block', 'unblock', 'complete', 'cancel']);
         Route::post('workflow/steps/{stepId}/decisions', [WorkflowController::class, 'decideStep'])->middleware(EnforceWorkManagementFeature::class);
         Route::post('workflow/steps/{stepId}/{stepAction}', [WorkflowController::class, 'actOnStep'])->middleware(EnforceWorkManagementFeature::class)->whereIn('stepAction', ['reassign', 'escalate']);
         Route::post('workflow/instances/{instanceId}/cancel', [WorkflowController::class, 'cancelInstance'])->middleware(EnforceWorkManagementFeature::class);

@@ -25,8 +25,8 @@ final class WorkManagementFeatureGateTest extends TestCase
 
     private string $token;
 
-    /** @var list<string> */
-    private array $accessCalls = [];
+    /** The active access double; reads/writes its $calls property. */
+    private object $accessDouble;
 
     protected function setUp(): void
     {
@@ -48,11 +48,12 @@ final class WorkManagementFeatureGateTest extends TestCase
 
     private function bindAccess(bool $allowed): void
     {
-        $calls = &$this->accessCalls;
-        $this->app->instance(DecideAccess::class, new class($allowed, $calls) implements DecideAccess
+        $this->accessDouble = new class($allowed) implements DecideAccess
         {
-            /** @param list<string> $calls */
-            public function __construct(private readonly bool $allowed, private array &$calls) {}
+            /** @var list<string> */
+            public array $calls = [];
+
+            public function __construct(private readonly bool $allowed) {}
 
             public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
             {
@@ -80,7 +81,8 @@ final class WorkManagementFeatureGateTest extends TestCase
                     classification: 'internal',
                 );
             }
-        });
+        };
+        $this->app->instance(DecideAccess::class, $this->accessDouble);
     }
 
     public function test_work_record_mutation_returns_409_feature_disabled_with_zero_side_effects(): void
@@ -145,8 +147,8 @@ final class WorkManagementFeatureGateTest extends TestCase
         // Non-disclosure: the gate emits one fixed body regardless of route or id.
         $this->assertSame($list->json(), $detail->json());
         // Read-side gate must not persist access decisions.
-        $this->assertContains('evaluateOnly', $this->accessCalls);
-        $this->assertNotContains('decide', $this->accessCalls);
+        $this->assertContains('evaluateOnly', $this->accessDouble->calls);
+        $this->assertNotContains('decide', $this->accessDouble->calls);
         $this->assertSame($baselineDecisions, DB::table('access_decisions')->count());
     }
 
@@ -158,7 +160,7 @@ final class WorkManagementFeatureGateTest extends TestCase
             ->getJson('/api/v1/workflow/instances', ['X-Correlation-ID' => self::CORRELATION]);
 
         $response->assertOk();
-        $this->assertContains('evaluateOnly', $this->accessCalls);
+        $this->assertContains('evaluateOnly', $this->accessDouble->calls);
     }
 
     public function test_task_routes_are_not_gated(): void

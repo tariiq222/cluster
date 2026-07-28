@@ -6,6 +6,7 @@ use App\Http\Authentication\SessionPrincipalResolver;
 use Illuminate\Support\ServiceProvider;
 use Modules\Identity\Contracts\ResolveAccountEntitlement;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Identity\Contracts\ResolvePersonForUser;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Identity\Contracts\ResolveUserForPerson;
 use Modules\Identity\Domain\PasswordPolicy;
@@ -21,6 +22,7 @@ use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\Developmen
 use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
+use Modules\Identity\Infrastructure\Persistence\DatabaseResolvePersonForUser;
 use Modules\Identity\Infrastructure\Persistence\ResolveUserForPerson as DatabaseResolveUserForPerson;
 use Modules\Identity\Infrastructure\Security\LocalUsernameDenylist;
 use Modules\Identity\Infrastructure\Security\PersistentPreAuthThrottle;
@@ -38,6 +40,7 @@ final class IdentityServiceProvider extends ServiceProvider
         $this->app->bind(ResolvePrincipalContext::class, SessionPrincipalContextResolver::class);
         $this->app->bind(ResolveAccountEntitlement::class, DatabaseResolveAccountEntitlement::class);
         $this->app->bind(ResolveUserForPerson::class, DatabaseResolveUserForPerson::class);
+        $this->app->bind(ResolvePersonForUser::class, DatabaseResolvePersonForUser::class);
         $this->app->bind(AuthenticateUser::class, AuthenticationHandler::class);
         $this->app->bind(PreAuthThrottle::class, PersistentPreAuthThrottle::class);
         $this->app->bind(IssueActivationToken::class, ActivationHandler::class);

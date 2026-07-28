@@ -7,16 +7,16 @@ namespace Modules\Notifications\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Modules\Notifications\Contracts\RecordNotifications;
+use Modules\Tasks\Contracts\RecordTaskNotifications;
 use Tests\TestCase;
 
-final class RecordNotificationsTest extends TestCase
+final class RecordTaskNotificationsTest extends TestCase
 {
     use RefreshDatabase;
 
     public function test_record_writes_one_unread_row_per_unique_recipient_inside_caller_transaction(): void
     {
-        $service = $this->app->make(RecordNotifications::class);
+        $service = $this->app->make(RecordTaskNotifications::class);
 
         $payload = [
             'task_id' => (string) Str::uuid7(),
@@ -49,7 +49,7 @@ final class RecordNotificationsTest extends TestCase
 
     public function test_record_opened_inside_an_outer_transaction_rolls_back_when_the_caller_aborts(): void
     {
-        $service = $this->app->make(RecordNotifications::class);
+        $service = $this->app->make(RecordTaskNotifications::class);
 
         $payload = [
             'task_id' => (string) Str::uuid7(),
