@@ -38,7 +38,15 @@ readonly MYSQL_ROOT_PASSWORD="${W1_1_MYSQL_ROOT_PASSWORD:-local-dev-root}"
 readonly LOG_FILE="${TMPDIR:-/tmp}/cluster-w1-1-e2e-$$.log"
 readonly COMPOSE=(docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" --file "$COMPOSE_FILE")
 readonly PLAYWRIGHT_GREP="${W1_1_PLAYWRIGHT_GREP:-}"
-readonly COORDINATOR_BATCHES="${W1_1_COORDINATOR_BATCHES:-2}"
+# With work_management disabled (the default), no work-record submissions
+# flow, so the outbox relay/notification coordinator has nothing to drain;
+# skip it. When the feature is re-enabled the coordinator drains 2 batches
+# again unless explicitly overridden.
+if [[ "${CLUSTER_WORK_MANAGEMENT_ENABLED:-false}" == "true" ]]; then
+  readonly COORDINATOR_BATCHES="${W1_1_COORDINATOR_BATCHES:-2}"
+else
+  readonly COORDINATOR_BATCHES="${W1_1_COORDINATOR_BATCHES:-0}"
+fi
 readonly COORDINATOR_TARGET="${W1_1_COORDINATOR_TARGET:-$((COORDINATOR_BATCHES * 2))}"
 if ! [[ "$COORDINATOR_BATCHES" =~ ^[0-9]+$ ]]; then
   printf 'ERROR: W1_1_COORDINATOR_BATCHES must be a non-negative integer.\n' >&2
