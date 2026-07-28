@@ -164,6 +164,10 @@ readonly API_ENV=(
   REDIS_HOST=127.0.0.1
   REDIS_PORT="$REDIS_PORT"
   SESSION_DRIVER=array
+  # The maintenance middleware caches the active window per request; without
+  # an explicit store the fixture falls back to the database cache store and
+  # 500s on every POST because migrate:fresh never creates the cache table.
+  CACHE_STORE=array
   IDENTITY_SESSION_SECURE=false
   AUDIT_INTEGRITY_KEYS=w1-1-e2e:test-w1-1-e2e-audit-integrity-key-32-bytes-minimum-AAAA
   AUDIT_INTEGRITY_KEY_VERSION=w1-1-e2e
