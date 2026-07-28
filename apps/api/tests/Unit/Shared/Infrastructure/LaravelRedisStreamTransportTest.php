@@ -100,10 +100,22 @@ final class LaravelRedisStreamTransportTest extends TestCase
     #[RequiresPhpExtension('redis')]
     public function test_phpredis_driver_passes_unprefixed_keys_to_eval(): void
     {
-        $client = Mockery::mock(\Redis::class);
-        $client->shouldReceive('eval')->once()
-            ->with('return KEYS[1]', ['platform.events.v1', 'arg-1'], 1)
-            ->andReturn('platform.events.v1');
+        // Mockery doubles of the internal \Redis class fall through to the
+        // real (unconnected) implementation on some phpredis builds; use a
+        // recording subclass instead.
+        $client = new class extends \Redis
+        {
+            /** @var list<array{0: string, 1: list<string>, 2: int}> */
+            public array $evalCalls = [];
+
+            /** @param list<string> $args */
+            public function eval($script, $args = [], $num_keys = 0): mixed
+            {
+                $this->evalCalls[] = [$script, $args, $num_keys];
+
+                return 'platform.events.v1';
+            }
+        };
 
         $connection = Mockery::mock(PhpRedisConnection::class);
         $connection->shouldReceive('client')->andReturn($client);
@@ -111,6 +123,7 @@ final class LaravelRedisStreamTransportTest extends TestCase
         $driver = new PhpRedisStreamDriver($connection);
 
         $this->assertSame('platform.events.v1', $driver->eval('return KEYS[1]', ['platform.events.v1'], ['arg-1']));
+        $this->assertSame([['return KEYS[1]', ['platform.events.v1', 'arg-1'], 1]], $client->evalCalls);
     }
 
     public function test_predis_driver_creates_group_through_prefixable_command_pipeline(): void
