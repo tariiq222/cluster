@@ -48,6 +48,11 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'list',
+  expect: {
+    // Cold Vite dev servers on CI runners take well over the 5s default to
+    // compile the first page load; give assertions CI headroom.
+    timeout: 15_000,
+  },
   use: {
     baseURL: WEB_ORIGIN,
     locale: 'ar-SA',
