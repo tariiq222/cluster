@@ -20,6 +20,11 @@ parameters:
                 - Modules/PlatformSettings/Tests/PlatformOperationsHttpAdapterTest.php
                 - Modules/PlatformSettings/Tests/TechnicalLogDeferralTest.php
                 - Modules/Audit/Tests/AuditIntegrityTest.php
+            # PHP-version-dependent inference: on PHP 8.5 the fixture doubles
+            # resolve to a narrower type (assert is always false and needs the
+            # ignore); on PHP 8.4 no error is reported and an unmatched ignore
+            # would fail the run.
+            reportUnmatched: false
         -
             message: '#Variable .+ in isset\(\) always exists and is always null#'
             paths:
