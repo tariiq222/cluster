@@ -257,6 +257,14 @@ if ! (
   ./node_modules/.bin/playwright test "${PLAYWRIGHT_ARGS[@]}"
 ) >>"$LOG_FILE" 2>&1; then
   printf 'ERROR: Playwright walking-skeleton suite failed; see %s for diagnostics.\n' "$LOG_FILE" >&2
+  # CI has no interactive access to the runner log; surface the failure
+  # context inline so architecture-closure failures are diagnosable from
+  # the job output alone.
+  if [[ "${CI:-false}" == "true" ]]; then
+    printf '%s\n' '--- e2e runner log (tail 200) ---' >&2
+    tail -n 200 "$LOG_FILE" >&2 || true
+    printf '%s\n' '--- end e2e runner log ---' >&2
+  fi
   exit 1
 fi
 
