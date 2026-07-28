@@ -48,6 +48,10 @@ jobs:
     needs: [intake]
     timeout-minutes: 20
     runs-on: ubuntu-latest
+    env:
+      # package:discover boots artisan and loads config/audit.php, which
+      # refuses to boot without integrity keys when APP_ENV=production.
+      APP_ENV: testing
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: shivammathur/setup-php@a42e73e16d831796463b22b8d70a3efcad74e074
@@ -93,6 +97,8 @@ jobs:
     needs: [api-static]
     timeout-minutes: 25
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: shivammathur/setup-php@a42e73e16d831796463b22b8d70a3efcad74e074
@@ -122,6 +128,8 @@ jobs:
     needs: [contracts]
     timeout-minutes: 30
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: shivammathur/setup-php@a42e73e16d831796463b22b8d70a3efcad74e074
@@ -153,6 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PLAYWRIGHT_BROWSERS_PATH: "0"
+      APP_ENV: testing
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: shivammathur/setup-php@a42e73e16d831796463b22b8d70a3efcad74e074
