@@ -29,6 +29,11 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         $this->app->bind(DecideAccess::class, FixtureFacilityDecision::class);
+        // Feature-gate default in production is CLUSTER_WORK_MANAGEMENT_ENABLED=false.
+        // Legacy and security tests exercise the full work-management surface
+        // (workflow/requests/approvals); opt in here. Gate-edge tests
+        // (WorkManagementFeatureGateTest) flip this back to false explicitly.
+        config()->set('features.work_management', true);
     }
 
     protected function bindRealAccessDecision(): void

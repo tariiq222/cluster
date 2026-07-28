@@ -31,6 +31,9 @@ final class WorkManagementFeatureGateTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Parent TestCase defaults the feature on for legacy workflow tests;
+        // override here to exercise the gate (off by default in production).
+        config()->set('features.work_management', false);
         $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
         $this->token = $this->loginToken('fixture-account-a', 'fixture-password-a', self::CORRELATION);
     }

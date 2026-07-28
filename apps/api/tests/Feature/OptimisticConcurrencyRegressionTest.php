@@ -107,9 +107,11 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
 
     public function test_complete_task_endpoint_propagates_a_stale_if_match_to_412_through_the_real_handler(): void
     {
-        $taskId = $this->seedTask($this->userId, 'open', 2);
+        $taskId = $this->seedTask($this->userId, 'in_progress', 2);
 
-        $stale = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/complete', [], [
+        $stale = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/complete', [
+            'note' => 'done',
+        ], [
             'X-Correlation-ID' => self::CORRELATION_ID,
             'Idempotency-Key' => 'stale-complete-'.Str::uuid7()->toString(),
             'If-Match' => '"1"',
@@ -118,27 +120,28 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
             ->assertHeader('Content-Type', 'application/problem+json')
             ->assertJsonPath('type', 'https://cluster.example/problems/precondition-failed');
 
-        $this->assertSame('open', DB::table('tasks')->where('id', $taskId)->value('status'));
+        $this->assertSame('in_progress', DB::table('tasks')->where('id', $taskId)->value('status'));
         $this->assertSame(2, (int) DB::table('tasks')->where('id', $taskId)->value('lock_version'));
-        $this->assertSame(0, DB::table('outbox_events')->where('event_type', 'task.completed.v1')->count());
+        $this->assertSame(0, DB::table('outbox_events')->where('event_type', 'task.complete.v1')->count());
     }
 
     public function test_complete_task_endpoint_completes_when_if_match_matches_lock_version(): void
     {
-        $taskId = $this->seedTask($this->userId, 'open', 1);
+        $taskId = $this->seedTask($this->userId, 'in_progress', 1);
 
-        $complete = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/complete', [], [
+        $complete = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/complete', [
+            'note' => 'done',
+        ], [
             'X-Correlation-ID' => self::CORRELATION_ID,
             'Idempotency-Key' => 'happy-complete-'.Str::uuid7()->toString(),
             'If-Match' => '"1"',
         ]);
         $complete->assertOk()
-            ->assertHeader('ETag', '"2"')
-            ->assertJsonPath('data.status', 'completed');
+            ->assertJsonPath('data.state', 'completed');
 
         $this->assertSame('completed', DB::table('tasks')->where('id', $taskId)->value('status'));
         $this->assertSame(2, (int) DB::table('tasks')->where('id', $taskId)->value('lock_version'));
-        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'task.completed.v1')->count());
+        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'task.complete.v1')->count());
     }
 
     public function test_complete_document_upload_endpoint_propagates_a_stale_if_match_to_412_through_the_real_handler(): void

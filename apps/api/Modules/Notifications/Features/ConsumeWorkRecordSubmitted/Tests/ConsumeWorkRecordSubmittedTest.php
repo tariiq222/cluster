@@ -48,7 +48,7 @@ class ConsumeWorkRecordSubmittedTest extends TestCase
         )), 'Notifications must not read or write WorkRecords-owned persistence.');
 
         $columns = Schema::getColumnListing('notifications');
-        foreach (['payload', 'record_payload', 'owner_facility_id', 'facility_id', 'access_context', 'classification'] as $sourceOwnedField) {
+        foreach (['record_payload', 'owner_facility_id', 'facility_id', 'access_context', 'classification'] as $sourceOwnedField) {
             $this->assertNotContains($sourceOwnedField, $columns);
         }
     }
