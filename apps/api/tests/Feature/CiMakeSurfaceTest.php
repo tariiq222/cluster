@@ -44,7 +44,7 @@ final class CiMakeSurfaceTest extends TestCase
 
         $this->assertSame(0, $exitCode, $output);
         $this->assertMatchesRegularExpression(
-            '/^[^\s]+\s+\d+\.\d+/',
+            '/^[^\s]+\s+\d+\.\d+/m',
             trim($output),
             'make python-bin must emit "<binary> <version>"',
         );

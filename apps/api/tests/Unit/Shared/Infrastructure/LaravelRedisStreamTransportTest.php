@@ -5,6 +5,7 @@ namespace Tests\Unit\Shared\Infrastructure;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Redis\Connections\PredisConnection;
 use Mockery;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Predis\Client as PredisClient;
 use Predis\Command\CommandInterface;
@@ -63,6 +64,7 @@ final class LaravelRedisStreamTransportTest extends TestCase
         $this->assertSame('1784198760000-0', $transport->xadd('platform.events.v1', ['event' => '{}']));
     }
 
+    #[RequiresPhpExtension('redis')]
     public function test_phpredis_driver_flattens_xadd_field_pairs(): void
     {
         $client = Mockery::mock(\Redis::class);
@@ -76,6 +78,7 @@ final class LaravelRedisStreamTransportTest extends TestCase
         $this->assertSame('1784198760000-0', $driver->xadd('platform.events.v1', ['event' => '{}']));
     }
 
+    #[RequiresPhpExtension('redis')]
     public function test_phpredis_driver_invokes_xreadgroup_with_array_stream_id_map(): void
     {
         $client = Mockery::mock(\Redis::class);
@@ -94,6 +97,7 @@ final class LaravelRedisStreamTransportTest extends TestCase
         );
     }
 
+    #[RequiresPhpExtension('redis')]
     public function test_phpredis_driver_passes_unprefixed_keys_to_eval(): void
     {
         $client = Mockery::mock(\Redis::class);
