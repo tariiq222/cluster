@@ -16,9 +16,7 @@ use Modules\Tasks\Contracts\RecordTaskNotifications;
  */
 final class DatabaseRecordNotifications implements RecordTaskNotifications
 {
-    public function __construct(private readonly ConnectionInterface $database)
-    {
-    }
+    public function __construct(private readonly ConnectionInterface $database) {}
 
     public function record(array $recipientUserIds, string $type, array $payload): void
     {

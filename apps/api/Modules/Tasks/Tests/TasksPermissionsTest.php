@@ -27,7 +27,6 @@ final class TasksPermissionsTest extends TestCase
 
     private const USER_B = '018f6f7d-0c00-7000-8000-000000000022';
 
-
     private const FACILITY_A = '018f6f7d-0c00-7000-8000-000000000011';
 
     private string $token;

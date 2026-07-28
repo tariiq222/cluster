@@ -24,7 +24,6 @@ final class TasksLifecycleTest extends TestCase
 
     private const USER_A = '018f6f7d-0c00-7000-8000-000000000021';
 
-
     private const FACILITY_A = '018f6f7d-0c00-7000-8000-000000000011';
 
     private string $token;
