@@ -46,6 +46,10 @@ final class GetCurrentPrincipalController
             'capabilities' => $access['capabilities'],
             'clearance' => $access['clearance'],
             'break_glass' => false,
+            'features' => [
+                'work_management' => (bool) config('features.work_management'),
+                'tasks' => (bool) config('features.tasks'),
+            ],
             'correlation_id' => $correlationId,
         ])->header('X-Correlation-ID', $correlationId);
     }

@@ -30,6 +30,7 @@ final class CapabilityCatalog
         'workflow.reassign',
         'workflow.escalate',
         'workflow.cancel',
+        'work_management.history.read',
         'tasks.create',
         'tasks.read',
         'tasks.list',
