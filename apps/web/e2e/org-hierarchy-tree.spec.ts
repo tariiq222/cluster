@@ -13,9 +13,9 @@ async function signIn(page: Page) {
 test('Organization tree renders the seeded four-layer hierarchy', async ({ page }) => {
   await signIn(page)
 
-  // Open the facilities and employees workspace and pick the structure view.
+  // Open the facilities and employees workspace, then exercise its local structure link.
   await page.getByRole('link', { name: 'المنشآت والموظفون', exact: true }).click()
-  await page.goto('/admin/organization/structure')
+  await page.getByRole('link', { name: 'المنشآت والهيكل التنظيمي', exact: true }).click()
 
   // The page heading should mount.
   await expect(page.getByRole('heading', { name: 'الهيكل التنظيمي' })).toBeVisible()
@@ -54,7 +54,7 @@ test('Organization tree renders the seeded four-layer hierarchy', async ({ page 
 test('Organization tree drawer surfaces every seeded position for the follow-up unit', async ({ page }) => {
   await signIn(page)
   await page.getByRole('link', { name: 'المنشآت والموظفون', exact: true }).click()
-  await page.goto('/admin/organization/structure')
+  await page.getByRole('link', { name: 'المنشآت والهيكل التنظيمي', exact: true }).click()
 
   // The page heading should mount.
   await expect(page.getByRole('heading', { name: 'الهيكل التنظيمي' })).toBeVisible()

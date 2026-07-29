@@ -107,11 +107,37 @@ const SECTION_PATHS = {
   maintenance: '/admin/platform/maintenance',
 } as const
 
+const SECTION_LABELS: Record<keyof typeof SECTION_PATHS, RegExp> = {
+  overview: /^(مركز التحكم|Control center)$/,
+  security: /^(الأمان والإعدادات|Security and settings)$/,
+  calendars: /^(تقويم العمل|Business calendar)$/,
+  backups: /^(النسخ الاحتياطي والاستعادة|Backups and recovery)$/,
+  logs: /^(السجلات التقنية|Technical logs)$/,
+  health: /^(صحة المنصة والتنبيهات|Platform health and alerts)$/,
+  maintenance: /^(وضع الصيانة|Maintenance mode)$/,
+}
+
 async function navigate(page: Page, path: string): Promise<void> {
-  await page.evaluate((nextPath) => {
-    window.history.pushState({}, '', nextPath)
-    window.dispatchEvent(new PopStateEvent('popstate'))
-  }, path)
+  if (!new URL(page.url()).pathname.startsWith(SECTION_PATHS.overview)) {
+    const primaryLink = page.getByRole('link', { name: /^(إدارة المنصة|Platform management)$/ })
+    await expect(primaryLink).toBeVisible()
+    await primaryLink.click()
+    await expect(page).toHaveURL(/\/admin\/platform$/)
+  }
+
+  if (new URL(page.url()).pathname === path) return
+
+  const section = (Object.entries(SECTION_PATHS) as Array<[keyof typeof SECTION_PATHS, string]>)
+    .find(([, sectionPath]) => sectionPath === path)?.[0]
+  if (!section) throw new Error(`Unknown platform section path: ${path}`)
+
+  const localNavigation = page.getByRole('navigation', {
+    name: /^(أقسام إعدادات المنصة|Platform settings sections)$/,
+  })
+  const sectionLink = localNavigation.getByRole('link', { name: SECTION_LABELS[section] })
+  await expect(sectionLink).toBeVisible()
+  await sectionLink.click()
+  await expect.poll(() => new URL(page.url()).pathname).toBe(path)
 }
 
 async function fulfillJson(route: Route, body: unknown, status = 200, headers: Record<string, string> = {}): Promise<void> {
@@ -254,9 +280,13 @@ test.describe('Platform Settings — Control center (overview)', () => {
     await expect(page.getByRole('button', { name: 'تشغيل نسخة الآن' })).toBeVisible()
   })
 
-  test('primary sidebar link is present for operator and absent for unauthorized user', async ({ page }) => {
+  test('primary sidebar link opens the workspace for an operator and is absent for an unauthorized user', async ({ page }) => {
     await openPlatformSettings(page, OPERATOR_NO_RESTORE)
-    await expect(page.getByRole('link', { name: 'إدارة المنصة', exact: true })).toBeVisible()
+    const primaryLink = page.getByRole('link', { name: 'إدارة المنصة', exact: true })
+    await expect(primaryLink).toBeVisible()
+    await primaryLink.click()
+    await expect(page).toHaveURL(/\/admin\/platform$/)
+    await expect(page.getByRole('navigation', { name: 'أقسام إعدادات المنصة' })).toBeVisible()
 
     await openPlatformSettingsAsUnauthorized(page)
     await expect(page.getByRole('link', { name: 'إدارة المنصة', exact: true })).toHaveCount(0)
@@ -269,7 +299,7 @@ test.describe('Platform Settings — Control center (overview)', () => {
       contentType: 'application/problem+json',
       body: JSON.stringify({ type: 'access-denied', title: 'Forbidden', status: 403 }),
     }))
-    await navigate(page, SECTION_PATHS.overview)
+    await page.goto(SECTION_PATHS.overview)
 
     await expect(page.getByRole('heading', { name: 'لا تملك صلاحية فتح هذه الصفحة' })).toBeVisible()
     await expect(page.getByText('لا تظهر بيانات هذه الصفحة حتى تتوفر الصلاحية المطلوبة في نطاقك الحالي.')).toBeVisible()
@@ -288,7 +318,7 @@ test.describe('Platform Settings — Control center (overview)', () => {
     }))
 
     for (const path of Object.values(SECTION_PATHS)) {
-      await navigate(page, path)
+      await page.goto(path)
       await expect(page.getByRole('heading', { name: 'لا تملك صلاحية فتح هذه الصفحة' })).toBeVisible()
       const body = await page.locator('body').innerText()
       expect(body).not.toContain('platform_operations.restore.request')
@@ -797,7 +827,7 @@ test.describe('Platform Settings — Cross-cutting accessibility, RTL/LTR, and r
     await expect(closeButton).toHaveAttribute('aria-label', 'إغلاق')
   })
 
-  test('deep links load via popstate without losing the layout', async ({ page }) => {
+  test('browser history tracks local section navigation without losing the layout', async ({ page }) => {
     await openPlatformSettings(page, FULL_PLATFORM_CAPABILITIES)
     await navigate(page, SECTION_PATHS.overview)
     await navigate(page, SECTION_PATHS.security)
@@ -819,7 +849,7 @@ test.describe('Platform Settings — Cross-cutting accessibility, RTL/LTR, and r
     }))
 
     for (const path of Object.values(SECTION_PATHS)) {
-      await navigate(page, path)
+      await page.goto(path)
       const body = await page.locator('body').innerText()
       expect(body).not.toContain('platform_settings.manage')
       expect(body).not.toContain('platform_operations.restore.request')

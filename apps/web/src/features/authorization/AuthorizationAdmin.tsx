@@ -69,8 +69,18 @@ export const RESOURCE_LABELS: Record<AdminResource, string> = {
   'classification-policies': 'Classification policies', 'field-access-templates': 'Field access templates', supervisory: 'Supervisory relationships',
 }
 
-export function resourceCreateType(resource: AdminResource): string {
-  return ({ roles: 'role', capabilities: 'capability', 'role-assignments': 'role_assignment', 'classification-policies': 'classification_policy', 'field-access-templates': 'field_access_template' } as Record<AdminResource, string>)[resource]
+export type CreatableAdminResource = Exclude<AdminResource, 'supervisory'>
+
+const RESOURCE_CREATE_TYPES: Record<CreatableAdminResource, string> = {
+  roles: 'role',
+  capabilities: 'capability',
+  'role-assignments': 'role_assignment',
+  'classification-policies': 'classification_policy',
+  'field-access-templates': 'field_access_template',
+}
+
+export function resourceCreateType(resource: CreatableAdminResource): string {
+  return RESOURCE_CREATE_TYPES[resource]
 }
 
 export function parsePolicyDocument(value: string): Record<string, unknown> | undefined {

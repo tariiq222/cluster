@@ -136,7 +136,7 @@ test('W1.2 web UI uploads and submits a CSV import', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'إضافة بيانات من ملف' })).toBeVisible()
   const initiated = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/documents/uploads' && response.request().method() === 'POST')
   const completed = page.waitForResponse((response) => /\/api\/v1\/documents\/uploads\/[^/]+\/complete$/.test(new URL(response.url()).pathname) && response.request().method() === 'POST')
-  await page.locator('#import-upload-file').setInputFiles({ name: `w1-2-ui-${suffix}.csv`, mimeType: 'text/csv', buffer: Buffer.from(csv) })
+  await page.getByLabel('ملف البيانات', { exact: true }).setInputFiles({ name: `w1-2-ui-${suffix}.csv`, mimeType: 'text/csv', buffer: Buffer.from(csv) })
   await page.getByRole('button', { name: 'رفع الملف' }).click()
   const uploadTicket = await initiated
   expect(uploadTicket.status()).toBe(201)
@@ -151,7 +151,7 @@ test('W1.2 web UI uploads and submits a CSV import', async ({ page }) => {
     expect(status.status, JSON.stringify(status.body)).toBe(200)
     return status.body.scan_status
   }, { timeout: 30_000 }).toBe('clean')
-  await expect(page.locator('#quarantine-id')).toHaveValue(quarantineId)
+  await expect(page.getByLabel('مرجع الملف', { exact: true })).toHaveValue(quarantineId)
   const submitted = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/organization/import-jobs' && response.request().method() === 'POST')
   await page.getByRole('button', { name: 'بدء مراجعة الملف' }).click()
   expect((await submitted).status()).toBe(202)

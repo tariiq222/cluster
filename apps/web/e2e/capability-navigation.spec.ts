@@ -77,9 +77,10 @@ async function login(page: Page, path = '/') { await page.goto(path); await page
 test('employee navigation contains only personal work and direct admin URL has no privileged navigation', async ({ page }) => {
   await mockPersona(page, 'employee'); await login(page, '/admin/authorization/roles')
   await expect(page.getByRole('heading', { name: 'لا تملك صلاحية فتح هذه الصفحة' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'الأدوار' })).toHaveCount(0)
-  await expect(page.getByRole('link', { name: 'مهامي', exact: true })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'المستندات', exact: true })).toBeVisible()
+  const primaryLinks = page.locator('.desktop-sidebar .primary-navigation a')
+  await expect(primaryLinks).toHaveCount(3)
+  await expect(primaryLinks).toHaveText(['الرئيسية', 'مهامي', 'المستندات'])
+  for (let index = 0; index < 3; index += 1) await expect(primaryLinks.nth(index)).toBeVisible()
 })
 
 test('platform owner sees seven direct primary links and supports LTR', async ({ page }) => {
