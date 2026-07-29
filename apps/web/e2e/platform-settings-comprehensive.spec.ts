@@ -11,10 +11,9 @@
  *    lacks the required capability. The per-section "لا تملك صلاحية هذا القسم"
  *    copy is reachable only via the section gate inside
  *    `PlatformSettingsLayout`, which the route guard always hides.
- *  - The "Accounts and access" sidebar group is collapsed by default; the
- *    "إعدادات المنصة" link only appears after the group is expanded.
- *  - The session is in-memory. A browser reload drops the user back on the
- *    login screen because the access token is not persisted.
+ *  - The "إدارة المنصة" primary sidebar link is the only entry point; the
+ *    workspace navigates between sections through the in-page
+ *    "أقسام إعدادات المنصة" navigation.
  *  - `Select` is the custom dropdown component, not a native `<select>`.
  *    `getByLabel` returns the trigger button, not a native <select>. The
  *    trigger carries its own `aria-label` (e.g. "الخطورة" / "النوع" /
@@ -196,21 +195,6 @@ async function openPlatformSettingsAsUnauthorized(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
 }
 
-async function expandAccountsAndAccessGroup(page: Page): Promise<void> {
-  // Click once and verify the link is now visible. If the click collapses an
-  // already-open group, retry. The retry pattern is bounded to avoid hangs.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const link = page.getByRole('link', { name: 'إعدادات المنصة' })
-    if (await link.count() > 0 && await link.first().isVisible()) return
-    const trigger = page.getByRole('button', { name: 'الحسابات والصلاحيات' })
-    if (await trigger.count() === 0) return
-    const expanded = await trigger.getAttribute('aria-expanded')
-    if (expanded === 'true' && await link.count() > 0) return
-    await trigger.click()
-    await page.waitForTimeout(150)
-  }
-}
-
 test.describe('Platform Settings — Control center (overview)', () => {
   test('renders metrics, service status, and safe actions for an operator', async ({ page }) => {
     await openPlatformSettings(page, OPERATOR_NO_RESTORE)
@@ -270,14 +254,12 @@ test.describe('Platform Settings — Control center (overview)', () => {
     await expect(page.getByRole('button', { name: 'تشغيل نسخة الآن' })).toBeVisible()
   })
 
-  test('sidebar link is present for operator and absent for unauthorized user', async ({ page }) => {
+  test('primary sidebar link is present for operator and absent for unauthorized user', async ({ page }) => {
     await openPlatformSettings(page, OPERATOR_NO_RESTORE)
-    await expandAccountsAndAccessGroup(page)
-    await expect(page.getByRole('link', { name: 'إعدادات المنصة' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'إدارة المنصة', exact: true })).toBeVisible()
 
     await openPlatformSettingsAsUnauthorized(page)
-    await expandAccountsAndAccessGroup(page)
-    await expect(page.getByRole('link', { name: 'إعدادات المنصة' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'إدارة المنصة', exact: true })).toHaveCount(0)
   })
 
   test('unauthorized direct link renders the route-level denial panel', async ({ page }) => {

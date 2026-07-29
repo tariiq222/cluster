@@ -5,11 +5,10 @@ type IdentityLogin = { data: { csrf_token: string } }
 type UploadTicket = { upload_id: string; quarantine_object_id: string; upload_url: string; method: string; required_headers: Record<string, string> }
 type UploadCompletion = { accepted: boolean }
 type UploadStatus = { scan_status: string; availability_status: string }
-type TemporaryAssignment = { data: { id: string; status: string } }
 
 const requiredEnvironment = [
   'W1_2_IDENTITY_USERNAME', 'W1_2_IDENTITY_PASSWORD', 'W1_2_IMPORT_USERNAME', 'W1_2_IMPORT_PASSWORD',
-  'W1_2_IMPORT_POSITION_ID', 'W1_2_TEMPORARY_ASSIGNMENT_PERSON_ID', 'W1_2_TEMPORARY_ASSIGNMENT_UNIT_ID', 'W1_2_TEMPORARY_ASSIGNMENT_CAPABILITY',
+  'W1_2_IMPORT_POSITION_ID',
 ] as const
 
 function required(name: typeof requiredEnvironment[number]): string {
@@ -98,11 +97,6 @@ async function signInWeb(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'طلباتي' })).toBeVisible()
 }
 
-function dateTimeLocal(value: Date): string {
-  const offset = value.getTimezoneOffset() * 60_000
-  return new Date(value.valueOf() - offset).toISOString().slice(0, 16)
-}
-
 test.beforeEach(async ({ page }) => {
   for (const name of requiredEnvironment) required(name)
   await page.goto('/')
@@ -135,7 +129,7 @@ test('W1.2 browser cookie session and CSRF request a signed CSV upload and obser
   }, { timeout: 30_000 }).toBe('clean')
 })
 
-test('W1.2 web UI uploads and submits a CSV import, then creates and revokes a temporary assignment', async ({ page }) => {
+test('W1.2 web UI uploads and submits a CSV import', async ({ page }) => {
   const csrfToken = await loginIdentitySession(page)
   await configureUiCsrfBridge(page, csrfToken)
   await signInWeb(page)
@@ -167,26 +161,4 @@ test('W1.2 web UI uploads and submits a CSV import, then creates and revokes a t
   await page.getByRole('button', { name: 'إنشاء ImportJob' }).click()
   expect((await submitted).status()).toBe(202)
   await expect(page.getByText('مستلم', { exact: true })).toBeVisible()
-
-  await page.getByRole('link', { name: 'التكليفات المؤقتة' }).click()
-  await expect(page.getByRole('heading', { name: 'التكليفات المؤقتة' })).toBeVisible()
-  await page.getByLabel('الوحدة التنظيمية').selectOption(required('W1_2_TEMPORARY_ASSIGNMENT_UNIT_ID'))
-  const start = new Date(Date.now() + (7 + Number.parseInt(suffix.slice(-4), 16) % 30) * 24 * 60 * 60 * 1000)
-  await page.getByLabel('معرف الشخص').fill(required('W1_2_TEMPORARY_ASSIGNMENT_PERSON_ID'))
-  await page.getByLabel('رموز الصلاحيات').fill(required('W1_2_TEMPORARY_ASSIGNMENT_CAPABILITY'))
-  await page.getByLabel('سبب التكليف').fill(`W1.2 UI ${suffix}`)
-  await page.getByLabel('تاريخ ووقت البداية').fill(dateTimeLocal(start))
-  await page.getByLabel('تاريخ ووقت النهاية').fill(dateTimeLocal(new Date(start.valueOf() + 60 * 60 * 1000)))
-  const assignmentCreated = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/organization/temporary-assignments' && response.request().method() === 'POST')
-  await page.getByRole('button', { name: 'إضافة تكليف مؤقت' }).click()
-  expect((await assignmentCreated).status()).toBe(201)
-  const assignment = await assignmentCreated
-  const assignmentId = (await assignment.json() as TemporaryAssignment).data.id
-  const assignmentRow = page.getByRole('row').filter({ hasText: required('W1_2_TEMPORARY_ASSIGNMENT_PERSON_ID') }).filter({ hasText: required('W1_2_TEMPORARY_ASSIGNMENT_CAPABILITY') })
-  await expect(assignmentRow).toContainText('مجدول')
-  await assignmentRow.getByLabel('سبب الإلغاء').fill(`W1.2 UI cleanup ${suffix}`)
-  const assignmentRevoked = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/v1/organization/temporary-assignments/${assignmentId}/revoke` && response.request().method() === 'POST')
-  await assignmentRow.getByRole('button', { name: 'إلغاء التكليف' }).click()
-  expect((await assignmentRevoked).status()).toBe(200)
-  await expect(assignmentRow).toContainText('ملغى')
 })

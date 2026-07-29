@@ -38,41 +38,61 @@ test('employee navigation contains only personal work and direct admin URL has n
   await expect(page.getByRole('link', { name: 'طلباتي' })).toBeVisible()
 })
 
-test('platform owner sees access administration in its work-domain group and supports LTR', async ({ page }) => {
+test('platform owner sees seven direct primary links and supports LTR', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await mockPersona(page, 'platform'); await login(page)
   await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
-  for (const group of [
-    'مساحة عملي',
-    'إدارة المنشآت والموظفين',
-    'الإجراءات وسير العمل',
+  const primaryLinks = [
+    'الرئيسية',
+    'مهامي',
+    'المستندات',
+    'المنشآت والموظفون',
     'الحسابات والصلاحيات',
-    'التقارير والمؤشرات',
-    'الأدوات الداخلية',
-  ]) {
-    await expect(page.getByRole('button', { name: group, exact: true })).toBeVisible()
+    'التقارير والمتابعة',
+    'إدارة المنصة',
+  ]
+  for (const label of primaryLinks) {
+    await expect(page.getByRole('link', { name: label, exact: true })).toBeVisible()
   }
-  await page.getByRole('button', { name: 'الحسابات والصلاحيات' }).click()
-  await expect(page.getByRole('link', { name: 'حسابات الهوية' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'الأدوار', exact: true })).toBeVisible()
-  await page.screenshot({ path: path.join(artifactsDir, 'sidebar-work-groups-desktop.png'), fullPage: true })
+  for (const label of primaryLinks) {
+    const expanded = await page.getByRole('link', { name: label, exact: true }).getAttribute('aria-expanded')
+    expect(expanded, `primary link "${label}" should not be an accordion toggle`).toBeNull()
+  }
+  await expect(page.locator('.navigation-group-toggle')).toHaveCount(0)
+  for (const retired of [
+    'الطلبات والإجراءات',
+    'التكليفات المؤقتة',
+    'التفويضات',
+    'الأدوات الداخلية',
+    'تغطية العمليات',
+  ]) {
+    await expect(page.getByRole('link', { name: retired, exact: true })).toHaveCount(0)
+  }
+  await page.getByRole('link', { name: 'الحسابات والصلاحيات', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'الحسابات' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'الأدوار والصلاحيات' })).toBeVisible()
+  await page.screenshot({ path: path.join(artifactsDir, 'sidebar-primary-desktop.png'), fullPage: true })
   await page.getByRole('button', { name: 'طي القائمة الجانبية' }).click()
-  const collapsedGroupIcons = page.locator('.desktop-sidebar .navigation-group-toggle .navigation-icon svg')
-  await expect(collapsedGroupIcons).toHaveCount(6)
-  for (let index = 0; index < 6; index += 1) await expect(collapsedGroupIcons.nth(index)).toBeVisible()
-  await page.screenshot({ path: path.join(artifactsDir, 'sidebar-work-groups-collapsed.png'), fullPage: true })
+  const collapsedIcons = page.locator('.desktop-sidebar .primary-navigation a .navigation-icon svg')
+  await expect(collapsedIcons).toHaveCount(primaryLinks.length)
+  for (let index = 0; index < primaryLinks.length; index += 1) await expect(collapsedIcons.nth(index)).toBeVisible()
+  const collapsedLabels = page.locator('.desktop-sidebar .primary-navigation a span:not(.navigation-icon)')
+  await expect(collapsedLabels).toHaveCount(0)
+  await page.screenshot({ path: path.join(artifactsDir, 'sidebar-primary-collapsed.png'), fullPage: true })
   await page.getByRole('button', { name: 'توسيع القائمة الجانبية' }).click()
   await page.getByRole('button', { name: 'English' }).click()
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
   await page.getByRole('button', { name: 'العربية' }).click()
   await page.setViewportSize({ width: 320, height: 720 })
   await page.getByRole('button', { name: 'فتح القائمة الرئيسية' }).click()
-  const internalTools = page.getByRole('button', { name: 'الأدوات الداخلية', exact: true })
-  await internalTools.scrollIntoViewIfNeeded()
-  await expect(internalTools).toBeInViewport()
+  const primaryLinksMobile = page.locator('.mobile-navigation .primary-navigation a')
+  await expect(primaryLinksMobile).toHaveCount(primaryLinks.length)
+  for (let index = 0; index < primaryLinks.length; index += 1) {
+    await expect(primaryLinksMobile.nth(index)).toBeInViewport()
+  }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(1)
-  await page.screenshot({ path: path.join(artifactsDir, 'sidebar-work-groups-mobile.png') })
+  await page.screenshot({ path: path.join(artifactsDir, 'sidebar-primary-mobile.png') })
 })
 
 test('manager scope switch clears old dashboard state and reloads the new scope', async ({ page }) => {

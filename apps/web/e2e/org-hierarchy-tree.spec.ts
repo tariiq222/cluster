@@ -13,13 +13,12 @@ async function signIn(page: Page) {
 test('Organization tree renders the seeded four-layer hierarchy', async ({ page }) => {
   await signIn(page)
 
-  // Open the organization menu and pick the structure view.
-  await page.getByRole('button', { name: 'إدارة المنشآت والموظفين' }).click()
-  await page.getByRole('link', { name: 'الهيكل التنظيمي' }).click()
-  await page.getByRole('link', { name: 'شجرة الهيكل' }).click()
+  // Open the facilities and employees workspace and pick the structure view.
+  await page.getByRole('link', { name: 'المنشآت والموظفون', exact: true }).click()
+  await page.goto('/admin/organization/structure')
 
   // The page heading should mount.
-  await expect(page.getByRole('heading', { name: 'الوحدات والمناصب' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'الهيكل التنظيمي' })).toBeVisible()
 
   // The five departments seeded by organization:demo-seed must be visible.
   await expect(page.getByText('إدارة الخدمات الصحية', { exact: true })).toBeVisible()
@@ -54,13 +53,11 @@ test('Organization tree renders the seeded four-layer hierarchy', async ({ page 
 
 test('Organization tree drawer surfaces every seeded position for the follow-up unit', async ({ page }) => {
   await signIn(page)
+  await page.getByRole('link', { name: 'المنشآت والموظفون', exact: true }).click()
+  await page.goto('/admin/organization/structure')
 
-  await page.getByRole('button', { name: 'إدارة المنشآت والموظفين' }).click()
-  await page.getByRole('link', { name: 'الهيكل التنظيمي' }).click()
-  await page.getByRole('link', { name: 'شجرة الهيكل' }).click()
-
-  await expect(page.getByRole('heading', { name: 'الوحدات والمناصب' })).toBeVisible()
-
+  // The page heading should mount.
+  await expect(page.getByRole('heading', { name: 'الهيكل التنظيمي' })).toBeVisible()
   // The L1 sector root must be present alongside the L2 departments.
   await expect(page.getByText('المكتب التنفيذي للتجمع الصحي', { exact: true })).toBeVisible()
 
