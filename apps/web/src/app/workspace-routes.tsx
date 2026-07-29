@@ -229,3 +229,31 @@ export function ApiDocsRoute({ locale }: { locale: Locale }) {
     </Suspense>
   )
 }
+
+/**
+ * Wraps `ApiDocsRoute` in the platform settings layout so the API reference
+ * surfaces as a technical section inside the platform-management workspace.
+ * Reuses the existing `/api-docs` capability gate (`authorization.audit.read`)
+ * — the wrapper itself does not impose additional capability checks; the
+ * `RouteAccessGuard` already running in `WorkspaceContent` enforces visibility.
+ */
+export function PlatformApiDocsRoute({
+  locale,
+  capabilities,
+  navigate,
+}: {
+  locale: Locale
+  capabilities: readonly string[] | null
+  navigate: (path: string) => void
+}) {
+  return (
+    <PlatformSettingsLayout
+      locale={locale}
+      section="api-reference"
+      capabilities={capabilities}
+      navigate={navigate}
+    >
+      <ApiDocsRoute locale={locale} />
+    </PlatformSettingsLayout>
+  )
+}

@@ -7,7 +7,12 @@ import type { Locale } from '../../app/copy'
 import { platformSettingsCopy } from './copy'
 import './platform-settings.css'
 
-function canOpenSection(section: PlatformSettingsSection, capabilities: readonly string[] | null): boolean {
+export type PlatformWorkspaceSection = PlatformSettingsSection | 'api-reference'
+
+function canOpenSection(section: PlatformWorkspaceSection, capabilities: readonly string[] | null): boolean {
+  if (section === 'api-reference') {
+    return capabilities?.includes('authorization.audit.read') === true
+  }
   if (capabilities === null) return false
   return capabilitiesForRoute({ name: 'platform-settings', section })?.some(
     (capability) => capabilities.includes(capability),
@@ -22,13 +27,26 @@ export function PlatformSettingsLayout({
   children,
 }: {
   locale: Locale
-  section: PlatformSettingsSection
+  section: PlatformWorkspaceSection
   capabilities: readonly string[] | null
   navigate: (path: string) => void
   children: ReactNode
 }) {
   const copy = platformSettingsCopy[locale]
-  const visibleSections = PLATFORM_SETTINGS_SECTIONS.filter((item) => canOpenSection(item, capabilities))
+  const baseSections = PLATFORM_SETTINGS_SECTIONS.filter((item) => canOpenSection(item, capabilities))
+  const showApiReference = canOpenSection('api-reference', capabilities)
+  const items: Array<{ key: PlatformWorkspaceSection; path: string; label: string }> = baseSections.map((item) => ({
+    key: item,
+    path: pathFromRoute({ name: 'platform-settings', section: item }),
+    label: copy.sections[item],
+  }))
+  if (showApiReference) {
+    items.push({
+      key: 'api-reference',
+      path: pathFromRoute({ name: 'api-docs' }),
+      label: copy.sections.apiReference,
+    })
+  }
 
   return (
     <Page className="platform-settings-page" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
@@ -45,23 +63,20 @@ export function PlatformSettingsLayout({
       <div className="platform-settings-layout">
         <nav className="platform-settings-nav" aria-label={copy.navigationLabel}>
           <ul>
-            {visibleSections.map((item) => {
-              const path = pathFromRoute({ name: 'platform-settings', section: item })
-              return (
-                <li key={item}>
-                  <a
-                    href={path}
-                    aria-current={item === section ? 'page' : undefined}
-                    onClick={(event) => {
-                      event.preventDefault()
-                      navigate(path)
-                    }}
-                  >
-                    {copy.sections[item]}
-                  </a>
-                </li>
-              )
-            })}
+            {items.map((item) => (
+              <li key={item.key}>
+                <a
+                  href={item.path}
+                  aria-current={item.key === section ? 'page' : undefined}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    navigate(item.path)
+                  }}
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))}
           </ul>
         </nav>
         <section
@@ -71,7 +86,7 @@ export function PlatformSettingsLayout({
           <div className="platform-settings-section-heading">
             <h2 id={`platform-settings-${section}`}>{copy.sections[section]}</h2>
           </div>
-          {visibleSections.length === 0 ? (
+          {items.length === 0 ? (
             <EmptyState
               icon={<Link />}
               title={capabilities === null ? copy.loadingCapabilities : copy.unavailableTitle}
