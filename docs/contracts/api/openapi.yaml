@@ -3925,6 +3925,7 @@ paths:
             enum:
               - roles
               - capabilities
+              - role-capabilities
               - role-assignments
               - delegations
               - classification-policies
@@ -3952,6 +3953,7 @@ paths:
             enum:
               - roles
               - capabilities
+              - role-capabilities
               - role-assignments
               - delegations
               - classification-policies
@@ -3993,6 +3995,7 @@ paths:
             enum:
               - roles
               - capabilities
+              - role-capabilities
               - role-assignments
               - delegations
               - classification-policies
@@ -4001,7 +4004,7 @@ paths:
           in: path
           required: true
           schema:
-            $ref: '#/components/schemas/UUIDv7'
+            $ref: '#/components/schemas/AdminResourceId'
       responses:
         '200':
           $ref: '#/components/responses/Entity'
@@ -4025,6 +4028,7 @@ paths:
             enum:
               - roles
               - capabilities
+              - role-capabilities
               - role-assignments
               - delegations
               - classification-policies
@@ -4033,7 +4037,7 @@ paths:
           in: path
           required: true
           schema:
-            $ref: '#/components/schemas/UUIDv7'
+            $ref: '#/components/schemas/AdminResourceId'
         - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
@@ -4062,15 +4066,30 @@ paths:
     post:
       tags:
         - Authorization Admin
-      summary: Activate, revoke, expire, or publish an authorization resource
+      summary: Activate, revoke, expire, publish, or clone an authorization resource
+      description: |
+        Generic action route. `clone` is limited to `adminResource=roles`
+        and requires the source role `lock_version` in the `If-Match` header.
+        `revoke` and `expire` on `role-assignments` and `revoke` on
+        `role-capabilities` accept an empty body. All other actions carry
+        a `ReasonAction` body.
       operationId: transitionAuthorizationAdminResource
+      x-if-match-required-on: clone
+      x-empty-body-actions:
+        - revoke
+        - expire
+      x-clone-source-invariant: system-role-only
       parameters:
         - name: adminResource
           in: path
           required: true
+          x-clone-source-invariant: system-role-only
+          x-clone-action-required-admin-resource: roles
           schema:
             type: string
             enum:
+              - roles
+              - role-capabilities
               - role-assignments
               - delegations
               - classification-policies
@@ -4079,7 +4098,7 @@ paths:
           in: path
           required: true
           schema:
-            $ref: '#/components/schemas/UUIDv7'
+            $ref: '#/components/schemas/AdminResourceId'
         - name: authorizationAction
           in: path
           required: true
@@ -4090,6 +4109,7 @@ paths:
               - revoke
               - expire
               - publish
+              - clone
         - $ref: '#/components/parameters/IfMatch'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -4097,7 +4117,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReasonAction'
+              oneOf:
+                - $ref: '#/components/schemas/EmptyActionBody'
+                - $ref: '#/components/schemas/RoleCloneInput'
+                - $ref: '#/components/schemas/ReasonAction'
       responses:
         '200':
           $ref: '#/components/responses/Entity'
@@ -4110,7 +4133,19 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: |
+            Conflict. When `adminResource=roles` and the role is a system role,
+            returns `urn:cluster:problem:system-role-immutable`. All other
+            conflicts fall back to the standard problem envelope.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/problem-details.schema'
+                  - $ref: '#/components/schemas/ProblemImmutableSystemRole'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /authorization/access-decisions:
@@ -8531,6 +8566,24 @@ components:
       format: uuid
       pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
       description: Lowercase RFC 9562 UUID version 7
+    RoleCapabilityCompositeId:
+      type: string
+      pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+      description: |
+        Composite identifier for a `role-capabilities` row. Two lowercase
+        RFC 9562 UUIDv7 values joined by a single colon: `role_uuid:capability_uuid`.
+        The AuthorizationHttpGateway splits the value on `:` and validates
+        each side as UUIDv7.
+    AdminResourceId:
+      description: |
+        Identifier of an authorization-administration resource. Most
+        resources use a single UUIDv7. The `role-capabilities` resource
+        uses a composite `role_uuid:capability_uuid` value; the
+        AuthorizationHttpGateway splits and validates both sides as
+        UUIDv7.
+      oneOf:
+        - $ref: '#/components/schemas/UUIDv7'
+        - $ref: '#/components/schemas/RoleCapabilityCompositeId'
     UtcDateTime:
       type: string
       format: date-time
@@ -10342,10 +10395,19 @@ components:
         policy_document:
           type: object
           minProperties: 1
+        capability_codes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 128
+          x-server-constraint: capabilities-only-for-roles
     AuthorizationAdminPatch:
       type: object
       additionalProperties: false
       minProperties: 1
+      x-server-constraint: capabilities-only-for-roles
+      x-role-archive-allowed: true
       properties:
         name:
           type: string
@@ -10359,11 +10421,224 @@ components:
             - revoked
             - expired
             - published
+            - archived
         end_at:
           $ref: '#/components/schemas/UtcDateTime'
         policy_document:
           type: object
           minProperties: 1
+        capability_codes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 128
+          x-server-constraint: capabilities-only-for-roles
+    EmptyActionBody:
+      type: object
+      additionalProperties: false
+      required: []
+      properties: {}
+      x-empty-body-invariants:
+        - revoke
+        - expire
+    RoleCloneInput:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          pattern: ^[a-z][a-z0-9_.-]{1,95}$
+          maxLength: 96
+        name_ar:
+          type: string
+          maxLength: 255
+        name_en:
+          type: string
+          maxLength: 255
+        description_ar:
+          type: string
+          maxLength: 2000
+        description_en:
+          type: string
+          maxLength: 2000
+    AuthorizationCapability:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - module_code
+        - action
+        - sensitivity
+        - group_label
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 128
+        module_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        action:
+          type: string
+          minLength: 1
+          maxLength: 64
+        sensitivity:
+          type: string
+          enum:
+            - public
+            - internal
+            - confidential
+            - top_secret
+        group_label:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 2000
+    AuthorizationRole:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - code
+        - role_type
+        - is_system_role
+        - status
+        - lock_version
+        - allowed_actions
+      properties:
+        id:
+          $ref: '#/components/schemas/UUIDv7'
+        code:
+          type: string
+          pattern: ^[a-z][a-z0-9_.-]{1,95}$
+        name_ar:
+          type: string
+          maxLength: 255
+        name_en:
+          type: string
+          maxLength: 255
+        description_ar:
+          type: string
+          maxLength: 2000
+        description_en:
+          type: string
+          maxLength: 2000
+        role_type:
+          type: string
+          enum:
+            - system
+            - custom
+        is_system_role:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - draft
+            - active
+            - inactive
+            - archived
+        lock_version:
+          type: integer
+          minimum: 1
+        capability_codes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 128
+        assignment_count:
+          type: integer
+          minimum: 0
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - create
+              - edit
+              - clone
+              - archive
+              - revoke
+              - expire
+              - assign
+              - view_assignments
+              - grant
+              - retract
+    AuthorizationRoleAssignment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - role_id
+        - subject_user_id
+        - effective_status
+        - allowed_actions
+      properties:
+        id:
+          $ref: '#/components/schemas/UUIDv7'
+        role_id:
+          $ref: '#/components/schemas/UUIDv7'
+        subject_user_id:
+          $ref: '#/components/schemas/UUIDv7'
+        scope_type:
+          type: string
+          enum:
+            - cluster
+            - facility
+            - unit
+            - record_set
+        scope_id:
+          $ref: '#/components/schemas/UUIDv7'
+        start_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        end_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        effective_status:
+          type: string
+          enum:
+            - active
+            - expired
+            - revoked
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - edit
+              - revoke
+              - expire
+    ProblemImmutableSystemRole:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - code
+      properties:
+        type:
+          type: string
+          enum:
+            - urn:cluster:problem:system-role-immutable
+        title:
+          type: string
+        status:
+          type: integer
+          enum:
+            - 409
+        detail:
+          type: string
+        code:
+          type: string
+          enum:
+            - system_role_immutable
     AccessDecisionRequest:
       type: object
       additionalProperties: false
@@ -11610,6 +11885,58 @@ components:
           $ref: '#/components/schemas/classification'
         access_context:
           $ref: '#/components/schemas/access-context.schema'
+        applies_in_plain_language:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        assignment_summaries:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - role_code
+              - effective_status
+            properties:
+              role_code:
+                type: string
+                minLength: 1
+                maxLength: 128
+              effective_status:
+                type: string
+                enum:
+                  - active
+                  - expired
+                  - revoked
+              scope_type:
+                type: string
+                enum:
+                  - cluster
+                  - facility
+                  - unit
+                  - record_set
+              scope_id:
+                $ref: '#/components/schemas/uuidv7'
+        policy_references:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - policy_code
+              - policy_version
+            properties:
+              policy_code:
+                type: string
+                minLength: 1
+                maxLength: 128
+              policy_version:
+                type: string
+                minLength: 1
+                maxLength: 128
+              excerpt:
+                type: string
+                maxLength: 2000
       $defs:
         classification:
           type: string
