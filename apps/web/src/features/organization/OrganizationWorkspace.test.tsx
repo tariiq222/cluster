@@ -8,57 +8,114 @@ import { OrganizationWorkspace } from './OrganizationWorkspace'
 describe('OrganizationWorkspace', () => {
   afterEach(cleanup)
 
-  it('renders only the facilities and structure workspace tabs', () => {
+  it('renders the three consolidated section tabs in Arabic for a fully-capable principal', () => {
     render(
       <SessionProvider locale="ar" session={{ access_token: 'test-token' } as never}>
         <OrganizationWorkspace
           locale="ar"
-          activeRouteName="organization"
+          activeRoute={{ name: 'organization' }}
           navigate={vi.fn()}
-          capabilities={['organization.facility.read', 'organization.unit.read']}
+          capabilities={[
+            'organization.facility.read',
+            'organization.unit.read',
+            'organization.person.read',
+          ]}
         />
       </SessionProvider>,
     )
 
-    expect(screen.getAllByRole('link')).toHaveLength(2)
-    expect(screen.getByRole('link', { name: 'الملخص' }).getAttribute('href')).toBe('/admin/organization')
-    expect(screen.getByRole('link', { name: 'الهيكل التنظيمي' }).getAttribute('href')).toBe('/admin/organization/structure')
-    expect(screen.queryByRole('link', { name: 'الموظفون' })).toBeNull()
-    expect(screen.queryByRole('link', { name: 'التكليفات المؤقتة' })).toBeNull()
-    expect(screen.queryByRole('link', { name: 'إضافة من ملف' })).toBeNull()
+    expect(
+      screen.getByRole('link', { name: 'المنشآت والهيكل التنظيمي' }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: 'الموظفون والتكليفات الوظيفية' }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: 'العلاقات الإشرافية' }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('link', { name: 'التكليفات المؤقتة' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('link', { name: 'استيراد البيانات' }),
+    ).toBeNull()
   })
 
-  it('withholds the structure tab unless its unit-read capability is present', () => {
-    const { getByRole, queryByRole } = render(
+  it('does not surface the employee import as a separate top-level tab', () => {
+    render(
       <SessionProvider locale="ar" session={{ access_token: 'test-token' } as never}>
         <OrganizationWorkspace
           locale="ar"
-          activeRouteName="organization"
+          activeRoute={{ name: 'organization-import' }}
+          navigate={vi.fn()}
+          capabilities={['organization.facility.read', 'organization.unit.read', 'organization.import.read']}
+        />
+      </SessionProvider>,
+    )
+
+    expect(
+      screen.queryByRole('link', { name: 'استيراد البيانات' }),
+    ).toBeNull()
+  })
+
+  it('renders only the facilities-and-structure tab for a facilities-only principal', () => {
+    render(
+      <SessionProvider locale="ar" session={{ access_token: 'test-token' } as never}>
+        <OrganizationWorkspace
+          locale="ar"
+          activeRoute={{ name: 'organization' }}
           navigate={vi.fn()}
           capabilities={['organization.facility.read']}
         />
       </SessionProvider>,
     )
 
-    expect(getByRole('link', { name: 'الملخص' })).toBeTruthy()
-    expect(queryByRole('link', { name: 'الهيكل التنظيمي' })).toBeNull()
+    expect(
+      screen.getByRole('link', { name: 'المنشآت والهيكل التنظيمي' }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('link', { name: 'الموظفون والتكليفات الوظيفية' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('link', { name: 'العلاقات الإشرافية' }),
+    ).toBeNull()
   })
 
-  it('falls back to the structure tab for a unit-only principal instead of rendering facilities', () => {
-    const { getByRole, queryByRole, queryByText } = render(
+  it('renders the employees section tab when person-read is present even without facility/unit capability', () => {
+    render(
       <SessionProvider locale="ar" session={{ access_token: 'test-token' } as never}>
         <OrganizationWorkspace
           locale="ar"
-          activeRouteName="organization"
+          activeRoute={{ name: 'people-assignments' }}
           navigate={vi.fn()}
-          capabilities={['organization.unit.read']}
+          capabilities={['organization.person.read']}
         />
       </SessionProvider>,
     )
 
-    expect(queryByRole('link', { name: 'الملخص' })).toBeNull()
-    expect(getByRole('link', { name: 'الهيكل التنظيمي' })).toBeTruthy()
-    expect(getByRole('heading', { name: 'الهيكل التنظيمي' })).toBeTruthy()
-    expect(queryByText('منشآت التجمع')).toBeNull()
+    expect(
+      screen.getByRole('link', { name: 'الموظفون والتكليفات الوظيفية' }),
+    ).toBeVisible()
+  })
+
+  it('renders the English labels with the consolidated copy', () => {
+    render(
+      <SessionProvider locale="en" session={{ access_token: 'test-token' } as never}>
+        <OrganizationWorkspace
+          locale="en"
+          activeRoute={{ name: 'organization' }}
+          navigate={vi.fn()}
+          capabilities={[
+            'organization.facility.read',
+            'organization.unit.read',
+            'organization.person.read',
+          ]}
+        />
+      </SessionProvider>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Facilities and structure' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Employees and job assignments' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Supervisory relationships' })).toBeVisible()
   })
 })

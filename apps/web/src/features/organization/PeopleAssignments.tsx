@@ -10,15 +10,25 @@ import {
   type Position,
 } from '../../api'
 import { useLocale, useToken } from '../../app/session-context'
-import { InlineError, Page, PageHeader, PanelGrid, SkeletonList } from '../../ui'
+import { InlineError, Button, Page, PageHeader, PanelGrid, SkeletonList } from '../../ui'
 import { AssignmentsPanel } from './AssignmentsPanel'
 import { PeoplePanel } from './PeoplePanel'
 
 export type OrganizationLocale = 'ar' | 'en'
 
+export type PeopleAssignmentsProps = {
+  /**
+   * Optional handler invoked when the user activates the secondary
+   * "Import employees" action. When provided, the page header renders a
+   * secondary button labelled in the active locale; otherwise the action is
+   * absent so a standalone embed remains uncluttered.
+   */
+  onImport?: () => void
+}
+
 export const peopleAssignmentsCopy = {
   ar: {
-    title: 'الموظفون والتكليفات',
+    title: 'الموظفون والتكليفات الوظيفية',
     intro: 'إدارة سجل الموظفين والتكليفات الزمنية المرتبطة بالمناصب.',
     loading: 'جارٍ تحميل الموظفين والتكليفات…',
     forbidden: 'لا تملك صلاحية إدارة الموظفين والتكليفات.',
@@ -68,9 +78,10 @@ export const peopleAssignmentsCopy = {
     stale: 'تغيرت البيانات في مكان آخر. حدّث القائمة ثم أعد المحاولة.',
     endedSuccess: 'تم إنهاء التكليف.',
     endAtRequired: 'أدخل وقت نهاية التكليف وسبباً واضحاً بعد بداية التكليف.',
+    importEmployees: 'استيراد موظفين',
   },
   en: {
-    title: 'Employees and assignments',
+    title: 'Employees and job assignments',
     intro: 'Manage the employee registry and the dated assignments linked to positions.',
     loading: 'Loading employees and assignments…',
     forbidden: 'You do not have permission to manage employees and assignments.',
@@ -120,12 +131,13 @@ export const peopleAssignmentsCopy = {
     stale: 'The data changed elsewhere. Refresh the list and try again.',
     endedSuccess: 'Assignment ended.',
     endAtRequired: 'Enter an end time and a clear reason after the assignment start.',
+    importEmployees: 'Import employees',
   },
 } as const
 
 export type PeopleAssignmentsText = (typeof peopleAssignmentsCopy)[OrganizationLocale]
 
-export function PeopleAssignments() {
+export function PeopleAssignments({ onImport }: PeopleAssignmentsProps = {}) {
   const locale = useLocale()
   const token = useToken()
   const text = peopleAssignmentsCopy[locale]
@@ -175,7 +187,12 @@ export function PeopleAssignments() {
 
   return (
     <Page>
-      <PageHeader id="people-heading" title={text.title} description={text.intro} />
+      <PageHeader
+        id="people-heading"
+        title={text.title}
+        description={text.intro}
+        actions={onImport ? <Button variant="secondary" onClick={onImport}>{text.importEmployees}</Button> : undefined}
+      />
       {loading ? <SkeletonList label={text.loading} /> : null}
       {!loading && state === 'forbidden' ? <div className="state-panel" role="status"><p>{text.forbidden}</p></div> : null}
       {!loading && state === 'error' ? <InlineError message={text.error} retryLabel={text.retry} onRetry={() => void load()} /> : null}

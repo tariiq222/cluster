@@ -44,7 +44,7 @@ const assignment = {
   lock_version: 3,
 }
 
-function renderPeopleAssignments() {
+function renderPeopleAssignments(props: { onImport?: () => void } = {}) {
   return render(
     <SessionProvider
       locale="ar"
@@ -57,7 +57,7 @@ function renderPeopleAssignments() {
         principal: { user_id: '018f6f7d-0c00-7000-8000-000000000021' },
       }}
     >
-      <PeopleAssignments />
+      <PeopleAssignments onImport={props.onImport} />
     </SessionProvider>,
   )
 }
@@ -74,10 +74,10 @@ afterEach(() => {
 })
 
 describe('PeopleAssignments', () => {
-  it('separates employees and assignments with localized names before employee numbers', async () => {
+  it('uses the consolidated Arabic title and separates employees from assignments', async () => {
     renderPeopleAssignments()
 
-    expect(await screen.findByRole('heading', { name: 'الموظفون والتكليفات' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'الموظفون والتكليفات الوظيفية' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'الموظفون' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'التكليفات' })).toBeTruthy()
     const employeesRegion = screen.getByRole('region', { name: 'الموظفون' })
@@ -133,5 +133,22 @@ describe('PeopleAssignments', () => {
     expect(await screen.findByRole('button', { name: 'إضافة موظف' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'إنشاء تكليف' })).toBeNull()
     expect(screen.getByText('أضف منصباً نشطاً واحداً على الأقل قبل إنشاء تكليف.')).toBeTruthy()
+  })
+
+  it('renders the localized Import employees button when onImport is provided and invokes it once', async () => {
+    const onImport = vi.fn()
+    renderPeopleAssignments({ onImport })
+
+    const importButton = await screen.findByRole('button', { name: 'استيراد موظفين' })
+    expect(importButton).toBeTruthy()
+    fireEvent.click(importButton)
+    expect(onImport).toHaveBeenCalledTimes(1)
+  })
+
+  it('omits the import button when no onImport handler is provided', async () => {
+    renderPeopleAssignments()
+
+    await screen.findByRole('heading', { name: 'الموظفون والتكليفات الوظيفية' })
+    expect(screen.queryByRole('button', { name: 'استيراد موظفين' })).toBeNull()
   })
 })
