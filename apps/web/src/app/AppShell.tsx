@@ -1,9 +1,8 @@
-import { type MouseEvent, type ReactElement, type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { type MouseEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
 import { numberFormattingLocale } from './copy'
 import {
   Bell,
   Building2,
-  ChevronDown,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -27,13 +26,6 @@ export type SidebarNavigationItem = {
   active: boolean
   count?: string
   onSelect: () => void
-}
-
-export type SidebarNavigationGroup = {
-  key: string
-  label: string
-  icon: ReactElement
-  items: SidebarNavigationItem[]
 }
 
 export type UserMenuEntryView = {
@@ -81,7 +73,7 @@ type AppShellProps = {
   locale: Locale
   copy: AppShellCopy
   facilityName: string
-  navigationGroups: SidebarNavigationGroup[]
+  navigationItems: SidebarNavigationItem[]
   unreadNotifications: number
   notificationButtonRef: RefObject<HTMLButtonElement | null>
   notificationsOpen: boolean
@@ -108,9 +100,7 @@ type AppShellProps = {
 
 type SidebarContentProps = {
   copy: AppShellCopy
-  navigationGroups: SidebarNavigationGroup[]
-  openGroups: Record<string, boolean>
-  onToggleGroup: (groupKey: string) => void
+  navigationItems: SidebarNavigationItem[]
   headingId: string
   onNavigate: () => void
   showCloseButton?: boolean
@@ -120,11 +110,9 @@ type SidebarContentProps = {
 function SidebarContent({
   copy,
   headingId,
-  navigationGroups,
+  navigationItems,
   onClose,
   onNavigate,
-  onToggleGroup,
-  openGroups,
   showCloseButton = false,
 }: SidebarContentProps) {
   function follow(event: MouseEvent<HTMLAnchorElement>, action: () => void) {
@@ -151,47 +139,22 @@ function SidebarContent({
       </div>
 
       <nav className="primary-navigation" aria-label={copy.navigationTitle}>
-        {navigationGroups.map((group) => {
-          const expanded = openGroups[group.key] === true
-          const listId = `${headingId}-${group.key}`
-          return (
-            <section className="navigation-group" key={group.key}>
-              <button
-                type="button"
-                className="navigation-group-toggle"
-                aria-label={group.label}
-                aria-expanded={expanded}
-                aria-controls={listId}
-                onClick={() => onToggleGroup(group.key)}
+        <ul className="primary-navigation-list">
+          {navigationItems.map((item) => (
+            <li key={item.key}>
+              <a
+                href={item.path}
+                aria-label={item.label}
+                aria-current={item.active ? 'page' : undefined}
+                onClick={(event) => follow(event, item.onSelect)}
               >
-                <span className="navigation-icon" aria-hidden="true">{group.icon}</span>
-                <span className="navigation-group-label">{group.label}</span>
-                <ChevronDown className="navigation-group-chevron" aria-hidden="true" />
-              </button>
-              <ul
-                id={listId}
-                className="navigation-group-items"
-                data-group-label={group.label}
-                hidden={!expanded}
-              >
-                {group.items.map((item) => (
-                  <li key={item.key}>
-                    <a
-                      href={item.path}
-                      aria-label={item.label}
-                      aria-current={item.active ? 'page' : undefined}
-                      onClick={(event) => follow(event, item.onSelect)}
-                    >
-                      <span className="navigation-icon" aria-hidden="true">{item.icon}</span>
-                      <span>{item.label}</span>
-                      {item.count && <span className="navigation-item-count">{item.count}</span>}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )
-        })}
+                <span className="navigation-icon" aria-hidden="true">{item.icon}</span>
+                <span className="navigation-item-label">{item.label}</span>
+                {item.count ? <span className="navigation-item-count">{item.count}</span> : null}
+              </a>
+            </li>
+          ))}
+        </ul>
       </nav>
     </div>
   )
@@ -202,7 +165,7 @@ export function AppShell({
   copy,
   facilityName,
   locale,
-  navigationGroups,
+  navigationItems,
   notificationButtonRef,
   notificationsOpen,
   onLocaleChange,
@@ -225,29 +188,12 @@ export function AppShell({
       return false
     }
   })
-  const activeGroupKey = useMemo(() => navigationGroups.find((group) => group.items.some((item) => item.active))?.key, [navigationGroups])
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    const initialGroupKey = activeGroupKey ?? navigationGroups[0]?.key
-    return initialGroupKey ? { [initialGroupKey]: true } : {}
-  })
   const navigationButtonRef = useRef<HTMLButtonElement>(null)
   const navigationPanelRef = useRef<HTMLElement>(null)
   const notificationsPanelRef = useRef<HTMLElement>(null)
   const notificationLabel = unreadNotifications > 0
     ? `${copy.notifications}: ${new Intl.NumberFormat(numberFormattingLocale(locale)).format(unreadNotifications)}`
     : copy.notifications
-
-  const lastActiveGroupKeyRef = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    if (!activeGroupKey) return
-    if (lastActiveGroupKeyRef.current === activeGroupKey) return
-    lastActiveGroupKeyRef.current = activeGroupKey
-    setOpenGroups((current) => current[activeGroupKey] ? current : { [activeGroupKey]: true })
-  }, [activeGroupKey])
-
-  function toggleGroup(groupKey: string) {
-    setOpenGroups((current) => current[groupKey] ? {} : { [groupKey]: true })
-  }
 
   function closeNavigation() {
     setNavigationOpen(false)
@@ -361,10 +307,8 @@ export function AppShell({
         <SidebarContent
           copy={copy}
           headingId="desktop-sidebar-heading"
-          navigationGroups={navigationGroups}
+          navigationItems={navigationItems}
           onNavigate={() => undefined}
-          onToggleGroup={toggleGroup}
-          openGroups={openGroups}
         />
       </aside>
 
@@ -545,11 +489,9 @@ export function AppShell({
             <SidebarContent
               copy={copy}
               headingId="mobile-sidebar-heading"
-              navigationGroups={navigationGroups}
+              navigationItems={navigationItems}
               onClose={closeNavigation}
               onNavigate={closeNavigation}
-              onToggleGroup={toggleGroup}
-              openGroups={openGroups}
               showCloseButton
             />
           </aside>

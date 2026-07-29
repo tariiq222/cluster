@@ -11,7 +11,7 @@ import { SessionProvider } from './session-context'
 import { PrincipalProvider, usePrincipal } from './principal-context'
 import { WorkspaceHeader } from './WorkspaceHeader'
 import { WorkspaceContent, RouteAccessGuard } from './WorkspaceContent'
-import { useWorkspaceSidebar } from './WorkspaceSidebar'
+import { useWorkspaceNavigation } from './WorkspaceSidebar'
 import { routeFromPath, pathFromRoute, type AppRoute } from '../shell/routes'
 import {
   listNotifications,
@@ -201,7 +201,7 @@ function ShellInner({
 }) {
   const principal = usePrincipal()
 
-  const navigationGroups = useWorkspaceSidebar({
+  const navigationItems = useWorkspaceNavigation({
     locale,
     route,
     capabilities: principal.capabilities,
@@ -232,7 +232,7 @@ function ShellInner({
       locale={locale}
       copy={shellCopy(locale)}
       facilityName={header.facilityName}
-      navigationGroups={navigationGroups}
+      navigationItems={navigationItems}
       unreadNotifications={unreadNotifications}
       notificationButtonRef={notificationButtonRef}
       notificationsOpen={notificationsOpen}

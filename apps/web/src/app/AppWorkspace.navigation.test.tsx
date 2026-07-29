@@ -5,9 +5,9 @@ import { describe, expect, it } from 'vitest'
 import { RouteAccessGuard } from './AppWorkspace'
 
 import {
-  buildNavigationGroups,
+  PRIMARY_NAVIGATION_ENTRIES,
+  buildPrimaryNavigationItems,
   isNavigationEntryVisible,
-  NAVIGATION_ENTRIES,
 } from '../shell/navigation'
 import {
   capabilityForRoute,
@@ -27,14 +27,15 @@ function pathsFor(capabilities: readonly string[] | null, features: { work_manag
 }
 
 function navigationPathsFor(capabilities: readonly string[] | null, features: { work_management: boolean; tasks: boolean } | null = null): string[] {
-  return buildNavigationGroups({ locale: 'ar', capabilities, features }).flatMap((group) => group.items.map((item) => item.path))
+  return buildPrimaryNavigationItems({ locale: 'ar', capabilities, features }).map((item) => item.path)
 }
 
-function groupKeys(capabilities: readonly string[] | null, features: { work_management: boolean; tasks: boolean } | null = null): string[] {
-  return buildNavigationGroups({ locale: 'ar', capabilities, features }).map((group) => group.key)
+function itemKeys(capabilities: readonly string[] | null, features: { work_management: boolean; tasks: boolean } | null = null): string[] {
+  return buildPrimaryNavigationItems({ locale: 'ar', capabilities, features }).map((item) => item.key)
 }
 
 const ALL_FEATURES = { work_management: true, tasks: true } as const
+const DISABLED = { work_management: false, tasks: true } as const
 
 describe('sidebar navigation by capability', () => {
   it('blocks direct protected-route content with the unified denied state', () => {
@@ -67,27 +68,31 @@ describe('sidebar navigation by capability', () => {
       expect(isRouteVisible(route, [])).toBe(false)
     }
   })
+
   it('offers an employee their own work and nothing administrative', () => {
     const employee = ['work_record.create', 'work_record.read', 'tasks.read', 'documents.read']
 
     expect(pathsFor(employee)).toContain('/')
     expect(pathsFor(employee)).toContain('/tasks')
+    expect(pathsFor(employee)).toContain('/documents')
     expect(pathsFor(employee)).not.toContain('/admin/organization')
     expect(pathsFor(employee)).not.toContain('/admin/identity/accounts')
     expect(pathsFor(employee)).not.toContain('/reports')
   })
 
-  it('drops a group once every entry in it is withheld', () => {
-    const employee = ['work_record.read', 'tasks.read']
+  it('drops administrative destinations once their gating capabilities are withheld', () => {
+    const employee = ['tasks.read']
 
-    expect(groupKeys(employee)).toEqual(['my-work'])
-    expect(groupKeys(employee)).toContain('my-work')
+    expect(itemKeys(employee, DISABLED)).toEqual(['home', 'tasks'])
+    expect(pathsFor(employee)).toContain('/tasks')
+    expect(pathsFor(employee)).not.toContain('/admin/organization')
   })
 
   it('offers only the matching work-domain group to a principal holding one of its capabilities', () => {
     const officer = ['tasks.read', 'reporting.list']
 
-    expect(groupKeys(officer)).toEqual(['my-work', 'reports-insights'])
+    expect(itemKeys(officer, DISABLED)).toContain('reports-monitoring')
+    expect(itemKeys(officer, DISABLED)).not.toContain('organization')
     expect(pathsFor(officer)).toContain('/reports')
     expect(pathsFor(officer)).not.toContain('/admin/organization')
   })
@@ -106,7 +111,6 @@ describe('sidebar navigation by capability', () => {
       expect.arrayContaining([
         '/',
         '/tasks',
-        '/admin/work-definitions',
         '/admin/organization',
         '/admin/identity/accounts',
         '/reports',
@@ -160,22 +164,18 @@ describe('sidebar navigation by capability', () => {
       'authorization.delegation.read',
       'authorization.policy.read',
       'authorization.audit.read',
+      'platform_settings.read',
     ]
     // Every entry visible per the registry must also pass isRouteVisible.
-    for (const entry of NAVIGATION_ENTRIES) {
-      if (!isNavigationEntryVisible(entry, allCaps)) continue
-      expect(isRouteVisible(entry.route, allCaps)).toBe(true)
+    for (const entry of PRIMARY_NAVIGATION_ENTRIES) {
+      if (!isNavigationEntryVisible(entry, allCaps, ALL_FEATURES)) continue
+      expect(isRouteVisible(entry.route, allCaps, ALL_FEATURES)).toBe(true)
     }
-    // And the navigation registry must show every gated entry the route
-    // registry would expose — otherwise the sidebar drops something the page
-    // would still render. `/me/*` entries live in the user menu rather than
-    // the sidebar; create/search/notifications live in the shell toolbar; the
-    // workflow-day2 / authoring / procedure-new authoring entry points live as
-    // legacy compatibility links reachable from elsewhere, so they are also
-    // excluded.
-    const sidebarExcludedPrefixes = ['/me/', '/work-records/new', '/search', '/notifications', '/admin/workflow/day2', '/admin/procedures/authoring', '/procedures/new', '/admin/organization/structure', '/admin/authorization/capabilities', '/admin/authorization/roles', '/admin/authorization/role-assignments', '/admin/authorization/delegations', '/admin/authorization/classification-policies', '/admin/authorization/field-access-templates', '/admin/authorization/access-scopes', '/admin/authorization/explain', '/admin/relationships/supervisory']
-    const routePaths = pathsFor(allCaps).filter((path) => !sidebarExcludedPrefixes.some((prefix) => path.startsWith(prefix)))
-    const navPaths = navigationPathsFor(allCaps)
+    // And the navigation registry must surface the seven primary destinations
+    // the route registry exposes for administrative principals.
+    const sidebarExcludedPrefixes = ['/me/', '/work-records/new', '/search', '/notifications', '/admin/workflow/day2', '/admin/procedures/authoring', '/procedures/new', '/admin/organization/structure', '/admin/organization/people', '/admin/organization/temporary-assignments', '/admin/imports/organization', '/admin/authorization/capabilities', '/admin/authorization/roles', '/admin/authorization/role-assignments', '/admin/authorization/delegations', '/admin/authorization/classification-policies', '/admin/authorization/field-access-templates', '/admin/authorization/access-scopes', '/admin/authorization/explain', '/admin/relationships/supervisory', '/approvals', '/my-requests', '/admin/procedures/review', '/admin/work-definitions', '/admin/workflow', '/procedures', '/audit', '/dashboards', '/coverage', '/api-docs']
+    const routePaths = pathsFor(allCaps, ALL_FEATURES).filter((path) => !sidebarExcludedPrefixes.some((prefix) => path.startsWith(prefix)))
+    const navPaths = navigationPathsFor(allCaps, ALL_FEATURES)
     for (const path of routePaths) {
       if (path === '/') continue
       expect(navPaths).toContain(path)

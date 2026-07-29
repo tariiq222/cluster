@@ -3,7 +3,7 @@ import { createRef, type ComponentProps } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { AppShell, type AppShellCopy, type SidebarNavigationGroup } from './AppShell'
+import { AppShell, type AppShellCopy, type SidebarNavigationItem } from './AppShell'
 import { shellCopy } from './copy'
 
 const copy: AppShellCopy = {
@@ -32,18 +32,13 @@ const copy: AppShellCopy = {
   scopeRetry: 'إعادة التحميل',
 }
 
-const navigationGroups: SidebarNavigationGroup[] = [{
-  key: 'my-work',
-  label: 'مساحة عملي',
-  icon: <svg data-testid="my-work-group-icon" aria-hidden="true" />,
-  items: [{
-    key: 'home',
-    label: 'الرئيسية',
-    path: '/',
-    icon: null,
-    active: true,
-    onSelect: vi.fn(),
-  }],
+const navigationItems: SidebarNavigationItem[] = [{
+  key: 'home',
+  label: 'الرئيسية',
+  path: '/',
+  icon: null,
+  active: true,
+  onSelect: vi.fn(),
 }]
 
 function renderShell(overrides: Partial<ComponentProps<typeof AppShell>> = {}) {
@@ -52,7 +47,7 @@ function renderShell(overrides: Partial<ComponentProps<typeof AppShell>> = {}) {
       locale="ar"
       copy={copy}
       facilityName="منشأة الاختبار"
-      navigationGroups={navigationGroups}
+      navigationItems={navigationItems}
       unreadNotifications={0}
       notificationButtonRef={createRef<HTMLButtonElement>()}
       notificationsOpen={false}
@@ -112,20 +107,16 @@ describe('AppShell', () => {
     })
   })
 
-  it('renders grouped navigation, current-page semantics, collapse state, and the separate user menu', () => {
+  it('renders flat navigation, current-page semantics, collapse state, and the separate user menu', () => {
     renderShell()
 
-    expect(screen.getByRole('button', { name: 'مساحة عملي' }).getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByRole('link', { name: 'الرئيسية' }).getAttribute('aria-current')).toBe('page')
+    expect(screen.queryByRole('button', { name: 'مساحة عملي' })).toBeNull()
+    expect(screen.queryByRole('button', { expanded: true })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'طي القائمة الجانبية' }))
     expect(document.querySelector('.app-shell')?.getAttribute('data-sidebar-collapsed')).toBe('true')
     expect(window.localStorage.getItem('cluster.sidebar-collapsed')).toBe('true')
-    expect(screen.getAllByTestId('my-work-group-icon').length).toBeGreaterThan(0)
-    expect(
-      screen.getAllByRole('button', { name: 'مساحة عملي' })
-        .every((button) => button.getAttribute('aria-label') === 'مساحة عملي'),
-    ).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'مستخدم المنصة' }))
     expect(screen.getByRole('menuitem', { name: 'الأمان الشخصي' })).toBeTruthy()
@@ -153,7 +144,7 @@ describe('AppShell', () => {
         locale="ar"
         copy={copy}
         facilityName="منشأة الاختبار"
-        navigationGroups={navigationGroups}
+        navigationItems={navigationItems}
         unreadNotifications={0}
         notificationButtonRef={createRef<HTMLButtonElement>()}
         notificationsOpen={false}

@@ -3,22 +3,10 @@ import {
   BarChart3,
   BookOpenText,
   Building2,
-  ClipboardCheck,
   ClipboardList,
-  FileSpreadsheet,
   FileText,
-  GitBranch,
-  Home,
-  KeyRound,
-  LayoutDashboard,
-  LockKeyhole,
-  Network,
-  ShieldCheck,
-  ScrollText,
-  TabletSmartphone,
-  UserCog,
   Users,
-  Workflow,
+  Home,
 } from 'lucide-react'
 
 import { text, type Locale } from '../app/copy'
@@ -27,27 +15,16 @@ import {
   PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES,
   WORK_MANAGEMENT_ROUTE_NAMES,
   type AppRoute,
+  type FeatureProjection,
 } from './routes'
 
 /**
- * The navigation registry defines every sidebar entry once. Each entry owns its
- * label, icon, route, and capability policy. Groups are computed by filtering
- * entries against the active principal's capabilities so empty groups never
- * advertise a feature that is withheld.
- *
- * The sidebar renders this registry directly; the dashboard and detail routes
- * use `pathFromRoute` so URLs stay in one place. Adding an entry to
- * `NAVIGATION_ENTRIES` without specifying a policy is a compile error.
+ * The primary navigation registry defines every sidebar entry once. Each entry
+ * owns its label, icon, route, and capability policy. The shell renders the
+ * visible entries directly as a flat list; the dashboard and detail routes use
+ * `pathFromRoute` so URLs stay in one place. Adding an entry without
+ * specifying a policy is a compile error.
  */
-
-export type NavigationGroupKey =
-  | 'my-work'
-  | 'organization-workforce'
-  | 'processes-workflow'
-  | 'governance-access'
-  | 'reports-insights'
-  | 'platform-management'
-  | 'internal'
 
 /**
  * Restrict the label pool to copy entries that are plain strings in both
@@ -63,13 +40,29 @@ export type NavigationLabelKey = StringCopyKeys<(typeof text)['ar']> &
 export type NavigationPolicy =
   { kind: 'authenticated' } | { kind: 'anyOf'; capabilities: readonly string[] }
 
-export type NavigationEntry = {
-  key: string
+export type PrimaryNavigationKey =
+  | 'home'
+  | 'tasks'
+  | 'documents'
+  | 'organization'
+  | 'accounts-permissions'
+  | 'reports-monitoring'
+  | 'platform-management'
+
+export type PrimaryNavigationEntry = {
+  key: PrimaryNavigationKey
   route: AppRoute
-  group: NavigationGroupKey
   labelKey: NavigationLabelKey
   icon: ReactNode
   policy: NavigationPolicy
+}
+
+export type PrimaryNavigationItem = {
+  key: PrimaryNavigationKey
+  label: string
+  path: string
+  icon: ReactNode
+  route: AppRoute
 }
 
 export type UserMenuEntry = {
@@ -80,33 +73,12 @@ export type UserMenuEntry = {
 
 const ICONS = {
   home: <Home aria-hidden="true" />,
-  approvals: <ClipboardList aria-hidden="true" />,
-  requests: <ClipboardList aria-hidden="true" />,
   tasks: <ClipboardList aria-hidden="true" />,
-  procedures: <FileText aria-hidden="true" />,
   documents: <FileText aria-hidden="true" />,
   organization: <Building2 aria-hidden="true" />,
-  organizationStructure: <Network aria-hidden="true" />,
-  people: <Users aria-hidden="true" />,
-  assignments: <FileSpreadsheet aria-hidden="true" />,
-  imports: <FileSpreadsheet aria-hidden="true" />,
-  workDefinitions: <Workflow aria-hidden="true" />,
-  workflowAdmin: <Workflow aria-hidden="true" />,
-  procedureReview: <ClipboardCheck aria-hidden="true" />,
-  identityAccounts: <Users aria-hidden="true" />,
-  roles: <ShieldCheck aria-hidden="true" />,
-  roleAssignments: <UserCog aria-hidden="true" />,
-  accessScopes: <Network aria-hidden="true" />,
-  delegations: <GitBranch aria-hidden="true" />,
-  classificationPolicies: <LockKeyhole aria-hidden="true" />,
-  supervisory: <Network aria-hidden="true" />,
-  accessExplanation: <ClipboardCheck aria-hidden="true" />,
-  audit: <ScrollText aria-hidden="true" />,
+  roles: <Users aria-hidden="true" />,
   reports: <BarChart3 aria-hidden="true" />,
-  dashboards: <LayoutDashboard aria-hidden="true" />,
-  coverage: <TabletSmartphone aria-hidden="true" />,
   apiDocs: <BookOpenText aria-hidden="true" />,
-  capabilities: <KeyRound aria-hidden="true" />,
 } as const
 
 const anyOf = (capabilities: readonly string[]): NavigationPolicy => ({
@@ -115,198 +87,72 @@ const anyOf = (capabilities: readonly string[]): NavigationPolicy => ({
 })
 
 /**
- * One entry per Target Route Map row. Keep this list total so the sidebar never
- * silently omits a governed destination.
+ * The seven primary destinations rendered in the sidebar. The order is
+ * authoritative: the brief freezes it from Home through Platform management
+ * so the user menu stays the only place personal access surfaces.
  */
-export const NAVIGATION_ENTRIES: readonly NavigationEntry[] = [
-  // My work
+export const PRIMARY_NAVIGATION_ENTRIES: readonly PrimaryNavigationEntry[] = [
   {
     key: 'home',
     route: { name: 'list' },
-    group: 'my-work',
     labelKey: 'home',
     icon: ICONS.home,
     policy: { kind: 'authenticated' },
   },
   {
-    key: 'approvals',
-    route: { name: 'approval-inbox' },
-    group: 'my-work',
-    labelKey: 'myApprovals',
-    icon: ICONS.approvals,
-    policy: anyOf([
-      'workflow.decide',
-      'workflow.reassign',
-      'workflow.escalate',
-    ]),
-  },
-  {
-    key: 'my-requests',
-    route: { name: 'my-requests' },
-    group: 'my-work',
-    labelKey: 'myRequests',
-    icon: ICONS.requests,
-    policy: anyOf(['workflow.read', 'workflow.list']),
-  },
-  {
     key: 'tasks',
     route: { name: 'tasks' },
-    group: 'my-work',
     labelKey: 'myTasks',
     icon: ICONS.tasks,
     policy: anyOf(['tasks.read', 'tasks.list']),
   },
   {
-    key: 'procedures',
-    route: { name: 'procedure-guide' },
-    group: 'my-work',
-    labelKey: 'procedures',
-    icon: ICONS.procedures,
-    policy: anyOf(['work_definition.read', 'work_definition.list']),
-  },
-  {
     key: 'documents',
     route: { name: 'documents' },
-    group: 'my-work',
     labelKey: 'documents',
     icon: ICONS.documents,
     policy: anyOf(['documents.read', 'documents.list']),
   },
-
-  // Organization and workforce
   {
     key: 'organization',
     route: { name: 'organization' },
-    group: 'organization-workforce',
-    labelKey: 'organizationFacilities',
+    labelKey: 'organizationAndWorkforce',
     icon: ICONS.organization,
-    policy: anyOf(['organization.facility.read', 'organization.unit.read']),
+    policy: anyOf([
+      'organization.facility.read',
+      'organization.unit.read',
+      'organization.person.read',
+      'organization.import.read',
+    ]),
   },
   {
-    key: 'people-assignments',
-    route: { name: 'people-assignments' },
-    group: 'organization-workforce',
-    labelKey: 'peopleAssignments',
-    icon: ICONS.people,
-    policy: anyOf(['organization.person.read']),
-  },
-  {
-    key: 'temporary-assignments',
-    route: { name: 'temporary-assignments' },
-    group: 'organization-workforce',
-    labelKey: 'temporaryAssignments',
-    icon: ICONS.assignments,
-    policy: anyOf(['organization.temporary-assignment.read']),
-  },
-  {
-    key: 'organization-import',
-    route: { name: 'organization-import' },
-    group: 'organization-workforce',
-    labelKey: 'importReview',
-    icon: ICONS.imports,
-    policy: anyOf(['organization.import.read']),
-  },
-  {
-    key: 'governance-and-access',
+    key: 'accounts-permissions',
     route: { name: 'identity-accounts' },
-    group: 'governance-access',
-    labelKey: 'governanceAndAccess',
+    labelKey: 'accountsAndAccess',
     icon: ICONS.roles,
     policy: anyOf([
       'identity.account.read',
       'authorization.role.read',
+      'authorization.capability.read',
       'authorization.assignment.read',
-      'authorization.delegation.read',
       'authorization.policy.read',
-      'organization.unit.read',
+      'authorization.decision.read',
     ]),
   },
-
-  // Procedures and workflow
   {
-    key: 'procedure-office-review',
-    route: { name: 'procedure-office-review' },
-    group: 'processes-workflow',
-    labelKey: 'procedureOfficeReview',
-    icon: ICONS.procedureReview,
-    policy: anyOf(['workflow.approve', 'work_definition.publish']),
-  },
-  {
-    key: 'work-definitions',
-    route: { name: 'work-definitions' },
-    group: 'processes-workflow',
-    labelKey: 'workDefinitions',
-    icon: ICONS.workDefinitions,
-    policy: anyOf(['work_definition.read', 'work_definition.list']),
-  },
-  {
-    key: 'workflow-admin',
-    route: { name: 'workflow-admin' },
-    group: 'processes-workflow',
-    labelKey: 'workflowAdmin',
-    icon: ICONS.workflowAdmin,
-    policy: anyOf(['workflow.read', 'workflow.list', 'workflow.manage']),
-  },
-  {
-    key: 'access-explanation',
-    route: { name: 'access-explanation' },
-    group: 'internal',
-    labelKey: 'accessExplanation',
-    icon: ICONS.accessExplanation,
-    policy: anyOf(['authorization.decision.read']),
-  },
-  {
-    key: 'audit',
-    route: { name: 'audit' },
-    group: 'governance-access',
-    labelKey: 'auditLedger',
-    icon: ICONS.audit,
-    policy: anyOf(['audit.event.read']),
-  },
-  {
-    key: 'coverage',
-    route: { name: 'coverage' },
-    group: 'internal',
-    labelKey: 'coverage',
-    icon: ICONS.coverage,
-    policy: anyOf(['authorization.audit.read']),
-  },
-  {
-    key: 'api-docs',
-    route: { name: 'api-docs' },
-    group: 'internal',
-    labelKey: 'apiReference',
-    icon: ICONS.apiDocs,
-    policy: anyOf(['authorization.audit.read']),
-  },
-  {
-    key: 'platform-settings',
-    route: { name: 'platform-settings', section: 'overview' },
-    group: 'platform-management',
-    labelKey: 'platformSettings',
-    icon: ICONS.apiDocs,
-    policy: anyOf(PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES),
-  },
-
-  // Reporting and indicators
-  {
-    key: 'reports',
+    key: 'reports-monitoring',
     route: { name: 'reports' },
-    group: 'reports-insights',
-    labelKey: 'reportsScreen',
+    labelKey: 'reportsAndIndicators',
     icon: ICONS.reports,
-    policy: anyOf(['reporting.list']),
+    policy: anyOf(['reporting.list', 'reporting.dashboard', 'audit.event.read']),
   },
   {
-    key: 'dashboards',
-    route: { name: 'dashboards' },
-    group: 'reports-insights',
-    labelKey: 'dashboardsScreen',
-    icon: ICONS.dashboards,
-    policy: anyOf(['reporting.dashboard']),
+    key: 'platform-management',
+    route: { name: 'platform-settings', section: 'overview' },
+    labelKey: 'platformManagement',
+    icon: ICONS.apiDocs,
+    policy: anyOf([...PLATFORM_SETTINGS_OVERVIEW_CAPABILITIES, 'authorization.audit.read']),
   },
-
-  // Internal tools (only platform owners / developers)
 ]
 
 /**
@@ -331,9 +177,9 @@ export const USER_MENU_ENTRIES: readonly UserMenuEntry[] = [
  * entry is hidden so the sidebar never advertises what is withheld.
  */
 export function isNavigationEntryVisible(
-  entry: NavigationEntry,
+  entry: PrimaryNavigationEntry,
   capabilities: readonly string[] | null,
-  features: { work_management: boolean; tasks: boolean } | null = null,
+  features: FeatureProjection | null = null,
 ): boolean {
   if (WORK_MANAGEMENT_ROUTE_NAMES[entry.route.name]) {
     if (!features || features.work_management !== true) return false
@@ -343,84 +189,25 @@ export function isNavigationEntryVisible(
   return entry.policy.capabilities.some((code) => capabilities.includes(code))
 }
 
-export type NavigationGroup = {
-  key: NavigationGroupKey
-  labelKey: NavigationLabelKey
-  icon: ReactElement
-  items: Array<{
-    key: string
-    label: string
-    path: string
-    icon: ReactNode
-  }>
-}
-
-const GROUP_LABELS: Record<NavigationGroupKey, NavigationLabelKey> = {
-  'my-work': 'myWork',
-  'organization-workforce': 'organizationAndWorkforce',
-  'processes-workflow': 'processesAndWorkflow',
-  'governance-access': 'governanceAndAccess',
-  'reports-insights': 'reportsAndIndicators',
-  'platform-management': 'platformManagement',
-  internal: 'internalTools',
-}
-
-const GROUP_ICONS: Record<NavigationGroupKey, ReactElement> = {
-  'my-work': ICONS.home,
-  'organization-workforce': ICONS.organization,
-  'processes-workflow': ICONS.workflowAdmin,
-  'governance-access': ICONS.roles,
-  'reports-insights': ICONS.dashboards,
-  'platform-management': ICONS.apiDocs,
-  internal: ICONS.coverage,
-}
-
-const GROUP_ORDER: readonly NavigationGroupKey[] = [
-  'my-work',
-  'organization-workforce',
-  'processes-workflow',
-  'governance-access',
-  'reports-insights',
-  'platform-management',
-  'internal',
-]
-
 /**
- * Build the sidebar groups from the navigation registry, hiding gated entries
- * and removing any group that becomes empty. Returns a stable order independent
- * of the registry iteration.
+ * Materialize the flat sidebar items for the active principal. Visibility is
+ * fail-closed: gated entries stay hidden until their capability is granted
+ * AND any feature gate has landed.
  */
-export function buildNavigationGroups(args: {
+export function buildPrimaryNavigationItems(args: {
   locale: Locale
   capabilities: readonly string[] | null
-  features: { work_management: boolean; tasks: boolean } | null
-}): NavigationGroup[] {
-  const visible = NAVIGATION_ENTRIES.filter((entry) =>
-    isNavigationEntryVisible(entry, args.capabilities, args.features),
-  )
-  const grouped = new Map<NavigationGroupKey, NavigationGroup>()
-  for (const key of GROUP_ORDER) {
-    grouped.set(key, {
-      key,
-      labelKey: GROUP_LABELS[key],
-      icon: GROUP_ICONS[key],
-      items: [],
-    })
-  }
-  for (const entry of visible) {
-    const group = grouped.get(entry.group)
-    if (!group) continue
-    group.items.push({
+  features: FeatureProjection | null
+}): PrimaryNavigationItem[] {
+  return PRIMARY_NAVIGATION_ENTRIES
+    .filter((entry) => isNavigationEntryVisible(entry, args.capabilities, args.features))
+    .map((entry) => ({
       key: entry.key,
       label: text[args.locale][entry.labelKey],
       path: pathFromRoute(entry.route),
       icon: entry.icon,
-    })
-  }
-  return GROUP_ORDER.map((key) => grouped.get(key)).filter(
-    (group): group is NavigationGroup =>
-      group !== undefined && group.items.length > 0,
-  )
+      route: entry.route,
+    }))
 }
 
 export function buildUserMenuEntries(
@@ -432,3 +219,6 @@ export function buildUserMenuEntries(
     label: text[locale][entry.labelKey],
   }))
 }
+
+// Re-export ReactElement for callers that still type group icons with it.
+export type { ReactElement }
