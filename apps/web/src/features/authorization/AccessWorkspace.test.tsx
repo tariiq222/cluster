@@ -80,8 +80,7 @@ describe('AccessWorkspace governance tabs', () => {
     expect(screen.queryByRole('link', { name: 'Delegations' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Supervisory relationships' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Personal access' })).toBeNull()
-    expect(screen.getByRole('link', { name: 'Permission policies and scopes' })).toHaveAttribute(
-      'href',
+    expect(screen.getByRole('link', { name: 'Permission policies and scopes' }).getAttribute('href')).toBe(
       '/admin/authorization/classification-policies',
     )
   })

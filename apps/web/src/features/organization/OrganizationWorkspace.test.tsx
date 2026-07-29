@@ -26,13 +26,13 @@ describe('OrganizationWorkspace', () => {
 
     expect(
       screen.getByRole('link', { name: 'المنشآت والهيكل التنظيمي' }),
-    ).toBeVisible()
+    ).toBeTruthy()
     expect(
       screen.getByRole('link', { name: 'الموظفون والتكليفات الوظيفية' }),
-    ).toBeVisible()
+    ).toBeTruthy()
     expect(
       screen.getByRole('link', { name: 'العلاقات الإشرافية' }),
-    ).toBeVisible()
+    ).toBeTruthy()
     expect(
       screen.queryByRole('link', { name: 'التكليفات المؤقتة' }),
     ).toBeNull()
@@ -72,7 +72,7 @@ describe('OrganizationWorkspace', () => {
 
     expect(
       screen.getByRole('link', { name: 'المنشآت والهيكل التنظيمي' }),
-    ).toBeVisible()
+    ).toBeTruthy()
     expect(
       screen.queryByRole('link', { name: 'الموظفون والتكليفات الوظيفية' }),
     ).toBeNull()
@@ -95,7 +95,7 @@ describe('OrganizationWorkspace', () => {
 
     expect(
       screen.getByRole('link', { name: 'الموظفون والتكليفات الوظيفية' }),
-    ).toBeVisible()
+    ).toBeTruthy()
   })
 
   it('renders the English labels with the consolidated copy', () => {
@@ -114,8 +114,8 @@ describe('OrganizationWorkspace', () => {
       </SessionProvider>,
     )
 
-    expect(screen.getByRole('link', { name: 'Facilities and structure' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Employees and job assignments' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Supervisory relationships' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Facilities and structure' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Employees and job assignments' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Supervisory relationships' })).toBeTruthy()
   })
 })

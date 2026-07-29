@@ -56,7 +56,7 @@ describe('PlatformSettingsLayout', () => {
       capabilities: ['platform_settings.read', 'authorization.audit.read'],
     })
 
-    expect(screen.getByRole('link', { name: 'مرجع API' })).toHaveAttribute('href', '/api-docs')
+    expect(screen.getByRole('link', { name: 'مرجع API' }).getAttribute('href')).toBe('/api-docs')
   })
 
   it('does not advertise API reference without its capability', () => {
