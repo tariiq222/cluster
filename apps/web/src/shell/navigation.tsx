@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import {
   BarChart3,
   BookOpenText,
@@ -220,5 +220,3 @@ export function buildUserMenuEntries(
   }))
 }
 
-// Re-export ReactElement for callers that still type group icons with it.
-export type { ReactElement }
