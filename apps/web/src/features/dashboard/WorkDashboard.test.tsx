@@ -41,6 +41,7 @@ function renderDashboard(overrides: Partial<React.ComponentProps<typeof WorkDash
     scopeReady: true,
     effectiveScopeId: 'scope-a',
     workManagementEnabled: true,
+    canViewTasks: true,
     canViewDashboards: true,
     canCreateRequest: false,
     canBrowseServices: false,
@@ -94,7 +95,44 @@ describe('WorkDashboard', () => {
     expect(requestsMock).not.toHaveBeenCalled()
     // Approvals/requests items and panels never render.
     expect(screen.queryByText('طلب اعتماد')).toBeNull()
-    expect(screen.queryByText('request-1')).toBeNull()
+  })
+
+  it('does not fetch tasks and hides the task KPIs/today panel when canViewTasks is false', async () => {
+    renderDashboard({ canViewTasks: false })
+
+    // No task API call at all.
+    expect(tasksMock).not.toHaveBeenCalled()
+    // No "Today" panel or "Due today" / "Overdue" headings rendered.
+    expect(screen.queryByText('اليوم')).toBeNull()
+    expect(screen.queryByText('مستحقة اليوم')).toBeNull()
+    expect(screen.queryByText('متأخرة')).toBeNull()
+    // Work management surfaces still load and render.
+    await waitFor(() => expect(inboxMock).toHaveBeenCalled())
+    expect(await screen.findByText('طلب اعتماد')).toBeTruthy()
+  })
+
+  it('fails closed and does not call any dashboard API when both work_management and canViewTasks are false', async () => {
+    renderDashboard({ workManagementEnabled: false, canViewTasks: false })
+
+    expect(tasksMock).not.toHaveBeenCalled()
+    expect(inboxMock).not.toHaveBeenCalled()
+    expect(requestsMock).not.toHaveBeenCalled()
+    // The page header still renders so the shell layout is intact.
+    expect(screen.getByRole('heading', { name: 'الرئيسية' })).toBeTruthy()
+    // No task/work-management panel or KPI headings.
+    expect(screen.queryByText('اليوم')).toBeNull()
+    expect(screen.queryByText('ما يحتاجك الآن')).toBeNull()
+  })
+
+  it('keeps loading only when both flags and work-management are off but still renders nothing', async () => {
+    renderDashboard({ workManagementEnabled: false, canViewTasks: true })
+
+    // Tasks still load.
+    await waitFor(() => expect(tasksMock).toHaveBeenCalled())
+    expect(inboxMock).not.toHaveBeenCalled()
+    expect(requestsMock).not.toHaveBeenCalled()
+    // Today panel + KPIs render because canViewTasks is true.
+    expect(await screen.findByText('اليوم')).toBeTruthy()
   })
 
   it('keeps work visible when optional dashboard indicators fail', async () => {

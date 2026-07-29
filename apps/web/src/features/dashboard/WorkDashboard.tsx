@@ -28,6 +28,15 @@ type WorkDashboardProps = {
    * records fetches and hides the approvals/requests KPIs and panels.
    */
   workManagementEnabled?: boolean
+  /**
+   * Whether the principal is allowed to view tasks. Combines the server
+   * `tasks` feature projection with the principal's `tasks.read` or
+   * `tasks.list` capability. Defaults to `false` so the dashboard fails
+   * closed until the integration lane threads the prop. When false the
+   * task source never loads and the Today panel + dueToday/overdue KPIs
+   * stay hidden.
+   */
+  canViewTasks?: boolean
   /** Fail closed until the principal snapshot confirms reporting.dashboard. */
   canViewDashboards: boolean
   canCreateRequest: boolean
@@ -72,17 +81,50 @@ function sourceError<T>(error: unknown): Loadable<T> {
 }
 
 export function WorkDashboard(props: WorkDashboardProps) {
-  const { locale, session, principalRevision, effectiveScopeId, effectiveScopeLabel, scopeEpoch, scopeReady, workManagementEnabled = false, canViewDashboards, canCreateRequest, canBrowseServices, onCreateRequest, onBrowseServices, onOpenApprovals, onOpenRequests, onOpenTasks, onOpenDocuments, onOpenDashboards, onOpenRequestInstance, onOpenApprovalStep, onOpenTask } = props
+  const {
+    locale,
+    session,
+    principalRevision,
+    effectiveScopeId,
+    effectiveScopeLabel,
+    scopeEpoch,
+    scopeReady,
+    workManagementEnabled = false,
+    canViewTasks = false,
+    canViewDashboards,
+    canCreateRequest,
+    canBrowseServices,
+    onCreateRequest,
+    onBrowseServices,
+    onOpenApprovals,
+    onOpenRequests,
+    onOpenTasks,
+    onOpenDocuments,
+    onOpenDashboards,
+    onOpenRequestInstance,
+    onOpenApprovalStep,
+    onOpenTask,
+  } = props
   const t = copy[locale]
-  const featureFlags: DashboardFeatureFlags = { workManagement: workManagementEnabled }
-  // Memoized: a fresh array every render would retrigger the loading effect
-  // below in an infinite loop.
-  const enabledSources = useMemo(() => enabledDashboardSources(featureFlags), [workManagementEnabled])
-  const [sources, setSources] = useState<DashboardSources>(initialSources)
+  const featureFlags: DashboardFeatureFlags = { workManagement: workManagementEnabled, tasks: canViewTasks }
+  // Memoized: a fresh object every render would retrigger the loading effect
+  // below in an infinite loop. Both flags are derived from server-projected
+  // values that only change when the principal projection updates.
+  const enabledSources = useMemo(
+    () => enabledDashboardSources(featureFlags),
+    [workManagementEnabled, canViewTasks],
+  )
   const sourceEpoch = useRef(0)
   const sourceRequest = useRef<Record<SourceKey, number>>({ inbox: 0, tasks: 0, requests: 0 })
 
   const loadSource = useCallback(async (source: SourceKey, epoch: number) => {
+    if (source === 'tasks' && !canViewTasks) {
+      // Fail closed: never call the task API when the principal lacks task
+      // read/list access. Leave the source in its initial loading state so
+      // the KPI stays null and the panel hides rather than rendering an
+      // empty box.
+      return
+    }
     if (source !== 'tasks' && !workManagementEnabled) {
       // Fail closed: never call the work-management API when the feature is
       // off. Leave the source in its initial loading state so the KPI stays
@@ -109,8 +151,7 @@ export function WorkDashboard(props: WorkDashboardProps) {
       if (sourceEpoch.current !== epoch || sourceRequest.current[source] !== request) return
       setSources((previous) => ({ ...previous, [source]: sourceError(error) }))
     }
-  }, [session.access_token, workManagementEnabled])
-
+  }, [session.access_token, workManagementEnabled, canViewTasks])
   useEffect(() => {
     const epoch = ++sourceEpoch.current
     setSources(initialSources())
@@ -144,15 +185,16 @@ export function WorkDashboard(props: WorkDashboardProps) {
           {workManagementEnabled ? (
             <section className="work-dashboard-priority" aria-label={t.prioritySummary}><Panel id="work-dashboard-priority-strip" title={t.prioritySummary} level={2}><strong>{kpis.awaitingDecision ?? '…'}</strong><Button variant="primary" onClick={onOpenApprovals}><ClipboardList aria-hidden="true" />{t.priorityCta}</Button></Panel></section>
           ) : null}
-          <section className="work-dashboard-kpis" aria-label={t.title}>{workManagementEnabled ? <KpiCard label={t.awaitingDecision} value={kpis.awaitingDecision} onOpen={onOpenApprovals} icon={<ClipboardList aria-hidden="true" />} /> : null}<KpiCard label={t.dueToday} value={kpis.dueToday} onOpen={onOpenTasks} icon={<Clock aria-hidden="true" />} /><KpiCard label={t.overdue} value={kpis.overdue} onOpen={onOpenTasks} icon={<Clock aria-hidden="true" />} />{workManagementEnabled ? <KpiCard label={t.activeRequests} value={kpis.activeRequests} onOpen={onOpenRequests} icon={<Send aria-hidden="true" />} /> : null}</section>
+          <section className="work-dashboard-kpis" aria-label={t.title}>{workManagementEnabled ? <KpiCard label={t.awaitingDecision} value={kpis.awaitingDecision} onOpen={onOpenApprovals} icon={<ClipboardList aria-hidden="true" />} /> : null}{canViewTasks ? <KpiCard label={t.dueToday} value={kpis.dueToday} onOpen={onOpenTasks} icon={<Clock aria-hidden="true" />} /> : null}{canViewTasks ? <KpiCard label={t.overdue} value={kpis.overdue} onOpen={onOpenTasks} icon={<Clock aria-hidden="true" />} /> : null}{workManagementEnabled ? <KpiCard label={t.activeRequests} value={kpis.activeRequests} onOpen={onOpenRequests} icon={<Send aria-hidden="true" />} /> : null}</section>
           {workManagementEnabled ? (
             <section className="work-dashboard-section"><Panel id="work-dashboard-priority-panel" title={t.whatNeedsYou} level={2}><SourceContent source={sources.inbox} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.inboxError} retryLabel={t.retry} onRetry={() => retry('inbox')}>{inboxItems.length === 0 ? <EmptyState icon={<ClipboardList aria-hidden="true" />} title={t.noApprovals} /> : <WorkList items={inboxItems} title={t.whatNeedsYou} onOpen={onOpenApprovalStep} label={(item) => item.source_type ?? item.id} />}</SourceContent></Panel></section>
           ) : null}
           {workManagementEnabled ? (
             <section className="work-dashboard-section"><Panel id="work-dashboard-requests-panel" title={t.trackRequests} level={2}><SourceContent source={sources.requests} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.requestsError} retryLabel={t.retry} onRetry={() => retry('requests')}>{requestsItems.length === 0 ? <EmptyState icon={<Send aria-hidden="true" />} title={t.noRequests} /> : <WorkList items={requestsItems} title={t.trackRequests} onOpen={onOpenRequestInstance} label={(item) => item.id} />}</SourceContent></Panel></section>
           ) : null}
-          <section className="work-dashboard-section"><Panel id="work-dashboard-today-panel" title={t.today} level={2}><SourceContent source={sources.tasks} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.tasksError} retryLabel={t.retry} onRetry={() => retry('tasks')}>{todayTasks.length === 0 ? <EmptyState icon={<ListTodo aria-hidden="true" />} title={t.noDueTasks} /> : <WorkList items={todayTasks} title={t.today} onOpen={onOpenTask} label={(item) => item.title ?? item.id} />}</SourceContent></Panel></section>
-          {workManagementEnabled && canViewDashboards && scopeReady && effectiveScopeId ? <section className="work-dashboard-section"><PrincipalDashboards scopeId={effectiveScopeId} revision={principalRevision} onOpen={onOpenDashboards} onOpenDocuments={onOpenDocuments} /></section> : null}
+          {canViewTasks ? (
+            <section className="work-dashboard-section"><Panel id="work-dashboard-today-panel" title={t.today} level={2}><SourceContent source={sources.tasks} loadingLabel={t.loading} deniedLabel={t.denied} errorLabel={t.tasksError} retryLabel={t.retry} onRetry={() => retry('tasks')}>{todayTasks.length === 0 ? <EmptyState icon={<ListTodo aria-hidden="true" />} title={t.noDueTasks} /> : <WorkList items={todayTasks} title={t.today} onOpen={onOpenTask} label={(item) => item.title ?? item.id} />}</SourceContent></Panel></section>
+          ) : null}
         </div>
       </Page>
     </div>

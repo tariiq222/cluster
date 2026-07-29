@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { buildDashboardKpis, filterTasksDueToday, metricValue, type DashboardSources } from './dashboard-model'
+import { buildDashboardKpis, enabledDashboardSources, filterTasksDueToday, metricValue, type DashboardSources } from './dashboard-model'
 
 const NOW = new Date('2026-07-23T08:00:00Z')
 
@@ -68,4 +68,24 @@ describe('dashboard-model', () => {
       overdue: 0,
     })
   })
-})
+
+  it('returns no sources when both feature flags are disabled', () => {
+    expect(enabledDashboardSources({ workManagement: false, tasks: false })).toEqual([])
+  })
+
+  it('returns only the task source when work management is off but tasks is on', () => {
+    expect(enabledDashboardSources({ workManagement: false, tasks: true })).toEqual(['tasks'])
+  })
+
+  it('drops the task source when the tasks flag is off and keeps work management intact', () => {
+    expect(enabledDashboardSources({ workManagement: true, tasks: false })).toEqual(['inbox', 'requests'])
+  })
+
+  it('returns all three sources when both feature flags are enabled', () => {
+    expect(enabledDashboardSources({ workManagement: true, tasks: true })).toEqual(['inbox', 'tasks', 'requests'])
+  })
+
+  it('treats null flags as fully disabled so the UI fails closed', () => {
+    expect(enabledDashboardSources(null)).toEqual([])
+  })
+ })
