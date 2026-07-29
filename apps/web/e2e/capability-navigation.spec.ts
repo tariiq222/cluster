@@ -69,7 +69,7 @@ test('platform owner sees seven direct primary links and supports LTR', async ({
     await expect(page.getByRole('link', { name: retired, exact: true })).toHaveCount(0)
   }
   await page.getByRole('link', { name: 'الحسابات والصلاحيات', exact: true }).click()
-  await expect(page.getByRole('link', { name: 'الحسابات' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'الحسابات', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'الأدوار والصلاحيات' })).toBeVisible()
   await page.screenshot({ path: path.join(artifactsDir, 'sidebar-primary-desktop.png'), fullPage: true })
   await page.getByRole('button', { name: 'طي القائمة الجانبية' }).click()
