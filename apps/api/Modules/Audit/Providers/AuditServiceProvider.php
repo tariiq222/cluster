@@ -20,6 +20,8 @@ use Modules\Audit\Infrastructure\Persistence\AuditIdempotencyStore;
 use Modules\Audit\Infrastructure\Persistence\AuditIntegrityRepository;
 use Modules\Audit\Infrastructure\Persistence\DatabaseQueryAuditActivity;
 use Modules\Audit\Infrastructure\Persistence\DatabaseRecordAuditEvent;
+use Modules\Audit\Infrastructure\Persistence\SharedRecordAuditEventAdapter;
+use Shared\Contracts\RecordAuditEvent as SharedRecordAuditEvent;
 use Shared\Contracts\TransactionalOutbox;
 
 final class AuditServiceProvider extends ServiceProvider
@@ -59,6 +61,8 @@ final class AuditServiceProvider extends ServiceProvider
                 $activeKeyVersion,
             );
         });
+
+        $this->app->bind(SharedRecordAuditEvent::class, SharedRecordAuditEventAdapter::class);
 
         $this->app->singleton(QueryAuditActivity::class, DatabaseQueryAuditActivity::class);
 
