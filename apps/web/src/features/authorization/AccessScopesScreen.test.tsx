@@ -45,7 +45,7 @@ describe('AccessScopesScreen', () => {
 
     render(
       <SessionProvider locale="en" session={session}>
-        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} />
+        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} navigate={vi.fn()} />
       </SessionProvider>,
     )
 
@@ -69,7 +69,7 @@ describe('AccessScopesScreen', () => {
 
     render(
       <SessionProvider locale="en" session={session}>
-        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} />
+        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} navigate={vi.fn()} />
       </SessionProvider>,
     )
 
@@ -84,7 +84,7 @@ describe('AccessScopesScreen', () => {
 
     render(
       <SessionProvider locale="en" session={session}>
-        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} />
+        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} navigate={vi.fn()} />
       </SessionProvider>,
     )
 
@@ -114,7 +114,7 @@ describe('AccessScopesScreen', () => {
 
     render(
       <SessionProvider locale="en" session={session}>
-        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} />
+        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} navigate={vi.fn()} />
       </SessionProvider>,
     )
 
@@ -126,7 +126,7 @@ describe('AccessScopesScreen', () => {
 
     render(
       <SessionProvider locale="en" session={session}>
-        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} />
+        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} navigate={vi.fn()} />
       </SessionProvider>,
     )
 
@@ -138,7 +138,7 @@ describe('AccessScopesScreen', () => {
 
     render(
       <SessionProvider locale="en" session={session}>
-        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} />
+        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} navigate={vi.fn()} />
       </SessionProvider>,
     )
 
@@ -150,10 +150,34 @@ describe('AccessScopesScreen', () => {
 
     render(
       <SessionProvider locale="en" session={session}>
-        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} />
+        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} navigate={vi.fn()} />
       </SessionProvider>,
     )
 
     expect(await screen.findByText(/Try again/)).toBeTruthy()
+  })
+
+  it('routes to the role assignments path via the navigate prop when the open button is clicked', async () => {
+    listAuthorizationMock.mockResolvedValueOnce([
+      item({
+        subject_id: 'has-value',
+        role_code: 'r',
+        scope_type: 'organization',
+        scope_id: 'o',
+        starts_at: '2026-01-01',
+        ends_at: '2026-12-31',
+      }),
+    ])
+
+    const navigate = vi.fn()
+    render(
+      <SessionProvider locale="en" session={session}>
+        <AccessScopesScreen locale="en" scopeReady scopeEpoch={0} navigate={navigate} />
+      </SessionProvider>,
+    )
+
+    await screen.findByText('has-value')
+    screen.getByRole('button', { name: 'Open role assignments' }).click()
+    expect(navigate).toHaveBeenCalledWith('/admin/authorization/role-assignments')
   })
 })

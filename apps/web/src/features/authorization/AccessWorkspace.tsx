@@ -1,10 +1,7 @@
 import { directionForLocale } from '../../app/copy'
 import {
   ClipboardCheck,
-  GitBranch,
-  KeyRound,
   LockKeyhole,
-  Network,
   ShieldCheck,
   UserCog,
   Users,
@@ -14,8 +11,8 @@ import type { ReactElement } from 'react'
 import { WorkspaceTabs } from '../../app/WorkspaceTabs'
 import { pathFromRoute, type AppRoute } from '../../shell/routes'
 import { IdentityAccounts } from '../identity/IdentityAccounts'
-import { AccessContext } from './AccessContext'
 import { AccessScopesScreen } from './AccessScopesScreen'
+import { RolesCapabilitiesWorkspace } from './RolesCapabilitiesWorkspace'
 import {
   AccessDecisionSimulator,
   AccessExplanation,
@@ -28,21 +25,26 @@ const screenCopy = {
     trustAccessCentre: 'مركز الحوكمة والوصول',
     identityAuthorization: 'الهوية والصلاحيات',
     manageIdentityAndReviewHow: 'أدر الحسابات والأدوار والإسنادات والسياسات والنطاقات من مساحة واحدة.',
-    identityAndAuthorizationNavigation: 'تنقل الحوكمة والوصول',
     governanceSections: 'أقسام الحوكمة والوصول',
     chooseAnIdentityOrAuthorization: 'اختر تبويبًا لبدء إدارة الهوية أو الصلاحيات.',
   },
   en: {
     trustAccessCentre: 'Governance & access centre',
     identityAuthorization: 'Identity & access',
-    manageIdentityAndReviewHow: 'Manage accounts, roles, assignments, policies, delegations, and scopes from one place.',
-    identityAndAuthorizationNavigation: 'Governance and access navigation',
+    manageIdentityAndReviewHow: 'Manage accounts, roles, assignments, policies, and scopes from one place.',
     governanceSections: 'Governance and access sections',
     chooseAnIdentityOrAuthorization: 'Choose a tab to start managing identity or access.',
   },
 } as const
 
 type Locale = 'ar' | 'en'
+
+export type AccessSectionKey =
+  | 'accounts'
+  | 'roles-permissions'
+  | 'role-assignments'
+  | 'policies-scopes'
+  | 'decision-inspector'
 
 export type AccessWorkspaceProps = {
   locale: Locale
@@ -53,72 +55,80 @@ export type AccessWorkspaceProps = {
   capabilities?: readonly string[]
 }
 
-const governanceTabs: Array<{
-  key: string
+/**
+ * Maps a route to its owning access workspace section. The five sections
+ * collapse the prior eight governance/diagnostic tabs into a single local
+ * navigation level per workspace.
+ */
+export function accessSectionForRoute(route: AppRoute): AccessSectionKey {
+  if (route.name === 'identity-accounts') return 'accounts'
+  if (
+    route.name === 'authorization' &&
+    (route.resource === 'roles' || route.resource === 'capabilities')
+  ) {
+    return 'roles-permissions'
+  }
+  if (route.name === 'authorization' && route.resource === 'role-assignments') {
+    return 'role-assignments'
+  }
+  if (route.name === 'authorization' || route.name === 'access-scopes') {
+    return 'policies-scopes'
+  }
+  return 'decision-inspector'
+}
+
+const sectionTabs: Array<{
+  key: AccessSectionKey
   route: AppRoute
   icon: ReactElement
   ar: string
   en: string
 }> = [
   { key: 'accounts', route: { name: 'identity-accounts' }, icon: <Users size={17} />, ar: 'الحسابات', en: 'Accounts' },
-  { key: 'roles', route: { name: 'authorization', resource: 'roles' }, icon: <ShieldCheck size={17} />, ar: 'الأدوار والقدرات', en: 'Roles & capabilities' },
-  { key: 'assignments', route: { name: 'authorization', resource: 'role-assignments' }, icon: <UserCog size={17} />, ar: 'الإسنادات', en: 'Role assignments' },
-  { key: 'policies', route: { name: 'authorization', resource: 'classification-policies' }, icon: <LockKeyhole size={17} />, ar: 'السياسات والقوالب', en: 'Policies & templates' },
-  { key: 'delegations', route: { name: 'authorization', resource: 'delegations' }, icon: <GitBranch size={17} />, ar: 'التفويضات', en: 'Delegations' },
-  { key: 'scopes', route: { name: 'access-context' }, icon: <Network size={17} />, ar: 'النطاقات', en: 'Access scopes' },
+  { key: 'roles-permissions', route: { name: 'authorization', resource: 'roles' }, icon: <ShieldCheck size={17} />, ar: 'الأدوار والصلاحيات', en: 'Roles and permissions' },
+  { key: 'role-assignments', route: { name: 'authorization', resource: 'role-assignments' }, icon: <UserCog size={17} />, ar: 'إسناد الأدوار', en: 'Role assignments' },
+  { key: 'policies-scopes', route: { name: 'authorization', resource: 'classification-policies' }, icon: <LockKeyhole size={17} />, ar: 'سياسات ونطاقات الصلاحيات', en: 'Permission policies and scopes' },
+  { key: 'decision-inspector', route: { name: 'access-explanation' }, icon: <ClipboardCheck size={17} />, ar: 'فحص قرار الصلاحية', en: 'Permission decision inspector' },
 ]
 
-const diagnosticTabs: Array<{
-  key: string
-  route: AppRoute
-  icon: ReactElement
-  ar: string
-  en: string
-}> = [
-  { key: 'decision', route: { name: 'access-explanation' }, icon: <ClipboardCheck size={17} />, ar: 'فحص قرار الوصول', en: 'Access decision inspector' },
-  { key: 'supervisory', route: { name: 'authorization', resource: 'supervisory' }, icon: <KeyRound size={17} />, ar: 'العلاقات الإشرافية', en: 'Supervisory relationships' },
-]
-
-function matchesRoute(activeRoute: AppRoute, target: AppRoute): boolean {
-  if (activeRoute.name !== target.name) return false
-  if (activeRoute.name === 'authorization' && target.name === 'authorization') return activeRoute.resource === target.resource
-  return true
-}
-
-function tabLabel(locale: Locale, ar: string, en: string): string {
-  return locale === 'ar' ? ar : en
-}
-
-function screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch, capabilities }: Pick<AccessWorkspaceProps, 'activeRoute' | 'locale' | 'scopeReady' | 'scopeEpoch' | 'capabilities'>) {
+function screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch, capabilities, navigate }: Pick<AccessWorkspaceProps, 'activeRoute' | 'locale' | 'scopeReady' | 'scopeEpoch' | 'capabilities' | 'navigate'>) {
   switch (activeRoute.name) {
     case 'identity-accounts':
       return <IdentityAccounts />
     case 'authorization':
+      if (activeRoute.resource === 'roles' || activeRoute.resource === 'capabilities') {
+        return <RolesCapabilitiesWorkspace locale={locale} capabilities={capabilities ?? null} />
+      }
       return <AuthorizationAdmin resource={activeRoute.resource as AdminResource} capabilities={capabilities ?? []} />
     case 'access-scopes':
-      return <AccessScopesScreen locale={locale} scopeReady={scopeReady ?? false} scopeEpoch={scopeEpoch ?? 0} />
+      return <AccessScopesScreen locale={locale} scopeReady={scopeReady ?? false} scopeEpoch={scopeEpoch ?? 0} navigate={navigate} />
     case 'access-explanation':
       return activeRoute.decisionId
         ? <AccessExplanation decisionId={activeRoute.decisionId} />
         : <AccessDecisionSimulator />
-    case 'access-context':
-      return <AccessContext />
     default:
       return null
   }
 }
 
 export function AccessWorkspace({ locale, activeRoute, navigate, scopeReady, scopeEpoch, capabilities }: AccessWorkspaceProps) {
-  const isAccessRoute = ['identity-accounts', 'authorization', 'access-scopes', 'access-explanation', 'access-context'].includes(activeRoute.name)
-  const allTabs = [...governanceTabs, ...diagnosticTabs].map((tab) => ({
+  const activeSection = accessSectionForRoute(activeRoute)
+  const allTabs = sectionTabs.map((tab) => ({
     key: tab.key,
     path: pathFromRoute(tab.route),
-    active: matchesRoute(activeRoute, tab.route),
-    label: tabLabel(locale, tab.ar, tab.en),
+    active: tab.key === activeSection,
+    label: locale === 'ar' ? tab.ar : tab.en,
     icon: tab.icon,
     route: tab.route,
   }))
-  const currentScreen = screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch, capabilities })
+  const currentScreen = screenForRoute({
+    activeRoute,
+    locale,
+    scopeReady,
+    scopeEpoch,
+    capabilities,
+    navigate,
+  })
 
   return (
     <section className="access-workspace" dir={directionForLocale(locale)} aria-labelledby="access-workspace-heading">
@@ -135,7 +145,7 @@ export function AccessWorkspace({ locale, activeRoute, navigate, scopeReady, sco
         onNavigate={navigate}
       />
       <div className="access-workspace-content">
-        {isAccessRoute && currentScreen ? currentScreen : (
+        {currentScreen ?? (
           <div className="state-panel" role="status">
             <p>{screenCopy[locale].chooseAnIdentityOrAuthorization}</p>
           </div>

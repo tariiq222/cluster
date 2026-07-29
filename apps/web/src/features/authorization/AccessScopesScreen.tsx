@@ -44,7 +44,7 @@ function field(item: AuthorizationItem, key: string): string {
   return typeof value === 'string' && value.trim() !== '' ? value : '—'
 }
 
-export function AccessScopesScreen({ locale, scopeReady, scopeEpoch }: { locale: Locale; scopeReady: boolean; scopeEpoch: number }) {
+export function AccessScopesScreen({ locale, scopeReady, scopeEpoch, navigate }: { locale: Locale; scopeReady: boolean; scopeEpoch: number; navigate: (path: string) => void }) {
   const t = copy[locale]
   const token = useToken()
   const [items, setItems] = useState<AuthorizationItem[]>([])
@@ -82,7 +82,7 @@ export function AccessScopesScreen({ locale, scopeReady, scopeEpoch }: { locale:
           id="access-scopes-heading"
           title={t.title}
           description={t.subtitle}
-          actions={<Button variant="secondary" onClick={() => { window.location.href = '/admin/authorization/role-assignments' }}>{t.openAssignments}</Button>}
+          actions={<Button variant="secondary" onClick={() => navigate('/admin/authorization/role-assignments')}>{t.openAssignments}</Button>}
         />
         {state === 'loading' ? <SkeletonList label={t.loading} /> : null}
         {state === 'denied' ? <Panel id="access-scopes-denied" title="403" level={2}><p>{t.error}</p></Panel> : null}

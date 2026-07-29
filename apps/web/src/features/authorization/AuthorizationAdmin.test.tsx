@@ -20,18 +20,17 @@ describe('AuthorizationAdmin pure helpers', () => {
     expect(parsePolicyDocument('{"effect":"deny"}')).toEqual({ effect: 'deny' })
   })
 
-  it('maps governed assignment and delegation status changes to reasoned transitions', () => {
+  it('maps governed role-assignment status changes to reasoned transitions', () => {
     expect(authorizationTransitionForStatus('role-assignments', 'active', 'revoked')).toBe('revoke')
-    expect(authorizationTransitionForStatus('delegations', 'active', 'expired')).toBe('expire')
+    expect(authorizationTransitionForStatus('role-assignments', 'active', 'expired')).toBe('expire')
     expect(authorizationTransitionForStatus('roles', 'active', 'revoked')).toBeNull()
-    expect(authorizationTransitionForStatus('delegations', 'active', 'inactive')).toBeNull()
+    expect(authorizationTransitionForStatus('role-assignments', 'active', 'inactive')).toBeNull()
   })
-  it('requires exact manage capabilities for authorization mutation forms', () => {
+  it('requires the assignment manage capability to mutate role assignments and nothing else', () => {
     expect(canMutateAuthorizationResource('role-assignments', ['authorization.assignment.read'])).toBe(false)
     expect(canMutateAuthorizationResource('role-assignments', ['authorization.assignment.manage'])).toBe(true)
-    expect(canMutateAuthorizationResource('delegations', ['authorization.delegation.read'])).toBe(false)
-    expect(canMutateAuthorizationResource('delegations', ['authorization.delegation.manage'])).toBe(true)
     expect(canMutateAuthorizationResource('classification-policies', ['authorization.policy.manage'])).toBe(false)
+    expect(canMutateAuthorizationResource('supervisory', ['organization.unit.read'])).toBe(false)
   })
 
 })
