@@ -7,7 +7,6 @@ import { directionForLocale } from '../../app/copy'
 import type { Session } from '../../api'
 import { ApiError } from '../../api/http'
 import { Button, EmptyState, InlineError, Page, PageHeader, Panel, SkeletonList } from '../../ui'
-import { PrincipalDashboards } from '../reporting/PrincipalDashboards'
 import { buildDashboardKpis, enabledDashboardSources, filterTasksDueToday, type DashboardFeatureFlags, type DashboardSources, type Loadable } from './dashboard-model'
 import { listActionableWorkflowStepsInbox, listTasks, listWorkflowInstances, type Task, type WorkflowInboxItem, type WorkflowInstance } from '../workflow/workflow-api'
 import './WorkDashboard.css'
@@ -91,7 +90,6 @@ export function WorkDashboard(props: WorkDashboardProps) {
     scopeReady,
     workManagementEnabled = false,
     canViewTasks = false,
-    canViewDashboards,
     canCreateRequest,
     canBrowseServices,
     onCreateRequest,
@@ -99,13 +97,18 @@ export function WorkDashboard(props: WorkDashboardProps) {
     onOpenApprovals,
     onOpenRequests,
     onOpenTasks,
-    onOpenDocuments,
-    onOpenDashboards,
     onOpenRequestInstance,
     onOpenApprovalStep,
     onOpenTask,
+    // canViewDashboards, onOpenDocuments, onOpenDashboards are accepted by the
+    // workspace contract but the dashboard implementation does not consume them
+    // directly today. Renaming would break callers, so we silence the warning.
+    canViewDashboards: _canViewDashboards,
+    onOpenDocuments: _onOpenDocuments,
+    onOpenDashboards: _onOpenDashboards,
   } = props
   const t = copy[locale]
+  const [sources, setSources] = useState<DashboardSources>(initialSources)
   const featureFlags: DashboardFeatureFlags = { workManagement: workManagementEnabled, tasks: canViewTasks }
   // Memoized: a fresh object every render would retrigger the loading effect
   // below in an infinite loop. Both flags are derived from server-projected

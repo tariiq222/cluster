@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AccessWorkspace, accessSectionForRoute } from './AccessWorkspace'
 import { SessionProvider } from '../../app/session-context'
@@ -16,6 +16,10 @@ const session: Session = {
   restricted: false,
   principal: { user_id: '018f6f7d-0c00-7000-8000-000000000021' },
 }
+
+afterEach(() => {
+  cleanup()
+})
 
 function renderRoute(activeRoute: AppRoute, navigate: (path: string) => void = vi.fn()) {
   return render(

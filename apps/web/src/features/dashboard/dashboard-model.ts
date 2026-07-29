@@ -100,7 +100,8 @@ export function enabledDashboardSources(
   const workManagement = flags?.workManagement === true
   const tasks = flags?.tasks === true
   const sources: Array<'inbox' | 'tasks' | 'requests'> = []
-  if (workManagement) sources.push('inbox', 'requests')
+  if (workManagement) sources.push('inbox')
   if (tasks) sources.push('tasks')
+  if (workManagement) sources.push('requests')
   return sources
 }

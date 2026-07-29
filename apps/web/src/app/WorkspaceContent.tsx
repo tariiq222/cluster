@@ -6,12 +6,10 @@ import { pathFromRoute, type AppRoute } from '../shell/routes'
 import type { Notification, Session } from '../api'
 import { RequestForm } from '../features/requests/RequestForm'
 import {
-  ReportsScreen,
   SearchScreen,
   WorkDefinitionsScreen,
   WorkflowAdminScreen,
 } from '../features/r1/R1Screens'
-import { CoverageScreen } from '../features/portal/CoverageScreen'
 import { PersonalSecurity } from '../features/identity/PersonalSecurity'
 import { DocumentsWorkspace } from '../features/documents/DocumentsWorkspace'
 import { ProcedureAuthoring } from '../features/workflow/ProcedureAuthoring'
@@ -26,18 +24,13 @@ import { TaskDetail } from '../features/tasks/TaskDetail'
 import { TaskListScreen } from '../features/tasks/TaskListScreen'
 import { TaskCreateScreen } from '../features/tasks/TaskCreateScreen'
 import { WorkDashboard } from '../features/dashboard/WorkDashboard'
-import { DashboardsScreen } from '../features/reporting/DashboardsScreen'
+import { AccessContext } from '../features/authorization/AccessContext'
 import { AccessWorkspace } from '../features/authorization/AccessWorkspace'
+import { OrganizationWorkspace } from '../features/organization'
+import { ReportsMonitoringWorkspace } from '../features/reporting/ReportsMonitoringWorkspace'
 import {
-  OrganizationWorkspace,
-  PeopleAssignments,
-  TemporaryAssignments,
-} from '../features/organization'
-import { ImportReview } from '../features/imports/ImportReview'
-import { AuditWorkspace } from '../features/audit/AuditWorkspace'
-import {
-  ApiDocsRoute,
   NotificationsRoute,
+  PlatformApiDocsRoute,
   PlatformSettingsRoute,
   RequestDetailRoute,
   RouteAccessGuard,
@@ -100,6 +93,13 @@ export function WorkspaceContent({
             effectiveScopeLabel={principal.effectiveScope?.label}
             scopeEpoch={principal.scopeEpoch}
             scopeReady={principal.scopeReady}
+            canViewTasks={
+              principal.features?.tasks === true &&
+              principal.capabilities?.some(
+                (capability) =>
+                  capability === 'tasks.read' || capability === 'tasks.list',
+              ) === true
+            }
             workManagementEnabled={principal.features?.work_management === true}
             canViewDashboards={
               principal.capabilities?.includes('reporting.dashboard') === true
@@ -165,32 +165,32 @@ export function WorkspaceContent({
         )
       case 'organization':
       case 'organization-structure':
+      case 'people-assignments':
+      case 'organization-import':
+      case 'authorization':
+        if (route.name === 'authorization' && route.resource !== 'supervisory') {
+          return (
+            <AccessWorkspace
+              locale={locale}
+              activeRoute={route}
+              navigate={navigate}
+              scopeReady={principal.scopeReady}
+              scopeEpoch={principal.scopeEpoch}
+              capabilities={principal.capabilities ?? undefined}
+            />
+          )
+        }
         return (
           <OrganizationWorkspace
             locale={locale}
-            activeRouteName={route.name}
+            activeRoute={route}
             capabilities={principal.capabilities}
             navigate={navigate}
           />
         )
-      case 'people-assignments':
-        return <PeopleAssignments />
-      case 'temporary-assignments':
-        return <TemporaryAssignments />
-      case 'organization-import':
-        return (
-          <ImportReview
-            jobId={'jobId' in route ? route.jobId : undefined}
-            onJobOpen={(nextJobId) =>
-              onRouteNavigate({ name: 'organization-import', jobId: nextJobId })
-            }
-          />
-        )
       case 'identity-accounts':
-      case 'authorization':
       case 'access-scopes':
       case 'access-explanation':
-      case 'access-context':
         return (
           <AccessWorkspace
             locale={locale}
@@ -201,12 +201,20 @@ export function WorkspaceContent({
             capabilities={principal.capabilities ?? undefined}
           />
         )
+      case 'access-context':
+        return <AccessContext />
       case 'audit':
+      case 'reports':
+      case 'dashboards':
         return (
-          <AuditWorkspace
+          <ReportsMonitoringWorkspace
             locale={locale}
-            token={session.access_token}
+            route={route}
+            session={session}
             capabilities={principal.capabilities ?? []}
+            scopeId={principal.effectiveScope?.scopeId}
+            revision={principal.revision}
+            navigate={navigate}
           />
         )
       case 'tasks':
@@ -223,8 +231,6 @@ export function WorkspaceContent({
         return (
           <WorkflowAdminScreen capabilities={principal.capabilities ?? []} />
         )
-      case 'reports':
-        return <ReportsScreen capabilities={principal.capabilities ?? []} />
       case 'procedure-authoring':
         return <ProcedureAuthoring locale={locale} session={session} />
       case 'procedure-office-review':
@@ -297,21 +303,16 @@ export function WorkspaceContent({
         )
       case 'personal-security':
         return <PersonalSecurity />
-      case 'coverage':
-        return <CoverageScreen locale={locale} />
       case 'api-docs':
-        return <ApiDocsRoute locale={locale} />
-      case 'search':
-        return <SearchScreen initialQuery={globalSearchQuery} />
-      case 'dashboards':
         return (
-          <DashboardsScreen
+          <PlatformApiDocsRoute
             locale={locale}
-            dashboardId={'dashboardId' in route ? route.dashboardId : undefined}
-            scopeId={principal.effectiveScope?.scopeId}
-            revision={principal.revision}
+            capabilities={principal.capabilities}
+            navigate={navigate}
           />
         )
+      case 'search':
+        return <SearchScreen initialQuery={globalSearchQuery} />
       case 'platform-settings':
         return (
           <PlatformSettingsRoute

@@ -369,6 +369,9 @@ export function routeFromPath(pathname: string): AppRoute {
   if (pathname === '/admin/imports/organization') {
     return { name: 'organization-import' }
   }
+  if (pathname === '/admin/identity/accounts') {
+    return { name: 'identity-accounts' }
+  }
   const authorizationMatch = pathname.match(
     /^\/admin\/authorization\/(roles|capabilities|role-assignments|classification-policies|field-access-templates)$/,
   )

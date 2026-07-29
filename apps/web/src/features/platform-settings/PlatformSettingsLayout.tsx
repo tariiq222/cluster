@@ -44,7 +44,7 @@ export function PlatformSettingsLayout({
     items.push({
       key: 'api-reference',
       path: pathFromRoute({ name: 'api-docs' }),
-      label: copy.sections.apiReference,
+      label: copy.sections['api-reference'],
     })
   }
 

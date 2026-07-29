@@ -95,7 +95,7 @@ export function mapAuthorizationRows(items: AuthorizationItem[]): Array<{ id: st
   return items.map((item, index) => ({ id: typeof item.id === 'string' ? item.id : `item-${index}`, name: typeof item.name === 'string' ? item.name : '—', code: typeof item.code === 'string' ? item.code : '—', status: typeof item.status === 'string' ? item.status : '—', lockVersion: item.lock_version }))
 }
 
-const GOVERNED_RESOURCES: Record<AuthorizationResource, true> = { 'role-assignments': true }
+const GOVERNED_RESOURCES: Partial<Record<AuthorizationResource, true>> = { 'role-assignments': true }
 function isGoverned(resource: AuthorizationResource): boolean {
   return GOVERNED_RESOURCES[resource] === true
 }

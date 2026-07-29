@@ -30,7 +30,7 @@ export const platformSettingsCopy: Record<'ar' | 'en', PlatformSettingsCopy> = {
       logs: 'السجلات التقنية',
       health: 'صحة المنصة والتنبيهات',
       maintenance: 'وضع الصيانة',
-      apiReference: 'مرجع API',
+      'api-reference': 'مرجع API',
     },
   },
   en: {
@@ -50,7 +50,7 @@ export const platformSettingsCopy: Record<'ar' | 'en', PlatformSettingsCopy> = {
       logs: 'Technical logs',
       health: 'Platform health and alerts',
       maintenance: 'Maintenance mode',
-      apiReference: 'API reference',
+      'api-reference': 'API reference',
     },
   },
 }

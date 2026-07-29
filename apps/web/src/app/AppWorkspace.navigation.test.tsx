@@ -58,7 +58,7 @@ describe('sidebar navigation by capability', () => {
 
   it('withholds direct protected URLs when their capability is absent or unresolved', () => {
     const protectedRoutes = [
-      { name: 'coverage' } as const,
+      { name: 'audit' } as const,
       { name: 'api-docs' } as const,
       { name: 'dashboards' } as const,
       { name: 'access-explanation' } as const,
@@ -156,12 +156,9 @@ describe('sidebar navigation by capability', () => {
       'organization.unit.read',
       'organization.facility.read',
       'organization.person.read',
-      'organization.temporary-assignment.read',
-      'organization.import.read',
       'identity.account.read',
       'authorization.role.read',
       'authorization.assignment.read',
-      'authorization.delegation.read',
       'authorization.policy.read',
       'authorization.audit.read',
       'platform_settings.read',
@@ -173,7 +170,7 @@ describe('sidebar navigation by capability', () => {
     }
     // And the navigation registry must surface the seven primary destinations
     // the route registry exposes for administrative principals.
-    const sidebarExcludedPrefixes = ['/me/', '/work-records/new', '/search', '/notifications', '/admin/workflow/day2', '/admin/procedures/authoring', '/procedures/new', '/admin/organization/structure', '/admin/organization/people', '/admin/organization/temporary-assignments', '/admin/imports/organization', '/admin/authorization/capabilities', '/admin/authorization/roles', '/admin/authorization/role-assignments', '/admin/authorization/delegations', '/admin/authorization/classification-policies', '/admin/authorization/field-access-templates', '/admin/authorization/access-scopes', '/admin/authorization/explain', '/admin/relationships/supervisory', '/approvals', '/my-requests', '/admin/procedures/review', '/admin/work-definitions', '/admin/workflow', '/procedures', '/audit', '/dashboards', '/coverage', '/api-docs']
+    const sidebarExcludedPrefixes = ['/me/', '/work-records/new', '/search', '/notifications', '/admin/procedures/authoring', '/procedures/new', '/admin/organization/structure', '/admin/organization/people', '/admin/imports/organization', '/admin/authorization/capabilities', '/admin/authorization/roles', '/admin/authorization/role-assignments', '/admin/authorization/classification-policies', '/admin/authorization/field-access-templates', '/admin/authorization/access-scopes', '/admin/authorization/explain', '/admin/relationships/supervisory', '/approvals', '/my-requests', '/admin/procedures/review', '/admin/work-definitions', '/admin/workflow', '/procedures', '/dashboards', '/api-docs', '/admin/identity/accounts']
     const routePaths = pathsFor(allCaps, ALL_FEATURES).filter((path) => !sidebarExcludedPrefixes.some((prefix) => path.startsWith(prefix)))
     const navPaths = navigationPathsFor(allCaps, ALL_FEATURES)
     for (const path of routePaths) {
