@@ -32,7 +32,7 @@ const screenCopy = {
 
 
 export type Locale = 'ar' | 'en'
-export type AdminResource = AuthorizationResource | 'supervisory'
+export type AdminResource = Exclude<AuthorizationResource, 'delegations'> | 'supervisory'
 export type AdminState = 'loading' | 'ready' | 'empty' | 'forbidden' | 'not-found' | 'conflict' | 'stale' | 'error'
 
 const labels = {
@@ -66,12 +66,11 @@ type Labels = (typeof labels)[Locale]
 
 export const RESOURCE_LABELS: Record<AdminResource, string> = {
   roles: 'Roles', capabilities: 'Capabilities', 'role-assignments': 'Role assignments',
-  delegations: 'Delegations',
   'classification-policies': 'Classification policies', 'field-access-templates': 'Field access templates', supervisory: 'Supervisory relationships',
 }
 
-export function resourceCreateType(resource: AuthorizationResource): string {
-  return ({ roles: 'role', capabilities: 'capability', 'role-assignments': 'role_assignment', delegations: 'delegation', 'classification-policies': 'classification_policy', 'field-access-templates': 'field_access_template' } as Record<AuthorizationResource, string>)[resource]
+export function resourceCreateType(resource: AdminResource): string {
+  return ({ roles: 'role', capabilities: 'capability', 'role-assignments': 'role_assignment', 'classification-policies': 'classification_policy', 'field-access-templates': 'field_access_template' } as Record<AdminResource, string>)[resource]
 }
 
 export function parsePolicyDocument(value: string): Record<string, unknown> | undefined {
@@ -298,16 +297,6 @@ export function AuthorizationAdmin({ resource, capabilities }: { resource: Admin
   const [state, setState] = useState<AdminState>('loading')
   const [items, setItems] = useState<AuthorizationItem[]>([])
   const [selected, setSelected] = useState<AuthorizationItem | null>(null)
-  if (resource === 'delegations') {
-    return (
-      <div dir={directionForLocale(locale)} aria-labelledby="authorization-heading">
-        <Page className="authorization-page">
-          <PageHeader id="authorization-heading" title={labels[locale]['classification-policies']} description={labels[locale].intro} />
-          <EmptyState icon={<FolderSearch />} title={labels[locale].empty} />
-        </Page>
-      </div>
-    )
-  }
   const load = useCallback(async () => {
     setState('loading')
     try {
