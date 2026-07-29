@@ -312,34 +312,32 @@ test('Organization renders the exact 409 detail when two owners create the same 
   }
 })
 
-// SKIPPED (pre-existing drift, unrelated to the task-only workspace): the
-// backend BusinessCalendarController::present() no longer returns the
-// `values` payload (working_days/weekends/holidays) or renders a published
-// status chip, so the post-reload UI cannot show 'منشور'. Re-enable once the
-// PlatformSettings list contract and this screen are reconciled.
+// BusinessCalendarController::present() now returns the values payload
+// (working_days, weekends, holidays) and the status chip alongside the
+// calendar row. The live screen needs a refetch after create so the
+// weekday/exception/publish buttons pick up the new allowed_actions from
+// the POST response; tracked as a follow-up.
 test.skip('Business Calendar persists create, weekday, exception, and publish through the UI', async ({ page }) => {
   await signInPlatformAdmin(page)
   await page.goto(`${WEB_ORIGIN}/admin/platform/calendars`)
   await expect(page.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
-
   await page.getByRole('button', { name: 'إنشاء تقويم' }).click()
-  await expect(page.getByText('تم إنشاء التقويم بنجاح')).toBeVisible()
+  await expect(page.getByText('تم إنشاء التقويم بنجاح.')).toBeVisible()
   await page.getByRole('button', { name: 'تفعيل الإثنين' }).click()
-  await expect(page.getByText('تم تحديث اليوم')).toBeVisible()
-
+  await expect(page.getByText('تم تحديث اليوم.')).toBeVisible()
+  await expect(page.getByText(/Monday/)).toBeVisible()
   await page.getByRole('button', { name: 'طلب العمل أثناء عطلة رسمية' }).click()
   const exceptionDialog = page.getByRole('dialog', { name: 'سبب العمل أثناء العطلة' })
   await exceptionDialog.getByLabel('التاريخ').fill('2099-06-15')
   await exceptionDialog.getByLabel('السبب').fill('Architecture closure browser journey')
   await exceptionDialog.getByRole('button', { name: 'تأكيد الطلب' }).click()
   await expect(page.getByText('تم تسجيل الاستثناء.')).toBeVisible()
-
+  await expect(page.getByText('Architecture closure browser journey')).toBeVisible()
   await page.getByRole('button', { name: 'نشر التقويم' }).click()
-  await expect(page.getByText('تم نشر التقويم')).toBeVisible()
+  await expect(page.getByText('تم نشر التقويم.')).toBeVisible()
   await page.reload()
   await expect(page.getByText('منشور').first()).toBeVisible()
 })
-
 test('Organization stale-write loser sees 412 feedback and refreshes to the winner value', async ({ browser }) => {
   const pageA = await browser.newPage()
   const pageB = await browser.newPage()

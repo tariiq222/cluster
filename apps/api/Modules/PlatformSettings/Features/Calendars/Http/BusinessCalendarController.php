@@ -175,6 +175,55 @@ final class BusinessCalendarController
 
     private function present(object $calendar, array $allowedActions): array
     {
-        return ['id' => $calendar->id, 'scope_type' => $calendar->scope_type, 'scope_id' => $calendar->scope_id, 'status' => $calendar->status, 'timezone' => $calendar->timezone, 'lock_version' => (int) $calendar->lock_version, 'allowed_actions' => $allowedActions];
+        $weekdays = DB::table('business_calendar_weekdays')
+            ->where('business_calendar_id', $calendar->id)
+            ->orderBy('weekday')
+            ->get(['weekday', 'is_working_day', 'starts_at', 'ends_at']);
+        $exceptions = DB::table('business_calendar_exceptions')
+            ->where('business_calendar_id', $calendar->id)
+            ->orderBy('starts_on')
+            ->orderBy('ends_on')
+            ->get(['exception_type', 'starts_on', 'ends_on', 'is_official_holiday', 'is_working_day', 'starts_at', 'ends_at', 'reason']);
+
+        $workingDays = [];
+        $weekends = [];
+        foreach ($weekdays as $row) {
+            if ((bool) $row->is_working_day) {
+                $workingDays[] = (int) $row->weekday;
+            } else {
+                $weekends[] = (int) $row->weekday;
+            }
+        }
+
+        $holidays = [];
+        foreach ($exceptions as $row) {
+            $entry = [
+                'type' => (string) $row->exception_type,
+                'date' => (string) $row->starts_on,
+                'ends_on' => $row->ends_on === null ? null : (string) $row->ends_on,
+                'is_working_day' => (bool) $row->is_working_day,
+                'starts_at' => $row->starts_at === null ? null : (string) $row->starts_at,
+                'ends_at' => $row->ends_at === null ? null : (string) $row->ends_at,
+                'reason' => $row->reason,
+            ];
+            if ((bool) $row->is_official_holiday || (string) $row->exception_type === 'official_holiday_work_override') {
+                $holidays[] = $entry;
+            }
+        }
+
+        return [
+            'id' => $calendar->id,
+            'scope_type' => $calendar->scope_type,
+            'scope_id' => $calendar->scope_id,
+            'status' => $calendar->status,
+            'timezone' => $calendar->timezone,
+            'lock_version' => (int) $calendar->lock_version,
+            'values' => [
+                'working_days' => $workingDays,
+                'weekends' => $weekends,
+                'holidays' => $holidays,
+            ],
+            'allowed_actions' => $allowedActions,
+        ];
     }
 }

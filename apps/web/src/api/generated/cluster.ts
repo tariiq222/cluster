@@ -2391,6 +2391,71 @@ export interface BusinessCalendarException {
   reason?: string | null
 }
 
+export type BusinessCalendarResourceScopeType =
+  (typeof BusinessCalendarResourceScopeType)[keyof typeof BusinessCalendarResourceScopeType]
+
+export const BusinessCalendarResourceScopeType = {
+  platform: 'platform',
+  cluster: 'cluster',
+  facility: 'facility',
+} as const
+
+export type BusinessCalendarResourceStatus =
+  (typeof BusinessCalendarResourceStatus)[keyof typeof BusinessCalendarResourceStatus]
+
+export const BusinessCalendarResourceStatus = {
+  draft: 'draft',
+  published: 'published',
+} as const
+
+export type BusinessCalendarResourceValuesHolidaysItem = {
+  type?: string
+  date?: string
+  /** @nullable */
+  ends_on?: string | null
+  is_working_day?: boolean
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  starts_at?: string | null
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  ends_at?: string | null
+  /** @nullable */
+  reason?: string | null
+}
+
+export type BusinessCalendarResourceValues = {
+  /**
+   * @items.minimum 1
+   * @items.maximum 7
+   */
+  working_days?: number[]
+  /**
+   * @items.minimum 1
+   * @items.maximum 7
+   */
+  weekends?: number[]
+  holidays?: BusinessCalendarResourceValuesHolidaysItem[]
+}
+
+export interface BusinessCalendarResource {
+  /** @minLength 1 */
+  id: string
+  scope_type: BusinessCalendarResourceScopeType
+  /** @minLength 1 */
+  scope_id: string
+  status: BusinessCalendarResourceStatus
+  timezone: string
+  /** @minimum 1 */
+  lock_version: number
+  values?: BusinessCalendarResourceValues
+  allowed_actions?: string[]
+}
+
 export type StrategyResourceCreateResourceType =
   (typeof StrategyResourceCreateResourceType)[keyof typeof StrategyResourceCreateResourceType]
 
