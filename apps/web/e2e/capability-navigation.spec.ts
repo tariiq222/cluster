@@ -12,8 +12,49 @@ const caps: Record<Persona, string[]> = {
 
 async function mockPersona(page: Page, persona: Persona, twoScopes = false) {
   let selected = ids.a
-  await page.route('**/api/v1/identity/me', route => route.fulfill({ status: 401, contentType: 'application/problem+json', body: JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401 }) }))
-  await page.route('**/api/v1/identity/login', route => route.fulfill({ contentType: 'application/json', headers: { 'set-cookie': 'cluster_identity_session=persona; Path=/', 'x-csrf-token': 'persona-csrf' }, body: JSON.stringify({ data: { user_id: ids.user, expires_at: '2099-07-23T09:00:00Z', restricted: false, csrf_token: 'persona-csrf' } }) }))
+  let authenticated = false
+  await page.route('**/api/v1/identity/login', (route) => {
+    authenticated = true
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: {
+        'set-cookie': 'cluster_identity_session=persona; Path=/; HttpOnly; SameSite=Lax',
+        'x-csrf-token': 'persona-csrf',
+      },
+      body: JSON.stringify({
+        data: {
+          user_id: ids.user,
+          expires_at: '2099-07-23T09:00:00Z',
+          restricted: false,
+          csrf_token: 'persona-csrf',
+        },
+      }),
+    })
+  })
+  await page.route('**/api/v1/identity/me', (route) => route.fulfill(authenticated
+    ? {
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            principal: { user_id: ids.user },
+            session: { restricted: false },
+            facility_id: ids.a,
+            facility: 'facility-a',
+            display_name: 'Persona',
+          },
+        }),
+      }
+    : {
+        status: 401,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401 }),
+      }))
+  await page.route('**/api/v1/identity/csrf', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ data: { csrf_token: 'persona-csrf' } }),
+  }))
   await page.route('**/api/v1/me', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ subject_id: ids.user, tenant_id: ids.cluster, organization_unit_ids: [ids.unit], roles: [persona], capabilities: caps[persona], clearance: 'internal', break_glass: false, correlation_id: ids.user, features: { work_management: false, tasks: true } }) }))
   await page.route('**/api/v1/me/scopes', route => route.fulfill({ contentType: 'application/json', headers: { ETag: selected === ids.a ? '"1"' : '"2"' }, body: JSON.stringify({ available_scopes: [{ scope_type: 'facility', scope_id: ids.a, label: 'نطاق أ' }, ...(twoScopes ? [{ scope_type: 'facility', scope_id: ids.b, label: 'نطاق ب' }] : [])], effective_scope: { scope_type: 'facility', scope_id: selected, label: selected === ids.a ? 'نطاق أ' : 'نطاق ب' } }) }))
   await page.route('**/api/v1/me/scope', async route => { selected = JSON.parse(route.request().postData() ?? '{}').scope_id; await route.fulfill({ contentType: 'application/json', headers: { ETag: '"2"' }, body: JSON.stringify({ available_scopes: [{ scope_type: 'facility', scope_id: ids.a, label: 'نطاق أ' }, { scope_type: 'facility', scope_id: ids.b, label: 'نطاق ب' }], effective_scope: { scope_type: 'facility', scope_id: selected, label: 'نطاق ب' } }) }) })
