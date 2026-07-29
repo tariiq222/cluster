@@ -39,9 +39,6 @@ describe('W1.2 shell route registry', () => {
     expect(routeFromPath('/admin/organization/people')).toEqual({
       name: 'people-assignments',
     })
-    expect(routeFromPath('/admin/organization/temporary-assignments')).toEqual({
-      name: 'temporary-assignments',
-    })
     expect(routeFromPath('/admin/identity/accounts')).toEqual({
       name: 'identity-accounts',
     })
@@ -54,7 +51,6 @@ describe('W1.2 shell route registry', () => {
     expect(routeFromPath('/admin/workflow')).toEqual({ name: 'workflow-admin' })
     expect(routeFromPath('/search')).toEqual({ name: 'search' })
     expect(routeFromPath('/reports')).toEqual({ name: 'reports' })
-    expect(routeFromPath('/coverage')).toEqual({ name: 'coverage' })
     expect(routeFromPath('/notifications')).toEqual({ name: 'notifications' })
     expect(routeFromPath('/api-docs')).toEqual({ name: 'api-docs' })
     expect(routeFromPath('/admin/imports/organization')).toEqual({
@@ -102,7 +98,7 @@ describe('W1.2 shell route registry', () => {
     expect(
       pathFromRoute({ name: 'authorization', resource: 'supervisory' }),
     ).toBe('/admin/relationships/supervisory')
-    expect(pathFromRoute({ name: 'coverage' })).toBe('/coverage')
+    expect(pathFromRoute({ name: 'dashboards' })).toBe('/dashboards')
     expect(
       pathFromRoute({
         name: 'access-explanation',
@@ -179,64 +175,71 @@ describe('W1.2 shell route registry', () => {
     })
   })
 
-  it('groups workspace tabs so the sidebar entry stays active across them', () => {
-    // Only the organization screen still owns tabs (facilities + structure).
-    expect(workspaceOfRoute({ name: 'organization' })).toBe('organization')
-    expect(workspaceOfRoute({ name: 'organization-structure' })).toBe(
+  it('classifies every nested destination under one approved primary workspace', () => {
+    const taskId = '018f6f7d-0c00-7000-8000-000000000103'
+    const documentId = '018f6f7d-0c00-7000-8000-000000000801'
+    expect(workspaceOfRoute({ name: 'task-detail', taskId })).toBe('tasks')
+    expect(workspaceOfRoute({ name: 'document-detail', documentId })).toBe(
+      'documents',
+    )
+    expect(workspaceOfRoute({ name: 'people-assignments' })).toBe('organization')
+    expect(workspaceOfRoute({ name: 'organization-import' })).toBe(
       'organization',
     )
-    // Everything that previously shared a tab group is now a standalone page.
-    expect(workspaceOfRoute({ name: 'people-assignments' })).toBeNull()
-    expect(workspaceOfRoute({ name: 'temporary-assignments' })).toBeNull()
-    expect(workspaceOfRoute({ name: 'identity-accounts' })).toBeNull()
-    expect(workspaceOfRoute({ name: 'access-context' })).toBeNull()
-    expect(workspaceOfRoute({ name: 'reports' })).toBeNull()
-    expect(workspaceOfRoute({ name: 'work-definitions' })).toBeNull()
-
     expect(
-      isRouteActive(
-        { name: 'organization-structure' },
-        { name: 'organization' },
-      ),
-    ).toBe(true)
-    expect(
-      isRouteActive(
-        { name: 'organization' },
-        { name: 'organization-structure' },
-      ),
-    ).toBe(true)
-    expect(
-      isRouteActive({ name: 'people-assignments' }, { name: 'organization' }),
-    ).toBe(false)
-    expect(
-      isRouteActive({ name: 'work-definitions' }, { name: 'workflow-day2' }),
-    ).toBe(false)
-    expect(
-      isRouteActive({ name: 'people-assignments' }, { name: 'workflow-day2' }),
-    ).toBe(false)
+      workspaceOfRoute({ name: 'authorization', resource: 'supervisory' }),
+    ).toBe('organization')
+    expect(workspaceOfRoute({ name: 'access-scopes' })).toBe(
+      'accounts-permissions',
+    )
+    expect(workspaceOfRoute({ name: 'audit' })).toBe('reports-monitoring')
+    expect(workspaceOfRoute({ name: 'dashboards' })).toBe('reports-monitoring')
+    expect(workspaceOfRoute({ name: 'api-docs' })).toBe('platform-management')
   })
 
-  it('keeps the roles/capabilities tab highlight across its two resources only', () => {
-    expect(workspaceOfRoute({ name: 'authorization', resource: 'roles' })).toBe(
-      'roles-capabilities',
-    )
+  it('returns not-found for retired frontend paths', () => {
+    expect(routeFromPath('/admin/organization/temporary-assignments')).toEqual({
+      name: 'not-found',
+    })
+    expect(routeFromPath('/admin/authorization/delegations')).toEqual({
+      name: 'not-found',
+    })
+    expect(routeFromPath('/admin/workflow/day2')).toEqual({
+      name: 'not-found',
+    })
+    expect(routeFromPath('/coverage')).toEqual({ name: 'not-found' })
+  })
+
+  it('keeps the accounts/permissions highlight across every authorization resource and the access-scopes page', () => {
+    expect(
+      workspaceOfRoute({ name: 'authorization', resource: 'roles' }),
+    ).toBe('accounts-permissions')
     expect(
       workspaceOfRoute({ name: 'authorization', resource: 'capabilities' }),
-    ).toBe('roles-capabilities')
+    ).toBe('accounts-permissions')
     expect(
       workspaceOfRoute({ name: 'authorization', resource: 'role-assignments' }),
-    ).toBeNull()
+    ).toBe('accounts-permissions')
+    expect(
+      workspaceOfRoute({
+        name: 'authorization',
+        resource: 'classification-policies',
+      }),
+    ).toBe('accounts-permissions')
+    expect(
+      workspaceOfRoute({
+        name: 'authorization',
+        resource: 'field-access-templates',
+      }),
+    ).toBe('accounts-permissions')
+    expect(workspaceOfRoute({ name: 'access-scopes' })).toBe(
+      'accounts-permissions',
+    )
 
     expect(
       isRouteActive(
         { name: 'authorization', resource: 'capabilities' },
         { name: 'authorization', resource: 'roles' },
-      ),
-    ).toBe(true)
-    expect(
-      isRouteActive(
-        { name: 'authorization', resource: 'roles' },
-        { name: 'authorization', resource: 'capabilities' },
       ),
     ).toBe(true)
     expect(
@@ -244,10 +247,13 @@ describe('W1.2 shell route registry', () => {
         { name: 'authorization', resource: 'role-assignments' },
         { name: 'authorization', resource: 'roles' },
       ),
-    ).toBe(false)
+    ).toBe(true)
+    expect(
+      isRouteActive({ name: 'access-scopes' }, { name: 'authorization', resource: 'roles' }),
+    ).toBe(true)
     expect(
       isRouteActive(
-        { name: 'authorization', resource: 'delegations' },
+        { name: 'authorization', resource: 'supervisory' },
         { name: 'authorization', resource: 'roles' },
       ),
     ).toBe(false)
@@ -302,7 +308,7 @@ describe('W1.2 shell route registry', () => {
     )
 
     expect(routeFromPath('/admin/workflow/day2')).toEqual({
-      name: 'workflow-day2',
+      name: 'not-found',
     })
     expect(routeFromPath('/admin/procedures/review')).toEqual({
       name: 'procedure-office-review',

@@ -26,9 +26,6 @@ describe('navigation capability gating', () => {
   })
 
   it('fails closed for direct internal and dashboard URLs until their own capability is resolved', () => {
-    expect(capabilityForRoute({ name: 'coverage' })).toBe(
-      'authorization.audit.read',
-    )
     expect(capabilityForRoute({ name: 'api-docs' })).toBe(
       'authorization.audit.read',
     )
@@ -40,7 +37,6 @@ describe('navigation capability gating', () => {
     )
 
     for (const route of [
-      { name: 'coverage' },
       { name: 'api-docs' },
       { name: 'dashboards' },
       { name: 'access-explanation' },
@@ -49,7 +45,7 @@ describe('navigation capability gating', () => {
       expect(isRouteVisible(route, [])).toBe(false)
     }
     expect(
-      isRouteVisible({ name: 'coverage' }, ['authorization.audit.read']),
+      isRouteVisible({ name: 'api-docs' }, ['authorization.audit.read']),
     ).toBe(true)
     expect(
       isRouteVisible({ name: 'dashboards' }, ['reporting.dashboard']),
@@ -157,18 +153,6 @@ describe('navigation capability gating', () => {
     ).toBe(false)
   })
 
-  it('keeps the legacy day-two workflow screen behind workflow management', () => {
-    expect(capabilityForRoute({ name: 'workflow-day2' })).toBe(
-      'workflow.manage',
-    )
-    expect(
-      isRouteVisible({ name: 'workflow-day2' }, ['work_definition.read']),
-    ).toBe(false)
-    expect(isRouteVisible({ name: 'workflow-day2' }, ['workflow.manage'])).toBe(
-      true,
-    )
-  })
-
   it('gates each authorization tab on its own resource capability', () => {
     expect(
       capabilityForRoute({ name: 'authorization', resource: 'roles' }),
@@ -176,9 +160,6 @@ describe('navigation capability gating', () => {
     expect(
       capabilityForRoute({ name: 'authorization', resource: 'capabilities' }),
     ).toBe('authorization.capability.read')
-    expect(
-      capabilityForRoute({ name: 'authorization', resource: 'delegations' }),
-    ).toBe('authorization.delegation.read')
     expect(
       capabilityForRoute({
         name: 'authorization',
@@ -204,12 +185,6 @@ describe('navigation capability gating', () => {
         'authorization.capability.read',
       ]),
     ).toBe(true)
-    expect(
-      isRouteVisible(
-        { name: 'authorization', resource: 'delegations' },
-        holdsRolesOnly,
-      ),
-    ).toBe(false)
   })
 
   it('classifies every navigable route, so no entry reaches the sidebar unclassified', () => {
