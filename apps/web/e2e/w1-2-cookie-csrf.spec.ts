@@ -68,14 +68,6 @@ async function configureUiCsrfBridge(page: Page, csrfToken: string): Promise<voi
     const headers = { ...route.request().headers(), 'x-csrf-token': csrfToken }
     await fulfillDocumentCompatibilityResponse(route, headers)
   })
-  await page.route('**/api/v1/organization/temporary-assignments', async (route) => {
-    const headers = { ...route.request().headers(), 'x-csrf-token': csrfToken }
-    await route.continue({ headers })
-  })
-  await page.route('**/api/v1/organization/temporary-assignments/*/revoke', async (route) => {
-    const headers = { ...route.request().headers(), 'x-csrf-token': csrfToken }
-    await route.continue({ headers })
-  })
 }
 
 async function fulfillDocumentCompatibilityResponse(route: Route, headers: Record<string, string>): Promise<void> {
@@ -94,7 +86,7 @@ async function signInWeb(page: Page): Promise<void> {
   await page.getByLabel('اسم المستخدم').fill(required('W1_2_IMPORT_USERNAME'))
   await page.getByLabel('كلمة المرور', { exact: true }).fill(required('W1_2_IMPORT_PASSWORD'))
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
-  await expect(page.getByRole('heading', { name: 'طلباتي' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
 }
 
 test.beforeEach(async ({ page }) => {
@@ -136,19 +128,22 @@ test('W1.2 web UI uploads and submits a CSV import', async ({ page }) => {
   const suffix = correlationId()
   const csv = `employee_number,display_name_ar,status,position_id,start_at\nE2E-${suffix},موظف رحلة المتصفح,active,${required('W1_2_IMPORT_POSITION_ID')},2027-01-01T08:00:00Z\n`
 
-  await page.getByRole('button', { name: 'التنظيم' }).click()
-  await page.getByRole('link', { name: 'مراجعة الاستيراد' }).click()
-  await expect(page.getByRole('heading', { name: 'مراجعة الاستيراد' })).toBeVisible()
+  // Navigate directly through the primary link into the organization workspace,
+  // then use the local employee section action to open the import review screen.
+  await page.getByRole('link', { name: 'المنشآت والموظفون', exact: true }).click()
+  await page.getByRole('link', { name: 'الموظفون والتكليفات الوظيفية', exact: true }).click()
+  await page.getByRole('button', { name: 'استيراد موظفين' }).click()
+  await expect(page.getByRole('heading', { name: 'إضافة بيانات من ملف' })).toBeVisible()
   const initiated = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/documents/uploads' && response.request().method() === 'POST')
   const completed = page.waitForResponse((response) => /\/api\/v1\/documents\/uploads\/[^/]+\/complete$/.test(new URL(response.url()).pathname) && response.request().method() === 'POST')
-  await page.getByLabel('ملف CSV').setInputFiles({ name: `w1-2-ui-${suffix}.csv`, mimeType: 'text/csv', buffer: Buffer.from(csv) })
+  await page.locator('#import-upload-file').setInputFiles({ name: `w1-2-ui-${suffix}.csv`, mimeType: 'text/csv', buffer: Buffer.from(csv) })
   await page.getByRole('button', { name: 'رفع الملف' }).click()
   const uploadTicket = await initiated
   expect(uploadTicket.status()).toBe(201)
   const upload = await uploadTicket.json() as { data: UploadTicket }
   expect(upload.data.method).toBe('PUT')
   expect((await completed).status()).toBe(202)
-  await expect(page.getByText('اكتمل رفع الملف. راجع مرجع الحجر ثم أنشئ مهمة الاستيراد.')).toBeVisible()
+  await expect(page.getByText('اكتمل رفع الملف. يمكنك الآن بدء مراجعته.')).toBeVisible()
 
   const quarantineId = upload.data.quarantine_object_id
   await expect.poll(async () => {
@@ -156,9 +151,9 @@ test('W1.2 web UI uploads and submits a CSV import', async ({ page }) => {
     expect(status.status, JSON.stringify(status.body)).toBe(200)
     return status.body.scan_status
   }, { timeout: 30_000 }).toBe('clean')
-  await expect(page.getByLabel('معرف quarantine')).toHaveValue(quarantineId)
+  await expect(page.locator('#quarantine-id')).toHaveValue(quarantineId)
   const submitted = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/organization/import-jobs' && response.request().method() === 'POST')
-  await page.getByRole('button', { name: 'إنشاء ImportJob' }).click()
+  await page.getByRole('button', { name: 'بدء مراجعة الملف' }).click()
   expect((await submitted).status()).toBe(202)
-  await expect(page.getByText('مستلم', { exact: true })).toBeVisible()
+  await expect(page.getByText('تم استلام الملف', { exact: true })).toBeVisible()
 })
