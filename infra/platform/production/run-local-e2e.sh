@@ -159,6 +159,10 @@ compose config --quiet
 compose pull caddy mysql redis >"$LOG_FILE" 2>&1
 compose up --detach mysql redis migrate api worker web caddy >>"$LOG_FILE" 2>&1
 wait_migration
+# The browser journeys sign in with the development fixture accounts; the
+# production migrate step deliberately skips seeders, so seed explicitly for
+# the test lane only.
+compose exec -T api php artisan db:seed --class="Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder" --force >>"$LOG_FILE" 2>&1
 for service in mysql redis api worker web caddy; do
   wait_healthy "$service"
 done

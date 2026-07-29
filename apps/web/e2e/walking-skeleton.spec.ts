@@ -9,8 +9,9 @@ const PLATFORM_ADMIN = {
   password: 'Admin!Cluster9Owner2026',
 } as const
 const SESSION_METADATA_KEY = 'cluster.identity-session'
-const WEB_PORT = process.env.W1_1_WEB_PORT ?? '4173'
-const WEB_ORIGIN = `http://127.0.0.1:${WEB_PORT}`
+// Production-bundle runs pass the external HTTPS origin; the W1.1 dev lane
+// only provides a port.
+const WEB_ORIGIN = process.env.W1_1_WEB_ORIGIN ?? `http://127.0.0.1:${process.env.W1_1_WEB_PORT ?? '4173'}`
 test.setTimeout(60_000)
 
 type WorkRecord = {

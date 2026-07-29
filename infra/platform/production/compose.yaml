@@ -57,6 +57,10 @@ x-api-common: &api-common
     - ALL
   tmpfs:
     - /tmp:rw,noexec,nosuid,size=32m,uid=10001,gid=10001,mode=0770
+    # read_only rootfs: Laravel regenerates the package manifest in
+    # bootstrap/cache on boot (PackageManifest::config); give it a writable
+    # scratch mount like the storage framework mounts.
+    - /var/www/html/bootstrap/cache:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0770
     - /var/www/html/storage/framework:rw,noexec,nosuid,size=64m,uid=10001,gid=10001,mode=0770
     - /var/www/html/storage/logs:rw,noexec,nosuid,size=32m,uid=10001,gid=10001,mode=0770
   init: true
@@ -100,8 +104,10 @@ services:
   web:
     image: ${WEB_IMAGE:-cluster-web:local}
     build:
-      context: ../../../apps/web
-      dockerfile: Dockerfile
+      # Repo root: SwaggerUiScreen imports docs/contracts/api/openapi.yaml
+      # relative to the source tree, which escapes an apps/web-only context.
+      context: ../../..
+      dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     depends_on:
       api:

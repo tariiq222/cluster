@@ -38,7 +38,10 @@ COMMAND_RUNTIME_INSTALL_RE = re.compile(
 )
 SENSITIVE_ENV_RE = re.compile(r"(?:PASSWORD|PASSWD|TOKEN|SECRET|CREDENTIAL|PRIVATE_KEY|APP_KEY)$", re.IGNORECASE)
 REQUIRED_SERVICES = {"caddy", "web", "api", "worker", "migrate"}
-FORBIDDEN_SERVICES = {"mysql", "redis", "valkey", "scheduler"}
+# State services (mysql/redis/valkey) must be supplied by the VPS, never
+# bundled. The scheduler service is a stateless application process added
+# deliberately (0454fee) and is allowed alongside worker/migrate.
+FORBIDDEN_SERVICES = {"mysql", "redis", "valkey"}
 HEALTHCHECK_SERVICES = {"caddy", "web", "api", "worker"}
 HARDENED_SERVICES = {"caddy", "web", "api", "worker", "migrate"}
 EXPECTED_NETWORKS = {
