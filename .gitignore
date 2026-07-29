@@ -40,6 +40,7 @@ apps/**/test-results/
 .letta/
 local/
 local:/
+.worktrees/
 
 # Local live-service state (logs, PIDs, and disposable databases)
 artifacts/local-live/
