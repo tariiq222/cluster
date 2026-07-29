@@ -13,6 +13,7 @@ import {
   transitionAuthorizationAdminResource,
   updateAuthorizationAdminResource,
   type AccessDecision,
+  type AuthorizationAdminCreate,
   type AuthorizationAdminPatch,
   type AuthorizationItem,
   type AuthorizationResource,
@@ -71,7 +72,7 @@ export const RESOURCE_LABELS: Record<AdminResource, string> = {
 
 export type CreatableAdminResource = Exclude<AdminResource, 'supervisory'>
 
-const RESOURCE_CREATE_TYPES: Record<CreatableAdminResource, string> = {
+const RESOURCE_CREATE_TYPES: Record<CreatableAdminResource, AuthorizationAdminCreate['resource_type']> = {
   roles: 'role',
   capabilities: 'capability',
   'role-assignments': 'role_assignment',
@@ -79,7 +80,7 @@ const RESOURCE_CREATE_TYPES: Record<CreatableAdminResource, string> = {
   'field-access-templates': 'field_access_template',
 }
 
-export function resourceCreateType(resource: CreatableAdminResource): string {
+export function resourceCreateType(resource: CreatableAdminResource): AuthorizationAdminCreate['resource_type'] {
   return RESOURCE_CREATE_TYPES[resource]
 }
 
@@ -175,11 +176,11 @@ function AdminForm({ resource, locale, token, onSaved }: { resource: 'role-assig
       return
     }
 
-    const input: Record<string, unknown> = {
+    const input: AuthorizationAdminCreate = {
       resource_type: resourceCreateType(resource),
       code,
       name: name || undefined,
-      scope_type: String(form.get('scope') || '') || undefined,
+      scope_type: (String(form.get('scope') || '') || undefined) as AuthorizationAdminCreate['scope_type'],
       scope_id: String(form.get('scopeId') || '') || undefined,
       subject_user_id: String(form.get('subject') || '') || undefined,
       role_id: String(form.get('role') || '') || undefined,
@@ -190,7 +191,7 @@ function AdminForm({ resource, locale, token, onSaved }: { resource: 'role-assig
 
     setSaving(true)
     try {
-      await createRoleAssignment(input, token)
+      await createRoleAssignment(token, input)
       event.currentTarget.reset()
       setScope('')
       await onSaved()
@@ -266,12 +267,20 @@ function EditPanel({ resource, item, locale, token, onSaved }: { resource: 'role
       let lockVersion = item.lock_version
       const nameChanged = name !== (item.name ?? '')
       if (nameChanged || (!governed && statusChanged)) {
+        if (lockVersion === undefined) {
+          setError(text.stale)
+          return
+        }
         const patch: AuthorizationAdminPatch = { name }
         if (!governed && statusChanged) patch.status = status as AuthorizationAdminPatch['status']
         const updated = await updateAuthorizationAdminResource(resource, String(item.id), patch, token, lockVersion)
         lockVersion = updated.lock_version ?? lockVersion
       }
       if (transition) {
+        if (lockVersion === undefined) {
+          setError(text.stale)
+          return
+        }
         await transitionAuthorizationAdminResource(resource, String(item.id), transition, reason, token, lockVersion)
       }
       await onSaved()
@@ -300,8 +309,7 @@ function EditPanel({ resource, item, locale, token, onSaved }: { resource: 'role
 export function RoleCapabilityMatrix({ items, locale }: { items: AuthorizationItem[]; locale: Locale }) {
   const text = labels[locale]
   return <Panel id="role-capability-heading" title={text.roleMatrix} level={2}><p>{screenCopy[locale].readOnlyServerDataPolicy}</p><ItemTable items={items} locale={locale} /></Panel>
-}
-export function AuthorizationAdmin({ resource, capabilities }: { resource: AdminResource; capabilities: readonly string[] }) {
+}export function AuthorizationAdmin({ resource, capabilities }: { resource: AdminResource; capabilities: readonly string[] }) {
   const locale = useLocale()
   const token = useToken()
   const [state, setState] = useState<AdminState>('loading')

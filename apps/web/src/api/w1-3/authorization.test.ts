@@ -27,11 +27,11 @@ describe('W1.3 authorization transport', () => {
   it('creates UUIDv7 correlation and idempotency headers', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ data: { id: 'x' } }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
     vi.stubGlobal('fetch', fetchMock)
-    await createRoleAssignment({ code: 'role.test' }, 'token')
+    await createRoleAssignment('token', { code: 'role.test', resource_type: 'role_assignment' } as unknown as Parameters<typeof createRoleAssignment>[1])
     const request = requiredRequest(fetchMock.mock.calls, 0)
     const headers = new Headers(request.headers)
     expect(headers.get('X-Correlation-ID')).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
-    expect(headers.get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/)
+    expect(headers.get('Idempotency-Key')).toMatch(/^authorization-role-assignment-[0-9a-f-]{36}$/)
     expect(headers.get('Authorization')).toBeNull()
     expect(headers.get('X-CSRF-Token')).toBe('token')
     expect(request.credentials).toBe('include')
@@ -82,14 +82,14 @@ describe('W1.3 authorization transport', () => {
     vi.unstubAllGlobals()
   })
 
-  it('posts governed transitions through the generated wrapper with a required reason', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ data: { id: '1', status: 'revoked' } }), { status: 200 }))
+  it('posts legacy reason-required transitions through the generated wrapper', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ data: { id: '1', status: 'active' } }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await transitionAuthorizationAdminResource('role-assignments', '018f6f7d-0c00-7000-8000-000000000002', 'revoke', 'No longer assigned', 'token', 4)
+    await transitionAuthorizationAdminResource('role-assignments', '018f6f7d-0c00-7000-8000-000000000002', 'activate', 'No longer assigned', 'token', 4)
 
     const transitionCall = requiredAt(fetchMock.mock.calls, 0)
-    expect(String(transitionCall[0])).toContain('/authorization/role-assignments/018f6f7d-0c00-7000-8000-000000000002/revoke')
+    expect(String(transitionCall[0])).toContain('/authorization/role-assignments/018f6f7d-0c00-7000-8000-000000000002/activate')
     const request = requiredRequest(fetchMock.mock.calls, 0)
     expect(JSON.parse(String(request.body))).toEqual({ reason: 'No longer assigned' })
     expect(new Headers(request.headers).get('If-Match')).toBe('"4"')
