@@ -193,8 +193,26 @@ test('cookie session restores after storage loss and a later 401 expires the who
   })
   expect(logout.status()).toBe(204)
 
-  // Reload forces the shell to restore the session; the invalidated cookie
-  // session returns 401 and the whole shell expires.
+  // Deterministic expiry: a session cookie with no backing session row is a
+  // 401 boundary (fixture resolution only injects a principal when NO token
+  // is sent). Corrupt both the cookie and the stored metadata so every
+  // restore path fails closed, regardless of how the logout response manages
+  // the client cookie.
+  const origin = new URL(WEB_ORIGIN)
+  await page.context().addCookies([{
+    name: 'cluster_identity_session',
+    value: '018f6f7d-0c00-7000-8000-00000000dead',
+    domain: origin.hostname,
+    path: '/',
+  }])
+  await page.evaluate((storageKey) => {
+    const stored = window.sessionStorage.getItem(storageKey)
+    if (stored !== null) {
+      const parsed = JSON.parse(stored) as Record<string, unknown>
+      parsed.access_token = '018f6f7d-0c00-7000-8000-00000000dead'
+      window.sessionStorage.setItem(storageKey, JSON.stringify(parsed))
+    }
+  }, SESSION_METADATA_KEY)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'مرحباً بعودتك' })).toBeVisible()
   await expect(page.getByRole('status')).toContainText('انتهت جلستك. سجّل الدخول للمتابعة.')
