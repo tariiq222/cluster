@@ -80,6 +80,7 @@ export type AccountsPermissionsWorkspaceProps = {
   activeTab: AccountPermissionsTabKey
   capabilities: readonly string[]
   allowedActionsByRole?: Readonly<Record<string, readonly string[]>>
+  decisionId?: string
   navigate: (path: string) => void
   /** Defaults to ARIA-friendly tablist semantics. Pass `'links'` to keep the
    *  legacy anchor behaviour, useful when a downstream test or screen still
@@ -115,6 +116,7 @@ function WorkspaceShell({
   activeTab,
   capabilities,
   allowedActionsByRole,
+  decisionId,
   navigate,
   tabsMode,
 }: AccountsPermissionsWorkspaceProps) {
@@ -140,22 +142,20 @@ function WorkspaceShell({
       })),
     [activeTab, locale],
   )
-
-  const isAdvanced = isAdvancedAccountPermissionsTab(activeTab)
-  const isAvailable = tabAvailableFor(activeTab, capabilities)
-
   return (
     <section
       className="accounts-permissions-workspace"
       dir={directionForLocale(locale)}
       aria-labelledby="accounts-permissions-heading"
     >
+      <h1 id="accounts-permissions-heading" className="visually-hidden">
+        {labels.heading}
+      </h1>
       <header className="accounts-permissions-header">
         <div>
           <p className="accounts-permissions-eyebrow">
             {locale === 'ar' ? 'بوابة الإدارة' : 'Governance portal'}
           </p>
-          <h1 id="accounts-permissions-heading">{labels.heading}</h1>
           <p>{labels.intro}</p>
         </div>
       </header>
@@ -166,85 +166,97 @@ function WorkspaceShell({
         mode={tabsMode}
         onTabSelect={(key) => navigateToTab(key as AccountPermissionsTabKey)}
       />
-      <section
-        className="accounts-permissions-panel"
-        aria-label={TAB_LABELS[activeTab][locale]}
-        data-testid="accounts-permissions-active"
-      >
-        {isAdvanced ? (
-          <p className="accounts-permissions-advanced" aria-hidden="false">
-            {labels.advancedEyebrow}
-          </p>
-        ) : null}
-        {isAvailable ? (
-          <ActivePanel
-            tab={activeTab}
-            locale={locale}
-            capabilities={capabilities}
-            allowedActionsByRole={allowedActionsByRole}
-            panelId={`${activeTab}-panel`}
-          />
-        ) : (
-          <div role="status">
-            <EmptyState
-              icon={<LockKeyhole aria-hidden="true" />}
-              title={TAB_LABELS[activeTab][locale]}
-              body={activeTab === 'accounts' ? labels.accountsUnavailable : activeTab === 'roles-permissions' ? labels.rolesUnavailable : activeTab === 'role-assignments' ? labels.assignmentsUnavailable : activeTab === 'policies-scopes' ? labels.policiesUnavailable : labels.inspectorUnavailable}
+      {accountPermissionsTabs.map((tab) => {
+        const isActive = tab === activeTab
+        const tabIsAdvanced = isAdvancedAccountPermissionsTab(tab)
+        const tabIsAvailable = tabAvailableFor(tab, capabilities)
+        const tabPanelId = `${tab}-panel`
+        const tabLabel = TAB_LABELS[tab][locale]
+        if (!isActive) {
+          // Inactive panel shells exist solely so every tab's `aria-controls`
+          // resolves to a real DOM node. They are hidden and never mount any
+          // heavyweight child component, so the only live content is the
+          // active panel.
+          return (
+            <section
+              key={tabPanelId}
+              id={tabPanelId}
+              role="tabpanel"
+              aria-labelledby={`${tab}-tab`}
+              hidden
+              data-testid={`accounts-permissions-panel-${tab}`}
+              data-active="false"
             />
-          </div>
-        )}
-      </section>
-    </section>
-  )
-}
+          )
+        }
+        return (
+          <section
+            key={tabPanelId}
+            id={tabPanelId}
+            role="tabpanel"
+            aria-labelledby={`${tab}-tab`}
+            className="accounts-permissions-panel"
+            data-testid="accounts-permissions-active"
+            data-active="true"
+          >
+            {tabIsAdvanced ? (
+              <p className="accounts-permissions-advanced" aria-hidden="false">
+                {labels.advancedEyebrow}
+              </p>
+            ) : null}
+            {tabIsAvailable ? (
+              <ActivePanel
+                tab={tab}
+                locale={locale}
+                capabilities={capabilities}
+                allowedActionsByRole={allowedActionsByRole}
+                decisionId={decisionId}
+              />
+            ) : (
+              <div role="status">
+                <EmptyState
+                  icon={<LockKeyhole aria-hidden="true" />}
+                  title={tabLabel}
+                  body={tab === 'accounts' ? labels.accountsUnavailable : tab === 'roles-permissions' ? labels.rolesUnavailable : tab === 'role-assignments' ? labels.assignmentsUnavailable : tab === 'policies-scopes' ? labels.policiesUnavailable : labels.inspectorUnavailable}
+                />
+              </div>
+            )}
+          </section>
+        )
+      })}
+     </section>
+   )
+ }
 
 function ActivePanel({
   tab,
   locale,
   capabilities,
   allowedActionsByRole,
-  panelId,
+  decisionId,
 }: {
   tab: AccountPermissionsTabKey
   locale: Locale
   capabilities: readonly string[]
   allowedActionsByRole?: Readonly<Record<string, readonly string[]>>
-  panelId: string
+  decisionId?: string
 }) {
   switch (tab) {
     case 'accounts':
-      return (
-        <section id={panelId} role="tabpanel" aria-labelledby="accounts-tab">
-          <AccountsTab locale={locale} capabilities={capabilities} />
-        </section>
-      )
+      return <AccountsTab locale={locale} capabilities={capabilities} />
     case 'roles-permissions':
       return (
-        <section id={panelId} role="tabpanel" aria-labelledby="roles-permissions-tab">
-          <RolesPermissionsTab
-            locale={locale}
-            capabilities={capabilities}
-            allowedActionsByRole={allowedActionsByRole}
-          />
-        </section>
+        <RolesPermissionsTab
+          locale={locale}
+          capabilities={capabilities}
+          allowedActionsByRole={allowedActionsByRole}
+        />
       )
     case 'role-assignments':
-      return (
-        <section id={panelId} role="tabpanel" aria-labelledby="role-assignments-tab">
-          <RoleAssignmentsTab locale={locale} capabilities={capabilities} />
-        </section>
-      )
+      return <RoleAssignmentsTab locale={locale} capabilities={capabilities} />
     case 'policies-scopes':
-      return (
-        <section id={panelId} role="tabpanel" aria-labelledby="policies-scopes-tab">
-          <PoliciesScopesTab locale={locale} capabilities={capabilities} />
-        </section>
-      )
+      return <PoliciesScopesTab locale={locale} capabilities={capabilities} />
     case 'decision-inspector':
-      return (
-        <section id={panelId} role="tabpanel" aria-labelledby="decision-inspector-tab">
-          <PermissionDecisionInspector locale={locale} />
-        </section>
-      )
+      return <PermissionDecisionInspector locale={locale} decisionId={decisionId} />
   }
 }

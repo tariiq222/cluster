@@ -70,11 +70,7 @@ final class SharedRecordAuditEventAdapter implements RecordAuditEvent
         if (! is_string($eventId) || $eventId === '') {
             $eventId = Str::uuid7()->toString();
         }
-
         $context = $event['context'] ?? [];
-        if (! is_array($context)) {
-            $context = [];
-        }
 
         $input = new AuditEventInput(
             eventId: $eventId,

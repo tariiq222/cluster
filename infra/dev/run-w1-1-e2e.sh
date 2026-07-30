@@ -56,6 +56,7 @@ PLAYWRIGHT_ARGS=(
   e2e/walking-skeleton.spec.ts
   e2e/login.spec.ts
   e2e/shell.spec.ts
+  e2e/accounts-permissions.spec.ts
 )
 if [[ -n "$PLAYWRIGHT_GREP" ]]; then
   PLAYWRIGHT_ARGS+=(--grep "$PLAYWRIGHT_GREP")

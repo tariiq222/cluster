@@ -67,6 +67,8 @@ const readOnlyCapabilities = [
 const role = {
   id: '018f6f7d-0c00-7000-8000-000000000001',
   code: 'records.viewer',
+  name_en: 'Records viewer',
+  name_ar: 'عارض السجلات',
   role_type: 'system' as const,
   is_system_role: true,
   status: 'active' as const,
@@ -274,8 +276,9 @@ describe('AccountsPermissionsWorkspace Arabic assignment labels', () => {
     mount({ capabilities: FULL_CAPABILITIES, initialTab: 'role-assignments', locale: 'ar' })
     expect(await screen.findByText('التجمع')).not.toBeNull()
     expect(await screen.findByText('مسؤول المالية')).not.toBeNull()
-    expect((await screen.findAllByText('الدور')).length).toBeGreaterThan(1)
+    expect(await screen.findByText('عارض السجلات')).not.toBeNull()
     expect(screen.queryByText('Finance officer')).toBeNull()
+    expect(screen.queryByText('records.viewer')).toBeNull()
   })
 })
 
@@ -289,10 +292,92 @@ describe('AccountsPermissionsWorkspace assignment creation guard', () => {
     fireEvent.click(await screen.findByLabelText('Account'))
     fireEvent.click(await screen.findByRole('option', { name: 'Finance officer' }))
     fireEvent.click(await screen.findByLabelText('Role'))
-    fireEvent.click(await screen.findByRole('option', { name: 'records.viewer' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Records viewer' }))
     expect(create.getAttribute('disabled')).toBeNull()
     fireEvent.click(create)
     await waitFor(() => expect(createRoleAssignment).toHaveBeenCalledWith('test-token', expect.objectContaining({ subject_user_id: assignment.subject_user_id, role_id: role.id, scope_type: 'cluster' })))
     expect(createRoleAssignment.mock.calls[0]?.[1]).not.toHaveProperty('scope_id')
+  })
+})
+
+describe('AccountsPermissionsWorkspace tabpanel contract', () => {
+  it('every tab aria-controls points to a real tabpanel element for all five tabs', async () => {
+    mount({ capabilities: FULL_CAPABILITIES, initialTab: 'accounts' })
+    const tablist = await screen.findByRole('tablist')
+    const tabs = within(tablist).getAllByRole('tab')
+    expect(tabs).toHaveLength(5)
+    for (const tab of tabs) {
+      const panelId = tab.getAttribute('aria-controls')
+      expect(panelId).toBeTruthy()
+      expect(document.getElementById(panelId as string)).not.toBeNull()
+      const panel = document.getElementById(panelId as string)
+      expect(panel?.getAttribute('role')).toBe('tabpanel')
+    }
+  })
+
+  it('renders a single visible tabpanel whose content is the active tab; inactive panels are hidden and contain no live content', async () => {
+    mount({ capabilities: FULL_CAPABILITIES, initialTab: 'roles-permissions' })
+    const tablist = await screen.findByRole('tablist')
+    const tabs = within(tablist).getAllByRole('tab')
+    const panelIds = tabs.map((tab) => tab.getAttribute('aria-controls') as string)
+    await waitFor(() => {
+      for (const id of panelIds) {
+        expect(document.getElementById(id)).not.toBeNull()
+      }
+    })
+    const visiblePanels = panelIds.filter((id) => {
+      const node = document.getElementById(id)
+      if (!node) return false
+      // Hidden HTML attribute removes from layout; aria-hidden=true hides
+      // from assistive tech. The active panel carries neither.
+      if (node.hasAttribute('hidden')) return false
+      if (node.getAttribute('aria-hidden') === 'true') return false
+      const style = window.getComputedStyle(node)
+      if (style.display === 'none' || style.visibility === 'hidden') return false
+      return true
+    })
+    expect(visiblePanels).toHaveLength(1)
+    expect(document.getElementById('accounts-panel')?.querySelector('[data-testid="identity-accounts-stub"]')).toBeNull()
+  })
+
+  it('renders the Arabic role label from name_ar on the roles-permissions tab', async () => {
+    mount({ capabilities: FULL_CAPABILITIES, initialTab: 'roles-permissions', locale: 'ar' })
+    await screen.findByRole('tablist')
+    await waitFor(() => expect(listRoles).toHaveBeenCalled())
+    expect(await screen.findByText('عارض السجلات')).not.toBeNull()
+    expect(screen.queryByText('Records viewer')).toBeNull()
+  })
+
+  it('renders the English role label from name_en on the roles-permissions tab', async () => {
+    mount({ capabilities: FULL_CAPABILITIES, initialTab: 'roles-permissions', locale: 'en' })
+    await screen.findByRole('tablist')
+    await waitFor(() => expect(listRoles).toHaveBeenCalled())
+    expect(await screen.findByText('Records viewer')).not.toBeNull()
+    expect(screen.queryByText('عارض السجلات')).toBeNull()
+  })
+})
+
+describe('AccountsPermissionsWorkspace accessible name', () => {
+  it('exposes the workspace section with a non-empty accessible name in Arabic', async () => {
+    mount({ capabilities: FULL_CAPABILITIES, initialTab: 'accounts', locale: 'ar' })
+    const region = await screen.findByRole('region', { name: 'الحسابات والصلاحيات' })
+    expect(region).not.toBeNull()
+  })
+
+  it('exposes the workspace section with a non-empty accessible name in English', async () => {
+    mount({ capabilities: FULL_CAPABILITIES, initialTab: 'accounts', locale: 'en' })
+    const region = await screen.findByRole('region', { name: 'Accounts & Permissions' })
+    expect(region).not.toBeNull()
+  })
+
+  it('keeps the labelledby pointer pointing at a real element with non-empty text', async () => {
+    mount({ capabilities: FULL_CAPABILITIES, initialTab: 'accounts', locale: 'ar' })
+    const region = document.querySelector('.accounts-permissions-workspace')
+    expect(region).not.toBeNull()
+    const labelledBy = region?.getAttribute('aria-labelledby')
+    expect(labelledBy).toBe('accounts-permissions-heading')
+    const target = document.getElementById(labelledBy as string)
+    expect(target).not.toBeNull()
+    expect(target?.textContent?.trim().length ?? 0).toBeGreaterThan(0)
   })
 })

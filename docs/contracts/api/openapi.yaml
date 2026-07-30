@@ -3908,6 +3908,86 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+  /authorization/assignment-scope-targets:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    get:
+      tags:
+        - Authorization Admin
+      summary: List manageable assignment scope targets for the current principal
+      description: |
+        Cursor-paginated catalog of manageable assignment scope targets.
+        Three manageable levels are published (cluster, facility, unit). The
+        server filters by the current principal's manageable scope. The catalog
+        is the single source of truth for the assignment scope picker and is
+        distinct from the generic `/authorization/{adminResource}` family.
+      operationId: listAuthorizationAssignmentScopeTargets
+      parameters:
+        - name: scope_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - cluster
+              - facility
+              - unit
+              - record_set
+          x-cursor-bounded: true
+          x-record-set-fail-closed: true
+        - name: parent_scope_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - cluster
+              - facility
+        - name: parent_scope_id
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/UUIDv7'
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Paginated catalog page
+          headers:
+            Link:
+              schema:
+                type: string
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentScopeTargetCollection'
+              x-collection-shape: items-next_cursor
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: |
+            Returned when `scope_type=record_set` is submitted. `record_set`
+            is intentionally not a manageable level (spec §19.6).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemScopeTypeNotCatalogued'
   /authorization/{adminResource}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -3978,6 +4058,15 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          description: |
+            Returned when `adminResource=role-assignments` is submitted with
+            `scope_type=record_set`. The catalog does not include `record_set`
+            and the mutation is rejected (spec §19.6).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemScopeTypeNotCatalogued'
   /authorization/{adminResource}/{resourceId}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -4060,6 +4149,15 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          description: |
+            Returned when `adminResource=role-assignments` is patched with
+            `scope_type=record_set`. The catalog does not include `record_set`
+            and the mutation is rejected (spec §19.6).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemScopeTypeNotCatalogued'
   /authorization/{adminResource}/{resourceId}/{authorizationAction}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -10353,6 +10451,85 @@ components:
           type:
             - string
             - 'null'
+    AssignmentScopeTarget:
+      type: object
+      description: |
+        A manageable assignment scope target for the current principal. The
+        UI renders `label_ar` and `label_en` (per spec §19.7 the public
+        identifier surfaces as a label, never a primary label-id). The
+        `scope_type` enum intentionally excludes `record_set`.
+      additionalProperties: false
+      required:
+        - scope_type
+        - scope_id
+        - label_ar
+        - label_en
+      x-id-display-rule: label-only
+      properties:
+        scope_type:
+          type: string
+          enum:
+            - cluster
+            - facility
+            - unit
+        scope_id:
+          $ref: '#/components/schemas/UUIDv7'
+        label_ar:
+          type: string
+          minLength: 1
+          maxLength: 255
+        label_en:
+          type: string
+          minLength: 1
+          maxLength: 255
+        code:
+          type:
+            - string
+            - 'null'
+          maxLength: 64
+    AssignmentScopeTargetCollection:
+      type: object
+      description: |
+        Cursor-paginated catalog page returned by the assignment-scope-targets
+        endpoint. Flat `{ items, next_cursor }` envelope; the wire shape matches
+        `AuthorizationApi::collection($items, $nextCursor)`.
+      additionalProperties: false
+      required:
+        - items
+        - next_cursor
+      x-collection-shape: items-next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentScopeTarget'
+        next_cursor:
+          type:
+            - string
+            - 'null'
+    ProblemScopeTypeNotCatalogued:
+      description: |
+        Returned with HTTP 422 when a `record_set` assignment scope is requested.
+        `record_set` is intentionally not a manageable level (spec §19.6).
+      type: object
+      additionalProperties: true
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          const: 'urn:cluster:problem:scope_type_not_catalogued'
+        title:
+          type: string
+        status:
+          type: integer
+          const: 422
+        detail:
+          type: string
+        correlation_id:
+          $ref: '#/components/schemas/uuidv7'
     AuthorizationAdminCreate:
       type: object
       additionalProperties: false
@@ -10386,6 +10563,8 @@ components:
             - facility
             - unit
             - record_set
+          x-record-set-fail-closed: true
+          x-spec-reference: 19.6
         scope_id:
           $ref: '#/components/schemas/UUIDv7'
         start_at:
@@ -10578,6 +10757,7 @@ components:
         - subject_user_id
         - effective_status
         - allowed_actions
+        - lock_version
       properties:
         id:
           $ref: '#/components/schemas/UUIDv7'
@@ -10613,6 +10793,9 @@ components:
               - edit
               - revoke
               - expire
+        lock_version:
+          type: integer
+          minimum: 1
     ProblemImmutableSystemRole:
       type: object
       additionalProperties: false

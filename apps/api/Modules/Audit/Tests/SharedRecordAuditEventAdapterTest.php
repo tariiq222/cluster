@@ -45,7 +45,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_record_accepts_the_documented_payload_and_calls_inner_once(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $payload = $this->validPayload();
@@ -75,18 +75,20 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_record_returns_void_and_discards_audit_event_receipt(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
-        $result = $adapter->record($this->validPayload());
-
-        $this->assertNull($result, 'Adapter must return void; the AuditEventReceipt from the inner port is discarded.');
+        // Void contract: assert the inner-port side-effect instead.
+        $adapter->record($this->validPayload());
         $this->assertCount(1, $inner->calls);
+        $this->assertInstanceOf(AuditEventInput::class, $inner->calls[0]);
+        $this->assertSame(self::EVENT_ID, $inner->calls[0]->eventId);
+
     }
 
     public function test_outcome_succeeded_failed_denied_map_to_audit_event_input_constants(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $adapter->record($this->validPayload(outcome: 'succeeded'));
@@ -101,7 +103,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_non_uuid_correlation_id_throws_audit_correlation_id_invalid(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $this->expectException(InvalidArgumentException::class);
@@ -112,7 +114,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_event_id_missing_is_generated_as_uuid_v7(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $payload = $this->validPayload();
@@ -131,7 +133,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_event_id_empty_string_is_generated_as_uuid_v7(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $adapter->record($this->validPayload(eventId: ''));
@@ -142,7 +144,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_missing_correlation_id_throws_audit_field_missing_correlation_id(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $payload = $this->validPayload();
@@ -156,7 +158,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_missing_action_throws_audit_field_missing_action(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $payload = $this->validPayload();
@@ -170,7 +172,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_invalid_actor_type_throws_audit_actor_type_invalid(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $this->expectException(InvalidArgumentException::class);
@@ -181,7 +183,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_invalid_classification_throws_audit_classification_invalid(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $this->expectException(InvalidArgumentException::class);
@@ -192,7 +194,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_invalid_retention_class_throws_audit_retention_class_invalid(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $this->expectException(InvalidArgumentException::class);
@@ -203,7 +205,7 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
 
     public function test_invalid_event_type_throws_audit_eventtype_invalid(): void
     {
-        $inner = new RecordingInnerRecordAuditEvent();
+        $inner = new RecordingInnerRecordAuditEvent;
         $adapter = new SharedRecordAuditEventAdapter($inner);
 
         $this->expectException(InvalidArgumentException::class);
@@ -213,7 +215,6 @@ final class SharedRecordAuditEventAdapterTest extends TestCase
     }
 
     /**
-     * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
      */
     private function validPayload(

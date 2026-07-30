@@ -53,17 +53,40 @@ export function WorkspaceTabs({ label, tabs, onNavigate, category, mode = 'links
     nodes.item(((index % nodes.length) + nodes.length) % nodes.length)?.focus()
   }, [])
 
+  /**
+   * Resolve the index that arrow/Home/End navigation should advance from. In
+   * tablist mode the user's intent is whichever tab actually owns focus, not
+   * whichever tab is flagged active — that lets a caller reposition focus on a
+   * non-selected tab (e.g. via tests or via the "Return to list" affordance
+   * shared with the role list) without losing the keyboard contract. When the
+   * tablist has no focused descendant we fall back to the active tab so the
+   * first activation still works.
+   */
+  const resolveStartIndex = useCallback((): number => {
+    const list = tabListRef.current
+    if (list) {
+      const focused = list.querySelector<HTMLElement>('[role="tab"][data-tab-key]:focus')
+      if (focused) {
+        const focusedKey = focused.dataset.tabKey
+        const focusedIndex = tabs.findIndex((tab) => tab.key === focusedKey)
+        if (focusedIndex >= 0) return focusedIndex
+      }
+    }
+    return tabs.findIndex((tab) => tab.active)
+  }, [tabs])
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (mode !== 'tabs') return
-    const currentIndex = tabs.findIndex((tab) => tab.active)
+    const startIndex = resolveStartIndex()
+    if (startIndex < 0) return
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
       event.preventDefault()
-      const next = (currentIndex + 1) % tabs.length
+      const next = (startIndex + 1) % tabs.length
       onTabSelect?.(tabs[next]!.key)
       focusTab(next)
     } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
       event.preventDefault()
-      const prev = (currentIndex - 1 + tabs.length) % tabs.length
+      const prev = (startIndex - 1 + tabs.length) % tabs.length
       onTabSelect?.(tabs[prev]!.key)
       focusTab(prev)
     } else if (event.key === 'Home') {

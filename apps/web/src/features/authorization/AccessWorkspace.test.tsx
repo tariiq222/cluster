@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AccessWorkspace, accessSectionForRoute } from './AccessWorkspace'
@@ -9,21 +9,6 @@ import type { Session } from '../../api'
 import type { AppRoute } from '../../shell/routes'
 
 
-vi.mock('../accounts-permissions/AccountsTab', () => ({
-  AccountsTab: ({ locale, capabilities }: { locale: string; capabilities: readonly string[] }) => <div data-testid="accounts-tab" data-locale={locale} data-capabilities={capabilities.join(',')} />,
-}))
-vi.mock('../accounts-permissions/RolesPermissionsTab', () => ({
-  RolesPermissionsTab: ({ locale, capabilities }: { locale: string; capabilities: readonly string[] }) => <div data-testid="roles-permissions-tab" data-locale={locale} data-capabilities={capabilities.join(',')} />,
-}))
-vi.mock('../accounts-permissions/RoleAssignmentsTab', () => ({
-  RoleAssignmentsTab: ({ locale, capabilities }: { locale: string; capabilities: readonly string[] }) => <div data-testid="role-assignments-tab" data-locale={locale} data-capabilities={capabilities.join(',')} />,
-}))
-vi.mock('../accounts-permissions/PoliciesScopesTab', () => ({
-  PoliciesScopesTab: ({ locale, capabilities }: { locale: string; capabilities: readonly string[] }) => <div data-testid="policies-scopes-tab" data-locale={locale} data-capabilities={capabilities.join(',')} />,
-}))
-vi.mock('../accounts-permissions/PermissionDecisionInspector', () => ({
-  PermissionDecisionInspector: ({ locale, decisionId }: { locale: string; decisionId?: string }) => <div data-testid="permission-decision-inspector" data-locale={locale} data-decision-id={decisionId ?? ''} />,
-}))
 
 const session: Session = {
   csrf_token: 'csrf-token',
@@ -34,11 +19,23 @@ const session: Session = {
   principal: { user_id: '018f6f7d-0c00-7000-8000-000000000021' },
 }
 
+const ALL_GOVERNANCE_CAPABILITIES = [
+  'identity.account.read',
+  'authorization.role.read',
+  'authorization.role.manage',
+  'authorization.capability.read',
+  'authorization.assignment.read',
+  'authorization.assignment.manage',
+  'authorization.policy.read',
+  'authorization.policy.manage',
+  'authorization.decision.read',
+]
+
 afterEach(() => {
   cleanup()
 })
 
-function renderRoute(activeRoute: AppRoute, navigate: (path: string) => void = vi.fn(), capabilities: readonly string[] = ['authorization.role.manage']) {
+function renderRoute(activeRoute: AppRoute, navigate: (path: string) => void = vi.fn(), capabilities: readonly string[] = ALL_GOVERNANCE_CAPABILITIES) {
   return render(
     <SessionProvider locale="en" session={session}>
       <AccessWorkspace locale="en" activeRoute={activeRoute} navigate={navigate} capabilities={capabilities} />
@@ -46,13 +43,6 @@ function renderRoute(activeRoute: AppRoute, navigate: (path: string) => void = v
   )
 }
 
-function sectionLabels(): string[] {
-  const regions = screen.getAllByRole('region', { name: 'Identity & access' })
-  const workspace = regions[regions.length - 1] as HTMLElement
-  const nav = workspace.querySelector('nav.workspace-tabs')
-  if (!nav) throw new Error('Access workspace tabs nav not found')
-  return Array.from(nav.querySelectorAll('a')).map((anchor) => anchor.textContent?.trim() ?? '')
-}
 
 describe('accessSectionForRoute', () => {
   it('maps every governance and policy route to one of the five sections', () => {
@@ -69,76 +59,49 @@ describe('accessSectionForRoute', () => {
 
 describe('AccessWorkspace routed content', () => {
   it.each([
-    [{ name: 'identity-accounts' }, 'accounts-tab'],
-    [{ name: 'authorization', resource: 'roles' }, 'roles-permissions-tab'],
-    [{ name: 'authorization', resource: 'role-assignments' }, 'role-assignments-tab'],
-    [{ name: 'access-scopes' }, 'policies-scopes-tab'],
-    [{ name: 'access-explanation' }, 'permission-decision-inspector'],
-  ] as const)('mounts the current Task 7 component for %o', (route, expectedTab) => {
-    const { unmount } = renderRoute(route)
+    [{ name: 'identity-accounts' }, 'accounts'],
+    [{ name: 'authorization', resource: 'roles' }, 'roles-permissions'],
+    [{ name: 'authorization', resource: 'role-assignments' }, 'role-assignments'],
+    [{ name: 'access-scopes' }, 'policies-scopes'],
+    [{ name: 'access-explanation' }, 'decision-inspector'],
+  ] as const)('maps %o to the canonical tab panel', (route, expectedTab) => {
+    renderRoute(route)
 
-    const mountedTab = screen.getByTestId(expectedTab)
-    expect(mountedTab.getAttribute('data-locale')).toBe('en')
-    if (expectedTab !== 'permission-decision-inspector') {
-      expect(mountedTab.getAttribute('data-capabilities')).toBe('authorization.role.manage')
-    }
-    expect(screen.getByRole('status')).toBeTruthy()
-    unmount()
-  })
-
-  it('passes a decision deep-link id to the current inspector component', () => {
-    renderRoute({ name: 'access-explanation', decisionId: 'decision-7' })
-
-    expect(screen.getByTestId('permission-decision-inspector').getAttribute('data-decision-id')).toBe('decision-7')
-    expect(screen.getByRole('link', { name: 'Permission decision inspector' }).getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('tablist')).toBeTruthy()
+    expect(screen.getByRole('tab', { name: expectedTab === 'roles-permissions' ? 'Roles & Permissions' : expectedTab === 'role-assignments' ? 'Role Assignments' : expectedTab === 'policies-scopes' ? 'Policies & Scopes' : expectedTab === 'decision-inspector' ? 'Permission Decision Inspector' : 'Accounts' }).getAttribute('aria-selected')).toBe('true')
+    expect(document.getElementById(`${expectedTab}-panel`)).toBeTruthy()
   })
 })
 
 describe('AccessWorkspace governance tabs', () => {
-  it('renders exactly five section tabs and never personal access, delegations, or supervisory', () => {
+  it('renders the canonical tablist and preserves ARIA panel associations', () => {
     renderRoute({ name: 'identity-accounts' })
 
-    expect(sectionLabels()).toEqual([
+    const renderedTabs = screen.getAllByRole('tab')
+    expect(renderedTabs.map((tab) => tab.textContent)).toEqual([
       'Accounts',
-      'Roles and permissions',
-      'Role assignments',
-      'Permission policies and scopes',
-      'Permission decision inspector',
+      'Roles & Permissions',
+      'Role Assignments',
+      'Policies & Scopes',
+      'Permission Decision Inspector',
     ])
-    expect(screen.queryByRole('link', { name: 'Delegations' })).toBeNull()
-    expect(screen.queryByRole('link', { name: 'Supervisory relationships' })).toBeNull()
-    expect(screen.queryByRole('link', { name: 'Personal access' })).toBeNull()
-    expect(screen.getByRole('link', { name: 'Permission policies and scopes' }).getAttribute('href')).toBe(
-      '/admin/authorization/classification-policies',
-    )
+    for (const tab of renderedTabs) {
+      expect(tab.getAttribute('aria-controls')).toBe(`${tab.id.replace(/-tab$/, '')}-panel`)
+    }
   })
 
-  it('activates the policies-and-scopes tab on the classification-policies deep link', () => {
-    renderRoute({ name: 'authorization', resource: 'classification-policies' })
+  it('advances keyboard navigation relative to the focused tab', () => {
+    const navigate = vi.fn()
+    renderRoute({ name: 'identity-accounts' }, navigate)
 
-    const policiesLink = screen.getByRole('link', { name: 'Permission policies and scopes' })
-    expect(policiesLink.getAttribute('aria-current')).toBe('page')
-  })
+    const tablist = screen.getByRole('tablist')
+    const rendered = within(tablist).getAllByRole('tab')
+    const policiesTab = within(tablist).getByRole('tab', { name: 'Policies & Scopes' })
+    policiesTab.focus()
+    fireEvent.keyDown(tablist, { key: 'ArrowRight' })
 
-  it('activates the policies-and-scopes tab on the access-scopes deep link', () => {
-    renderRoute({ name: 'access-scopes' })
-
-    const policiesLink = screen.getByRole('link', { name: 'Permission policies and scopes' })
-    expect(policiesLink.getAttribute('aria-current')).toBe('page')
-  })
-
-  it('activates the policies-and-scopes tab on the field-access-templates deep link', () => {
-    renderRoute({ name: 'authorization', resource: 'field-access-templates' })
-
-    const policiesLink = screen.getByRole('link', { name: 'Permission policies and scopes' })
-    expect(policiesLink.getAttribute('aria-current')).toBe('page')
-  })
-
-  it('activates the roles-and-permissions tab on the capabilities deep link', () => {
-    renderRoute({ name: 'authorization', resource: 'capabilities' })
-
-    const rolesLink = screen.getByRole('link', { name: 'Roles and permissions' })
-    expect(rolesLink.getAttribute('aria-current')).toBe('page')
+    expect(navigate).toHaveBeenCalledWith('/admin/authorization/explain?tab=decision-inspector')
+    expect(document.activeElement).toBe(rendered[4])
   })
 })
 

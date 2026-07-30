@@ -25,8 +25,10 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
     private const CUSTOM_ROLE_ID = '018f6f7d-0c00-7000-8000-000000000903';
 
     private const NEAR_LIMIT_SYSTEM_ROLE_ID = '018f6f7d-0c00-7000-8000-000000000904';
+
     /** Total 87 lowercase chars: source + '_clone-' (7) + '-' (1) + 8-char uuid slice (8) = 103 → truncated to 96 with suffix preserved. */
     private const NEAR_LIMIT_SOURCE_CODE = 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
     private const FOREIGN_SCOPE_ID = '018f6f7d-0c00-7000-8000-000000000a03';
 
     private const OWNED_SCOPE_ID = '018f6f7d-0c00-7000-8000-000000000b01';

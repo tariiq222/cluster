@@ -17,7 +17,7 @@ namespace Shared\Contracts;
 interface RecordAuditEvent
 {
     /**
-     * @param  array{event_id: string, source_module: string, action: string, event_type: string, actor_type: string, actor_id: ?string, original_actor_id: ?string, subject_type: string, subject_id: ?string, correlation_id: string, outcome: string, classification: string, context: array<string, mixed>, occurred_at: string, retention_class: string}  $event
+     * @param  array{event_id?: string, source_module: string, action: string, event_type: string, actor_type: string, actor_id: ?string, original_actor_id: ?string, subject_type: string, subject_id: ?string, correlation_id: string, outcome: string, classification: string, context?: array<string, mixed>, occurred_at: string, retention_class: string}  $event
      */
     public function record(array $event): void;
 }

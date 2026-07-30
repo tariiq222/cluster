@@ -2186,6 +2186,65 @@ export interface ImportJobRowCollection {
   next_cursor: string | null
 }
 
+export type AssignmentScopeTargetScopeType =
+  (typeof AssignmentScopeTargetScopeType)[keyof typeof AssignmentScopeTargetScopeType]
+
+export const AssignmentScopeTargetScopeType = {
+  cluster: 'cluster',
+  facility: 'facility',
+  unit: 'unit',
+} as const
+
+/**
+ * A manageable assignment scope target for the current principal. The
+ * UI renders `label_ar` and `label_en` (per spec §19.7 the public
+ * identifier surfaces as a label, never a primary label-id). The
+ * `scope_type` enum intentionally excludes `record_set`.
+ */
+export interface AssignmentScopeTarget {
+  scope_type: AssignmentScopeTargetScopeType
+  scope_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  label_ar: string
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  label_en: string
+  /**
+   * @maxLength 64
+   * @nullable
+   */
+  code?: string | null
+}
+
+/**
+ * Cursor-paginated catalog page returned by the assignment-scope-targets
+ * endpoint. Flat `{ items, next_cursor }` envelope; the wire shape matches
+ * `AuthorizationApi::collection($items, $nextCursor)`.
+ */
+export interface AssignmentScopeTargetCollection {
+  items: AssignmentScopeTarget[]
+  /** @nullable */
+  next_cursor: string | null
+}
+
+/**
+ * Returned with HTTP 422 when a `record_set` assignment scope is requested.
+ * `record_set` is intentionally not a manageable level (spec §19.6).
+ */
+export interface ProblemScopeTypeNotCatalogued {
+  type: 'urn:cluster:problem:scope_type_not_catalogued'
+  title: string
+  status: 422
+  detail?: string
+  correlation_id?: Uuidv7
+  [key: string]: unknown
+}
+
 export type AuthorizationAdminCreateResourceType =
   (typeof AuthorizationAdminCreateResourceType)[keyof typeof AuthorizationAdminCreateResourceType]
 
@@ -2404,6 +2463,8 @@ export interface AuthorizationRoleAssignment {
   end_at?: UtcDateTime
   effective_status: AuthorizationRoleAssignmentEffectiveStatus
   allowed_actions: AuthorizationRoleAssignmentAllowedActionsItem[]
+  /** @minimum 1 */
+  lock_version: number
 }
 
 export type ProblemImmutableSystemRoleType =
@@ -4016,6 +4077,44 @@ export type ListUserAccountsParams = {
    */
   limit?: LimitParameter
 }
+
+export type ListAuthorizationAssignmentScopeTargetsParams = {
+  scope_type: ListAuthorizationAssignmentScopeTargetsScopeType
+  parent_scope_type?: ListAuthorizationAssignmentScopeTargetsParentScopeType
+  parent_scope_id?: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  search?: string
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
+export type ListAuthorizationAssignmentScopeTargetsScopeType =
+  (typeof ListAuthorizationAssignmentScopeTargetsScopeType)[keyof typeof ListAuthorizationAssignmentScopeTargetsScopeType]
+
+export const ListAuthorizationAssignmentScopeTargetsScopeType = {
+  cluster: 'cluster',
+  facility: 'facility',
+  unit: 'unit',
+  record_set: 'record_set',
+} as const
+
+export type ListAuthorizationAssignmentScopeTargetsParentScopeType =
+  (typeof ListAuthorizationAssignmentScopeTargetsParentScopeType)[keyof typeof ListAuthorizationAssignmentScopeTargetsParentScopeType]
+
+export const ListAuthorizationAssignmentScopeTargetsParentScopeType = {
+  cluster: 'cluster',
+  facility: 'facility',
+} as const
 
 export type ListAuthorizationAdminResourcesParams = {
   /**
@@ -12934,6 +13033,87 @@ export const completeAuthorizationBootstrap = async (
   )
 }
 
+export type listAuthorizationAssignmentScopeTargetsResponse200 = {
+  data: AssignmentScopeTargetCollection
+  status: 200
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse422 = {
+  data: ProblemScopeTypeNotCatalogued
+  status: 422
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponseSuccess =
+  listAuthorizationAssignmentScopeTargetsResponse200 & {
+    headers: Headers
+  }
+export type listAuthorizationAssignmentScopeTargetsResponseError = (
+  | listAuthorizationAssignmentScopeTargetsResponse400
+  | listAuthorizationAssignmentScopeTargetsResponse401
+  | listAuthorizationAssignmentScopeTargetsResponse403
+  | listAuthorizationAssignmentScopeTargetsResponse422
+) & {
+  headers: Headers
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse =
+  | listAuthorizationAssignmentScopeTargetsResponseSuccess
+  | listAuthorizationAssignmentScopeTargetsResponseError
+
+export const getListAuthorizationAssignmentScopeTargetsUrl = (
+  params: ListAuthorizationAssignmentScopeTargetsParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/authorization/assignment-scope-targets?${stringifiedParams}`
+    : `/api/v1/authorization/assignment-scope-targets`
+}
+
+/**
+ * Cursor-paginated catalog of manageable assignment scope targets.
+ * Three manageable levels are published (cluster, facility, unit). The
+ * server filters by the current principal's manageable scope. The catalog
+ * is the single source of truth for the assignment scope picker and is
+ * distinct from the generic `/authorization/{adminResource}` family.
+ * @summary List manageable assignment scope targets for the current principal
+ */
+export const listAuthorizationAssignmentScopeTargets = async (
+  params: ListAuthorizationAssignmentScopeTargetsParams,
+  options?: RequestInit,
+): Promise<listAuthorizationAssignmentScopeTargetsResponse> => {
+  return customFetch<listAuthorizationAssignmentScopeTargetsResponse>(
+    getListAuthorizationAssignmentScopeTargetsUrl(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
 export type listAuthorizationAdminResourcesResponse200 = {
   data: CollectionResponse
   status: 200
@@ -13044,6 +13224,11 @@ export type createAuthorizationAdminResourceResponse409 = {
   status: 409
 }
 
+export type createAuthorizationAdminResourceResponse422 = {
+  data: ProblemScopeTypeNotCatalogued
+  status: 422
+}
+
 export type createAuthorizationAdminResourceResponseSuccess =
   createAuthorizationAdminResourceResponse201 & {
     headers: Headers
@@ -13054,6 +13239,7 @@ export type createAuthorizationAdminResourceResponseError = (
   | createAuthorizationAdminResourceResponse403
   | createAuthorizationAdminResourceResponse404
   | createAuthorizationAdminResourceResponse409
+  | createAuthorizationAdminResourceResponse422
 ) & {
   headers: Headers
 }
@@ -13210,6 +13396,11 @@ export type updateAuthorizationAdminResourceResponse412 = {
   status: 412
 }
 
+export type updateAuthorizationAdminResourceResponse422 = {
+  data: ProblemScopeTypeNotCatalogued
+  status: 422
+}
+
 export type updateAuthorizationAdminResourceResponseSuccess =
   updateAuthorizationAdminResourceResponse200 & {
     headers: Headers
@@ -13221,6 +13412,7 @@ export type updateAuthorizationAdminResourceResponseError = (
   | updateAuthorizationAdminResourceResponse404
   | updateAuthorizationAdminResourceResponse409
   | updateAuthorizationAdminResourceResponse412
+  | updateAuthorizationAdminResourceResponse422
 ) & {
   headers: Headers
 }

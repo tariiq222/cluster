@@ -25,31 +25,38 @@ describe('navigation capability gating', () => {
     }
   })
 
-  it('fails closed for direct internal and dashboard URLs until their own capability is resolved', () => {
+  it('fails closed for direct internal and dashboard URLs until their own capability is resolved, while access-explanation stays reachable for in-panel gating', () => {
     expect(capabilityForRoute({ name: 'api-docs' })).toBe(
       'authorization.audit.read',
     )
     expect(capabilityForRoute({ name: 'dashboards' })).toBe(
       'reporting.dashboard',
     )
-    expect(capabilityForRoute({ name: 'access-explanation' })).toBe(
-      'authorization.decision.read',
-    )
+    // access-explanation carries no route-level capability: the URL stays
+    // reachable for deep-linked principals so the decision-inspector panel can
+    // render its localized unavailable state via `tabAvailableFor`.
+    expect(capabilityForRoute({ name: 'access-explanation' })).toBeNull()
 
     for (const route of [
       { name: 'api-docs' },
       { name: 'dashboards' },
-      { name: 'access-explanation' },
     ] as const) {
       expect(isRouteVisible(route, null)).toBe(false)
       expect(isRouteVisible(route, [])).toBe(false)
     }
+    // access-explanation remains visible regardless of capability payload so
+    // the in-panel gate (tabAvailableFor) owns the denial copy.
+    expect(isRouteVisible({ name: 'access-explanation' }, null)).toBe(true)
+    expect(isRouteVisible({ name: 'access-explanation' }, [])).toBe(true)
+
     expect(
       isRouteVisible({ name: 'api-docs' }, ['authorization.audit.read']),
     ).toBe(true)
     expect(
       isRouteVisible({ name: 'dashboards' }, ['reporting.dashboard']),
     ).toBe(true)
+    // Holding `authorization.decision.read` does not change the route-level
+    // outcome; the in-panel gate reads the capability directly.
     expect(
       isRouteVisible({ name: 'access-explanation' }, [
         'authorization.decision.read',

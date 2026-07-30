@@ -220,17 +220,6 @@ final class AuthorizationAccountPermissionsHttpAdapterTest extends TestCase
             ->assertJsonPath('type', 'https://cluster.example/problems/resource-not-found');
     }
 
-    private function createRole(string $cookie, string $csrf, string $code, array $capabilityCodes): string
-    {
-        return (string) $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles', [
-            'resource_type' => 'role',
-            'code' => $code,
-            'name' => 'دور '.$code,
-            'role_type' => 'custom',
-            'capability_codes' => $capabilityCodes,
-        ], $this->writeHeaders('role-'.$code, $csrf))->assertCreated()->json('data.id');
-    }
-
     private function createAssignment(string $cookie, string $csrf, string $roleId, string $scopeId, string $key): string
     {
         return (string) $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [

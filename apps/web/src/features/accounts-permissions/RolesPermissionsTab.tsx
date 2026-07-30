@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { directionForLocale, type Locale } from '../../app/copy'
 import { archiveRole, cloneRoleFromSystemRole, createRole, getRole, listCapabilities, listRoles, updateRole } from '../../api/r1'
 import type { AuthorizationCapability, AuthorizationRole } from '../../api/generated/cluster'
@@ -29,7 +28,8 @@ const COPY = {
 } as const satisfies Record<Locale, Record<string, string>>
 
 function roleDraft(role: AuthorizationRole): Draft {
-  return { code: role.code, name: role.name_en ?? role.name_ar ?? role.code, capabilities: role.capability_codes ?? [] }
+  const preferred = role.name_en ?? role.name_ar ?? role.code
+  return { code: role.code, name: preferred, capabilities: role.capability_codes ?? [] }
 }
 
 export function RolesPermissionsTab({ locale, capabilities, allowedActionsByRole }: RolesPermissionsTabProps) {
@@ -110,10 +110,9 @@ export function RolesPermissionsTab({ locale, capabilities, allowedActionsByRole
       }
       setDraft(EMPTY)
       setEditing(null)
-      await load()
     } catch (caught) {
       const message = announceError(caught)
-      if (caught instanceof ApiError && caught.status === 409 && editedRole) {
+      if (caught instanceof ApiError && caught.status === 409 && editedRole && caught.problem.type === 'urn:cluster:problem:system-role-immutable') {
         setDraft(EMPTY)
         setEditing(null)
         listRef.current?.focus()
@@ -204,7 +203,7 @@ export function RolesPermissionsTab({ locale, capabilities, allowedActionsByRole
               const clonable = role.is_system_role && canMutateAdminResource('roles-permissions', 'clone', capabilities, allowed)
               return (
                 <li key={role.id} className="role-row">
-                  <strong>{role.name_en ?? role.name_ar ?? role.code}</strong>
+                  <strong>{locale === 'ar' ? (role.name_ar ?? role.name_en ?? role.code) : (role.name_en ?? role.name_ar ?? role.code)}</strong>
                   <span className="role-code" dir="ltr">{role.code}</span>
                   <p>{pluralizeCapabilities(locale, (role.capability_codes ?? []).length)}</p>
                   <div className="role-row-actions">

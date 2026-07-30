@@ -76,7 +76,7 @@ final class AuthorizationAdminControllerAuditTest extends TestCase
 
     private function bindControllerAuditRecorder(): void
     {
-        $this->recorder = new ControllingSharedAuditRecorder();
+        $this->recorder = new ControllingSharedAuditRecorder;
         $this->app->instance(RecordAuditEvent::class, $this->recorder);
         $this->app->forgetInstance(AuthorizationAdminService::class);
     }

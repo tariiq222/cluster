@@ -75,7 +75,7 @@ final class AuthorizationAdminServiceAuditTest extends TestCase
         $this->seedCluster();
         $this->seedPrincipal();
         $this->seedSubjectUsers();
-        $this->recorder = new CapturingSharedAuditRecorder();
+        $this->recorder = new CapturingSharedAuditRecorder;
         $this->app->instance(RecordAuditEvent::class, $this->recorder);
         $this->app->forgetInstance(AuthorizationAdminService::class);
     }

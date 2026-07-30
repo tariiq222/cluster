@@ -124,8 +124,16 @@ export function PermissionDecisionInspector({ locale, decisionId }: PermissionDe
     {decision ? <section className="inspector-result" role="region" aria-labelledby="decision-result-heading"><Panel id="decision-result-heading" title={labels.result} level={2}>
       {decision.applies_in_plain_language ? <p>{decision.applies_in_plain_language}</p> : null}
       {decision.reason_codes.length ? <p>{decision.reason_codes.join(', ')}</p> : null}
-      {decision.assignment_summaries?.length ? <ul>{decision.assignment_summaries.map((summary) => <li key={summary.scope_label}>{summary.scope_label}</li>)}</ul> : null}
-      {decision.policy_references?.length ? <ul>{decision.policy_references.map((policy) => <li key={policy.policy_label}>{policy.policy_label}</li>)}</ul> : null}
+      {decision.assignment_summaries?.length ? <ul>{decision.assignment_summaries.map((summary) => (
+        <li key={`${summary.role_code}:${summary.effective_status}`} data-testid="assignment-summary">
+          {summary.role_code} · {summary.effective_status}{summary.scope_type ? ` · ${summary.scope_type}` : ''}
+        </li>
+      ))}</ul> : null}
+      {decision.policy_references?.length ? <ul>{decision.policy_references.map((policy, index) => (
+        <li key={`${policy.policy_code}:${policy.policy_version}:${index}`} data-testid="policy-reference">
+          {policy.policy_code} {policy.policy_version}{policy.excerpt ? ` · ${policy.excerpt}` : ''}
+        </li>
+      ))}</ul> : null}
     </Panel></section> : null}
   </Page></div>
 }

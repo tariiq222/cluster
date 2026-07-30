@@ -465,23 +465,6 @@ final class AuthorizationHttpGateway
         return array_values(array_map(static fn (mixed $id): string => (string) $id, $capabilityIds));
     }
 
-    /** @param list<mixed> $codes */
-    /** @return list<string> */
-    private function capabilityIdsForCodes(array $codes): array
-    {
-        foreach ($codes as $code) {
-            if (! is_string($code) || ! CapabilityCatalog::supports($code)) {
-                throw new InvalidArgumentException('capability_code_not_in_catalog');
-            }
-        }
-        $ids = DB::table('capabilities')->whereIn('capability_code', array_values(array_unique($codes)))->pluck('id', 'capability_code')->all();
-        if (count($ids) !== count(array_unique($codes))) {
-            throw new InvalidArgumentException('authorization_capability_not_found');
-        }
-
-        return array_values(array_map(static fn (mixed $id): string => (string) $id, $ids));
-    }
-
     /** @param array<string,mixed> $input */
     private function description(array $input, string $field): ?string
     {

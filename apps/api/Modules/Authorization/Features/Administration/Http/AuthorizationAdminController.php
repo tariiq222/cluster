@@ -214,7 +214,6 @@ final class AuthorizationAdminController
             return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
         }
 
-
         return AuthorizationApi::resource(
             $entity,
             200,

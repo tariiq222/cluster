@@ -39,6 +39,7 @@ describe('WorkspaceTabs', () => {
     vi.restoreAllMocks()
   })
 })
+
 describe('WorkspaceTabs tablist semantics', () => {
   const tabs: WorkspaceTab[] = [
     { key: 'tasks', label: 'مهامي', path: '/tasks', active: true, panelId: 'tasks-panel' },
@@ -80,13 +81,180 @@ describe('WorkspaceTabs tablist semantics', () => {
     fireEvent.keyDown(list, { key: 'ArrowRight' })
     expect(onTabSelect).toHaveBeenCalledWith('documents')
   })
+
   it('moves focus within its own tablist when multiple workspaces are mounted', () => {
-    render(<><WorkspaceTabs label="first" tabs={tabs} onNavigate={() => {}} mode="tabs" onTabSelect={() => {}} /><WorkspaceTabs label="second" tabs={tabs} onNavigate={() => {}} mode="tabs" onTabSelect={() => {}} /></>)
+    render(
+      <>
+        <WorkspaceTabs
+          label="first"
+          tabs={tabs}
+          onNavigate={() => {}}
+          mode="tabs"
+          onTabSelect={() => {}}
+        />
+        <WorkspaceTabs
+          label="second"
+          tabs={tabs}
+          onNavigate={() => {}}
+          mode="tabs"
+          onTabSelect={() => {}}
+        />
+      </>,
+    )
     const second = screen.getByRole('tablist', { name: 'second' })
     const secondTabs = within(second).getAllByRole('tab')
     secondTabs[0]?.focus()
     fireEvent.keyDown(second, { key: 'ArrowRight' })
     expect(document.activeElement).toBe(secondTabs[1])
   })
+
+  /**
+   * Keyboard navigation must advance relative to whichever tab actually owns
+   * focus — not whichever tab the workspace currently marks active. The
+   * "focused tab" branch matters when a caller moves focus to a non-selected
+   * tab (tests, the role-list "return" affordance, screen-reader landing), or
+   * when selection and focus temporarily diverge after a recovery flow.
+   */
+  it('ArrowRight on a focused non-active tab advances from that tab', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        mode="tabs"
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const list = screen.getByRole('tablist', { name: 'منطقة العمل' })
+    const allTabs = within(list).getAllByRole('tab')
+    const peopleTab = within(list).getByRole('tab', { name: 'الأشخاص' })
+
+    peopleTab.focus()
+    fireEvent.keyDown(list, { key: 'ArrowRight' })
+
+    expect(onTabSelect).toHaveBeenCalledWith('tasks')
+    expect(document.activeElement).toBe(allTabs[0])
+  })
+
+  it('ArrowLeft on a focused non-active tab walks back from that tab', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        mode="tabs"
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const list = screen.getByRole('tablist', { name: 'منطقة العمل' })
+    const allTabs = within(list).getAllByRole('tab')
+    const documentsTab = within(list).getByRole('tab', { name: 'المستندات' })
+
+    documentsTab.focus()
+    fireEvent.keyDown(list, { key: 'ArrowLeft' })
+
+    expect(onTabSelect).toHaveBeenCalledWith('tasks')
+    expect(document.activeElement).toBe(allTabs[0])
+  })
+
+  it('Home always jumps to the first tab regardless of which tab owns focus', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        mode="tabs"
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const list = screen.getByRole('tablist', { name: 'منطقة العمل' })
+    const allTabs = within(list).getAllByRole('tab')
+    const peopleTab = within(list).getByRole('tab', { name: 'الأشخاص' })
+
+    peopleTab.focus()
+    fireEvent.keyDown(list, { key: 'Home' })
+
+    expect(onTabSelect).toHaveBeenCalledWith('tasks')
+    expect(document.activeElement).toBe(allTabs[0])
+  })
+
+  it('End always jumps to the last tab regardless of which tab owns focus', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        mode="tabs"
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const list = screen.getByRole('tablist', { name: 'منطقة العمل' })
+    const allTabs = within(list).getAllByRole('tab')
+    const tasksTab = within(list).getByRole('tab', { name: 'مهامي' })
+
+    tasksTab.focus()
+    fireEvent.keyDown(list, { key: 'End' })
+
+    expect(onTabSelect).toHaveBeenCalledWith('people')
+    expect(document.activeElement).toBe(allTabs[2])
+  })
+
+  it('falls back to the active tab when nothing inside the tablist owns focus', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        mode="tabs"
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const list = screen.getByRole('tablist', { name: 'منطقة العمل' })
+    fireEvent.keyDown(list, { key: 'ArrowRight' })
+
+    expect(onTabSelect).toHaveBeenCalledTimes(1)
+    expect(onTabSelect).toHaveBeenCalledWith('documents')
+  })
+
+  it('click activation still calls onTabSelect from the clicked tab only', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        mode="tabs"
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const list = screen.getByRole('tablist', { name: 'منطقة العمل' })
+    const peopleTab = within(list).getByRole('tab', { name: 'الأشخاص' })
+    fireEvent.click(peopleTab)
+    expect(onTabSelect).toHaveBeenCalledTimes(1)
+    expect(onTabSelect).toHaveBeenCalledWith('people')
+  })
+
+  it('ignores arrow keys when the workspace renders in link semantics', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const nav = screen.getByRole('navigation', { name: 'منطقة العمل' })
+    const documentsLink = within(nav).getByRole('link', { name: 'المستندات' })
+    documentsLink.focus()
+    fireEvent.keyDown(nav, { key: 'ArrowRight' })
+    expect(onTabSelect).not.toHaveBeenCalled()
+  })
+
   afterEach(() => cleanup())
 })

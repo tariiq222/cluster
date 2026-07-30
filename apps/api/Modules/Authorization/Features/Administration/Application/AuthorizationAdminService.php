@@ -301,49 +301,49 @@ final class AuthorizationAdminService
      * Claims, replays, and persists one idempotent response in the same
      * transaction as the mutation and its audit event.
      *
-     * @param array<string, mixed> $request
-     * @param callable(): array{entity: array<string, mixed>, audit: array<string, mixed>} $mutation
+     * @param  array<string, mixed>  $request
+     * @param  callable(): array{entity: array<string, mixed>, audit: array<string, mixed>}  $mutation
      * @return array{entity: array<string, mixed>, audit: array<string, mixed>}
      */
     private function mutate(string $operation, array $request, string $actorUserId, ?string $idempotencyKey, int $status, callable $mutation): array
     {
         try {
             return DB::transaction(function () use ($operation, $request, $actorUserId, $idempotencyKey, $status, $mutation): array {
-            $requestHash = hash('sha256', json_encode($request, JSON_THROW_ON_ERROR));
-            if ($idempotencyKey !== null) {
-                $entry = DB::table('authorization_idempotency_keys')
-                    ->where('principal_id', $actorUserId)
-                    ->where('operation', $operation)
-                    ->where('key_hash', hash('sha256', $idempotencyKey))
-                    ->lockForUpdate()
-                    ->first();
-                if ($entry !== null) {
-                    if (! hash_equals((string) $entry->request_hash, $requestHash)) {
-                        throw new \InvalidArgumentException('authorization_idempotency_conflict');
-                    }
-                    $payload = json_decode((string) $entry->response_payload, true);
-                    if (! is_array($payload) || ! is_array($payload['data'] ?? null)) {
-                        throw new \RuntimeException('authorization_idempotency_state_unavailable');
-                    }
+                $requestHash = hash('sha256', json_encode($request, JSON_THROW_ON_ERROR));
+                if ($idempotencyKey !== null) {
+                    $entry = DB::table('authorization_idempotency_keys')
+                        ->where('principal_id', $actorUserId)
+                        ->where('operation', $operation)
+                        ->where('key_hash', hash('sha256', $idempotencyKey))
+                        ->lockForUpdate()
+                        ->first();
+                    if ($entry !== null) {
+                        if (! hash_equals((string) $entry->request_hash, $requestHash)) {
+                            throw new \InvalidArgumentException('authorization_idempotency_conflict');
+                        }
+                        $payload = json_decode((string) $entry->response_payload, true);
+                        if (! is_array($payload) || ! is_array($payload['data'] ?? null)) {
+                            throw new \RuntimeException('authorization_idempotency_state_unavailable');
+                        }
 
-                    return ['entity' => $payload['data'], 'audit' => ['replayed' => true]];
+                        return ['entity' => $payload['data'], 'audit' => ['replayed' => true]];
+                    }
                 }
-            }
 
-            $result = $mutation();
-            if ($idempotencyKey !== null) {
-                DB::table('authorization_idempotency_keys')->insert([
-                    'principal_id' => $actorUserId,
-                    'operation' => $operation,
-                    'key_hash' => hash('sha256', $idempotencyKey),
-                    'request_hash' => $requestHash,
-                    'resource_id' => mb_strlen((string) $result['entity']['id']) > 64 ? md5((string) $result['entity']['id']) : (string) $result['entity']['id'],
-                    'response_status' => $status,
-                    'response_payload' => json_encode(['data' => $result['entity']], JSON_THROW_ON_ERROR),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+                $result = $mutation();
+                if ($idempotencyKey !== null) {
+                    DB::table('authorization_idempotency_keys')->insert([
+                        'principal_id' => $actorUserId,
+                        'operation' => $operation,
+                        'key_hash' => hash('sha256', $idempotencyKey),
+                        'request_hash' => $requestHash,
+                        'resource_id' => mb_strlen((string) $result['entity']['id']) > 64 ? md5((string) $result['entity']['id']) : (string) $result['entity']['id'],
+                        'response_status' => $status,
+                        'response_payload' => json_encode(['data' => $result['entity']], JSON_THROW_ON_ERROR),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
 
                 return $result;
             });

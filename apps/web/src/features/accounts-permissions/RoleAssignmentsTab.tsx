@@ -111,7 +111,7 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
     if (!canAssign) return
     setPendingId('create'); setMutationError(null)
     try {
-      await createRoleAssignment(token, { resource_type: 'role-assignment', code: 'role-assignment', subject_user_id: actor.trim(), role_id: roleCode.trim(), scope_type: 'cluster', ...(endAt ? { end_at: new Date(endAt).toISOString() } : {}) })
+      await createRoleAssignment(token, { resource_type: 'role_assignment', code: 'role-assignment', subject_user_id: actor.trim(), role_id: roleCode.trim(), scope_type: 'cluster', ...(endAt ? { end_at: new Date(endAt).toISOString() } : {}) })
       await load()
     } catch (caught) { setMutationError(caught instanceof ApiError ? caught.message : labels.error) }
     finally { setPendingId(null) }
