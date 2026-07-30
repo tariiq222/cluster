@@ -39,3 +39,54 @@ describe('WorkspaceTabs', () => {
     vi.restoreAllMocks()
   })
 })
+describe('WorkspaceTabs tablist semantics', () => {
+  const tabs: WorkspaceTab[] = [
+    { key: 'tasks', label: 'مهامي', path: '/tasks', active: true, panelId: 'tasks-panel' },
+    { key: 'documents', label: 'المستندات', path: '/documents', active: false, panelId: 'documents-panel' },
+    { key: 'people', label: 'الأشخاص', path: '/people', active: false, panelId: 'people-panel' },
+  ]
+
+  it('renders a tablist with role=tab and aria-selected when mode is "tabs"', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        mode="tabs"
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const list = screen.getByRole('tablist', { name: 'منطقة العمل' })
+    const items = within(list).getAllByRole('tab')
+    expect(items).toHaveLength(3)
+    expect(items[0]?.getAttribute('aria-selected')).toBe('true')
+    expect(items[0]?.getAttribute('aria-controls')).toBe('tasks-panel')
+    expect(items[1]?.getAttribute('aria-selected')).toBe('false')
+  })
+
+  it('cycles selection forward with ArrowRight and notifies onTabSelect', () => {
+    const onTabSelect = vi.fn()
+    render(
+      <WorkspaceTabs
+        label="منطقة العمل"
+        tabs={tabs}
+        onNavigate={() => {}}
+        mode="tabs"
+        onTabSelect={onTabSelect}
+      />,
+    )
+    const list = screen.getByRole('tablist', { name: 'منطقة العمل' })
+    fireEvent.keyDown(list, { key: 'ArrowRight' })
+    expect(onTabSelect).toHaveBeenCalledWith('documents')
+  })
+  it('moves focus within its own tablist when multiple workspaces are mounted', () => {
+    render(<><WorkspaceTabs label="first" tabs={tabs} onNavigate={() => {}} mode="tabs" onTabSelect={() => {}} /><WorkspaceTabs label="second" tabs={tabs} onNavigate={() => {}} mode="tabs" onTabSelect={() => {}} /></>)
+    const second = screen.getByRole('tablist', { name: 'second' })
+    const secondTabs = within(second).getAllByRole('tab')
+    secondTabs[0]?.focus()
+    fireEvent.keyDown(second, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(secondTabs[1])
+  })
+  afterEach(() => cleanup())
+})
