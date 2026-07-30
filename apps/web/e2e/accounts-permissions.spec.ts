@@ -475,16 +475,31 @@ test('assignment lifecycle covers every scope level, two revokes and an explicit
   // 1. Explicit expiry: facility row → ended.
   const facilityRow = rows.nth(0)
   await facilityRow.getByRole('button', { name: 'إنهاء الإسناد' }).click()
+  const expireDialog = page.getByRole('dialog', { name: 'تأكيد إنهاء الإسناد' })
+  await expect(expireDialog).toBeVisible()
+  await expect(expireDialog).toContainText('مراجع مالي مخصص')
+  await expect(expireDialog).toContainText('نطاق المنشأة المحفوظ الحالي')
+  await expireDialog.getByRole('button', { name: 'تأكيد' }).click()
   await expect(facilityRow).toContainText('expired')
 
   // 2. First revoke: unit row → revoked.
   const unitRow = rows.nth(2)
   await unitRow.getByRole('button', { name: 'إلغاء الإسناد' }).click()
+  const unitRevokeDialog = page.getByRole('dialog', { name: 'تأكيد إلغاء الإسناد' })
+  await expect(unitRevokeDialog).toBeVisible()
+  await expect(unitRevokeDialog).toContainText('مراجع مالي مخصص')
+  await expect(unitRevokeDialog).toContainText('نطاق الوحدة المحفوظ الحالي')
+  await unitRevokeDialog.getByRole('button', { name: 'تأكيد' }).click()
   await expect(unitRow).toContainText('revoked')
 
   // 3. Second revoke: cluster row → revoked.
   const clusterRow = rows.nth(1)
   await clusterRow.getByRole('button', { name: 'إلغاء الإسناد' }).click()
+  const clusterRevokeDialog = page.getByRole('dialog', { name: 'تأكيد إلغاء الإسناد' })
+  await expect(clusterRevokeDialog).toBeVisible()
+  await expect(clusterRevokeDialog).toContainText('مراجع مالي مخصص')
+  await expect(clusterRevokeDialog).toContainText('نطاق التجمع المحفوظ الحالي')
+  await clusterRevokeDialog.getByRole('button', { name: 'تأكيد' }).click()
   await expect(clusterRow).toContainText('revoked')
 
   // 4. Supported assignment creation goes through the visible catalog-backed

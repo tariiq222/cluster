@@ -263,6 +263,94 @@ final class AuthorizationAdminControllerAuditTest extends TestCase
         $this->assertContains('edit', $response->json('data.allowed_actions'));
     }
 
+    public function test_clone_role_accepts_documented_descriptions_and_persists_them(): void
+    {
+        $this->seedSystemRole();
+        [$cookie, $csrf] = $this->loginAdminSession();
+
+        $response = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles/'.self::ROLE_ID.'/clone', [
+            'code' => 'controller-clone-desc',
+            'name_ar' => 'دور منسوخ مع وصف',
+            'name_en' => 'Cloned role with description',
+            'description_ar' => 'وصف عربي للنسخة',
+            'description_en' => 'English description of the clone',
+        ], [...$this->writeHeaders('controller-clone-desc', $csrf), 'If-Match' => '"1"']);
+
+        $response->assertOk();
+        $cloneId = (string) $response->json('data.id');
+        $this->assertNotSame(self::ROLE_ID, $cloneId);
+        $this->assertSame('دور منسوخ مع وصف', $response->json('data.name_ar'));
+        $this->assertSame('Cloned role with description', $response->json('data.name_en'));
+        $this->assertSame('وصف عربي للنسخة', $response->json('data.description_ar'));
+        $this->assertSame('English description of the clone', $response->json('data.description_en'));
+        $this->assertSame(1, count($this->recorder->calls));
+        $event = $this->recorder->calls[0];
+        $this->assertSame('authorization.role.cloned', $event['action']);
+        $this->assertDatabaseHas('roles', [
+            'id' => $cloneId,
+            'code' => 'controller-clone-desc',
+            'description_ar' => 'وصف عربي للنسخة',
+            'description_en' => 'English description of the clone',
+        ]);
+    }
+
+    public function test_clone_role_rejects_undocumented_name_payload(): void
+    {
+        $this->seedSystemRole();
+        [$cookie, $csrf] = $this->loginAdminSession();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles/'.self::ROLE_ID.'/clone', [
+            'code' => 'controller-clone-bad-name',
+            'name' => 'legacy name field',
+        ], [...$this->writeHeaders('controller-clone-bad-name', $csrf), 'If-Match' => '"1"'])
+            ->assertStatus(422)
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-authorization-resource');
+
+        $this->assertSame(0, count($this->recorder->calls), 'Rejected clone payload must not emit a role.cloned audit event.');
+        $this->assertSame(0, (int) DB::table('roles')->where('code', 'controller-clone-bad-name')->count(), 'Rejected clone must not insert a role row.');
+    }
+
+    public function test_clone_role_rejects_non_string_documented_fields(): void
+    {
+        $this->seedSystemRole();
+        [$cookie, $csrf] = $this->loginAdminSession();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles/'.self::ROLE_ID.'/clone', [
+            'code' => 'controller-clone-bad-type',
+            'name_ar' => ['not a string'],
+        ], [...$this->writeHeaders('controller-clone-bad-type', $csrf), 'If-Match' => '"1"'])
+            ->assertStatus(422)
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-authorization-resource');
+    }
+
+    public function test_post_role_archive_action_is_rejected_and_patch_archive_path_is_unchanged(): void
+    {
+        $this->seedCustomRole();
+        [$cookie, $csrf] = $this->loginAdminSession();
+
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles/'.self::ROLE_ID.'/archive', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Idempotency-Key' => 'controller-archive-post',
+            'X-CSRF-Token' => $csrf,
+        ])->assertStatus(422)
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-authorization-resource');
+
+        $this->assertSame(0, count($this->recorder->calls), 'POST archive must not emit an archive audit.');
+        $this->assertDatabaseHas('roles', ['id' => self::ROLE_ID, 'status' => 'active', 'lock_version' => 1]);
+
+        $patched = $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/roles/'.self::ROLE_ID, ['status' => 'archived'], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"1"',
+            'Content-Type' => 'application/merge-patch+json',
+            'X-CSRF-Token' => $csrf,
+        ]);
+        $patched->assertOk()->assertHeader('ETag', '"2"')->assertJsonPath('data.status', 'archived');
+        $this->assertSame(1, count($this->recorder->calls));
+        $this->assertSame('authorization.role.archived', $this->recorder->calls[0]['action']);
+        $this->assertDatabaseHas('roles', ['id' => self::ROLE_ID, 'status' => 'archived', 'lock_version' => 2]);
+    }
+
     public function test_post_role_assignment_create_records_one_audit_event_and_attaches_allowed_actions(): void
     {
         $this->seedCustomRole();

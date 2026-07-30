@@ -144,7 +144,6 @@ final class AuthorizationAdminService
     public function cloneRole(string $sourceRoleId, int $expectedVersion, array $overrides, string $actorUserId, string $correlationId, ?string $idempotencyKey = null): array
     {
         return $this->mutate('clone-roles-'.$sourceRoleId, [...$overrides, 'if_match' => $expectedVersion], $actorUserId, $idempotencyKey, 200, function () use ($sourceRoleId, $expectedVersion, $overrides, $actorUserId, $correlationId): array {
-            $before = $this->gateway->find('roles', $sourceRoleId, $actorUserId);
             $entity = $this->gateway->transition('roles', $sourceRoleId, 'clone', $expectedVersion, $actorUserId, $overrides);
             if ($entity === null) {
                 throw new \InvalidArgumentException('authorization_resource_not_found');

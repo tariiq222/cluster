@@ -342,9 +342,6 @@ final class AuthorizationAdminController
      */
     private function dispatchTransition(string $resource, string $resourceId, string $action, int $version, string $principalId, string $correlationId, ?string $idempotencyKey = null): array
     {
-        if ($resource === 'roles' && $action === 'archive') {
-            return $this->adminService->archiveRole($resourceId, $version, $principalId, $correlationId, $idempotencyKey);
-        }
         if ($resource === 'role-assignments') {
             if ($action === 'revoke') {
                 return $this->adminService->revokeAssignment($resourceId, $version, $principalId, $correlationId, $idempotencyKey);
@@ -362,13 +359,24 @@ final class AuthorizationAdminController
         return ['entity' => $entity ?? [], 'audit' => []];
     }
 
-    /** @param array<string, mixed> $input */
+    /**
+     * Authoritative allowlist for POST /api/v1/authorization/roles/{id}/clone.
+     *
+     * Mirrors `RoleCloneInput` in docs/contracts/api/openapi.yaml: code,
+     * name_ar, name_en, description_ar, description_en — all optional,
+     * and every key that is present must be a string. Undocumented `name`
+     * is rejected (HTTP 422) so callers cannot smuggle the legacy create
+     * payload into the clone endpoint.
+     *
+     * @param array<string, mixed> $input
+     */
     private function validClonePayload(array $input): bool
     {
-        if (array_diff(array_keys($input), ['code', 'name', 'name_ar', 'name_en']) !== []) {
+        $allowed = ['code', 'name_ar', 'name_en', 'description_ar', 'description_en'];
+        if (array_diff(array_keys($input), $allowed) !== []) {
             return false;
         }
-        foreach (['code', 'name', 'name_ar', 'name_en'] as $key) {
+        foreach ($allowed as $key) {
             if (array_key_exists($key, $input) && ! is_string($input[$key])) {
                 return false;
             }

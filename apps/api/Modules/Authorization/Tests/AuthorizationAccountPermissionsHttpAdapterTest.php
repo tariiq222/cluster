@@ -126,12 +126,16 @@ final class AuthorizationAccountPermissionsHttpAdapterTest extends TestCase
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles/'.$sourceId.'/clone', [
             'code' => 'clone_target',
-            'name' => 'نسخة الصلاحيات',
+            'name_ar' => 'نسخة الصلاحيات',
+            'description_ar' => 'وصف النسخة',
+            'description_en' => 'Cloned description',
         ], $this->writeHeaders('clone-target-missing-version', $csrf))->assertBadRequest();
 
         $cloned = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles/'.$sourceId.'/clone', [
             'code' => 'clone_target',
-            'name' => 'نسخة الصلاحيات',
+            'name_ar' => 'نسخة الصلاحيات',
+            'description_ar' => 'وصف النسخة',
+            'description_en' => 'Cloned description',
         ], [...$this->writeHeaders('clone-target', $csrf), 'If-Match' => '"1"'])->assertOk();
         $cloneId = (string) $cloned->json('data.id');
 

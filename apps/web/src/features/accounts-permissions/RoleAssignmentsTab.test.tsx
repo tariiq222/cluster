@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import { RoleAssignmentsTab } from './RoleAssignmentsTab'
 import { ApiError } from '../../api'
@@ -501,23 +501,27 @@ describe('RoleAssignmentsTab mutation failures', () => {
     mutation.mockRejectedValue(new Error('private mutation detail'))
     setupMutationFailure()
     fireEvent.click(await screen.findByRole('button', { name: button }))
+    // Traverse the destructive confirmation before the alert is expected.
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
     expect((await screen.findByRole('alert')).textContent).toContain(expected)
     expect(screen.queryByText('private mutation detail')).toBeNull()
   })
-
   it('uses dedicated Arabic revoke failure copy', async () => {
     revokeRoleAssignment.mockRejectedValue(new Error('private mutation detail'))
     setupMutationFailure('ar')
     fireEvent.click(await screen.findByRole('button', { name: 'إلغاء الإسناد' }))
+    // Traverse the destructive confirmation before the alert is expected.
+    fireEvent.click(await screen.findByRole('button', { name: 'تأكيد' }))
     expect((await screen.findByRole('alert')).textContent).toContain('تعذر إلغاء إسناد الدور.')
   })
-
   it('preserves ApiError server detail for mutation failures', async () => {
     expireRoleAssignment.mockRejectedValue(new ApiError(409, {
       type: 'about:blank', title: 'Conflict', status: 409, detail: 'Assignment already expired.',
     }))
     setupMutationFailure()
     fireEvent.click(await screen.findByRole('button', { name: 'Expire assignment' }))
+    // Traverse the destructive confirmation before the alert is expected.
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
     expect((await screen.findByRole('alert')).textContent).toContain('Assignment already expired.')
   })
   it('uses dedicated create failure copy', async () => {
@@ -546,9 +550,8 @@ describe('RoleAssignmentsTab mutation failures', () => {
   })
 })
 
-
 describe('RoleAssignmentsTab edit flow', () => {
-  it('opens an edit drawer with the picker pre-populated from the assignment scope', async () => {
+  it('shows the localized "Current saved unit scope" line when the catalog label is unresolved, and submits unchanged scope_type+scope_id on save', async () => {
     HTMLElement.prototype.scrollIntoView = () => {}
 
     const unitAssignment = {
@@ -560,23 +563,22 @@ describe('RoleAssignmentsTab edit flow', () => {
     listRoles.mockResolvedValue([customRole])
     updateRoleAssignment.mockResolvedValue({ ...unitAssignment, lock_version: 2 })
     listUserAccounts.mockResolvedValue({ items: [{ id: ACCOUNT_ID, username: 'finance', display_name_en: 'Finance officer', display_name_ar: 'مسؤول المالية' }] })
-    listAssignmentScopeTargets.mockImplementation(async (_token: string, query: { scopeType: string; parentScopeId?: string }) => {
-      if (query.scopeType === 'cluster') return { items: [clusterTarget], next_cursor: null }
-      if (query.scopeType === 'facility') return { items: [facilityTarget], next_cursor: null }
-      if (query.scopeType === 'unit' && query.parentScopeId) return { items: [unitTarget], next_cursor: null }
-      if (query.scopeType === 'unit' && !query.parentScopeId) return { items: [facilityTarget], next_cursor: null }
-      return { items: [], next_cursor: null }
-    })
+    // The catalog returns empty so no label is resolved; the localized fallback must render instead of the UUID.
+    listAssignmentScopeTargets.mockResolvedValue({ items: [], next_cursor: null })
 
     render(<RoleAssignmentsTab locale="en" capabilities={FULL_CAPABILITIES} />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
 
-    // The edit drawer renders a second picker. The unit radio must already be checked.
+    const summary = await screen.findByTestId('assignment-current-scope')
+    expect(summary.textContent).toContain('Current saved unit scope')
+    // The UUID must not appear in user-facing copy.
+    expect(summary.textContent).not.toContain(UNIT_ID)
+
+    // The picker remains pre-populated so unchanged submission is possible.
     const unitRadios = await screen.findAllByRole('radio', { name: 'Unit' })
     expect(unitRadios.some((radio) => (radio as HTMLInputElement).checked)).toBe(true)
 
-    // Save the edit. The submission must include scope_type + scope_id from the picker.
     const endAt = await screen.findByLabelText('End at', { selector: 'input#assignment-end-' + ASSIGNMENT_ID })
     fireEvent.change(endAt, { target: { value: '2030-01-01T00:00' } })
     const saveButtons = await screen.findAllByRole('button', { name: 'Save assignment' })
@@ -585,5 +587,117 @@ describe('RoleAssignmentsTab edit flow', () => {
     const patch = updateRoleAssignment.mock.calls[0]?.[2] as Record<string, unknown>
     expect(patch).toMatchObject({ scope_type: 'unit', scope_id: UNIT_ID, end_at: new Date('2030-01-01T00:00').toISOString() })
     expect(updateRoleAssignment.mock.calls[0]?.[3]).toBe(1)
+  })
+
+  it('restart cascade: Change scope clears the pre-populated selection so the user re-picks cluster→facility→unit', async () => {
+    HTMLElement.prototype.scrollIntoView = () => {}
+
+    const unitAssignment = {
+      ...assignment,
+      scope_type: 'unit' as const,
+      scope_id: UNIT_ID,
+    }
+    listRoleAssignments.mockResolvedValue([unitAssignment])
+    listRoles.mockResolvedValue([customRole])
+    updateRoleAssignment.mockResolvedValue({ ...unitAssignment, lock_version: 2 })
+    listUserAccounts.mockResolvedValue({ items: [{ id: ACCOUNT_ID, username: 'finance', display_name_en: 'Finance officer', display_name_ar: 'مسؤول المالية' }] })
+    setupHappyScopeTargets()
+
+    render(<RoleAssignmentsTab locale="en" capabilities={FULL_CAPABILITIES} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+
+    // Confirm initial state: unit radio is checked.
+    const unitRadios = await screen.findAllByRole('radio', { name: 'Unit' })
+    expect(unitRadios.some((radio) => (radio as HTMLInputElement).checked)).toBe(true)
+
+    // Press "Change scope": the picker must restart from cluster.
+    fireEvent.click(await screen.findByRole('button', { name: 'Change scope' }))
+
+    const clusterRadios = await screen.findAllByRole('radio', { name: 'Cluster' })
+    expect(clusterRadios.some((radio) => (radio as HTMLInputElement).checked)).toBe(true)
+
+    // The unit radio should no longer be checked after restart.
+    const unitRadiosAfter = screen.getAllByRole('radio', { name: 'Unit' }) as HTMLInputElement[]
+    expect(unitRadiosAfter.some((radio) => radio.checked)).toBe(false)
+  })
+
+  it('revoke opens a confirmation drawer naming account, role, and scope; confirm dispatches, cancel does not', async () => {
+    HTMLElement.prototype.scrollIntoView = () => {}
+
+    listRoleAssignments.mockResolvedValue([assignment])
+    listRoles.mockResolvedValue([systemRole])
+    revokeRoleAssignment.mockResolvedValue({ ...assignment, effective_status: 'revoked' as const })
+    listUserAccounts.mockResolvedValue({ items: [{ id: ACCOUNT_ID, username: 'finance', display_name_en: 'Finance officer', display_name_ar: 'مسؤول المالية' }] })
+
+    render(<RoleAssignmentsTab locale="en" capabilities={FULL_CAPABILITIES} />)
+
+    // Clicking Revoke opens the dialog and does NOT yet dispatch the mutation.
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke assignment' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Confirm revoke assignment' })
+    // Dialog-scoped: the same Finance officer label also renders in the assignment row header.
+    expect(within(dialog).getByText('Finance officer')).toBeTruthy()
+    expect(within(dialog).getByText('Records viewer')).toBeTruthy()
+    expect(within(dialog).getByText('Current saved cluster scope')).toBeTruthy()
+    expect(revokeRoleAssignment).not.toHaveBeenCalled()
+
+    // Cancel keeps the row intact and still does not dispatch.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Confirm revoke assignment' })).toBeNull())
+    expect(revokeRoleAssignment).not.toHaveBeenCalled()
+
+    // Re-open and confirm dispatches the mutation.
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke assignment' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(revokeRoleAssignment).toHaveBeenCalledTimes(1))
+    expect(revokeRoleAssignment).toHaveBeenCalledWith('test-token', ASSIGNMENT_ID, 1)
+  })
+
+  it('expire opens a confirmation drawer naming account, role, and scope; confirm dispatches, cancel does not', async () => {
+    HTMLElement.prototype.scrollIntoView = () => {}
+
+    listRoleAssignments.mockResolvedValue([assignment])
+    listRoles.mockResolvedValue([systemRole])
+    expireRoleAssignment.mockResolvedValue({ ...assignment, effective_status: 'expired' as const })
+    listUserAccounts.mockResolvedValue({ items: [{ id: ACCOUNT_ID, username: 'finance', display_name_en: 'Finance officer', display_name_ar: 'مسؤول المالية' }] })
+
+    render(<RoleAssignmentsTab locale="en" capabilities={FULL_CAPABILITIES} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Expire assignment' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Confirm expire assignment' })
+    // Dialog-scoped: the same Finance officer label also renders in the assignment row header.
+    expect(within(dialog).getByText('Finance officer')).toBeTruthy()
+    expect(within(dialog).getByText('Records viewer')).toBeTruthy()
+    expect(within(dialog).getByText('Current saved cluster scope')).toBeTruthy()
+    expect(expireRoleAssignment).not.toHaveBeenCalled()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Confirm expire assignment' })).toBeNull())
+    expect(expireRoleAssignment).not.toHaveBeenCalled()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Expire assignment' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(expireRoleAssignment).toHaveBeenCalledTimes(1))
+    expect(expireRoleAssignment).toHaveBeenCalledWith('test-token', ASSIGNMENT_ID, 1)
+  })
+
+  it('renders localized destructive confirmation copy in Arabic', async () => {
+    HTMLElement.prototype.scrollIntoView = () => {}
+
+    listRoleAssignments.mockResolvedValue([assignment])
+    listRoles.mockResolvedValue([customRole])
+    revokeRoleAssignment.mockResolvedValue({ ...assignment, effective_status: 'revoked' as const })
+    listUserAccounts.mockResolvedValue({ items: [{ id: ACCOUNT_ID, username: 'finance', display_name_en: 'Finance officer', display_name_ar: 'مسؤول المالية' }] })
+    listAssignmentScopeTargets.mockImplementation(async (_token: string, query: { scopeType: string }) => {
+      if (query.scopeType === 'cluster') return { items: [clusterTarget], next_cursor: null }
+      return { items: [], next_cursor: null }
+    })
+
+    render(<RoleAssignmentsTab locale="ar" capabilities={FULL_CAPABILITIES} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'إلغاء الإسناد' }))
+    expect(await screen.findByRole('dialog', { name: 'تأكيد إلغاء الإسناد' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'تأكيد' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'إبقاء' })).toBeTruthy()
   })
 })
