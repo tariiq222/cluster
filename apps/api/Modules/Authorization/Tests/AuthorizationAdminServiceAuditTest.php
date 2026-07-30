@@ -736,11 +736,15 @@ final class CapturingSharedAuditRecorder implements RecordAuditEvent
     /** @var list<array<string, mixed>> */
     public array $calls = [];
 
+    /** @var list<array<string, mixed>> */
+    public array $events = [];
+
     public ?\Throwable $failure = null;
 
     public function record(array $event): void
     {
         $this->calls[] = $event;
+        $this->events[] = $event;
 
         if ($this->failure !== null) {
             throw $this->failure;

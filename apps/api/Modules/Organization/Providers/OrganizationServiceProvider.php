@@ -5,6 +5,7 @@ namespace Modules\Organization\Providers;
 use Illuminate\Support\ServiceProvider;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
 use Modules\Organization\Contracts\GetDefaultClusterId;
+use Modules\Organization\Contracts\ListOrganizationScopeTargets;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use Modules\Organization\Contracts\ResolveQuarantinedImport;
@@ -21,6 +22,7 @@ use Modules\Organization\Infrastructure\Authorization\ConfiguredTemporaryAssignm
 use Modules\Organization\Infrastructure\Import\UnavailableQuarantinedImport;
 use Modules\Organization\Infrastructure\Persistence\DatabaseGetActiveSupervisoryRelationships;
 use Modules\Organization\Infrastructure\Persistence\DatabaseGetDefaultClusterId;
+use Modules\Organization\Infrastructure\Persistence\DatabaseListOrganizationScopeTargets;
 use Modules\Organization\Infrastructure\Persistence\DatabaseResolveOrganizationScopeAncestry;
 use Modules\Organization\Infrastructure\Persistence\DatabaseResolvePersonOrganizationScope;
 use Modules\Organization\Infrastructure\Persistence\DatabaseResolveScopeDescendants;
@@ -36,6 +38,7 @@ final class OrganizationServiceProvider extends ServiceProvider
         $this->app->bind(GetDefaultClusterId::class, DatabaseGetDefaultClusterId::class);
         $this->app->bind(ResolvePersonOrganizationScope::class, DatabaseResolvePersonOrganizationScope::class);
         $this->app->bind(ResolveOrganizationScopeAncestry::class, DatabaseResolveOrganizationScopeAncestry::class);
+        $this->app->bind(ListOrganizationScopeTargets::class, DatabaseListOrganizationScopeTargets::class);
         $this->app->bind(ResolveScopeDescendants::class, DatabaseResolveScopeDescendants::class);
         $this->app->bind(TemporaryAssignmentHttpGateway::class, DatabaseTemporaryAssignmentHttpGateway::class);
         $this->app->bind(RunTemporaryAssignmentExpiration::class, HandlerTemporaryAssignmentExpiration::class);

@@ -173,6 +173,9 @@ final class AuthorizationAdminService
     public function createAssignment(array $input, string $actorUserId, string $correlationId, ?string $idempotencyKey = null): array
     {
         return $this->mutate('create-role-assignments', $input, $actorUserId, $idempotencyKey, 201, function () use ($input, $actorUserId, $correlationId): array {
+            if (array_key_exists('scope_type', $input) && $input['scope_type'] === 'record_set') {
+                throw new \InvalidArgumentException('authorization_scope_type_not_catalogued');
+            }
             $entity = $this->gateway->create('role-assignments', $input, $actorUserId);
 
             $this->emit(
@@ -197,6 +200,9 @@ final class AuthorizationAdminService
     public function updateAssignment(string $assignmentId, array $patch, int $lockVersion, string $actorUserId, string $correlationId, ?string $idempotencyKey = null): array
     {
         return $this->mutate('patch-role-assignments-'.$assignmentId, [...$patch, 'if_match' => $lockVersion], $actorUserId, $idempotencyKey, 200, function () use ($assignmentId, $patch, $lockVersion, $actorUserId, $correlationId): array {
+            if (array_key_exists('scope_type', $patch) && $patch['scope_type'] === 'record_set') {
+                throw new \InvalidArgumentException('authorization_scope_type_not_catalogued');
+            }
             $before = $this->gateway->find('role-assignments', $assignmentId, $actorUserId);
             $entity = $this->gateway->update('role-assignments', $assignmentId, $patch, $lockVersion, $actorUserId);
             if ($entity === null) {

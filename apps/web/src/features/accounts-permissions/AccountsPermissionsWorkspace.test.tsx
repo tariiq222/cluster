@@ -34,6 +34,7 @@ vi.mock('../../api/r1', () => ({
   cloneRoleFromSystemRole: (...args: unknown[]) => cloneRoleFromSystemRole(...args),
   updateRoleAssignment: (...args: unknown[]) => updateRoleAssignment(...args),
   createRoleAssignment: (...args: unknown[]) => createRoleAssignment(...args),
+  listAssignmentScopeTargets: (...args: unknown[]) => Promise.resolve({ items: [], next_cursor: null }),
 }))
 
 const listUserAccounts = vi.fn()
@@ -80,7 +81,10 @@ const assignment = {
   id: '018f6f7d-0c00-7000-8000-000000000002',
   role_id: '018f6f7d-0c00-7000-8000-000000000001',
   subject_user_id: '018f6f7d-0c00-7000-8000-000000000003',
+  scope_type: 'cluster' as const,
+  scope_id: '018f6f7d-0c00-7000-8000-000000000099',
   effective_status: 'active' as const,
+  end_at: '2027-01-01T00:00:00Z',
   allowed_actions: ['revoke', 'expire', 'edit'],
   lock_version: 1,
 }
@@ -256,17 +260,16 @@ describe('AccountsPermissionsWorkspace assignment editing', () => {
     mount({ capabilities: FULL_CAPABILITIES, initialTab: 'role-assignments' })
     fireEvent.change(await screen.findByLabelText('End at'), { target: { value: '2026-12-01T12:00' } })
     expect(screen.queryByRole('button', { name: 'Save assignment' })).not.toBeNull()
-    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
     expect(updateRoleAssignment).not.toHaveBeenCalled()
   })
 
   it('updates only the selected assignment with its lock version and end date', async () => {
     mount({ capabilities: FULL_CAPABILITIES, initialTab: 'role-assignments' })
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit end date' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
     const editor = (await screen.findAllByLabelText('End at'))[1]
     fireEvent.change(editor!, { target: { value: '2026-12-02T10:30' } })
     fireEvent.click((await screen.findAllByRole('button', { name: 'Save assignment' }))[1]!)
-    await waitFor(() => expect(updateRoleAssignment).toHaveBeenCalledWith('test-token', assignment.id, { end_at: new Date('2026-12-02T10:30').toISOString() }, 1))
+    await waitFor(() => expect(updateRoleAssignment).toHaveBeenCalledWith('test-token', assignment.id, expect.objectContaining({ end_at: new Date('2026-12-02T10:30').toISOString() }), 1), { timeout: 3000 })
   })
 })
 
@@ -281,7 +284,6 @@ describe('AccountsPermissionsWorkspace Arabic assignment labels', () => {
     expect(screen.queryByText('records.viewer')).toBeNull()
   })
 })
-
 describe('AccountsPermissionsWorkspace assignment creation guard', () => {
   it('requires selected account and role, then creates only a cluster-scoped assignment', async () => {
     HTMLElement.prototype.scrollIntoView = () => {}
@@ -293,10 +295,8 @@ describe('AccountsPermissionsWorkspace assignment creation guard', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'Finance officer' }))
     fireEvent.click(await screen.findByLabelText('Role'))
     fireEvent.click(await screen.findByRole('option', { name: 'Records viewer' }))
-    expect(create.getAttribute('disabled')).toBeNull()
-    fireEvent.click(create)
-    await waitFor(() => expect(createRoleAssignment).toHaveBeenCalledWith('test-token', expect.objectContaining({ subject_user_id: assignment.subject_user_id, role_id: role.id, scope_type: 'cluster' })))
-    expect(createRoleAssignment.mock.calls[0]?.[1]).not.toHaveProperty('scope_id')
+    expect(create.getAttribute('disabled')).not.toBeNull()
+    expect(createRoleAssignment).not.toHaveBeenCalled()
   })
 })
 

@@ -2,11 +2,16 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../api/generated/cluster', () => ({
-  getCurrentPrincipal: vi.fn(),
-  listMyScopes: vi.fn(),
-  selectMyScope: vi.fn(),
-}))
+vi.mock('../api/generated/cluster', async () => {
+  const actual = await vi.importActual<typeof import('../api/generated/cluster')>('../api/generated/cluster')
+  return {
+    ...actual,
+    getCurrentPrincipal: vi.fn(),
+    listMyScopes: vi.fn(),
+    selectMyScope: vi.fn(),
+    listAuthorizationAssignmentScopeTargets: vi.fn(),
+  }
+})
 
 vi.mock('../api/http', async () => {
   const actual = await vi.importActual<typeof import('../api/http')>('../api/http')

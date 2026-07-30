@@ -8,6 +8,7 @@ import {
   createRoleAssignment,
   expireRoleAssignment,
   getRole,
+  listAssignmentScopeTargets,
   listCapabilities,
   listRoleAssignments,
   listRoles,
@@ -207,5 +208,103 @@ describe('authorization role and assignment API boundary', () => {
     expect(publishCall?.[0]).toBe('/api/v1/authorization/classification-policies/018f6f7d-0c00-7000-8000-000000000006/publish')
     expect(JSON.parse(String(publishCall?.[1]?.body))).toEqual({ reason: 'Policy rollout' })
     expect(headersOf(publishCall as Parameters<typeof fetch>).get('If-Match')).toBe('"5"')
+  })
+})
+
+
+const clusterScope = {
+  scope_type: 'cluster',
+  scope_id: '018f6f7d-0c00-7000-8000-000000000101',
+  label_ar: 'تجمع الرياض',
+  label_en: 'Riyadh cluster',
+  code: 'RUH',
+}
+const facilityScope = {
+  scope_type: 'facility',
+  scope_id: '018f6f7d-0c00-7000-8000-000000000102',
+  label_ar: 'مستشفى الملك فيصل',
+  label_en: 'King Faisal Hospital',
+  code: 'KFH',
+}
+const unitScope = {
+  scope_type: 'unit',
+  scope_id: '018f6f7d-0c00-7000-8000-000000000103',
+  label_ar: 'قسم الطوارئ',
+  label_en: 'Emergency department',
+  code: 'ED',
+}
+
+describe('assignment scope-target catalog wrapper', () => {
+  it('forwards scope_type and unwraps the collection envelope', async () => {
+    const mock = fetchMock({ items: [clusterScope], next_cursor: null })
+    const result = await listAssignmentScopeTargets(token, { scopeType: 'cluster' })
+    expect(result).toMatchObject({ items: [clusterScope], next_cursor: null })
+
+    const call = callOf(mock)
+    expect(call[0]).toBe('/api/v1/authorization/assignment-scope-targets?scope_type=cluster')
+    expect(call[1]?.method ?? 'GET').toBe('GET')
+  })
+
+  it('forwards parent_scope_type and parent_scope_id without leaking other params', async () => {
+    const mock = fetchMock({ items: [facilityScope], next_cursor: null })
+    await listAssignmentScopeTargets(token, {
+      scopeType: 'facility',
+      parentScopeType: 'cluster',
+      parentScopeId: '018f6f7d-0c00-7000-8000-000000000200',
+      search: 'king',
+      limit: 25,
+    })
+    const url = String(callOf(mock)[0])
+    const parsed = new URL(url, 'https://placeholder.local')
+    expect(parsed.pathname).toBe('/api/v1/authorization/assignment-scope-targets')
+    expect(parsed.searchParams.get('scope_type')).toBe('facility')
+    expect(parsed.searchParams.get('parent_scope_type')).toBe('cluster')
+    expect(parsed.searchParams.get('parent_scope_id')).toBe('018f6f7d-0c00-7000-8000-000000000200')
+    expect(parsed.searchParams.get('search')).toBe('king')
+    expect(parsed.searchParams.get('limit')).toBe('25')
+    // No `reason` parameter is ever sent on a read.
+    expect(parsed.searchParams.has('reason')).toBe(false)
+  })
+
+  it('omits parent_scope_type and parent_scope_id when not supplied', async () => {
+    const mock = fetchMock({ items: [unitScope], next_cursor: null })
+    await listAssignmentScopeTargets(token, { scopeType: 'unit' })
+    const url = String(callOf(mock)[0])
+    const parsed = new URL(url, 'https://placeholder.local')
+    expect(parsed.searchParams.get('scope_type')).toBe('unit')
+    expect(parsed.searchParams.has('parent_scope_type')).toBe(false)
+    expect(parsed.searchParams.has('parent_scope_id')).toBe(false)
+  })
+
+  it('surfaces 422 urn:cluster:problem:scope_type_not_catalogued as an ApiError', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: 'urn:cluster:problem:scope_type_not_catalogued',
+          title: 'Scope type not catalogued',
+          status: 422,
+          detail: 'record_set is not a manageable level',
+        }),
+        { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', mock)
+    await expect(listAssignmentScopeTargets(token, { scopeType: 'record_set' as never })).rejects.toMatchObject({
+      status: 422,
+      problem: { type: 'urn:cluster:problem:scope_type_not_catalogued' },
+    })
+  })
+
+  it('surfaces 403 as a typed ApiError so the screen can fail closed', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({ type: 'about:blank', title: 'Forbidden', status: 403 }),
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', mock)
+    await expect(listAssignmentScopeTargets(token, { scopeType: 'facility' })).rejects.toMatchObject({
+      status: 403,
+    })
   })
 })

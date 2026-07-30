@@ -14,6 +14,7 @@ use Modules\Audit\Features\GetAuditExport\Http\GetAuditExportController;
 use Modules\Audit\Features\ListAuditEvents\Http\ListAuditEventsController;
 use Modules\Audit\Features\VerifyAuditIntegrity\Http\VerifyAuditIntegrityController;
 use Modules\Authorization\Features\Administration\Http\AuthorizationAdminController;
+use Modules\Authorization\Features\Administration\Http\ListAssignmentScopeTargetsController;
 use Modules\Authorization\Features\Bootstrap\Http\CompleteAuthorizationBootstrapController;
 use Modules\Authorization\Features\Bootstrap\Http\GetAuthorizationBootstrapController;
 use Modules\Authorization\Features\DecideAccess\Http\DecideAccessController;
@@ -229,6 +230,7 @@ Route::prefix('api/v1')->group(function (): void {
         Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class)->middleware(EnforceWorkManagementFeature::class);
         Route::get('authorization/access-decisions/{decisionId}/explanation', ExplainAccessDecisionController::class);
         Route::get('authorization/bootstrap', GetAuthorizationBootstrapController::class);
+        Route::get('authorization/assignment-scope-targets', ListAssignmentScopeTargetsController::class);
         Route::get('authorization/{adminResource}', AuthorizationAdminController::class);
         Route::get('authorization/{adminResource}/{resourceId}', AuthorizationAdminController::class);
     });

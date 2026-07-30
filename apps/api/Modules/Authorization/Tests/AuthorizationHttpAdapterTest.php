@@ -247,6 +247,66 @@ final class AuthorizationHttpAdapterTest extends TestCase
         ])->assertNotFound()->assertJsonPath('type', 'https://cluster.example/problems/decision-not-found');
     }
 
+    public function test_unmapped_invalid_argument_exception_returns_422_not_500(): void
+    {
+        [$cookie, $csrf] = $this->loginSession(
+            DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_USERNAME,
+            DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_PASSWORD,
+        );
+        $clusterId = (string) DB::table('clusters')->where('singleton_key', 1)->value('id');
+        $customRoleId = '018f6f7d-0c00-7000-8000-000000000a30';
+        DB::table('roles')->insert([
+            'id' => $customRoleId,
+            'code' => 'unmapped-422-target-role',
+            'name_ar' => 'دور اختبار 422',
+            'name_en' => 'Unmapped 422 target role',
+            'role_type' => 'custom',
+            'status' => 'active',
+            'is_system_role' => false,
+            'lock_version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        // The role must be visible to the actor and mutable (non-system) before
+        // the gateway reaches the effect validation. The seeded admin already
+        // covers authorization.assignment.manage at cluster scope; pair this
+        // role to that scope via an assignment so isVisibleRole passes.
+        DB::table('role_assignments')->insertOrIgnore([
+            'id' => '018f6f7d-0c00-7000-8000-000000000a31',
+            'user_id' => DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID,
+            'role_id' => $customRoleId,
+            'scope_type' => 'cluster',
+            'scope_id' => $clusterId,
+            'start_at' => '2026-01-01 00:00:00.000',
+            'end_at' => null,
+            'status' => 'active',
+            'granted_by_user_id' => DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $body = [
+            'resource_type' => 'role_capability',
+            'role_id' => $customRoleId,
+            'capability_code' => 'authorization.assignment.read',
+            // Unmapped message — the controller match must fall through to the
+            // default arm and canonicalize the failure to 422 instead of 500.
+            'effect' => 'bogus',
+        ];
+        $response = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-capabilities', $body, [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'Idempotency-Key' => 'role-capability-create-unmapped-422',
+            'X-CSRF-Token' => $csrf,
+        ]);
+        $response->assertStatus(422);
+        $this->assertStringEndsWith(
+            '/invalid-authorization-resource',
+            (string) $response->json('type'),
+            'Unmapped InvalidArgumentException must canonicalize to the 422 invalid-authorization-resource problem.',
+        );
+        $this->assertDatabaseMissing('role_capabilities', ['role_id' => $customRoleId]);
+    }
+
     /**
      * @return array{0: string, 1: string}
      */

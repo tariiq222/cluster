@@ -70,6 +70,7 @@ type WorkspaceOptions = {
 type MockState = {
   assignmentStatus: Record<string, string>
   assignmentRoles: ReadonlyArray<typeof facilityAssignment>
+  lastCreatedPayload: Record<string, unknown> | null
 }
 
 const facilityAssignment = {
@@ -111,8 +112,17 @@ async function enforceLocalApiOnly(page: Page): Promise<void> {
   // not network calls. The Vite dev proxy forwards `${origin}/api/v1/**`
   // to the API, so a path match anchored on `/api/v1/` is precise enough
   // to catch any unmocked business mutation.
-  await page.route('**/api/v1/**', (route) => {
-    throw new Error(`Unexpected /api/v1/** request: ${route.request().method()} ${route.request().url()}`)
+  await page.route('**/api/v1/**', async (route) => {
+    const request = route.request()
+    const url = new URL(request.url())
+    if (
+      request.method() === 'GET'
+      && url.pathname === '/api/v1/authorization/assignment-scope-targets'
+    ) {
+      await route.fallback()
+      return
+    }
+    throw new Error(`Unexpected /api/v1/** request: ${request.method()} ${request.url()}`)
   })
 }
 
@@ -121,6 +131,7 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
   const state: MockState = {
     assignmentStatus: Object.fromEntries(allAssignments.map((row) => [row.id, row.effective_status])),
     assignmentRoles: allAssignments,
+    lastCreatedPayload: null,
   }
   // The custom role is a fixture state that the assignment-lifecycle and
   // decision-inspector journeys rely on without first cloning the system
@@ -212,6 +223,18 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
       return json(route, { data: { items, next_cursor: null } }, 200, { ETag: '"4"' })
     }
     if (method === 'POST') {
+      const payload = route.request().postDataJSON() as Record<string, unknown>
+      state.lastCreatedPayload = payload
+      expect(route.request().headers()['x-csrf-token']).toBe('accounts-csrf')
+      expect(route.request().headers()['content-type']).toContain('application/json')
+      expect(payload).toMatchObject({
+        resource_type: 'role_assignment',
+        code: 'role-assignment',
+        subject_user_id: ids.account,
+        role_id: ids.customRole,
+        scope_type: 'cluster',
+        scope_id: ids.tenant,
+      })
       expect(route.request().headers()['idempotency-key']).toMatch(/^authorization-role-assignment-/)
       const created = {
         id: '01980f50-5f0d-7000-8000-00000000080e',
@@ -263,6 +286,33 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
       await json(route, { data: { ...clusterAssignment, effective_status: state.assignmentStatus[ids.assignmentCluster] } }, 200, { ETag: `"${clusterAssignment.lock_version + 1}"` })
     })
   }
+  // Deterministic catalog for the supported picker levels. Facility and unit
+  // requests must carry the ancestry selected in the visible cascade; the
+  // unsupported record_set level remains disabled and is never fabricated.
+  await page.route(/\/api\/v1\/authorization\/assignment-scope-targets(?:\?|$)/, async (route) => {
+    const request = route.request()
+    expect(request.method()).toBe('GET')
+    const catalogUrl = new URL(request.url())
+    expect(catalogUrl.pathname).toBe('/api/v1/authorization/assignment-scope-targets')
+    const scopeType = catalogUrl.searchParams.get('scope_type')
+    const targets = {
+      cluster: [{ scope_type: 'cluster', scope_id: ids.tenant, label_ar: 'تجمع الشمال الصحي', label_en: 'North health cluster', code: 'NHC' }],
+      facility: [{ scope_type: 'facility', scope_id: ids.facility, label_ar: 'مستشفى الشمال', label_en: 'North facility', code: 'NF' }],
+      unit: [{ scope_type: 'unit', scope_id: ids.unit, label_ar: 'وحدة المالية', label_en: 'Finance unit', code: 'FIN' }],
+    } as const
+    expect(scopeType === 'cluster' || scopeType === 'facility' || scopeType === 'unit').toBe(true)
+    if (scopeType === 'cluster') {
+      expect(catalogUrl.searchParams.has('parent_scope_type')).toBe(false)
+      expect(catalogUrl.searchParams.has('parent_scope_id')).toBe(false)
+    } else if (scopeType === 'facility') {
+      expect(catalogUrl.searchParams.get('parent_scope_type')).toBe('cluster')
+      expect(catalogUrl.searchParams.get('parent_scope_id')).toBe(ids.tenant)
+    } else if (scopeType === 'unit') {
+      expect(catalogUrl.searchParams.get('parent_scope_type')).toBe('facility')
+      expect(catalogUrl.searchParams.get('parent_scope_id')).toBe(ids.facility)
+    }
+    await json(route, { data: { items: targets[scopeType as keyof typeof targets], next_cursor: null } })
+  })
   // Register the 403 catch-all BEFORE the privileged 200 handler. Playwright
   // resolves routes last-registered-first, so registering 200 last keeps the
   // privileged path alive while the restricted principal still surfaces the
@@ -401,7 +451,7 @@ test('system roles must be cloned before custom-role editing; direct system PATC
 
 test('assignment lifecycle covers every scope level, two revokes and an explicit expiry, with labelled projections and an out-of-scope rejection', async ({ page }) => {
   await enforceLocalApiOnly(page)
-  await mockWorkspace(page)
+  const state = await mockWorkspace(page)
   await signIn(page)
   await openTab(page, '/admin/authorization/role-assignments?tab=role-assignments')
 
@@ -437,9 +487,28 @@ test('assignment lifecycle covers every scope level, two revokes and an explicit
   await clusterRow.getByRole('button', { name: 'إلغاء الإسناد' }).click()
   await expect(clusterRow).toContainText('revoked')
 
-  // 4. Out-of-scope POST: any subsequent create lands on 403 with a visible
-  // problem detail. We intercept AFTER the lifecycle actions so the running
-  // mock keeps revoking/expire behaviour intact.
+  // 4. Supported assignment creation goes through the visible catalog-backed
+  // picker: account + role selectors, explicit cluster radio, catalog target,
+  // and the form submit. No UUID is typed or injected by page.evaluate.
+  await page.getByRole('button', { name: 'الموظف' }).click()
+  await page.getByRole('option', { name: 'مسؤول المالية' }).click()
+  await page.getByRole('button', { name: 'الدور' }).click()
+  await page.getByRole('option', { name: 'مراجع مالي مخصص' }).click()
+  await page.getByRole('radio', { name: 'التجمع' }).click()
+  await page.getByRole('button', { name: 'هدف النطاق' }).click()
+  await page.getByRole('option', { name: 'تجمع الشمال الصحي' }).click()
+  const saveAssignment = page.getByRole('button', { name: 'حفظ الإسناد' })
+  await expect(saveAssignment).toBeEnabled()
+  await saveAssignment.click()
+  await expect(rows).toHaveCount(5)
+  await expect(rows.nth(4)).toContainText('مراجع مالي مخصص')
+  await expect(rows.nth(4)).toContainText('مسؤول المالية')
+  await expect(rows.nth(4)).toContainText('active')
+  expect(state.lastCreatedPayload).toMatchObject({ scope_type: 'cluster', scope_id: ids.tenant })
+
+  // 5. Deliberate server-only 403 probe. The supported UI cannot select an
+  // out-of-bound catalog target, so this direct request is intentionally kept
+  // separate from (and after) the UI creation proof.
   let outOfScopeRequest = false
   await page.route(/\/api\/v1\/authorization\/role-assignments(\?|$)/, async (route) => {
     if (route.request().method() === 'POST') {
@@ -449,15 +518,34 @@ test('assignment lifecycle covers every scope level, two revokes and an explicit
     }
     await route.fallback()
   })
-  await page.getByRole('button', { name: 'الموظف' }).click()
-  await page.getByRole('option').filter({ hasText: 'مسؤول المالية' }).click()
-  await page.getByRole('button', { name: 'الدور' }).click()
-  await page.getByRole('option').filter({ hasText: 'مراجع مالي مخصص' }).click()
-  await page.getByRole('button', { name: 'حفظ الإسناد' }).click()
-  await expect(page.getByRole('alert')).toContainText('outside your administrative boundary')
-  // The out-of-scope request must actually reach the server (we captured
-  // the flag in the route handler) — this stops the test from passing
-  // silently if the request is swallowed by the UI or the mock is removed.
+  const outOfScopeBody = await page.evaluate(
+    async (payload) => {
+      const response = await fetch('/api/v1/authorization/role-assignments', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json, application/problem+json',
+          'Content-Type': 'application/merge-patch+json',
+          'Idempotency-Key': `authorization-role-assignment-out-of-scope-${Date.now()}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      return { status: response.status, body: await response.json() }
+    },
+    {
+      resource_type: 'role_assignment',
+      code: 'role-assignment',
+      subject_user_id: ids.account,
+      role_id: ids.customRole,
+      scope_type: 'cluster',
+      scope_id: ids.tenant,
+    },
+  )
+  expect(outOfScopeBody.status).toBe(403)
+  expect(outOfScopeBody.body.type).toBe('about:blank')
+  expect(outOfScopeBody.body.detail).toBe('This scope is outside your administrative boundary.')
+  // The server-only out-of-scope request must actually reach the route handler;
+  // this cannot substitute for the UI creation asserted immediately above.
   expect(outOfScopeRequest).toBe(true)
 
   // URL state is preserved: query string is intact after every action.

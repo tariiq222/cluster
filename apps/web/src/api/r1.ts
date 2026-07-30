@@ -28,6 +28,7 @@ export type AccessDecision = generated.AccessDecisionResponse
 export type AuthorizedWorkRecord = generated.WorkRecordSchema & AccessProjection
 export type AuthorizationAdminPatch = generated.AuthorizationAdminPatch
 export type AuthorizationAdminCreate = generated.AuthorizationAdminCreate
+export type AuthorizationRoleAssignment = generated.AuthorizationRoleAssignment
 export type AuthorizationAdminResource = AuthorizationResource
 export { parseStrongEtag, uuidV7 }
 
@@ -128,6 +129,52 @@ export async function listCapabilities(token: string, filters?: generated.ListAu
 export async function listRoleAssignments(token: string, filters?: generated.ListAuthorizationAdminResourcesParams): Promise<generated.AuthorizationRoleAssignment[]> {
   return unwrap<{ items: generated.AuthorizationRoleAssignment[] }>(await generated.listAuthorizationAdminResources('role-assignments', filters, requestInit(token))).items
 }
+export type AssignmentScopeTarget = generated.AssignmentScopeTarget
+export type AssignmentScopeTargetCollection = generated.AssignmentScopeTargetCollection & { lock_version?: number }
+export type AssignmentScopeType = generated.ListAuthorizationAssignmentScopeTargetsScopeType
+export type AssignmentScopeParentType = generated.ListAuthorizationAssignmentScopeTargetsParentScopeType
+export const AssignmentScopeType = generated.ListAuthorizationAssignmentScopeTargetsScopeType
+export const AssignmentScopeParentType = generated.ListAuthorizationAssignmentScopeTargetsParentScopeType
+
+/**
+ * Catalog of manageable assignment scope targets for the current principal.
+ * Distinct from the generic `/authorization/{adminResource}` family: the server
+ * returns the resources the UI is allowed to pick (`scope_id` + bilingual
+ * labels), never a free-text UUID prompt. `record_set` is intentionally absent
+ * from the manageable enum and surfaces as a 422 problem when requested.
+ *
+ * Accepts the typed `AssignmentScopeTargetQuery` (camelCase, screen-friendly
+ * keys) and forwards the snake_case wire form to the generated client. The
+ * returned collection carries `lock_version` when the response has an ETag,
+ * which is the same `unwrap` contract every other read-side wrapper honors.
+ */
+export type AssignmentScopeTargetQuery = {
+  scopeType: AssignmentScopeType
+  parentScopeType?: AssignmentScopeParentType
+  parentScopeId?: string
+  search?: string
+  cursor?: string
+  limit?: number
+}
+export async function listAssignmentScopeTargets(
+  token: string,
+  query: AssignmentScopeTargetQuery,
+): Promise<AssignmentScopeTargetCollection> {
+  const params: generated.ListAuthorizationAssignmentScopeTargetsParams = {
+    scope_type: query.scopeType,
+    ...(query.parentScopeType ? { parent_scope_type: query.parentScopeType } : {}),
+    ...(query.parentScopeId ? { parent_scope_id: query.parentScopeId } : {}),
+    ...(query.search ? { search: query.search } : {}),
+    ...(query.cursor ? { cursor: query.cursor } : {}),
+    ...(query.limit !== undefined ? { limit: query.limit } : {}),
+  }
+  return unwrap<AssignmentScopeTargetCollection>(
+    await generated.listAuthorizationAssignmentScopeTargets(params, requestInit(token)),
+  )
+}
+
+
+
 export async function createRole(token: string, input: generated.AuthorizationAdminCreate & { capability_codes?: string[] }): Promise<generated.AuthorizationRole> {
   return unwrap<generated.AuthorizationRole>(await generated.createAuthorizationAdminResource('roles', input, requestInit(token, { command: true, idempotency: 'authorization-role' })))
 }

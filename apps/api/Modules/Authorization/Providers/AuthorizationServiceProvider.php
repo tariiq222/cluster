@@ -52,5 +52,9 @@ final class AuthorizationServiceProvider extends ServiceProvider
                 $app->make(\Shared\Contracts\RecordAuditEvent::class),
             ),
         );
+        $this->app->bind(
+            \Modules\Authorization\Features\Administration\Contracts\ListAssignmentScopeTargets::class,
+            \Modules\Authorization\Infrastructure\Persistence\DatabaseListAssignmentScopeTargets::class,
+        );
     }
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Shared\Http;
+namespace Modules\Authorization\Tests;
 
 use Illuminate\Support\Facades\Crypt;
 use InvalidArgumentException;
@@ -22,7 +22,7 @@ use Tests\TestCase;
  * JSON / payload / version, and the stable, safe exception message.
  */
 #[CoversClass(AuthenticatedCursorCodec::class)]
-final class AuthenticatedCursorCodecTest extends TestCase
+final class SharedAuthenticatedCursorCodecTest extends TestCase
 {
     private AuthenticatedCursorCodec $codec;
 

@@ -98,6 +98,15 @@ final class AuthorizationAdminController
                 'authorization_system_role_immutable' => AuthorizationApi::problem(409, 'urn:cluster:problem:system-role-immutable', 'Conflict', 'System roles cannot be changed.', $correlationId),
                 'authorization_scope_denied' => AuthorizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId),
                 'authorization_resource_not_found' => AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId),
+                'authorization_scope_type_not_catalogued' => AuthorizationApi::problem(422, 'urn:cluster:problem:scope_type_not_catalogued', 'Unprocessable Entity', 'The requested scope_type is not part of the catalog.', $correlationId),
+                'capability_code_not_in_catalog' => AuthorizationApi::problem(422, 'urn:cluster:problem:capability_code_not_in_catalog', 'Unprocessable Entity', 'The requested capability_code is not part of the catalog.', $correlationId),
+                'invalid_scope_query' => AuthorizationApi::problem(400, 'invalid_scope_query', 'Bad Request', 'The scope_type/parent_scope combination is not supported.', $correlationId),
+                'explicit_deny_subject_required' => AuthorizationApi::problem(422, 'urn:cluster:problem:explicit-deny-subject-required', 'Unprocessable Entity', 'An explicit deny must target a user or an organization unit.', $correlationId),
+                'explicit_deny_classification_invalid' => AuthorizationApi::problem(422, 'urn:cluster:problem:explicit-deny-classification-invalid', 'Unprocessable Entity', 'The explicit deny classification is not part of the catalog.', $correlationId),
+                'explicit_deny_resource_pattern_invalid' => AuthorizationApi::problem(422, 'urn:cluster:problem:explicit-deny-resource-pattern-invalid', 'Unprocessable Entity', 'The explicit deny resource pattern is invalid.', $correlationId),
+                'explicit_deny_reason_required' => AuthorizationApi::problem(422, 'urn:cluster:problem:explicit-deny-reason-required', 'Unprocessable Entity', 'The explicit deny reason is required and must be 1-2000 characters.', $correlationId),
+                'explicit_deny_window_invalid' => AuthorizationApi::problem(422, 'urn:cluster:problem:explicit-deny-window-invalid', 'Unprocessable Entity', 'The explicit deny expires_at must be after issued_at.', $correlationId),
+                'explicit_deny_not_revocable' => AuthorizationApi::problem(422, 'urn:cluster:problem:explicit-deny-not-revocable', 'Unprocessable Entity', 'The explicit deny is not revocable.', $correlationId),
                 default => AuthorizationApi::problem(422, 'invalid-authorization-resource', 'Unprocessable Entity', 'The authorization payload is invalid.', $correlationId),
             };
         } catch (Throwable) {
