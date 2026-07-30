@@ -8,6 +8,23 @@ import { SessionProvider } from '../../app/session-context'
 import type { Session } from '../../api'
 import type { AppRoute } from '../../shell/routes'
 
+
+vi.mock('../accounts-permissions/AccountsTab', () => ({
+  AccountsTab: ({ locale, capabilities }: { locale: string; capabilities: readonly string[] }) => <div data-testid="accounts-tab" data-locale={locale} data-capabilities={capabilities.join(',')} />,
+}))
+vi.mock('../accounts-permissions/RolesPermissionsTab', () => ({
+  RolesPermissionsTab: ({ locale, capabilities }: { locale: string; capabilities: readonly string[] }) => <div data-testid="roles-permissions-tab" data-locale={locale} data-capabilities={capabilities.join(',')} />,
+}))
+vi.mock('../accounts-permissions/RoleAssignmentsTab', () => ({
+  RoleAssignmentsTab: ({ locale, capabilities }: { locale: string; capabilities: readonly string[] }) => <div data-testid="role-assignments-tab" data-locale={locale} data-capabilities={capabilities.join(',')} />,
+}))
+vi.mock('../accounts-permissions/PoliciesScopesTab', () => ({
+  PoliciesScopesTab: ({ locale, capabilities }: { locale: string; capabilities: readonly string[] }) => <div data-testid="policies-scopes-tab" data-locale={locale} data-capabilities={capabilities.join(',')} />,
+}))
+vi.mock('../accounts-permissions/PermissionDecisionInspector', () => ({
+  PermissionDecisionInspector: ({ locale, decisionId }: { locale: string; decisionId?: string }) => <div data-testid="permission-decision-inspector" data-locale={locale} data-decision-id={decisionId ?? ''} />,
+}))
+
 const session: Session = {
   csrf_token: 'csrf-token',
   access_token: 'csrf-token',
@@ -21,10 +38,10 @@ afterEach(() => {
   cleanup()
 })
 
-function renderRoute(activeRoute: AppRoute, navigate: (path: string) => void = vi.fn()) {
+function renderRoute(activeRoute: AppRoute, navigate: (path: string) => void = vi.fn(), capabilities: readonly string[] = ['authorization.role.manage']) {
   return render(
     <SessionProvider locale="en" session={session}>
-      <AccessWorkspace locale="en" activeRoute={activeRoute} navigate={navigate} />
+      <AccessWorkspace locale="en" activeRoute={activeRoute} navigate={navigate} capabilities={capabilities} />
     </SessionProvider>,
   )
 }
@@ -50,19 +67,30 @@ describe('accessSectionForRoute', () => {
   })
 })
 
-describe('AccessWorkspace decision route', () => {
-  it('opens the access-decision simulator from the inspector tab', () => {
-    renderRoute({ name: 'access-explanation' })
+describe('AccessWorkspace routed content', () => {
+  it.each([
+    [{ name: 'identity-accounts' }, 'accounts-tab'],
+    [{ name: 'authorization', resource: 'roles' }, 'roles-permissions-tab'],
+    [{ name: 'authorization', resource: 'role-assignments' }, 'role-assignments-tab'],
+    [{ name: 'access-scopes' }, 'policies-scopes-tab'],
+    [{ name: 'access-explanation' }, 'permission-decision-inspector'],
+  ] as const)('mounts the current Task 7 component for %o', (route, expectedTab) => {
+    const { unmount } = renderRoute(route)
 
-    expect(screen.getByRole('heading', { name: 'Access decision simulator' })).toBeTruthy()
-    expect(screen.getByRole('textbox', { name: /Server-provided simulation request \(JSON\)/ })).toBeTruthy()
+    const mountedTab = screen.getByTestId(expectedTab)
+    expect(mountedTab.getAttribute('data-locale')).toBe('en')
+    if (expectedTab !== 'permission-decision-inspector') {
+      expect(mountedTab.getAttribute('data-capabilities')).toBe('authorization.role.manage')
+    }
+    expect(screen.getByRole('status')).toBeTruthy()
+    unmount()
   })
 
-  it('keeps decision audit deep links on the explanation lookup', () => {
+  it('passes a decision deep-link id to the current inspector component', () => {
     renderRoute({ name: 'access-explanation', decisionId: 'decision-7' })
 
-    expect(screen.getByRole('heading', { name: 'Audit and explanation view' })).toBeTruthy()
-    expect((screen.getByLabelText('Decision ID') as HTMLInputElement).value).toBe('decision-7')
+    expect(screen.getByTestId('permission-decision-inspector').getAttribute('data-decision-id')).toBe('decision-7')
+    expect(screen.getByRole('link', { name: 'Permission decision inspector' }).getAttribute('aria-current')).toBe('page')
   })
 })
 

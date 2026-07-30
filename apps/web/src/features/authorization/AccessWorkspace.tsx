@@ -6,19 +6,17 @@ import {
   UserCog,
   Users,
 } from 'lucide-react'
-import type { ReactElement } from 'react'
+import { useRef, type ReactElement } from 'react'
 
 import { WorkspaceTabs } from '../../app/WorkspaceTabs'
 import { pathFromRoute, type AppRoute } from '../../shell/routes'
-import { IdentityAccounts } from '../identity/IdentityAccounts'
-import { AccessScopesScreen } from './AccessScopesScreen'
-import { RolesCapabilitiesWorkspace } from './RolesCapabilitiesWorkspace'
-import {
-  AccessDecisionSimulator,
-  AccessExplanation,
-  AuthorizationAdmin,
-  type AdminResource,
-} from './AuthorizationAdmin'
+import { AccountsTab } from '../accounts-permissions/AccountsTab'
+import { PermissionDecisionInspector } from '../accounts-permissions/PermissionDecisionInspector'
+import { PoliciesScopesTab } from '../accounts-permissions/PoliciesScopesTab'
+import { RoleAssignmentsTab } from '../accounts-permissions/RoleAssignmentsTab'
+import { RolesPermissionsTab } from '../accounts-permissions/RolesPermissionsTab'
+import { AuthorizationMutationFeedbackProvider } from '../accounts-permissions/AuthorizationMutationFeedback'
+import type { AnnouncementRegionHandle } from '../accounts-permissions/AnnouncementRegion'
 
 const screenCopy = {
   ar: {
@@ -91,27 +89,28 @@ const sectionTabs: Array<{
   { key: 'decision-inspector', route: { name: 'access-explanation' }, icon: <ClipboardCheck size={17} />, ar: 'فحص قرار الصلاحية', en: 'Permission decision inspector' },
 ]
 
-function screenForRoute({ activeRoute, locale, scopeReady, scopeEpoch, capabilities, navigate }: Pick<AccessWorkspaceProps, 'activeRoute' | 'locale' | 'scopeReady' | 'scopeEpoch' | 'capabilities' | 'navigate'>) {
-  switch (activeRoute.name) {
-    case 'identity-accounts':
-      return <IdentityAccounts />
-    case 'authorization':
-      if (activeRoute.resource === 'roles' || activeRoute.resource === 'capabilities') {
-        return <RolesCapabilitiesWorkspace locale={locale} capabilities={capabilities ?? null} />
-      }
-      return <AuthorizationAdmin resource={activeRoute.resource as AdminResource} capabilities={capabilities ?? []} />
-    case 'access-scopes':
-      return <AccessScopesScreen locale={locale} scopeReady={scopeReady ?? false} scopeEpoch={scopeEpoch ?? 0} navigate={navigate} />
-    case 'access-explanation':
-      return activeRoute.decisionId
-        ? <AccessExplanation decisionId={activeRoute.decisionId} />
-        : <AccessDecisionSimulator />
-    default:
-      return null
+function screenForRoute({ activeRoute, locale, capabilities }: Pick<AccessWorkspaceProps, 'activeRoute' | 'locale' | 'capabilities'>) {
+  const grantedCapabilities = capabilities ?? []
+
+  switch (accessSectionForRoute(activeRoute)) {
+    case 'accounts':
+      return <AccountsTab locale={locale} capabilities={grantedCapabilities} />
+    case 'roles-permissions':
+      return <RolesPermissionsTab locale={locale} capabilities={grantedCapabilities} />
+    case 'role-assignments':
+      return <RoleAssignmentsTab locale={locale} capabilities={grantedCapabilities} />
+    case 'policies-scopes':
+      return <PoliciesScopesTab locale={locale} capabilities={grantedCapabilities} />
+    case 'decision-inspector':
+      return <PermissionDecisionInspector
+        locale={locale}
+        decisionId={activeRoute.name === 'access-explanation' ? activeRoute.decisionId : undefined}
+      />
   }
 }
 
-export function AccessWorkspace({ locale, activeRoute, navigate, scopeReady, scopeEpoch, capabilities }: AccessWorkspaceProps) {
+export function AccessWorkspace({ locale, activeRoute, navigate, capabilities }: AccessWorkspaceProps) {
+  const feedbackRef = useRef<AnnouncementRegionHandle | null>(null)
   const activeSection = accessSectionForRoute(activeRoute)
   const allTabs = sectionTabs.map((tab) => ({
     key: tab.key,
@@ -124,10 +123,7 @@ export function AccessWorkspace({ locale, activeRoute, navigate, scopeReady, sco
   const currentScreen = screenForRoute({
     activeRoute,
     locale,
-    scopeReady,
-    scopeEpoch,
     capabilities,
-    navigate,
   })
 
   return (
@@ -145,11 +141,13 @@ export function AccessWorkspace({ locale, activeRoute, navigate, scopeReady, sco
         onNavigate={navigate}
       />
       <div className="access-workspace-content">
-        {currentScreen ?? (
-          <div className="state-panel" role="status">
-            <p>{screenCopy[locale].chooseAnIdentityOrAuthorization}</p>
-          </div>
-        )}
+        <AuthorizationMutationFeedbackProvider locale={locale} regionRef={feedbackRef}>
+          {currentScreen ?? (
+            <div className="state-panel" role="status">
+              <p>{screenCopy[locale].chooseAnIdentityOrAuthorization}</p>
+            </div>
+          )}
+        </AuthorizationMutationFeedbackProvider>
       </div>
     </section>
   )
