@@ -75,7 +75,15 @@ final class AuthorizationAdminService
         return $this->mutate('patch-roles-'.$roleId, [...$patch, 'if_match' => $lockVersion], $actorUserId, $idempotencyKey, 200, function () use ($roleId, $patch, $lockVersion, $actorUserId, $correlationId): array {
             $before = $this->gateway->find('roles', $roleId, $actorUserId);
             $beforeSnapshot = $before === null ? null : $this->roleSnapshot($before);
-            $entity = $this->gateway->update('roles', $roleId, $patch, $lockVersion, $actorUserId);
+            try {
+                $entity = $this->gateway->update('roles', $roleId, $patch, $lockVersion, $actorUserId);
+            } catch (\InvalidArgumentException $exception) {
+                if ($exception->getMessage() === 'authorization_role_not_found') {
+                    throw new \InvalidArgumentException('authorization_resource_not_found');
+                }
+
+                throw $exception;
+            }
             if ($entity === null) {
                 throw new \InvalidArgumentException('authorization_resource_not_found');
             }
@@ -101,7 +109,15 @@ final class AuthorizationAdminService
         return $this->mutate('transition-roles-'.$roleId.'-archive', ['if_match' => $lockVersion], $actorUserId, $idempotencyKey, 200, function () use ($roleId, $lockVersion, $actorUserId, $correlationId): array {
             $before = $this->gateway->find('roles', $roleId, $actorUserId);
             $beforeSnapshot = $before === null ? null : $this->roleSnapshot($before);
-            $entity = $this->gateway->update('roles', $roleId, ['status' => 'archived'], $lockVersion, $actorUserId);
+            try {
+                $entity = $this->gateway->update('roles', $roleId, ['status' => 'archived'], $lockVersion, $actorUserId);
+            } catch (\InvalidArgumentException $exception) {
+                if ($exception->getMessage() === 'authorization_role_not_found') {
+                    throw new \InvalidArgumentException('authorization_resource_not_found');
+                }
+
+                throw $exception;
+            }
             if ($entity === null) {
                 throw new \InvalidArgumentException('authorization_resource_not_found');
             }

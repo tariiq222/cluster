@@ -95,6 +95,8 @@ final class AuthorizationAdminController
             return match ($exception->getMessage()) {
                 'authorization_precondition_failed' => AuthorizationApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current version.', $correlationId),
                 'authorization_idempotency_conflict' => AuthorizationApi::problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId),
+                'authorization_system_role_immutable' => AuthorizationApi::problem(409, 'urn:cluster:problem:system-role-immutable', 'Conflict', 'System roles cannot be changed.', $correlationId),
+                'authorization_scope_denied' => AuthorizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId),
                 'authorization_resource_not_found' => AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId),
                 default => AuthorizationApi::problem(422, 'invalid-authorization-resource', 'Unprocessable Entity', 'The authorization payload is invalid.', $correlationId),
             };
@@ -168,8 +170,20 @@ final class AuthorizationAdminController
         if (! $this->validCreatePayload($resource, $input)) {
             return AuthorizationApi::problem(422, 'invalid-authorization-resource', 'Unprocessable Entity', 'The authorization payload is invalid.', $correlationId);
         }
+        $serviceOwned = in_array($resource, ['roles', 'role-assignments'], true);
+        $operation = 'create-'.$resource;
+        $requestHash = hash('sha256', json_encode($input, JSON_THROW_ON_ERROR));
+        if (! $serviceOwned) {
+            $existing = $this->idempotentResponse($principalId, $operation, $key, $requestHash, $resource, $correlationId);
+            if ($existing !== null) {
+                return $existing;
+            }
+        }
         $result = $this->dispatchCreate($resource, $input, $principalId, $correlationId, $key);
         $entity = $result['entity'];
+        if (! $serviceOwned) {
+            $this->storeIdempotencyResponse($principalId, $operation, $key, $requestHash, (string) $entity['id'], 201, ['data' => $entity]);
+        }
 
         return AuthorizationApi::resource(
             $entity,
@@ -196,6 +210,10 @@ final class AuthorizationAdminController
 
         $result = $this->dispatchUpdate($resource, $resourceId, $input, $version, $principalId, $correlationId);
         $entity = $result['entity'];
+        if ($entity === []) {
+            return AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId);
+        }
+
 
         return AuthorizationApi::resource(
             $entity,
@@ -296,6 +314,10 @@ final class AuthorizationAdminController
     private function dispatchUpdate(string $resource, string $resourceId, array $input, int $version, string $principalId, string $correlationId): array
     {
         if ($resource === 'roles') {
+            if ($input === ['status' => 'archived']) {
+                return $this->adminService->archiveRole($resourceId, $version, $principalId, $correlationId);
+            }
+
             return $this->adminService->editRole($resourceId, $input, $version, $principalId, $correlationId);
         }
         if ($resource === 'role-assignments') {

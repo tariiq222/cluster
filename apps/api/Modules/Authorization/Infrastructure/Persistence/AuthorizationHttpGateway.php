@@ -143,6 +143,13 @@ final class AuthorizationHttpGateway
         $table = $this->requireTable($resource);
         $id = Str::uuid7()->toString();
         $now = now()->utc()->format('Y-m-d H:i:s.v');
+        $roleCapabilityIds = null;
+        if ($resource === 'roles' && array_key_exists('capability_codes', $input)) {
+            if (! is_array($input['capability_codes'])) {
+                throw new InvalidArgumentException('authorization_payload_invalid');
+            }
+            $roleCapabilityIds = $this->validatedCapabilityIds(array_values($input['capability_codes']), $principalId);
+        }
         $row = match ($resource) {
             'roles' => $this->role($id, $input, $now),
             'capabilities' => $this->capability($id, $input, $now),
@@ -185,6 +192,9 @@ final class AuthorizationHttpGateway
             $id = (string) DB::table($table)->insertGetId($row);
         } else {
             DB::table($table)->insert($row);
+        }
+        if ($resource === 'roles' && $roleCapabilityIds !== null) {
+            $this->replaceCapabilitySet($id, $roleCapabilityIds);
         }
 
         if ($resource === 'delegations' && is_array($capabilityCodes)) {
@@ -235,6 +245,46 @@ final class AuthorizationHttpGateway
             }
 
             return $this->find($resource, $id, $actorUserId);
+        }
+        if ($resource === 'role-assignments' && array_key_exists('scope_id', $patch)) {
+            $visible = DB::table($table)->where('id', $id);
+            $this->applyActorScope($visible, $resource, $actorUserId);
+            $assignment = $visible->first();
+            if ($assignment === null) {
+                if (! collect($this->actorScopes($actorUserId))->contains(fn (array $scope): bool => $scope['scope_type'] === 'cluster')) {
+                    throw new InvalidArgumentException('authorization_scope_denied');
+                }
+                if (! DB::table($table)->where('id', $id)->exists()) {
+                    return null;
+                }
+
+                throw new InvalidArgumentException('authorization_scope_denied');
+            }
+            if (! is_string($patch['scope_id']) || trim($patch['scope_id']) === '') {
+                throw new InvalidArgumentException('authorization_scope_required');
+            }
+            $capabilityCodes = DB::table('role_capabilities')
+                ->join('capabilities', 'capabilities.id', '=', 'role_capabilities.capability_id')
+                ->where('role_capabilities.role_id', $assignment->role_id)
+                ->where('role_capabilities.effect', 'allow')
+                ->where('capabilities.status', 'active')
+                ->pluck('capabilities.capability_code')->all();
+            try {
+                $this->grantAuthority->assertCovered(
+                    $actorUserId,
+                    $capabilityCodes,
+                    (string) $assignment->scope_type,
+                    $patch['scope_id'],
+                    (string) $assignment->start_at,
+                    $assignment->end_at === null ? null : (string) $assignment->end_at,
+                );
+            } catch (InvalidArgumentException $exception) {
+                if ($exception->getMessage() === 'authorization_grant_exceeds_actor_authority') {
+                    throw new InvalidArgumentException('authorization_scope_denied');
+                }
+
+                throw $exception;
+            }
         }
         $changes = $this->normalisePatch($resource, $patch);
         if ($changes === []) {
@@ -293,6 +343,11 @@ final class AuthorizationHttpGateway
             $this->applyActorScope($existsQuery, $resource, $actorUserId);
             $exists = $existsQuery->exists();
             if (! $exists) {
+                if ($resource === 'role-assignments'
+                    && ! collect($this->actorScopes($actorUserId))->contains(fn (array $scope): bool => $scope['scope_type'] === 'cluster')) {
+                    throw new InvalidArgumentException('authorization_scope_denied');
+                }
+
                 return null;
             }
             throw new InvalidArgumentException('authorization_precondition_failed');
@@ -877,7 +932,7 @@ final class AuthorizationHttpGateway
             'roles' => ['name', 'name_ar', 'name_en', 'description_ar', 'description_en', 'status'],
             'capabilities' => ['action', 'sensitivity', 'status'],
             'role-capabilities' => ['effect'],
-            'role-assignments' => ['end_at', 'status'],
+            'role-assignments' => ['end_at', 'scope_id', 'status'],
             'delegations' => ['end_at', 'status'],
             'explicit-denies' => ['expires_at', 'reason', 'classification', 'resource_pattern'],
             'classification-policies' => ['status', 'policy_document', 'is_active', 'export_policy', 'download_policy', 'policy_version'],

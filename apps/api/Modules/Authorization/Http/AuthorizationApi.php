@@ -68,8 +68,9 @@ final class AuthorizationApi
 
     public static function problem(int $status, string $type, string $title, string $detail, ?string $correlationId = null): JsonResponse
     {
+        $problemType = str_starts_with($type, 'urn:') ? $type : "https://cluster.example/problems/{$type}";
         $response = response()->json([
-            'type' => "https://cluster.example/problems/{$type}",
+            'type' => $problemType,
             'title' => $title,
             'status' => $status,
             'detail' => $detail,
