@@ -202,6 +202,40 @@ final class AuthorizationHttpGateway
     public function update(string $resource, string $id, array $patch, int $expectedVersion, string $actorUserId): ?array
     {
         $table = $this->requireTable($resource);
+        if ($resource === 'roles') {
+            if (! $this->isVisibleRole($id, $actorUserId)) {
+                return null;
+            }
+            $this->assertMutableRole($id);
+            $capabilityCodes = $patch['capability_codes'] ?? null;
+            if ($capabilityCodes !== null && ! is_array($capabilityCodes)) {
+                throw new InvalidArgumentException('authorization_payload_invalid');
+            }
+            $patch = array_diff_key($patch, ['capability_codes' => true]);
+            $changes = $this->normalisePatch($resource, $patch);
+            if ($changes === [] && $capabilityCodes === null) {
+                throw new InvalidArgumentException('authorization_patch_empty');
+            }
+            $capabilityIds = $capabilityCodes === null
+                ? null
+                : $this->validatedCapabilityIds(array_values($capabilityCodes), $actorUserId);
+            $changes['lock_version'] = $expectedVersion + 1;
+            $changes['updated_at'] = now()->utc()->format('Y-m-d H:i:s.v');
+            $updateQuery = DB::table($table)->where('id', $id)->where('lock_version', $expectedVersion);
+            $this->applyActorScope($updateQuery, $resource, $actorUserId);
+            $updated = $updateQuery->update($changes);
+            if ($updated === 0) {
+                if (! $this->isVisibleRole($id, $actorUserId)) {
+                    return null;
+                }
+                throw new InvalidArgumentException('authorization_precondition_failed');
+            }
+            if ($capabilityIds !== null) {
+                $this->replaceCapabilitySet($id, $capabilityIds);
+            }
+
+            return $this->find($resource, $id, $actorUserId);
+        }
         $changes = $this->normalisePatch($resource, $patch);
         if ($changes === []) {
             throw new InvalidArgumentException('authorization_patch_empty');
@@ -214,6 +248,7 @@ final class AuthorizationHttpGateway
                 return null;
             }
             if (array_key_exists('effect', $changes)) {
+                $this->assertMutableRole($roleId);
                 $capabilityCode = DB::table('capabilities')->where('id', $capabilityId)->value('capability_code');
                 if (! is_string($capabilityCode)) {
                     throw new InvalidArgumentException('authorization_capability_not_found');
@@ -267,8 +302,15 @@ final class AuthorizationHttpGateway
     }
 
     /** @return array<string,mixed>|null */
-    public function transition(string $resource, string $id, string $action, int $expectedVersion, string $actorUserId): ?array
+    public function transition(string $resource, string $id, string $action, int $expectedVersion, string $actorUserId, array $input = []): ?array
     {
+        if ($action === 'clone') {
+            if ($resource !== 'roles') {
+                throw new InvalidArgumentException('authorization_action_invalid');
+            }
+
+            return $this->cloneRole($id, $expectedVersion, $actorUserId, $input);
+        }
         if (! in_array($action, ['activate', 'revoke', 'expire', 'publish'], true)) {
             throw new InvalidArgumentException('authorization_action_invalid');
         }
@@ -280,6 +322,12 @@ final class AuthorizationHttpGateway
                 throw new InvalidArgumentException('authorization_action_unsupported');
             }
             [$roleId, $capabilityId] = $this->splitRoleCapabilityId($id);
+            $visible = DB::table('role_capabilities')->where('role_id', $roleId)->where('capability_id', $capabilityId);
+            $this->applyActorScope($visible, $resource, $actorUserId);
+            if (! $visible->exists()) {
+                return null;
+            }
+            $this->assertMutableRole($roleId);
             $query = DB::table('role_capabilities')->where('role_id', $roleId)->where('capability_id', $capabilityId)->where('lock_version', $expectedVersion);
             $this->applyActorScope($query, $resource, $actorUserId);
             $deleted = $query->delete();
@@ -318,6 +366,173 @@ final class AuthorizationHttpGateway
         return $this->update($resource, $id, ['status' => $status], $expectedVersion, $actorUserId);
     }
 
+    private function isVisibleRole(string $roleId, string $actorUserId): bool
+    {
+        $query = DB::table('roles')->where('id', $roleId);
+        $this->applyActorScope($query, 'roles', $actorUserId);
+
+        return $query->exists();
+    }
+
+    private function assertMutableRole(string $roleId): void
+    {
+        $system = DB::table('roles')->where('id', $roleId)->value('is_system_role');
+        if ($system === null) {
+            throw new InvalidArgumentException('authorization_role_not_found');
+        }
+        if ((bool) $system) {
+            throw new InvalidArgumentException('authorization_system_role_immutable');
+        }
+    }
+
+    /** @param list<mixed> $capabilityCodes */
+    /** @return list<string> */
+    private function validatedCapabilityIds(array $capabilityCodes, string $actorUserId): array
+    {
+        $codes = array_values(array_unique($capabilityCodes));
+        foreach ($codes as $code) {
+            if (! is_string($code) || ! CapabilityCatalog::supports($code)) {
+                throw new InvalidArgumentException('capability_code_not_in_catalog');
+            }
+        }
+        $capabilityIds = DB::table('capabilities')->whereIn('capability_code', $codes)->pluck('id', 'capability_code')->all();
+        foreach ($codes as $code) {
+            if (! isset($capabilityIds[$code])) {
+                throw new InvalidArgumentException('authorization_capability_not_found');
+            }
+        }
+        $clusterId = $this->defaultClusterId->resolve();
+        if (! is_string($clusterId)) {
+            throw new InvalidArgumentException('authorization_grant_exceeds_actor_authority');
+        }
+        $this->grantAuthority->assertCovered($actorUserId, $codes, 'cluster', $clusterId, now()->utc()->format('Y-m-d\TH:i:s.v\Z'), null);
+
+        return array_values(array_map(static fn (mixed $id): string => (string) $id, $capabilityIds));
+    }
+
+    /** @param list<mixed> $codes */
+    /** @return list<string> */
+    private function capabilityIdsForCodes(array $codes): array
+    {
+        foreach ($codes as $code) {
+            if (! is_string($code) || ! CapabilityCatalog::supports($code)) {
+                throw new InvalidArgumentException('capability_code_not_in_catalog');
+            }
+        }
+        $ids = DB::table('capabilities')->whereIn('capability_code', array_values(array_unique($codes)))->pluck('id', 'capability_code')->all();
+        if (count($ids) !== count(array_unique($codes))) {
+            throw new InvalidArgumentException('authorization_capability_not_found');
+        }
+
+        return array_values(array_map(static fn (mixed $id): string => (string) $id, $ids));
+    }
+
+    /** @param array<string,mixed> $input */
+    private function description(array $input, string $field): ?string
+    {
+        if (! array_key_exists($field, $input)) {
+            return null;
+        }
+        $value = $input[$field];
+        if (! is_string($value) || mb_strlen($value) > 2000) {
+            throw new InvalidArgumentException('authorization_description_invalid');
+        }
+
+        return $value;
+    }
+
+    /** @param list<string> $capabilityIds */
+    private function replaceCapabilitySet(string $roleId, array $capabilityIds): void
+    {
+        $now = now()->utc()->format('Y-m-d H:i:s.v');
+        DB::table('role_capabilities')->where('role_id', $roleId)->delete();
+        foreach ($capabilityIds as $capabilityId) {
+            DB::table('role_capabilities')->insertOrIgnore([
+                'role_id' => $roleId,
+                'capability_id' => $capabilityId,
+                'effect' => 'allow',
+                'created_at' => $now,
+                'updated_at' => $now,
+                'lock_version' => 1,
+            ]);
+        }
+    }
+
+    /** @param array<string,mixed> $input */
+    /** @return array<string,mixed>|null */
+    private function cloneRole(string $id, int $expectedVersion, string $actorUserId, array $input): ?array
+    {
+        $sourceQuery = DB::table('roles')->where('id', $id);
+        $this->applyActorScope($sourceQuery, 'roles', $actorUserId);
+        $source = $sourceQuery->first();
+        if ($source === null) {
+            return null;
+        }
+        if ((int) $source->lock_version !== $expectedVersion) {
+            throw new InvalidArgumentException('authorization_precondition_failed');
+        }
+        if (! (bool) $source->is_system_role) {
+            throw new InvalidArgumentException('authorization_clone_source_not_system_or_immutable');
+        }
+        $allowedInput = ['code', 'name', 'name_ar', 'name_en', 'description_ar', 'description_en', 'capability_codes'];
+        if (array_diff(array_keys($input), $allowedInput) !== []) {
+            throw new InvalidArgumentException('authorization_payload_invalid');
+        }
+        foreach (['name', 'name_ar', 'name_en', 'description_ar', 'description_en'] as $field) {
+            if (array_key_exists($field, $input) && ! is_string($input[$field])) {
+                throw new InvalidArgumentException('authorization_payload_invalid');
+            }
+        }
+        $capabilityIds = null;
+        if (array_key_exists('capability_codes', $input)) {
+            if (! is_array($input['capability_codes'])) {
+                throw new InvalidArgumentException('authorization_payload_invalid');
+            }
+            $capabilityIds = $this->validatedCapabilityIds(array_values($input['capability_codes']), $actorUserId);
+        }
+        $newId = Str::uuid7()->toString();
+        $now = now()->utc()->format('Y-m-d H:i:s.v');
+        $hasCodeOverride = array_key_exists('code', $input);
+        $code = $hasCodeOverride ? $input['code'] : $this->buildClonedRoleCode((string) $source->code, $newId);
+        if (! is_string($code)) {
+            throw new InvalidArgumentException('Role data is invalid.');
+        }
+        $nameAr = is_string($input['name_ar'] ?? null) ? $input['name_ar'] : (is_string($input['name'] ?? null) ? $input['name'] : (string) $source->name_ar);
+        $nameEn = array_key_exists('name_en', $input) ? (is_string($input['name_en']) ? $input['name_en'] : null) : $source->name_en;
+        $role = Role::define($newId, $hasCodeOverride ? $code : 'clone', $nameAr, $nameEn, 'custom', false)->toArray();
+        $role['code'] = $code;
+        DB::table('roles')->insert([
+            ...$role,
+            'description_ar' => array_key_exists('description_ar', $input) ? $this->description($input, 'description_ar') : $source->description_ar,
+            'description_en' => array_key_exists('description_en', $input) ? $this->description($input, 'description_en') : $source->description_en,
+            'created_at' => $now,
+            'updated_at' => $now,
+            'lock_version' => 1,
+        ]);
+        $capabilityIds ??= DB::table('role_capabilities')->where('role_id', $id)->where('effect', 'allow')->pluck('capability_id')->all();
+        foreach ($capabilityIds as $capabilityId) {
+            DB::table('role_capabilities')->insert([
+                'role_id' => $newId,
+                'capability_id' => $capabilityId,
+                'effect' => 'allow',
+                'created_at' => $now,
+                'updated_at' => $now,
+                'lock_version' => 1,
+            ]);
+        }
+
+        return $this->find('roles', $newId) ?? throw new InvalidArgumentException('authorization_resource_not_found');
+    }
+
+    private function buildClonedRoleCode(string $sourceCode, string $newId): string
+    {
+        $suffix = '-'.substr(hash('sha256', $newId), 0, 8);
+        $prefix = '_clone'.$suffix;
+        $truncatedSourceCode = substr($sourceCode, 0, 96 - strlen($prefix));
+
+        return $prefix.$truncatedSourceCode;
+    }
+
     /** @param array<string,mixed> $input */
     /** @return array<string,mixed> */
     private function role(string $id, array $input, string $now): array
@@ -327,11 +542,18 @@ final class AuthorizationHttpGateway
             (string) ($input['code'] ?? ''),
             (string) ($input['name_ar'] ?? $input['name'] ?? ''),
             isset($input['name_en']) ? (string) $input['name_en'] : null,
-            (string) ($input['role_type'] ?? 'custom'),
-            (bool) ($input['is_system_role'] ?? false),
+            'custom',
+            false,
         )->toArray();
 
-        return [...$role, 'created_at' => $now, 'updated_at' => $now, 'lock_version' => 1];
+        return [
+            ...$role,
+            'description_ar' => $this->description($input, 'description_ar'),
+            'description_en' => $this->description($input, 'description_en'),
+            'created_at' => $now,
+            'updated_at' => $now,
+            'lock_version' => 1,
+        ];
     }
 
     /** @param array<string,mixed> $input */
@@ -355,9 +577,10 @@ final class AuthorizationHttpGateway
     {
         $roleId = (string) ($input['role_id'] ?? '');
         UuidV7::assert($roleId, 'Role capability role id');
-        if (! DB::table('roles')->where('id', $roleId)->exists()) {
+        if (! $this->isVisibleRole($roleId, $principalId)) {
             throw new InvalidArgumentException('authorization_role_not_found');
         }
+        $this->assertMutableRole($roleId);
 
         $capabilityId = null;
         $capabilityCode = null;
@@ -651,7 +874,7 @@ final class AuthorizationHttpGateway
     private function normalisePatch(string $resource, array $patch): array
     {
         $allowed = match ($resource) {
-            'roles' => ['name', 'name_ar', 'name_en', 'role_type', 'status'],
+            'roles' => ['name', 'name_ar', 'name_en', 'description_ar', 'description_en', 'status'],
             'capabilities' => ['action', 'sensitivity', 'status'],
             'role-capabilities' => ['effect'],
             'role-assignments' => ['end_at', 'status'],
@@ -693,6 +916,11 @@ final class AuthorizationHttpGateway
         }
         if (array_key_exists('download_policy', $changes) && ! in_array($changes['download_policy'], ['deny', 'audit', 'allow'], true)) {
             throw new InvalidArgumentException('classification_policy_transfer_invalid');
+        }
+        foreach (['description_ar', 'description_en'] as $field) {
+            if (array_key_exists($field, $changes) && $changes[$field] !== null && (! is_string($changes[$field]) || mb_strlen($changes[$field]) > 2000)) {
+                throw new InvalidArgumentException('authorization_description_invalid');
+            }
         }
         if (array_key_exists('name', $changes)) {
             $changes['name_ar'] = $changes['name'];
