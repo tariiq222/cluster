@@ -45,5 +45,12 @@ final class AuthorizationServiceProvider extends ServiceProvider
         $this->app->bind(AuthorizationIdempotencyKeyLookup::class, DatabaseAuthorizationIdempotencyKeyLookup::class);
         $this->app->bind(ResolveActiveFacilityScopesForUser::class, DatabaseResolveActiveFacilityScopesForUser::class);
         $this->app->bind(RecordSensitiveAccessEvent::class, DatabaseRecordSensitiveAccessEvent::class);
+        $this->app->bind(
+            \Modules\Authorization\Features\Administration\Application\AuthorizationAdminService::class,
+            fn ($app) => new \Modules\Authorization\Features\Administration\Application\AuthorizationAdminService(
+                $app->make(\Modules\Authorization\Infrastructure\Persistence\AuthorizationHttpGateway::class),
+                $app->make(\Shared\Contracts\RecordAuditEvent::class),
+            ),
+        );
     }
 }

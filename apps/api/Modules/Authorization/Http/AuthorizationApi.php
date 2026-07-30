@@ -42,8 +42,11 @@ final class AuthorizationApi
     }
 
     /** @param array<string, mixed> $data */
-    public static function resource(array $data, int $status, string $correlationId, ?int $version = null): JsonResponse
+    public static function resource(array $data, int $status, string $correlationId, ?int $version = null, ?array $allowedActions = null): JsonResponse
     {
+        if ($allowedActions !== null && ! array_key_exists('allowed_actions', $data)) {
+            $data['allowed_actions'] = array_values($allowedActions);
+        }
         $response = response()->json(['data' => $data], $status)->header('X-Correlation-ID', $correlationId);
         if ($version !== null) {
             $response->header('ETag', '"'.$version.'"');
