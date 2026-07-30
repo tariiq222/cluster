@@ -16,6 +16,7 @@ import {
 import type { AuthorizationRoleAssignment } from '../../api/r1'
 import {
   Button,
+  Drawer,
   EmptyState,
   Field,
   InlineError,
@@ -29,6 +30,8 @@ import {
   type AssignmentScopeValue,
 } from './AssignmentScopePicker'
 
+type DestructiveAction = 'revoke' | 'expire'
+
 export type RoleAssignmentsTabProps = {
   locale: Locale
   capabilities: readonly string[]
@@ -36,12 +39,19 @@ export type RoleAssignmentsTabProps = {
 
 type LoadState = 'loading' | 'ready' | 'error'
 
+type PendingDestructive = {
+  action: DestructiveAction
+  assignment: AuthorizationRoleAssignment
+}
+
 const COPY = {
   ar: {
     heading: 'إسنادات الأدوار',
     intro: 'إنشاء وتعديل وإلغاء إسنادات الأدوار ضمن نطاق الإدارة.',
     actor: 'الموظف',
     role: 'الدور',
+    scope: 'النطاق',
+    scopeFallback: 'هدف النطاق',
     endAt: 'تاريخ الانتهاء',
     save: 'حفظ الإسناد',
     revoke: 'إلغاء الإسناد',
@@ -62,12 +72,30 @@ const COPY = {
     editEndAtLabel: 'تاريخ الانتهاء',
     editDrawerHeading: 'تعديل الإسناد',
     editScopeHeading: 'نطاق الإسناد',
+    changeScope: 'تغيير النطاق',
+    keepScope: 'الاحتفاظ بالنطاق الحالي',
+    currentScopeLabel: 'النطاق المحفوظ الحالي',
+    currentScopeOfCluster: 'نطاق التجمع المحفوظ الحالي',
+    currentScopeOfFacility: 'نطاق المنشأة المحفوظ الحالي',
+    currentScopeOfUnit: 'نطاق الوحدة المحفوظ الحالي',
+    currentScopeOfRecordSet: 'نطاق مجموعة السجلات المحفوظ الحالي',
+    scopeLoading: 'جارٍ تحميل تسمية النطاق…',
+    scopeIdAria: 'المعرّف التقني للنطاق',
+    revokeDialogTitle: 'تأكيد إلغاء الإسناد',
+    revokeDialogBody: 'سيتم إلغاء هذا الإسناد نهائيًا. هل تريد المتابعة؟',
+    expireDialogTitle: 'تأكيد إنهاء الإسناد',
+    expireDialogBody: 'سيتم إنهاء هذا الإسناد. هل تريد المتابعة؟',
+    dialogSubject: 'سيُطبَّق الإجراء على:',
+    confirm: 'تأكيد',
+    keep: 'إبقاء',
   },
   en: {
     heading: 'Role assignments',
     intro: 'Create, update, revoke, or expire role assignments inside your administrative scope.',
     actor: 'Account',
     role: 'Role',
+    scope: 'Scope',
+    scopeFallback: 'Scope target',
     endAt: 'End at',
     save: 'Save assignment',
     revoke: 'Revoke assignment',
@@ -88,10 +116,59 @@ const COPY = {
     editEndAtLabel: 'End at',
     editDrawerHeading: 'Edit assignment',
     editScopeHeading: 'Assignment scope',
+    changeScope: 'Change scope',
+    keepScope: 'Keep current scope',
+    currentScopeLabel: 'Current saved scope',
+    currentScopeOfCluster: 'Current saved cluster scope',
+    currentScopeOfFacility: 'Current saved facility scope',
+    currentScopeOfUnit: 'Current saved unit scope',
+    currentScopeOfRecordSet: 'Current saved record-set scope',
+    scopeLoading: 'Loading scope label…',
+    scopeIdAria: 'Scope technical identifier',
+    revokeDialogTitle: 'Confirm revoke assignment',
+    revokeDialogBody: 'This will revoke the assignment permanently. Do you want to continue?',
+    expireDialogTitle: 'Confirm expire assignment',
+    expireDialogBody: 'This will expire the assignment. Do you want to continue?',
+    dialogSubject: 'This will apply to:',
+    confirm: 'Confirm',
+    keep: 'Keep',
   },
 } as const satisfies Record<Locale, Record<string, string>>
 
 type ScopeDraft = AssignmentScopeValue | null
+
+type ScopeType = 'cluster' | 'facility' | 'unit' | 'record_set'
+
+type LocalizedScopeLabels = {
+  currentScopeOfCluster: string
+  currentScopeOfFacility: string
+  currentScopeOfUnit: string
+  currentScopeOfRecordSet: string
+}
+
+/**
+ * Map a saved `scope_type` to its localized "current saved scope" copy without
+ * indexing `labels` with a dynamic string (which would trip TS7053 and let
+ * `scopeFallback` slip in as a real scope name). The exhaustive `switch` keeps
+ * the helper in sync with `LocalizedScopeLabels` and the picker contract.
+ */
+function localizedCurrentScopeLabel(
+  labels: LocalizedScopeLabels & { scopeFallback: string },
+  scopeType: ScopeType | undefined,
+): string {
+  switch (scopeType) {
+    case 'cluster':
+      return labels.currentScopeOfCluster
+    case 'facility':
+      return labels.currentScopeOfFacility
+    case 'unit':
+      return labels.currentScopeOfUnit
+    case 'record_set':
+      return labels.currentScopeOfRecordSet
+    default:
+      return labels.scopeFallback
+  }
+}
 
 /**
  * Read listings of role assignments with same-row destructive controls, plus
@@ -120,19 +197,26 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
   const [editScope, setEditScope] = useState<ScopeDraft>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
+  const [pendingDestructive, setPendingDestructive] = useState<PendingDestructive | null>(null)
 
   const load = useCallback(async () => {
     setState('loading')
     setError(null)
     try {
-      const [items, roleRows, accountRows] = await Promise.all([listRoleAssignments(token), listRoles(token), listUserAccounts(token)])
-      setAssignments(items); setRoles(roleRows); setAccounts(accountRows.items)
+      const [items, roleRows, accountRows] = await Promise.all([
+        listRoleAssignments(token),
+        listRoles(token),
+        listUserAccounts(token),
+      ])
+      setAssignments(items)
+      setRoles(roleRows)
+      setAccounts(accountRows.items)
       setState('ready')
     } catch (caught) {
       setState('error')
-      setError(caught instanceof ApiError ? caught.message : 'load_failed')
+      setError(caught instanceof ApiError ? caught.message : labels.error)
     }
-  }, [token])
+  }, [token, labels.error])
 
   useEffect(() => {
     void load()
@@ -195,12 +279,16 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
     }
   }
 
-  function startEdit(assignment: AuthorizationRoleAssignment) {
+  function startEdit(assignment: AuthorizationRoleAssignment, options: { changeScope?: boolean } = {}) {
     setEditingId(assignment.id)
     setEditingEndAt(assignment.end_at ? toLocalInputValue(assignment.end_at) : '')
     const scopeType = assignment.scope_type
     const scopeId = assignment.scope_id
-    setEditScope(scopeType && scopeId ? { scope_type: scopeType, scope_id: scopeId } : null)
+    if (options.changeScope) {
+      setEditScope(null)
+    } else {
+      setEditScope(scopeType && scopeId ? { scope_type: scopeType, scope_id: scopeId } : null)
+    }
     setMutationError(null)
   }
 
@@ -208,6 +296,15 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
     setEditingId(null)
     setEditingEndAt('')
     setEditScope(null)
+  }
+
+  function openDestructive(action: DestructiveAction, assignment: AuthorizationRoleAssignment) {
+    setPendingDestructive({ action, assignment })
+    setMutationError(null)
+  }
+
+  function closeDestructive() {
+    setPendingDestructive(null)
   }
 
   async function mutate(assignment: AuthorizationRoleAssignment, action: 'update' | 'revoke' | 'expire') {
@@ -235,6 +332,7 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
       }
       await load()
       cancelEdit()
+      setPendingDestructive(null)
     } catch (caught) {
       setMutationError(caught instanceof ApiError ? caught.message : labels[action === 'update' ? 'updateError' : action === 'revoke' ? 'revokeError' : 'expireError'])
     } finally {
@@ -318,26 +416,25 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
               const canEdit =
                 canMutateAdminResource('role-assignments', 'edit', capabilities, actions) && typeof lockVersion === 'number'
               const editing = editingId === assignment.id
+              const role = roles.find((role) => role.id === assignment.role_id)
+              const account = accounts.find((account) => account.id === assignment.subject_user_id)
+              const rowScopeLabel = localizedCurrentScopeLabel(labels, assignment.scope_type)
+              const roleLabel =
+                locale === 'ar'
+                  ? (role?.name_ar ?? role?.name_en ?? labels.role)
+                  : (role?.name_en ?? role?.name_ar ?? labels.role)
+              const actorLabel =
+                locale === 'ar'
+                  ? (account?.display_name_ar ?? account?.display_name_en ?? labels.actor)
+                  : (account?.display_name_en ?? account?.display_name_ar ?? labels.actor)
               return (
                 <li key={assignment.id} className="assignment-row">
                   <header className="assignment-row-header">
-                    <span>
-                      {locale === 'ar'
-                        ? (roles.find((role) => role.id === assignment.role_id)?.name_ar
-                          ?? roles.find((role) => role.id === assignment.role_id)?.name_en
-                          ?? labels.role)
-                        : (roles.find((role) => role.id === assignment.role_id)?.name_en
-                          ?? roles.find((role) => role.id === assignment.role_id)?.name_ar
-                          ?? labels.role)}
-                    </span>
-                    <span>
-                      {locale === 'ar'
-                        ? (accounts.find((account) => account.id === assignment.subject_user_id)?.display_name_ar
-                          ?? accounts.find((account) => account.id === assignment.subject_user_id)?.display_name_en
-                          ?? labels.actor)
-                        : (accounts.find((account) => account.id === assignment.subject_user_id)?.display_name_en
-                          ?? accounts.find((account) => account.id === assignment.subject_user_id)?.display_name_ar
-                          ?? labels.actor)}
+                    <span>{roleLabel}</span>
+                    <span>{actorLabel}</span>
+                    <span data-testid="assignment-row-scope">
+                      <span className="visually-hidden">{labels.scope}: </span>
+                      {rowScopeLabel}
                     </span>
                     <span>{assignment.effective_status}</span>
                   </header>
@@ -347,6 +444,17 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
                       aria-label={labels.editDrawerHeading}
                       className="assignment-edit-drawer"
                     >
+                      <p className="assignment-edit-summary">
+                        <strong>{labels.role}:</strong> {roleLabel} ·{' '}
+                        <strong>{labels.actor}:</strong> {actorLabel}
+                      </p>
+                      <p
+                        className="assignment-edit-current-scope"
+                        data-testid="assignment-current-scope"
+                      >
+                        <strong>{labels.currentScopeLabel}:</strong>{' '}
+                        {localizedCurrentScopeLabel(labels, assignment.scope_type)}
+                      </p>
                       <fieldset className="assignment-edit-end-at">
                         <legend>{labels.editEndAtLabel}</legend>
                         <Field id={`assignment-end-${assignment.id}`} label={labels.editEndAtLabel}>
@@ -383,6 +491,13 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
                         <Button
                           variant="quiet"
                           disabled={pendingId === assignment.id}
+                          onClick={() => setEditScope(null)}
+                        >
+                          {labels.changeScope}
+                        </Button>
+                        <Button
+                          variant="quiet"
+                          disabled={pendingId === assignment.id}
                           onClick={cancelEdit}
                         >
                           {labels.cancel}
@@ -405,7 +520,7 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
                         <Button
                           variant="quiet"
                           disabled={pendingId === assignment.id}
-                          onClick={() => void mutate(assignment, 'revoke')}
+                          onClick={() => openDestructive('revoke', assignment)}
                         >
                           {labels.revoke}
                         </Button>
@@ -414,7 +529,7 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
                         <Button
                           variant="quiet"
                           disabled={pendingId === assignment.id}
-                          onClick={() => void mutate(assignment, 'expire')}
+                          onClick={() => openDestructive('expire', assignment)}
                         >
                           {labels.expire}
                         </Button>
@@ -427,7 +542,91 @@ export function RoleAssignmentsTab({ locale, capabilities }: RoleAssignmentsTabP
           </ul>
         )}
       </Panel>
+      {pendingDestructive ? (
+        <DestructiveDialog
+          locale={locale}
+          pending={pendingDestructive}
+          labels={labels}
+          accountLabel={
+            accounts.find((a) => a.id === pendingDestructive.assignment.subject_user_id)
+              ? (locale === 'ar'
+                  ? (accounts.find((a) => a.id === pendingDestructive.assignment.subject_user_id)?.display_name_ar
+                    ?? accounts.find((a) => a.id === pendingDestructive.assignment.subject_user_id)?.display_name_en
+                    ?? labels.actor)
+                  : (accounts.find((a) => a.id === pendingDestructive.assignment.subject_user_id)?.display_name_en
+                    ?? accounts.find((a) => a.id === pendingDestructive.assignment.subject_user_id)?.display_name_ar
+                    ?? labels.actor))
+              : labels.actor
+          }
+          roleLabel={
+            roles.find((r) => r.id === pendingDestructive.assignment.role_id)
+              ? (locale === 'ar'
+                  ? (roles.find((r) => r.id === pendingDestructive.assignment.role_id)?.name_ar
+                    ?? roles.find((r) => r.id === pendingDestructive.assignment.role_id)?.name_en
+                    ?? labels.role)
+                  : (roles.find((r) => r.id === pendingDestructive.assignment.role_id)?.name_en
+                    ?? roles.find((r) => r.id === pendingDestructive.assignment.role_id)?.name_ar
+                    ?? labels.role))
+              : labels.role
+          }
+          scopeLabel={localizedCurrentScopeLabel(labels, pendingDestructive.assignment.scope_type)}
+          busy={pendingId === pendingDestructive.assignment.id}
+          onCancel={closeDestructive}
+          onConfirm={() => void mutate(pendingDestructive.assignment, pendingDestructive.action)}
+        />
+      ) : null}
     </div>
+  )
+}
+
+function DestructiveDialog({
+  locale,
+  pending,
+  labels,
+  accountLabel,
+  roleLabel,
+  scopeLabel,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  locale: Locale
+  pending: PendingDestructive
+  labels: typeof COPY['ar'] | typeof COPY['en']
+  accountLabel: string
+  roleLabel: string
+  scopeLabel: string
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const isRevoke = pending.action === 'revoke'
+  return (
+    <Drawer
+      open
+      onClose={onCancel}
+      title={isRevoke ? labels.revokeDialogTitle : labels.expireDialogTitle}
+      ariaLabelClose={labels.cancel}
+    >
+      <p>{isRevoke ? labels.revokeDialogBody : labels.expireDialogBody}</p>
+      <p>
+        <strong>{labels.dialogSubject}</strong>
+      </p>
+      <ul>
+        <li><strong>{labels.role}:</strong> {roleLabel}</li>
+        <li><strong>{labels.actor}:</strong> {accountLabel}</li>
+        <li><strong>{labels.scope}:</strong> {scopeLabel}</li>
+      </ul>
+      <div className="dialog-actions">
+        <Button variant="quiet" disabled={busy} onClick={onCancel}>
+          {labels.keep}
+        </Button>
+        <Button variant="primary" disabled={busy} onClick={onConfirm}>
+          {busy ? '…' : labels.confirm}
+        </Button>
+      </div>
+      <span dir={directionForLocale(locale)} hidden />
+    </Drawer>
   )
 }
 
