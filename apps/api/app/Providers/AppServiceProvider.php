@@ -75,12 +75,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function documentsProduction(): bool
     {
-        $arguments = $_SERVER['argv'] ?? [];
-
-        return app()->environment('production') && ! app()->runningUnitTests()
-            && ! in_array('test', $arguments, true) && ! in_array('config:clear', $arguments, true)
-            && ! in_array('package:discover', $arguments, true) && ! str_contains(implode(' ', $arguments), 'phpstan')
-            && ! str_contains(implode(' ', $arguments), 'phpunit');
+        return app()->environment('production') && config('documents.runtime.production_enabled') === true;
     }
 
     private function authorizationProduction(): bool

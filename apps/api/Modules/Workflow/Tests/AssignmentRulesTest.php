@@ -5,6 +5,7 @@ namespace Modules\Workflow\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Modules\Identity\Contracts\ResolveUserForPerson;
+use Modules\Organization\Contracts\ResolveAssignmentSupervisor;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use Modules\Workflow\Contracts\RuleContext;
 use Modules\Workflow\Contracts\RuleSpec;
@@ -85,7 +86,7 @@ final class AssignmentRulesTest extends TestCase
             }
         };
 
-        $rules = AssignmentRules::supervisor_of_initiator($scope, $users);
+        $rules = AssignmentRules::supervisor_of_initiator($scope, $users, $this->emptySupervisor());
 
         $userId = $rules->resolve(
             new RuleContext(['initiator_person_id' => self::INITIATOR_PERSON]),
@@ -115,7 +116,7 @@ final class AssignmentRulesTest extends TestCase
             }
         };
 
-        $userId = AssignmentRules::supervisor_of_initiator($this->fixedScope(), $users)
+        $userId = AssignmentRules::supervisor_of_initiator($this->fixedScope(), $users, $this->realSupervisor())
             ->resolve(new RuleContext(['initiator_person_id' => self::INITIATOR_PERSON]), new RuleSpec('supervisor_of_initiator'));
 
         $this->assertSame(self::MANAGER_USER, $userId);
@@ -126,7 +127,7 @@ final class AssignmentRulesTest extends TestCase
         $this->seedOrgTreeWithManager();
         DB::table('positions')->where('id', self::SUBORDINATE_POSITION)->update(['manager_position_id' => null]);
 
-        $userId = AssignmentRules::supervisor_of_initiator($this->fixedScope(), $this->anyUser())
+        $userId = AssignmentRules::supervisor_of_initiator($this->fixedScope(), $this->anyUser(), $this->realSupervisor())
             ->resolve(new RuleContext(['initiator_person_id' => self::INITIATOR_PERSON]), new RuleSpec('supervisor_of_initiator'));
 
         $this->assertNull($userId);
@@ -137,7 +138,7 @@ final class AssignmentRulesTest extends TestCase
         $this->seedOrgTreeWithManager();
         DB::table('assignments')->where('position_id', self::MANAGER_POSITION)->delete();
 
-        $userId = AssignmentRules::supervisor_of_initiator($this->fixedScope(), $this->anyUser())
+        $userId = AssignmentRules::supervisor_of_initiator($this->fixedScope(), $this->anyUser(), $this->realSupervisor())
             ->resolve(new RuleContext(['initiator_person_id' => self::INITIATOR_PERSON]), new RuleSpec('supervisor_of_initiator'));
 
         $this->assertNull($userId);
@@ -148,10 +149,26 @@ final class AssignmentRulesTest extends TestCase
         $this->seedOrgTreeWithManager();
         DB::table('assignments')->where('position_id', self::MANAGER_POSITION)->update(['end_at' => now()]);
 
-        $userId = AssignmentRules::supervisor_of_initiator($this->fixedScope(), $this->anyUser())
+        $userId = AssignmentRules::supervisor_of_initiator($this->fixedScope(), $this->anyUser(), $this->realSupervisor())
             ->resolve(new RuleContext(['initiator_person_id' => self::INITIATOR_PERSON]), new RuleSpec('supervisor_of_initiator'));
 
         $this->assertNull($userId);
+    }
+
+    private function emptySupervisor(): ResolveAssignmentSupervisor
+    {
+        return new class implements ResolveAssignmentSupervisor
+        {
+            public function supervisorPersonId(string $personId, string $organizationUnitId): ?string
+            {
+                return null;
+            }
+        };
+    }
+
+    private function realSupervisor(): ResolveAssignmentSupervisor
+    {
+        return $this->app->make(ResolveAssignmentSupervisor::class);
     }
 
     private function fixedScope(): ResolvePersonOrganizationScope

@@ -344,6 +344,79 @@ class RbacAbacDecideAccessTest extends TestCase
         $this->assertSame(['active_role_assignment_not_found'], $decision->reasonCodes);
     }
 
+    public function test_out_of_scope_role_grant_does_not_cancel_a_matching_delegation_grant(): void
+    {
+        // The user holds a role grant for work_record.read on unit A while
+        // the record sits in unit B, AND a delegation grant for the same
+        // capability that covers unit B. The delegation must win: the
+        // non-matching role grant is a no-op, not a cancellation.
+        $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A);
+        // seedAllowingDelegation would re-insert CAPABILITY_ID; insert the
+        // delegation rows directly so the capability row stays unique.
+        DB::table('delegations')->insert([
+            'id' => self::DELEGATION_ID,
+            'delegator_user_id' => self::USER_ID,
+            'delegate_user_id' => self::DELEGATE_USER_ID,
+            'module_code' => 'work_record',
+            'scope_id' => self::ORGANIZATION_UNIT_B,
+            'scope_type' => 'unit',
+            'start_at' => now()->subMinute(),
+            'end_at' => now()->addMinute(),
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('delegation_capabilities')->insert([
+            'delegation_id' => self::DELEGATION_ID,
+            'capability_code' => 'work_record.read',
+        ]);
+
+        $decision = $this->decider()->decide(
+            ['user_id' => self::DELEGATE_USER_ID],
+            'work_record.read',
+            $this->facts('internal', self::ORGANIZATION_UNIT_B),
+        );
+
+        $this->assertTrue($decision->isAllowed());
+        $this->assertSame('delegation_capability_allowed', $decision->reasonCodes[0]);
+    }
+
+    public function test_out_of_scope_role_grant_does_not_cancel_a_supervisory_relationship_grant(): void
+    {
+        // Same shadowing rule for the supervisory source: a role grant that
+        // does not cover the record's unit must fall through to the active
+        // supervisory relationship instead of denying.
+        $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A);
+        $this->seedSupervisoryRelationship();
+
+        $decision = $this->decider()->decide(
+            ['user_id' => self::USER_ID, 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A]],
+            'work_record.read',
+            $this->facts('internal', self::ORGANIZATION_UNIT_B),
+        );
+
+        $this->assertTrue($decision->isAllowed());
+        $this->assertSame('supervisory_relationship_capability_allowed', $decision->reasonCodes[0]);
+    }
+
+    public function test_supervisory_relationship_path_honors_classification_export_policy(): void
+    {
+        // The classification policy governs every grant source: a
+        // relationship grant must not bypass an export deny.
+        $this->seedClassificationPolicy('confidential', 'work_record.read', exportPolicy: 'deny');
+        $this->seedSupervisoryRelationship(capability: 'reporting.export');
+        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'reporting.export');
+
+        $decision = $this->decider()->decide(
+            ['user_id' => self::USER_ID, 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A]],
+            'reporting.export',
+            $this->facts('confidential', self::ORGANIZATION_UNIT_B),
+        );
+
+        $this->assertSame('deny', $decision->decision);
+        $this->assertSame(['classification_export_denied'], $decision->reasonCodes);
+    }
+
     public function test_capability_without_sufficient_classification_fails_closed(): void
     {
         $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, sensitivity: 'normal');

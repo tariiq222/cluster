@@ -2,8 +2,8 @@
 
 namespace Modules\Workflow\Domain;
 
-use Illuminate\Support\Facades\DB;
 use Modules\Identity\Contracts\ResolveUserForPerson;
+use Modules\Organization\Contracts\ResolveAssignmentSupervisor;
 use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use Modules\Workflow\Contracts\ResolveStepAssignee;
 use Modules\Workflow\Contracts\RuleContext;
@@ -31,11 +31,12 @@ final class AssignmentRules implements ResolveStepAssignee
         private readonly ?ResolveUserForPerson $user = null,
         private readonly ?ResolveUserForAssignmentStep $steps = null,
         private readonly ?ListUsersInRole $roles = null,
+        private readonly ?ResolveAssignmentSupervisor $supervisor = null,
     ) {}
 
-    public static function supervisor_of_initiator(ResolvePersonOrganizationScope $scope, ResolveUserForPerson $user): static
+    public static function supervisor_of_initiator(ResolvePersonOrganizationScope $scope, ResolveUserForPerson $user, ResolveAssignmentSupervisor $supervisor): static
     {
-        return new self($scope, $user);
+        return new self($scope, $user, null, null, $supervisor);
     }
 
     public static function supervisor_of_step(int $stepIndex, ResolveUserForAssignmentStep $steps, ResolveUserForPerson $user): static
@@ -71,23 +72,10 @@ final class AssignmentRules implements ResolveStepAssignee
         }
         // The supervisor is the holder of the manager position of the
         // initiator's own position in their primary unit — not merely any
-        // managed position in the unit. Ordering by is_primary keeps the
-        // pick deterministic when several active rows qualify.
-        $managerPositionId = DB::table('assignments as assignment')
-            ->join('positions as position', 'position.id', '=', 'assignment.position_id')
-            ->where('assignment.person_id', $personId)
-            ->where('position.organization_unit_id', $unitId)
-            ->whereNull('assignment.end_at')
-            ->orderByDesc('assignment.is_primary')
-            ->value('position.manager_position_id');
-        if (! is_string($managerPositionId) || $managerPositionId === '') {
-            return null;
-        }
-        $managerPersonId = DB::table('assignments')
-            ->where('position_id', $managerPositionId)
-            ->whereNull('end_at')
-            ->orderByDesc('is_primary')
-            ->value('person_id');
+        // managed position in the unit. Resolution runs through the
+        // Organization-owned contract so Workflow never reads
+        // Organization-owned tables directly.
+        $managerPersonId = $this->supervisor?->supervisorPersonId($personId, $unitId);
 
         return is_string($managerPersonId) ? $this->user->forPerson($managerPersonId) : null;
     }

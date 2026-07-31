@@ -7,6 +7,7 @@ namespace Tests\Feature\Security;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Modules\Identity\Contracts\PrincipalContext;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
@@ -89,6 +90,10 @@ final class RouteSecurityMatrixTest extends TestCase
 
     private string $identityPassword = '';
 
+    private string $temporaryAssignmentPersonId = '';
+
+    private string $temporaryAssignmentUnitId = '';
+
     private string $cookie = '';
 
     private string $csrf = '';
@@ -100,6 +105,8 @@ final class RouteSecurityMatrixTest extends TestCase
         $fixture = json_decode(trim(Artisan::output()), true, 8, JSON_THROW_ON_ERROR);
         $this->identityUsername = (string) $fixture['identity_username'];
         $this->identityPassword = (string) $fixture['identity_password'];
+        $this->temporaryAssignmentPersonId = (string) $fixture['temporary_assignment_person_id'];
+        $this->temporaryAssignmentUnitId = (string) $fixture['temporary_assignment_unit_id'];
 
         $this->withServerVariables([
             'REMOTE_ADDR' => '127.0.0.1',
@@ -143,11 +150,20 @@ final class RouteSecurityMatrixTest extends TestCase
     public function test_403_without_capability(string $label): void
     {
         $row = $this->rowFor($label);
-        // The revoke row's deny path requires a pre-existing temporary
-        // assignment row owned by the focused adapter test; cite it as the
-        // owning contract and skip the matrix-level 403 assertion.
+        // The revoke endpoint hides the existence of denied assignments:
+        // with the row present and the decider denying, the controller must
+        // answer 404 (not-found) so the id space stays unenumerable, and the
+        // row must remain untouched. Other rows surface the denial as 403.
         if ($row['label'] === 'organization.temporary_assignment.revoke') {
-            self::markTestIncomplete(sprintf('Authorization denial is owned by %s for finding %s.', $row['existing_test'], $row['finding']));
+            $assignmentId = $this->seedTemporaryAssignment();
+            $this->app->bind(OrganizationDecideAccess::class, fn (): OrganizationDecideAccess => new MatrixOrganizationDenyingDecider);
+            $headers = $this->mutationHeaders($row, includeCsrf: true, includeIdempotency: true, includeIfMatch: true);
+            $response = $this->callMethodWithCookie($row['method'], $row['path'], ['temporaryAssignmentId' => $assignmentId], $row['body'], $headers);
+            $response->assertStatus(404);
+            $response->assertHeader('Content-Type', 'application/problem+json');
+            $this->assertSame('pending', DB::table('temporary_assignments')->where('id', $assignmentId)->value('state'));
+
+            return;
         }
         $this->app->bind(OrganizationDecideAccess::class, fn (): OrganizationDecideAccess => new MatrixOrganizationDenyingDecider);
         $headers = $this->mutationHeaders($row, includeCsrf: true, includeIdempotency: true, includeIfMatch: true);
@@ -187,7 +203,19 @@ final class RouteSecurityMatrixTest extends TestCase
         if ($row['requires_if_match'] !== true) {
             self::markTestSkipped(sprintf('Row %s does not require If-Match (finding %s).', $row['label'], $row['finding']));
         }
-        self::markTestIncomplete(sprintf('Stale If-Match is owned by %s for finding %s.', $row['existing_test'], $row['finding']));
+        $this->app->bind(OrganizationDecideAccess::class, fn (): OrganizationDecideAccess => new MatrixOrganizationAllowingDecider);
+        $headers = $this->mutationHeaders($row, includeCsrf: true, includeIdempotency: true, includeIfMatch: true);
+        // The seeded row carries lock_version 1 while the matrix sends
+        // If-Match "9999", so the CAS must answer 412 and leave the row
+        // unchanged. The unit reorder row needs no seeding: its cluster
+        // version can never match the matrix If-Match either.
+        $pathParameters = $row['path_parameters'];
+        if ($row['label'] === 'organization.temporary_assignment.revoke') {
+            $pathParameters['temporaryAssignmentId'] = $this->seedTemporaryAssignment();
+        }
+        $response = $this->callMethodWithCookie($row['method'], $row['path'], $pathParameters, $row['body'], $headers);
+        $response->assertStatus(412);
+        $response->assertHeader('Content-Type', 'application/problem+json');
     }
 
     /**
@@ -293,6 +321,26 @@ final class RouteSecurityMatrixTest extends TestCase
         }
 
         return $resolved;
+    }
+
+    private function seedTemporaryAssignment(): string
+    {
+        $id = '0197f0e0-0000-7000-8000-000000000999';
+        DB::table('temporary_assignments')->insertOrIgnore([
+            'id' => $id,
+            'person_id' => $this->temporaryAssignmentPersonId,
+            'organization_unit_id' => $this->temporaryAssignmentUnitId,
+            'start_at' => now()->subDay()->toDateTimeString(),
+            'end_at' => now()->addDay()->toDateTimeString(),
+            'state' => 'pending',
+            'reason' => 'route-security-matrix',
+            'approved_by_user_id' => self::USER_ID,
+            'lock_version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
     }
 }
 

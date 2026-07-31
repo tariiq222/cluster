@@ -137,6 +137,46 @@ final class TasksHttpControllerTest extends TestCase
         $this->assertSame('Renamed', DB::table('tasks')->where('id', $taskId)->value('title'));
     }
 
+    public function test_update_rejects_edits_to_terminal_states_even_for_the_creator(): void
+    {
+        foreach (['completed', 'cancelled'] as $terminal) {
+            $taskId = $this->seedTask(self::USER_A, $terminal);
+
+            $response = $this->withToken($this->token)->patchJson('/api/v1/tasks/'.$taskId, ['title' => 'X'], [
+                'X-Correlation-ID' => self::CORRELATION,
+                'If-Match' => '"1"',
+            ]);
+
+            $response->assertStatus(409)
+                ->assertHeader('Content-Type', 'application/problem+json')
+                ->assertJsonPath('type', 'https://cluster.example/problems/task-terminal-state');
+            $this->assertSame('Seeded', DB::table('tasks')->where('id', $taskId)->value('title'));
+        }
+    }
+
+    public function test_update_returns_404_for_unrelated_users_instead_of_revealing_existence(): void
+    {
+        $taskId = $this->seedTask(self::USER_A, 'open', self::USER_A);
+
+        $tokenB = (string) $this->postJson('/api/v1/auth/login', [
+            'username' => 'fixture-account-b',
+            'password' => 'fixture-password-b',
+        ], ['X-Correlation-ID' => self::CORRELATION])->assertOk()->json('data.access_token');
+
+        // Strip B's role assignments so B is neither related to the task nor
+        // a manager: the probe must answer 404 and never reveal the task id.
+        DB::table('role_assignments')->where('user_id', self::USER_B)->delete();
+
+        $response = $this->withToken($tokenB)->patchJson('/api/v1/tasks/'.$taskId, ['title' => 'X'], [
+            'X-Correlation-ID' => self::CORRELATION,
+            'If-Match' => '"1"',
+        ]);
+
+        $response->assertNotFound()
+            ->assertJsonPath('type', 'https://cluster.example/problems/resource-not-found');
+        $this->assertSame('Seeded', DB::table('tasks')->where('id', $taskId)->value('title'));
+    }
+
     public function test_add_participant_and_add_comment_via_engagement(): void
     {
         $taskId = $this->seedTask(self::USER_A);

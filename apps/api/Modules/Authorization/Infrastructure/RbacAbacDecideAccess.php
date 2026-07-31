@@ -176,9 +176,15 @@ final class RbacAbacDecideAccess implements DecideAccess
 
         $classificationPolicy = $this->activeClassificationPolicy($facts->classification);
 
+        // Evaluate every grant source and fall through: a role grant that
+        // does not match scope/classification must not cancel a matching
+        // delegation or supervisory grant for the same capability. Only
+        // when no source allows is the first source-specific deny returned.
+        $firstDeny = null;
+
         $activeGrants = $this->activeGrants($userId, $capability);
         if ($activeGrants !== []) {
-            return $this->grantOutcome(
+            $outcome = $this->grantOutcome(
                 $activeGrants,
                 'role_capability_allowed',
                 $capability,
@@ -186,11 +192,15 @@ final class RbacAbacDecideAccess implements DecideAccess
                 $recordClassification,
                 $classificationPolicy,
             );
+            if ($outcome['decision'] === 'allow') {
+                return $outcome;
+            }
+            $firstDeny = $outcome;
         }
 
         $activeDelegationGrants = $this->activeDelegationGrants($userId, $capability);
         if ($activeDelegationGrants !== []) {
-            return $this->grantOutcome(
+            $outcome = $this->grantOutcome(
                 $activeDelegationGrants,
                 'delegation_capability_allowed',
                 $capability,
@@ -198,11 +208,22 @@ final class RbacAbacDecideAccess implements DecideAccess
                 $recordClassification,
                 $classificationPolicy,
             );
+            if ($outcome['decision'] === 'allow') {
+                return $outcome;
+            }
+            $firstDeny ??= $outcome;
         }
 
         $supervisoryRelationshipOutcome = $this->supervisoryRelationshipOutcome($actor, $capability, $facts);
         if ($supervisoryRelationshipOutcome !== null) {
-            return $supervisoryRelationshipOutcome;
+            if ($supervisoryRelationshipOutcome['decision'] === 'allow') {
+                return $supervisoryRelationshipOutcome;
+            }
+            $firstDeny ??= $supervisoryRelationshipOutcome;
+        }
+
+        if ($firstDeny !== null) {
+            return $firstDeny;
         }
 
         if ($this->hasExpiredGrant($userId, $capability)) {
@@ -329,6 +350,14 @@ final class RbacAbacDecideAccess implements DecideAccess
         ));
         if ($permittedRelationships === []) {
             return $this->denyOutcome(['supervisory_relationship_read_only_restricted']);
+        }
+
+        // The classification policy governs every grant source: an export or
+        // download capability that the active policy denies must not be
+        // allowed through a supervisory relationship either.
+        $transferDeny = $this->policyTransferDeny($capability, $this->activeClassificationPolicy($facts->classification));
+        if ($transferDeny !== null) {
+            return $this->denyOutcome([$transferDeny]);
         }
 
         return [

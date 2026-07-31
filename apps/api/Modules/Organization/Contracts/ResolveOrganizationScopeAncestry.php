@@ -14,4 +14,13 @@ interface ResolveOrganizationScopeAncestry
      *                                                                                 Null when the reference does not resolve.
      */
     public function ancestry(string $scopeType, string $scopeId): ?array;
+
+    /**
+     * Resolves the owning cluster for a batch of facility ids in one
+     * Organization-owned read. Facilities that do not resolve are omitted.
+     *
+     * @param  list<string>  $facilityIds
+     * @return array<string, string|null>
+     */
+    public function facilityClusterIds(array $facilityIds): array;
 }

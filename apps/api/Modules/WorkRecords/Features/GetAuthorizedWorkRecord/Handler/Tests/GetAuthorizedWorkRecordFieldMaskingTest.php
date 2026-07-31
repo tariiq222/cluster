@@ -171,4 +171,9 @@ final class SingleAncestry implements ResolveOrganizationScopeAncestry
     {
         return ['cluster_id' => $this->clusterId, 'facility_id' => $this->facilityId, 'unit_id' => null];
     }
+
+    public function facilityClusterIds(array $facilityIds): array
+    {
+        return array_fill_keys($facilityIds, $this->clusterId);
+    }
 }

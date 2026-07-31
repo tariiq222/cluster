@@ -219,9 +219,32 @@ final class TaskController
             return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
         }
 
-        $task = $this->store->find($taskId);
+        $task = $this->store->findVisible($taskId, $p['user_id']);
         if ($task === null) {
-            return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
+            // Unrelated users must not learn whether the task exists. A
+            // manager holding tasks.assign may still edit it, so probe the
+            // capability gate before answering 404.
+            $probe = $this->store->find($taskId);
+            if ($probe === null) {
+                return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
+            }
+            if (! $this->access->decide([
+                'user_id' => $p['user_id'],
+                'facility_id' => $p['facility_id'] ?? null,
+                'organization_unit_ids' => array_filter([$p['facility_id'] ?? null]),
+                'correlation_id' => $c,
+            ], 'tasks.assign', $this->policy->factsFor($probe, $this->store->participantIds($taskId)))->isAllowed()) {
+                return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
+            }
+            $task = $probe;
+        }
+
+        // Terminal states are immutable: completed/cancelled tasks are a
+        // closed record. Only the transition endpoint may move them, and it
+        // refuses terminal-source transitions, so edits must be rejected here
+        // regardless of the caller's role.
+        if (in_array((string) $task->status, ['completed', 'cancelled'], true)) {
+            return $this->problem(409, 'task-terminal-state', 'The task is completed or cancelled and cannot be edited.', $c);
         }
 
         $expected = $this->versionFromMatch($request);

@@ -2,8 +2,8 @@
 
 namespace Modules\Identity\Features\Sessions\Http;
 
-use Illuminate\Support\Facades\DB;
 use Modules\Identity\Contracts\PrincipalContext;
+use Modules\Organization\Contracts\ListOrganizationScopeTargets;
 
 /**
  * Builds the contracted ScopeSelection payload from a trusted PrincipalContext.
@@ -13,17 +13,17 @@ use Modules\Identity\Contracts\PrincipalContext;
 trait ResolvesScopeSelection
 {
     /** @return array{available_scopes: list<array{scope_type: string, scope_id: string, label: string}>, effective_scope: ?array{scope_type: string, scope_id: string, label: string}} */
-    private function scopeSelectionFor(PrincipalContext $context): array
+    private function scopeSelectionFor(PrincipalContext $context, ListOrganizationScopeTargets $targets): array
     {
         $available = [];
         foreach ($context->clusterIds as $id) {
-            $available[] = ['scope_type' => 'cluster', 'scope_id' => $id, 'label' => $this->scopeLabel('clusters', $id)];
+            $available[] = ['scope_type' => 'cluster', 'scope_id' => $id, 'label' => $this->scopeLabel('cluster', $id, $targets)];
         }
         foreach ($context->facilityIds as $id) {
-            $available[] = ['scope_type' => 'facility', 'scope_id' => $id, 'label' => $this->scopeLabel('facilities', $id)];
+            $available[] = ['scope_type' => 'facility', 'scope_id' => $id, 'label' => $this->scopeLabel('facility', $id, $targets)];
         }
         foreach ($context->organizationUnitIds as $id) {
-            $available[] = ['scope_type' => 'unit', 'scope_id' => $id, 'label' => $this->scopeLabel('organization_units', $id)];
+            $available[] = ['scope_type' => 'unit', 'scope_id' => $id, 'label' => $this->scopeLabel('unit', $id, $targets)];
         }
 
         $effective = null;
@@ -49,15 +49,16 @@ trait ResolvesScopeSelection
         return ['available_scopes' => $available, 'effective_scope' => $effective];
     }
 
-    private function scopeLabel(string $table, string $id): string
+    private function scopeLabel(string $scopeType, string $id, ListOrganizationScopeTargets $targets): string
     {
-        $row = DB::table($table)->where('id', $id)->first(['name_ar', 'name_en', 'code']);
+        $labeled = $targets->labelCandidates($scopeType, [['scope_type' => $scopeType, 'scope_id' => $id]], null);
+        $row = $labeled[0] ?? null;
         if ($row === null) {
             return $id;
         }
 
-        foreach (['name_ar', 'name_en', 'code'] as $column) {
-            $value = $row->{$column} ?? null;
+        foreach (['label_ar', 'label_en', 'code'] as $column) {
+            $value = $row[$column] ?? null;
             if (is_string($value) && trim($value) !== '') {
                 return $value;
             }

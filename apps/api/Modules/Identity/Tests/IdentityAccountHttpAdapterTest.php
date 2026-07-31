@@ -63,24 +63,15 @@ class IdentityAccountHttpAdapterTest extends TestCase
         $this->assertStringNotContainsString('employee.one', $identityEvent);
         $this->assertStringNotContainsString('موظف الهوية', $identityEvent);
 
+        // A pending account has no credential yet; direct activation would
+        // brick it (active with no credential can never log in). The correct
+        // path is the activation token flow, so the admin transition must be
+        // refused while pending.
         $this->withToken($token)
             ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"1"', 'activate-account'))
-            ->assertOk()
-            ->assertHeader('ETag', '"2"')
-            ->assertJsonPath('status', 'active');
-        $this->withToken($token)
-            ->postJson('/api/v1/identity/accounts', $body, $this->writeHeaders('account-create'))
-            ->assertCreated()
-            ->assertHeader('ETag', '"1"')
-            ->assertJsonPath('id', $accountId)
-            ->assertJsonPath('status', 'pending');
-        $this->withToken($token)
-            ->postJson('/api/v1/identity/accounts', [...$body, 'username' => 'different'], $this->writeHeaders('account-create'))
             ->assertConflict()
-            ->assertJsonPath('type', 'https://cluster.example/problems/idempotency-conflict');
-
-        $this->assertDatabaseCount('users', 1);
-        $this->assertDatabaseCount('identity_person_account_claims', 1);
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-account-transition');
+        $this->assertDatabaseHas('users', ['id' => $accountId, 'status' => 'pending']);
     }
 
     public function test_account_creation_fails_closed_for_missing_stale_or_inactive_person_reference(): void
@@ -121,9 +112,14 @@ class IdentityAccountHttpAdapterTest extends TestCase
         $personId = $this->createPerson($token);
         $accountId = $this->createAccount($token, $personId, 'lifecycle.user');
 
+        // Pending cannot be activated directly (no credential exists yet);
+        // disable first, then activate re-enables an existing account.
         $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"1"', 'activate'))
-            ->assertOk()->assertHeader('ETag', '"2"')->assertJsonPath('status', 'active');
+            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'disable-pending'))
+            ->assertOk()->assertHeader('ETag', '"2"')->assertJsonPath('status', 'disabled');
+        $this->withToken($token)
+            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"2"', 'activate'))
+            ->assertOk()->assertHeader('ETag', '"3"')->assertJsonPath('status', 'active');
         $this->withToken($token)
             ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'stale-disable'))
             ->assertStatus(412);
@@ -142,27 +138,24 @@ class IdentityAccountHttpAdapterTest extends TestCase
             'updated_at' => now(),
         ]);
         $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/force-password-change", ['reason' => 'security review'], $this->actionHeaders('"2"', 'force-change'))
-            ->assertOk()->assertHeader('ETag', '"3"')->assertJsonPath('must_change_password', true)->assertJsonPath('password_version', 2);
+            ->postJson("/api/v1/identity/accounts/{$accountId}/force-password-change", ['reason' => 'security review'], $this->actionHeaders('"3"', 'force-change'))
+            ->assertOk()->assertHeader('ETag', '"4"')->assertJsonPath('must_change_password', true)->assertJsonPath('password_version', 2);
         $this->assertTrue(Schema::hasTable('identity_sessions'));
         $this->assertFalse(Schema::hasTable('sessions'));
         $this->assertNotNull(DB::table('identity_sessions')->where('user_id', $accountId)->value('revoked_at'));
 
         $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", ['reason' => 'administrative'], $this->actionHeaders('"3"', 'disable'))
-            ->assertOk()->assertHeader('ETag', '"4"')->assertJsonPath('status', 'disabled');
+            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", ['reason' => 'administrative'], $this->actionHeaders('"4"', 'disable'))
+            ->assertOk()->assertHeader('ETag', '"5"')->assertJsonPath('status', 'disabled');
         $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"1"', 'activate'))
-            ->assertOk()->assertHeader('ETag', '"2"')->assertJsonPath('status', 'active');
+            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"5"', 'reactivate'))
+            ->assertOk()->assertHeader('ETag', '"6"')->assertJsonPath('status', 'active');
         $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", ['reason' => 'different'], $this->actionHeaders('"1"', 'activate'))
-            ->assertConflict()->assertJsonPath('type', 'https://cluster.example/problems/idempotency-conflict');
+            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", ['reason' => 'different'], $this->actionHeaders('"6"', 'activate-conflict'))
+            ->assertConflict()->assertJsonPath('type', 'https://cluster.example/problems/invalid-account-transition');
         $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", ['reason' => 'approved'], $this->actionHeaders('"4"', 'reactivate'))
-            ->assertOk()->assertHeader('ETag', '"5"')->assertJsonPath('status', 'active');
-        $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/archive", ['reason' => 'replacement'], $this->actionHeaders('"5"', 'archive'))
-            ->assertOk()->assertHeader('ETag', '"6"')->assertJsonPath('status', 'archived');
+            ->postJson("/api/v1/identity/accounts/{$accountId}/archive", ['reason' => 'replacement'], $this->actionHeaders('"6"', 'archive'))
+            ->assertOk()->assertHeader('ETag', '"7"')->assertJsonPath('status', 'archived');
         $this->assertDatabaseMissing('identity_person_account_claims', ['person_id' => $personId]);
 
         $replacement = $this->withToken($token)->postJson('/api/v1/identity/accounts', [
@@ -201,12 +194,17 @@ class IdentityAccountHttpAdapterTest extends TestCase
         $token = $this->loginToken();
         $personId = $this->createPerson($token);
         $accountId = $this->createAccount($token, $personId, 'rollback.user');
+        // Direct activation of a pending account is refused (no credential);
+        // disable first so the transition targets a disabled account.
+        $this->withToken($token)
+            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'rollback-disable'))
+            ->assertOk();
         $duplicateEventId = (string) DB::table('outbox_events')->value('event_id');
         try {
             $this->app->make(UserAccountHandler::class)->transition(
                 $accountId,
                 'activate',
-                1,
+                2,
                 null,
                 [
                     'principal_id' => '018f6f7d-0c00-7000-8000-000000000021',
@@ -225,7 +223,7 @@ class IdentityAccountHttpAdapterTest extends TestCase
             $this->assertSame('23000', (string) $exception->getCode());
         }
 
-        $this->assertDatabaseHas('users', ['id' => $accountId, 'status' => 'pending', 'lock_version' => 1]);
+        $this->assertDatabaseHas('users', ['id' => $accountId, 'status' => 'disabled', 'lock_version' => 2]);
         $this->assertDatabaseMissing('identity_idempotency_keys', ['operation' => 'rollback-transition']);
     }
 

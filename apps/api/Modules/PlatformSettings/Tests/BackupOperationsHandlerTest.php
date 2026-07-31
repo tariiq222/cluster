@@ -12,8 +12,6 @@ use Modules\PlatformSettings\Features\Operations\Handler\PlatformOperationsHandl
 use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutbox;
 use RuntimeException;
 use Shared\Contracts\OutboxDuplicatePolicy;
-use Shared\Contracts\OutboxEventLookup;
-use Shared\Contracts\OutboxRelayStore;
 use Shared\Contracts\TransactionalOutboxEnvelope;
 use Tests\TestCase;
 
@@ -305,11 +303,7 @@ final class BackupOperationsHandlerTest extends TestCase
 
     private function dispatcher(BackupOperationsGateway $gateway): PlatformOperationsDispatchHandler
     {
-        return new PlatformOperationsDispatchHandler(
-            $gateway,
-            $this->app->make(OutboxRelayStore::class),
-            $this->app->make(OutboxEventLookup::class),
-        );
+        return new PlatformOperationsDispatchHandler($gateway);
     }
 }
 

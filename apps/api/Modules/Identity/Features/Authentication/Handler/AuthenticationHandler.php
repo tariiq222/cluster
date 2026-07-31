@@ -59,10 +59,18 @@ final class AuthenticationHandler implements AuthenticateUser
                 DB::table('users')->where('id', $user->id)->update([
                     'failed_login_count' => 0,
                     'locked_until' => null,
+                    // The lockout timer expired: restore an administratively
+                    // locked account to active so the correct password works.
+                    // lockout_level is preserved so the next lockout
+                    // escalates to the next duration instead of restarting.
+                    'status' => $user->status === 'locked' ? 'active' : $user->status,
                     'updated_at' => $now,
                 ]);
                 $user->failed_login_count = 0;
                 $user->locked_until = null;
+                if ($user->status === 'locked') {
+                    $user->status = 'active';
+                }
             }
             $credential = null;
             $passwordVerified = false;
@@ -146,8 +154,15 @@ final class AuthenticationHandler implements AuthenticateUser
         $duration = max(1, $durations[min(max(0, $level - 1), max(0, count($durations) - 1))] ?? 15);
         DB::table('users')->where('id', $user->id)->update([
             ...$values,
+            'status' => 'locked',
             'lockout_level' => $level,
             'locked_until' => CarbonImmutable::now('UTC')->addMinutes($duration),
+        ]);
+        // A locked account must not keep live sessions: revoke them now so
+        // existing tokens stop working immediately.
+        DB::table('identity_sessions')->where('user_id', $user->id)->whereNull('revoked_at')->update([
+            'revoked_at' => CarbonImmutable::now('UTC'),
+            'updated_at' => now(),
         ]);
         $this->outbox->insertSecurityEvent('account_login_locked', (string) $user->id, [
             'user_id' => (string) $user->id,

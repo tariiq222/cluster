@@ -147,6 +147,11 @@ final class WorkRecordLifecycleMutatorTest extends TestCase
             {
                 return ['cluster_id' => null, 'facility_id' => $scopeId, 'unit_id' => null];
             }
+
+            public function facilityClusterIds(array $facilityIds): array
+            {
+                return array_fill_keys($facilityIds, null);
+            }
         };
 
         return new WorkRecordLifecycleMutator($outbox, $access, $ancestry);

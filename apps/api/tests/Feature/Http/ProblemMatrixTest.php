@@ -213,6 +213,19 @@ final class ProblemMatrixTest extends TestCase
         $response->assertJsonPath('type', 'https://cluster.example/problems/weak-password');
     }
 
+    public function test_404_unknown_route_renders_the_canonical_problem_envelope(): void
+    {
+        // No controller matches this path, so the centralized exception
+        // handler must convert the uncaught NotFoundHttpException into the
+        // same problem+json shape every other error path emits.
+        $response = $this->withUnencryptedCookie('cluster_identity_session', $this->cookie)
+            ->withCredentials()
+            ->getJson('/api/v1/does-not-exist', ['X-Correlation-ID' => self::CORRELATION]);
+
+        $this->assertProblem($response, 404, self::CORRELATION, expectExactCorrelation: true);
+        $response->assertJsonPath('type', 'https://cluster.example/problems/resource-not-found');
+    }
+
     /**
      * Assert the canonical `application/problem+json` envelope.
      * - Status code matches the row under test.

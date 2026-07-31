@@ -548,7 +548,7 @@ final class SecurityJourneyW13Test extends TestCase
         $this->withIdentitySession($this->adminCookie)->postJson('/api/v1/work-records/'.$recordId.'/documents', [
             'document_id' => $documentPublicId,
             'relation_type' => 'attachment',
-        ], ['X-Correlation-ID' => self::CORRELATION_ID, 'X-CSRF-Token' => $this->adminCsrf])->assertCreated();
+        ], ['X-Correlation-ID' => self::CORRELATION_ID, 'X-CSRF-Token' => $this->adminCsrf, 'Idempotency-Key' => 'w13-j11-doc-link'])->assertCreated();
 
         // The read grant alone never unlocks the download decision.
         $this->grantViaAdminApi('w13-j11-read', self::USER_B, ['work_record.read'], 'facility', self::FACILITY_A);

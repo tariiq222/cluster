@@ -34,6 +34,23 @@ final class DatabaseResolveOrganizationScopeAncestry implements ResolveOrganizat
         return ['cluster_id' => $scopeId, 'facility_id' => null, 'unit_id' => null];
     }
 
+    /**
+     * @param  list<string>  $facilityIds
+     * @return array<string, string|null>
+     */
+    public function facilityClusterIds(array $facilityIds): array
+    {
+        if ($facilityIds === []) {
+            return [];
+        }
+
+        return DB::table('facilities')
+            ->whereIn('id', $facilityIds)
+            ->pluck('cluster_id', 'id')
+            ->map(static fn (mixed $clusterId): ?string => is_string($clusterId) ? $clusterId : null)
+            ->all();
+    }
+
     /** @return array{cluster_id: ?string, facility_id: ?string, unit_id: ?string}|null */
     private function facilityAncestry(string $scopeId): ?array
     {

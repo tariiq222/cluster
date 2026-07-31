@@ -46,34 +46,44 @@ final class ConsumeWorkRecordSubmittedHandler
                 ? DB::table('notifications')->where('recipient_user_id', $recipient)->where('notification_group_key', $groupKey)->first()
                 : null;
             if ($existing !== null) {
-                DB::table('notifications')->where('id', $existing->id)->update([
-                    'aggregation_count' => ((int) ($existing->aggregation_count ?? 1)) + 1,
-                    'last_event_id' => $cloudEvent['id'],
-                    'updated_at' => $now,
-                ]);
-                $notificationId = (string) $existing->id;
+                $notificationId = $this->incrementAggregation($existing->id, $cloudEvent['id'], $now);
             } else {
                 $notificationId = Str::uuid7()->toString();
-                DB::table('notifications')->insert([
-                    'id' => $notificationId,
-                    'event_id' => $cloudEvent['id'],
-                    'recipient_user_id' => $recipient,
-                    'title' => 'تم تقديم سجل عمل',
-                    'source_record_id' => $sourceRecord,
-                    ...(Schema::hasColumn('notifications', 'source_owner_facility_id') ? [
-                        'source_owner_facility_id' => $cloudEvent['data']['access_context']['owner_facility_id'] ?? null,
-                        'source_classification' => $cloudEvent['data']['classification'] ?? null,
-                    ] : []),
-                    'is_read' => false,
-                    ...(Schema::hasColumn('notifications', 'status') ? ['status' => 'unread'] : []),
-                    ...(Schema::hasColumn('notifications', 'notification_group_key') ? [
-                        'notification_group_key' => $groupKey,
-                        'aggregation_count' => 1,
-                        'last_event_id' => $cloudEvent['id'],
-                    ] : []),
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
+                try {
+                    DB::table('notifications')->insert([
+                        'id' => $notificationId,
+                        'event_id' => $cloudEvent['id'],
+                        'recipient_user_id' => $recipient,
+                        'title' => 'تم تقديم سجل عمل',
+                        'source_record_id' => $sourceRecord,
+                        ...(Schema::hasColumn('notifications', 'source_owner_facility_id') ? [
+                            'source_owner_facility_id' => $cloudEvent['data']['access_context']['owner_facility_id'] ?? null,
+                            'source_classification' => $cloudEvent['data']['classification'] ?? null,
+                        ] : []),
+                        'is_read' => false,
+                        ...(Schema::hasColumn('notifications', 'status') ? ['status' => 'unread'] : []),
+                        ...(Schema::hasColumn('notifications', 'notification_group_key') ? [
+                            'notification_group_key' => $groupKey,
+                            'aggregation_count' => 1,
+                            'last_event_id' => $cloudEvent['id'],
+                        ] : []),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                } catch (QueryException $exception) {
+                    if (! $this->isDuplicateGroupKey($exception)) {
+                        throw $exception;
+                    }
+
+                    $winner = Schema::hasColumn('notifications', 'notification_group_key')
+                        ? DB::table('notifications')->where('recipient_user_id', $recipient)->where('notification_group_key', $groupKey)->first()
+                        : null;
+                    if ($winner === null) {
+                        throw $exception;
+                    }
+
+                    $notificationId = $this->incrementAggregation($winner->id, $cloudEvent['id'], $now);
+                }
             }
             if (Schema::hasTable('notification_recipients')) {
                 DB::table('notification_recipients')->insertOrIgnore([
@@ -91,6 +101,21 @@ final class ConsumeWorkRecordSubmittedHandler
         });
     }
 
+    private function incrementAggregation(string $notificationId, string $eventId, \Illuminate\Support\Carbon $now): string
+    {
+        DB::table('notifications')->where('id', $notificationId)->update([
+            'aggregation_count' => DB::raw('COALESCE(aggregation_count, 0) + 1'),
+            'last_event_id' => $eventId,
+            // A new submission for the same group must re-surface the
+            // notification: a read inbox entry is not a reason to stay silent.
+            'is_read' => false,
+            'status' => 'unread',
+            'updated_at' => $now,
+        ]);
+
+        return $notificationId;
+    }
+
     private function inboxContains(mixed $eventId): bool
     {
         return DB::table('notification_inbox')->where('event_id', $eventId)->exists();
@@ -105,6 +130,19 @@ final class ConsumeWorkRecordSubmittedHandler
             || in_array($driverCode, [1062, '1062'], true)
             || (($driverCode === 19 || $driverCode === '19')
                 && str_contains(strtolower($exception->getMessage()), 'notification_inbox.event_id'));
+    }
+
+    private function isDuplicateGroupKey(QueryException $exception): bool
+    {
+        $sqlState = $exception->errorInfo[0] ?? null;
+        $driverCode = $exception->errorInfo[1] ?? null;
+        $message = strtolower($exception->getMessage());
+
+        return $sqlState === '23505'
+            || in_array($driverCode, [1062, '1062'], true)
+            || (($driverCode === 19 || $driverCode === '19')
+                && str_contains($message, 'notifications.recipient_user_id')
+                && str_contains($message, 'notification_group_key'));
     }
 
     /** @param array<string, mixed> $cloudEvent */

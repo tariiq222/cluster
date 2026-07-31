@@ -37,8 +37,8 @@ final class MarkNotificationReadControllerTest extends TestCase
         // Idempotency-Key — must observe the same response. The handler
         // performs a single conditional UPDATE that is naturally idempotent
         // at the SQL level (the row stays read), so no replay record is
-        // needed and no Idempotency-Key header is required to drive the
-        // happy path. A second POST must therefore be safe.
+        // needed. The contracted Idempotency-Key header is still required,
+        // and a retry with the same key must be safe.
         $second = $this->withToken($tokenA)->postJson($this->readEndpoint(self::NOTIFICATION_ID), [], $headers);
         $second->assertOk()
             ->assertHeader('X-Correlation-ID', self::CORRELATION_ID)
@@ -47,6 +47,32 @@ final class MarkNotificationReadControllerTest extends TestCase
         $rowAfter = DB::table('notifications')->where('id', self::NOTIFICATION_ID)->first();
         $this->assertNotNull($rowAfter);
         $this->assertTrue((bool) $rowAfter->is_read);
+    }
+
+    public function test_missing_idempotency_key_is_rejected_with_400_problem(): void
+    {
+        $tokenA = $this->login('fixture-account-a', 'fixture-password-a')->json('data.access_token');
+        $this->insertNotification(self::NOTIFICATION_ID, self::USER_A_ID, '2026-07-16 09:00:00');
+
+        $response = $this->withToken($tokenA)->postJson(
+            $this->readEndpoint(self::NOTIFICATION_ID),
+            [],
+            ['X-Correlation-ID' => self::CORRELATION_ID],
+        );
+        $response->assertBadRequest()
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertHeader('X-Correlation-ID', self::CORRELATION_ID)
+            ->assertExactJson([
+                'type' => 'https://cluster.example/problems/invalid-idempotency-key',
+                'title' => 'Bad Request',
+                'status' => 400,
+                'correlation_id' => self::CORRELATION_ID,
+                'detail' => 'Idempotency-Key is required.',
+            ]);
+
+        $row = DB::table('notifications')->where('id', self::NOTIFICATION_ID)->first();
+        $this->assertNotNull($row);
+        $this->assertFalse((bool) $row->is_read);
     }
 
     public function test_unauthenticated_request_is_rejected_with_401_problem(): void
@@ -186,7 +212,10 @@ final class MarkNotificationReadControllerTest extends TestCase
     /** @return array<string, string> */
     private function correlationHeaders(): array
     {
-        return ['X-Correlation-ID' => self::CORRELATION_ID];
+        return [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'Idempotency-Key' => 'notification-read-'.self::CORRELATION_ID,
+        ];
     }
 
     private function login(string $username, string $password): TestResponse

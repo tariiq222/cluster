@@ -4,13 +4,10 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Http\IdentityApi;
 
 final class IdentityCsrfMiddleware
 {
-    public function __construct(private readonly ResolveSession $sessions) {}
-
     public function handle(Request $request, Closure $next): mixed
     {
         $correlationId = IdentityApi::correlationId($request);
@@ -50,7 +47,14 @@ final class IdentityCsrfMiddleware
             );
         }
 
-        if (! $this->sessions->validateCsrf($rawSessionToken, $rawCsrfToken, IdentityRequestBinding::context($request))) {
+        // The session middleware already resolved the row once per request
+        // (single row lock + last_seen_at bump). Re-resolving here would
+        // take a second lock on every mutation, serializing requests per
+        // user; instead the proof is checked against the same resolved
+        // session snapshot, and the store only re-locks when the CSRF token
+        // must actually rotate.
+        $csrfTokenHash = is_string($session['csrf_token_hash'] ?? null) ? $session['csrf_token_hash'] : null;
+        if ($csrfTokenHash === null || ! hash_equals($csrfTokenHash, hash('sha256', $rawCsrfToken))) {
             return IdentityApi::problem(
                 403,
                 'csrf-failed',

@@ -68,16 +68,23 @@ final class PlatformOperationsController
 
     public function confirmRestore(Request $request, string $requestId): JsonResponse
     {
-        $operation = DB::table('platform_operation_requests')->where('id', $requestId)->first();
-        if ($operation === null) {
-            return $this->api->problem(404, 'resource-not-found', 'Not Found', 'Restore request was not found.', $this->api->correlationId($request));
-        }
-        $context = $this->api->authorize($request, 'platform_operations.restore.confirm', $this->api->facts('platform_restore_request', $requestId, null, (string) $operation->requested_by));
+        // Capability gate first: callers without the capability get the same
+        // 403 for every id, so they cannot probe for existing requests.
+        $context = $this->api->authorize($request, 'platform_operations.restore.confirm', $this->api->facts('platform_restore_request'));
         if ($context instanceof JsonResponse) {
             return $context;
         }
         if ($this->api->idempotencyKey($request) === null) {
             return $this->api->problem(400, 'invalid-idempotency-key', 'Bad Request', 'Idempotency-Key is required.', $context['correlation_id']);
+        }
+        $operation = DB::table('platform_operation_requests')->where('id', $requestId)->first();
+        if ($operation === null) {
+            return $this->api->problem(404, 'resource-not-found', 'Not Found', 'Restore request was not found.', $context['correlation_id']);
+        }
+        // A caller may confirm only their own restore request; anything else
+        // answers 404 so the id space is not enumerable by insiders either.
+        if ((string) $operation->requested_by !== $context['principal']['user_id']) {
+            return $this->api->problem(404, 'resource-not-found', 'Not Found', 'Restore request was not found.', $context['correlation_id']);
         }
         try {
             $body = $this->operations->confirmRestore($requestId, $context['principal']['user_id'], ['platform_operations.restore.confirm']);

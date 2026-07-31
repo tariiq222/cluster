@@ -7,11 +7,14 @@ namespace Modules\Tasks\Features\Http;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Tasks\Application\TaskAccessPolicy;
 use Modules\Tasks\Contracts\RecordTaskNotifications;
+use Modules\Tasks\Domain\TaskIdempotencyConflict;
+use Modules\Tasks\Infrastructure\Persistence\TaskCommandIdempotency;
 use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
 
 /**
@@ -24,6 +27,10 @@ use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
  */
 final class TaskEngagementController
 {
+    private const COMMENT_OPERATION = 'addTaskComment';
+
+    private const PARTICIPANT_OPERATION = 'addTaskParticipant';
+
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $resolver,
         private readonly DecideAccess $access,
@@ -31,6 +38,7 @@ final class TaskEngagementController
         private readonly RecordTaskNotifications $notifications,
         private readonly TaskAccessPolicy $policy,
         private readonly ResolveActiveFacilityScopesForUser $facilityScopes,
+        private readonly TaskCommandIdempotency $idempotency,
     ) {}
 
     public function addParticipant(Request $request, string $taskId): JsonResponse
@@ -53,30 +61,52 @@ final class TaskEngagementController
         if (($deny = $this->denyUnlessAllowed($p, $task, 'tasks.participant-manage', $c)) !== null) {
             return $deny;
         }
-        $expected = $this->versionFromMatch($request);
-        if ($expected === null || $expected !== (int) $task->lock_version) {
-            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
-        }
         $v = $request->json()->all();
         if (! is_string($v['user_id'] ?? null) || ! $this->isUuidV7($v['user_id'])) {
             return $this->problem(422, 'invalid-task-participant', 'The request body is invalid.', $c);
         }
         $role = is_string($v['role'] ?? null) && mb_strlen($v['role']) <= 64 ? $v['role'] : 'participant';
 
+        $replay = $this->replay($request, $p['user_id'], self::PARTICIPANT_OPERATION, $c, ['user_id' => $v['user_id'], 'role' => $role]);
+        if ($replay !== null) {
+            return $replay;
+        }
+
+        $expected = $this->versionFromMatch($request);
+        if ($expected === null || $expected !== (int) $task->lock_version) {
+            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
+        }
+
+        $response = [
+            'id' => (string) $task->id,
+            'task_id' => (string) $task->id,
+            'user_id' => $v['user_id'],
+            'role' => $role,
+            'lock_version' => $expected + 1,
+        ];
         try {
-            $updated = $this->store->addParticipant((string) $task->id, $v['user_id'], $role, $p['user_id'], $expected);
+            $committed = DB::transaction(function () use ($task, $v, $role, $p, $expected, $response, $request): bool {
+                $updated = $this->store->addParticipant((string) $task->id, $v['user_id'], $role, $p['user_id'], $expected);
+                if ($updated === null) {
+                    return false;
+                }
+                $this->storeIdempotency($request, $p['user_id'], self::PARTICIPANT_OPERATION, (string) $task->id, ['user_id' => $v['user_id'], 'role' => $role], $response);
+
+                return true;
+            });
         } catch (QueryException) {
             return $this->problem(409, 'task-participant-conflict', 'The participant already exists.', $c);
+        } catch (TaskIdempotencyConflict) {
+            return $this->problem(409, 'idempotency-conflict', 'Idempotency-Key was already used for a different request.', $c);
         }
-        if ($updated === null) {
+        if (! $committed) {
             // CAS race: a concurrent mutation happened; nothing was written.
             return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
         }
 
-        $newParticipant = $v['user_id'];
         $this->notifications->record(
             array_values(array_unique(array_filter(
-                [$newParticipant],
+                [$v['user_id']],
                 static fn (string $userId): bool => $userId !== $p['user_id'],
             ))),
             'task.participant_added',
@@ -84,18 +114,12 @@ final class TaskEngagementController
                 'task_id' => $taskId,
                 'title' => (string) $task->title,
                 'actor_user_id' => $p['user_id'],
-                'participant_user_id' => $newParticipant,
+                'participant_user_id' => $v['user_id'],
                 'role' => $role,
             ],
         );
 
-        return $this->response([
-            'id' => (string) $task->id,
-            'task_id' => (string) $task->id,
-            'user_id' => $newParticipant,
-            'role' => $role,
-            'lock_version' => $expected + 1,
-        ], 200, $c, $expected + 1);
+        return $this->response($response, 200, $c, $expected + 1);
     }
 
     public function listComments(Request $request, string $taskId): JsonResponse
@@ -160,7 +184,22 @@ final class TaskEngagementController
             return $this->problem(422, 'invalid-task-comment', 'The request body is invalid.', $c);
         }
 
-        $comment = $this->store->insertComment((string) $task->id, $p['user_id'], $v['body'], $mentioned);
+        $replay = $this->replay($request, $p['user_id'], self::COMMENT_OPERATION, $c, ['body' => $v['body'], 'mentioned_user_ids' => $mentioned]);
+        if ($replay !== null) {
+            return $replay;
+        }
+
+        $requestBody = ['body' => $v['body'], 'mentioned_user_ids' => $mentioned];
+        try {
+            $comment = DB::transaction(function () use ($task, $p, $v, $mentioned, $request, $requestBody): \stdClass {
+                $comment = $this->store->insertComment((string) $task->id, $p['user_id'], $v['body'], $mentioned);
+                $this->storeIdempotency($request, $p['user_id'], self::COMMENT_OPERATION, (string) $task->id, $requestBody, $this->serializeComment($comment));
+
+                return $comment;
+            });
+        } catch (TaskIdempotencyConflict) {
+            return $this->problem(409, 'idempotency-conflict', 'Idempotency-Key was already used for a different request.', $c);
+        }
 
         $payload = [
             'task_id' => $taskId,
@@ -192,7 +231,9 @@ final class TaskEngagementController
             );
         }
 
-        return $this->response($this->serializeComment($comment), 201, $c);
+        $commentResponse = $this->serializeComment($comment);
+
+        return $this->response($commentResponse, 201, $c);
     }
 
     private function denyUnlessAllowed(array $principal, \stdClass $task, string $capability, string $correlationId): ?JsonResponse
@@ -200,6 +241,63 @@ final class TaskEngagementController
         return $this->isAllowed($principal, $task, $capability, $correlationId)
             ? null
             : $this->problem(403, 'access-denied', 'Access denied.', $correlationId);
+    }
+
+    /**
+     * Replays a stored Idempotency-Key response, or null when the key is
+     * fresh or missing. A missing/invalid header is a 400 like every other
+     * contracted mutation; a reused key with a different request is a 409.
+     *
+     * @param  array<string, mixed>  $requestBody
+     */
+    private function replay(Request $request, string $principalId, string $operation, string $correlationId, array $requestBody): ?JsonResponse
+    {
+        $key = $request->header('Idempotency-Key');
+        if (! is_string($key) || preg_match('/\A[\x21-\x7E]{1,255}\z/', $key) !== 1) {
+            return $this->problem(400, 'invalid-idempotency-key', 'Idempotency-Key is required.', $correlationId);
+        }
+
+        try {
+            $replay = $this->idempotency->replay(
+                $principalId,
+                $operation,
+                $key,
+                hash('sha256', json_encode($requestBody, JSON_THROW_ON_ERROR)),
+            );
+        } catch (TaskIdempotencyConflict) {
+            return $this->problem(409, 'idempotency-conflict', 'Idempotency-Key was already used for a different request.', $correlationId);
+        }
+
+        if ($replay === null) {
+            return null;
+        }
+
+        return $this->response($replay['response'] ?? $replay, 200, $correlationId, is_int($replay['lock_version'] ?? null) ? $replay['lock_version'] : null);
+    }
+
+    /**
+     * Persists the Idempotency-Key response inside the caller's transaction.
+     * A concurrent winner raises TaskIdempotencyConflict so the caller can
+     * answer 409 and roll back its own mutation.
+     *
+     * @param  array<string, mixed>  $requestBody
+     * @param  array<string, mixed>  $response
+     */
+    private function storeIdempotency(Request $request, string $principalId, string $operation, string $taskId, array $requestBody, array $response): void
+    {
+        $key = $request->header('Idempotency-Key');
+        if (! is_string($key)) {
+            return;
+        }
+
+        $this->idempotency->store(
+            $principalId,
+            $operation,
+            $key,
+            hash('sha256', json_encode($requestBody, JSON_THROW_ON_ERROR)),
+            $taskId,
+            $response,
+        );
     }
 
     /**

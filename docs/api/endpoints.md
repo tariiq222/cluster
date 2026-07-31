@@ -2245,7 +2245,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-work-records-recordId-documents:post:workrecorddocumentlinkcontroller`](rbac-matrix.md#row-267); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_work_records_recordId_documents_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_work_records_recordId_documents_response` (schema placeholder).
-- **Status codes:** `201, 401, 404, 422`.
+- **Status codes:** `201, 400, 401, 404, 409, 422`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\WorkRecords\Features\DocumentLink\Http\WorkRecordDocumentLinkController`.
 - **Controller source:** `apps/api/Modules/WorkRecords/Features/DocumentLink/Http/WorkRecordDocumentLinkController.php`.

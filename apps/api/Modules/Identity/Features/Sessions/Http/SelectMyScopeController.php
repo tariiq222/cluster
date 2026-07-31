@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Identity\Http\IdentityApi;
+use Modules\Organization\Contracts\ListOrganizationScopeTargets;
 
 /**
  * PUT /api/v1/me/scope — selects one already-held effective scope. It never
@@ -21,7 +22,10 @@ final class SelectMyScopeController
 
     private const OPERATION = 'identity.scope.select';
 
-    public function __construct(private readonly ResolvePrincipalContext $principalContexts) {}
+    public function __construct(
+        private readonly ResolvePrincipalContext $principalContexts,
+        private readonly ListOrganizationScopeTargets $scopeTargets,
+    ) {}
 
     public function __invoke(Request $request): JsonResponse
     {
@@ -106,8 +110,8 @@ final class SelectMyScopeController
                 $metadata['selected_scope'] = ['scope_type' => $scopeType, 'scope_id' => $scopeId];
                 $newVersion = $currentVersion + 1;
                 $metadata['scope_version'] = $newVersion;
-                $selection = $this->scopeSelectionFor($context);
-                $selectedOption = ['scope_type' => $scopeType, 'scope_id' => $scopeId, 'label' => $this->scopeLabel($scopeType === 'unit' ? 'organization_units' : ($scopeType === 'facility' ? 'facilities' : 'clusters'), $scopeId)];
+                $selection = $this->scopeSelectionFor($context, $this->scopeTargets);
+                $selectedOption = ['scope_type' => $scopeType, 'scope_id' => $scopeId, 'label' => $this->scopeLabel($scopeType, $scopeId, $this->scopeTargets)];
                 $payload = ['available_scopes' => $selection['available_scopes'], 'effective_scope' => $selectedOption];
 
                 DB::table('identity_sessions')->where('id', $sessionId)->update([

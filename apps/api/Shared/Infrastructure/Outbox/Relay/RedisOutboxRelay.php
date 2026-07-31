@@ -51,6 +51,8 @@ final class RedisOutboxRelay
 
     public function relayPending(int $limit = 100): int
     {
+        $this->store->reapAbandonedClaims(now());
+
         $batchSize = max(1, min($limit, self::MAX_BATCH_SIZE));
         $rows = $this->store->pending([self::EVENT_TYPE], $batchSize);
 

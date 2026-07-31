@@ -275,10 +275,17 @@ final class DocumentUploadHandler
 
         return DB::transaction(function () use ($actor, $uploadIntentId, $idempotency, $stored, $failureCodes, $expectedDocumentLockVersion, $upload): DocumentUploadCompletion {
             if ($expectedDocumentLockVersion !== null) {
+                // CAS on the document row: the If-Match token must match the
+                // current lock_version, and the upload completion bumps it.
+                // Writing the same value back would match zero rows on
+                // MySQL (PDO affected-rows) and reject every completion.
                 $matched = DB::table('documents')
                     ->where('id', $upload->document_id)
                     ->where('lock_version', $expectedDocumentLockVersion)
-                    ->update(['lock_version' => $expectedDocumentLockVersion]);
+                    ->update([
+                        'lock_version' => $expectedDocumentLockVersion + 1,
+                        'updated_at' => $this->databaseTimestamp($this->now()),
+                    ]);
                 if ($matched !== 1) {
                     throw new StaleDocumentLockVersion((string) $upload->document_public_id, $expectedDocumentLockVersion);
                 }
@@ -729,7 +736,7 @@ final class DocumentUploadHandler
         if ($version->availability_status !== DocumentVersionAvailabilityStatus::Quarantined->value
             || ($version->scan_status !== DocumentScanStatus::Pending->value
                 && ($version->scan_status !== DocumentScanStatus::Failed->value
-                    || $version->quarantine_policy_verdict !== 'quarantined_hard'))) {
+                    || ! in_array($version->quarantine_policy_verdict, ['quarantined_hard', 'blocked'], true)))) {
             throw new DomainException('document_scan_invalid_state');
         }
     }

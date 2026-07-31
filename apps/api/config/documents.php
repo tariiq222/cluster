@@ -21,6 +21,19 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'testing'
     }
     $documentsTestingRuntimeEnabled = $documentsTestingRuntime === 'true';
 }
+$documentsProductionRuntime = $_ENV['DOCUMENTS_PRODUCTION_RUNTIME_ENABLED']
+    ?? $_SERVER['DOCUMENTS_PRODUCTION_RUNTIME_ENABLED']
+    ?? getenv('DOCUMENTS_PRODUCTION_RUNTIME_ENABLED')
+    ?? ($documentsTesting ? 'false' : 'true');
+if ($documentsProductionRuntime === false) {
+    $documentsProductionRuntime = 'false';
+}
+$documentsProductionRuntime = is_string($documentsProductionRuntime)
+    ? strtolower(trim($documentsProductionRuntime))
+    : '';
+if (! in_array($documentsProductionRuntime, ['true', 'false'], true)) {
+    throw new RuntimeException('DOCUMENTS_PRODUCTION_RUNTIME_ENABLED must be exactly true or false.');
+}
 $documentUploadEndpointAllowlist = $documentsTesting && ! $documentsTestingRuntimeEnabled
     ? ['storage.invalid']
     : array_values(array_filter(array_map(
@@ -31,6 +44,7 @@ $documentUploadEndpointAllowlist = $documentsTesting && ! $documentsTestingRunti
 return [
     'runtime' => [
         'testing_enabled' => $documentsTestingRuntimeEnabled,
+        'production_enabled' => $documentsProductionRuntime === 'true',
     ],
 
     'worker' => [

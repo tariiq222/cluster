@@ -7,10 +7,12 @@ use GuzzleHttp\Client;
 use Illuminate\Support\ServiceProvider;
 use Modules\Documents\Application\DocumentDownloadService;
 use Modules\Documents\Application\DocumentLinkService;
+use Modules\Documents\Application\RegisteredLinkedResourceAuthorizationFacts;
 use Modules\Documents\Contracts\DocumentAuthorizationFactsReader;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\DocumentUploadStatusReader;
 use Modules\Documents\Contracts\LinkDocument;
+use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
 use Modules\Documents\Contracts\MalwareScanner;
 use Modules\Documents\Contracts\PrivateObjectStorage;
 use Modules\Documents\Contracts\SensitiveAccessEventRecorder;
@@ -58,6 +60,9 @@ final class DocumentsServiceProvider extends ServiceProvider
         $this->app->bind(DocumentDownloadGrantIssuer::class, S3DocumentDownloadGrantIssuer::class);
         $this->app->bind(DocumentDownloadService::class);
         $this->app->bind(LinkDocument::class, DocumentLinkService::class);
+        $this->app->bind(LinkedResourceAuthorizationFacts::class, fn ($app) => new RegisteredLinkedResourceAuthorizationFacts(
+            $app->tagged('documents.linked_resource_facts'),
+        ));
         $this->app->singleton(DocumentUploadPolicy::class, fn (): DocumentUploadPolicy => DocumentUploadPolicy::fromConfig(config('documents')));
         $this->app->bind(SensitiveAccessEventRecorder::class, DatabaseSensitiveAccessEventRecorder::class);
         $this->app->singleton(DocumentRetentionPolicy::class, fn (): DocumentRetentionPolicy => DocumentRetentionPolicy::fromConfig(config('documents')));

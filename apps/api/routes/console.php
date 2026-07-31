@@ -10,6 +10,7 @@ use Modules\Identity\Features\ConsumeOrganizationPersonEvents\Worker\IdentityPer
 use Modules\Notifications\Features\ConsumeTechnicalAlert\Worker\NotificationsTechnicalAlertWorker;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use Modules\Organization\Infrastructure\Outbox\Relay\OrganizationPersonOutboxRelay;
+use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutboxRelay;
 use Modules\PlatformSettings\Infrastructure\Outbox\TechnicalAlertOutboxRelay;
 use Shared\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use Symfony\Component\Console\Command\Command;
@@ -106,6 +107,28 @@ Artisan::command('platform-settings:relay-technical-alerts {--once} {--limit=100
         return Command::FAILURE;
     }
 })->purpose('Relay one bounded batch of committed technical alert events');
+
+Artisan::command('platform-settings:relay-events {--once} {--limit=100}', function (): int {
+    if (! $this->option('once')) {
+        $this->error('The bounded --once mode is required.');
+
+        return Command::FAILURE;
+    }
+
+    $limit = max(1, min((int) $this->option('limit'), 100));
+
+    try {
+        $relay = app(PlatformSettingsOutboxRelay::class);
+        $published = $relay->relayPending($limit);
+        $this->info("Relayed platform settings events: {$published}");
+
+        return Command::SUCCESS;
+    } catch (Throwable) {
+        $this->error('The bounded platform settings relay cycle failed.');
+
+        return Command::FAILURE;
+    }
+})->purpose('Relay one bounded batch of committed PlatformSettings events');
 
 Artisan::command(
     'notifications:consume-work-record-submitted {--once} {--consumer=}',

@@ -35,6 +35,16 @@ final class MarkNotificationReadController
                 ['detail' => 'Authentication is required.'],
             );
         }
+        $idempotencyKey = $request->header('Idempotency-Key');
+        if (! is_string($idempotencyKey) || preg_match('/\A[\x21-\x7E]{1,255}\z/', $idempotencyKey) !== 1) {
+            return ProblemEnvelope::make(
+                400,
+                'invalid-idempotency-key',
+                'Bad Request',
+                $correlationId,
+                ['detail' => 'Idempotency-Key is required.'],
+            );
+        }
         // The row lookup is scoped to the caller's user_id so the recipient
         // is the only one who can ever observe a hit; the same predicate is
         // carried into the UPDATE so authorization is enforced before any

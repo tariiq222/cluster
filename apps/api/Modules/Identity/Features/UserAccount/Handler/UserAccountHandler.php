@@ -173,7 +173,11 @@ final class UserAccountHandler
             $lockedUntil = $row->locked_until;
             $revokeSessions = false;
             if ($action === 'activate') {
-                if (! in_array($status, ['pending', 'disabled'], true)) {
+                // Pending accounts have no credential yet; activating them
+                // directly would produce an account that can never log in.
+                // They must be activated through the activation token flow
+                // (IssueActivationToken), which creates the credential.
+                if (! in_array($status, ['disabled'], true)) {
                     throw new DomainException('invalid_account_transition');
                 }
                 $status = 'active';
@@ -184,7 +188,7 @@ final class UserAccountHandler
                 $status = 'active';
                 $lockedUntil = null;
             } elseif ($action === 'disable') {
-                if (! in_array($status, ['active', 'locked'], true)) {
+                if (! in_array($status, ['pending', 'active', 'locked'], true)) {
                     throw new DomainException('invalid_account_transition');
                 }
                 $status = 'disabled';

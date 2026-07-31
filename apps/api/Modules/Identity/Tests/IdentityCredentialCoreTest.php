@@ -160,16 +160,18 @@ class IdentityCredentialCoreTest extends TestCase
         }
 
         $lockedUntil = DB::table('users')->where('id', $userId)->value('locked_until');
-        $this->assertSame('active', DB::table('users')->where('id', $userId)->value('status'));
+        $this->assertSame('locked', DB::table('users')->where('id', $userId)->value('status'));
         $this->assertSame(5, (int) DB::table('users')->where('id', $userId)->value('failed_login_count'));
         $this->assertSame(1, (int) DB::table('users')->where('id', $userId)->value('lockout_level'));
         $this->assertNotNull($lockedUntil);
-        $this->assertNull(DB::table('identity_sessions')->where('id', $existingSession->sessionId)->value('revoked_at'));
-        $this->assertNotNull($this->app->make(SessionHandler::class)->resolve((string) $existingSession->cookie->getValue(), $binding));
+        // The account is now administratively locked (status = 'locked'), so
+        // the existing session is revoked and refused on the next request.
+        $this->assertNotNull(DB::table('identity_sessions')->where('id', $existingSession->sessionId)->value('revoked_at'));
+        $this->assertNull($this->app->make(SessionHandler::class)->resolve((string) $existingSession->cookie->getValue(), $binding));
 
         $this->attemptFailure($authentication, 'account-lock.user', 'new-login-source');
         $this->assertSame(5, (int) DB::table('users')->where('id', $userId)->value('failed_login_count'));
-        $this->assertNotNull($this->app->make(SessionHandler::class)->resolve((string) $existingSession->cookie->getValue(), $binding));
+        $this->assertNull($this->app->make(SessionHandler::class)->resolve((string) $existingSession->cookie->getValue(), $binding));
         $this->expectException(AuthenticationFailed::class);
         $this->app->make(SessionHandler::class)->issue($userId);
     }

@@ -68,6 +68,8 @@ final class ProductionAuthorizationBindingTest extends TestCase
         // storage wiring check. documents.runtime.testing_enabled resolves to
         // false under APP_ENV=production, so documentsRuntimeEnabled() returns
         // false and the boot guards do not require a real S3/ClamAV setup.
-        $_SERVER['argv'] = ['artisan', 'test'];
+        putenv('DOCUMENTS_PRODUCTION_RUNTIME_ENABLED=false');
+        $_ENV['DOCUMENTS_PRODUCTION_RUNTIME_ENABLED'] = 'false';
+        $_SERVER['DOCUMENTS_PRODUCTION_RUNTIME_ENABLED'] = 'false';
     }
 }

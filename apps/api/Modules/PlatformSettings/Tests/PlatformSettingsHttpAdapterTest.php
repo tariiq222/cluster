@@ -423,6 +423,11 @@ final class PlatformSettingsScopeAncestry implements ResolveOrganizationScopeAnc
     {
         return $scopeType === 'facility' && $scopeId === $this->facilityId ? ['cluster_id' => '0197f0e0-0000-7000-8000-000000000895', 'facility_id' => $scopeId, 'unit_id' => null] : null;
     }
+
+    public function facilityClusterIds(array $facilityIds): array
+    {
+        return array_fill_keys($facilityIds, '0197f0e0-0000-7000-8000-000000000895');
+    }
 }
 
 final class PlatformSettingsOwnerPrincipalResolver implements ResolveDevelopmentFixturePrincipal
@@ -447,5 +452,10 @@ final class PlatformSettingsClusterAncestry implements ResolveOrganizationScopeA
     public function ancestry(string $scopeType, string $scopeId): ?array
     {
         return $scopeType === 'facility' && $scopeId === $this->facility ? ['cluster_id' => $this->cluster, 'facility_id' => $this->facility, 'unit_id' => null] : null;
+    }
+
+    public function facilityClusterIds(array $facilityIds): array
+    {
+        return array_fill_keys($facilityIds, $this->cluster);
     }
 }

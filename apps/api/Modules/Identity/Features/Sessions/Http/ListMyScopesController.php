@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
 use Modules\Identity\Http\IdentityApi;
+use Modules\Organization\Contracts\ListOrganizationScopeTargets;
 
 /**
  * GET /api/v1/me/scopes — lists the scopes the current principal already
@@ -16,7 +17,10 @@ final class ListMyScopesController
 {
     use ResolvesScopeSelection;
 
-    public function __construct(private readonly ResolvePrincipalContext $principalContexts) {}
+    public function __construct(
+        private readonly ResolvePrincipalContext $principalContexts,
+        private readonly ListOrganizationScopeTargets $scopeTargets,
+    ) {}
 
     public function __invoke(Request $request): JsonResponse
     {
@@ -30,7 +34,7 @@ final class ListMyScopesController
             return IdentityApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
 
-        $selection = $this->scopeSelectionFor($context);
+        $selection = $this->scopeSelectionFor($context, $this->scopeTargets);
         if ($selection['effective_scope'] === null) {
             return IdentityApi::problem(403, 'scope-unavailable', 'Forbidden', 'No organizational scope is available for the current principal.', $correlationId);
         }

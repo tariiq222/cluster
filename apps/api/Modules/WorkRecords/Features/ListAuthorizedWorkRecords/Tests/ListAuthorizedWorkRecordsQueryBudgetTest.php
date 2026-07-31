@@ -89,6 +89,11 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
 
                 return ['cluster_id' => ListAuthorizedWorkRecordsQueryBudgetTest::CLUSTER_ID, 'facility_id' => $scopeId, 'unit_id' => null];
             }
+
+            public function facilityClusterIds(array $facilityIds): array
+            {
+                return array_fill_keys($facilityIds, ListAuthorizedWorkRecordsQueryBudgetTest::CLUSTER_ID);
+            }
         };
         $access = new class implements DecideAccess
         {
@@ -154,6 +159,11 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
             public function ancestry(string $scopeType, string $scopeId): array
             {
                 return ['cluster_id' => null, 'facility_id' => $scopeId, 'unit_id' => null];
+            }
+
+            public function facilityClusterIds(array $facilityIds): array
+            {
+                return array_fill_keys($facilityIds, null);
             }
         };
 

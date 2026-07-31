@@ -53,6 +53,13 @@ return [
             'report' => false,
         ],
 
+        'organization-quarantine' => [
+            'driver' => 'local',
+            'root' => storage_path('app/quarantine/organization'),
+            'throw' => true,
+            'report' => true,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

@@ -62,10 +62,7 @@ final class ListAuthorizedWorkRecordsHandler
             ->unique()
             ->values()
             ->all();
-        $clusterIdsByFacility = DB::table('facilities')
-            ->whereIn('id', $facilityIds)
-            ->pluck('cluster_id', 'id')
-            ->all();
+        $clusterIdsByFacility = $this->ancestry->facilityClusterIds($facilityIds);
 
         $authorized = [];
         foreach ($rows as $row) {

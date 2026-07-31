@@ -21,7 +21,7 @@ use Modules\Organization\Contracts\ValidatePersonReference;
 use Modules\Organization\Features\TemporaryAssignment\Contracts\ValidateTemporaryAssignmentCapabilities;
 use Modules\Organization\Features\TemporaryAssignment\Http\TemporaryAssignmentHttpGateway;
 use Modules\Organization\Infrastructure\Authorization\ConfiguredTemporaryAssignmentCapabilityValidator;
-use Modules\Organization\Infrastructure\Import\UnavailableQuarantinedImport;
+use Modules\Organization\Infrastructure\Import\StorageQuarantinedImport;
 use Modules\Organization\Infrastructure\Persistence\DatabaseGetActiveSupervisoryRelationships;
 use Modules\Organization\Infrastructure\Persistence\DatabaseGetDefaultClusterId;
 use Modules\Organization\Infrastructure\Persistence\DatabaseResolveOrganizationScopeAncestry;
@@ -93,9 +93,9 @@ final class IdentityOrganizationContainerResolutionTest extends TestCase
         $this->assertInstanceOf(ValidatePersonReferenceFromPersistence::class, $this->app->make(ValidatePersonReference::class));
     }
 
-    public function test_resolve_quarantined_import_remains_explicitly_unavailable_outside_test_storage(): void
+    public function test_resolve_quarantined_import_reads_from_the_organization_quarantine_disk(): void
     {
-        $this->assertInstanceOf(UnavailableQuarantinedImport::class, $this->app->make(ResolveQuarantinedImport::class));
+        $this->assertInstanceOf(StorageQuarantinedImport::class, $this->app->make(ResolveQuarantinedImport::class));
     }
 
     public function test_organization_temporary_assignment_contracts_resolve_to_their_configured_implementation(): void

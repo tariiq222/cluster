@@ -182,6 +182,34 @@ class RedisOutboxRelayTest extends TestCase
         );
     }
 
+    public function test_relay_recovers_an_abandoned_claim_from_a_crashed_worker(): void
+    {
+        $this->requireAsyncImplementation();
+        $event = $this->cloudEvent('018f6f7d-0c00-7000-8000-000000000307', '018f6f7d-0c00-7000-8000-000000000407');
+        $this->insertOutbox($event, '2026-07-16 09:00:00');
+
+        $store = $this->app->make(DatabaseOutboxRelayStore::class);
+        $this->assertTrue(
+            $store->claim($event['id'], 'crashed-worker', 30),
+            'precondition: a crashed worker left an exclusive claim behind',
+        );
+        DB::table('outbox_events')->where('event_id', $event['id'])->update([
+            'lease_expires_at' => now()->subMinutes(5),
+        ]);
+
+        $transport = Mockery::mock(RedisStreamTransport::class);
+        $transport->shouldReceive('xadd')
+            ->once()
+            ->withArgs(fn (string $stream): bool => $stream === self::STREAM)
+            ->andReturn('1784192400000-0');
+        $this->app->instance(RedisStreamTransport::class, $transport);
+
+        $published = $this->app->make(RedisOutboxRelay::class)->relayPending(10);
+
+        $this->assertSame(1, $published, 'the relay must reap the expired claim and publish the abandoned event');
+        $this->assertNotNull(DB::table('outbox_events')->where('event_id', $event['id'])->value('published_at'));
+    }
+
     public function test_relay_command_rejects_accidental_unbounded_execution(): void
     {
         $this->requireAsyncImplementation();
