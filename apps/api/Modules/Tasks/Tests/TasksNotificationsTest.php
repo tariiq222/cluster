@@ -23,7 +23,11 @@ final class TasksNotificationsTest extends TestCase
 
     private const USER_A = '018f6f7d-0c00-7000-8000-000000000021';
 
+    private const USER_B = '018f6f7d-0c00-7000-8000-000000000022';
+
     private const PARTICIPANT = '018f6f7d-0c00-7000-8000-000000000041';
+
+    private const MENTION_AUTHORIZED = '018f6f7d-0c00-7000-8000-000000000091';
 
     private const FACILITY_A = '018f6f7d-0c00-7000-8000-000000000011';
 
@@ -174,5 +178,88 @@ final class TasksNotificationsTest extends TestCase
         $rows = DB::table('notifications')->where('type', 'task.participant_added')->get();
         $recipients = $rows->pluck('recipient_user_id')->all();
         $this->assertSame([self::PARTICIPANT], array_map('strval', $recipients));
+    }
+
+    public function test_mention_notification_skips_user_without_tasks_read_grant(): void
+    {
+        // Regression for the mentions bug: the gate used to evaluate against
+        // the AUTHOR's principal, so any mention listed alongside a comment
+        // always passed and the task.mentioned notification leaked to users
+        // who had no tasks.read grant on this task.
+        $taskId = $this->seedTask(self::USER_A, self::USER_A, 'open');
+
+        $resp = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/comments', [
+            'body' => 'paging user B',
+            'mentioned_user_ids' => [self::USER_B],
+        ], [
+            'X-Correlation-ID' => self::CORRELATION,
+            'Idempotency-Key' => 'idem-mention-deny-'.Str::uuid7()->toString(),
+        ]);
+        $resp->assertStatus(201);
+
+        $rows = DB::table('notifications')->where('type', 'task.mentioned')->get();
+        $this->assertSame(0, $rows->count(), 'task.mentioned must not leak to users without tasks.read on this task.');
+    }
+
+    public function test_mention_notification_sent_to_user_with_tasks_read_grant(): void
+    {
+        // Positive case for the mentions fix: a user with a real tasks.read
+        // grant at the task's facility scope is entitled to the inbox entry.
+        $this->seedAuthorizedUserForFacility(self::MENTION_AUTHORIZED, self::FACILITY_A);
+
+        $taskId = $this->seedTask(self::USER_A, self::USER_A, 'open');
+
+        $resp = $this->withToken($this->token)->postJson('/api/v1/tasks/'.$taskId.'/comments', [
+            'body' => 'paging authorized user',
+            'mentioned_user_ids' => [self::MENTION_AUTHORIZED],
+        ], [
+            'X-Correlation-ID' => self::CORRELATION,
+            'Idempotency-Key' => 'idem-mention-allow-'.Str::uuid7()->toString(),
+        ]);
+        $resp->assertStatus(201);
+
+        $rows = DB::table('notifications')->where('type', 'task.mentioned')->get();
+        $recipients = $rows->pluck('recipient_user_id')->all();
+        $this->assertSame([self::MENTION_AUTHORIZED], array_map('strval', $recipients));
+    }
+
+    /**
+     * Insert a fresh user with the journey R1-operator role at the given
+     * facility scope, so tasks.read is granted for tasks owned in that
+     * facility. Mirrors the DevelopmentJourneyAuthorizationSeeder grants
+     * without modifying any shared fixture.
+     */
+    private function seedAuthorizedUserForFacility(string $userId, string $facilityId): void
+    {
+        $now = now();
+        DB::table('users')->insertOrIgnore([
+            'id' => $userId,
+            'username' => 'mention-test-'.$userId,
+            'display_name_ar' => 'مستخدم ذكر اختبار',
+            'display_name_en' => 'Mention test user '.$userId,
+            'status' => 'active',
+            'is_admin' => false,
+            'lock_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $roleId = DB::table('roles')->where('code', DevelopmentJourneyAuthorizationSeeder::ROLE_CODE)->value('id');
+        if (! is_string($roleId)) {
+            return;
+        }
+        DB::table('role_assignments')->insertOrIgnore([
+            'id' => Str::uuid7()->toString(),
+            'user_id' => $userId,
+            'role_id' => $roleId,
+            'scope_type' => 'facility',
+            'scope_id' => $facilityId,
+            'start_at' => '2026-01-01 00:00:00.000',
+            'end_at' => null,
+            'status' => 'active',
+            'granted_by_user_id' => $userId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 }

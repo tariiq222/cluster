@@ -8,6 +8,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Tasks\Application\TaskAccessPolicy;
 use Modules\Tasks\Contracts\RecordTaskNotifications;
@@ -29,6 +30,7 @@ final class TaskEngagementController
         private readonly TaskHttpStore $store,
         private readonly RecordTaskNotifications $notifications,
         private readonly TaskAccessPolicy $policy,
+        private readonly ResolveActiveFacilityScopesForUser $facilityScopes,
     ) {}
 
     public function addParticipant(Request $request, string $taskId): JsonResponse
@@ -175,9 +177,12 @@ final class TaskEngagementController
             if ($mentionedUserId === $p['user_id']) {
                 continue;
             }
-            // Only authorized mentioned users (with tasks.read on this task)
-            // receive the mention notification.
-            if (! $this->isAllowed($p, $task, 'tasks.read', $c)) {
+            // Gate the mention notification against the MENTIONED user's
+            // authorization on the task — never against the author's. The
+            // gate must answer "can $mentionedUserId read this task?" so the
+            // notification only lands in the inboxes of users who would
+            // actually be allowed to see the task.
+            if (! $this->isAllowedToRead($task, $mentionedUserId, $c)) {
                 continue;
             }
             $this->notifications->record(
@@ -195,6 +200,30 @@ final class TaskEngagementController
         return $this->isAllowed($principal, $task, $capability, $correlationId)
             ? null
             : $this->problem(403, 'access-denied', 'Access denied.', $correlationId);
+    }
+
+    /**
+     * Authorization gate for an arbitrary mentioned user — used by the
+     * task.mentioned notification so recipients only include users who would
+     * actually be allowed to read the task. Resolves the user's active
+     * facility scopes through the Authorization-owned contract (no direct
+     * cross-module SQL) and asks the central decision engine via the
+     * non-persisting evaluator.
+     */
+    private function isAllowedToRead(\stdClass $task, string $userId, string $correlationId): bool
+    {
+        $facilityScopeIds = $this->facilityScopes->facilityScopeIds($userId);
+
+        return $this->access->evaluateOnly(
+            [
+                'user_id' => $userId,
+                'facility_id' => $facilityScopeIds[0] ?? null,
+                'organization_unit_ids' => $facilityScopeIds,
+                'correlation_id' => $correlationId,
+            ],
+            'tasks.read',
+            $this->policy->factsFor($task, $this->store->participantIds((string) $task->id)),
+        )->isAllowed();
     }
 
     private function isAllowed(array $principal, \stdClass $task, string $capability, string $correlationId): bool
