@@ -208,10 +208,11 @@ controls:
 
 totals:
   controls_total: 23
-  implemented: 8
+  implemented: 10
+  implemented_pending_production_keys: 1
   partial: 1
-  open: 9
-  planned: 5
+  open: 8
+  planned: 3
   plan_ref: docs/superpowers/plans/2026-07-26-cluster-healthcare-privacy-compliance.md
 
 # ----------------------------------------------------------------------------

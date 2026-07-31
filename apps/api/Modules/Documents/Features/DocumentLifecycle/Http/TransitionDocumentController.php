@@ -85,7 +85,12 @@ final class TransitionDocumentController
         }
         $changes = match ($documentAction) {
             'archive' => ['status' => 'archived'],
-            'unarchive' => ['status' => 'active'],
+            // Unarchive restores a sane status instead of unconditionally
+            // resurrecting to active: a document with no current version
+            // (draft, rejected) must not be promoted, and a version-less
+            // expired document must not be immediately re-archived by the
+            // next expiry cycle.
+            'unarchive' => ['status' => $document->current_version_id !== null ? 'active' : 'draft'],
             'place-hold' => ['legal_hold' => true, 'legal_hold_reason' => trim($reason), 'legal_hold_at' => now()],
             'release-hold' => ['legal_hold' => false, 'legal_hold_reason' => null, 'legal_hold_at' => null],
             default => null,

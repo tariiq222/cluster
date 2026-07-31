@@ -9,6 +9,7 @@ import {
   getDashboard,
   getReport,
   getReportExport,
+  downloadReportExport,
   listDashboards,
   listReports,
   listWorkDefinitions,
@@ -409,6 +410,7 @@ export function ReportsScreen({ capabilities }: R1CapabilityProps) {
   const [selectedKind, setSelectedKind] = useState<'report' | 'dashboard' | null>(null)
   const [exportItem, setExportItem] = useState<R1Entity | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -539,6 +541,20 @@ export function ReportsScreen({ capabilities }: R1CapabilityProps) {
   const exportReady = exportStatus === 'ready' || exportStatus === 'completed' || exportStatus === 'available'
   const exportInProgress = exportStatus !== null && !exportReady && !['failed', 'error', 'cancelled'].includes(exportStatus)
 
+  const downloadExport = useCallback(async () => {
+    const exportId = exportItem?.id ? String(exportItem.id) : null
+    if (!exportId) return
+    setDownloading(true)
+    setExportError(null)
+    try {
+      await downloadReportExport(token, exportId)
+    } catch (error) {
+      setExportError(stateFrom(error) === 'forbidden' ? common[locale].forbidden : common[locale].exportFailed)
+    } finally {
+      setDownloading(false)
+    }
+  }, [common, exportItem?.id, token])
+
   return (
     <section className="ui-page" aria-labelledby="reports-heading">
       <PageHeader id="reports-heading" title={common[locale].reports} />
@@ -570,7 +586,7 @@ export function ReportsScreen({ capabilities }: R1CapabilityProps) {
               <div className="status-message" role="status" aria-live="polite">
                 {common[locale].exportStatus}: <strong>{String(exportItem.status ?? 'queued')}</strong>
                 {exportInProgress && <progress aria-label={common[locale].processing} />}
-                {exportReady && Boolean(exportItem.download_url) && <> — <a href={String(exportItem.download_url)}>{common[locale].download}</a></>}
+                {exportReady && Boolean(exportItem.download_url) && <> — <Button variant="secondary" onClick={() => void downloadExport()} disabled={downloading}>{downloading ? (common[locale].processing) : (common[locale].download)}</Button></>}
               </div>
             )}
             {exportError && <Button variant="secondary" onClick={() => void createExport()} disabled={exporting}>{common[locale].exportRetry}</Button>}

@@ -6,6 +6,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Modules\Identity\Features\Activation\Handler\ActivationHandler;
 use Modules\Identity\Features\UserAccount\Handler\UserAccountHandler;
 use Modules\Identity\Http\IdentityApi;
 use Tests\TestCase;
@@ -112,10 +113,16 @@ class IdentityAccountHttpAdapterTest extends TestCase
         $personId = $this->createPerson($token);
         $accountId = $this->createAccount($token, $personId, 'lifecycle.user');
 
-        // Pending cannot be activated directly (no credential exists yet);
-        // disable first, then activate re-enables an existing account.
+        // A pending account has no credential, so activation must go
+        // through the activation token flow (which creates the credential)
+        // before the admin lifecycle transitions can apply.
+        $activation = $this->app->make(ActivationHandler::class)->issue($accountId);
+        $this->app->make(ActivationHandler::class)->activate($activation['token'], 'A secure activation phrase 2026!');
+        $this->assertDatabaseHas('users', ['id' => $accountId, 'status' => 'active']);
+        $this->assertDatabaseHas('credentials', ['user_id' => $accountId]);
+
         $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'disable-pending'))
+            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'disable-active'))
             ->assertOk()->assertHeader('ETag', '"2"')->assertJsonPath('status', 'disabled');
         $this->withToken($token)
             ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"2"', 'activate'))
@@ -194,8 +201,11 @@ class IdentityAccountHttpAdapterTest extends TestCase
         $token = $this->loginToken();
         $personId = $this->createPerson($token);
         $accountId = $this->createAccount($token, $personId, 'rollback.user');
-        // Direct activation of a pending account is refused (no credential);
-        // disable first so the transition targets a disabled account.
+        // activate requires an existing credential, so activate through the
+        // token flow first (this also creates the credential), then disable
+        // so the transition under test targets a disabled account.
+        $activation = $this->app->make(ActivationHandler::class)->issue($accountId);
+        $this->app->make(ActivationHandler::class)->activate($activation['token'], 'A secure activation phrase 2026!');
         $this->withToken($token)
             ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'rollback-disable'))
             ->assertOk();

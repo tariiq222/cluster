@@ -19,6 +19,9 @@ final class SearchBackfillCommandTest extends TestCase
         if (! Schema::hasTable('search_index_entries')) {
             $this->artisan('migrate', ['--path' => 'Modules/Search/Infrastructure/Persistence/Migrations/CreateSearchProjectionTables.php', '--force' => true]);
         }
+        if (! Schema::hasColumn('search_index_entries', 'status')) {
+            $this->artisan('migrate', ['--path' => 'Modules/Search/Infrastructure/Persistence/Migrations/ZAddSearchIndexStatusColumn.php', '--force' => true]);
+        }
     }
 
     public function test_backfill_indexes_work_records_and_resets_the_checkpoint_on_scan_completion(): void

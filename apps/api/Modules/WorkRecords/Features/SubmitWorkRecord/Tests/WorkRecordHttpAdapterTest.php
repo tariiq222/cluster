@@ -5,6 +5,7 @@ namespace Modules\WorkRecords\Features\SubmitWorkRecord\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
@@ -97,6 +98,55 @@ class WorkRecordHttpAdapterTest extends TestCase
             'code' => 'request',
             'fields' => ['title', 'description'],
         ], $fixture);
+    }
+
+    public function test_submit_carries_the_published_definitions_field_policy_key_onto_the_record(): void
+    {
+        $token = $this->loginToken();
+        $now = now();
+
+        // A published definition with a field policy key must surface that
+        // key on records created against it (masking/hiding depends on it).
+        $definitionId = (string) Str::uuid7();
+        $versionId = (string) Str::uuid7();
+        DB::table('work_definitions')->insert([
+            'id' => $definitionId,
+            'code' => 'policy-carry',
+            'name' => 'تعريف بسياسة',
+            'description' => 'Policy definition',
+            'default_classification' => 'internal',
+            'created_by_user_id' => '018f6f7d-0c00-7000-8000-000000000021',
+            'status' => 'active',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('work_definition_versions')->insert([
+            'id' => $versionId,
+            'work_definition_id' => $definitionId,
+            'version_number' => 1,
+            'status' => 'published',
+            'schema_document' => json_encode([
+                'type' => 'object',
+                'properties' => ['title' => ['type' => 'string'], 'description' => ['type' => 'string']],
+            ], JSON_THROW_ON_ERROR),
+            'field_policy_key' => 'work_record.classified',
+            'schema_hash' => hash('sha256', 'policy-carry-v1'),
+            'created_by_user_id' => '018f6f7d-0c00-7000-8000-000000000021',
+            'published_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $created = $this->withToken($token)->postJson('/api/v1/work-records', [
+            'work_definition_code' => 'policy-carry',
+            'title' => 'طلب بسياسة',
+            'description' => 'وصف',
+        ], $this->writeHeaders('policy-carry-submit'))->assertCreated();
+
+        $this->assertDatabaseHas('work_records', [
+            'id' => $created->json('data.id'),
+            'field_policy_key' => 'work_record.classified',
+        ]);
     }
 
     public function test_idempotency_replay_is_stable_and_conflicting_semantics_are_rejected(): void

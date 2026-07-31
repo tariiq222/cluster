@@ -70,4 +70,34 @@ final class RecordTaskNotificationsTest extends TestCase
 
         self::assertSame(0, DB::table('notifications')->count());
     }
+
+    public function test_record_resurfaces_a_read_task_notification_unread_on_a_same_group_event(): void
+    {
+        $service = $this->app->make(RecordTaskNotifications::class);
+        $taskId = (string) Str::uuid7();
+        $payload = [
+            'task_id' => $taskId,
+            'title' => 'Title',
+            'actor_user_id' => (string) Str::uuid7(),
+            'action' => 'updated',
+        ];
+
+        $service->record(['u1'], 'task.updated', $payload);
+        $notificationId = (string) DB::table('notifications')->value('id');
+        $firstEventId = (string) DB::table('notifications')->value('event_id');
+        DB::table('notifications')->where('id', $notificationId)->update([
+            'is_read' => true,
+            'status' => 'read',
+        ]);
+
+        $service->record(['u1'], 'task.updated', $payload);
+
+        $row = DB::table('notifications')->where('id', $notificationId)->first();
+        self::assertNotNull($row);
+        self::assertSame(1, DB::table('notifications')->count(), 'The same group key must aggregate, not duplicate.');
+        self::assertSame(false, (bool) $row->is_read, 'A new same-group event must re-surface the notification as unread.');
+        self::assertSame('unread', (string) $row->status);
+        self::assertSame(2, (int) $row->aggregation_count);
+        self::assertNotSame($firstEventId, (string) $row->last_event_id);
+    }
 }

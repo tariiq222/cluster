@@ -15,8 +15,10 @@ use Throwable;
  *
  * Operator-driven retention purge. Invokes {@see PurgeExpiredAuditEvents}
  * which guarantees:
- *   - no candidate row → no rows touched, exit 0
- *   - chain mismatch in prefix → typed error, no rows touched, exit 1
+ *   - no eligible head row → no rows touched, exit 0
+ *   - partial expiry → contiguous expired prefix purged, walk stops at the
+ *     first non-expired row (wedge), which is reported and still exit 0
+ *   - chain mismatch in purged prefix → typed error, no rows touched, exit 1
  *   - atomic checkpoint + delete → exit 0, prints one summary line
  *   - database failure → rollback, exit 1
  *
@@ -28,7 +30,7 @@ use Throwable;
  */
 final class PurgeExpiredAuditEventsCommand extends Command
 {
-    protected $description = 'Purge the contiguous expired prefix of one Audit stream (chain-checked, immutable checkpoint first).';
+    protected $description = 'Purge the longest contiguous expired prefix of one Audit stream (chain-checked, immutable checkpoint first).';
 
     protected $signature = 'audit:retention:purge
         {--before= : Required UTC cutoff in Y-m-d\\TH:i:s.v\\Z form; rows whose retention_until < cutoff form the eligible prefix.}
@@ -71,12 +73,23 @@ final class PurgeExpiredAuditEventsCommand extends Command
         }
 
         if ($result['deleted_event_count'] === 0) {
+            if (($result['stopped_at_sequence'] ?? null) !== null) {
+                $this->info(sprintf(
+                    'No eligible rows for stream %s at cutoff %s — stopped at non-expired event %d.',
+                    $stream,
+                    $before,
+                    $result['stopped_at_sequence'],
+                ));
+
+                return self::SUCCESS;
+            }
+
             $this->info(sprintf('No eligible rows for stream %s at cutoff %s — no change.', $stream, $before));
 
             return self::SUCCESS;
         }
 
-        $this->info(sprintf(
+        $message = sprintf(
             'Purged %d event(s) on stream %s (sequences %d..%d) using checkpoint %s; key version %s.',
             $result['deleted_event_count'],
             $result['stream_key'],
@@ -84,7 +97,11 @@ final class PurgeExpiredAuditEventsCommand extends Command
             $result['last_sequence'],
             $result['checkpoint_id'],
             $result['integrity_key_version'],
-        ));
+        );
+        if (($result['stopped_at_sequence'] ?? null) !== null) {
+            $message .= sprintf(' Stopped at non-expired event %d.', $result['stopped_at_sequence']);
+        }
+        $this->info($message);
 
         return self::SUCCESS;
     }

@@ -61,6 +61,7 @@ use Modules\Organization\Features\CreateCluster\Http\CreateClusterController;
 use Modules\Organization\Features\CreateCluster\Http\GetClusterController;
 use Modules\Organization\Features\CreateFacility\Http\CreateFacilityController;
 use Modules\Organization\Features\CreateFacility\Http\ListFacilitiesController;
+use Modules\Organization\Features\ImportFile\Http\UploadImportFileController;
 use Modules\Organization\Features\ImportJob\Http\GetImportJobController;
 use Modules\Organization\Features\ImportJob\Http\ListImportJobRowsController;
 use Modules\Organization\Features\ImportJob\Http\SubmitImportJobController;
@@ -203,6 +204,7 @@ Route::prefix('api/v1')->group(function (): void {
         Route::post('organization/assignments/{assignmentId}/end', EndAssignmentController::class)->middleware(IdentityCsrfMiddleware::class);
         Route::get('organization/supervisory-relationships', SupervisoryRelationshipController::class);
         Route::post('organization/supervisory-relationships', SupervisoryRelationshipController::class)->middleware(IdentityCsrfMiddleware::class);
+        Route::post('organization/import-files', UploadImportFileController::class)->middleware(IdentityCsrfMiddleware::class);
         Route::post('organization/import-jobs', SubmitImportJobController::class)->middleware(IdentityCsrfMiddleware::class);
         Route::get('organization/import-jobs/{jobId}', GetImportJobController::class);
         Route::get('organization/import-jobs/{jobId}/rows', ListImportJobRowsController::class);

@@ -174,14 +174,18 @@ final class UserAccountHandler
             $lockedUntil = $row->locked_until;
             $revokeSessions = false;
             if ($action === 'activate') {
-                // Pending accounts have no credential yet; activating them
-                // directly would produce an account that can never log in.
-                // They must be activated through the activation token flow
-                // (IssueActivationToken), which creates the credential.
-                if (! in_array($status, ['disabled'], true)) {
+                // An account can only be re-activated when it has a
+                // credential to authenticate with. Pending accounts have no
+                // credential yet — activating them directly (or via
+                // pending → disable → activate) would produce an account
+                // that can never log in. They must go through the activation
+                // token flow (IssueActivationToken), which creates the
+                // credential, so `activate` requires the credential to exist.
+                if ($status !== 'disabled' || ! DB::table('credentials')->where('user_id', $accountId)->exists()) {
                     throw new DomainException('invalid_account_transition');
                 }
                 $status = 'active';
+                $lockedUntil = null;
             } elseif ($action === 'unlock') {
                 if ($status !== 'locked') {
                     throw new DomainException('invalid_account_transition');

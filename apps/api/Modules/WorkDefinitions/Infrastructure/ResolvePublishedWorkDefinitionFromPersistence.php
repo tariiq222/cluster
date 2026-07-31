@@ -30,6 +30,9 @@ final class ResolvePublishedWorkDefinitionFromPersistence implements ResolvePubl
                 'code' => $code,
                 'fields' => array_map('strval', array_keys($schema['properties'] ?? [])),
                 'classification' => (string) ($definition->default_classification ?? 'internal'),
+                'field_policy_key' => is_string($version->field_policy_key) && $version->field_policy_key !== ''
+                    ? $version->field_policy_key
+                    : null,
             ];
         }
 
@@ -44,6 +47,7 @@ final class ResolvePublishedWorkDefinitionFromPersistence implements ResolvePubl
             'code' => 'request',
             'fields' => array_map('strval', array_keys($fixture['input_schema']['properties'])),
             'classification' => 'internal',
+            'field_policy_key' => null,
         ];
     }
 }

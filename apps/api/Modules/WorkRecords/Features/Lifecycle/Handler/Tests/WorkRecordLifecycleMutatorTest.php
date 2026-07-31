@@ -100,7 +100,7 @@ final class WorkRecordLifecycleMutatorTest extends TestCase
             'submitted records can be returned' => ['submitted', 'return', 'returned'],
             'returned records can be resubmitted' => ['returned', 'submit', 'submitted'],
             'submitted records can be completed' => ['submitted', 'complete', 'completed'],
-            'submitted records can complete submission' => ['submitted', 'complete-submission', 'completed'],
+            'submitted records can complete submission via the legacy alias of complete' => ['submitted', 'complete-submission', 'completed'],
             'submitted records can be cancelled' => ['submitted', 'cancel', 'cancelled'],
             'returned records can be cancelled' => ['returned', 'cancel', 'cancelled'],
             'completed records can be archived' => ['completed', 'archive', 'archived'],

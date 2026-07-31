@@ -34,8 +34,10 @@ final class SearchController
             'scope_id' => ['sometimes', 'string', 'max:128'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'cursor' => ['sometimes', 'string', 'min:1', 'max:2048'],
+            'type' => ['sometimes', 'string', 'min:1', 'max:64'],
+            'status' => ['sometimes', 'string', 'min:1', 'max:64'],
         ]);
-        if ($validator->fails() || array_diff(array_keys($input), ['q', 'scope_id', 'limit', 'cursor']) !== []) {
+        if ($validator->fails() || array_diff(array_keys($input), ['q', 'scope_id', 'limit', 'cursor', 'type', 'status']) !== []) {
             return SearchApi::problem(400, 'invalid-search-query', 'Bad Request', 'The search query is invalid.', $correlationId);
         }
         $validated = $validator->validated();
@@ -47,6 +49,8 @@ final class SearchController
                 $validated['scope_id'] ?? null,
                 $limit,
                 $validated['cursor'] ?? null,
+                $validated['type'] ?? null,
+                $validated['status'] ?? null,
             );
         } catch (InvalidArgumentException) {
             return SearchApi::problem(400, 'invalid-search-query', 'Bad Request', 'The search query is invalid.', $correlationId);
@@ -55,8 +59,10 @@ final class SearchController
         $response = SearchApi::response($result, 200, $correlationId);
         if ($result['next_cursor'] !== null) {
             $nextQuery = ['cursor' => $result['next_cursor'], 'limit' => $limit, 'q' => $validated['q']];
-            if (isset($validated['scope_id'])) {
-                $nextQuery['scope_id'] = $validated['scope_id'];
+            foreach (['scope_id', 'type', 'status'] as $optional) {
+                if (isset($validated[$optional])) {
+                    $nextQuery[$optional] = $validated[$optional];
+                }
             }
             $response->header('Link', '</api/v1/search?'.http_build_query($nextQuery, '', '&', PHP_QUERY_RFC3986).'>; rel="next"');
         }

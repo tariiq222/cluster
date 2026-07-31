@@ -91,22 +91,112 @@ final class AuditRetentionTest extends TestCase
         $this->assertSame(0, DB::table('audit_integrity_checkpoints')->count());
     }
 
-    public function test_non_prefix_retention_request_returns_no_op(): void
+    public function test_wedge_at_stream_head_purges_nothing_without_error(): void
     {
-        $this->recordNonPrefixEvents();
+        $this->recordHeadWedgeEvents();
 
-        $partialCutoff = $this->legalCutoff();
+        $result = $this->handler()->run(self::STREAM_KEY, $this->legalCutoff());
 
-        $caught = null;
-        try {
-            $this->handler()->run(self::STREAM_KEY, $partialCutoff);
-        } catch (InvalidArgumentException $exception) {
-            $caught = $exception;
-        }
-
-        $this->assertNotNull($caught, 'Middle-of-chain retention expiry MUST refuse.');
+        $this->assertSame(0, $result['deleted_event_count']);
+        $this->assertSame(1, $result['stopped_at_sequence']);
         $this->assertSame(5, DB::table('audit_events')->where('stream_key', self::STREAM_KEY)->count());
         $this->assertSame(0, DB::table('audit_integrity_checkpoints')->count());
+    }
+
+    public function test_wedge_event_does_not_block_purging_of_earlier_expired_prefix(): void
+    {
+        $this->recordWedgeEvents();
+
+        $cutoff = $this->legalCutoff();
+        $result = $this->handler()->run(self::STREAM_KEY, $cutoff);
+
+        $this->assertSame(1, $result['deleted_event_count']);
+        $this->assertSame(1, $result['first_sequence']);
+        $this->assertSame(1, $result['last_sequence']);
+        $this->assertSame(2, $result['stopped_at_sequence']);
+
+        $survivors = DB::table('audit_events')
+            ->where('stream_key', self::STREAM_KEY)
+            ->orderBy('stream_sequence')
+            ->pluck('stream_sequence')
+            ->map(static fn (mixed $value): int => (int) $value)
+            ->all();
+        $this->assertSame([2, 3, 4, 5], $survivors);
+
+        $wedge = DB::table('audit_events')
+            ->where('stream_key', self::STREAM_KEY)
+            ->where('stream_sequence', 2)
+            ->first();
+        $this->assertNotNull($wedge, 'The long-retention wedge event must survive the partial purge.');
+        $this->assertTrue(
+            $this->notExpiredAt((string) $wedge->retention_until, $cutoff),
+            'The wedge must still be inside its own retention window.',
+        );
+
+        $checkpoint = DB::table('audit_integrity_checkpoints')
+            ->where('id', $result['checkpoint_id'])
+            ->first();
+        $this->assertNotNull($checkpoint);
+        $this->assertSame('retention_purge', $checkpoint->kind);
+        $this->assertSame('verified', $checkpoint->status);
+        $this->assertSame(1, (int) $checkpoint->first_sequence);
+        $this->assertSame(1, (int) $checkpoint->last_sequence);
+        $this->assertSame(1, (int) $checkpoint->event_count);
+        $details = json_decode((string) $checkpoint->details, true, 32, JSON_THROW_ON_ERROR);
+        $this->assertSame(2, $details['stopped_at_sequence']);
+    }
+
+    public function test_partial_prefix_purge_preserves_stream_verification(): void
+    {
+        $this->recordWedgeEvents();
+
+        $purge = $this->handler()->run(self::STREAM_KEY, $this->legalCutoff());
+        $this->assertSame(1, $purge['deleted_event_count']);
+        $this->assertSame(2, $purge['stopped_at_sequence']);
+
+        $verification = $this->app->make(AuditIntegrityRepository::class)->verifyStream(
+            verificationId: (string) \Illuminate\Support\Str::uuid7(),
+            correlationId: self::CORRELATION_ID,
+            streamKey: self::STREAM_KEY,
+            actorId: self::ACTOR_ID,
+        );
+
+        $this->assertSame(AuditIntegrityRepository::STATUS_VERIFIED, $verification['status']);
+        $this->assertSame(2, $verification['first_sequence']);
+        $this->assertSame(5, $verification['last_sequence']);
+        $this->assertSame(4, $verification['verified_event_count']);
+    }
+
+    public function test_wedge_event_is_purged_once_its_own_retention_passes(): void
+    {
+        $this->recordWedgeEvents();
+
+        $partial = $this->handler()->run(self::STREAM_KEY, $this->legalCutoff());
+        $this->assertSame(1, $partial['deleted_event_count']);
+
+        Carbon::setTestNow('2028-01-15T12:00:00.000Z');
+        $laterCutoff = Carbon::now()
+            ->subDays(AuditRetentionPolicy::MINIMUM_RETENTION_DAYS + 10)
+            ->toDateTimeImmutable();
+
+        $later = $this->handler()->run(self::STREAM_KEY, $laterCutoff);
+
+        $this->assertSame(2, $later['deleted_event_count']);
+        $this->assertSame(2, $later['first_sequence']);
+        $this->assertSame(3, $later['last_sequence']);
+        $this->assertSame(4, $later['stopped_at_sequence']);
+
+        $survivors = DB::table('audit_events')
+            ->where('stream_key', self::STREAM_KEY)
+            ->orderBy('stream_sequence')
+            ->pluck('stream_sequence')
+            ->map(static fn (mixed $value): int => (int) $value)
+            ->all();
+        $this->assertSame([4, 5], $survivors);
+
+        $final = $this->handler()->run(self::STREAM_KEY, $laterCutoff);
+        $this->assertSame(0, $final['deleted_event_count']);
+        $this->assertSame(2, DB::table('audit_events')->where('stream_key', self::STREAM_KEY)->count());
     }
 
     public function test_committed_prefix_purge_records_checkpoint_activity_and_deletes_only_eligible_rows(): void
@@ -259,6 +349,7 @@ final class AuditRetentionTest extends TestCase
 
         $purge = $this->handler()->run(self::STREAM_KEY, $this->legalCutoff());
         $this->assertSame(2, $purge['deleted_event_count']);
+        $this->assertNull($purge['stopped_at_sequence']);
         $this->assertSame(0, DB::table('audit_events')->where('stream_key', self::STREAM_KEY)->count());
 
         Carbon::setTestNow('2026-07-27T12:34:56.789Z');
@@ -378,6 +469,23 @@ final class AuditRetentionTest extends TestCase
         $this->assertSame('/'.$activity->id, $payload['subject']);
     }
 
+    public function test_console_command_partial_purge_reports_stopped_at_wedge_and_exits_zero(): void
+    {
+        $this->recordWedgeEvents();
+
+        $exitCode = Artisan::call('audit:retention:purge', [
+            '--stream' => self::STREAM_KEY,
+            '--before' => $this->legalCutoff()->format('Y-m-d\TH:i:s.v\Z'),
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('Purged 1 event', $output);
+        $this->assertStringContainsString('Stopped at non-expired event 2', $output);
+        $this->assertSame(4, DB::table('audit_events')->where('stream_key', self::STREAM_KEY)->count());
+        $this->assertSame(1, DB::table('audit_integrity_checkpoints')->where('kind', 'retention_purge')->count());
+    }
+
     private function handler(): PurgeExpiredAuditEvents
     {
         return $this->app->make(PurgeExpiredAuditEvents::class);
@@ -395,13 +503,42 @@ final class AuditRetentionTest extends TestCase
         }
     }
 
-    private function recordNonPrefixEvents(): void
+    private function recordHeadWedgeEvents(): void
     {
         $recorder = $this->app->make(RecordAuditEvent::class);
         $specifications = [
             [1, '2010-01-01T00:00:00.000Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_REGULATED],
             [2, '2011-01-01T00:00:00.000Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_STANDARD],
             [3, '2026-07-27T12:34:56.789Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_REGULATED],
+            [4, '2026-07-27T12:34:56.789Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_REGULATED],
+            [5, '2026-07-27T12:34:56.789Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_REGULATED],
+        ];
+
+        foreach ($specifications as [$sequence, $recordedAt, $retentionClass]) {
+            Carbon::setTestNow($recordedAt);
+            $recorder->record($this->input(
+                eventId: sprintf('018f6f7d-0c00-7000-8000-0000000007%02X', $sequence),
+                retentionClass: $retentionClass,
+            ));
+        }
+
+        Carbon::setTestNow('2026-07-27T12:34:56.789Z');
+    }
+
+    /**
+     * Stream with a longer-retention wedge event in the middle: sequence 2
+     * is regulated (3650 days, recorded 2010 → expires 2019-12-30) while
+     * sequences 1 and 3 are standard (2555 days, recorded 2010 → expired
+     * years before the legal cutoff). Sequences 4-5 are recent and far
+     * inside their retention window.
+     */
+    private function recordWedgeEvents(): void
+    {
+        $recorder = $this->app->make(RecordAuditEvent::class);
+        $specifications = [
+            [1, '2010-01-01T00:00:00.000Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_STANDARD],
+            [2, '2010-01-01T00:00:00.000Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_REGULATED],
+            [3, '2010-01-01T00:00:00.000Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_STANDARD],
             [4, '2026-07-27T12:34:56.789Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_REGULATED],
             [5, '2026-07-27T12:34:56.789Z', \Modules\Audit\Contracts\AuditEventInput::RETENTION_REGULATED],
         ];
@@ -474,6 +611,11 @@ final class AuditRetentionTest extends TestCase
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
         return $now->modify('-'.(string) (AuditRetentionPolicy::MINIMUM_RETENTION_DAYS + 10).' days');
+    }
+
+    private function notExpiredAt(string $retentionUntil, DateTimeImmutable $cutoff): bool
+    {
+        return new DateTimeImmutable($retentionUntil) >= $cutoff;
     }
 
     private function recreateSqliteAppendOnlyGuards(): void

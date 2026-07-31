@@ -67,7 +67,7 @@ lists the canonical tables, contracts, and HTTP routes.
   workflow, alert policies, business calendars, maintenance windows, backup
   operations, and technical log archive (technical logs are DEFERRED).
 - **Tables.** `platform_settings`, `platform_setting_versions`,
-  `platform_settings_outbox`, `platform_alert_policies`,
+  `platform_alert_policies`,
   `business_calendars`, `business_calendar_weekdays`,
   `business_calendar_exceptions`, `platform_maintenance_windows`,
   `platform_operation_requests`, `platform_operation_snapshots`,
@@ -75,9 +75,10 @@ lists the canonical tables, contracts, and HTTP routes.
   `technical_log_archive_restore_requests`.
 - **Contracts.** `GetEffectivePlatformSettings`, `ResolveBusinessCalendar`,
   `PublishTechnicalAlert`, `ValidateTechnicalAlertRecipientCapability`,
-  `ResolveTechnicalAlertRecipients`, `TechnicalLogSource`,
+  `TechnicalLogSource`,
   `TechnicalLogArchive`, `TechnicalLogArchiveStore`,
   `BackupOperationsGateway`, `PlatformHealthGateway`.
+  (`ResolveTechnicalAlertRecipients` lives in `Modules/Notifications/Contracts/`.)
 
 ### `Identity` (rank 1)
 
@@ -127,7 +128,7 @@ lists the canonical tables, contracts, and HTTP routes.
   `Authorization` — see above.)
 - **Contracts.** `RecordAuditEvent`, `QueryAuditActivity`,
   `AuditActivityQuery`, `AuditActivityPage`, `AuditActivityItem`,
-  `AuditEventReceipt`, `AuditEventInput`, `AuditExportDescriptor`.
+  `AuditEventReceipt`, `AuditEventInput`.
 - **Events.** `AuditEventRecordedV1`, `AuditExportCompletedV1`,
   `AuditIntegrityViolationDetectedV1`. Retention purge records a canonical
   `audit.retention.purged` activity through `RecordAuditEvent`; it does not
@@ -167,8 +168,7 @@ lists the canonical tables, contracts, and HTTP routes.
 - **Tables.** `documents`, `document_versions`, `document_links`,
   `document_idempotency_keys`, `document_quarantines`,
   `document_storage_objects`, `document_upload_intents`,
-  `document_restriction_facts`, `document_access_events`,
-  `document_outbox_events`.
+  `document_restriction_facts`, `document_access_events`.
 - **Contracts.** `DocumentAuthorizationFactsReader`, `DocumentDownloadService`,
   `DocumentDownloadGrantIssuer`, `DocumentUploadStatusReader`,
   `LinkedResourceAuthorizationFacts`, `MalwareScanner`,
@@ -279,16 +279,17 @@ approval or completion claim is made by this catalog.
    2026-07-26).
 3. **Controller placement.** Business controllers under
    `app/Http/Controllers/` are prohibited except for the Laravel base
-   `Controller.php`; this part currently passes. Five controllers still sit in
-   module-level `Http/` directories instead of
-   `Modules/<Name>/Features/*/Http/` (four Reporting and one Search), and the
-   current guard does not detect that shape. `ModulePlacementInventory` no
+   `Controller.php`; this part currently passes. Controllers must live under
+   `Modules/<Name>/Features/*/Http/`, and the guard now also rejects
+   module-level `Modules/<Name>/Http/*Controller.php` files
+   (`test_rejects_a_business_controller_under_a_module_top_level_http_directory`):
+   a module `Http/` directory may host only support APIs such as
+   `ReportingApi`/`SearchApi`. No such controllers remain in the tree.
+   `ModulePlacementInventory` no
    longer carries the two stale Reporting paths that previously referenced
    the deleted `Modules/Reporting/Http/List{Dashboards,Reports}Controller.php`
    files; the controllers now live under `Features/List{Dashboards,Reports}/Http/`
-   and comply with the placement rule, so no exception is required. The
-   remaining five module-level `Http/` controllers are out of scope for
-   Task 4 and are tracked as Task 5 work.
+   and comply with the placement rule, so no exception is required.
 3a. **Outbox event types.** Every `com.cluster.*.v<n>` literal that appears
    in producer code must be a case on `Shared\Infrastructure\Outbox\OutboxEventType`
    and must have a corresponding JSON schema file under
@@ -499,20 +500,20 @@ authorization decisions (Stage 3)
   `Modules/Organization/Features/*/Http/`; Identity, Authorization, Documents,
   Workflow, WorkDefinitions, WorkRecords, Tasks, Notifications, Platform
   Settings, Reporting, and Search routes now bind module-owned controllers.
-- **Residual debt.** Four Reporting controllers remain under
-  `Modules/Reporting/Http/` and `SearchController` remains under
-  `Modules/Search/Http/`. They are module-owned but do not follow the preferred
-  feature-folder layout. The current architecture test only catches
-  application-level placement and therefore needs an explicit module-level
-  placement assertion.
+- **Residual debt.** None remains: the module-level `Http/` controller debt is
+  cleared. `Modules/*/Http/` hosts only support APIs (e.g. `ReportingApi`,
+  `SearchApi`); every business controller lives under
+  `Modules/<Name>/Features/*/Http/`. The architecture guard now rejects
+  module-level `Modules/<Name>/Http/*Controller.php` placement explicitly
+  (`test_rejects_a_business_controller_under_a_module_top_level_http_directory`).
 - **Evidence.** `apps/api/routes/web.php`, the module controller tree, and
-  `make verify-boundaries` (12 tests, 53 assertions, passed on 2026-07-26).
+  `make verify-boundaries` (30 tests, 205 assertions, passed on 2026-07-31).
 
 ### 6.9 Composition root split into module providers
 
-- **What.** `AppServiceProvider` now registers 12 module service providers and
+- **What.** `AppServiceProvider` now registers 13 module service providers and
   retains only shared bindings, migration loading, commands, and production
-  safety checks. It is 106 lines; module-specific bindings live in
+  safety checks. It is 113 lines; module-specific bindings live in
   `Modules/<Name>/Providers/<Name>ServiceProvider.php`.
 - **Why.** This restores module ownership without creating a second global
   composition root. Production still fails closed unless Authorization uses

@@ -12,6 +12,8 @@ import type {
   FacilityPatch,
   ImportJob as GeneratedImportJob,
   ImportJobCreate,
+  ImportFileUpload as GeneratedImportFileUpload,
+  ImportFileReference as GeneratedImportFileReference,
   ImportJobRow as GeneratedImportJobRow,
   ImportJobRowCollection as GeneratedImportJobRowCollection,
   JobTitle as GeneratedJobTitle,
@@ -67,6 +69,8 @@ export type ImportJobRow = GeneratedImportJobRow
 export type ImportJobRowCollection = GeneratedImportJobRowCollection
 export type CreateImportJobInput = ImportJobCreate
 export type ImportJobAction = 'validate' | 'approve' | 'reject' | 'apply' | 'cancel'
+export type ImportFileUploadInput = Omit<GeneratedImportFileUpload, 'file'> & { file: File }
+export type ImportFileReference = GeneratedImportFileReference
 export type TemporaryAssignment = GeneratedTemporaryAssignment
 export type TemporaryAssignmentCollection = GeneratedTemporaryAssignmentCollection
 export type CreateTemporaryAssignmentInput = TemporaryAssignmentCreate
@@ -160,14 +164,17 @@ export async function updateOrganizationUnit(
 /**
  * Reorders every cached unit by the server's sibling policy. The endpoint derives the
  * ordering itself and ignores the submitted list, so no explicit ordering is sent.
+ * The cluster `lock_version` (from `getCluster`) is the optimistic-concurrency
+ * token the server requires in `If-Match`.
  */
 export async function reorderOrganizationUnits(
   token: string,
+  lockVersion: number,
 ): Promise<{ updated: number; policy: string }> {
   const body = unwrap<{ updated: number; by_parent: string[]; policy: string }>(
     await generated.reorderOrganizationUnits(
       { ordered_unit_ids: [] },
-      requestInit(token, { command: true, idempotency: 'organization-units-reorder' }),
+      requestInit(token, { command: true, idempotency: 'organization-units-reorder', lockVersion }),
     ),
   )
   return { updated: body.updated, policy: body.policy }
@@ -271,6 +278,18 @@ export async function endAssignment(
       assignmentId,
       input,
       requestInit(token, { command: true, lockVersion }),
+    ),
+  )
+}
+
+export async function uploadImportFile(
+  csrfToken: string,
+  input: ImportFileUploadInput,
+): Promise<ImportFileReference> {
+  return unwrap<ImportFileReference>(
+    await generated.uploadOrganizationImportFile(
+      { file: input.file, template_code: input.template_code, import_type: input.import_type },
+      requestInit(csrfToken, { command: true, idempotency: 'import-file' }),
     ),
   )
 }

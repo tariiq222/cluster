@@ -417,6 +417,49 @@ class RbacAbacDecideAccessTest extends TestCase
         $this->assertSame(['classification_export_denied'], $decision->reasonCodes);
     }
 
+    public function test_supervisory_relationship_path_enforces_classification_clearance_floor(): void
+    {
+        // A relationship grant must not bypass the classification clearance
+        // floor: the supervisor's clearance comes from the decided
+        // capability's sensitivity, so a low-sensitivity capability cannot
+        // read a record whose policy floor requires a higher clearance.
+        $this->seedCapabilityRow(self::CAPABILITY_ID, 'work_record.read', 'normal');
+        $this->seedCapabilityRow(self::CRITICAL_CAPABILITY_ID, 'work_record.archive', 'critical');
+        $this->seedClassificationPolicy('confidential', 'work_record.archive');
+        $this->seedSupervisoryRelationship();
+
+        $decision = $this->decider()->decide(
+            ['user_id' => self::USER_ID, 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A]],
+            'work_record.read',
+            $this->facts('confidential', self::ORGANIZATION_UNIT_B),
+        );
+
+        $this->assertSame('deny', $decision->decision);
+        $this->assertSame(['classification_insufficient'], $decision->reasonCodes);
+    }
+
+    public function test_supervisory_relationship_with_sufficient_capability_sensitivity_allows_an_internal_record(): void
+    {
+        // The same relationship grants access when the record's required
+        // clearance (internal, no policy floor) is met by the capability's
+        // sensitivity-derived clearance.
+        $this->seedCapabilityRow(self::CAPABILITY_ID, 'work_record.read', 'normal');
+        $this->seedSupervisoryRelationship();
+
+        $decision = $this->decider()->decide(
+            ['user_id' => self::USER_ID, 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A]],
+            'work_record.read',
+            $this->facts('internal', self::ORGANIZATION_UNIT_B),
+        );
+
+        $this->assertTrue($decision->isAllowed());
+        $this->assertSame([
+            'supervisory_relationship_capability_allowed',
+            'supervisory_relationship_source_scope_matched',
+            'supervisory_relationship_target_scope_matched',
+        ], $decision->reasonCodes);
+    }
+
     public function test_capability_without_sufficient_classification_fails_closed(): void
     {
         $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, sensitivity: 'normal');
@@ -433,6 +476,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
     public function test_active_supervisory_relationship_with_matching_capability_and_scopes_allows_access(): void
     {
+        $this->seedCapabilityRow(self::CAPABILITY_ID, 'work_record.read');
         $this->seedSupervisoryRelationship();
 
         $decision = $this->decider()->decide(

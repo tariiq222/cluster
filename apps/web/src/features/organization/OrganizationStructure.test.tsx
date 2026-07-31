@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   listJobTitles: vi.fn(),
   listOrganizationUnits: vi.fn(),
   listPositions: vi.fn(),
+  reorderOrganizationUnits: vi.fn(),
 }))
 
 vi.mock('../../api', async (importOriginal) => {
@@ -28,6 +29,7 @@ vi.mock('./OrganizationBoard', () => ({
 }))
 
 import { SessionProvider } from '../../app/session-context'
+import { ApiError } from '../../api'
 import { OrganizationStructure } from './OrganizationStructure'
 
 const cluster = {
@@ -109,5 +111,39 @@ describe('OrganizationStructure', () => {
     expect(screen.getByRole('dialog', { name: 'إضافة منصب' })).toBeTruthy()
     expect(screen.getByRole('textbox', { name: 'الرقم التعريفي' })).toBeTruthy()
     expect(screen.queryByRole('textbox', { name: 'الرمز' })).toBeNull()
+  })
+
+  it('reorders units with the current cluster lock version', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    api.reorderOrganizationUnits.mockResolvedValue({
+      updated: 1,
+      policy: 'type-priority-then-code',
+    })
+    renderStructure()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'ترتيب الوحدات' }))
+
+    expect(await screen.findByText('تم ترتيب 1 وحدة.')).toBeTruthy()
+    expect(api.reorderOrganizationUnits).toHaveBeenCalledWith('csrf-token', 1)
+  })
+
+  it('surfaces a stale message when reorder fails with 412', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    api.reorderOrganizationUnits.mockRejectedValue(
+      new ApiError(412, {
+        type: 'https://cluster.example/problems/precondition-required',
+        title: 'Precondition Failed',
+        status: 412,
+        detail: 'If-Match is required.',
+      }),
+    )
+    renderStructure()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'ترتيب الوحدات' }))
+
+    expect(
+      await screen.findByText('بيانات قديمة، حدّث الصفحة ثم أعد المحاولة.'),
+    ).toBeTruthy()
+    expect(api.reorderOrganizationUnits).toHaveBeenCalledWith('csrf-token', 1)
   })
 })

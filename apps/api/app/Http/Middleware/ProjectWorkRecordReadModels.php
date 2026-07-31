@@ -42,6 +42,7 @@ final class ProjectWorkRecordReadModels
             'source_type' => 'work_record',
             'source_id' => $record['id'],
             'source_version' => (string) ($record['lock_version'] ?? 1),
+            'status' => $record['status'] ?? null,
             'scope_id' => $scopeId,
             'classification' => $record['classification'] ?? 'internal',
             'indexable' => [

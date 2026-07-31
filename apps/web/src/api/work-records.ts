@@ -60,8 +60,9 @@ export async function cancelWorkRecord(
   lockVersion?: number,
 ): Promise<WorkRecord> {
   return unwrap<WorkRecord>(
-    await generated.cancelWorkRecord(
+    await generated.transitionWorkRecord(
       recordId,
+      'cancel',
       { reason },
       requestInit(token, { command: true, lockVersion }),
     ),
@@ -75,8 +76,9 @@ export async function archiveWorkRecord(
   lockVersion?: number,
 ): Promise<WorkRecord> {
   return unwrap<WorkRecord>(
-    await generated.archiveWorkRecord(
+    await generated.transitionWorkRecord(
       recordId,
+      'archive',
       { reason },
       requestInit(token, { command: true, lockVersion }),
     ),

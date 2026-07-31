@@ -79,7 +79,7 @@ export const listR1WorkRecords = async (token: string) => unwrap<R1Collection>(a
 export const listAuthorizedWorkRecords = async (token: string): Promise<R1Collection<AuthorizedWorkRecord>> => unwrap<R1Collection<AuthorizedWorkRecord>>(await generated.listWorkRecords({ limit: 50 }, requestInit(token)))
 export const getR1WorkRecord = async (token: string, id: string) => unwrap<AuthorizedWorkRecord>(await generated.getWorkRecord(id, requestInit(token)))
 export const getAuthorizedWorkRecord = getR1WorkRecord
-export const transitionRequest = async (token: string, id: string, action: 'submit' | 'complete', lock = 1) => unwrap<R1Entity>(await generated.transitionWorkRecord(id, action, requestInit(token, { command: true, lockVersion: lock })))
+export const transitionRequest = async (token: string, id: string, action: 'submit' | 'complete', lock = 1) => unwrap<R1Entity>(await generated.transitionWorkRecord(id, action, undefined, requestInit(token, { command: true, lockVersion: lock })))
 export const submitRequest = (token: string, id: string, lock = 1) => transitionRequest(token, id, 'submit', lock)
 export const completeRequest = (token: string, id: string, lock = 1) => transitionRequest(token, id, 'complete', lock)
 export type GovernedWorkRecordAction = 'cancel' | 'archive'
@@ -88,7 +88,7 @@ async function transitionGovernedWorkRecord(token: string, id: string, action: G
   const normalizedReason = reason.trim()
   if (!normalizedReason) throw new ApiError(400, { type: 'about:blank', title: 'A reason is required', status: 400 })
   const body = { reason: normalizedReason }
-  return unwrap<R1Entity>(await (action === 'cancel' ? generated.cancelWorkRecord(id, body, requestInit(token, { command: true, lockVersion: lock })) : generated.archiveWorkRecord(id, body, requestInit(token, { command: true, lockVersion: lock }))))
+  return unwrap<R1Entity>(await generated.transitionWorkRecord(id, action, body, requestInit(token, { command: true, lockVersion: lock })))
 }
 
 export const cancelRequest = (token: string, id: string, reason: string, lock = 1) => transitionGovernedWorkRecord(token, id, 'cancel', reason, lock)
@@ -107,6 +107,48 @@ export const listReports = async (token: string) => unwrap<R1Collection>(await g
 export const getReport = async (token: string, reportId: string, scopeId?: string) => unwrap<R1Collection>(await generated.getReport(reportId, scopeId ? { scope_id: scopeId } : undefined, requestInit(token)))
 export const requestReportExport = async (token: string, reportId: string, format: 'csv' | 'json' = 'csv') => unwrap<R1Entity>(await generated.createReportExport(reportId, { format }, requestInit(token, { command: true })))
 export const getReportExport = async (token: string, exportId: string) => unwrap<R1Entity>(await generated.getExport(exportId, requestInit(token)))
+
+/**
+ * Downloads the CSV export artifact through the shared transport with an
+ * explicit `Accept: text/csv` so the server serves the file bytes instead of
+ * the JSON polling envelope, then triggers a browser download. Returns the
+ * file name for UI feedback.
+ */
+export async function downloadReportExport(token: string, exportId: string): Promise<string> {
+  const response = await fetch(`/api/v1/exports/${encodeURIComponent(exportId)}`, {
+    credentials: 'include',
+    headers: {
+      ...requestInit(token).headers,
+      Accept: 'text/csv',
+    },
+  })
+  if (!response.ok) {
+    let problem: { type?: string; title?: string; status?: number } | null = null
+    try {
+      problem = await response.json()
+    } catch {
+      // non-JSON error body; fall through to generic failure below
+    }
+    const problemType = typeof problem?.type === 'string' && problem.type !== '' ? problem.type : 'about:blank'
+    const problemTitle = typeof problem?.title === 'string' && problem.title !== '' ? problem.title : 'Export download failed'
+    const problemStatus = typeof problem?.status === 'number' ? problem.status : response.status
+    throw new ApiError(response.status, { type: problemType, title: problemTitle, status: problemStatus })
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const match = /filename="?([^";]+)"?/.exec(disposition)
+  const filename = match?.[1] ?? `export-${exportId}.csv`
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+
+  return filename
+}
 export const getDashboard = async (token: string, dashboardId: string, scopeId?: string) => unwrap<R1Collection>(await generated.getDashboard(dashboardId, scopeId ? { scope_id: scopeId } : undefined, requestInit(token)))
 export const listDashboards = async (token: string) => unwrap<R1Collection>(await generated.listDashboards({ limit: 50 }, requestInit(token)))
 export const getNotifications = async (token: string) => unwrap<R1Collection>(await generated.listMyNotifications({ limit: 50 }, requestInit(token)))

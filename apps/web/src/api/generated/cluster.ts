@@ -2037,6 +2037,31 @@ export interface SupervisoryRelationshipCreate {
   capability_codes: string[]
 }
 
+export type ImportFileUploadTemplateCode =
+  (typeof ImportFileUploadTemplateCode)[keyof typeof ImportFileUploadTemplateCode]
+
+export const ImportFileUploadTemplateCode = {
+  facilities: 'facilities',
+  organization_units: 'organization_units',
+  positions: 'positions',
+  people_assignments: 'people_assignments',
+} as const
+
+export interface ImportFileUpload {
+  /** UTF-8 CSV payload; the first non-empty line names the template columns */
+  file: Blob
+  template_code: ImportFileUploadTemplateCode
+  import_type: 'csv'
+}
+
+export interface ImportFileReference {
+  quarantine_object_id: UUIDv7
+}
+
+export interface ImportFileReferenceResponse {
+  data: ImportFileReference
+}
+
 export type ImportJobCreateTemplateCode =
   (typeof ImportJobCreateTemplateCode)[keyof typeof ImportJobCreateTemplateCode]
 
@@ -3290,6 +3315,11 @@ export type AssignmentEntityResponse = AssignmentResponse
 export type AssignmentCollectionResponse = AssignmentCollection
 
 /**
+ * Quarantine object reference for an uploaded import source
+ */
+export type ImportFileReferenceEntityResponse = ImportFileReferenceResponse
+
+/**
  * Governed import job summary without the quarantine reference or raw rows
  */
 export type ImportJobEntityResponse = ImportJobResponse
@@ -3537,6 +3567,11 @@ export type ClassificationParameter = Classification
 
 export type IfMatchParameter = string
 
+/**
+ * Optional strong ETag lock version for optimistic concurrency; when present, a completion that does not match the document's current lock_version fails with 412 Precondition Failed.
+ */
+export type IfMatchOptionalParameter = string
+
 export type IdempotencyKeyParameter = string
 
 export type CsrfTokenParameter = string
@@ -3634,11 +3669,6 @@ export type UpdateWorkRecordBody = {
   payload?: UpdateWorkRecordBodyPayload
   responsible_user_id?: string
   classification?: Classification
-}
-
-export type SubmitWorkRecordBody = {
-  /** @maxLength 1000 */
-  comment?: string
 }
 
 export type ListWorkflowDefinitionsParams = {
@@ -3933,11 +3963,13 @@ export const CreateReportExportBodyFormat = {
   json: 'json',
 } as const
 
-export type CreateReportExportBodyFilters = { [key: string]: unknown }
-
 export type CreateReportExportBody = {
   format: CreateReportExportBodyFormat
-  filters?: CreateReportExportBodyFilters
+  /**
+   * Optional scope (facility) to restrict the export to; defaults to the acting principal's facility.
+   * @maxLength 128
+   */
+  scope_id?: string
 }
 
 export type ListAuditEventsParams = {
@@ -4404,21 +4436,6 @@ export type LinkWorkRecordDocumentBody = {
   relation_type: LinkWorkRecordDocumentBodyRelationType
 }
 
-export type TransitionWorkRecordReturnBody = {
-  /** @maxLength 1024 */
-  reason?: string
-}
-
-export type TransitionWorkRecordCompleteBody = {
-  /** @maxLength 1024 */
-  reason?: string
-}
-
-export type TransitionWorkRecordCompleteSubmissionBody = {
-  /** @maxLength 1024 */
-  reason?: string
-}
-
 export type GetBootstrapHealth200 = {
   status: 'ok'
 }
@@ -4505,6 +4522,17 @@ export type RequestPlatformTechnicalLogsRestoreBody = {
   reason: string
 }
 
+export type TransitionWorkRecordBody =
+  | {
+      /** @maxLength 1000 */
+      comment?: string
+    }
+  | {
+      /** @maxLength 1024 */
+      reason?: string
+    }
+  | ReasonAction
+
 export type loginResponse200 = {
   data: SessionResponse
   status: 200
@@ -4545,46 +4573,6 @@ export const login = async (
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(login),
-  })
-}
-
-export type logoutResponse204 = {
-  data: void
-  status: 204
-}
-
-export type logoutResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type logoutResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type logoutResponseSuccess = logoutResponse204 & {
-  headers: Headers
-}
-export type logoutResponseError = (logoutResponse401 | logoutResponse403) & {
-  headers: Headers
-}
-
-export type logoutResponse = logoutResponseSuccess | logoutResponseError
-
-export const getLogoutUrl = () => {
-  return `/api/v1/auth/logout`
-}
-
-/**
- * @summary Revoke the current session
- */
-export const logout = async (
-  options?: RequestInit,
-): Promise<logoutResponse> => {
-  return customFetch<logoutResponse>(getLogoutUrl(), {
-    ...options,
-    method: 'POST',
   })
 }
 
@@ -6273,231 +6261,6 @@ export const updateWorkRecord = async (
         ...options?.headers,
       },
       body: JSON.stringify(updateWorkRecordBody),
-    },
-  )
-}
-
-export type cancelWorkRecordResponse200 = {
-  data: WorkRecordResponse
-  status: 200
-}
-
-export type cancelWorkRecordResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type cancelWorkRecordResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type cancelWorkRecordResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type cancelWorkRecordResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type cancelWorkRecordResponse409 = {
-  data: ProblemFeatureDisabled
-  status: 409
-}
-
-export type cancelWorkRecordResponse412 = {
-  data: PreconditionFailedResponse
-  status: 412
-}
-
-export type cancelWorkRecordResponseSuccess = cancelWorkRecordResponse200 & {
-  headers: Headers
-}
-export type cancelWorkRecordResponseError = (
-  | cancelWorkRecordResponse400
-  | cancelWorkRecordResponse401
-  | cancelWorkRecordResponse403
-  | cancelWorkRecordResponse404
-  | cancelWorkRecordResponse409
-  | cancelWorkRecordResponse412
-) & {
-  headers: Headers
-}
-
-export type cancelWorkRecordResponse =
-  cancelWorkRecordResponseSuccess | cancelWorkRecordResponseError
-
-export const getCancelWorkRecordUrl = (recordId: string) => {
-  return `/api/v1/work-records/${encodeURIComponent(String(recordId))}/cancel`
-}
-
-/**
- * @summary Cancel a work record without physical deletion
- */
-export const cancelWorkRecord = async (
-  recordId: string,
-  reasonAction: ReasonAction,
-  options?: RequestInit,
-): Promise<cancelWorkRecordResponse> => {
-  return customFetch<cancelWorkRecordResponse>(
-    getCancelWorkRecordUrl(recordId),
-    {
-      ...options,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(reasonAction),
-    },
-  )
-}
-
-export type archiveWorkRecordResponse200 = {
-  data: WorkRecordResponse
-  status: 200
-}
-
-export type archiveWorkRecordResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type archiveWorkRecordResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type archiveWorkRecordResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type archiveWorkRecordResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type archiveWorkRecordResponse409 = {
-  data: ProblemFeatureDisabled
-  status: 409
-}
-
-export type archiveWorkRecordResponse412 = {
-  data: PreconditionFailedResponse
-  status: 412
-}
-
-export type archiveWorkRecordResponseSuccess = archiveWorkRecordResponse200 & {
-  headers: Headers
-}
-export type archiveWorkRecordResponseError = (
-  | archiveWorkRecordResponse400
-  | archiveWorkRecordResponse401
-  | archiveWorkRecordResponse403
-  | archiveWorkRecordResponse404
-  | archiveWorkRecordResponse409
-  | archiveWorkRecordResponse412
-) & {
-  headers: Headers
-}
-
-export type archiveWorkRecordResponse =
-  archiveWorkRecordResponseSuccess | archiveWorkRecordResponseError
-
-export const getArchiveWorkRecordUrl = (recordId: string) => {
-  return `/api/v1/work-records/${encodeURIComponent(String(recordId))}/archive`
-}
-
-/**
- * @summary Archive a terminal work record subject to retention and holds
- */
-export const archiveWorkRecord = async (
-  recordId: string,
-  reasonAction: ReasonAction,
-  options?: RequestInit,
-): Promise<archiveWorkRecordResponse> => {
-  return customFetch<archiveWorkRecordResponse>(
-    getArchiveWorkRecordUrl(recordId),
-    {
-      ...options,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(reasonAction),
-    },
-  )
-}
-
-export type submitWorkRecordResponse200 = {
-  data: WorkRecordResponse
-  status: 200
-}
-
-export type submitWorkRecordResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type submitWorkRecordResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type submitWorkRecordResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type submitWorkRecordResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type submitWorkRecordResponse409 = {
-  data: ProblemFeatureDisabled
-  status: 409
-}
-
-export type submitWorkRecordResponse412 = {
-  data: PreconditionFailedResponse
-  status: 412
-}
-
-export type submitWorkRecordResponseSuccess = submitWorkRecordResponse200 & {
-  headers: Headers
-}
-export type submitWorkRecordResponseError = (
-  | submitWorkRecordResponse400
-  | submitWorkRecordResponse401
-  | submitWorkRecordResponse403
-  | submitWorkRecordResponse404
-  | submitWorkRecordResponse409
-  | submitWorkRecordResponse412
-) & {
-  headers: Headers
-}
-
-export type submitWorkRecordResponse =
-  submitWorkRecordResponseSuccess | submitWorkRecordResponseError
-
-export const getSubmitWorkRecordUrl = (recordId: string) => {
-  return `/api/v1/work-records/${encodeURIComponent(String(recordId))}/submit`
-}
-
-/**
- * @summary Submit a work record
- */
-export const submitWorkRecord = async (
-  recordId: string,
-  submitWorkRecordBody?: SubmitWorkRecordBody,
-  options?: RequestInit,
-): Promise<submitWorkRecordResponse> => {
-  return customFetch<submitWorkRecordResponse>(
-    getSubmitWorkRecordUrl(recordId),
-    {
-      ...options,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(submitWorkRecordBody),
     },
   )
 }
@@ -8703,6 +8466,11 @@ export type completeDocumentUploadResponse409 = {
   status: 409
 }
 
+export type completeDocumentUploadResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
 export type completeDocumentUploadResponse500 = {
   data: InternalServerErrorResponse
   status: 500
@@ -8723,6 +8491,7 @@ export type completeDocumentUploadResponseError = (
   | completeDocumentUploadResponse403
   | completeDocumentUploadResponse404
   | completeDocumentUploadResponse409
+  | completeDocumentUploadResponse412
   | completeDocumentUploadResponse500
   | completeDocumentUploadResponse503
 ) & {
@@ -9578,9 +9347,9 @@ export type createDocumentAccessGrantResponse =
 
 export const getCreateDocumentAccessGrantUrl = (
   documentId: string,
-  grantType: 'preview' | 'download',
+  documentGrantType: 'preview' | 'download',
 ) => {
-  return `/api/v1/documents/${encodeURIComponent(String(documentId))}/${encodeURIComponent(String(grantType))}-grant`
+  return `/api/v1/documents/${encodeURIComponent(String(documentId))}/${encodeURIComponent(String(documentGrantType))}-grant`
 }
 
 /**
@@ -9588,12 +9357,12 @@ export const getCreateDocumentAccessGrantUrl = (
  */
 export const createDocumentAccessGrant = async (
   documentId: string,
-  grantType: 'preview' | 'download',
+  documentGrantType: 'preview' | 'download',
   documentGrantRequest: DocumentGrantRequest,
   options?: RequestInit,
 ): Promise<createDocumentAccessGrantResponse> => {
   return customFetch<createDocumentAccessGrantResponse>(
-    getCreateDocumentAccessGrantUrl(documentId, grantType),
+    getCreateDocumentAccessGrantUrl(documentId, documentGrantType),
     {
       ...options,
       method: 'POST',
@@ -12402,6 +12171,80 @@ export const createSupervisoryRelationship = async (
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(supervisoryRelationshipCreate),
+    },
+  )
+}
+
+export type uploadOrganizationImportFileResponse201 = {
+  data: ImportFileReferenceEntityResponse
+  status: 201
+}
+
+export type uploadOrganizationImportFileResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type uploadOrganizationImportFileResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type uploadOrganizationImportFileResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type uploadOrganizationImportFileResponse500 = {
+  data: InternalServerErrorResponse
+  status: 500
+}
+
+export type uploadOrganizationImportFileResponseSuccess =
+  uploadOrganizationImportFileResponse201 & {
+    headers: Headers
+  }
+export type uploadOrganizationImportFileResponseError = (
+  | uploadOrganizationImportFileResponse400
+  | uploadOrganizationImportFileResponse401
+  | uploadOrganizationImportFileResponse403
+  | uploadOrganizationImportFileResponse500
+) & {
+  headers: Headers
+}
+
+export type uploadOrganizationImportFileResponse =
+  | uploadOrganizationImportFileResponseSuccess
+  | uploadOrganizationImportFileResponseError
+
+export const getUploadOrganizationImportFileUrl = () => {
+  return `/api/v1/organization/import-files`
+}
+
+/**
+ * Accepts a UTF-8 CSV import source and stores it on the
+ * organization-owned quarantine disk as a JSON document
+ * `{source_filename, rows}`. The returned `quarantine_object_id` is
+ * referenced by `submitOrganizationImport` and resolved by the
+ * `validate` import transition. At most 1000 data rows and 10 MiB are
+ * accepted; the first non-empty line must name the template columns.
+ * @summary Upload a CSV import source into the organization quarantine
+ */
+export const uploadOrganizationImportFile = async (
+  importFileUpload: ImportFileUpload,
+  options?: RequestInit,
+): Promise<uploadOrganizationImportFileResponse> => {
+  const formData = new FormData()
+  formData.append(`file`, importFileUpload.file)
+  formData.append(`template_code`, importFileUpload.template_code)
+  formData.append(`import_type`, importFileUpload.import_type)
+
+  return customFetch<uploadOrganizationImportFileResponse>(
+    getUploadOrganizationImportFileUrl(),
+    {
+      ...options,
+      method: 'POST',
+      body: formData,
     },
   )
 }
@@ -17821,239 +17664,6 @@ export const linkWorkRecordDocument = async (
   )
 }
 
-export type transitionWorkRecordReturnResponse200 = {
-  data: WorkRecordResponse
-  status: 200
-}
-
-export type transitionWorkRecordReturnResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type transitionWorkRecordReturnResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type transitionWorkRecordReturnResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type transitionWorkRecordReturnResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type transitionWorkRecordReturnResponse409 = {
-  data: ProblemFeatureDisabled
-  status: 409
-}
-
-export type transitionWorkRecordReturnResponse412 = {
-  data: PreconditionFailedResponse
-  status: 412
-}
-
-export type transitionWorkRecordReturnResponseSuccess =
-  transitionWorkRecordReturnResponse200 & {
-    headers: Headers
-  }
-export type transitionWorkRecordReturnResponseError = (
-  | transitionWorkRecordReturnResponse400
-  | transitionWorkRecordReturnResponse401
-  | transitionWorkRecordReturnResponse403
-  | transitionWorkRecordReturnResponse404
-  | transitionWorkRecordReturnResponse409
-  | transitionWorkRecordReturnResponse412
-) & {
-  headers: Headers
-}
-
-export type transitionWorkRecordReturnResponse =
-  | transitionWorkRecordReturnResponseSuccess
-  | transitionWorkRecordReturnResponseError
-
-export const getTransitionWorkRecordReturnUrl = (recordId: string) => {
-  return `/api/v1/work-records/${encodeURIComponent(String(recordId))}/return`
-}
-
-/**
- * @summary Return a submitted work record to the requester
- */
-export const transitionWorkRecordReturn = async (
-  recordId: string,
-  transitionWorkRecordReturnBody?: TransitionWorkRecordReturnBody,
-  options?: RequestInit,
-): Promise<transitionWorkRecordReturnResponse> => {
-  return customFetch<transitionWorkRecordReturnResponse>(
-    getTransitionWorkRecordReturnUrl(recordId),
-    {
-      ...options,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(transitionWorkRecordReturnBody),
-    },
-  )
-}
-
-export type transitionWorkRecordCompleteResponse200 = {
-  data: WorkRecordResponse
-  status: 200
-}
-
-export type transitionWorkRecordCompleteResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type transitionWorkRecordCompleteResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type transitionWorkRecordCompleteResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type transitionWorkRecordCompleteResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type transitionWorkRecordCompleteResponse409 = {
-  data: ProblemFeatureDisabled
-  status: 409
-}
-
-export type transitionWorkRecordCompleteResponse412 = {
-  data: PreconditionFailedResponse
-  status: 412
-}
-
-export type transitionWorkRecordCompleteResponseSuccess =
-  transitionWorkRecordCompleteResponse200 & {
-    headers: Headers
-  }
-export type transitionWorkRecordCompleteResponseError = (
-  | transitionWorkRecordCompleteResponse400
-  | transitionWorkRecordCompleteResponse401
-  | transitionWorkRecordCompleteResponse403
-  | transitionWorkRecordCompleteResponse404
-  | transitionWorkRecordCompleteResponse409
-  | transitionWorkRecordCompleteResponse412
-) & {
-  headers: Headers
-}
-
-export type transitionWorkRecordCompleteResponse =
-  | transitionWorkRecordCompleteResponseSuccess
-  | transitionWorkRecordCompleteResponseError
-
-export const getTransitionWorkRecordCompleteUrl = (recordId: string) => {
-  return `/api/v1/work-records/${encodeURIComponent(String(recordId))}/complete`
-}
-
-/**
- * @summary Complete an in-flight work record
- */
-export const transitionWorkRecordComplete = async (
-  recordId: string,
-  transitionWorkRecordCompleteBody?: TransitionWorkRecordCompleteBody,
-  options?: RequestInit,
-): Promise<transitionWorkRecordCompleteResponse> => {
-  return customFetch<transitionWorkRecordCompleteResponse>(
-    getTransitionWorkRecordCompleteUrl(recordId),
-    {
-      ...options,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(transitionWorkRecordCompleteBody),
-    },
-  )
-}
-
-export type transitionWorkRecordCompleteSubmissionResponse200 = {
-  data: WorkRecordResponse
-  status: 200
-}
-
-export type transitionWorkRecordCompleteSubmissionResponse400 = {
-  data: BadRequestResponse
-  status: 400
-}
-
-export type transitionWorkRecordCompleteSubmissionResponse401 = {
-  data: UnauthorizedResponse
-  status: 401
-}
-
-export type transitionWorkRecordCompleteSubmissionResponse403 = {
-  data: ForbiddenResponse
-  status: 403
-}
-
-export type transitionWorkRecordCompleteSubmissionResponse404 = {
-  data: NotFoundResponse
-  status: 404
-}
-
-export type transitionWorkRecordCompleteSubmissionResponse409 = {
-  data: ProblemFeatureDisabled
-  status: 409
-}
-
-export type transitionWorkRecordCompleteSubmissionResponse412 = {
-  data: PreconditionFailedResponse
-  status: 412
-}
-
-export type transitionWorkRecordCompleteSubmissionResponseSuccess =
-  transitionWorkRecordCompleteSubmissionResponse200 & {
-    headers: Headers
-  }
-export type transitionWorkRecordCompleteSubmissionResponseError = (
-  | transitionWorkRecordCompleteSubmissionResponse400
-  | transitionWorkRecordCompleteSubmissionResponse401
-  | transitionWorkRecordCompleteSubmissionResponse403
-  | transitionWorkRecordCompleteSubmissionResponse404
-  | transitionWorkRecordCompleteSubmissionResponse409
-  | transitionWorkRecordCompleteSubmissionResponse412
-) & {
-  headers: Headers
-}
-
-export type transitionWorkRecordCompleteSubmissionResponse =
-  | transitionWorkRecordCompleteSubmissionResponseSuccess
-  | transitionWorkRecordCompleteSubmissionResponseError
-
-export const getTransitionWorkRecordCompleteSubmissionUrl = (
-  recordId: string,
-) => {
-  return `/api/v1/work-records/${encodeURIComponent(String(recordId))}/complete-submission`
-}
-
-/**
- * @summary Finalize a work-record submission
- */
-export const transitionWorkRecordCompleteSubmission = async (
-  recordId: string,
-  transitionWorkRecordCompleteSubmissionBody?: TransitionWorkRecordCompleteSubmissionBody,
-  options?: RequestInit,
-): Promise<transitionWorkRecordCompleteSubmissionResponse> => {
-  return customFetch<transitionWorkRecordCompleteSubmissionResponse>(
-    getTransitionWorkRecordCompleteSubmissionUrl(recordId),
-    {
-      ...options,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(transitionWorkRecordCompleteSubmissionBody),
-    },
-  )
-}
-
 export type getBootstrapHealthResponse200 = {
   data: GetBootstrapHealth200
   status: 200
@@ -18710,7 +18320,13 @@ export type transitionWorkRecordResponse =
 
 export const getTransitionWorkRecordUrl = (
   recordId: string,
-  recordAction: 'submit' | 'return' | 'complete' | 'complete-submission',
+  recordAction:
+    | 'submit'
+    | 'return'
+    | 'complete'
+    | 'complete-submission'
+    | 'cancel'
+    | 'archive',
 ) => {
   return `/api/v1/work-records/${encodeURIComponent(String(recordId))}/${encodeURIComponent(String(recordAction))}`
 }
@@ -18720,7 +18336,14 @@ export const getTransitionWorkRecordUrl = (
  */
 export const transitionWorkRecord = async (
   recordId: string,
-  recordAction: 'submit' | 'return' | 'complete' | 'complete-submission',
+  recordAction:
+    | 'submit'
+    | 'return'
+    | 'complete'
+    | 'complete-submission'
+    | 'cancel'
+    | 'archive',
+  transitionWorkRecordBody?: TransitionWorkRecordBody,
   options?: RequestInit,
 ): Promise<transitionWorkRecordResponse> => {
   return customFetch<transitionWorkRecordResponse>(
@@ -18728,6 +18351,8 @@ export const transitionWorkRecord = async (
     {
       ...options,
       method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(transitionWorkRecordBody),
     },
   )
 }

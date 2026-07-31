@@ -40,6 +40,7 @@ final class IndexSourceEventHandler
             'source_type' => $sourceType,
             'source_id' => $sourceId,
             'source_version' => trim($event['source_version']),
+            'status' => $this->safeString($event['status'] ?? null, 32),
             'projection_version' => self::PROJECTION_VERSION,
             'scope_id' => $this->safeString($event['scope_id'] ?? $event['facility_id'] ?? null, 64),
             'classification' => $this->safeString($event['classification'] ?? 'internal', 24) ?? 'internal',
@@ -54,7 +55,7 @@ final class IndexSourceEventHandler
         DB::table('search_index_entries')->upsert(
             [$row],
             ['source_type', 'source_id', 'projection_version'],
-            ['source_module', 'source_version', 'scope_id', 'classification', 'visibility', 'title', 'excerpt', 'search_text', 'updated_at'],
+            ['source_module', 'source_version', 'status', 'scope_id', 'classification', 'visibility', 'title', 'excerpt', 'search_text', 'updated_at'],
         );
 
         return ['id' => $id, 'indexed' => true];

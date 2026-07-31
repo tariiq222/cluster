@@ -199,7 +199,18 @@ class OrganizationAssignmentHttpAdapterTest extends TestCase
                 'reason' => 'تقليص النافذة',
             ], $this->actionHeaders('"1"', 'pending-trim-end'))
             ->assertOk()
-            ->assertJsonPath('data.status', 'ended');
+            ->assertJsonPath('data.status', 'ended')
+            ->assertJsonPath('data.end_at', $startAt);
+        $this->assertDatabaseHas('assignments', [
+            'id' => $trimId,
+            'end_at' => $this->databaseTimestamp($startAt),
+            'end_reason' => 'تقليص النافذة',
+        ]);
+        $items = $this->withToken($token)
+            ->getJson('/api/v1/organization/assignments?person_id='.$personId, $this->headers())
+            ->assertOk()
+            ->json('items');
+        $this->assertSame('ended', collect($items)->firstWhere('id', $trimId)['status']);
     }
 
     public function test_pending_assignment_end_rejects_a_date_before_its_start(): void
@@ -367,6 +378,11 @@ class OrganizationAssignmentHttpAdapterTest extends TestCase
             'username' => $username,
             'password' => $password,
         ], $this->headers())->assertOk()->json('data.access_token');
+    }
+
+    private function databaseTimestamp(string $value): string
+    {
+        return \Carbon\CarbonImmutable::parse($value)->utc()->format('Y-m-d H:i:s.v');
     }
 
     /** @return array<string, string> */

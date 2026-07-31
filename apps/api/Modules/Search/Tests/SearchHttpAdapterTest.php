@@ -24,6 +24,9 @@ final class SearchHttpAdapterTest extends TestCase
         if (! Schema::hasTable('search_index_entries')) {
             $this->artisan('migrate', ['--path' => 'Modules/Search/Infrastructure/Persistence/Migrations/CreateSearchProjectionTables.php', '--force' => true]);
         }
+        if (! Schema::hasColumn('search_index_entries', 'status')) {
+            $this->artisan('migrate', ['--path' => 'Modules/Search/Infrastructure/Persistence/Migrations/ZAddSearchIndexStatusColumn.php', '--force' => true]);
+        }
     }
 
     public function test_get_search_returns_handler_shape_and_correlation_id(): void
@@ -75,6 +78,38 @@ final class SearchHttpAdapterTest extends TestCase
 
         $this->assertSame(400, $response->getStatusCode());
         $this->assertSame('https://cluster.example/problems/invalid-search-query', $response->getData(true)['type']);
+    }
+
+    public function test_get_search_filters_by_type_and_status(): void
+    {
+        (new IndexSourceEventHandler)->handle([
+            'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-1', 'source_version' => 'v1',
+            'status' => 'submitted', 'scope_id' => 'scope-a', 'indexable' => ['title' => 'Draft request', 'text' => 'Draft request'],
+        ]);
+        (new IndexSourceEventHandler)->handle([
+            'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-2', 'source_version' => 'v1',
+            'status' => 'draft', 'scope_id' => 'scope-a', 'indexable' => ['title' => 'Draft request', 'text' => 'Draft request'],
+        ]);
+        (new IndexSourceEventHandler)->handle([
+            'source_module' => 'Tasks', 'source_type' => 'task', 'source_id' => 'task-1', 'source_version' => 'v1',
+            'status' => 'submitted', 'scope_id' => 'scope-a', 'indexable' => ['title' => 'Draft request', 'text' => 'Draft request'],
+        ]);
+
+        $controller = new SearchController(new SearchPrincipalResolver, new SearchAccessibleRecordsHandler(new SearchAllowingDecider));
+
+        $byType = Request::create('/api/v1/search', 'GET', ['q' => 'Draft', 'type' => 'work_record']);
+        $byType->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
+        $typeResponse = $controller->__invoke($byType);
+        $this->assertSame(200, $typeResponse->getStatusCode());
+        $this->assertCount(2, $typeResponse->getData(true)['items']);
+
+        $byStatus = Request::create('/api/v1/search', 'GET', ['q' => 'Draft', 'type' => 'work_record', 'status' => 'draft']);
+        $byStatus->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
+        $statusResponse = $controller->__invoke($byStatus);
+        $this->assertSame(200, $statusResponse->getStatusCode());
+        $items = $statusResponse->getData(true)['items'];
+        $this->assertCount(1, $items);
+        $this->assertSame('record-2', $items[0]['source_id']);
     }
 }
 

@@ -5,6 +5,7 @@ namespace Modules\Identity\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Modules\Identity\Features\Activation\Handler\ActivationHandler;
 use Modules\Identity\Features\ConsumeOrganizationPersonEvents\Handler\ConsumeOrganizationPersonEventHandler;
 use Tests\TestCase;
 
@@ -39,14 +40,12 @@ class IdentityProvisioningConsumerTest extends TestCase
         $token = $this->loginToken();
         $personId = $this->createPerson($token);
         $accountId = $this->createAccount($token, $personId);
-        // A pending account has no credential yet; disable first so the
-        // activation transition targets a disabled account.
-        $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'disable-consumer-account'))
-            ->assertOk();
-        $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"2"', 'activate-consumer-account'))
-            ->assertOk();
+        // activate requires an existing credential, so activate through the
+        // token flow first (this also creates the credential).
+        $activation = $this->app->make(ActivationHandler::class)->issue($accountId);
+        $this->app->make(ActivationHandler::class)->activate($activation['token'], 'A secure activation phrase 2026!');
+        $this->assertDatabaseHas('users', ['id' => $accountId, 'status' => 'active']);
+        $this->assertDatabaseHas('credentials', ['user_id' => $accountId]);
         DB::table('identity_sessions')->insert([
             'id' => '018f6f7d-0c00-7000-8000-000000000702',
             'user_id' => $accountId,
@@ -263,12 +262,6 @@ class IdentityProvisioningConsumerTest extends TestCase
     private function writeHeaders(string $key): array
     {
         return [...$this->headers(), 'Idempotency-Key' => $key];
-    }
-
-    /** @return array<string, string> */
-    private function actionHeaders(string $etag, string $key): array
-    {
-        return [...$this->writeHeaders($key), 'If-Match' => $etag];
     }
 
     /** @return array<string, string> */

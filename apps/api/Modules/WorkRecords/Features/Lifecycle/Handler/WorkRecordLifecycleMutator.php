@@ -21,6 +21,10 @@ final class WorkRecordLifecycleMutator
         'submit' => ['from' => ['returned'], 'to' => 'submitted', 'capability' => 'work_record.submit'],
         'return' => ['from' => ['submitted'], 'to' => 'returned', 'capability' => 'work_record.return'],
         'complete' => ['from' => ['submitted'], 'to' => 'completed', 'capability' => 'work_record.complete'],
+        // Legacy alias: `complete-submission` is the same transition as
+        // `complete` (identical from-state, target, and capability). It is
+        // kept because the web client and the OpenAPI contract still expose
+        // the distinct action name; do not give it divergent semantics.
         'complete-submission' => ['from' => ['submitted'], 'to' => 'completed', 'capability' => 'work_record.complete'],
         'cancel' => ['from' => ['submitted', 'returned'], 'to' => 'cancelled', 'capability' => 'work_record.cancel'],
         'archive' => ['from' => ['completed', 'cancelled'], 'to' => 'archived', 'capability' => 'work_record.archive'],

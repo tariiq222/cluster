@@ -42,23 +42,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /auth/logout:
-    parameters:
-      - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
-    post:
-      summary: Revoke the current session
-      operationId: logout
-      responses:
-        '204':
-          description: Session revoked
-          headers:
-            X-Correlation-ID:
-              $ref: '#/components/headers/Correlation'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
   /identity/login:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -511,6 +494,13 @@ paths:
   /work-definition-versions/{versionId}/test:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
+    # Per-action templates are authoritative for work-definition versions: the
+    # live code declares a single generic route
+    # `POST work-definition-versions/{versionId}/{versionAction}` with
+    # whereIn(test, approve, sign, publish) (apps/api/routes/web.php:302) that
+    # serves all four actions, but the explicit paths below keep precise
+    # per-action request bodies (e.g. SignatureRequest for sign). Kept
+    # explicit by design; do not merge into one {versionAction} template.
     x-implementation-status: implemented
     post:
       x-feature-gate: work-management
@@ -737,122 +727,6 @@ paths:
                   format: uuid
                 classification:
                   $ref: '#/components/schemas/Classification'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /work-records/{recordId}/cancel:
-    parameters:
-      - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Cancel a work record without physical deletion
-      operationId: cancelWorkRecord
-      parameters:
-        - $ref: '#/components/parameters/RecordId'
-        - $ref: '#/components/parameters/IfMatch'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReasonAction'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /work-records/{recordId}/archive:
-    parameters:
-      - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Archive a terminal work record subject to retention and holds
-      operationId: archiveWorkRecord
-      parameters:
-        - $ref: '#/components/parameters/RecordId'
-        - $ref: '#/components/parameters/IfMatch'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReasonAction'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /work-records/{recordId}/submit:
-    parameters:
-      - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Submit a work record
-      operationId: submitWorkRecord
-      parameters:
-        - $ref: '#/components/parameters/RecordId'
-        - $ref: '#/components/parameters/IfMatch'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                comment:
-                  type: string
-                  maxLength: 1000
       responses:
         '200':
           $ref: '#/components/responses/WorkRecord'
@@ -1964,6 +1838,7 @@ paths:
         - $ref: '#/components/parameters/UploadId'
         - $ref: '#/components/parameters/CsrfToken'
         - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchOptional'
       requestBody:
         required: true
         content:
@@ -1995,6 +1870,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
         '500':
           $ref: '#/components/responses/InternalServerError'
         '503':
@@ -2280,7 +2157,7 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
-  /documents/{documentId}/{grantType}-grant:
+  /documents/{documentId}/{documentGrantType}-grant:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     x-implementation-status: implemented
@@ -2289,7 +2166,7 @@ paths:
       operationId: createDocumentAccessGrant
       parameters:
         - $ref: '#/components/parameters/DocumentId'
-        - name: grantType
+        - name: documentGrantType
           in: path
           required: true
           schema:
@@ -2433,8 +2310,10 @@ paths:
                   enum:
                     - csv
                     - json
-                filters:
-                  type: object
+                scope_id:
+                  type: string
+                  maxLength: 128
+                  description: Optional scope (facility) to restrict the export to; defaults to the acting principal's facility.
       responses:
         '202':
           $ref: '#/components/responses/Entity'
@@ -3627,6 +3506,39 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /organization/import-files:
+    parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags:
+        - Organization Admin
+      summary: Upload a CSV import source into the organization quarantine
+      operationId: uploadOrganizationImportFile
+      x-implementation-status: implemented
+      description: |
+        Accepts a UTF-8 CSV import source and stores it on the
+        organization-owned quarantine disk as a JSON document
+        `{source_filename, rows}`. The returned `quarantine_object_id` is
+        referenced by `submitOrganizationImport` and resolved by the
+        `validate` import transition. At most 1000 data rows and 10 MiB are
+        accepted; the first non-empty line must name the template columns.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportFileUpload'
+      responses:
+        '201':
+          $ref: '#/components/responses/ImportFileReferenceEntity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /organization/import-jobs:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -6021,6 +5933,7 @@ paths:
       operationId: reorderOrganizationUnits
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -6116,138 +6029,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemFeatureDisabled'
-  /work-records/{recordId}/return:
-    parameters:
-      - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      tags:
-        - Work Records
-      x-implementation-status: implemented
-      summary: Return a submitted work record to the requester
-      operationId: transitionWorkRecordReturn
-      parameters:
-        - $ref: '#/components/parameters/RecordId'
-        - $ref: '#/components/parameters/IfMatch'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                reason:
-                  type: string
-                  maxLength: 1024
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /work-records/{recordId}/complete:
-    parameters:
-      - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      tags:
-        - Work Records
-      x-implementation-status: implemented
-      summary: Complete an in-flight work record
-      operationId: transitionWorkRecordComplete
-      parameters:
-        - $ref: '#/components/parameters/RecordId'
-        - $ref: '#/components/parameters/IfMatch'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                reason:
-                  type: string
-                  maxLength: 1024
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /work-records/{recordId}/complete-submission:
-    parameters:
-      - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      tags:
-        - Work Records
-      x-implementation-status: implemented
-      summary: Finalize a work-record submission
-      operationId: transitionWorkRecordCompleteSubmission
-      parameters:
-        - $ref: '#/components/parameters/RecordId'
-        - $ref: '#/components/parameters/IfMatch'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                reason:
-                  type: string
-                  maxLength: 1024
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
   /up:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -6579,8 +6360,14 @@ paths:
   /work-records/{recordId}/{recordAction}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
+    # Single generic action template, authoritative: the live route is
+    # `POST work-records/{recordId}/{recordAction}` (apps/api/routes/web.php:264)
+    # with whereIn(submit, return, complete, complete-submission, cancel, archive).
+    # The per-action paths (submit/return/complete/complete-submission/cancel/
+    # archive) were removed from the contract as duplicates of this template.
     post:
       x-feature-gate: work-management
+      x-implementation-status: implemented
       operationId: transitionWorkRecord
       summary: Apply an allowed work-record lifecycle action
       parameters:
@@ -6595,8 +6382,29 @@ paths:
               - return
               - complete
               - complete-submission
+              - cancel
+              - archive
         - $ref: '#/components/parameters/IfMatch'
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    comment:
+                      type: string
+                      maxLength: 1000
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    reason:
+                      type: string
+                      maxLength: 1024
+                - $ref: '#/components/schemas/ReasonAction'
       responses:
         '200':
           $ref: '#/components/responses/WorkRecord'
@@ -6702,6 +6510,14 @@ components:
       required: true
       schema:
         type: string
+    IfMatchOptional:
+      name: If-Match
+      in: header
+      required: false
+      description: Optional strong ETag lock version for optimistic concurrency; when present, a completion that does not match the document's current lock_version fails with 412 Precondition Failed.
+      schema:
+        type: string
+        pattern: ^"[1-9][0-9]*"$
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -7026,6 +6842,15 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/AssignmentCollection'
+    ImportFileReferenceEntity:
+      description: Quarantine object reference for an uploaded import source
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ImportFileReferenceResponse'
     ImportJobEntity:
       description: Governed import job summary without the quarantine reference or raw rows
       headers:
@@ -10329,6 +10154,44 @@ components:
             type: string
             minLength: 1
             maxLength: 96
+    ImportFileUpload:
+      type: object
+      additionalProperties: false
+      required:
+        - file
+        - template_code
+        - import_type
+      properties:
+        file:
+          type: string
+          format: binary
+          description: UTF-8 CSV payload; the first non-empty line names the template columns
+        template_code:
+          type: string
+          enum:
+            - facilities
+            - organization_units
+            - positions
+            - people_assignments
+        import_type:
+          type: string
+          const: csv
+    ImportFileReference:
+      type: object
+      additionalProperties: false
+      required:
+        - quarantine_object_id
+      properties:
+        quarantine_object_id:
+          $ref: '#/components/schemas/UUIDv7'
+    ImportFileReferenceResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/ImportFileReference'
     ImportJobCreate:
       type: object
       additionalProperties: false

@@ -3,8 +3,10 @@
 namespace Modules\Organization\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Modules\Organization\Contracts\ResolveQuarantinedImport;
 use Tests\TestCase;
 
@@ -58,6 +60,81 @@ class OrganizationImportHttpAdapterTest extends TestCase
         $this->assertStringNotContainsString('quarantine_object_id', $encoded);
         $this->assertStringNotContainsString(self::QUARANTINE_ID, $encoded);
         $this->assertStringNotContainsString('raw_payload', $encoded);
+    }
+
+    public function test_uploaded_csv_becomes_a_real_quarantine_object_and_validates_end_to_end(): void
+    {
+        Storage::fake('organization-quarantine');
+        $token = $this->loginToken();
+        $positionId = $this->positionReference($token);
+        $startAt = now('UTC')->subHour()->format('Y-m-d\TH:i:s.v\Z');
+        $endAt = now('UTC')->addDay()->format('Y-m-d\TH:i:s.v\Z');
+        $csv = "employee_number,display_name_ar,status,position_id,start_at,end_at,is_primary\n"
+            ."EMP-CSV-001,موظف ملف csv,active,{$positionId},{$startAt},{$endAt},true\n";
+
+        $uploaded = (string) $this->withToken($token)
+            ->post('/api/v1/organization/import-files', [
+                'file' => UploadedFile::fake()->createWithContent('people-import.csv', $csv),
+                'template_code' => 'people_assignments',
+                'import_type' => 'csv',
+            ], $this->headers())
+            ->assertCreated()
+            ->assertJsonStructure(['data' => ['quarantine_object_id']])
+            ->json('data.quarantine_object_id');
+        $this->assertMatchesRegularExpression('/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/', $uploaded);
+
+        $stored = json_decode((string) Storage::disk('organization-quarantine')->get($uploaded.'.json'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('people-import.csv', $stored['source_filename']);
+        $this->assertCount(1, $stored['rows']);
+        $this->assertTrue($stored['rows'][0]['is_primary']);
+        $this->assertSame('EMP-CSV-001', $stored['rows'][0]['employee_number']);
+
+        $jobId = $this->submit($token, 'import-csv-e2e-submit', 'people_assignments', $uploaded);
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/import-jobs/{$jobId}/validate", [], $this->actionHeaders('"1"', 'import-csv-e2e-validate'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'validated')
+            ->assertJsonPath('data.valid_rows', 1)
+            ->assertJsonPath('data.error_rows', 0);
+        $this->assertDatabaseHas('import_jobs', ['id' => $jobId, 'source_filename' => 'people-import.csv']);
+    }
+
+    public function test_import_file_upload_rejects_invalid_payloads_without_writing_quarantine_objects(): void
+    {
+        Storage::fake('organization-quarantine');
+        $token = $this->loginToken();
+
+        $this->withToken($token)
+            ->post('/api/v1/organization/import-files', [
+                'file' => UploadedFile::fake()->createWithContent('units.csv', "cluster_id,type_code,code,name\n"),
+                'template_code' => 'unknown_template',
+                'import_type' => 'csv',
+            ], $this->headers())
+            ->assertBadRequest()
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-import-file');
+
+        $tooMany = "cluster_id,type_code,code,name\n";
+        for ($index = 1; $index <= 1001; $index++) {
+            $tooMany .= "018f6f7d-0c00-7000-8000-000000000001,hospital,FAC_{$index},مرفق {$index}\n";
+        }
+        $this->withToken($token)
+            ->post('/api/v1/organization/import-files', [
+                'file' => UploadedFile::fake()->createWithContent('too-many.csv', $tooMany),
+                'template_code' => 'facilities',
+                'import_type' => 'csv',
+            ], $this->headers())
+            ->assertBadRequest()
+            ->assertJsonPath('type', 'https://cluster.example/problems/import-rows-too-many');
+        $this->withToken($token)
+            ->post('/api/v1/organization/import-files', [
+                'file' => UploadedFile::fake()->createWithContent('empty.csv', "cluster_id,type_code,code,name\n"),
+                'template_code' => 'facilities',
+                'import_type' => 'csv',
+            ], $this->headers())
+            ->assertBadRequest()
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-import-file');
+
+        $this->assertCount(0, Storage::disk('organization-quarantine')->allFiles());
     }
 
     public function test_validation_encrypts_rows_and_lists_only_redacted_results(): void
@@ -628,20 +705,20 @@ class OrganizationImportHttpAdapterTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function submitBody(string $templateCode = 'people_assignments'): array
+    private function submitBody(string $templateCode = 'people_assignments', string $quarantineObjectId = self::QUARANTINE_ID): array
     {
         return [
-            'quarantine_object_id' => self::QUARANTINE_ID,
+            'quarantine_object_id' => $quarantineObjectId,
             'template_code' => $templateCode,
             'import_type' => 'csv',
             'notes' => 'استيراد محكوم',
         ];
     }
 
-    private function submit(string $token, string $key, string $templateCode = 'people_assignments'): string
+    private function submit(string $token, string $key, string $templateCode = 'people_assignments', string $quarantineObjectId = self::QUARANTINE_ID): string
     {
         return (string) $this->withToken($token)
-            ->postJson('/api/v1/organization/import-jobs', $this->submitBody($templateCode), $this->writeHeaders($key))
+            ->postJson('/api/v1/organization/import-jobs', $this->submitBody($templateCode, $quarantineObjectId), $this->writeHeaders($key))
             ->assertStatus(202)->json('data.id');
     }
 

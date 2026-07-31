@@ -225,12 +225,18 @@ final class WorkDefinitionController
         if ($expected === null) {
             return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
         }
-        $target = ['test' => 'tested', 'approve' => 'approved', 'sign' => 'signed', 'publish' => 'published'][$action] ?? null;
-        if ($target === null || ($action !== 'publish' && $row->status !== ['test' => 'draft', 'approve' => 'tested', 'sign' => 'approved'][$action])) {
+        $transitions = [
+            'test' => ['from' => 'draft', 'to' => 'tested'],
+            'approve' => ['from' => 'tested', 'to' => 'approved'],
+            'sign' => ['from' => 'approved', 'to' => 'signed'],
+            'publish' => ['from' => 'signed', 'to' => 'published'],
+        ];
+        $transition = $transitions[$action] ?? null;
+        if ($transition === null || $row->status !== $transition['from']) {
             return $this->problem(409, 'invalid-lifecycle-transition', 'The lifecycle transition is not allowed.', $c);
         }
 
-        $result = $this->mutator->transition($versionId, $expected, $action, $target, $row->published_at);
+        $result = $this->mutator->transition($versionId, $expected, $action, $transition['to'], $row->published_at);
         if (($result['stale'] ?? false) === true) {
             return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
         }

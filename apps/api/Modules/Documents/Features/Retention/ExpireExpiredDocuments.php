@@ -11,7 +11,9 @@ use Shared\Contracts\TransactionalOutbox;
 
 /**
  * Bounded retention expiry. Marks documents whose retention period has
- * elapsed as archived; a legal hold always prevents expiry. One bounded
+ * elapsed as archived; a legal hold always prevents expiry, and documents
+ * without a current version (draft/rejected — nothing to retain) are
+ * skipped so an unarchive can never be instantly re-archived. One bounded
  * batch per invocation (see the `documents:expire-retention --once`
  * console wiring).
  */
@@ -30,6 +32,7 @@ final class ExpireExpiredDocuments
         $boundary = $now->format('Y-m-d H:i:s.u');
 
         $expired = DB::table('documents')
+            ->whereNotNull('current_version_id')
             ->whereNotNull('retention_until')
             ->where('retention_until', '<=', $boundary)
             ->where('legal_hold', false)

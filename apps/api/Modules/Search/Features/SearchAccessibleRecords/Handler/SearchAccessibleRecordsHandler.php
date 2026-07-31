@@ -37,12 +37,14 @@ final class SearchAccessibleRecordsHandler
         ?string $scopeId = null,
         int $limit = 25,
         ?string $cursor = null,
+        ?string $type = null,
+        ?string $status = null,
     ): array {
         $query = trim($query);
         $limit = max(1, min($limit, 100));
         $afterId = $cursor === null
             ? null
-            : $this->decodeCursor($cursor, $actor, $limit, $query, $scopeId);
+            : $this->decodeCursor($cursor, $actor, $limit, $query, $scopeId, $type, $status);
         $candidateLimit = min($limit * self::CANDIDATE_OVER_FETCH_FACTOR, self::CANDIDATE_HARD_CEILING);
         $builder = DB::table('search_index_entries')
             ->where('visibility', 'eligible')
@@ -51,6 +53,12 @@ final class SearchAccessibleRecordsHandler
 
         if ($scopeId !== null) {
             $builder->where('scope_id', $scopeId);
+        }
+        if ($type !== null && $type !== '') {
+            $builder->where('source_type', $type);
+        }
+        if ($status !== null && $status !== '') {
+            $builder->where('status', $status);
         }
         if ($query !== '') {
             $builder->whereRaw('search_text LIKE ? ESCAPE ?', ['%'.$this->escapeLike($query).'%', '\\']);
@@ -97,6 +105,8 @@ final class SearchAccessibleRecordsHandler
                     $limit,
                     $query,
                     $scopeId,
+                    $type,
+                    $status,
                 )
                 : null,
         ];
@@ -114,6 +124,8 @@ final class SearchAccessibleRecordsHandler
         int $limit,
         string $query,
         ?string $scopeId,
+        ?string $type,
+        ?string $status,
     ): string {
         return Crypt::encryptString(json_encode([
             'version' => self::CURSOR_VERSION,
@@ -122,6 +134,8 @@ final class SearchAccessibleRecordsHandler
                 'limit' => $limit,
                 'q' => $query,
                 'scope_id' => $scopeId,
+                'type' => $type,
+                'status' => $status,
             ],
             'scope' => [
                 'principal_id' => $actor['user_id'] ?? '',
@@ -137,6 +151,8 @@ final class SearchAccessibleRecordsHandler
         int $limit,
         string $query,
         ?string $scopeId,
+        ?string $type,
+        ?string $status,
     ): string {
         try {
             $payload = json_decode(Crypt::decryptString($cursor), true, 16, JSON_THROW_ON_ERROR);
@@ -148,10 +164,12 @@ final class SearchAccessibleRecordsHandler
             || array_keys($payload) !== ['version', 'after_id', 'query', 'scope']
             || $payload['version'] !== self::CURSOR_VERSION
             || ! is_array($payload['query'])
-            || array_keys($payload['query']) !== ['limit', 'q', 'scope_id']
+            || array_keys($payload['query']) !== ['limit', 'q', 'scope_id', 'type', 'status']
             || $payload['query']['limit'] !== $limit
             || $payload['query']['q'] !== $query
             || $payload['query']['scope_id'] !== $scopeId
+            || $payload['query']['type'] !== $type
+            || $payload['query']['status'] !== $status
             || ! is_array($payload['scope'])
             || array_keys($payload['scope']) !== ['principal_id', 'facility_id']
             || ! is_string($payload['scope']['principal_id'])

@@ -9,12 +9,12 @@ use stdClass;
 final class DatabaseProvideWorkRecordsForIndexing implements ProvideWorkRecordsForIndexing
 {
     /**
-     * @return array{rows: list<array{id: string, owner_facility_id: string, classification: string, lock_version: int, payload: array<string, mixed>}>, next_id: string|null}
+     * @return array{rows: list<array{id: string, owner_facility_id: string, classification: string, status: string, lock_version: int, payload: array<string, mixed>}>, next_id: string|null}
      */
     public function nextBatch(?string $afterId, int $limit): array
     {
         $query = DB::table('work_records')
-            ->select(['id', 'owner_facility_id', 'classification', 'lock_version', 'payload'])
+            ->select(['id', 'owner_facility_id', 'classification', 'status', 'lock_version', 'payload'])
             ->orderBy('id')
             ->limit($limit);
         if ($afterId !== null) {
@@ -32,6 +32,7 @@ final class DatabaseProvideWorkRecordsForIndexing implements ProvideWorkRecordsF
                     'id' => $row->id,
                     'owner_facility_id' => $row->owner_facility_id,
                     'classification' => $row->classification,
+                    'status' => $row->status,
                     'lock_version' => (int) $row->lock_version,
                     'payload' => is_array($payload) ? $payload : [],
                 ];

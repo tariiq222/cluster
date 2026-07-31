@@ -6,13 +6,11 @@ import { FileSpreadsheet } from 'lucide-react'
 
 import {
   ApiError,
-  completeDocumentUpload,
   getImportJob,
-  initiateDocumentUpload,
   listImportJobRows,
-  putUploadTicket,
   submitImportJob,
   transitionImportJob,
+  uploadImportFile,
   type ImportJob,
   type ImportJobAction,
   type ImportJobRow,
@@ -37,7 +35,7 @@ const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const copy = {
   ar: {
     title: 'إضافة بيانات من ملف', intro: 'ارفع ملف الموظفين والتكليفات، ثم راجع الأخطاء قبل اعتماد البيانات.',
-    uploadTitle: '١. اختيار الملف', uploadHelp: 'اختر ملف CSV يحتوي على بيانات الموظفين والتكليفات.', file: 'ملف البيانات', upload: 'رفع الملف', uploadReady: 'الملف جاهز للرفع.', hashing: 'جارٍ تجهيز الملف…', requestingUpload: 'جارٍ تجهيز عملية الرفع…', uploading: 'جارٍ رفع الملف…', completingUpload: 'جارٍ تأكيد الرفع…', uploadComplete: 'اكتمل رفع الملف. يمكنك الآن بدء مراجعته.', fileRequired: 'اختر ملف CSV للمتابعة.', fileInvalid: 'اختر ملفاً بامتداد CSV.', fileTooLarge: 'حجم الملف غير مدعوم.', uploadError: 'تعذر رفع الملف. حاول مرة أخرى.', uploadHashError: 'تعذر تجهيز الملف للرفع. حاول مرة أخرى.', uploadName: 'ملف بيانات الموظفين والتكليفات',
+    uploadTitle: '١. اختيار الملف', uploadHelp: 'اختر ملف CSV يحتوي على بيانات الموظفين والتكليفات.', file: 'ملف البيانات', upload: 'رفع الملف', uploadReady: 'الملف جاهز للرفع.', uploading: 'جارٍ رفع الملف…', uploadComplete: 'اكتمل رفع الملف. يمكنك الآن بدء مراجعته.', fileRequired: 'اختر ملف CSV للمتابعة.', fileInvalid: 'اختر ملفاً بامتداد CSV.', fileTooLarge: 'حجم الملف غير مدعوم.', uploadError: 'تعذر رفع الملف. حاول مرة أخرى.',
     quarantineId: 'مرجع الملف', submit: 'بدء مراجعة الملف', jobId: 'مرجع عملية الاستيراد', open: 'فتح عملية سابقة', saving: 'جارٍ التنفيذ…',
     loading: 'جارٍ تحميل الاستيراد…', forbidden: 'لا تملك صلاحية قراءة هذا الاستيراد.', notFound: 'الاستيراد غير موجود أو غير متاح.', error: 'تعذر تحميل الاستيراد.', retry: 'إعادة المحاولة',
     summary: '٢. ملخص المراجعة', status: 'الحالة', template: 'نوع البيانات', total: 'إجمالي السجلات', valid: 'جاهزة', errors: 'تحتاج تصحيحاً', approver: 'الاعتماد', notApproved: 'لم يعتمد بعد',
@@ -48,7 +46,7 @@ const copy = {
   },
   en: {
     title: 'Add data from file', intro: 'Upload employee and assignment data, then review issues before applying it.',
-    uploadTitle: '1. Choose file', uploadHelp: 'Choose a CSV file containing employee and assignment data.', file: 'Data file', upload: 'Upload file', uploadReady: 'The file is ready to upload.', hashing: 'Preparing file…', requestingUpload: 'Preparing upload…', uploading: 'Uploading file…', completingUpload: 'Confirming upload…', uploadComplete: 'File uploaded. You can now start its review.', fileRequired: 'Choose a CSV file to continue.', fileInvalid: 'Choose a file with a CSV extension.', fileTooLarge: 'The file size is not supported.', uploadError: 'The file could not be uploaded. Try again.', uploadHashError: 'The file could not be prepared for upload. Try again.', uploadName: 'Employee and assignment data file',
+    uploadTitle: '1. Choose file', uploadHelp: 'Choose a CSV file containing employee and assignment data.', file: 'Data file', upload: 'Upload file', uploadReady: 'The file is ready to upload.', uploading: 'Uploading file…', uploadComplete: 'File uploaded. You can now start its review.', fileRequired: 'Choose a CSV file to continue.', fileInvalid: 'Choose a file with a CSV extension.', fileTooLarge: 'The file size is not supported.', uploadError: 'The file could not be uploaded. Try again.',
     quarantineId: 'File reference', submit: 'Start file review', jobId: 'Import reference', open: 'Open previous import', saving: 'Working…',
     loading: 'Loading import…', forbidden: 'You do not have permission to read this import.', notFound: 'The import does not exist or is unavailable.', error: 'The import could not be loaded.', retry: 'Try again',
     summary: '2. Review summary', status: 'Status', template: 'Data type', total: 'Total records', valid: 'Ready', errors: 'Needs correction', approver: 'Approval', notApproved: 'Not approved yet',
@@ -132,34 +130,27 @@ function RowsTable({ rows, locale }: { rows: ImportJobRow[]; locale: Locale }) {
 function ImportUpload({ locale, csrfToken, onUploaded }: { locale: Locale; csrfToken: string; onUploaded: (quarantineId: string) => void; }) {
   const text = copy[locale]
   const [file, setFile] = useState<File | null>(null)
-  const [phase, setPhase] = useState<'ready' | 'hashing' | 'requesting' | 'uploading' | 'completing' | 'complete'>('ready')
-  const [error, setError] = useState<'file' | 'invalid' | 'size' | 'hash' | 'upload' | null>(null)
+  const [phase, setPhase] = useState<'ready' | 'uploading' | 'complete'>('ready')
+  const [error, setError] = useState<'file' | 'invalid' | 'size' | 'upload' | null>(null)
   const errorRef = useRef<HTMLParagraphElement>(null)
   const busy = !['ready', 'complete'].includes(phase)
-  const status = phase === 'hashing' ? text.hashing : phase === 'requesting' ? text.requestingUpload : phase === 'uploading' ? text.uploading : phase === 'completing' ? text.completingUpload : phase === 'complete' ? text.uploadComplete : text.uploadReady
-  const errorMessage = error === 'file' ? text.fileRequired : error === 'invalid' ? text.fileInvalid : error === 'size' ? text.fileTooLarge : error === 'hash' ? text.uploadHashError : text.uploadError
+  const status = phase === 'uploading' ? text.uploading : phase === 'complete' ? text.uploadComplete : text.uploadReady
+  const errorMessage = error === 'file' ? text.fileRequired : error === 'invalid' ? text.fileInvalid : error === 'size' ? text.fileTooLarge : text.uploadError
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!file) return fail('file')
     if (!file.name.toLowerCase().endsWith('.csv')) return fail('invalid')
-    if (file.size < 1 || file.size > 1_073_741_824) return fail('size')
+    if (file.size < 1 || file.size > 10 * 1024 * 1024) return fail('size')
     setError(null)
     try {
-      setPhase('hashing')
-      let sha256: string
-      try { sha256 = await hashFile(file) } catch { return fail('hash') }
-      setPhase('requesting')
-      const ticket = await initiateDocumentUpload(csrfToken, {
-        purpose: 'organization_import_source', name: text.uploadName, description: null, classification: 'confidential', file_name: file.name,
-        content_type: 'text/csv', byte_size: file.size, sha256,
-      })
       setPhase('uploading')
-      await putUploadTicket(ticket.upload_url, file, ticket.required_headers, ticket.method)
-      setPhase('completing')
-      const completion = await completeDocumentUpload(csrfToken, ticket.upload_id, { byte_size: file.size, sha256 })
-      if (!completion.accepted) return fail('upload')
-      onUploaded(ticket.quarantine_object_id)
+      const reference = await uploadImportFile(csrfToken, {
+        file,
+        template_code: 'people_assignments',
+        import_type: 'csv',
+      })
+      onUploaded(reference.quarantine_object_id)
       setPhase('complete')
     } catch {
       fail('upload')
@@ -169,11 +160,6 @@ function ImportUpload({ locale, csrfToken, onUploaded }: { locale: Locale; csrfT
   function fail(nextError: NonNullable<typeof error>) { setPhase('ready'); setError(nextError); window.requestAnimationFrame(() => errorRef.current?.focus()) }
 
   return <Panel id="import-upload-heading" title={text.uploadTitle} level={2}><p>{text.uploadHelp}</p><form className="resource-form" onSubmit={(event) => void submit(event)} noValidate>{error && <p id="import-upload-error" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>{errorMessage}</p>}<UiField id="import-upload-file" label={text.file} required><input id="import-upload-file" type="file" accept=".csv,text/csv" required aria-required="true" aria-invalid={Boolean(error)} aria-describedby={error ? 'import-upload-error' : undefined} disabled={busy} onChange={(event) => { setFile(event.target.files?.[0] ?? null); setError(null); setPhase('ready') }} /></UiField><p className="status-message" role="status" aria-live="polite" aria-atomic="true">{status}</p><Button type="submit" disabled={busy}>{busy ? status : text.upload}</Button></form></Panel>
-}
-
-async function hashFile(file: File) {
-  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 function SubmitForm({ locale, token, quarantineId, onQuarantineIdChange, onSubmitted }: { locale: Locale; token: string; quarantineId: string; onQuarantineIdChange: (quarantineId: string) => void; onSubmitted: (job: ImportJob) => void; }) {

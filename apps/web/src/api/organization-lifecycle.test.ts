@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   endAssignment,
+  reorderOrganizationUnits,
   updateCluster,
   updateFacility,
   updateOrganizationUnit,
   updatePerson,
   updatePosition,
+  uploadImportFile,
 } from './organization'
 
 const token = 'csrf-token'
@@ -115,5 +117,48 @@ describe('organization lifecycle wrappers', () => {
 
     await expect(updateCluster(token, 1, { name: 'stale' })).rejects.toMatchObject({ status: 412 })
     await expect(updateFacility(token, facilityId, 2, { name: 'stale' })).rejects.toMatchObject({ status: 412 })
+  })
+
+  it('sends the cluster lock version as If-Match when reordering units', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ updated: 3, by_parent: [], policy: 'type-priority-then-code', lock_version: 4 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await reorderOrganizationUnits(token, 3)
+
+    expect(result).toEqual({ updated: 3, policy: 'type-priority-then-code' })
+    const [path, init] = requireFetchCall(fetchMock, 0)
+    expect(path).toBe('/api/v1/organization/units/reorder')
+    const headers = new Headers(init?.headers)
+    expect(headers.get('X-CSRF-Token')).toBe(token)
+    expect(headers.get('If-Match')).toBe('"3"')
+    expect(headers.get('Idempotency-Key')).toBeTruthy()
+    expect(JSON.parse(String(init?.body))).toEqual({ ordered_unit_ids: [] })
+  })
+
+  it('posts a CSV file as multipart and returns the quarantine object id', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ quarantine_object_id: '018f6f7d-0c00-7000-8000-000000000777' }, 201))
+    vi.stubGlobal('fetch', fetchMock)
+    const file = new File(['employee_number,display_name_ar\nEMP-1,موظف'], 'people.csv', { type: 'text/csv' })
+
+    const reference = await uploadImportFile(token, {
+      file,
+      template_code: 'people_assignments',
+      import_type: 'csv',
+    })
+
+    expect(reference.quarantine_object_id).toBe('018f6f7d-0c00-7000-8000-000000000777')
+    const [path, init] = requireFetchCall(fetchMock, 0)
+    expect(path).toBe('/api/v1/organization/import-files')
+    expect(init?.method).toBe('POST')
+    const headers = new Headers(init?.headers)
+    expect(headers.get('X-CSRF-Token')).toBe(token)
+    expect(headers.get('Content-Type')).toBeNull()
+    expect(init?.body).toBeInstanceOf(FormData)
+    const form = init?.body as FormData
+    expect(form.get('template_code')).toBe('people_assignments')
+    expect(form.get('import_type')).toBe('csv')
+    expect(form.get('file')).toBe(file)
   })
 })

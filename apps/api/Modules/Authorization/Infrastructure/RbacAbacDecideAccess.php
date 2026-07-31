@@ -214,7 +214,13 @@ final class RbacAbacDecideAccess implements DecideAccess
             $firstDeny ??= $outcome;
         }
 
-        $supervisoryRelationshipOutcome = $this->supervisoryRelationshipOutcome($actor, $capability, $facts);
+        $supervisoryRelationshipOutcome = $this->supervisoryRelationshipOutcome(
+            $actor,
+            $capability,
+            $facts,
+            $recordClassification,
+            $classificationPolicy,
+        );
         if ($supervisoryRelationshipOutcome !== null) {
             if ($supervisoryRelationshipOutcome['decision'] === 'allow') {
                 return $supervisoryRelationshipOutcome;
@@ -295,6 +301,8 @@ final class RbacAbacDecideAccess implements DecideAccess
         array $actor,
         string $capability,
         RecordFacts $facts,
+        ClassificationLevel $recordClassification,
+        ?stdClass $classificationPolicy,
     ): ?array {
         if (! is_string($facts->organizationUnitId) || trim($facts->organizationUnitId) === '') {
             return null;
@@ -355,9 +363,23 @@ final class RbacAbacDecideAccess implements DecideAccess
         // The classification policy governs every grant source: an export or
         // download capability that the active policy denies must not be
         // allowed through a supervisory relationship either.
-        $transferDeny = $this->policyTransferDeny($capability, $this->activeClassificationPolicy($facts->classification));
+        $transferDeny = $this->policyTransferDeny($capability, $classificationPolicy);
         if ($transferDeny !== null) {
             return $this->denyOutcome([$transferDeny]);
+        }
+
+        // A supervisory relationship must not bypass the classification
+        // clearance floor: the supervisor's clearance, derived from the
+        // decided capability's sensitivity, must be at least the required
+        // clearance for the record's classification like any other grant.
+        $requiredClearance = $this->requiredClearance($recordClassification, $classificationPolicy);
+        $sensitivity = DB::table('capabilities')
+            ->where('capability_code', $capability)
+            ->where('status', 'active')
+            ->value('sensitivity');
+        $clearance = is_string($sensitivity) ? $this->clearanceForSensitivity($sensitivity) : null;
+        if ($clearance === null || ! $clearance->isAtLeast($requiredClearance)) {
+            return $this->denyOutcome(['classification_insufficient']);
         }
 
         return [

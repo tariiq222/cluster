@@ -60,12 +60,6 @@ final class DocumentRetentionLifecycleTest extends TestCase
 
     private const DOCUMENT_ID = '018f6f7d-0c00-7000-8000-000000000812';
 
-    private const VERSION_PUBLIC_ID = '018f6f7d-0c00-7000-8000-000000000821';
-
-    private const VERSION_ID = '018f6f7d-0c00-7000-8000-000000000822';
-
-    private const STORAGE_OBJECT_ID = '018f6f7d-0c00-7000-8000-000000000831';
-
     private DecideAccess $access;
 
     protected function setUp(): void
@@ -175,13 +169,42 @@ final class DocumentRetentionLifecycleTest extends TestCase
 
         $unarchive = ($controller)($this->jsonRequest('POST', ['reason' => 'reopen'], 'unarchive-a', self::CORRELATION_ID, '1'), $documentId, 'unarchive');
         $this->assertSame(Response::HTTP_OK, $unarchive->getStatusCode());
-        $this->assertSame('active', $unarchive->getData(true)['data']['status']);
+        $this->assertSame('draft', $unarchive->getData(true)['data']['status'], 'A version-less document must not be resurrected to active.');
 
         $replayed = ($controller)($this->jsonRequest('POST', ['reason' => 'reopen'], 'unarchive-a', self::CORRELATION_ID, '2'), $documentId, 'unarchive');
         $this->assertSame($unarchive->getData(true), $replayed->getData(true));
 
         $again = ($controller)($this->jsonRequest('POST', ['reason' => 'reopen again'], 'unarchive-b', self::CORRELATION_ID, '2'), $documentId, 'unarchive');
         $this->assertSame(Response::HTTP_CONFLICT, $again->getStatusCode(), 'Unarchive must be refused on a non-archived document.');
+    }
+
+    public function test_unarchive_restores_active_only_when_a_current_version_exists(): void
+    {
+        $documentId = $this->seedDocument(['status' => 'archived']);
+        $this->seedVersion($documentId);
+        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+
+        $unarchive = ($controller)($this->jsonRequest('POST', ['reason' => 'reopen'], 'unarchive-versioned', self::CORRELATION_ID, '1'), $documentId, 'unarchive');
+        $this->assertSame(Response::HTTP_OK, $unarchive->getStatusCode());
+        $this->assertSame('active', $unarchive->getData(true)['data']['status']);
+        $this->assertSame('active', DB::table('documents')->where('public_id', $documentId)->value('status'));
+    }
+
+    public function test_unarchived_version_less_expired_document_is_not_immediately_re_archived(): void
+    {
+        $documentId = $this->seedDocument([
+            'status' => 'archived',
+            'retention_until' => '2020-01-01 00:00:00.000000',
+            'retention_policy_key' => 'administrative_7_years',
+        ]);
+        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+        $unarchive = ($controller)($this->jsonRequest('POST', ['reason' => 'reopen'], 'unarchive-expired', self::CORRELATION_ID, '1'), $documentId, 'unarchive');
+        $this->assertSame(Response::HTTP_OK, $unarchive->getStatusCode());
+        $this->assertSame('draft', $unarchive->getData(true)['data']['status']);
+
+        $expiredCount = (new ExpireExpiredDocuments($this->app->make(TransactionalOutbox::class)))->expireOnce(100);
+        $this->assertSame(0, $expiredCount, 'The expiry cycle must skip documents without a current version.');
+        $this->assertSame('draft', DB::table('documents')->where('public_id', $documentId)->value('status'));
     }
 
     public function test_archived_document_advertises_unarchive_and_archive_is_idempotent_conflict(): void
@@ -199,11 +222,13 @@ final class DocumentRetentionLifecycleTest extends TestCase
         $this->assertSame(Response::HTTP_CONFLICT, $response->getStatusCode());
     }
 
-    public function test_expiry_command_archives_elapsed_documents_but_never_legal_held_or_archived_ones(): void
+    public function test_expiry_command_archives_elapsed_documents_but_never_legal_held_archived_or_version_less_ones(): void
     {
         $past = '2020-01-01 00:00:00.000000';
         $future = '2040-01-01 00:00:00.000000';
         $expired = $this->seedDocument(['status' => 'active', 'retention_until' => $past, 'retention_policy_key' => 'administrative_7_years'], '018f6f7d-0c00-7000-8000-000000000841');
+        $this->seedVersion($expired);
+        $versionless = $this->seedDocument(['status' => 'active', 'retention_until' => $past, 'retention_policy_key' => 'administrative_7_years'], '018f6f7d-0c00-7000-8000-000000000845');
         $held = $this->seedDocument(['status' => 'held', 'legal_hold' => true, 'legal_hold_reason' => 'litigation', 'retention_until' => $past], '018f6f7d-0c00-7000-8000-000000000842');
         $alreadyArchived = $this->seedDocument(['status' => 'archived', 'retention_until' => $past], '018f6f7d-0c00-7000-8000-000000000843');
         $notYet = $this->seedDocument(['status' => 'active', 'retention_until' => $future], '018f6f7d-0c00-7000-8000-000000000844');
@@ -212,6 +237,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
 
         $this->assertSame(1, $expiredCount);
         $this->assertSame('archived', DB::table('documents')->where('public_id', $expired)->value('status'));
+        $this->assertSame('active', DB::table('documents')->where('public_id', $versionless)->value('status'), 'Documents without a current version must be skipped by expiry.');
         $this->assertSame('held', DB::table('documents')->where('public_id', $held)->value('status'));
         $this->assertSame('archived', DB::table('documents')->where('public_id', $alreadyArchived)->value('status'));
         $this->assertSame('active', DB::table('documents')->where('public_id', $notYet)->value('status'));
@@ -370,13 +396,17 @@ final class DocumentRetentionLifecycleTest extends TestCase
         return $publicId;
     }
 
-    private function seedVersion(): void
+    private function seedVersion(?string $documentPublicId = self::DOCUMENT_PUBLIC_ID): void
     {
+        $documentId = (string) DB::table('documents')->where('public_id', $documentPublicId)->value('id');
+        $storageObjectId = \Illuminate\Support\Str::uuid7()->toString();
+        $versionId = \Illuminate\Support\Str::uuid7()->toString();
+        $versionPublicId = \Illuminate\Support\Str::uuid7()->toString();
         $now = now();
         DB::table('document_storage_objects')->insert([
-            'id' => self::STORAGE_OBJECT_ID,
+            'id' => $storageObjectId,
             'disk' => 'available',
-            'object_key' => self::STORAGE_OBJECT_ID.'.blob',
+            'object_key' => $storageObjectId.'.blob',
             'etag' => 'etag-download',
             'generation' => 'generation-download',
             'storage_class' => 'available',
@@ -386,10 +416,10 @@ final class DocumentRetentionLifecycleTest extends TestCase
             'updated_at' => $now,
         ]);
         DB::table('document_versions')->insert([
-            'id' => self::VERSION_ID,
-            'public_id' => self::VERSION_PUBLIC_ID,
-            'document_id' => self::DOCUMENT_ID,
-            'storage_object_id' => self::STORAGE_OBJECT_ID,
+            'id' => $versionId,
+            'public_id' => $versionPublicId,
+            'document_id' => $documentId,
+            'storage_object_id' => $storageObjectId,
             'version_number' => 1,
             'original_filename' => 'record.pdf',
             'declared_mime_type' => 'application/pdf',
@@ -407,7 +437,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        DB::table('documents')->where('id', self::DOCUMENT_ID)->update(['current_version_id' => self::VERSION_ID]);
+        DB::table('documents')->where('id', $documentId)->update(['current_version_id' => $versionId]);
     }
 
     private function principals(): ResolveDevelopmentFixturePrincipal

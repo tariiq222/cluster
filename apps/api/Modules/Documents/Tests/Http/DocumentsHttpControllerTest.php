@@ -254,6 +254,50 @@ final class DocumentsHttpControllerTest extends TestCase
         $this->assertArrayNotHasKey('scanner_outcome', $payload);
     }
 
+    public function test_it_applies_optional_if_match_cas_and_rejects_malformed_or_stale_tokens(): void
+    {
+        $matching = ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('if-match-matching'), 'if-match-matching-initiate'))->getData(true);
+        $this->storage->completeUpload($matching['upload_id'], $this->properties('if-match-matching.pdf', 512));
+        $documentId = (string) DB::table('documents')->where('id', DB::table('document_upload_intents')->where('id', $matching['upload_id'])->value('document_id'))->value('public_id');
+        $this->assertSame(1, (int) DB::table('documents')->where('public_id', $documentId)->value('lock_version'));
+
+        $completed = ($this->complete)($this->jsonRequest('POST', [
+            'sha256' => $this->hashFor('if-match-matching.pdf', 512),
+            'byte_size' => 512,
+        ], 'if-match-matching-complete', self::CORRELATION_ID, '"1"'), $matching['upload_id']);
+        $this->assertSame(Response::HTTP_ACCEPTED, $completed->getStatusCode());
+        $this->assertSame(2, (int) DB::table('documents')->where('public_id', $documentId)->value('lock_version'));
+
+        $malformed = ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('if-match-malformed'), 'if-match-malformed-initiate'))->getData(true);
+        $this->storage->completeUpload($malformed['upload_id'], $this->properties('if-match-malformed.pdf', 512));
+        $malformedDocumentId = (string) DB::table('documents')->where('id', DB::table('document_upload_intents')->where('id', $malformed['upload_id'])->value('document_id'))->value('public_id');
+        $rejected = ($this->complete)($this->jsonRequest('POST', [
+            'sha256' => $this->hashFor('if-match-malformed.pdf', 512),
+            'byte_size' => 512,
+        ], 'if-match-malformed-complete', self::CORRELATION_ID, 'garbage'), $malformed['upload_id']);
+        $this->assertProblem($rejected, Response::HTTP_PRECONDITION_FAILED, 'precondition-failed');
+        $this->assertSame(1, (int) DB::table('documents')->where('public_id', $malformedDocumentId)->value('lock_version'));
+        $this->assertNull(DB::table('document_upload_intents')->where('id', $malformed['upload_id'])->value('completed_at'), 'Malformed If-Match must not start the completion.');
+
+        $stale = ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('if-match-stale'), 'if-match-stale-initiate'))->getData(true);
+        $this->storage->completeUpload($stale['upload_id'], $this->properties('if-match-stale.pdf', 512));
+        $staleDocumentId = (string) DB::table('documents')->where('id', DB::table('document_upload_intents')->where('id', $stale['upload_id'])->value('document_id'))->value('public_id');
+        $conflict = ($this->complete)($this->jsonRequest('POST', [
+            'sha256' => $this->hashFor('if-match-stale.pdf', 512),
+            'byte_size' => 512,
+        ], 'if-match-stale-complete', self::CORRELATION_ID, '"9"'), $stale['upload_id']);
+        $this->assertProblem($conflict, Response::HTTP_PRECONDITION_FAILED, 'precondition-failed');
+        $this->assertSame(1, (int) DB::table('documents')->where('public_id', $staleDocumentId)->value('lock_version'), 'A stale CAS token must not bump the document lock version.');
+
+        $absent = ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('if-match-absent'), 'if-match-absent-initiate'))->getData(true);
+        $this->storage->completeUpload($absent['upload_id'], $this->properties('if-match-absent.pdf', 512));
+        $withoutToken = ($this->complete)($this->jsonRequest('POST', [
+            'sha256' => $this->hashFor('if-match-absent.pdf', 512),
+            'byte_size' => 512,
+        ], 'if-match-absent-complete'), $absent['upload_id']);
+        $this->assertSame(Response::HTTP_ACCEPTED, $withoutToken->getStatusCode(), 'If-Match is optional: an absent token skips the CAS.');
+    }
+
     public function test_it_starts_a_new_version_on_an_existing_document_through_the_same_quarantine_flow(): void
     {
         ($this->initiate)($this->jsonRequest('POST', $this->initiatePayload('version-parent'), 'version-parent-initiate'));
@@ -400,7 +444,7 @@ final class DocumentsHttpControllerTest extends TestCase
         ];
     }
 
-    private function jsonRequest(string $method, array $payload = [], string $idempotencyKey = 'status', ?string $correlationId = self::CORRELATION_ID): Request
+    private function jsonRequest(string $method, array $payload = [], string $idempotencyKey = 'status', ?string $correlationId = self::CORRELATION_ID, ?string $ifMatch = null): Request
     {
         $server = ['CONTENT_TYPE' => 'application/json'];
         if ($correlationId !== null) {
@@ -408,6 +452,9 @@ final class DocumentsHttpControllerTest extends TestCase
         }
         if ($idempotencyKey !== '') {
             $server['HTTP_IDEMPOTENCY_KEY'] = $idempotencyKey;
+        }
+        if ($ifMatch !== null) {
+            $server['HTTP_IF_MATCH'] = $ifMatch;
         }
 
         return Request::create('/', $method, [], [], [], $server, json_encode($payload, JSON_THROW_ON_ERROR));

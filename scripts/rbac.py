@@ -300,6 +300,12 @@ def _consume_route_statement(
         stripped = line.lstrip()
         if stripped.startswith("Route::"):
             break
+        if CLOSE_TOKEN_RE.match(line) or CLOSE_CHAINED_RE.match(line):
+            # A group-close token (e.g. `});`) must be handled by the main
+            # loop so the parent middleware context is popped; otherwise the
+            # route statement swallows it and every later route inherits the
+            # middleware of every group opened so far.
+            break
         collected.append(line)
         if line.rstrip().endswith(");") or line.rstrip().endswith("];"):
             i += 1
@@ -520,7 +526,12 @@ def build_matrix(repo_root: pathlib.Path, summary) -> dict:
             capabilities=metadata["capabilities"], capability_check=metadata["check"], middleware=effective,
             requires_session="identity_session" in effective,
             requires_principal="require_identity_session_principal" in effective,
-            requires_csrf="identity_csrf" in effective or "identity_csrf_middleware" in effective or any(m.endswith("IdentityCsrfMiddleware") for m in stmt.parent_middleware + stmt.inline_middleware),
+            requires_csrf=stmt.method in ("POST", "PUT", "PATCH", "DELETE")
+            and (
+                "identity_csrf" in effective
+                or "identity_csrf_middleware" in effective
+                or any(m.endswith("IdentityCsrfMiddleware") for m in stmt.parent_middleware + stmt.inline_middleware)
+            ),
             throttle=throttle, security_warning="internal-worker" if "/internal/" in stmt.path else None, source_line=stmt.line_number,
         ))
     classification_counts = {classification: sum(1 for row in classifications if row["classification"] == classification) for classification in ("used", "intentional-ui-only", "deprecated", "Unknown")}

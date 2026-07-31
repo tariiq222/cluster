@@ -13,6 +13,7 @@ use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use Modules\Organization\Contracts\ResolveQuarantinedImport;
 use Modules\Organization\Contracts\ResolveScopeDescendants;
 use Modules\Organization\Contracts\ValidatePersonReference;
+use Modules\Organization\Features\ImportFile\Handler\ImportFileHandler;
 use Modules\Organization\Features\TemporaryAssignment\Console\HandlerTemporaryAssignmentExpiration;
 use Modules\Organization\Features\TemporaryAssignment\Console\RunTemporaryAssignmentExpiration;
 use Modules\Organization\Features\TemporaryAssignment\Contracts\ValidateTemporaryAssignmentCapabilities;
@@ -36,6 +37,9 @@ final class OrganizationServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(ResolveQuarantinedImport::class, fn (): ResolveQuarantinedImport => new StorageQuarantinedImport(
+            Storage::disk((string) config('organization.import.quarantine_disk', 'organization-quarantine')),
+        ));
+        $this->app->bind(ImportFileHandler::class, fn (): ImportFileHandler => new ImportFileHandler(
             Storage::disk((string) config('organization.import.quarantine_disk', 'organization-quarantine')),
         ));
         $this->app->bind(ValidatePersonReference::class, ValidatePersonReferenceFromPersistence::class);

@@ -45,6 +45,7 @@ final class BackfillSearchProjectionHandler
                     'source_type' => 'work_record',
                     'source_id' => $row['id'],
                     'source_version' => (string) $row['lock_version'],
+                    'status' => $row['status'],
                     'scope_id' => $row['owner_facility_id'],
                     'classification' => $row['classification'],
                     'indexable' => [

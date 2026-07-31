@@ -3,6 +3,7 @@ import { useLocale, useToken } from '../../app/session-context'
 import { ArrowDownNarrowWide, Plus } from 'lucide-react'
 
 import {
+  ApiError,
   getCluster,
   listFacilities,
   listOrganizationUnits,
@@ -45,6 +46,7 @@ const copy = {
       'سيُرتَّب كل مستوى من الوحدات بحسب النوع ثم الاسم. هل تريد المتابعة؟',
     reorderBusy: 'جارٍ ترتيب الوحدات…',
     reorderFailed: 'تعذّر ترتيب الوحدات. أعد المحاولة.',
+    reorderStale: 'بيانات قديمة، حدّث الصفحة ثم أعد المحاولة.',
     reorderSuccess: (count: number) => `تم ترتيب ${count} وحدة.`,
   },
   en: {
@@ -60,6 +62,7 @@ const copy = {
       'This will arrange units at each level by type, then name. Continue?',
     reorderBusy: 'Arranging units…',
     reorderFailed: 'The units could not be arranged. Try again.',
+    reorderStale: 'The data is outdated. Refresh the page and try again.',
     reorderSuccess: (count: number) => `${count} units arranged.`,
   },
 } as const
@@ -167,7 +170,7 @@ export function OrganizationStructure() {
     setPositionDrawerOpen(false)
   }
   async function handleReorder() {
-    if (reordering) return
+    if (reordering || cluster === null) return
     const confirmed =
       typeof window !== 'undefined' && typeof window.confirm === 'function'
         ? window.confirm(text.reorderConfirm)
@@ -177,7 +180,7 @@ export function OrganizationStructure() {
     setReordering(true)
     setReorderStatus(null)
     try {
-      const result = await reorderOrganizationUnits(token)
+      const result = await reorderOrganizationUnits(token, cluster.lock_version)
       if (!activeRef.current || epoch !== reorderEpochRef.current) return
       if (
         typeof window !== 'undefined' &&
@@ -194,7 +197,10 @@ export function OrganizationStructure() {
       if (!activeRef.current || epoch !== reorderEpochRef.current) return
       setReorderStatus({
         kind: 'error',
-        message: text.reorderFailed,
+        message:
+          error instanceof ApiError && error.status === 412
+            ? text.reorderStale
+            : text.reorderFailed,
       })
     } finally {
       if (activeRef.current && epoch === reorderEpochRef.current) setReordering(false)
@@ -253,7 +259,7 @@ export function OrganizationStructure() {
               onClick={() => void handleReorder()}
               className="org-panel-action"
               aria-label={text.reorder}
-              disabled={reordering || units.length === 0}
+              disabled={reordering || units.length === 0 || cluster === null}
             >
               <ArrowDownNarrowWide aria-hidden="true" />
               <span>{reordering ? text.reorderBusy : text.reorder}</span>

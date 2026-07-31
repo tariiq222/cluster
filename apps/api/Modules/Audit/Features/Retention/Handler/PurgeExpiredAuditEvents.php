@@ -15,17 +15,21 @@ use Modules\Audit\Domain\AuditRetentionPolicy;
 use Modules\Audit\Infrastructure\Persistence\AuditIntegrityRepository;
 
 /**
- * Bounded retention purge — deletes ONLY a contiguous expired prefix of one
- * stream after the chain verifies and an immutable `retention_purge`
- * checkpoint is written in the same transaction. The retention activity is
- * recorded as one canonical `com.cluster.audit.auditeventrecorded.v1` event
- * through {@see RecordAuditEvent} so the durable operator trail shares the
+ * Bounded retention purge — deletes ONLY the longest contiguous expired
+ * prefix of one stream after the chain verifies and an immutable
+ * `retention_purge` checkpoint is written in the same transaction. The
+ * stream head is walked in sequence order and the walk stops at the first
+ * row whose retention has not yet expired (the wedge); everything before it
+ * is purged and the wedge is left in place until its own retention passes.
+ * The retention activity is recorded as one canonical
+ * `com.cluster.audit.auditeventrecorded.v1` event through
+ * {@see RecordAuditEvent} so the durable operator trail shares the
  * producer's atomic commit with the checkpoint and the deletion. No fourth
  * outbox event type is introduced.
  *
  * Failure modes that leave every audit_events row untouched:
- *   - no candidate row has `retention_until < cutoff` (no-op)
- *   - chain mismatch in the candidate prefix
+ *   - no head row has `retention_until < cutoff` (no-op)
+ *   - chain mismatch in the purged prefix
  *   - checkpoint insert fails (out-of-unique or otherwise)
  *   - delete affects a different number of rows than the prefix
  *   - prior retention_purge checkpoint already covers the prefix range
@@ -51,6 +55,7 @@ final class PurgeExpiredAuditEvents
      *     deleted_event_count: int,
      *     status: string,
      *     integrity_key_version: string,
+     *     stopped_at_sequence: ?int,
      *     performed_at: string
      * }
      */
@@ -118,6 +123,7 @@ final class PurgeExpiredAuditEvents
                 'deleted_event_count' => 0,
                 'status' => $result['status'],
                 'integrity_key_version' => '',
+                'stopped_at_sequence' => $result['stopped_at_sequence'] ?? null,
                 'performed_at' => $now->format('Y-m-d\TH:i:s.v\Z'),
             ];
         }
@@ -130,6 +136,7 @@ final class PurgeExpiredAuditEvents
             'deleted_event_count' => $result['deleted_event_count'],
             'status' => $result['status'],
             'integrity_key_version' => $result['integrity_key_version'],
+            'stopped_at_sequence' => $result['stopped_at_sequence'] ?? null,
             'performed_at' => $now->format('Y-m-d\TH:i:s.v\Z'),
         ];
     }

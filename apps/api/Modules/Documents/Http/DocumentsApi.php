@@ -42,6 +42,13 @@ final class DocumentsApi
         return (int) $matches[1];
     }
 
+    public static function hasMalformedIfMatch(Request $request): bool
+    {
+        $value = $request->header('If-Match');
+
+        return is_string($value) && preg_match('/\A"([1-9][0-9]*)"\z/', $value) !== 1;
+    }
+
     public static function isMergePatch(Request $request): bool
     {
         $contentType = $request->header('Content-Type');

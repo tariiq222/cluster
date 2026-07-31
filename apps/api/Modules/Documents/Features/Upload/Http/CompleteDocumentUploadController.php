@@ -37,6 +37,9 @@ final class CompleteDocumentUploadController
         if ($idempotencyKey === null) {
             return DocumentsApi::problem(400, 'invalid-idempotency-key', 'Bad Request', 'Idempotency-Key is required.', $correlationId);
         }
+        if (DocumentsApi::hasMalformedIfMatch($request)) {
+            return DocumentsApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match must be one current strong ETag.', $correlationId);
+        }
         $expectedDocumentLockVersion = DocumentsApi::ifMatch($request);
         $principal = DocumentsApi::principalOrProblem($request, $this->principals, $correlationId);
         if ($principal instanceof JsonResponse) {

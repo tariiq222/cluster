@@ -16,7 +16,7 @@ interface ProvideWorkRecordsForIndexing
      * row (null when the batch is empty) and can be stored as a checkpoint
      * to resume later.
      *
-     * @return array{rows: list<array{id: string, owner_facility_id: string, classification: string, lock_version: int, payload: array<string, mixed>}>, next_id: string|null}
+     * @return array{rows: list<array{id: string, owner_facility_id: string, classification: string, status: string, lock_version: int, payload: array<string, mixed>}>, next_id: string|null}
      */
     public function nextBatch(?string $afterId, int $limit): array;
 }

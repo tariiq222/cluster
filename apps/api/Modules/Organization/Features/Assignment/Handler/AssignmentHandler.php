@@ -81,9 +81,11 @@ final class AssignmentHandler
 
     /**
      * Ends an active assignment at a past or current time. A pending
-     * assignment (future start) can also be cancelled: its end time may lie
-     * in the future as long as it is not before the start time, which leaves
-     * the empty window before the planned start as a cancellation.
+     * assignment (future start) can also be cancelled: its requested end
+     * time may lie in the future, but the stored end is clamped to the
+     * planned start so the window is zero-length and the assignment reads
+     * as ended from the end action onward — it can never resurrect as
+     * active once its start passes.
      *
      * @param  array{principal_id: string, operation: string, key_hash: string, request_hash: string}  $idempotency
      * @param  Closure(array<string, mixed>, string): array<string, mixed>  $eventFactory
@@ -132,6 +134,13 @@ final class AssignmentHandler
             if ($effectiveEnd->lessThan($this->timestamp((string) $row->start_at))
                 || ($status === 'active' && $effectiveEnd->greaterThan($now))) {
                 throw new InvalidArgumentException('assignment_end_invalid');
+            }
+            if ($status === 'pending') {
+                // A cancelled pending assignment must never read as active
+                // once its planned start passes: clamp the stored end to the
+                // start so status() sees a zero-length window and reports
+                // ended from the end action onward.
+                $effectiveEnd = $this->timestamp((string) $row->start_at);
             }
 
             $version = (int) $row->lock_version + 1;

@@ -110,7 +110,7 @@ final class SubmitWorkRecordController
                 'description' => $validated['description'],
             ],
             submittedAt: $submittedAt,
-            fieldPolicyKey: null,
+            fieldPolicyKey: $definition['field_policy_key'] ?? null,
         );
         $envelope = $record->toEnvelope();
         try {

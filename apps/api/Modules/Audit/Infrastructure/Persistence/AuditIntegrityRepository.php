@@ -30,7 +30,7 @@ use Shared\Contracts\TransactionalOutbox;
  *  - verifyStream()             walks a single per-stream chain end-to-end
  *  - verifyRange()              walks a closed inclusive sequence range
  *  - latestCheckpointAnchorForStream()  finds the most recent verified anchor
- *  - purgeExpiredPrefix()       checks, checkpoints, then deletes a contiguous expired prefix
+ *  - purgeExpiredPrefix()       walks the head, then checkpoints and deletes the longest contiguous expired prefix
  *
  * The repository never logs or returns raw HMAC keys, raw canonical JSON,
  * raw previous_hash values, or raw event bodies — every response shape
@@ -313,12 +313,16 @@ final class AuditIntegrityRepository
     }
 
     /**
-     * Purge the contiguous expired prefix of one stream whose `retention_until`
-     * is strictly before $cutoff. The chain of that prefix MUST verify
-     * successfully; an immutable `retention_purge` checkpoint is written first
-     * and the matching rows are deleted in the same transaction. The
-     * application handler records the sanitized retention activity around this
-     * transaction so any later recorder failure rolls the purge back.
+     * Purge the longest contiguous expired prefix of one stream whose
+     * `retention_until` is strictly before $cutoff. The stream head is walked
+     * in sequence order and the walk stops at the first row whose retention
+     * is not yet expired (the wedge); only the expired rows before it are
+     * purged, leaving the wedge in place until its own retention passes. The
+     * chain of the purged prefix MUST verify successfully; an immutable
+     * `retention_purge` checkpoint is written first and the matching rows are
+     * deleted in the same transaction. The application handler records the
+     * sanitized retention activity around this transaction so any later
+     * recorder failure rolls the purge back.
      *
      * @return array{
      *     checkpoint_id: string,
@@ -329,6 +333,7 @@ final class AuditIntegrityRepository
      *     terminal_event_hash: ?string,
      *     status: string,
      *     integrity_key_version: string,
+     *     stopped_at_sequence: ?int,
      * }
      */
     public function purgeExpiredPrefix(
@@ -351,15 +356,34 @@ final class AuditIntegrityRepository
             $actorId,
             $correlationId,
         ): array {
-            $candidate = DB::table('audit_events')
+            $headRows = DB::table('audit_events')
                 ->where('stream_key', $streamKey)
-                ->where('retention_until', '<', $databaseCutoff)
                 ->orderBy('stream_sequence')
                 ->limit(self::MAX_PURGE_BATCH)
                 ->lockForUpdate()
                 ->get();
 
-            if ($candidate->isEmpty()) {
+            $prefix = [];
+            $stoppedAtSequence = null;
+            $expectedSequence = null;
+
+            foreach ($headRows as $row) {
+                $sequence = (int) $row->stream_sequence;
+
+                if ($expectedSequence !== null && $sequence !== $expectedSequence) {
+                    throw new InvalidArgumentException('audit_retention_non_prefix');
+                }
+                $expectedSequence = $sequence + 1;
+
+                if (! $this->isRetentionExpired((string) $row->retention_until, $databaseCutoff)) {
+                    $stoppedAtSequence = $sequence;
+                    break;
+                }
+
+                $prefix[] = $row;
+            }
+
+            if ($prefix === []) {
                 return [
                     'checkpoint_id' => '',
                     'stream_key' => $streamKey,
@@ -369,26 +393,12 @@ final class AuditIntegrityRepository
                     'terminal_event_hash' => null,
                     'status' => self::STATUS_VERIFIED,
                     'integrity_key_version' => '',
+                    'stopped_at_sequence' => $stoppedAtSequence,
                 ];
             }
 
-            $first = (int) $candidate->first()->stream_sequence;
-            $last = (int) $candidate->last()->stream_sequence;
-
-            $streamFirstSequence = (int) DB::table('audit_events')
-                ->where('stream_key', $streamKey)
-                ->min('stream_sequence');
-            if ($first !== $streamFirstSequence) {
-                throw new InvalidArgumentException('audit_retention_non_prefix');
-            }
-
-            $expectedSequence = $first;
-            foreach ($candidate as $row) {
-                if ((int) $row->stream_sequence !== $expectedSequence) {
-                    throw new InvalidArgumentException('audit_retention_non_prefix');
-                }
-                $expectedSequence++;
-            }
+            $first = (int) $prefix[0]->stream_sequence;
+            $last = (int) $prefix[count($prefix) - 1]->stream_sequence;
 
             $alreadyCheckpointed = DB::table('audit_integrity_checkpoints')
                 ->where('stream_key', $streamKey)
@@ -406,7 +416,7 @@ final class AuditIntegrityRepository
 
             $terminalHash = null;
             $keyVersion = null;
-            foreach ($candidate as $row) {
+            foreach ($prefix as $row) {
                 $stored = $row->previous_hash === null ? null : (string) $row->previous_hash;
                 if ($stored !== $previousHash) {
                     throw new InvalidArgumentException('audit_retention_chain_violated');
@@ -428,25 +438,24 @@ final class AuditIntegrityRepository
                 $keyVersion = $rowKeyVersion;
             }
 
-            if ($keyVersion === null) {
-                throw new InvalidArgumentException('audit_retention_key_version_missing');
-            }
-
             $now = $this->nowUtc();
 
             $details = [
                 'reason' => 'retention_expired_prefix',
                 'first_sequence' => $first,
                 'last_sequence' => $last,
-                'deleted_event_count' => $candidate->count(),
+                'deleted_event_count' => count($prefix),
             ];
+            if ($stoppedAtSequence !== null) {
+                $details['stopped_at_sequence'] = $stoppedAtSequence;
+            }
 
             $checkpointHash = $this->computeCheckpointHash(
                 streamKey: $streamKey,
                 kind: self::CHECKPOINT_KIND_RETENTION_PURGE,
                 firstSequence: $first,
                 lastSequence: $last,
-                eventCount: $candidate->count(),
+                eventCount: count($prefix),
                 terminalHash: $terminalHash,
                 keyVersion: $keyVersion,
                 previousCheckpointHash: $previousCheckpointHash,
@@ -461,7 +470,7 @@ final class AuditIntegrityRepository
                     'kind' => self::CHECKPOINT_KIND_RETENTION_PURGE,
                     'first_sequence' => $first,
                     'last_sequence' => $last,
-                    'event_count' => $candidate->count(),
+                    'event_count' => count($prefix),
                     'terminal_event_hash' => $terminalHash,
                     'previous_checkpoint_hash' => $previousCheckpointHash,
                     'checkpoint_hash' => $checkpointHash,
@@ -501,6 +510,19 @@ final class AuditIntegrityRepository
                     throw $exception;
                 }
 
+                $replayStoppedAtSequence = null;
+                if (is_string($existingReplay->details) && $existingReplay->details !== '') {
+                    $replayDetails = json_decode(
+                        $existingReplay->details,
+                        true,
+                        32,
+                        JSON_THROW_ON_ERROR,
+                    );
+                    if (is_array($replayDetails) && isset($replayDetails['stopped_at_sequence']) && is_int($replayDetails['stopped_at_sequence'])) {
+                        $replayStoppedAtSequence = $replayDetails['stopped_at_sequence'];
+                    }
+                }
+
                 return [
                     'checkpoint_id' => (string) $existingReplay->id,
                     'stream_key' => (string) $existingReplay->stream_key,
@@ -510,6 +532,7 @@ final class AuditIntegrityRepository
                     'terminal_event_hash' => (string) $existingReplay->terminal_event_hash,
                     'status' => (string) $existingReplay->status,
                     'integrity_key_version' => (string) ($existingReplay->integrity_key_version ?? ''),
+                    'stopped_at_sequence' => $replayStoppedAtSequence,
                 ];
             }
 
@@ -518,7 +541,7 @@ final class AuditIntegrityRepository
                 ->whereBetween('stream_sequence', [$first, $last])
                 ->delete();
 
-            if ($deletedRows !== $candidate->count()) {
+            if ($deletedRows !== count($prefix)) {
                 throw new InvalidArgumentException('audit_retention_delete_count_mismatch');
             }
 
@@ -531,6 +554,7 @@ final class AuditIntegrityRepository
                 'terminal_event_hash' => $terminalHash,
                 'status' => self::STATUS_VERIFIED,
                 'integrity_key_version' => $keyVersion,
+                'stopped_at_sequence' => $stoppedAtSequence,
             ];
         }, 1);
     }
@@ -1018,6 +1042,20 @@ final class AuditIntegrityRepository
     private function nowUtc(): DateTimeImmutable
     {
         return new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    }
+
+    /**
+     * A row is expired when its `retention_until` is strictly before the
+     * purge cutoff. A missing value is never expired, mirroring the SQL
+     * `retention_until < cutoff` semantics where NULL compares false.
+     */
+    private function isRetentionExpired(string $retentionUntil, string $cutoff): bool
+    {
+        if ($retentionUntil === '') {
+            return false;
+        }
+
+        return new DateTimeImmutable($retentionUntil) < new DateTimeImmutable($cutoff);
     }
 
     /**
