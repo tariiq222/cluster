@@ -35,10 +35,10 @@ final class MarkNotificationReadController
                 ['detail' => 'Authentication is required.'],
             );
         }
-        // The handler performs a single conditional UPDATE that is naturally
-        // idempotent at the SQL level (setting is_read=true on an already-read
-        // row is a no-op), so the request is safe to retry without storing a
-        // per-key replay record.
+        // The row lookup is scoped to the caller's user_id so the recipient
+        // is the only one who can ever observe a hit; the same predicate is
+        // carried into the UPDATE so authorization is enforced before any
+        // state changes happen inside the transaction.
         $notification = DB::table('notifications')->where('id', $notificationId)->where('recipient_user_id', $principal['user_id'])->first();
         if ($notification === null) {
             return ProblemEnvelope::make(
@@ -49,7 +49,26 @@ final class MarkNotificationReadController
                 ['detail' => 'The notification is not available.'],
             );
         }
-        DB::table('notifications')->where('id', $notificationId)->where('recipient_user_id', $principal['user_id'])->update(['is_read' => true, 'updated_at' => now('UTC')]);
+        DB::transaction(function () use ($notificationId, $principal): void {
+            $now = now('UTC');
+            DB::table('notifications')
+                ->where('id', $notificationId)
+                ->where('recipient_user_id', $principal['user_id'])
+                ->update([
+                    'is_read' => true,
+                    'status' => 'read',
+                    'updated_at' => $now,
+                ]);
+            DB::table('notification_recipients')
+                ->where('notification_id', $notificationId)
+                ->where('recipient_user_id', $principal['user_id'])
+                ->whereNull('read_at')
+                ->update([
+                    'status' => 'read',
+                    'read_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        });
 
         return response()->json(['data' => ['id' => $notificationId, 'is_read' => true]])->header('X-Correlation-ID', $correlationId);
     }

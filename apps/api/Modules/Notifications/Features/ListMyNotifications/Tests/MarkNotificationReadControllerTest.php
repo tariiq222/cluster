@@ -86,6 +86,7 @@ final class MarkNotificationReadControllerTest extends TestCase
     {
         $tokenB = $this->login('fixture-account-b', 'fixture-password-b')->json('data.access_token');
         $this->insertNotification(self::NOTIFICATION_ID, self::USER_A_ID, '2026-07-16 09:00:00');
+        $this->insertRecipient(self::NOTIFICATION_ID, self::USER_A_ID, '2026-07-16 09:00:00');
 
         $response = $this->withToken($tokenB)->postJson($this->readEndpoint(self::NOTIFICATION_ID), [], $this->correlationHeaders());
         $response->assertNotFound()
@@ -98,8 +99,83 @@ final class MarkNotificationReadControllerTest extends TestCase
                 'detail' => 'The notification is not available.',
             ]);
 
-        $row = DB::table('notifications')->where('id', self::NOTIFICATION_ID)->first();
-        $this->assertFalse((bool) $row->is_read);
+        $notificationRow = DB::table('notifications')->where('id', self::NOTIFICATION_ID)->first();
+        $this->assertFalse((bool) $notificationRow->is_read);
+        $this->assertSame('unread', (string) $notificationRow->status);
+
+        $recipientRow = DB::table('notification_recipients')
+            ->where('notification_id', self::NOTIFICATION_ID)
+            ->where('recipient_user_id', self::USER_A_ID)
+            ->first();
+        $this->assertNotNull($recipientRow);
+        $this->assertSame('unread', (string) $recipientRow->status);
+        $this->assertNull($recipientRow->read_at);
+    }
+
+    public function test_mark_read_updates_notifications_status_and_recipients_record_together(): void
+    {
+        $tokenA = $this->login('fixture-account-a', 'fixture-password-a')->json('data.access_token');
+        $createdAt = '2026-07-16 09:00:00';
+        $this->insertNotification(self::NOTIFICATION_ID, self::USER_A_ID, $createdAt);
+        $this->insertRecipient(self::NOTIFICATION_ID, self::USER_A_ID, $createdAt);
+
+        $response = $this->withToken($tokenA)->postJson($this->readEndpoint(self::NOTIFICATION_ID), [], $this->correlationHeaders());
+        $response->assertOk()
+            ->assertHeader('X-Correlation-ID', self::CORRELATION_ID)
+            ->assertExactJson(['data' => ['id' => self::NOTIFICATION_ID, 'is_read' => true]]);
+
+        $notificationRow = DB::table('notifications')->where('id', self::NOTIFICATION_ID)->first();
+        $this->assertNotNull($notificationRow);
+        $this->assertTrue((bool) $notificationRow->is_read);
+        $this->assertSame('read', (string) $notificationRow->status);
+        $this->assertSame($createdAt, (string) $notificationRow->created_at);
+
+        $recipientRow = DB::table('notification_recipients')
+            ->where('notification_id', self::NOTIFICATION_ID)
+            ->where('recipient_user_id', self::USER_A_ID)
+            ->first();
+        $this->assertNotNull($recipientRow);
+        $this->assertSame('read', (string) $recipientRow->status);
+        $this->assertNotNull($recipientRow->read_at);
+        $this->assertNotSame($createdAt, (string) $recipientRow->read_at);
+    }
+
+    public function test_mark_read_is_idempotent_and_preserves_first_read_at_on_retry(): void
+    {
+        $tokenA = $this->login('fixture-account-a', 'fixture-password-a')->json('data.access_token');
+        $createdAt = '2026-07-16 09:00:00';
+        $this->insertNotification(self::NOTIFICATION_ID, self::USER_A_ID, $createdAt);
+        $this->insertRecipient(self::NOTIFICATION_ID, self::USER_A_ID, $createdAt);
+
+        $headers = $this->correlationHeaders();
+        $first = $this->withToken($tokenA)->postJson($this->readEndpoint(self::NOTIFICATION_ID), [], $headers);
+        $first->assertOk();
+
+        $recipientAfterFirst = DB::table('notification_recipients')
+            ->where('notification_id', self::NOTIFICATION_ID)
+            ->where('recipient_user_id', self::USER_A_ID)
+            ->first();
+        $firstReadAt = (string) $recipientAfterFirst->read_at;
+        $firstUpdatedAt = (string) $recipientAfterFirst->updated_at;
+
+        $this->travel(15)->minutes();
+
+        $second = $this->withToken($tokenA)->postJson($this->readEndpoint(self::NOTIFICATION_ID), [], $headers);
+        $second->assertOk()
+            ->assertHeader('X-Correlation-ID', self::CORRELATION_ID)
+            ->assertExactJson($first->json());
+
+        $notificationRow = DB::table('notifications')->where('id', self::NOTIFICATION_ID)->first();
+        $this->assertTrue((bool) $notificationRow->is_read);
+        $this->assertSame('read', (string) $notificationRow->status);
+
+        $recipientAfterSecond = DB::table('notification_recipients')
+            ->where('notification_id', self::NOTIFICATION_ID)
+            ->where('recipient_user_id', self::USER_A_ID)
+            ->first();
+        $this->assertSame('read', (string) $recipientAfterSecond->status);
+        $this->assertSame($firstReadAt, (string) $recipientAfterSecond->read_at, 'read_at must not be overwritten on idempotent retry');
+        $this->assertSame($firstUpdatedAt, (string) $recipientAfterSecond->updated_at, 'updated_at must not be overwritten on idempotent retry');
     }
 
     private function readEndpoint(string $notificationId): string
@@ -130,6 +206,20 @@ final class MarkNotificationReadControllerTest extends TestCase
             'title' => 'تم تقديم سجل عمل',
             'source_record_id' => '018f6f7d-0c00-7000-8000-000000000913',
             'is_read' => false,
+            'status' => 'unread',
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ]);
+    }
+
+    private function insertRecipient(string $notificationId, string $recipientUserId, string $createdAt): void
+    {
+        DB::table('notification_recipients')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000914',
+            'notification_id' => $notificationId,
+            'recipient_user_id' => $recipientUserId,
+            'status' => 'unread',
+            'read_at' => null,
             'created_at' => $createdAt,
             'updated_at' => $createdAt,
         ]);
