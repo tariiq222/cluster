@@ -13,6 +13,7 @@ use Modules\Documents\Infrastructure\Storage\S3\S3CompatibleConfiguration;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\TemporaryAssignment\Console\ExpireTemporaryAssignmentsCommand;
 use Modules\PlatformSettings\Features\Operations\Console\RunPlatformOperationsDispatchCommand;
+use Shared\Contracts\ClaimableOutboxRelayStore;
 use Shared\Contracts\OutboxEventLookup;
 use Shared\Contracts\OutboxRelayStore;
 use Shared\Contracts\TransactionalOutbox;
@@ -37,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(TransactionalOutboxReplayable::class, DatabaseTransactionalOutbox::class);
         $this->app->bind(TransactionalOutboxEnvelope::class, DatabaseTransactionalOutbox::class);
         $this->app->bind(OutboxRelayStore::class, DatabaseOutboxRelayStore::class);
+        $this->app->bind(ClaimableOutboxRelayStore::class, DatabaseOutboxRelayStore::class);
         $this->app->bind(OutboxEventLookup::class, DatabaseOutboxRelayStore::class);
         $this->app->singleton(SessionPrincipalResolver::class);
         $this->app->bind(\Shared\Contracts\RecordSensitiveAccessEvent::class, \Modules\Authorization\Infrastructure\Persistence\DatabaseRecordSensitiveAccessEvent::class);

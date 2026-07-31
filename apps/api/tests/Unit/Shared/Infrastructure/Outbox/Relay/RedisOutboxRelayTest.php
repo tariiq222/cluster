@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Mockery;
 use RuntimeException;
+use Shared\Infrastructure\Outbox\DatabaseOutboxRelayStore;
 use Shared\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Tests\TestCase;
@@ -78,7 +79,113 @@ class RedisOutboxRelayTest extends TestCase
             ->doesntExpectOutputToContain('access_context');
 
         $this->assertNull(DB::table('outbox_events')->where('event_id', $event['id'])->value('published_at'));
-        $this->assertSame(1, DB::table('outbox_events')->where('event_id', $event['id'])->value('delivery_attempts'));
+        $this->assertSame(
+            0,
+            (int) DB::table('outbox_events')->where('event_id', $event['id'])->value('delivery_attempts'),
+            'claim must be released after XADD failure so the next relay iteration can retry',
+        );
+    }
+
+    public function test_relay_refuses_to_xadd_when_claim_is_lost_to_a_concurrent_worker(): void
+    {
+        $this->requireAsyncImplementation();
+        $event = $this->cloudEvent('018f6f7d-0c00-7000-8000-000000000304', '018f6f7d-0c00-7000-8000-000000000404');
+        $this->insertOutbox($event, '2026-07-16 09:00:00');
+
+        $store = $this->app->make(DatabaseOutboxRelayStore::class);
+        $this->assertTrue(
+            $store->claim($event['id']),
+            'precondition: another worker has already claimed this row',
+        );
+
+        $transport = Mockery::mock(RedisStreamTransport::class);
+        $transport->shouldNotReceive('xadd');
+        $this->app->instance(RedisStreamTransport::class, $transport);
+
+        $published = $this->app->make(RedisOutboxRelay::class)->relayPending(10);
+
+        $this->assertSame(0, $published, 'relay must not report a publish when the claim was lost');
+        $this->assertNull(
+            DB::table('outbox_events')->where('event_id', $event['id'])->value('published_at'),
+            'relay must not flip published_at on a row it did not claim',
+        );
+    }
+
+    public function test_relay_releases_claim_when_xadd_throws_so_the_event_is_retryable(): void
+    {
+        $this->requireAsyncImplementation();
+        $event = $this->cloudEvent('018f6f7d-0c00-7000-8000-000000000305', '018f6f7d-0c00-7000-8000-000000000405');
+        $this->insertOutbox($event, '2026-07-16 09:00:00');
+
+        $transport = Mockery::mock(RedisStreamTransport::class);
+        $transport->shouldReceive('xadd')->once()->andThrow(new RuntimeException('transport unavailable'));
+        $this->app->instance(RedisStreamTransport::class, $transport);
+
+        try {
+            $this->app->make(RedisOutboxRelay::class)->relayPending(10);
+            $this->fail('XADD failure must propagate so the once-command fails.');
+        } catch (RuntimeException) {
+            // expected
+        }
+
+        $this->assertNull(
+            DB::table('outbox_events')->where('event_id', $event['id'])->value('published_at'),
+            'XADD failure must not leak into published_at',
+        );
+        $this->assertSame(
+            0,
+            (int) DB::table('outbox_events')->where('event_id', $event['id'])->value('delivery_attempts'),
+            'claim must be released after XADD failure so the next claim can win',
+        );
+
+        $transport = Mockery::mock(RedisStreamTransport::class);
+        $transport->shouldReceive('xadd')->once()->andReturn('1784192400000-0');
+        $this->app->instance(RedisStreamTransport::class, $transport);
+
+        $this->assertSame(
+            1,
+            $this->app->make(RedisOutboxRelay::class)->relayPending(10),
+            'the second relay must successfully claim and publish the still-pending event',
+        );
+        $this->assertNotNull(
+            DB::table('outbox_events')->where('event_id', $event['id'])->value('published_at'),
+        );
+    }
+
+    public function test_two_relays_acting_on_the_same_row_xadd_at_most_once_in_a_single_iteration(): void
+    {
+        $this->requireAsyncImplementation();
+        $event = $this->cloudEvent('018f6f7d-0c00-7000-8000-000000000306', '018f6f7d-0c00-7000-8000-000000000406');
+        $this->insertOutbox($event, '2026-07-16 09:00:00');
+
+        $firstSeen = false;
+        $transport = Mockery::mock(RedisStreamTransport::class);
+        $transport->shouldReceive('xadd')
+            ->zeroOrMoreTimes()
+            ->withArgs(function (string $stream, array $fields) use (&$firstSeen, $event): bool {
+                if ($firstSeen) {
+                    $this->fail('Two relays XADDed the same event id; the atomic claim did not gate the second relay.');
+                }
+                $firstSeen = true;
+
+                $this->assertSame(self::STREAM, $stream);
+                $this->assertSame($event['id'], json_decode((string) ($fields['event'] ?? '{}'), true)['id'] ?? null);
+
+                return true;
+            })
+            ->andReturn('1784192400000-0');
+        $this->app->instance(RedisStreamTransport::class, $transport);
+
+        $relay = $this->app->make(RedisOutboxRelay::class);
+        $publishedA = $relay->relayPending(10);
+        $publishedB = $relay->relayPending(10);
+
+        $this->assertSame(1, $publishedA, 'first relay must publish the row exactly once');
+        $this->assertSame(0, $publishedB, 'second relay must observe the row is already published and skip XADD');
+        $this->assertSame(
+            1,
+            (int) DB::table('outbox_events')->where('event_id', $event['id'])->value('delivery_attempts'),
+        );
     }
 
     public function test_relay_command_rejects_accidental_unbounded_execution(): void

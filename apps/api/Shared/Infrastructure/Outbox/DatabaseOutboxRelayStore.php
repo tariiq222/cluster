@@ -5,13 +5,40 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Outbox;
 
 use Illuminate\Support\Facades\DB;
+use Shared\Contracts\ClaimableOutboxRelayStore;
 use Shared\Contracts\OutboxEventLookup;
 use Shared\Contracts\OutboxRelayStore;
 use Shared\Contracts\PendingOutboxEvent;
 
-final class DatabaseOutboxRelayStore implements OutboxEventLookup, OutboxRelayStore
+final class DatabaseOutboxRelayStore implements ClaimableOutboxRelayStore, OutboxEventLookup, OutboxRelayStore
 {
     private const MAX_BATCH_SIZE = 100;
+
+    public function claim(string $eventId): bool
+    {
+        $affected = DB::table('outbox_events')
+            ->where('event_id', $eventId)
+            ->whereNull('published_at')
+            ->where('delivery_attempts', 0)
+            ->update([
+                'delivery_attempts' => DB::raw('delivery_attempts + 1'),
+                'updated_at' => now(),
+            ]);
+
+        return $affected === 1;
+    }
+
+    public function release(string $eventId): void
+    {
+        DB::table('outbox_events')
+            ->where('event_id', $eventId)
+            ->whereNull('published_at')
+            ->where('delivery_attempts', '>', 0)
+            ->update([
+                'delivery_attempts' => DB::raw('delivery_attempts - 1'),
+                'updated_at' => now(),
+            ]);
+    }
 
     public function pending(array $eventTypes, int $limit): array
     {
