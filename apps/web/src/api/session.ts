@@ -1,4 +1,4 @@
-import { ApiError, customFetch, unwrap } from './http'
+import { ApiError, customFetch, unwrap, uuidV7 } from './http'
 
 export interface Session {
   csrfToken: string
@@ -34,7 +34,7 @@ export async function login(username: string, password: string): Promise<Session
     headers: {
       Accept: 'application/json, application/problem+json',
       'Content-Type': 'application/json',
-      'X-Correlation-ID': crypto.randomUUID(),
+      'X-Correlation-ID': uuidV7(),
     },
     body: JSON.stringify({ username, password }),
   })
@@ -63,7 +63,7 @@ export async function restoreSession(): Promise<Session | null> {
     const identity = unwrap<CurrentIdentityPayload>(
       await customFetch('/api/v1/identity/me', {
         method: 'GET',
-        headers: { Accept: 'application/json', 'X-Correlation-ID': crypto.randomUUID() },
+        headers: { Accept: 'application/json', 'X-Correlation-ID': uuidV7() },
       }),
     )
     const csrf = unwrap<{ csrf_token: string }>(
@@ -72,9 +72,9 @@ export async function restoreSession(): Promise<Session | null> {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'X-Correlation-ID': crypto.randomUUID(),
+          'X-Correlation-ID': uuidV7(),
           'X-CSRF-Token': identity.csrf_token,
-          'Idempotency-Key': crypto.randomUUID(),
+          'Idempotency-Key': uuidV7(),
         },
       }),
     )
@@ -96,9 +96,9 @@ export async function identityLogout(csrfToken: string): Promise<void> {
       method: 'POST',
       headers: {
         Accept: 'application/json, application/problem+json',
-        'X-Correlation-ID': crypto.randomUUID(),
+        'X-Correlation-ID': uuidV7(),
         'X-CSRF-Token': csrfToken,
-        'Idempotency-Key': crypto.randomUUID(),
+        'Idempotency-Key': uuidV7(),
       },
     })
   } catch {

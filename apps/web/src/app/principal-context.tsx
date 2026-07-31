@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as generated from '../api/generated/cluster'
-import { ApiError, customFetch, requestInit, unwrap } from '../api/http'
+import { ApiError, customFetch, requestInit, unwrap, uuidV7 } from '../api/http'
 import { useSessionToken } from './session-context'
 
 export interface PrincipalSnapshot {
@@ -55,7 +55,7 @@ export function PrincipalProvider({ children }: { children: ReactNode }) {
         unwrap<ScopesPayload>(
           await customFetch('/api/v1/me/scopes', {
             method: 'GET',
-            headers: { Accept: 'application/json', 'X-Correlation-ID': crypto.randomUUID() },
+            headers: { Accept: 'application/json', 'X-Correlation-ID': uuidV7() },
           }),
         ),
       ])
@@ -104,9 +104,9 @@ export function PrincipalProvider({ children }: { children: ReactNode }) {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'X-Correlation-ID': crypto.randomUUID(),
+              'X-Correlation-ID': uuidV7(),
               'X-CSRF-Token': csrfToken,
-              'Idempotency-Key': crypto.randomUUID(),
+              'Idempotency-Key': uuidV7(),
               'If-Match': '"1"',
             },
             body: JSON.stringify({ scope_type: scopeType, scope_id: scopeId }),

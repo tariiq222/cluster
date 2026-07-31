@@ -496,7 +496,7 @@ final class RealisticClusterFacilitiesSeeder
                 $this->uuidV7FromKey('assignment|'.$personId.'|'.$positionId), $input,
                 $this->idempotency('demo.assignment.'.$personId.'.'.$positionId, $input),
                 fn (array $data, string $clusterId): array => OrganizationApi::cloudEvent(
-                    'com.cluster.organization.assignmentcreated.v1',
+                    'com.cluster.organization.assignmentstarted.v1',
                     '/organization/assignments/'.$data['id'],
                     $correlation, $clusterId, 'assignment', $data, $principal,
                 ),

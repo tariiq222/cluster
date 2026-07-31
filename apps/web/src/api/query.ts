@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSessionToken } from '../app/session-context'
 import { usePrincipal } from '../app/principal-context'
-import { customFetch, unwrap } from './http'
+import { customFetch, unwrap, uuidV7 } from './http'
 
 /* Core primitive: fetch any endpoint with auth + correlation via the shared transport. */
 export function useApiQuery<T>(key: readonly unknown[], path: string, options?: { enabled?: boolean }) {
@@ -11,7 +11,7 @@ export function useApiQuery<T>(key: readonly unknown[], path: string, options?: 
       unwrap<T>(
         await customFetch(path, {
           method: 'GET',
-          headers: { Accept: 'application/json', 'X-Correlation-ID': crypto.randomUUID() },
+          headers: { Accept: 'application/json', 'X-Correlation-ID': uuidV7() },
         }),
       ),
     enabled: options?.enabled ?? true,
@@ -32,9 +32,9 @@ export function useApiCommand<TBody, TResult>(
         headers: {
           Accept: 'application/json, application/problem+json',
           'Content-Type': 'application/json',
-          'X-Correlation-ID': crypto.randomUUID(),
+          'X-Correlation-ID': uuidV7(),
           'X-CSRF-Token': csrfToken,
-          ...(options?.idempotency ? { 'Idempotency-Key': `${options.idempotency}-${crypto.randomUUID()}` } : {}),
+          ...(options?.idempotency ? { 'Idempotency-Key': `${options.idempotency}-${uuidV7()}` } : {}),
         },
         body: JSON.stringify(variables),
       })
