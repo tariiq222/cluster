@@ -17,6 +17,15 @@ use Shared\Contracts\TransactionalOutbox;
  */
 final class WorkRecordLifecycleMutator
 {
+    private const TRANSITIONS = [
+        'submit' => ['from' => ['returned'], 'to' => 'submitted', 'capability' => 'work_record.submit'],
+        'return' => ['from' => ['submitted'], 'to' => 'returned', 'capability' => 'work_record.return'],
+        'complete' => ['from' => ['submitted'], 'to' => 'completed', 'capability' => 'work_record.complete'],
+        'complete-submission' => ['from' => ['submitted'], 'to' => 'completed', 'capability' => 'work_record.complete'],
+        'cancel' => ['from' => ['submitted', 'returned'], 'to' => 'cancelled', 'capability' => 'work_record.cancel'],
+        'archive' => ['from' => ['completed', 'cancelled'], 'to' => 'archived', 'capability' => 'work_record.archive'],
+    ];
+
     public function __construct(
         private readonly TransactionalOutbox $outbox,
         private readonly DecideAccess $access,
@@ -33,17 +42,11 @@ final class WorkRecordLifecycleMutator
             return ['ok' => false, 'problem' => ['status' => 404, 'type' => 'resource-not-found', 'detail' => 'The work record is not available.']];
         }
 
-        $capability = match ($action) {
-            'submit' => 'work_record.submit',
-            'return' => 'work_record.return',
-            'complete', 'complete-submission' => 'work_record.complete',
-            'cancel' => 'work_record.cancel',
-            'archive' => 'work_record.archive',
-            default => null,
-        };
-        if ($capability === null) {
+        $transition = self::TRANSITIONS[$action] ?? null;
+        if ($transition === null) {
             return ['ok' => false, 'problem' => ['status' => 409, 'type' => 'invalid-record-transition', 'detail' => 'The record action is not supported.']];
         }
+        $capability = $transition['capability'];
 
         $ancestry = $this->ancestry->ancestry('facility', (string) $row->owner_facility_id);
         $decision = $this->access->decide(
@@ -76,23 +79,24 @@ final class WorkRecordLifecycleMutator
         if ($expectedLockVersion !== (int) $row->lock_version) {
             return ['ok' => false, 'problem' => ['status' => 412, 'type' => 'precondition-failed', 'detail' => 'If-Match does not match the current version.']];
         }
+        if (! in_array((string) $row->status, $transition['from'], true)) {
+            return ['ok' => false, 'problem' => ['status' => 409, 'type' => 'invalid-record-transition', 'detail' => 'The record action is not valid for the current state.']];
+        }
 
-        $status = match ($action) {
-            'submit' => 'submitted',
-            'return' => 'returned',
-            'complete', 'complete-submission' => 'completed',
-            'cancel' => 'cancelled',
-            default => 'archived',
-        };
+        $status = $transition['to'];
+        $submittedAt = $row->submitted_at;
 
         try {
-            DB::transaction(function () use ($recordId, $expectedLockVersion, $status, $action, $principal): void {
-                $updated = DB::table('work_records')->where('id', $recordId)->where('lock_version', $expectedLockVersion)->update([
+            DB::transaction(function () use ($recordId, $expectedLockVersion, $status, $submittedAt, $action, $principal): void {
+                $updates = [
                     'status' => $status,
                     'lock_version' => $expectedLockVersion + 1,
                     'updated_at' => now(),
-                    'submitted_at' => $status === 'submitted' ? now() : null,
-                ]);
+                ];
+                if ($status === 'submitted' && $submittedAt === null) {
+                    $updates['submitted_at'] = now();
+                }
+                $updated = DB::table('work_records')->where('id', $recordId)->where('lock_version', $expectedLockVersion)->update($updates);
                 if ($updated !== 1) {
                     throw new \RuntimeException('stale');
                 }
