@@ -644,24 +644,24 @@ final class SecurityJourneyW13Test extends TestCase
         string $scopeId,
         ?string $endAt = null,
     ): array {
-        $roleId = (string) $this->adminPost('/api/v1/authorization/roles', [
+        $roleResponse = $this->adminPost('/api/v1/authorization/roles', [
             'resource_type' => 'role',
             'code' => $label,
             'name' => 'دور '.$label,
             'role_type' => 'operational',
-        ])->assertCreated()->json('data.id');
+            'capability_codes' => $capabilities,
+        ]);
+        $roleId = (string) $roleResponse->assertCreated()->json('data.id');
 
-        $roleCapabilityIds = [];
-        foreach ($capabilities as $capability) {
-            $roleCapabilityIds[$capability] = (string) $this->adminPost('/api/v1/authorization/role-capabilities', [
-                'resource_type' => 'role_capability',
-                'role_id' => $roleId,
-                'capability_code' => $capability,
-                'effect' => 'allow',
-            ])->assertCreated()->json('data.id');
-        }
+        $roleCapabilityIds = DB::table('role_capabilities')
+            ->join('capabilities', 'capabilities.id', '=', 'role_capabilities.capability_id')
+            ->where('role_capabilities.role_id', $roleId)
+            ->whereIn('capabilities.capability_code', $capabilities)
+            ->pluck('role_capabilities.capability_id', 'capabilities.capability_code')
+            ->map(static fn (mixed $capabilityId): string => $roleId.':'.(string) $capabilityId)
+            ->all();
 
-        $assignmentId = (string) $this->adminPost('/api/v1/authorization/role-assignments', [
+        $assignmentResponse = $this->adminPost('/api/v1/authorization/role-assignments', [
             'resource_type' => 'role_assignment',
             'user_id' => $userId,
             'role_id' => $roleId,
@@ -669,7 +669,11 @@ final class SecurityJourneyW13Test extends TestCase
             'scope_id' => $scopeId,
             'start_at' => $this->utc(now()->subDays(2)),
             ...($endAt === null ? [] : ['end_at' => $endAt]),
-        ])->assertCreated()->json('data.id');
+        ]);
+        if ($assignmentResponse->status() !== 201) {
+            fwrite(STDERR, $assignmentResponse->getContent().PHP_EOL);
+        }
+        $assignmentId = (string) $assignmentResponse->assertCreated()->json('data.id');
         $this->adminTransition('/api/v1/authorization/role-assignments/'.$assignmentId.'/activate');
 
         return [

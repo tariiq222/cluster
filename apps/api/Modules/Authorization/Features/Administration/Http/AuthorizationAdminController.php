@@ -368,7 +368,7 @@ final class AuthorizationAdminController
      * is rejected (HTTP 422) so callers cannot smuggle the legacy create
      * payload into the clone endpoint.
      *
-     * @param array<string, mixed> $input
+     * @param  array<string, mixed>  $input
      */
     private function validClonePayload(array $input): bool
     {
