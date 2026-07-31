@@ -5,6 +5,9 @@ namespace Modules\Organization\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Organization\Contracts\AccessDecision;
+use Modules\Organization\Contracts\DecideAccess;
+use Modules\Organization\Contracts\RecordFacts;
 use Tests\TestCase;
 
 class SupervisoryRelationshipHttpAdapterTest extends TestCase
@@ -16,6 +19,51 @@ class SupervisoryRelationshipHttpAdapterTest extends TestCase
     private const BOOTSTRAP_ADMIN_USER_ID = '018f6f7d-0c00-7000-8000-000000000021';
 
     private ?string $singletonClusterId = null;
+
+    public function test_post_allows_source_and_target_units_inside_the_same_authorized_scope(): void
+    {
+        $token = $this->loginToken();
+        $clusterId = $this->clusterId($token);
+        $facilityId = $this->createFacility($token, $clusterId, 'SAME-SCOPE');
+        $sourceUnitId = $this->createUnit($token, $clusterId, $facilityId, 'SAME-SOURCE');
+        $targetUnitId = $this->createUnit($token, $clusterId, $facilityId, 'SAME-TARGET');
+        $this->bindScopeAccess($clusterId, $facilityId);
+
+        $this->withToken($token)
+            ->postJson(
+                '/api/v1/organization/supervisory-relationships',
+                $this->relationshipBody($sourceUnitId, $targetUnitId),
+                $this->writeHeaders('supervisory-same-scope'),
+            )
+            ->assertCreated();
+
+        $this->assertDatabaseHas('supervisory_relationships', [
+            'source_organization_unit_id' => $sourceUnitId,
+            'target_organization_unit_id' => $targetUnitId,
+        ]);
+    }
+
+    public function test_post_rejects_a_target_unit_from_an_unauthorized_facility(): void
+    {
+        $token = $this->loginToken();
+        $clusterId = $this->clusterId($token);
+        $authorizedFacilityId = $this->createFacility($token, $clusterId, 'AUTHORIZED');
+        $otherFacilityId = $this->createFacility($token, $clusterId, 'OTHER');
+        $sourceUnitId = $this->createUnit($token, $clusterId, $authorizedFacilityId, 'CROSS-SOURCE');
+        $targetUnitId = $this->createUnit($token, $clusterId, $otherFacilityId, 'CROSS-TARGET');
+        $this->bindScopeAccess($clusterId, $authorizedFacilityId);
+
+        $this->withToken($token)
+            ->postJson(
+                '/api/v1/organization/supervisory-relationships',
+                $this->relationshipBody($sourceUnitId, $targetUnitId),
+                $this->writeHeaders('supervisory-cross-facility'),
+            )
+            ->assertForbidden()
+            ->assertJsonPath('type', 'https://cluster.example/problems/access-denied');
+
+        $this->assertDatabaseCount('supervisory_relationships', 0);
+    }
 
     public function test_post_creates_persists_and_replays_with_idempotent_response(): void
     {
@@ -377,6 +425,100 @@ class SupervisoryRelationshipHttpAdapterTest extends TestCase
             )
             ->assertBadRequest()
             ->assertJsonPath('type', 'https://cluster.example/problems/invalid-pagination');
+    }
+
+    private function bindScopeAccess(string $clusterId, string $facilityId): void
+    {
+        $this->app->instance(DecideAccess::class, new class($clusterId, $facilityId) implements DecideAccess
+        {
+            public function __construct(
+                private readonly string $clusterId,
+                private readonly string $facilityId,
+            ) {}
+
+            public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+            {
+                if ($facts === null) {
+                    return new AccessDecision(
+                        decision: 'deny',
+                        action: $capability,
+                        resourceType: 'supervisory_relationship',
+                        reasonCodes: ['scope_mismatch'],
+                        policyVersion: 'test',
+                        factsVersion: 'test',
+                        classification: 'internal',
+                    );
+                }
+                $allowed = $facts->organizationUnitId === null || (
+                    $facts->clusterId === $this->clusterId
+                    && $facts->ownerFacilityId === $this->facilityId
+                );
+
+                return new AccessDecision(
+                    decision: $allowed ? 'allow' : 'deny',
+                    action: $capability,
+                    resourceType: $facts->resourceType,
+                    reasonCodes: [$allowed ? 'scope_match' : 'scope_mismatch'],
+                    policyVersion: 'test',
+                    factsVersion: $facts->factsVersion,
+                    classification: $facts->classification,
+                );
+            }
+        });
+    }
+
+    private function clusterId(string $token): string
+    {
+        $clusterId = $this->singletonClusterId();
+        if ($clusterId !== null) {
+            return $clusterId;
+        }
+
+        $clusterId = $this->withToken($token)
+            ->postJson(
+                '/api/v1/organization/cluster',
+                ['code' => 'THC'.Str::upper(Str::random(4)), 'name' => 'تجمع العلاقات الإشرافية'],
+                $this->writeHeaders('supervisory-cluster'),
+            )
+            ->assertCreated()
+            ->json('data.id');
+        $this->assertIsString($clusterId);
+        $this->singletonClusterId = $clusterId;
+
+        return $clusterId;
+    }
+
+    private function createFacility(string $token, string $clusterId, string $suffix): string
+    {
+        $facilityId = $this->withToken($token)
+            ->postJson('/api/v1/organization/facilities', [
+                'cluster_id' => $clusterId,
+                'type_code' => 'hospital',
+                'code' => 'FAC-'.$suffix,
+                'name' => 'منشأة العلاقات الإشرافية',
+            ], $this->writeHeaders('supervisory-facility-'.$suffix))
+            ->assertCreated()
+            ->json('data.id');
+        $this->assertIsString($facilityId);
+
+        return $facilityId;
+    }
+
+    private function createUnit(string $token, string $clusterId, string $parentId, string $suffix): string
+    {
+        $unitId = $this->withToken($token)
+            ->postJson('/api/v1/organization/units', [
+                'cluster_id' => $clusterId,
+                'parent_id' => $parentId,
+                'type_code' => 'department',
+                'code' => 'UNIT-'.$suffix,
+                'name' => 'وحدة العلاقات الإشرافية',
+            ], $this->writeHeaders('supervisory-unit-'.$suffix))
+            ->assertCreated()
+            ->json('data.id');
+        $this->assertIsString($unitId);
+
+        return $unitId;
     }
 
     /**

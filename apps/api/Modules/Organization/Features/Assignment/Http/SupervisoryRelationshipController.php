@@ -13,6 +13,7 @@ use Modules\Organization\Contracts\AuthorizationIdempotencyKeyLookup;
 use Modules\Organization\Contracts\DecideAccess;
 use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Organization\Http\OrganizationApi;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
 use Modules\Organization\Infrastructure\Persistence\SupervisoryRelationshipHttpGateway;
@@ -23,6 +24,7 @@ final class SupervisoryRelationshipController
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
         private readonly SupervisoryRelationshipHttpGateway $gateway,
+        private readonly ResolveOrganizationScopeAncestry $ancestry,
         private readonly AuthorizationIdempotencyKeyLookup $idempotencyLookup,
         private readonly OrganizationOutbox $outbox,
     ) {}
@@ -107,8 +109,24 @@ final class SupervisoryRelationshipController
         if ($input['source_unit_id'] === $input['target_unit_id']) {
             return OrganizationApi::problem(409, 'supervisory-relationship-conflict', 'Conflict', 'A supervisory relationship cannot target the same unit.', $correlationId);
         }
-        if (DB::table('organization_units')->whereIn('id', [$input['source_unit_id'], $input['target_unit_id']])->count() !== 2) {
+        $sourceAncestry = $this->ancestry->ancestry('unit', $input['source_unit_id']);
+        $targetAncestry = $this->ancestry->ancestry('unit', $input['target_unit_id']);
+        if ($sourceAncestry === null || $targetAncestry === null) {
             return OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit is not available.', $correlationId);
+        }
+        foreach ([
+            $input['source_unit_id'] => $sourceAncestry,
+            $input['target_unit_id'] => $targetAncestry,
+        ] as $unitId => $ancestry) {
+            if (! $this->access->decide($principal, 'organization.unit.manage', new RecordFacts(
+                ownerFacilityId: $ancestry['facility_id'],
+                resourceType: 'supervisory_relationship',
+                classification: 'internal',
+                organizationUnitId: $unitId,
+                clusterId: $ancestry['cluster_id'],
+            ))->isAllowed()) {
+                return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
+            }
         }
         $operation = 'create-supervisory-relationship';
         $requestHash = hash('sha256', json_encode($input, JSON_THROW_ON_ERROR));
