@@ -11,7 +11,7 @@ Cluster is a healthcare-cluster administrative platform implemented as a Laravel
 - **Module flow**: module-owned controller → validation/capability check → feature handler/application service → module-owned persistence adapter. Keep business controllers, SQL/table access, transactions, and outbox ownership inside the owning module.
 - **API semantics**: mutations commonly require `Idempotency-Key` and `If-Match`; responses use JSON envelopes, `application/problem+json`, correlation IDs, ETags, and lock versions.
 - **Dependency injection**: `apps/api/app/Providers/AppServiceProvider.php` is the composition root for authorization, persistence, workflow, outbox/Redis streams, storage, malware scanning, and integration adapters.
-- **Web flow**: `apps/web/src/main.tsx` creates the React root; `App.tsx` restores the cookie-backed session and handles global 401 expiry. `AppWorkspace` resolves typed, capability-gated routes from `apps/web/src/shell/routes.ts` and loads feature screens.
+- **Web flow**: `apps/web/src/main.tsx` creates the React root; `App.tsx` restores the cookie-backed session and handles global 401 expiry. `apps/web/src/router.tsx` declares the React Router route tree; `AppShell` renders the capability-filtered sidebar and the `Outlet`.
 - **Web API access**: screens use domain wrappers under `apps/web/src/api/`; generated Orval clients route through `apps/web/src/api/fetcher.ts` and the shared transport in `apps/web/src/api/http.ts`. Do not build raw request headers in screens.
 - **Module boundaries**: `apps/api/tests/Architecture/ModuleBoundariesTest.php` enforces module ranks, import direction, table ownership, controller placement, and transaction/outbox rules.
 
@@ -79,7 +79,8 @@ Contract documentation validation is driven by `scripts/validate-docs.sh`; it re
 - **HTTP handlers**: validate at the module HTTP boundary, authorize capabilities early, then delegate to a handler/service. Follow existing typed exceptions and `problem+json` conversion.
 - **Persistence/concurrency**: use module-owned adapters, transactions, row locks where required, optimistic `lock_version`/ETag checks, cursor pagination, and the shared transactional outbox contract.
 - **Frontend state**: prefer local React hooks (`useState`, `useEffect`, `useCallback`) with explicit loading/success/denied/error/unsupported states. Use `Promise.all` only for genuinely independent requests.
-- **Frontend routing/access**: route definitions are typed and capability-gated; preserve `RouteAccessGuard`, locale, focus, and accessibility behavior.
+- **Frontend design**: `docs/design/DESIGN-RULES.md` is binding for every new screen or component — theme tokens, the four allowed layout patterns, RTL logical properties, and the seven resource states. `docs/design/PAGES.md` specifies what each page is and how it must render.
+- **Frontend routing/access**: routes are declared in `apps/web/src/router.tsx`; the sidebar is filtered by capabilities from `/me`. Hiding is cosmetic — the server is the only guard. Feature-gated destinations are absent entirely when the flag is off, because the API answers with a non-disclosing 404.
 - **Generated API code**: update the authoritative contract and run the API generation/check scripts. Never edit `apps/web/src/api/generated` or `.orval` output by hand.
 - **Naming**: API tests use PHPUnit conventions; web unit tests use `*.test.ts`/`*.test.tsx`; Playwright journeys use `*.spec.ts`.
 - **Error handling**: centralize transport parsing in `http.ts`; map 401/403/404/409/412 consistently rather than duplicating response handling in screens.
@@ -95,7 +96,8 @@ Contract documentation validation is driven by `scripts/validate-docs.sh`; it re
 - `apps/api/app/Http/Middleware/IdentityCsrfMiddleware.php` — mutation CSRF boundary.
 - `apps/api/tests/Architecture/ModuleBoundariesTest.php` — architectural rules.
 - `apps/web/src/main.tsx` and `apps/web/src/App.tsx` — web entry/session bootstrap.
-- `apps/web/src/shell/routes.ts` — typed route and capability mapping.
+- `apps/web/src/router.tsx` — route tree; `apps/web/src/app/AppShell.tsx` — capability-filtered navigation.
+- `docs/design/DESIGN-RULES.md` and `docs/design/PAGES.md` — binding design system and page specifications.
 - `apps/web/src/api/http.ts` and `apps/web/src/api/fetcher.ts` — shared API transport/mutator.
 - `apps/web/package.json` — web build, test, lint, contract, and E2E scripts.
 - `apps/web/vitest.config.ts` and `apps/web/playwright.config.ts` — test discovery and browser settings.
