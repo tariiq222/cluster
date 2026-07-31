@@ -50,13 +50,5 @@ export default defineConfig(({ command, mode }) => {
           }
         : undefined,
     },
-    build: {
-      rollupOptions: {
-        input: {
-          main: 'index.html',
-          next: 'index-next.html',
-        },
-      },
-    },
   }
 })

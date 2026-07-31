@@ -1,48 +1,44 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import type { Session } from '../api/session'
+import type { Locale } from '../i18n'
 
-import type { Session } from '../api'
-import type { Locale } from './copy'
-
-/**
- * Locale and the session CSRF token are read by nearly every screen but owned by the shell.
- * Passing them down as props meant every intermediate workspace had to forward values it
- * did not use; this context lets a screen ask for exactly what it needs.
- */
-type SessionContextValue = {
-  locale: Locale
+interface SessionContextValue {
   session: Session
+  locale: Locale
+  setLocale: (locale: Locale) => void
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
 
 export function SessionProvider({
-  locale,
   session,
+  locale,
+  setLocale,
   children,
-}: SessionContextValue & { children: ReactNode }) {
-  const value = useMemo(() => ({ locale, session }), [locale, session])
+}: {
+  session: Session
+  locale: Locale
+  setLocale: (locale: Locale) => void
+  children: ReactNode
+}) {
+  const value = useMemo(() => ({ session, locale, setLocale }), [session, locale, setLocale])
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }
 
-function useSessionContext(): SessionContextValue {
-  const value = useContext(SessionContext)
-  if (!value) {
-    throw new Error('This component must be rendered inside a SessionProvider.')
-  }
-  return value
+export function useSession(): SessionContextValue {
+  const context = useContext(SessionContext)
+  if (!context) throw new Error('useSession must be used within SessionProvider')
+  return context
 }
 
-/** The active interface language. */
 export function useLocale(): Locale {
-  return useSessionContext().locale
+  return useSession().locale
 }
 
-/** The authenticated session, including the CSRF token used for commands. */
-export function useSession(): Session {
-  return useSessionContext().session
+export function useSessionToken(): string {
+  return useSession().session.csrfToken
 }
 
-/** Shorthand for the CSRF token, which is what most API wrappers actually take. */
-export function useToken(): string {
-  return useSessionContext().session.access_token
+export function useSetLocale(): (locale: Locale) => void {
+  return useSession().setLocale
 }

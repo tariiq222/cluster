@@ -1,61 +1,57 @@
-/* Design tokens and the document reset. */
-
 :root {
-  /* Original brand palette kept as-is. New neutral gray tones added below for
-     surfaces that previously inherited a cyan tint (board canvas pattern,
-     inactive states, soft panels). Designers can opt in where needed. */
+  /* Color primitives */
   --color-canvas: #f6f7f9;
-  --color-surface: #fff;
+  --color-surface: #ffffff;
   --color-surface-subtle: #f1f3fb;
   --color-ink: #1a2735;
   --color-muted: #5a6875;
   --color-border: #e4e4e7;
   --color-border-strong: #ced6df;
-  --color-border-active: #b8cfe0;
-  --color-selected: #e8ecf7;
+
   --color-primary: #293b85;
   --color-primary-hover: #253679;
+  --color-primary-soft: #e8ebf7;
+  --color-primary-border: #b9c1e8;
   --color-accent: #3daae1;
-  --color-on-primary: #fff;
-  --color-ink-secondary: #2b3a4a;
-  --color-heading-muted: #38455c;
-  --color-muted-subtle: #6a7686;
-  --color-help: #55606d;
-  --color-primary-soft: #eef0f9;
-  --color-progress-track: #e5edf4;
-  /* Neutral gray ramp — opt-in for surfaces that need a cooler/calmer feel
-     without competing with the brand blues. */
-  --color-gray-50: #f5f6f7;
-  --color-gray-100: #e9ebed;
-  --color-gray-200: #d8dde1;
-  --color-gray-300: #b8c0c6;
-  --color-gray-500: #6b757d;
-  --color-gray-700: #3f4850;
-  --color-gray-dot: rgba(74, 85, 95, 0.18);
-  --color-gray-shadow: rgba(15, 23, 28, 0.10);
+  --color-accent-soft: #e6f4fc;
+  --color-accent-border: #a8d8f0;
+
   --color-success: #247a42;
-  --color-success-soft: #eef8f1;
-  --color-success-border: #9bcfc3;
-  --color-success-panel: #f2fbf8;
+  --color-success-soft: #e6f4ec;
+  --color-success-border: #a9d8bc;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fbf0dd;
+  --color-warning-border: #e4c98e;
   --color-danger: #b42318;
   --color-danger-strong: #8f1c14;
-  --color-danger-soft: #fff1ef;
-  --color-danger-border: rgb(180 35 24 / 35%);
+  --color-danger-soft: #fdecea;
+  --color-danger-border: #f0b3ae;
   --color-info-strong: #253679;
-  --color-info-soft: #eef0f9;
-  --color-info-border: rgb(41 59 133 / 30%);
-  --color-overlay: rgb(0 14 34 / 40%);
-  --color-overlay-strong: rgb(0 14 34 / 55%);
-  --color-link: #293b85;
-  --color-footer-surface: rgb(255 255 255 / 76%);
-  --login-page-glow: rgb(41 59 133 / 10%);
-  --login-page-grid-line: rgb(41 59 133 / 4%);
-  --login-card-grid-line: rgb(41 59 133 / 5%);
-  --login-card-wash: rgb(241 243 251 / 72%);
-  --login-mask-opaque: #000;
+  --color-info-soft: #e8ebf7;
+  --color-info-border: #b9c1e8;
+
+  --color-gray-50: #f8f9fb;
+  --color-gray-100: #eef1f5;
+  --color-gray-200: #e0e5ec;
+  --color-gray-300: #ccd3dd;
+  --color-gray-400: #aab4c1;
+  --color-gray-500: #8a95a4;
+  --color-gray-600: #5a6875;
+  --color-gray-700: #3d4a58;
+
+  /* Typography */
+  --font-family: 'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
+  --font-size-base: 16px;
+  --font-size-sm: 0.875rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.375rem;
+
+  /* Radii */
   --radius-control: 12px;
   --radius-surface: 16px;
   --radius-pill: 999px;
+
+  /* Spacing */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -63,33 +59,25 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --control-height-compact: 36px;
+
+  /* Controls */
   --control-height: 44px;
+  --control-height-compact: 36px;
   --icon-size: 18px;
   --badge-height: 28px;
-  --shadow-rest: none;
-  --shadow-float: 0 6px 22px rgb(0 14 34 / 10%);
-  --shadow-dialog: 0 16px 48px rgb(4 18 33 / 22%);
-  --focus-outline: #293b85;
-  --focus-ring: 3px solid var(--focus-outline);
-  --focus-field-shadow:
-    0 0 0 3px rgb(61 170 225 / 14%),
-    0 0 14px rgb(41 59 133 / 8%);
+
+  /* Shadows */
+  --shadow-float: 0 4px 16px rgb(26 39 53 / 10%);
+  --shadow-dialog: 0 16px 48px rgb(26 39 53 / 22%);
+  --focus-ring: 3px solid var(--color-primary);
+
+  /* Layers */
+  --z-popover: 50;
+  --z-drawer: 60;
+  --z-overlay: 40;
+
+  /* Motion */
+  --motion-base: 180ms;
   --interactive-duration: 150ms;
   --interactive-easing: ease-out;
-  --layer-popover: 50;
-  --layer-drawer: 60;
-  --layer-overlay: 40;
-  --motion-base: 180ms;
-  --motion-ease: ease-out;
-  color: var(--color-ink);
-  background: var(--color-canvas);
-  font-family: 'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  font-synthesis: none;
-}
-
-* {
-  box-sizing: border-box;
 }

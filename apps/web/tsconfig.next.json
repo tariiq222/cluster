@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.app.json",
-  "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.next.tsbuildinfo",
-    "types": ["vite/client"]
-  },
-  "include": ["src-next"],
-  "exclude": ["src-next/**/*.test.ts", "src-next/**/*.test.tsx"]
-}

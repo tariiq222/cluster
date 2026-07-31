@@ -1,224 +1,243 @@
-// @vitest-environment jsdom
-import { useCallback, useMemo, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import * as generated from '../../api/generated/cluster'
+import { useTaskMutations } from '../../api/hooks'
+import { ApiError } from '../../api/http'
+import { useNavigate } from '../../app/navigation-context'
+import { useLocale, useSession } from '../../app/session-context'
+import { Button, Field, InlineError, Page, PageHeader, Panel, Select, type SelectOption } from '../../ui'
 
-import type { Locale } from '../../app/copy'
-import { directionForLocale } from '../../app/copy'
-import type { Session } from '../../api'
-import { ApiError, stateFromError } from '../../api'
-import {
-  Button,
-  Field,
-  InlineError,
-  Page,
-  PageHeader,
-  Panel,
-  Select,
-  type SelectOption,
-} from '../../ui'
+const copy = {
+  ar: {
+    pageTitle: 'إنشاء مهمة',
+    pageDescription: 'أنشئ مهمة جديدة ضمن التجمع الصحي',
+    back: 'عودة إلى المهام',
+    titleLabel: 'العنوان',
+    titlePlaceholder: 'عنوان موجز وواضح…',
+    descriptionLabel: 'الوصف',
+    descriptionPlaceholder: 'تفاصيل إضافية عن المهمة (اختياري)',
+    priorityLabel: 'الأولوية',
+    priorityLow: 'منخفضة',
+    priorityNormal: 'عادية',
+    priorityHigh: 'عالية',
+    priorityUrgent: 'عاجلة',
+    assigneeLabel: 'المسند إليه',
+    assigneeHelp: 'يُسند افتراضياً إلى المستخدم الحالي إذا تُرك فارغاً.',
+    classificationLabel: 'التصنيف',
+    classificationPublic: 'عام',
+    classificationInternal: 'داخلي',
+    classificationConfidential: 'سري',
+    classificationTopSecret: 'سري للغاية',
+    dueAtLabel: 'تاريخ الاستحقاق',
+    dueAtHelp: 'تاريخ ووقت الاستحقاق (اختياري)',
+    submit: 'إنشاء المهمة',
+    titleRequired: 'العنوان مطلوب.',
+    titleTooLong: 'يجب ألا يتجاوز العنوان 255 حرفاً.',
+    descriptionTooLong: 'يجب ألا يتجاوز الوصف 4000 حرف.',
+    invalidDueAt: 'صيغة تاريخ الاستحقاق غير صحيحة.',
+    submitError: 'تعذر إنشاء المهمة. يرجى إعادة المحاولة.',
+    forbidden: 'غير مصرح لك بإنشاء المهام.',
+    conflict: 'تعارض في إنشاء المهمة، يرجى إعادة المحاولة.',
+    loading: 'جارٍ الإنشاء…',
+  },
+  en: {
+    pageTitle: 'Create task',
+    pageDescription: 'Create a new task within the health cluster',
+    back: 'Back to tasks',
+    titleLabel: 'Title',
+    titlePlaceholder: 'A short, clear title…',
+    descriptionLabel: 'Description',
+    descriptionPlaceholder: 'Additional details (optional)',
+    priorityLabel: 'Priority',
+    priorityLow: 'Low',
+    priorityNormal: 'Normal',
+    priorityHigh: 'High',
+    priorityUrgent: 'Urgent',
+    assigneeLabel: 'Assignee',
+    assigneeHelp: 'Defaults to the current user when left empty.',
+    classificationLabel: 'Classification',
+    classificationPublic: 'Public',
+    classificationInternal: 'Internal',
+    classificationConfidential: 'Confidential',
+    classificationTopSecret: 'Top secret',
+    dueAtLabel: 'Due at',
+    dueAtHelp: 'Due date and time (optional)',
+    submit: 'Create task',
+    titleRequired: 'A title is required.',
+    titleTooLong: 'The title must be at most 255 characters.',
+    descriptionTooLong: 'The description must be at most 4000 characters.',
+    invalidDueAt: 'The due date format is invalid.',
+    submitError: 'Could not create the task. Please try again.',
+    forbidden: 'You are not authorized to create tasks.',
+    conflict: 'Conflict while creating the task, please try again.',
+    loading: 'Creating…',
+  },
+} as const
 
-import { createTask, type TaskPriority } from '../../api/tasks'
-import { tasksCopy, type TasksCopy } from './tasks-copy'
+type CreateCopy = (typeof copy)[keyof typeof copy]
 
-export interface TaskCreateScreenProps {
-  locale: Locale
-  session: Session
-  onNavigate?: (path: string) => void
-  onCreated?: (taskId: string) => void
-}
+export function TaskCreateScreen() {
+  const locale = useLocale()
+  const session = useSession()
+  const navigate = useNavigate()
+  const t = copy[locale]
+  const { create } = useTaskMutations()
+  const saving = create.isPending
 
-const PRIORITY_VALUES: readonly TaskPriority[] = ['low', 'normal', 'high', 'urgent']
-
-export function TaskCreateScreen({ locale, session, onNavigate, onCreated }: TaskCreateScreenProps) {
-  const copy = tasksCopy[locale]
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [assignee, setAssignee] = useState('')
-  const [priority, setPriority] = useState<TaskPriority>('normal')
+  const [priority, setPriority] = useState('normal')
+  const [assignee, setAssignee] = useState(session.session.userId)
+  const [classification, setClassification] = useState('internal')
   const [dueAt, setDueAt] = useState('')
-  const [participants, setParticipants] = useState('')
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'error'>('idle')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [fieldError, setFieldError] = useState<string | null>(null)
-  const requestRef = useRef(0)
+  const [error, setError] = useState<string | null>(null)
 
-  const priorityOptions = useMemo<SelectOption[]>(() => buildPriorityOptions(copy), [copy])
-
-  const submit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    setFieldError(null)
-    setErrorMessage(null)
     const trimmedTitle = title.trim()
     if (!trimmedTitle) {
-      setFieldError(copy.createTitleRequired)
+      setError(t.titleRequired)
       return
     }
-    const request = ++requestRef.current
-    setStatus('submitting')
-    try {
-      const dueAtIso = normalizeDueAt(dueAt)
-      const input = {
-        title: trimmedTitle,
-        description: description.trim() || undefined,
-        assignee_user_id: assignee.trim() || undefined,
-        priority,
-        due_at: dueAtIso,
-        participant_user_ids: parseParticipants(participants),
-      }
-      const created = await createTask(session.access_token, input)
-      if (request !== requestRef.current) return
-      onCreated?.(String(created.id))
-      onNavigate?.(`/tasks/${created.id}`)
-    } catch (error) {
-      if (request !== requestRef.current) return
-      const errorState = stateFromError(error)
-      if (errorState === 'forbidden') {
-        setErrorMessage(copy.forbiddenBody)
-      } else if (error instanceof ApiError && error.status === 422) {
-        setFieldError(copy.createTeamScopeError)
-      } else {
-        setErrorMessage(copy.apiError)
-      }
-      setStatus('error')
+    if (trimmedTitle.length > 255) {
+      setError(t.titleTooLong)
+      return
     }
-  }, [assignee, copy, description, dueAt, onCreated, onNavigate, participants, priority, session.access_token, title])
+    if (description.length > 4000) {
+      setError(t.descriptionTooLong)
+      return
+    }
+    let dueAtValue: string | undefined
+    if (dueAt) {
+      const parsed = new Date(dueAt)
+      if (Number.isNaN(parsed.getTime())) {
+        setError(t.invalidDueAt)
+        return
+      }
+      dueAtValue = parsed.toISOString()
+    }
+    setError(null)
+    try {
+      const input: generated.TaskCreate = {
+        title: trimmedTitle,
+        priority: priority as generated.TaskCreatePriority,
+        classification: classification as generated.Classification,
+        assignee_user_id: assignee.trim() || undefined,
+        ...(description.trim() ? { description: description.trim() } : {}),
+        ...(dueAtValue ? { due_at: dueAtValue } : {}),
+      }
+      const created = (await create.mutateAsync(input)) as generated.Task
+      navigate(`/tasks/${created.id}`)
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 403) {
+        setError(t.forbidden)
+      } else if (cause instanceof ApiError && cause.status === 409) {
+        setError(t.conflict)
+      } else {
+        setError(t.submitError)
+      }
+    }
+  }
 
-  const goBack = () => onNavigate?.('/tasks')
   return (
-    <div dir={directionForLocale(locale)}>
-      <Page aria-labelledby="task-create-heading">
-        <PageHeader
-          id="task-create-heading"
-          title={copy.createTitle}
-          description={copy.createDescription}
-          actions={
-            <Button variant="quiet" onClick={goBack}>
-              <ArrowLeft aria-hidden="true" /> {copy.listTitle}
+    <Page aria-labelledby="task-create-heading">
+      <PageHeader
+        id="task-create-heading"
+        title={t.pageTitle}
+        description={t.pageDescription}
+        actions={
+          <Button variant="secondary" onClick={() => navigate('/tasks')}>
+            {t.back}
+          </Button>
+        }
+      />
+      {error ? <InlineError message={error} /> : null}
+      <Panel id="task-create-form" title={t.pageTitle} level={2}>
+        <form className="ui-form-grid" onSubmit={(event) => void submit(event)}>
+          <Field id="task-create-title" label={t.titleLabel} required>
+            <input
+              id="task-create-title"
+              className="field__control"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              maxLength={255}
+              disabled={saving}
+              aria-required="true"
+              placeholder={t.titlePlaceholder}
+            />
+          </Field>
+          <Field id="task-create-description" label={t.descriptionLabel}>
+            <textarea
+              id="task-create-description"
+              className="field__control"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={4000}
+              disabled={saving}
+              placeholder={t.descriptionPlaceholder}
+            />
+          </Field>
+          <Field id="task-create-priority" label={t.priorityLabel}>
+            <Select
+              id="task-create-priority"
+              value={priority}
+              onChange={setPriority}
+              options={priorityOptions(t)}
+              ariaLabel={t.priorityLabel}
+            />
+          </Field>
+          <Field id="task-create-assignee" label={t.assigneeLabel} help={t.assigneeHelp}>
+            <input
+              id="task-create-assignee"
+              className="field__control"
+              value={assignee}
+              onChange={(event) => setAssignee(event.target.value)}
+              disabled={saving}
+            />
+          </Field>
+          <Field id="task-create-classification" label={t.classificationLabel}>
+            <Select
+              id="task-create-classification"
+              value={classification}
+              onChange={setClassification}
+              options={classificationOptions(t)}
+              ariaLabel={t.classificationLabel}
+            />
+          </Field>
+          <Field id="task-create-due-at" label={t.dueAtLabel} help={t.dueAtHelp}>
+            <input
+              id="task-create-due-at"
+              className="field__control"
+              type="datetime-local"
+              value={dueAt}
+              onChange={(event) => setDueAt(event.target.value)}
+              disabled={saving}
+            />
+          </Field>
+          <div className="dialog-actions">
+            <Button type="submit" disabled={saving}>
+              {saving ? t.loading : t.submit}
             </Button>
-          }
-        />
-
-        <Panel id="task-create-form-panel" title={copy.createTitle} level={2}>
-          {errorMessage ? (
-            <InlineError message={errorMessage} retryLabel={copy.retry} onRetry={() => setErrorMessage(null)} />
-          ) : null}
-
-          <form aria-describedby="task-create-live" noValidate onSubmit={submit}>
-            <div role="status" aria-live="polite" id="task-create-live" className="visually-hidden">
-              {status === 'submitting' ? copy.createSubmitting : copy.createSuccess}
-            </div>
-
-            <Field id="task-title" label={copy.createTitleLabel} required error={fieldError ?? undefined}>
-              <input
-                id="task-title"
-                name="title"
-                type="text"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                required
-                maxLength={255}
-                placeholder={copy.createTitlePlaceholder}
-                aria-invalid={fieldError ? true : undefined}
-              />
-            </Field>
-
-            <Field id="task-description" label={copy.createDescriptionLabel} help={copy.createDescriptionPlaceholder}>
-              <textarea
-                id="task-description"
-                name="description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={4}
-                maxLength={4000}
-                placeholder={copy.createDescriptionPlaceholder}
-              />
-            </Field>
-
-            <Field id="task-assignee" label={copy.createAssigneeLabel} help={copy.createAssigneeHelp}>
-              <input
-                id="task-assignee"
-                name="assignee_user_id"
-                type="text"
-                value={assignee}
-                onChange={(event) => setAssignee(event.target.value)}
-                placeholder={copy.createAssigneePlaceholder}
-              />
-            </Field>
-
-            <Field id="task-priority" label={copy.createPriorityLabel}>
-              <Select
-                id="task-priority"
-                value={priority}
-                onChange={(value) => setPriority(asPriority(value))}
-                options={priorityOptions}
-                ariaLabel={copy.createPriorityLabel}
-              />
-            </Field>
-
-            <Field id="task-due-at" label={copy.createDueAtLabel}>
-              <input
-                id="task-due-at"
-                name="due_at"
-                type="datetime-local"
-                value={dueAt}
-                onChange={(event) => setDueAt(event.target.value)}
-              />
-            </Field>
-
-            <Field id="task-participants" label={copy.createParticipantsLabel} help={copy.createParticipantsHelp}>
-              <input
-                id="task-participants"
-                name="participant_user_ids"
-                type="text"
-                value={participants}
-                onChange={(event) => setParticipants(event.target.value)}
-                placeholder="018f3a1c-..., 018f3a1c-..."
-              />
-            </Field>
-
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-              <Button type="submit" variant="primary" disabled={status === 'submitting'}>
-                <Plus aria-hidden="true" /> {status === 'submitting' ? copy.createSubmitting : copy.createSubmit}
-              </Button>
-              <Button type="button" variant="quiet" onClick={goBack} disabled={status === 'submitting'}>
-                {copy.dialogCancel}
-              </Button>
-            </div>
-          </form>
-        </Panel>
-      </Page>
-    </div>
+          </div>
+        </form>
+      </Panel>
+    </Page>
   )
 }
 
-function buildPriorityOptions(copy: TasksCopy): SelectOption[] {
-  const labels: Record<TaskPriority, string> = {
-    low: copy.priorityLow,
-    normal: copy.priorityNormal,
-    high: copy.priorityHigh,
-    urgent: copy.priorityUrgent,
-  }
-  return PRIORITY_VALUES.map((value) => ({ value, label: labels[value] }))
+function priorityOptions(t: CreateCopy): SelectOption[] {
+  return [
+    { value: 'low', label: t.priorityLow },
+    { value: 'normal', label: t.priorityNormal },
+    { value: 'high', label: t.priorityHigh },
+    { value: 'urgent', label: t.priorityUrgent },
+  ]
 }
 
-function asPriority(value: string): TaskPriority {
-  return PRIORITY_VALUES.includes(value as TaskPriority)
-    ? (value as TaskPriority)
-    : 'normal'
-}
-
-function normalizeDueAt(value: string): string | undefined {
-  if (!value) return undefined
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return undefined
-  return parsed.toISOString().replace(/\.\d{3}Z$/, 'Z')
-}
-
-function parseParticipants(input: string): string[] | undefined {
-  const tokens = input
-    .split(',')
-    .map((token) => token.trim())
-    .filter((token) => token.length > 0)
-  return tokens.length > 0 ? tokens : undefined
+function classificationOptions(t: CreateCopy): SelectOption[] {
+  return [
+    { value: 'public', label: t.classificationPublic },
+    { value: 'internal', label: t.classificationInternal },
+    { value: 'confidential', label: t.classificationConfidential },
+    { value: 'top_secret', label: t.classificationTopSecret },
+  ]
 }

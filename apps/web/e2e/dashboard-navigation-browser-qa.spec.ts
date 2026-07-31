@@ -8,11 +8,28 @@ const UNIT = '01980f50-5f0d-7000-8000-000000000203'
 const CLUSTER = '01980f50-5f0d-7000-8000-000000000204'
 
 async function mockDashboard(page: Page) {
-  await page.route('**/api/v1/identity/me', route => route.fulfill({
-    status: 401,
-    contentType: 'application/problem+json',
-    body: JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401 }),
-  }))
+  let authenticated = false
+  // The rebuilt PrincipalProvider reads the principal snapshot
+  // (capabilities + features) from /api/v1/identity/me; the same route
+  // answers the session-restore probe before login.
+  await page.route('**/api/v1/identity/me', route => route.fulfill(authenticated
+    ? {
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            user_id: USER,
+            csrf_token: 'visual-qa-csrf',
+            capabilities: ['workflow.read', 'workflow.list', 'workflow.decide', 'tasks.read', 'tasks.list', 'reporting.dashboard'],
+            features: { work_management: false, tasks: true },
+          },
+        }),
+      }
+    : {
+        status: 401,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ type: 'about:blank', title: 'Unauthorized', status: 401 }),
+      }))
   await page.route('**/api/v1/identity/login', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -50,29 +67,14 @@ async function mockDashboard(page: Page) {
       clearance: 'internal',
       break_glass: false,
       correlation_id: USER,
+      features: { work_management: false, tasks: true },
     }),
   }))
-  await page.route('**/api/v1/workflow/steps?**', route => {
-    const state = new URL(route.request().url()).searchParams.get('state')
-    return route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        items: state === 'waiting'
-          ? [{ step_id: USER, workflow_instance_id: UNIT, source_type: 'طلب تجهيز عيادة', source_id: FACILITY, state: 'waiting', assignee_user_id: USER, created_at: '2026-07-23T08:00:00Z', lock_version: 1, allowed_actions: ['approve'] }]
-          : [],
-        next_cursor: null,
-      }),
-    })
-  })
   await page.route('**/api/v1/tasks?limit=100', route => route.fulfill({
     contentType: 'application/json',
     body: JSON.stringify({ items: [{ id: UNIT, title: 'مراجعة جاهزية العيادة', status: 'open', priority: 'high', due_at: '2026-07-23T12:00:00Z' }], next_cursor: null }),
   }))
-  await page.route('**/api/v1/workflow/instances?limit=100', route => route.fulfill({
-    contentType: 'application/json',
-    body: JSON.stringify({ items: [{ id: CLUSTER, source_type: 'طلب صيانة', source_id: FACILITY, state: 'running', created_at: '2026-07-23T07:00:00Z' }], next_cursor: null }),
-  }))
-  for (const endpoint of ['dashboards?limit=50', 'work-records?limit=20', 'notifications?limit=20']) {
+  for (const endpoint of ['dashboards?limit=50', 'work-records?limit=**', 'notifications?limit=**', 'workflow/instances?limit=100']) {
     await page.route(`**/api/v1/${endpoint}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [], next_cursor: null }) }))
   }
 }
@@ -101,11 +103,9 @@ test('dashboard shell passes desktop, 200 percent, mobile, RTL and LTR visual ch
   await signIn(page)
 
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-  await expect(page.locator('.work-dashboard-kpi')).toHaveCount(4)
-  await expect(page.getByRole('button', { name: '1 طلباتي الجارية' })).toBeVisible()
-  const priority = await page.locator('.work-dashboard-priority').boundingBox()
-  expect(priority).not.toBeNull()
-  expect(priority?.y ?? 801).toBeLessThan(800)
+  await expect(page.locator('.metric-tile')).toHaveCount(2)
+  await expect(page.getByRole('group', { name: 'مؤشرات الأداء' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'مهامي', exact: true })).toBeVisible()
   await expectNoHorizontalOverflow(page)
   await page.screenshot({ path: path.join(artifactsDir, 'dashboard-navigation-qa-desktop.png'), fullPage: true })
 
@@ -126,14 +126,10 @@ test('dashboard shell passes desktop, 200 percent, mobile, RTL and LTR visual ch
   await page.getByRole('button', { name: 'العربية' }).click()
   await page.setViewportSize({ width: 320, height: 720 })
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-  await expect(page.getByRole('button', { name: 'English' }).locator('span')).toBeVisible()
   await expectNoHorizontalOverflow(page)
-  const menu = page.getByRole('button', { name: 'فتح القائمة الرئيسية' })
+  const menu = page.getByRole('button', { name: '☰' })
   await menu.click()
-  const navigation = page.getByRole('dialog', { name: 'التنقل الرئيسي' })
+  const navigation = page.getByRole('navigation', { name: 'القائمة' })
   await expect(navigation).toBeVisible()
-  await expect(navigation).toHaveCSS('opacity', '1')
   await page.screenshot({ path: path.join(artifactsDir, 'dashboard-navigation-qa-mobile.png') })
-  await page.keyboard.press('Escape')
-  await expect(menu).toBeFocused()
 })

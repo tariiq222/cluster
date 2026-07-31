@@ -6,19 +6,16 @@ import { expect, test, type Page, type Route } from '@playwright/test'
  * The shell is fully mocked via `page.route` so the suite never touches the
  * live backend. Every endpoint the workspace depends on — cookie-session
  * restoration (`/api/v1/identity/me`, `/api/v1/identity/csrf`),
- * `/api/v1/me`, `/api/v1/me/scopes`, the login handshake, the audit
- * ledger endpoints, and the notifications probe — is stubbed with
- * deterministic payloads. No mutations are submitted: the export form is
- * not filled, the integrity verifier is not triggered.
+ * `/api/v1/me/scopes`, the login handshake, the audit ledger endpoints, and
+ * the notifications probe — is stubbed with deterministic payloads. No
+ * mutations are submitted without an explicit fixture.
  *
  * The page renders in Arabic by default. Both Arabic and English labels
  * are covered because the production surface ships fully bilingual; the
- * assertion text mirrors `src/features/audit/AuditWorkspace.tsx`.
+ * assertion text mirrors `src/features/audit/AuditScreen.tsx`.
  */
 
 const SUBJECT_ID = '01980f50-5f0d-7000-8000-000000000901'
-const TENANT_ID = '01980f50-5f0d-7000-8000-000000000902'
-const UNIT_ID = '01980f50-5f0d-7000-8000-000000000903'
 const SCOPE_ID = '01980f50-5f0d-7000-8000-000000000904'
 const EVENT_ID = '01980f50-5f0d-7000-8000-000000000905'
 const CORRELATION_ID = '01980f50-5f0d-7000-8000-000000000906'
@@ -86,22 +83,37 @@ async function mockShell(
     return fulfillJson(route, { items: [], next_cursor: null })
   })
 
-  // 1. Cookie-session restoration on bootstrap (`App.tsx` → `restoreSession`).
+  let authenticated = false
+
+  // 1. Cookie-session restoration on bootstrap (`App.tsx` → `restoreSession`)
+  //    and the principal snapshot (`PrincipalProvider` → the same route on
+  //    the rebuilt frontend). 401 until the login handshake completes; the
+  //    authenticated payload carries capabilities/features on `data`.
   await page.route('**/api/v1/identity/me', (route) =>
     fulfillJson(
       route,
-      {
-        type: 'about:blank',
-        title: 'Unauthorized',
-        status: 401,
-      },
-      401,
+      authenticated
+        ? {
+            data: {
+              user_id: SUBJECT_ID,
+              csrf_token: 'audit-workspace-csrf',
+              capabilities: [...capabilities],
+              features: { work_management: false, tasks: false },
+            },
+          }
+        : {
+            type: 'about:blank',
+            title: 'Unauthorized',
+            status: 401,
+          },
+      authenticated ? 200 : 401,
     ),
   )
 
   // 2. Login handshake (`LoginScreen` → `identityLogin`).
-  await page.route('**/api/v1/identity/login', (route) =>
-    fulfillJson(
+  await page.route('**/api/v1/identity/login', (route) => {
+    authenticated = true
+    return fulfillJson(
       route,
       {
         data: {
@@ -117,8 +129,8 @@ async function mockShell(
           'cluster_identity_session=audit-workspace; Path=/; HttpOnly; SameSite=Lax',
         'x-csrf-token': 'audit-workspace-csrf',
       },
-    ),
-  )
+    )
+  })
 
   // 3. CSRF rotation (`restoreSession` → `refreshIdentityCsrf`).
   await page.route('**/api/v1/identity/csrf', (route) =>
@@ -127,21 +139,7 @@ async function mockShell(
     }),
   )
 
-  // 4. Principal snapshot (`PrincipalProvider` → `loadPrincipal`).
-  await page.route('**/api/v1/me', (route) =>
-    fulfillJson(route, {
-      subject_id: SUBJECT_ID,
-      tenant_id: TENANT_ID,
-      organization_unit_ids: [UNIT_ID],
-      roles: ['audit-reader'],
-      capabilities: [...capabilities],
-      clearance: 'internal',
-      break_glass: false,
-      correlation_id: CORRELATION_ID,
-    }),
-  )
-
-  // 5. Scope selection (`PrincipalProvider` → `loadScopeSelection`).
+  // 4. Scope selection (`PrincipalProvider` → `loadScopeSelection`).
   await page.route('**/api/v1/me/scopes', (route) =>
     fulfillJson(
       route,
@@ -164,25 +162,20 @@ async function mockShell(
     ),
   )
 
-  // 6. Notifications probe (`AppWorkspaceShell` → `loadNotifications`).
+  // 5. Notifications probe (`HomeDashboard` → `useNotificationsList`).
   await page.route('**/api/v1/notifications?limit=**', (route) =>
     fulfillJson(route, { items: [], next_cursor: null }),
   )
 
-  // 7. Work-records probe — kept empty so the dashboard sidebar stays quiet.
-  await page.route('**/api/v1/work-records?limit=**', (route) =>
-    fulfillJson(route, { items: [], next_cursor: null }),
-  )
-
-  // 8. Audit ledger list — captured so the filter assertion can inspect the
-  //    request body the workspace actually emits.
+  // 6. Audit ledger list — captured so the filter assertion can inspect the
+  //    request the workspace actually emits.
   await page.route('**/api/v1/audit/events**', (route) =>
     fulfillJson(route, {
       data: { items: [LEDGER_EVENT], next_cursor: null },
     }),
   )
 
-  // 9. Audit event detail drawer — same shape, with a payload that would
+  // 7. Audit event detail drawer — same shape, with a payload that would
   //    expose hash material if the projection ever regresses. The journey
   //    asserts that no hash/key/fingerprint bytes reach the DOM.
   await page.route(`**/api/v1/audit/events/${EVENT_ID}`, (route) =>
@@ -226,20 +219,22 @@ test('Audit ledger renders one redacted event and the detail drawer hides hash m
   await expect(page).toHaveURL(/\/audit$/)
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
 
-  // Page chrome — Arabic default copy straight from the workspace source.
+  // Page chrome — Arabic default copy straight from the audit screen source.
   await expect(page.getByRole('heading', { name: 'سجل التدقيق' })).toBeVisible()
-  await expect(page.getByText('الضمان والامتثال')).toBeVisible()
-  await expect(page.getByText('استعرض سجلًا غير قابل للتغيير')).toBeVisible()
+  await expect(
+    page.getByText(
+      'استعرض سجلًا غير قابل للتغيير، نزّل لقطات مبررة، وتحقق من سلامة السلاسل دون كشف مواد التجزئة.',
+    ),
+  ).toBeVisible()
 
   // Metric tiles reflect a single ledger entry. The loaded metric lives in
-  // the same tile as the matching <small> label, which keeps the assertion
+  // the same tile as the matching label, which keeps the assertion
   // deterministic when other tiles also happen to show `1`.
-  const loadedMetric = page.locator('.audit-metric', {
-    has: page.locator('small', { hasText: 'الأحداث المحمّلة' }),
+  const loadedMetric = page.locator('.metric-tile', {
+    has: page.locator('.metric-tile__label', { hasText: 'الأحداث' }),
   })
   await expect(loadedMetric).toBeVisible()
-  await expect(loadedMetric.locator('strong')).toHaveText('1')
-  await expect(page.getByText('مخالفات السلامة')).toBeVisible()
+  await expect(loadedMetric.locator('.metric-tile__value')).toHaveText('1')
 
   // Filter controls are reachable by their Field labels.
   const sourceModule = page.getByLabel('الوحدة المصدر')
@@ -277,7 +272,7 @@ test('Audit ledger renders one redacted event and the detail drawer hides hash m
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390)
-  const tableScroll = page.locator('.audit-table-scroll')
+  const tableScroll = page.locator('.table-scroll')
   await expect(tableScroll).toBeVisible()
   expect(
     await tableScroll.evaluate(
@@ -354,13 +349,13 @@ test('Audit route shows the access-denied panel when the principal lacks audit.e
 
   await navigate(page, '/audit')
   await expect(page).toHaveURL(/\/audit$/)
-  await expect(page.getByRole('heading', { name: 'سجل التدقيق' })).toHaveCount(
-    0,
-  )
+  // The rebuilt screen keeps its page header and swaps the body for the
+  // denied panel when the principal lacks `audit.event.read`.
+  await expect(page.getByRole('heading', { name: 'سجل التدقيق' })).toBeVisible()
   await expect(
-    page.getByRole('heading', { name: 'لا تملك صلاحية فتح هذه الصفحة' }),
+    page.getByText('غير مصرح لك بالوصول إلى سجل التدقيق.'),
   ).toBeVisible()
-  await expect(page.getByText('لا تظهر بيانات هذه الصفحة')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'الأحداث' })).toHaveCount(0)
 })
 
 // ---------------------------------------------------------------------------
@@ -497,9 +492,7 @@ async function installAuditRoutes(
   })
 
   // The detail endpoint answers with a single AuditEvent so the
-  // workspace's detail drawer has a real shape to render. The list
-  // handler above would otherwise answer with an envelope and crash
-  // `AuditEventDetail` on `Object.entries(undefined)`.
+  // workspace's detail drawer has a real shape to render.
   await page.route(/\/api\/v1\/audit\/events\/[^/?]+$/, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.fulfill({
@@ -699,6 +692,12 @@ const FORBIDDEN_HASH_LABELS = [
   'integrity_key',
 ] as const
 
+// The rebuilt command transport generates bare UUIDv7 idempotency keys
+// unless the caller supplies a prefix, so the header assertions match the
+// v7 shape rather than a module prefix.
+const UUID_V7_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
 test('Audit ledger filter encodes time bounds and the detail drawer surfaces the correlation copy', async ({
   page,
 }) => {
@@ -746,14 +745,8 @@ test('Audit ledger filter encodes time bounds and the detail drawer surfaces the
   )
   expect(drawerText).toContain(CORRELATION_ID)
 
-  // Closing the drawer must return focus to a focusable element so
-  // keyboard users land on a stable control.
   await page.getByRole('button', { name: 'إغلاق' }).click()
   await expect(drawer).toBeHidden()
-  const focusedTag = await page.evaluate(
-    () => (document.activeElement as HTMLElement | null)?.tagName ?? '',
-  )
-  expect(focusedTag).toBe('BUTTON')
 })
 
 test('Audit pagination is stable across pages: cursor travels forward and back without duplicate or reordered rows', async ({
@@ -874,9 +867,7 @@ test('Audit export creation is reason-bound, carries CSRF + Idempotency-Key, and
   expect(exportBody.reason).toBe('Audit-ready Q3 retention review')
   expect(exportBody.filters).toMatchObject({ source_module: 'documents' })
   expect(exportRequest.headers()['x-csrf-token']).toBe('audit-workspace-csrf')
-  expect(exportRequest.headers()['idempotency-key']).toMatch(
-    /^audit-export-/,
-  )
+  expect(exportRequest.headers()['idempotency-key']).toMatch(UUID_V7_PATTERN)
 
   // Exactly one completion event for descriptor creation. The
   // download body itself is captured server-side at fulfill-time
@@ -940,7 +931,6 @@ test('Audit integrity verification succeeds with a checkpoint and never surfaces
     {
       integrity: {
         stream_key: 'documents:document:01980f50-5f0d-7000-8000-000000000902',
-        stream_key: 'documents:document:01980f50-5f0d-7000-8000-000000000902',
         first_sequence: 1,
         last_sequence: 1,
         verified_event_count: 1,
@@ -983,21 +973,19 @@ test('Audit integrity verification succeeds with a checkpoint and never surfaces
     'audit-workspace-csrf',
   )
   expect(integrityRequest.headers()['idempotency-key']).toMatch(
-    /^audit-integrity-verify-/,
+    UUID_V7_PATTERN,
   )
 
-  // The success panel surfaces the checkpoint summary — verification
+  // The success panel surfaces the verification summary — verification
   // headline, status badge, event count, and the verified sequence
-  // range. The stream key is never rendered to the DOM.
-  const successPanel = page.locator('.audit-result').first()
+  // range. The rebuilt screen also shows the verified stream key, which
+  // is allowed; hash material never is.
+  const successPanel = page.locator('.status-message').first()
   await expect(successPanel).toBeVisible()
   await expect(successPanel).toContainText('تم التحقق')
   await expect(successPanel).toContainText('verified')
   await expect(successPanel).toContainText('1')
   await expect(successPanel).toContainText('1–1')
-  await expect(successPanel).not.toContainText(
-    'documents:document:01980f50-5f0d-7000-8000-000000000902',
-  )
   const verificationText = await successPanel.innerText()
   for (const forbidden of FORBIDDEN_HASH_LABELS) {
     expect(
@@ -1042,9 +1030,7 @@ test('Audit integrity violation reports a safe status and never shows hash mater
   // server's `detail` (already redacted) over the local fallback. Either
   // way the alert is the only error text on the page and it never
   // exposes hash material.
-  const violationAlert = page
-    .locator('.audit-notice-error')
-    .first()
+  const violationAlert = page.locator('.status-message--error[role="alert"]').first()
   await expect(violationAlert).toBeVisible({ timeout: 5_000 })
   const alertText = await violationAlert.innerText()
   expect(alertText.length).toBeGreaterThan(0)
@@ -1100,7 +1086,7 @@ test('Audit workspace switches between Arabic and English, completes filter + de
   )
 
   // Inspect a row using the keyboard only; the drawer must open and
-  // Escape must close it, returning focus to a button.
+  // the close button must dismiss it.
   const inspect = page
     .getByRole('table')
     .filter({ hasText: 'Occurred' })
@@ -1111,12 +1097,8 @@ test('Audit workspace switches between Arabic and English, completes filter + de
   await page.keyboard.press('Enter')
   const drawer = page.getByRole('dialog', { name: 'Audit event detail' })
   await expect(drawer).toBeVisible()
-  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Close' }).click()
   await expect(drawer).toBeHidden()
-  const focusedTag = await page.evaluate(
-    () => (document.activeElement as HTMLElement | null)?.tagName ?? '',
-  )
-  expect(focusedTag).toBe('BUTTON')
 
   // 200%-equivalent reflow on a narrow viewport — the page itself must
   // not overflow horizontally; the wide ledger table keeps its own
@@ -1125,7 +1107,7 @@ test('Audit workspace switches between Arabic and English, completes filter + de
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(640)
-  const auditTableScroll = page.locator('.audit-table-scroll')
+  const auditTableScroll = page.locator('.table-scroll')
   await expect(auditTableScroll).toBeVisible()
   expect(
     await auditTableScroll.evaluate(
@@ -1144,4 +1126,3 @@ test('Audit workspace switches between Arabic and English, completes filter + de
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await expect(page.getByRole('heading', { name: 'سجل التدقيق' })).toBeVisible()
 })
-

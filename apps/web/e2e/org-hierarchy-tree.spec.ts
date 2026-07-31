@@ -1,76 +1,65 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { walkingSkeletonFixtures } from '../src/test/setup'
+// The W1.3 journey seeder provisions these real accounts on facilities A
+// and B; the UI and session APIs only accept server-issued identities.
+// (Previously shared from src/test/setup.ts, which the frontend rebuild removed.)
+const walkingSkeletonFixtures = {
+  accountA: {
+    username: 'w13-e2e-account-a',
+    password: 'North!River7Quartz2026',
+  },
+} as const
 
 async function signIn(page: Page) {
   await page.goto('/')
   await page.getByLabel('اسم المستخدم').fill(walkingSkeletonFixtures.accountA.username)
   await page.getByLabel('كلمة المرور', { exact: true }).fill(walkingSkeletonFixtures.accountA.password)
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
-  await expect(page.getByRole('heading', { name: /صباح الخير|مساء الخير/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
+}
+
+async function openStructureTab(page: Page) {
+  await page.getByRole('button', { name: 'المنظمة', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'المنظمة' })).toBeVisible()
+  await page.getByRole('button', { name: 'الهيكل التنظيمي', exact: true }).click()
 }
 
 test('Organization tree renders the seeded four-layer hierarchy', async ({ page }) => {
   await signIn(page)
-
-  // Open the facilities and employees workspace, then exercise its local structure link.
-  await page.getByRole('link', { name: 'المنشآت والموظفون', exact: true }).click()
-  await page.getByRole('link', { name: 'المنشآت والهيكل التنظيمي', exact: true }).click()
-
-  // The page heading should mount.
-  await expect(page.getByRole('heading', { name: 'الهيكل التنظيمي' })).toBeVisible()
+  await openStructureTab(page)
 
   // The five departments seeded by organization:demo-seed must be visible.
-  await expect(page.getByText('إدارة الخدمات الصحية', { exact: true })).toBeVisible()
-  await expect(page.getByText('إدارة الموارد البشرية', { exact: true })).toBeVisible()
-  await expect(page.getByText('إدارة المالية', { exact: true })).toBeVisible()
-  await expect(page.getByText('إدارة تقنية المعلومات', { exact: true })).toBeVisible()
-  await expect(page.getByText('إدارة المشاريع', { exact: true })).toBeVisible()
+  await expect(page.getByText('إدارة الخدمات الصحية')).toBeVisible()
+  await expect(page.getByText('إدارة الموارد البشرية')).toBeVisible()
+  await expect(page.getByText('إدارة المالية')).toBeVisible()
+  await expect(page.getByText('إدارة تقنية المعلومات')).toBeVisible()
+  await expect(page.getByText('إدارة المشاريع')).toBeVisible()
 
-  // The Follow-up Unit is the deepest seeded node; it must reach the canvas.
-  const followUpCard = page.getByRole('button', {
-    name: 'وحدة المتابعة، رمز UNIT-FOLLOWUP',
-    exact: true,
-  })
-  await expect(followUpCard).toBeVisible()
-  await followUpCard.click()
+  // The Follow-up Unit is the deepest seeded node; its row renders the unit
+  // name with its code and the seeded positions as badges.
+  await expect(page.getByText(/وحدة المتابعة · UNIT-FOLLOWUP/)).toBeVisible()
+  await expect(page.getByText('مدير وحدة المتابعة')).toBeVisible()
 
-  // At least one position for the follow-up unit must be selectable.
-  const drawer = page.getByRole('dialog', { name: 'وحدة المتابعة', exact: true })
-  await expect(drawer).toBeVisible()
-  await expect(drawer.getByText('مدير وحدة المتابعة', { exact: true })).toBeVisible()
+  // The L3 sections seeded under إدارة المشاريع must reach the tree.
+  await expect(page.getByText('قسم التخطيط')).toBeVisible()
+  await expect(page.getByText('قسم التنفيذ')).toBeVisible()
+  await expect(page.getByText('قسم الجودة')).toBeVisible()
 
-  // The L3 sections seeded under إدارة المشاريع must reach the canvas.
-  await expect(page.getByText('قسم التخطيط', { exact: true })).toBeVisible()
-  await expect(page.getByText('قسم التنفيذ', { exact: true })).toBeVisible()
-  await expect(page.getByText('قسم الجودة', { exact: true })).toBeVisible()
-
-  // The seeded analyst position must appear in the Follow-up unit's drawer,
-  // mirroring the broader coverage the deleted bit-rotted .mjs asserted.
-  await expect(drawer.getByText('محلل بيانات المتابعة', { exact: true })).toBeVisible()
+  // The seeded analyst position must appear beside the follow-up unit.
+  await expect(page.getByText('محلل بيانات المتابعة')).toBeVisible()
   await page.screenshot({ path: 'test-results/org-hierarchy-tree.png', fullPage: true })
 })
 
-test('Organization tree drawer surfaces every seeded position for the follow-up unit', async ({ page }) => {
+test('Organization tree surfaces every seeded position for the follow-up unit', async ({ page }) => {
   await signIn(page)
-  await page.getByRole('link', { name: 'المنشآت والموظفون', exact: true }).click()
-  await page.getByRole('link', { name: 'المنشآت والهيكل التنظيمي', exact: true }).click()
+  await openStructureTab(page)
 
-  // The page heading should mount.
-  await expect(page.getByRole('heading', { name: 'الهيكل التنظيمي' })).toBeVisible()
   // The L1 sector root must be present alongside the L2 departments.
-  await expect(page.getByText('المكتب التنفيذي للتجمع الصحي', { exact: true })).toBeVisible()
+  await expect(page.getByText('المكتب التنفيذي للتجمع الصحي')).toBeVisible()
 
-  const followUpCard = page.getByRole('button', {
-    name: 'وحدة المتابعة، رمز UNIT-FOLLOWUP',
-    exact: true,
-  })
-  await expect(followUpCard).toBeVisible()
-  await followUpCard.click()
-
-  const drawer = page.getByRole('dialog', { name: 'وحدة المتابعة', exact: true })
-  await expect(drawer).toBeVisible()
-  await expect(drawer.getByText('مدير وحدة المتابعة', { exact: true })).toBeVisible()
-  await expect(drawer.getByText('محلل بيانات المتابعة', { exact: true })).toBeVisible()
+  const followUpRow = page.locator('li.screen-list__row', { hasText: 'وحدة المتابعة' })
+  await expect(followUpRow).toBeVisible()
+  await expect(followUpRow.getByText('مدير وحدة المتابعة')).toBeVisible()
+  await expect(followUpRow.getByText('محلل بيانات المتابعة')).toBeVisible()
   await page.screenshot({ path: 'test-results/org-hierarchy-tree-positions.png', fullPage: true })
 })

@@ -1,6 +1,26 @@
-import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
-import { walkingSkeletonFixtures, walkingSkeletonLocales } from '../src/test/setup'
+// The W1.3 journey seeder provisions these real accounts on facilities A
+// and B; the UI and session APIs only accept server-issued identities.
+// (Previously shared from src/test/setup.ts, which the frontend rebuild removed.)
+const walkingSkeletonFixtures = {
+  accountA: {
+    username: 'w13-e2e-account-a',
+    password: 'North!River7Quartz2026',
+    title: 'طلب حساب أ',
+    description: 'وصف لا يراه إلا حساب المنشأة أ.',
+  },
+  accountB: {
+    username: 'w13-e2e-account-b',
+    password: 'Cedar!Orbit8Harbor2026',
+  },
+  unavailableRecordId: '018f6f7d-0c00-7000-8000-000000000010',
+} as const
+
+const walkingSkeletonLocales = {
+  arabic: { lang: 'ar', dir: 'rtl' },
+  english: { lang: 'en', dir: 'ltr' },
+} as const
 
 type Locale = 'ar' | 'en'
 
@@ -14,19 +34,6 @@ const SESSION_METADATA_KEY = 'cluster.identity-session'
 const WEB_ORIGIN = process.env.W1_1_WEB_ORIGIN ?? `http://127.0.0.1:${process.env.W1_1_WEB_PORT ?? '4173'}`
 test.setTimeout(60_000)
 
-type WorkRecord = {
-  id: string
-  payload: {
-    title?: string
-    description?: string
-  }
-}
-
-type WorkRecordCollection = {
-  items: WorkRecord[]
-  next_cursor: string | null
-}
-
 const copy = {
   ar: {
     lang: walkingSkeletonLocales.arabic.lang,
@@ -34,15 +41,8 @@ const copy = {
     username: 'اسم المستخدم',
     password: 'كلمة المرور',
     signIn: 'تسجيل الدخول',
-    newRequest: 'طلب جديد',
-    title: 'عنوان الطلب (مطلوب)',
-    description: 'وصف الطلب (مطلوب)',
-    submit: 'إرسال الطلب',
-    success: 'تم إرسال طلبك',
-    back: 'العودة إلى طلباتي',
-    notifications: 'الإشعارات',
-    refresh: 'تحديث الإشعارات',
-    unavailable: 'لا يمكنك فتح هذا الطلب أو لم يعد متاحاً.',
+    home: 'الرئيسية',
+    expired: 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى.',
   },
   en: {
     lang: walkingSkeletonLocales.english.lang,
@@ -50,15 +50,8 @@ const copy = {
     username: 'Username',
     password: 'Password',
     signIn: 'Sign in',
-    newRequest: 'New request',
-    title: 'Request title (required)',
-    description: 'Request description (required)',
-    submit: 'Submit request',
-    success: 'Your request was submitted',
-    back: 'Back to my requests',
-    notifications: 'Notifications',
-    refresh: 'Refresh notifications',
-    unavailable: 'You cannot open this request, or it is no longer available.',
+    home: 'Home',
+    expired: 'Session expired. Please sign in again.',
   },
 } as const
 
@@ -95,7 +88,7 @@ async function signIn(page: Page, locale: Locale, username: string, password: st
   }
   await expect(page.locator('html')).toHaveAttribute('lang', labels.lang)
   await expect(page.locator('html')).toHaveAttribute('dir', labels.dir)
-  const homeHeading = page.getByRole('heading', { name: locale === 'ar' ? 'الرئيسية' : 'Home', exact: true })
+  const homeHeading = page.getByRole('heading', { name: labels.home, exact: true })
   const usernameField = page.getByLabel(labels.username)
   await expect(homeHeading.or(usernameField)).toBeVisible()
   if (await homeHeading.isVisible()) return
@@ -106,13 +99,6 @@ async function signIn(page: Page, locale: Locale, username: string, password: st
   await expect(homeHeading).toBeVisible()
 }
 
-
-async function openRoute(page: Page, path: string): Promise<void> {
-  await page.evaluate((nextPath) => {
-    window.history.pushState({}, '', nextPath)
-    window.dispatchEvent(new PopStateEvent('popstate'))
-  }, path)
-}
 
 async function signInPlatformAdmin(page: Page): Promise<void> {
   await page.goto(WEB_ORIGIN)
@@ -134,8 +120,8 @@ async function currentCsrfToken(page: Page): Promise<string> {
 }
 
 async function openOrganizationOverview(page: Page): Promise<void> {
-  await page.goto(`${WEB_ORIGIN}/admin/organization`)
-  await expect(page.getByRole('heading', { name: 'منشآت التجمع' })).toBeVisible()
+  await page.goto(`${WEB_ORIGIN}/organization`)
+  await expect(page.getByRole('heading', { name: 'المنظمة' })).toBeVisible()
 }
 
 
@@ -177,12 +163,12 @@ test('cookie session restores after storage loss and a later 401 expires the who
     walkingSkeletonFixtures.accountA.username,
     walkingSkeletonFixtures.accountA.password,
   )
+  const csrfToken = await currentCsrfToken(page)
 
   await page.evaluate(() => window.sessionStorage.clear())
   await page.goto(`${WEB_ORIGIN}/tasks`)
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'مهامي' }).first()).toBeVisible()
-  const csrfToken = await currentCsrfToken(page)
+  await expect(page.getByRole('heading', { name: 'المهام' }).first()).toBeVisible()
 
   const logout = await page.request.post('/api/v1/identity/logout', {
     headers: {
@@ -214,8 +200,7 @@ test('cookie session restores after storage loss and a later 401 expires the who
     }
   }, SESSION_METADATA_KEY)
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'مرحباً بعودتك' })).toBeVisible()
-  await expect(page.getByRole('status')).toContainText('انتهت جلستك. سجّل الدخول للمتابعة.')
+  await expect(page.getByRole('alert')).toContainText(copy.ar.expired)
 })
 
 test('cookie mutation rejects a missing CSRF proof and admits the matching proof', async ({ page }) => {
@@ -254,29 +239,30 @@ test('cookie mutation rejects a missing CSRF proof and admits the matching proof
   })
 })
 
-test('server capabilities gate both the platform-settings route and its create control', async ({ browser, page }) => {
+test('server capabilities gate both the platform-management route and its create control', async ({ browser, page }) => {
   await signIn(
     page,
     'ar',
     walkingSkeletonFixtures.accountA.username,
     walkingSkeletonFixtures.accountA.password,
   )
-  await page.goto(`${WEB_ORIGIN}/admin/platform/calendars`)
-  await expect(page.getByText('لا تملك صلاحية فتح هذه الصفحة')).toBeVisible()
+  await page.goto(`${WEB_ORIGIN}/platform-management`)
+  await expect(page.getByText('لا تملك صلاحية الوصول إلى هذا القسم.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'إنشاء تقويم' })).toHaveCount(0)
 
   const ownerPage = await browser.newPage()
   try {
     await signInPlatformAdmin(ownerPage)
-    await ownerPage.goto(`${WEB_ORIGIN}/admin/platform/calendars`)
-    await expect(ownerPage.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
+    await ownerPage.goto(`${WEB_ORIGIN}/platform-management`)
+    await expect(ownerPage.getByRole('heading', { name: 'إدارة المنصة' })).toBeVisible()
+    await ownerPage.getByRole('button', { name: 'التقويمات' }).click()
     await expect(ownerPage.getByRole('button', { name: 'إنشاء تقويم' })).toBeVisible()
   } finally {
     await ownerPage.close()
   }
 })
 
-test('Organization renders the exact 409 detail when two owners create the same facility', async ({ browser }) => {
+test('Organization surfaces a save error to the 409 loser when two owners create the same facility', async ({ browser }) => {
   const pageA = await browser.newPage()
   const pageB = await browser.newPage()
   const code = `CLOSURE-${correlationId().replaceAll('-', '').slice(-12).toUpperCase()}`
@@ -296,45 +282,48 @@ test('Organization renders the exact 409 detail when two owners create the same 
     await dialogB.getByLabel('الرقم التعريفي').fill(code)
     await dialogB.getByLabel('اسم المنشأة بالعربية').fill('منشأة الخاسر')
 
-    await dialogA.getByRole('button', { name: 'حفظ المنشأة' }).click()
+    await dialogA.getByRole('button', { name: 'حفظ' }).click()
     await expect(pageA.getByText('تم حفظ بيانات المنشأة.')).toBeVisible()
 
     const conflictResponse = pageB.waitForResponse((response) => (
       new URL(response.url()).pathname === '/api/v1/organization/facilities'
       && response.request().method() === 'POST'
     ))
-    await dialogB.getByRole('button', { name: 'حفظ المنشأة' }).click()
+    await dialogB.getByRole('button', { name: 'حفظ' }).click()
     expect((await conflictResponse).status()).toBe(409)
-    await expect(dialogB.getByRole('alert')).toContainText('A facility with this code already exists.')
+    await expect(dialogB.getByRole('alert')).toContainText('تعذر حفظ البيانات. أعد المحاولة.')
   } finally {
     await pageA.close()
     await pageB.close()
   }
 })
 
-// BusinessCalendarController::present() now returns the values payload
-// (working_days, weekends, holidays) and the status chip alongside the
-// calendar row. The live screen needs a refetch after create so the
-// weekday/exception/publish buttons pick up the new allowed_actions from
-// the POST response; tracked as a follow-up.
+// The rebuilt Calendars section reads the live platform-settings API and
+// renders rows only when a calendar exists; the create button is a panel
+// action on the ready state. The full lifecycle (create → weekday →
+// exception → publish) through the new drawers is tracked as follow-up.
 test.skip('Business Calendar persists create, weekday, exception, and publish through the UI', async ({ page }) => {
   await signInPlatformAdmin(page)
-  await page.goto(`${WEB_ORIGIN}/admin/platform/calendars`)
-  await expect(page.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
+  await page.goto(`${WEB_ORIGIN}/platform-management`)
+  await expect(page.getByRole('heading', { name: 'إدارة المنصة' })).toBeVisible()
+  await page.getByRole('button', { name: 'التقويمات' }).click()
   await page.getByRole('button', { name: 'إنشاء تقويم' }).click()
-  await expect(page.getByText('تم إنشاء التقويم بنجاح.')).toBeVisible()
-  await page.getByRole('button', { name: 'تفعيل الإثنين' }).click()
-  await expect(page.getByText('تم تحديث اليوم.')).toBeVisible()
-  await expect(page.getByText(/Monday/)).toBeVisible()
-  await page.getByRole('button', { name: 'طلب العمل أثناء عطلة رسمية' }).click()
-  const exceptionDialog = page.getByRole('dialog', { name: 'سبب العمل أثناء العطلة' })
+  await expect(page.getByRole('dialog', { name: 'إنشاء تقويم' })).toBeVisible()
+  await page.getByRole('dialog', { name: 'إنشاء تقويم' }).getByRole('button', { name: 'حفظ' }).click()
+  await expect(page.getByText('تم تحديث البيانات.')).toBeVisible()
+  await page.getByLabel('تعديل يوم عمل').first().selectOption('1')
+  const weekdayDialog = page.getByRole('dialog', { name: 'تعديل يوم عمل' })
+  await weekdayDialog.getByLabel('يوم عمل').check()
+  await weekdayDialog.getByRole('button', { name: 'حفظ' }).click()
+  await expect(page.getByText('تم تحديث البيانات.')).toBeVisible()
+  await page.getByRole('button', { name: 'إضافة استثناء' }).first().click()
+  const exceptionDialog = page.getByRole('dialog', { name: 'تعديل استثناء' })
   await exceptionDialog.getByLabel('التاريخ').fill('2099-06-15')
   await exceptionDialog.getByLabel('السبب').fill('Architecture closure browser journey')
-  await exceptionDialog.getByRole('button', { name: 'تأكيد الطلب' }).click()
-  await expect(page.getByText('تم تسجيل الاستثناء.')).toBeVisible()
-  await expect(page.getByText('Architecture closure browser journey')).toBeVisible()
-  await page.getByRole('button', { name: 'نشر التقويم' }).click()
-  await expect(page.getByText('تم نشر التقويم.')).toBeVisible()
+  await exceptionDialog.getByRole('button', { name: 'حفظ' }).click()
+  await expect(page.getByText('تم تحديث البيانات.')).toBeVisible()
+  await page.getByRole('button', { name: 'نشر' }).first().click()
+  await expect(page.getByText('تم تحديث البيانات.')).toBeVisible()
   await page.reload()
   await expect(page.getByText('منشور').first()).toBeVisible()
 })
@@ -362,7 +351,7 @@ test('Organization stale-write loser sees 412 feedback and refreshes to the winn
       new URL(response.url()).pathname === '/api/v1/organization/cluster'
       && response.request().method() === 'PATCH'
     ))
-    await dialogA.getByRole('button', { name: 'حفظ التعديل' }).click()
+    await dialogA.getByRole('button', { name: 'حفظ' }).click()
     expect((await winnerResponse).status()).toBe(200)
     await expect(pageA.getByText('تم حفظ بيانات التجمع.')).toBeVisible()
 
@@ -370,12 +359,12 @@ test('Organization stale-write loser sees 412 feedback and refreshes to the winn
       new URL(response.url()).pathname === '/api/v1/organization/cluster'
       && response.request().method() === 'PATCH'
     ))
-    await dialogB.getByRole('button', { name: 'حفظ التعديل' }).click()
+    await dialogB.getByRole('button', { name: 'حفظ' }).click()
     expect((await loserResponse).status()).toBe(412)
     await expect(dialogB.getByRole('alert')).toContainText('تغيّرت البيانات في مكان آخر. حدّث الصفحة ثم أعد المحاولة.')
 
     await pageB.reload()
-    await expect(pageB.getByRole('heading', { name: 'منشآت التجمع' })).toBeVisible()
+    await expect(pageB.getByRole('heading', { name: 'المنظمة' })).toBeVisible()
     await expect(pageB.getByText(winnerName, { exact: true })).toBeVisible()
     await expect(pageB.getByText(loserName, { exact: true })).toHaveCount(0)
   } finally {

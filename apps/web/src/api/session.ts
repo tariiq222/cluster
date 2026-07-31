@@ -1,163 +1,133 @@
-import * as generated from './generated/cluster'
-import type {
-  CurrentIdentityResponseData,
-  IdentityActivationIssued,
-  IdentityActivationRequest,
-  IdentityLoginRequest,
-  IdentityPasswordChangeRequest,
-  IdentitySessionResponseData,
-} from './generated/cluster'
-import { ApiError, requestInit, unwrap, unwrapEmpty, unwrapEnvelope } from './http'
+import { ApiError, customFetch, unwrap } from './http'
 
-export type IdentityLoginInput = IdentityLoginRequest
-export type IdentityActivationInput = IdentityActivationRequest
-export type IdentityCredentialChangeInput = IdentityPasswordChangeRequest
-export type IdentitySession = IdentitySessionResponseData
-export type CurrentIdentity = CurrentIdentityResponseData
-export type IdentityActivation = IdentityActivationIssued
+export interface Session {
+  csrfToken: string
+  userId: string
+  expiresAt: string
+  restricted: boolean
+}
 
-export type Session = {
+const SESSION_METADATA_KEY = 'cluster.identity-session'
+
+interface StoredSession {
   csrf_token: string
   user_id: string
   expires_at: string
   restricted: boolean
-  facility?: 'facility-a' | 'facility-b'
-  principal: { user_id: string; facility_id?: string }
-  /** @deprecated Compatibility alias for legacy callers; contains the CSRF token, never a bearer token. */
-  access_token: string
 }
 
-export const SESSION_METADATA_KEY = 'cluster.identity-session'
-
-const UUID_V7_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-const UTC_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/
-
-function persistSessionMetadata(session: Session): void {
-  try {
-    window.sessionStorage.setItem(
-      SESSION_METADATA_KEY,
-      JSON.stringify({
-        csrf_token: session.csrf_token,
-        user_id: session.user_id,
-        expires_at: session.expires_at,
-        restricted: session.restricted,
-      }),
-    )
-  } catch {
-    // Session restoration remains available through the live cookie when storage is unavailable.
-  }
+interface IdentitySessionPayload {
+  csrf_token: string
+  user_id: string
+  expires_at: string
+  restricted?: boolean
 }
 
-export function clearSessionMetadata(): void {
-  try {
-    window.sessionStorage.removeItem(SESSION_METADATA_KEY)
-  } catch {
-    /* ignore unavailable storage */
-  }
-}
-
-export async function identityLogin(input: IdentityLoginInput): Promise<IdentitySession> {
-  return unwrapEnvelope<IdentitySession>(await generated.identityLogin(input, requestInit()))
+interface CurrentIdentityPayload {
+  user_id: string
+  csrf_token: string
 }
 
 export async function login(username: string, password: string): Promise<Session> {
-  const session = await identityLogin({ username, password })
-
-  if (
-    !session ||
-    typeof session !== 'object' ||
-    typeof session.csrf_token !== 'string' ||
-    session.csrf_token === '' ||
-    typeof session.user_id !== 'string' ||
-    !UUID_V7_PATTERN.test(session.user_id) ||
-    typeof session.expires_at !== 'string' ||
-    !UTC_DATE_TIME_PATTERN.test(session.expires_at)
-  ) {
-    throw new ApiError(502, {
-      type: 'about:blank',
-      title: 'Invalid session response',
-      status: 502,
-    })
-  }
-
-  const restored: Session = {
-    csrf_token: session.csrf_token,
-    user_id: session.user_id,
-    expires_at: session.expires_at,
+  const response = await customFetch('/api/v1/identity/login', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json, application/problem+json',
+      'Content-Type': 'application/json',
+      'X-Correlation-ID': crypto.randomUUID(),
+    },
+    body: JSON.stringify({ username, password }),
+  })
+  const result = unwrap<IdentitySessionPayload>(response)
+  const session = normalizeLogin(result)
+  const stored: StoredSession = {
+    csrf_token: session.csrfToken,
+    user_id: session.userId,
+    expires_at: session.expiresAt,
     restricted: session.restricted,
-    principal: { user_id: session.user_id },
-    access_token: session.csrf_token,
   }
-  persistSessionMetadata(restored)
-  return restored
+  sessionStorage.setItem(SESSION_METADATA_KEY, JSON.stringify(stored))
+  return session
 }
 
-export async function getCurrentIdentity(): Promise<CurrentIdentity> {
-  return unwrapEnvelope<CurrentIdentity>(await generated.getCurrentIdentity(requestInit()))
-}
-
-export async function refreshIdentityCsrf(): Promise<{ csrf_token: string }> {
-  const body = unwrapEnvelope<{ csrf_token?: unknown }>(
-    await generated.refreshIdentityCsrf(requestInit()),
-  )
-  if (typeof body?.csrf_token !== 'string' || body.csrf_token === '') {
-    throw new ApiError(502, {
-      type: 'about:blank',
-      title: 'Invalid CSRF response',
-      status: 502,
-    })
+function normalizeLogin(result: IdentitySessionPayload): Session {
+  const { csrf_token, user_id, expires_at, restricted } = result
+  if (!isUuidV7(user_id) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(expires_at) || !csrf_token) {
+    throw new ApiError(502, { type: 'about:blank', title: 'Invalid login response', status: 502 })
   }
-  return { csrf_token: body.csrf_token }
+  return { csrfToken: csrf_token, userId: user_id, expiresAt: expires_at, restricted: Boolean(restricted) }
 }
 
 export async function restoreSession(): Promise<Session | null> {
-  const current = await getCurrentIdentity().catch((error: unknown) => {
-    if (error instanceof ApiError && [401, 403].includes(error.status)) return null
+  try {
+    const identity = unwrap<CurrentIdentityPayload>(
+      await customFetch('/api/v1/identity/me', {
+        method: 'GET',
+        headers: { Accept: 'application/json', 'X-Correlation-ID': crypto.randomUUID() },
+      }),
+    )
+    const csrf = unwrap<{ csrf_token: string }>(
+      await customFetch('/api/v1/identity/csrf', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Correlation-ID': crypto.randomUUID(),
+          'X-CSRF-Token': identity.csrf_token,
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+      }),
+    )
+    return {
+      csrfToken: csrf.csrf_token,
+      userId: identity.user_id,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      restricted: false,
+    }
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return null
     throw error
-  })
-  if (!current) return null
-
-  const csrf = await refreshIdentityCsrf()
-  const restored: Session = {
-    csrf_token: csrf.csrf_token,
-    user_id: current.principal.user_id,
-    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-    restricted: current.session.restricted,
-    principal: { user_id: current.principal.user_id },
-    access_token: csrf.csrf_token,
   }
-  persistSessionMetadata(restored)
-  return restored
 }
 
 export async function identityLogout(csrfToken: string): Promise<void> {
-  unwrapEmpty(await generated.identityLogout(requestInit(csrfToken, { command: true, idempotency: 'identity-logout' })))
+  try {
+    await customFetch('/api/v1/identity/logout', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json, application/problem+json',
+        'X-Correlation-ID': crypto.randomUUID(),
+        'X-CSRF-Token': csrfToken,
+        'Idempotency-Key': crypto.randomUUID(),
+      },
+    })
+  } catch {
+    // best-effort logout
+  } finally {
+    sessionStorage.removeItem(SESSION_METADATA_KEY)
+  }
 }
 
-export async function consumeIdentityActivation(
-  input: IdentityActivationInput,
-): Promise<void> {
-  unwrapEmpty(await generated.consumeIdentityActivation(input, requestInit()))
+export function storedSession(): Session | null {
+  const raw = sessionStorage.getItem(SESSION_METADATA_KEY)
+  if (!raw) return null
+  try {
+    const stored = JSON.parse(raw) as StoredSession
+    return {
+      csrfToken: stored.csrf_token,
+      userId: stored.user_id,
+      expiresAt: stored.expires_at,
+      restricted: Boolean(stored.restricted),
+    }
+  } catch {
+    return null
+  }
 }
 
-export async function changeIdentityPassword(
-  csrfToken: string,
-  input: IdentityCredentialChangeInput,
-): Promise<void> {
-  unwrapEmpty(
-    await generated.changeIdentityPassword(input, requestInit(csrfToken, { mutation: true })),
-  )
+export function clearStoredSession(): void {
+  sessionStorage.removeItem(SESSION_METADATA_KEY)
 }
 
-export async function issueIdentityActivation(
-  csrfToken: string,
-  accountId: string,
-): Promise<IdentityActivation> {
-  return unwrap<IdentityActivation>(
-    await generated.issueIdentityActivation(
-      accountId,
-      requestInit(csrfToken, { command: true, idempotency: 'identity-activation' }),
-    ),
-  )
+function isUuidV7(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)
 }

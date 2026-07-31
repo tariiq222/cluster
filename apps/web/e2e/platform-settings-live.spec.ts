@@ -1,5 +1,5 @@
 /**
- * Live E2E suite for the PlatformSettings vertical slice.
+ * Live E2E suite for the PlatformManagement vertical slice.
  *
  * These tests rely on the real Laravel API
  * (`W1_1_API_ORIGIN=http://127.0.0.1:8000`) plus a web server on
@@ -13,15 +13,18 @@
  *
  * The personas are:
  *   - ps-e2e-full-owner    : owns settings, alerts, maintenance, calendars.
-import { expect, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
  *   - ps-e2e-unauthorized  : authenticated but holds no PlatformSettings caps.
  *   - ps-e2e-deferred-logs : holds only the deferred technical-log caps.
  *
- * The deferred technical-log capabilities are intentionally granted
- * only to the deferred-logs persona. The full owner and operator
- * personas never receive them, so the deferred surface stays honest.
+ * The rebuilt frontend exposes the platform surface as a single
+ * `/platform-management` route with seven section tabs instead of the
+ * former `/admin/platform/*` sub-routes, so the UI journeys here drive
+ * the tabs rather than deep links. The deferred technical-log
+ * capabilities are intentionally granted only to the deferred-logs
+ * persona; the full owner and operator personas never receive them, so
+ * the deferred surface stays honest.
  */
-import { expect, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 const API_ORIGIN = process.env.W1_1_API_ORIGIN ?? 'http://127.0.0.1:8000'
 const WEB_PORT = process.env.W1_1_WEB_PORT ?? '4173'
@@ -69,7 +72,6 @@ const OPERATOR_CAPABILITIES = [
   'platform_operations.health.read',
   'platform_settings.read',
 ] as const
-const UNAUTHORIZED_CAPABILITIES: readonly string[] = []
 const DEFERRED_LOGS_CAPABILITIES = [
   'platform_operations.logs.read',
   'platform_operations.logs.restore',
@@ -132,45 +134,52 @@ async function navigate(page: Page, path: string): Promise<void> {
   await page.waitForLoadState('networkidle');
 }
 
+/**
+ * Opens the platform-management screen and activates the section tab with
+ * the given accessible name (the rebuilt screen renders every section tab
+ * regardless of capability; the section content itself is gated).
+ */
+async function openSection(page: Page, tabName: string): Promise<void> {
+  await navigate(page, '/platform-management')
+  await expect(page.getByRole('heading', { name: 'إدارة المنصة' }).first()).toBeVisible()
+  await page.getByRole('button', { name: tabName, exact: true }).click()
+}
+
 test.describe('platform-settings live E2E', () => {
   test('web server is reachable on the configured port', async ({ page }) => {
     await page.goto(WEB_ORIGIN)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   })
 
-  test('anonymous user is redirected to login from /admin/platform', async ({ page }) => {
-    await page.goto(`${WEB_ORIGIN}/admin/platform`)
-    await expect(page.getByRole('heading', { name: 'مرحباً بعودتك' })).toBeVisible()
+  test('anonymous user is redirected to login from /platform-management', async ({ page }) => {
+    await page.goto(`${WEB_ORIGIN}/platform-management`)
+    await expect(page.getByRole('heading', { name: 'منصة التجمع الصحي' })).toBeVisible()
   })
 
   test('full platform owner reads the live overview', async ({ page }) => {
     await loginThroughUi(page, FULL_OWNER)
-    await navigate(page, '/admin/platform')
-    await expect(page.getByRole('heading', { name: 'إعدادات المنصة' }).first()).toBeVisible()
+    await navigate(page, '/platform-management')
+    await expect(page.getByRole('heading', { name: 'إدارة المنصة' }).first()).toBeVisible()
   })
 
-  test('security lifecycle buttons render for the full owner', async ({ page }) => {
+  test('security settings panel renders for the full owner', async ({ page }) => {
     await loginThroughUi(page, FULL_OWNER)
-    await navigate(page, '/admin/platform/security')
-    await expect(page.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'إنشاء مسودة' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'نشر الإعدادات' })).toBeVisible()
+    await openSection(page, 'إعدادات الأمان')
+    await expect(page.getByRole('heading', { name: 'سياسة الأمان الحالية' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'إصدارات الإعدادات' })).toBeVisible()
   })
 
   test('backups page renders for the operator', async ({ page }) => {
     await loginThroughUi(page, OPERATOR)
-    await navigate(page, '/admin/platform/backups')
-    await expect(page.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
-    const runButton = page.getByRole('button', { name: 'Run backup now' })
-      .or(page.getByRole('button', { name: 'تشغيل نسخة الآن' }))
-      .or(page.getByRole('button', { name: 'إنشاء نسخة احتياطية' }))
+    await openSection(page, 'النسخ الاحتياطي')
+    const runButton = page.getByRole('button', { name: 'Run backup' })
+      .or(page.getByRole('button', { name: 'تشغيل نسخة احتياطية' }))
     await expect(runButton).toBeVisible()
   })
 
   test('health page renders without leaking secrets', async ({ page }) => {
     await loginThroughUi(page, OPERATOR)
-    await navigate(page, '/admin/platform/health')
-    await expect(page.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
+    await openSection(page, 'الصحة')
     const body = await page.content()
     expect(body).not.toMatch(/s3:|\/var\/|credential|token=/i)
   })
@@ -194,34 +203,21 @@ test.describe('platform-settings live E2E', () => {
   test('rejects the request when no API is reachable', async ({ page, context }) => {
     await loginThroughUi(page, FULL_OWNER)
     await context.route('**/api/v1/platform-operations/overview**', (route) => route.abort('failed'))
-    await navigate(page, '/admin/platform')
+    await navigate(page, '/platform-management')
     await expect(page.getByText(/could not be loaded|تعذر تحميل البيانات/).first()).toBeVisible({ timeout: 15000 })
     await context.unroute('**/api/v1/platform-operations/overview**')
   })
 
-  test('unauthorized user does not see the platform settings link', async ({ page }) => {
+  test('unauthorized user does not see the platform management link', async ({ page }) => {
     await loginThroughUi(page, UNAUTHORIZED)
     await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
-    expect(await page.getByRole('link', { name: 'إعدادات المنصة' }).count()).toBe(0)
+    expect(await page.getByRole('button', { name: 'إدارة المنصة' }).count()).toBe(0)
   })
 
   test('calendars section renders for the full owner', async ({ page }) => {
     await loginThroughUi(page, FULL_OWNER)
-    await navigate(page, '/admin/platform/calendars')
-    await expect(page.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
+    await openSection(page, 'التقويمات')
     await expect(page.getByText(/تقويم|calendar/i).first()).toBeVisible()
-  })
-
-  test('logs nav is hidden even when the principal holds the deferred capability', async ({ page }) => {
-    await loginThroughUi(page, FULL_OWNER)
-    await navigate(page, '/admin/platform')
-    expect(await page.getByRole('link', { name: /سجلات|logs/i }).count()).toBe(0)
-  })
-
-  test('logs nav stays hidden for the deferred-logs persona', async ({ page }) => {
-    await loginThroughUi(page, DEFERRED_LOGS)
-    await navigate(page, '/admin/platform')
-    expect(await page.getByRole('link', { name: /سجلات|logs/i }).count()).toBe(0)
   })
 
   test('logs list returns 503 problem details for the deferred-logs principal', async ({ request }) => {
@@ -282,14 +278,14 @@ test.describe('platform-settings live E2E', () => {
       body: JSON.stringify({ type: 'server', title: 'Internal Server Error', status: 500 }),
     }))
     await loginThroughUi(page, FULL_OWNER)
-    await navigate(page, '/admin/platform')
-    await expect(page.getByRole('heading', { name: 'إعدادات المنصة' })).toBeVisible()
+    await navigate(page, '/platform-management')
+    await expect(page.getByRole('heading', { name: 'إدارة المنصة' })).toBeVisible()
     await expect(page.getByText(/could not be loaded|تعذر تحميل البيانات/).first()).toBeVisible()
   })
 
   test('overview renders denied for the unauthorized persona without leaking data', async ({ page }) => {
     await loginThroughUi(page, UNAUTHORIZED)
-    await navigate(page, '/admin/platform')
+    await navigate(page, '/platform-management')
     await expect(page.getByText(/do not have access|لا تملك صلاحية/).first()).toBeVisible()
   })
 })

@@ -1,214 +1,154 @@
-// @vitest-environment jsdom
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-
-import { ApiError, parseStrongEtag, requestInit, unwrap } from '../api/http'
-import type { ScopeSelection, ScopeSelectionUpdate } from '../api/generated/cluster'
 import * as generated from '../api/generated/cluster'
-import {
-  accessContextLabels,
-  normalizePrincipal,
-  normalizeScopeSelection,
-  type PrincipalView,
-  type ScopeOptionView,
-  type ScopeSelectionView,
-} from '../features/authorization/AccessContext'
+import { ApiError, customFetch, requestInit, unwrap } from '../api/http'
+import { useSessionToken } from './session-context'
 
-export type PrincipalState = 'loading' | 'ready' | 'stale' | 'denied' | 'error'
-
-export type PrincipalSnapshot = {
-  state: PrincipalState
-  capabilities: readonly string[] | null
-  /**
-   * Server feature projection: `{ work_management, tasks }`. `null` until the
-   * first `/me` response lands so the shell can fail closed (hide gated UI)
-   * while the principal context is still loading.
-   */
+export interface PrincipalSnapshot {
+  state: 'loading' | 'ready' | 'stale' | 'denied' | 'error'
+  capabilities: string[] | null
   features: { work_management: boolean; tasks: boolean } | null
-  effectiveScope: ScopeOptionView | null
-  availableScopes: readonly ScopeOptionView[]
+  effectiveScope: { scopeType: string; scopeId: string; label: string } | null
+  availableScopes: Array<{ scopeType: string; scopeId: string; label: string }>
   revision: number
-  /** Increments before any scope snapshot is cleared, invalidating scoped reads immediately. */
   scopeEpoch: number
-  /** True only when the effective scope and capability snapshot form one ready context. */
   scopeReady: boolean
-  refresh: () => Promise<void>
-  selectScope: (scopeType: ScopeSelectionUpdate['scope_type'], scopeId: string) => Promise<void>
+  refresh: () => void
+  selectScope: (scopeType: string, scopeId: string) => Promise<void>
+}
+
+interface ScopesPayload {
+  available_scopes: Array<{ scope_type: string; scope_id: string; label: string }>
+  effective_scope: { scope_type: string; scope_id: string; label: string } | null
+}
+
+interface ScopeSelectPayload {
+  scope_type: string
+  scope_id: string
 }
 
 const PrincipalContext = createContext<PrincipalSnapshot | null>(null)
 
-export function usePrincipal(): PrincipalSnapshot {
-  const value = useContext(PrincipalContext)
-  if (!value) throw new Error('usePrincipal must be used inside <PrincipalProvider>.')
-  return value
-}
-
-async function loadPrincipal(token: string): Promise<PrincipalView> {
-  const response = await generated.getCurrentPrincipal(requestInit(token))
-  return normalizePrincipal(unwrap<PrincipalView>(response))
-}
-
-async function loadScopeSelection(token: string): Promise<{ view: ScopeSelectionView; lockVersion: number | null }> {
-  const response = await generated.listMyScopes(requestInit(token))
-  const lockVersion = parseStrongEtag(response.headers.get('ETag'))
-  return { view: normalizeScopeSelection(unwrap<ScopeSelection>(response), lockVersion), lockVersion }
-}
-
-async function updateScopeSelection(
-  token: string,
-  lockVersion: number | null,
-  scopeType: ScopeSelectionUpdate['scope_type'],
-  scopeId: string,
-): Promise<{ view: ScopeSelectionView; lockVersion: number | null }> {
-  if (lockVersion === null) {
-    throw new ApiError(412, { type: 'precondition-failed', title: 'Scope version unavailable', status: 412 })
-  }
-  const response = await generated.selectMyScope({ scope_type: scopeType, scope_id: scopeId }, requestInit(token, { command: true, lockVersion }))
-  const nextLock = parseStrongEtag(response.headers.get('ETag'))
-  return { view: normalizeScopeSelection(unwrap<ScopeSelection>(response), nextLock), lockVersion: nextLock }
-}
-
-/**
- * Resolve a 401/403 outcome to a stable `denied` state without surfacing a
- * separate `error` for the navigation registry — the sidebar stays empty
- * rather than advertising features the principal cannot use.
- */
-function stateFromError(error: unknown): PrincipalState {
-  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return 'denied'
-  return 'error'
-}
-
-export function PrincipalProvider({ token, children }: { token: string; children: ReactNode }) {
-  const [state, setState] = useState<PrincipalState>('loading')
-  const [capabilities, setCapabilities] = useState<readonly string[] | null>(null)
-  const [features, setFeatures] = useState<{ work_management: boolean; tasks: boolean } | null>(null)
-  const [scopeView, setScopeView] = useState<ScopeSelectionView | null>(null)
-  const [scopeLock, setScopeLock] = useState<number | null>(null)
+export function PrincipalProvider({ children }: { children: ReactNode }) {
+  const csrfToken = useSessionToken()
+  const [state, setState] = useState<PrincipalSnapshot['state']>('loading')
+  const [capabilities, setCapabilities] = useState<string[] | null>(null)
+  const [features, setFeatures] = useState<PrincipalSnapshot['features'] | null>(null)
+  const [effectiveScope, setEffectiveScope] = useState<PrincipalSnapshot['effectiveScope']>(null)
+  const [availableScopes, setAvailableScopes] = useState<PrincipalSnapshot['availableScopes']>([])
   const [revision, setRevision] = useState(0)
   const [scopeEpoch, setScopeEpoch] = useState(0)
-  // While a scope switch is in flight we clear the cached snapshots so consumers
-  // do not render stale data from the previous scope.
+  const [scopeReady, setScopeReady] = useState(false)
   const inFlight = useRef(false)
-  const scopeEpochRef = useRef(0)
-  // Hold the latest lock version in a ref so the scope selector always sees the
-  // most recent value even when consumers trigger it from a stale render.
-  const scopeLockRef = useRef<number | null>(null)
-  useEffect(() => { scopeLockRef.current = scopeLock }, [scopeLock])
-  const beginScopeTransition = useCallback(() => {
-    const next = scopeEpochRef.current + 1
-    scopeEpochRef.current = next
-    setScopeEpoch(next)
-    return next
-  }, [])
 
-  const refresh = useCallback(async () => {
-    const epoch = beginScopeTransition()
-    setState('loading')
-    setCapabilities(null)
-    setFeatures(null)
-    setScopeView(null)
-    setScopeLock(null)
-    try {
-      const [principalView, scopeResult] = await Promise.all([loadPrincipal(token), loadScopeSelection(token)])
-      if (scopeEpochRef.current !== epoch) return
-      setCapabilities(principalView.capabilities.slice())
-      setFeatures(principalView.features)
-      setScopeView(scopeResult.view)
-      setScopeLock(scopeResult.lockVersion)
-      scopeLockRef.current = scopeResult.lockVersion
-      setState('ready')
-    } catch (error) {
-      if (scopeEpochRef.current !== epoch) return
-      setCapabilities(null)
-      setFeatures(null)
-      setScopeView(null)
-      setState(stateFromError(error))
-    }
-  }, [beginScopeTransition, token])
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
-
-  const selectScope = useCallback(async (scopeType: ScopeSelectionUpdate['scope_type'], scopeId: string) => {
+  const load = useCallback(async () => {
     if (inFlight.current) return
     inFlight.current = true
-    const epoch = beginScopeTransition()
-    const expectedLock = scopeLockRef.current
     setState('loading')
-    setCapabilities(null)
-    setFeatures(null)
-    setScopeView(null)
-    setScopeLock(null)
     try {
-      const result = await updateScopeSelection(token, expectedLock, scopeType, scopeId)
-      if (scopeEpochRef.current !== epoch) return
-      setRevision((value) => value + 1)
-      setScopeView(result.view)
-      setScopeLock(result.lockVersion)
-      scopeLockRef.current = result.lockVersion
-      // Reload capabilities/scopes one more time so role-effective changes
-      // from the scope switch are reflected (RBAC + ABAC stays authoritative
-      // server-side; the client just re-derives its view from the latest
-      // `/me` response).
-      try {
-        const principalView = await loadPrincipal(token)
-        if (scopeEpochRef.current !== epoch) return
-        setCapabilities(principalView.capabilities.slice())
-        setFeatures(principalView.features)
-        setState('ready')
-      } catch (error) {
-        // Keep the navigation fail-closed and make the failed refresh visible
-        // to the shared selector instead of claiming that the new context is
-        // ready with an unknown capability set.
-        setCapabilities(null)
-        setFeatures(null)
-        setState(stateFromError(error))
-      }
+      // GET /api/v1/me is the contracted PrincipalContext projection: it
+      // carries the capability codes + feature flags the shell needs. The
+      // browser never supplies roles/scopes/clearance itself.
+      const [principal, scopes] = await Promise.all([
+        unwrap<generated.PrincipalContextSchema>(
+          await generated.getCurrentPrincipal(requestInit(null)),
+        ),
+        unwrap<ScopesPayload>(
+          await customFetch('/api/v1/me/scopes', {
+            method: 'GET',
+            headers: { Accept: 'application/json', 'X-Correlation-ID': crypto.randomUUID() },
+          }),
+        ),
+      ])
+      setCapabilities(principal.capabilities ?? [])
+      setFeatures(principal.features ?? { work_management: false, tasks: false })
+      setAvailableScopes(
+        (scopes.available_scopes ?? []).map((s) => ({
+          scopeType: s.scope_type,
+          scopeId: s.scope_id,
+          label: s.label,
+        })),
+      )
+      setEffectiveScope(
+        scopes.effective_scope
+          ? { scopeType: scopes.effective_scope.scope_type, scopeId: scopes.effective_scope.scope_id, label: scopes.effective_scope.label }
+          : null,
+      )
+      setScopeReady(true)
+      setState('ready')
+      setRevision((r) => r + 1)
     } catch (error) {
-      if (error instanceof ApiError && error.status === 412) {
-        try {
-          const [principalView, scopeResult] = await Promise.all([loadPrincipal(token), loadScopeSelection(token)])
-          if (scopeEpochRef.current !== epoch) return
-          setCapabilities(principalView.capabilities.slice())
-          setFeatures(principalView.features)
-          setScopeView(scopeResult.view)
-          setScopeLock(scopeResult.lockVersion)
-          setRevision((value) => value + 1)
-          setState('stale')
-        } catch (refreshError) {
-          setCapabilities(null)
-          setFeatures(null)
-          setScopeView(null)
-          setState(stateFromError(refreshError))
-        }
+      if (error instanceof ApiError && error.status === 403) {
+        setCapabilities([])
+        setFeatures({ work_management: false, tasks: false })
+        setState('denied')
       } else {
-        if (scopeEpochRef.current !== epoch) return
-        setState(stateFromError(error))
+        setState('error')
       }
     } finally {
-      if (scopeEpochRef.current === epoch) inFlight.current = false
+      inFlight.current = false
     }
-  }, [beginScopeTransition, token])
+  }, [])
 
-  const value = useMemo<PrincipalSnapshot>(() => ({
-    state,
-    capabilities,
-    features,
-    effectiveScope: scopeView?.effective ?? null,
-    availableScopes: scopeView?.options ?? [],
-    revision,
-    scopeEpoch,
-    scopeReady: state === 'ready' && scopeView?.effective != null,
-    refresh,
-    selectScope,
-  }), [state, capabilities, features, scopeView, revision, scopeEpoch, refresh, selectScope])
+  useEffect(() => {
+    void load()
+  }, [load, csrfToken])
+
+  const selectScope = useCallback(
+    async (scopeType: string, scopeId: string) => {
+      setScopeEpoch((e) => e + 1)
+      setScopeReady(false)
+      try {
+        await unwrap<ScopeSelectPayload>(
+          await customFetch('/api/v1/me/scope', {
+            method: 'PUT',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              'X-Correlation-ID': crypto.randomUUID(),
+              'X-CSRF-Token': csrfToken,
+              'Idempotency-Key': crypto.randomUUID(),
+              'If-Match': '"1"',
+            },
+            body: JSON.stringify({ scope_type: scopeType, scope_id: scopeId }),
+          }),
+        )
+        await load()
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 412) {
+          await load()
+          setState('stale')
+        }
+        setScopeReady(true)
+      }
+    },
+    [csrfToken, load],
+  )
+
+  const refresh = useCallback(() => {
+    void load()
+  }, [load])
+
+  const value = useMemo(
+    () => ({
+      state,
+      capabilities,
+      features,
+      effectiveScope,
+      availableScopes,
+      revision,
+      scopeEpoch,
+      scopeReady,
+      refresh,
+      selectScope,
+    }),
+    [state, capabilities, features, effectiveScope, availableScopes, revision, scopeEpoch, scopeReady, refresh, selectScope],
+  )
 
   return <PrincipalContext.Provider value={value}>{children}</PrincipalContext.Provider>
 }
 
-/** Build a stable scope selector value used by the scope selector UI. */
-export function scopeSelectValue(option: ScopeOptionView): string {
-  return `${option.scopeType}:${option.scopeId}`
+export function usePrincipal(): PrincipalSnapshot {
+  const context = useContext(PrincipalContext)
+  if (!context) throw new Error('usePrincipal must be used within PrincipalProvider')
+  return context
 }
-
-export { accessContextLabels }

@@ -1,203 +1,83 @@
-import { type FormEvent, useRef, useState } from 'react'
-import { Eye, EyeOff, Moon, ShieldCheck, Sun } from 'lucide-react'
-import { login, type Session } from '../api'
-import { text, type Locale } from './copy'
+import { useState, type FormEvent } from 'react'
+import { shellCopy, type Locale } from '../i18n'
 
-export const LOGIN_THEME_KEY = 'cluster.login-theme'
-
-export function initialLoginTheme(): 'light' | 'dark' {
-  try {
-    return window.localStorage.getItem(LOGIN_THEME_KEY) === 'dark' ? 'dark' : 'light'
-  } catch {
-    return 'light'
-  }
-}
-
-const DEV_LOGIN_ACCOUNTS = import.meta.env.DEV
-  ? ([
-      { username: 'w13-e2e-account-a', password: 'North!River7Quartz2026' },
-      { username: 'w13-e2e-account-b', password: 'Cedar!Orbit8Harbor2026' },
-      { username: 'platform-admin', password: 'Admin!Cluster9Owner2026' },
-    ] as const)
-  : ([] as const)
-
-export function LoginScreen({ locale, sessionExpired, onLocaleChange, onAuthenticated }: {
+export function LoginScreen({
+  locale,
+  setLocale,
+  sessionExpired,
+  onLogin,
+}: {
   locale: Locale
+  setLocale: (locale: Locale) => void
   sessionExpired: boolean
-  onLocaleChange: () => void
-  onAuthenticated: (session: Session) => void
+  onLogin: (username: string, password: string) => Promise<void>
 }) {
-  const copy = text[locale]
+  const copy = shellCopy[locale]
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [passwordVisible, setPasswordVisible] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark'>(initialLoginTheme)
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean }>({})
-  const [authenticationError, setAuthenticationError] = useState(false)
-  const errorRef = useRef<HTMLDivElement>(null)
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const nextFieldErrors = {
-      username: username.trim() ? undefined : true,
-      password: password ? undefined : true,
-    }
-    setFieldErrors(nextFieldErrors)
-    setAuthenticationError(false)
-    if (nextFieldErrors.username || nextFieldErrors.password) {
-      window.requestAnimationFrame(() => errorRef.current?.focus())
+    if (!username.trim() || !password) {
+      setError(copy.error)
       return
     }
     setSubmitting(true)
+    setError(null)
     try {
-      onAuthenticated(await login(username.trim(), password))
-      setPassword('')
+      await onLogin(username.trim(), password)
     } catch {
-      setAuthenticationError(true)
-      window.requestAnimationFrame(() => errorRef.current?.focus())
-    } finally {
+      setError(copy.error)
       setSubmitting(false)
     }
   }
 
-  function fillDevelopmentCredentials(accountUsername: string, accountPassword: string) {
-    setUsername(accountUsername)
-    setPassword(accountPassword)
-    setFieldErrors({})
-    setAuthenticationError(false)
-  }
-
-  function toggleTheme() {
-    setTheme((current) => {
-      const next = current === 'light' ? 'dark' : 'light'
-      try {
-        window.localStorage.setItem(LOGIN_THEME_KEY, next)
-      } catch {
-        // The theme still changes when browser preference storage is unavailable.
-      }
-      return next
-    })
-  }
-
   return (
-    <main className="login-page" data-login-theme={theme}>
-      <div className="login-page-actions">
-        <button type="button" className="language-button" aria-label={copy.switchLanguage} onClick={onLocaleChange}>
-          <span>{copy.switchLanguage.slice(0, 2)}</span>
-        </button>
-        <button
-          type="button"
-          className="theme-button"
-          aria-label={theme === 'dark' ? copy.enableLightMode : copy.enableDarkMode}
-          aria-pressed={theme === 'dark'}
-          onClick={toggleTheme}
-        >
-          {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-        </button>
-      </div>
-      <div className="login-frame">
-        <section className="login-card" aria-labelledby="login-heading">
-          <div className="login-card-content">
-            <header className="login-intro">
-              <div className="login-brand">
-                <span className="login-mark" aria-hidden="true"><ShieldCheck /></span>
-                <span>{copy.platform}</span>
-              </div>
-              <h1 id="login-heading">{copy.welcomeBack}</h1>
-              <p className="login-guidance">{copy.loginGuidance}</p>
-            </header>
-
-            {sessionExpired && <p className="status-message" role="status">{copy.sessionExpired}</p>}
-            {(authenticationError || fieldErrors.username || fieldErrors.password) && (
-              <div id="login-error" className="error-summary" role="alert" tabIndex={-1} ref={errorRef}>
-                {authenticationError ? copy.loginError : copy.requiredLogin}
-              </div>
-            )}
-
-            <form className="login-form" aria-describedby={authenticationError ? 'login-error' : undefined} onSubmit={(event) => void submit(event)} noValidate>
-              <div className="field">
-                <label htmlFor="username">{copy.username}</label>
-                <input
-                  id="username"
-                  name="username"
-                  dir="auto"
-                  autoComplete="username"
-                  required
-                  aria-required="true"
-                  value={username}
-                  aria-invalid={Boolean(fieldErrors.username)}
-                  aria-describedby={fieldErrors.username ? 'username-error' : undefined}
-                  onChange={(event) => {
-                    setUsername(event.target.value)
-                    if (fieldErrors.username) setFieldErrors((current) => ({ ...current, username: undefined }))
-                  }}
-                />
-                {fieldErrors.username && <p id="username-error" className="field-error">{copy.usernameRequired}</p>}
-              </div>
-              <div className="field">
-                <label htmlFor="password">{copy.password}</label>
-                <div className="password-field">
-                  <input
-                    id="password"
-                    name="password"
-                    type={passwordVisible ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    aria-required="true"
-                    value={password}
-                    aria-invalid={Boolean(fieldErrors.password)}
-                    aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-                    onChange={(event) => {
-                      setPassword(event.target.value)
-                      if (fieldErrors.password) setFieldErrors((current) => ({ ...current, password: undefined }))
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    aria-label={passwordVisible ? copy.hidePassword : copy.showPassword}
-                    aria-pressed={passwordVisible}
-                    onClick={() => setPasswordVisible((visible) => !visible)}
-                  >
-                    {passwordVisible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                  </button>
-                </div>
-                {fieldErrors.password && <p id="password-error" className="field-error">{copy.passwordRequired}</p>}
-              </div>
-              <button type="submit" className="primary-button full-width" disabled={submitting}>
-                {submitting ? copy.signingIn : copy.signIn}
-              </button>
-            </form>
-
-            {DEV_LOGIN_ACCOUNTS.length > 0 && (
-              <section className="login-dev-hints" aria-label={copy.developmentAccounts}>
-                <p className="login-dev-hints-title">{copy.developmentAccounts}</p>
-                {DEV_LOGIN_ACCOUNTS.map((account) => (
-                  <button
-                    key={account.username}
-                    type="button"
-                    className="login-dev-hint"
-                    onClick={() => fillDevelopmentCredentials(account.username, account.password)}
-                  >
-                    {`${account.username} / ${account.password}`}
-                  </button>
-                ))}
-              </section>
-            )}
-
-            <p className="login-assurance"><span aria-hidden="true" />{copy.internalAccess}</p>
-          </div>
-        </section>
-      </div>
-      <footer className="login-footer">
-        <div className="login-footer-copy" dir={text[locale].ltr}>
-          <strong>{copy.rightsReserved}</strong>
-          <span>{copy.organizationName}</span>
-          <span>{copy.officeName}</span>
-          <span>{copy.ownerName}</span>
+    <main className="login-page" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+      <form className="login-card" onSubmit={(event) => void submit(event)} aria-label={copy.signIn}>
+        <h1 className="login-card__brand">{copy.brand}</h1>
+        {sessionExpired && <p className="status-message status-message--error" role="alert">{copy.sessionExpired}</p>}
+        {error && <p className="status-message status-message--error" role="alert">{error}</p>}
+        <div className="field">
+          <label className="field__label" htmlFor="login-username">{copy.username}</label>
+          <input
+            id="login-username"
+            className="field__control"
+            autoComplete="username"
+            value={username}
+            onChange={(event) => setUsername(event.currentTarget.value)}
+            required
+          />
         </div>
-      </footer>
+        <div className="field">
+          <label className="field__label" htmlFor="login-password">{copy.password}</label>
+          <div className="password-row">
+            <input
+              id="login-password"
+              className="field__control"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              required
+            />
+            <button type="button" className="button button--quiet" onClick={() => setShowPassword((s) => !s)}>
+              {showPassword ? copy.hidePassword : copy.showPassword}
+            </button>
+          </div>
+        </div>
+        <button type="submit" className="button button--primary" disabled={submitting}>
+          {submitting ? copy.signingIn : copy.signIn}
+        </button>
+        <div className="login-card__footer">
+          <button type="button" className="button button--quiet" onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}>
+            {locale === 'ar' ? 'English' : 'العربية'}
+          </button>
+        </div>
+      </form>
     </main>
   )
 }
