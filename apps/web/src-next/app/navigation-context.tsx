@@ -1,15 +1,9 @@
-import { createContext, useContext } from 'react'
+import { useNavigate as useRouterNavigate } from 'react-router-dom'
 
-export interface ScreenProps {
-  navigate: (path: string) => void
-}
-
-const NavigationContext = createContext<(path: string) => void>(() => {})
-
-export function NavigationProvider({ navigate, children }: { navigate: (path: string) => void; children: React.ReactNode }) {
-  return <NavigationContext.Provider value={navigate}>{children}</NavigationContext.Provider>
-}
-
+/**
+ * Thin adapter over React Router's useNavigate so feature screens keep the
+ * same `useNavigate(): (path: string) => void` contract.
+ */
 export function useNavigate(): (path: string) => void {
-  return useContext(NavigationContext)
+  return useRouterNavigate()
 }

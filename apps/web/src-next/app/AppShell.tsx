@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { usePrincipal } from './principal-context'
 import { useLocale, useSetLocale } from './session-context'
 import { shellCopy } from '../i18n'
-import { pathFromRoute, routeFromPath, type AppRoute, type RouteName } from '../routes'
-import { WorkspaceContent } from './WorkspaceContent'
 
 export interface NavEntry {
-  route: RouteName
-  label: string
   path: string
+  label: string
 }
 
 export function AppShell({ onLogout }: { onLogout: () => void }) {
@@ -16,20 +14,9 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
   const setLocale = useSetLocale()
   const copy = shellCopy[locale]
   const principal = usePrincipal()
-  const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname))
+  const navigate = useNavigate()
+  const location = useLocation()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-
-  const navigate = useCallback((path: string) => {
-    window.history.pushState({}, '', path)
-    setRoute(routeFromPath(path))
-    setMobileNavOpen(false)
-  }, [])
-
-  useEffect(() => {
-    const onPopState = () => setRoute(routeFromPath(window.location.pathname))
-    window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
-  }, [])
 
   const capabilities = principal.capabilities ?? []
   const features = principal.features ?? { work_management: false, tasks: false }
@@ -37,26 +24,26 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
   const navEntries: NavEntry[] = useMemo(() => {
     const can = (cap: string) => capabilities.includes(cap)
     const entries: NavEntry[] = [
-      { route: 'home', label: copy.home, path: '/' },
-      ...(features.tasks && can('tasks.list') ? [{ route: 'tasks' as RouteName, label: copy.tasks, path: '/tasks' }] : []),
-      ...(can('documents.list') ? [{ route: 'documents' as RouteName, label: copy.documents, path: '/documents' }] : []),
+      { path: '/', label: copy.home },
+      ...(features.tasks && can('tasks.list') ? [{ path: '/tasks', label: copy.tasks }] : []),
+      ...(can('documents.list') ? [{ path: '/documents', label: copy.documents }] : []),
       ...(can('organization.cluster.read') || can('organization.facility.read')
-        ? [{ route: 'organization' as RouteName, label: copy.organization, path: '/organization' }]
+        ? [{ path: '/organization', label: copy.organization }]
         : []),
       ...(can('identity.account.read') || can('authorization.role.read')
-        ? [{ route: 'accounts-permissions' as RouteName, label: copy.accountsPermissions, path: '/accounts-permissions' }]
+        ? [{ path: '/accounts-permissions', label: copy.accountsPermissions }]
         : []),
       ...(can('reporting.read') || can('audit.event.read')
-        ? [{ route: 'reports-monitoring' as RouteName, label: copy.reportsMonitoring, path: '/reports-monitoring' }]
+        ? [{ path: '/reports-monitoring', label: copy.reportsMonitoring }]
         : []),
       ...(can('platform_settings.read') || can('platform_operations.health.read')
-        ? [{ route: 'platform-management' as RouteName, label: copy.platformManagement, path: '/platform-management' }]
+        ? [{ path: '/platform-management', label: copy.platformManagement }]
         : []),
     ]
     return entries
   }, [capabilities, features, copy])
 
-  const currentName = route.name
+  const currentPath = location.pathname
 
   return (
     <div className="shell">
@@ -65,11 +52,14 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
         <nav className="shell__nav" aria-label={copy.menu}>
           {navEntries.map((entry) => (
             <button
-              key={entry.route}
+              key={entry.path}
               type="button"
-              className={`shell__nav-item${currentName === entry.route ? ' shell__nav-item--active' : ''}`}
-              aria-current={currentName === entry.route ? 'page' : undefined}
-              onClick={() => navigate(entry.path)}
+              className={`shell__nav-item${currentPath === entry.path ? ' shell__nav-item--active' : ''}`}
+              aria-current={currentPath === entry.path ? 'page' : undefined}
+              onClick={() => {
+                navigate(entry.path)
+                setMobileNavOpen(false)
+              }}
             >
               {entry.label}
             </button>
@@ -86,11 +76,7 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
           {principal.effectiveScope && (
             <span className="status-badge status-badge--info">{principal.effectiveScope.label}</span>
           )}
-          <button
-            type="button"
-            className="button button--quiet"
-            onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
-          >
+          <button type="button" className="button button--quiet" onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}>
             {locale === 'ar' ? 'English' : 'العربية'}
           </button>
           <button type="button" className="button button--quiet" onClick={onLogout}>
@@ -98,11 +84,9 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
           </button>
         </header>
         <main className="shell__content">
-          <WorkspaceContent route={route} navigate={navigate} />
+          <Outlet />
         </main>
       </div>
     </div>
   )
 }
-
-export { pathFromRoute }

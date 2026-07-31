@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import { RouterProvider } from 'react-router-dom'
 import { clearStoredSession, identityLogout, login, restoreSession, storedSession, type Session } from '../api/session'
 import { registerSessionExpiredHandler } from '../api/http'
 import { directionForLocale, initialLocale, shellCopy, LOCALE_KEY, type Locale } from '../i18n'
 import { LoginScreen } from './LoginScreen'
-import { SessionProvider } from './session-context'
-import { PrincipalProvider } from './principal-context'
-import { AppShell } from './AppShell'
+import { router } from '../router'
 
 export function App() {
   const [locale, setLocaleState] = useState<Locale>(initialLocale)
@@ -57,15 +56,12 @@ export function App() {
     document.documentElement.dir = directionForLocale(locale)
   }, [locale])
 
-  const handleLogin = useCallback(
-    async (username: string, password: string) => {
-      const next = await login(username, password)
-      setSessionExpired(false)
-      setSession(next)
-      setAuthChecked(true)
-    },
-    [],
-  )
+  const handleLogin = useCallback(async (username: string, password: string) => {
+    const next = await login(username, password)
+    setSessionExpired(false)
+    setSession(next)
+    setAuthChecked(true)
+  }, [])
 
   const handleLogout = useCallback(() => {
     const current = storedSession()
@@ -86,11 +82,5 @@ export function App() {
     return <LoginScreen locale={locale} setLocale={setLocale} sessionExpired={sessionExpired} onLogin={handleLogin} />
   }
 
-  return (
-    <SessionProvider session={session} locale={locale} setLocale={setLocale}>
-      <PrincipalProvider>
-        <AppShell onLogout={handleLogout} />
-      </PrincipalProvider>
-    </SessionProvider>
-  )
+  return <RouterProvider router={router({ session, locale, setLocale, onLogout: handleLogout })} />
 }
