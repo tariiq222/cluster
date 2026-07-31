@@ -34,6 +34,7 @@ use Modules\Documents\Infrastructure\Security\StreamSocketClamAvTransport;
 use Modules\Documents\Infrastructure\Security\UnavailableMalwareScanner;
 use Modules\Documents\Infrastructure\Storage\S3\DeterministicObjectKeyResolver;
 use Modules\Documents\Infrastructure\Storage\S3\GuzzleS3RequestExecutor;
+use Modules\Documents\Infrastructure\Storage\S3\GuzzleStreamingS3RequestExecutor;
 use Modules\Documents\Infrastructure\Storage\S3\ObjectKeyResolver;
 use Modules\Documents\Infrastructure\Storage\S3\QuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\S3\S3CompatibleConfiguration;
@@ -41,7 +42,10 @@ use Modules\Documents\Infrastructure\Storage\S3\S3CompatiblePrivateObjectStorage
 use Modules\Documents\Infrastructure\Storage\S3\S3DocumentDownloadGrantIssuer;
 use Modules\Documents\Infrastructure\Storage\S3\S3QuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\S3\S3RequestExecutor;
+use Modules\Documents\Infrastructure\Storage\S3\S3StreamingQuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\S3\SigV4RequestSigner;
+use Modules\Documents\Infrastructure\Storage\S3\StreamingS3RequestExecutor;
+use Modules\Documents\Infrastructure\Storage\StreamingQuarantineObjectByteSource;
 use Modules\Documents\Infrastructure\Storage\UnavailablePrivateObjectStorage;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
@@ -76,12 +80,14 @@ final class DocumentsServiceProvider extends ServiceProvider
         $this->app->singleton(ClamAvConfiguration::class, fn (): ClamAvConfiguration => ClamAvConfiguration::fromEnvironment(! $this->documentsRuntimeEnabled()));
         $this->app->bind(ObjectKeyResolver::class, DeterministicObjectKeyResolver::class);
         $this->app->singleton(S3RequestExecutor::class, fn (): S3RequestExecutor => new GuzzleS3RequestExecutor(new Client));
+        $this->app->singleton(StreamingS3RequestExecutor::class, fn (): StreamingS3RequestExecutor => new GuzzleStreamingS3RequestExecutor(new Client));
         $this->app->singleton(SigV4RequestSigner::class, function (): SigV4RequestSigner {
             $configuration = $this->app->make(S3CompatibleConfiguration::class);
 
             return new SigV4RequestSigner($configuration->region, $configuration->accessKeyId, $configuration->secretAccessKey);
         });
         $this->app->bind(QuarantineObjectByteSource::class, S3QuarantineObjectByteSource::class);
+        $this->app->bind(StreamingQuarantineObjectByteSource::class, S3StreamingQuarantineObjectByteSource::class);
         $this->app->singleton(ClamAvSocketTransport::class, function (): ClamAvSocketTransport {
             $configuration = $this->app->make(ClamAvConfiguration::class);
 
@@ -108,7 +114,7 @@ final class DocumentsServiceProvider extends ServiceProvider
             }
 
             return new ClamAvMalwareScanner(
-                $this->app->make(QuarantineObjectByteSource::class),
+                $this->app->make(StreamingQuarantineObjectByteSource::class),
                 $this->app->make(ClamAvSocketTransport::class),
                 $configuration->engineName,
                 $configuration->signatureVersion,

@@ -3,17 +3,27 @@
 namespace Modules\Documents\Tests\Infrastructure\Security;
 
 use Modules\Documents\Infrastructure\Security\ClamAvSocketTransport;
+use Modules\Documents\Infrastructure\Storage\QuarantineByteChunkReader;
 
+/**
+ * Records the chunks the transport observed and the total bytes consumed.
+ * Used by tests that need to assert that the scanner handed the transport
+ * the right byte sequence without materialising it.
+ */
 final class RecordingTransport implements ClamAvSocketTransport
 {
-    public string $lastPayload = '';
+    /** @var list<string> */
+    public array $observedChunks = [];
 
-    public int $lastChunkBytes = 0;
+    public int $totalBytes = 0;
 
-    public function instream(string $payload, int $chunkBytes): string
+    public function instream(QuarantineByteChunkReader $reader): string
     {
-        $this->lastPayload = $payload;
-        $this->lastChunkBytes = $chunkBytes;
+        while (($chunk = $reader->readChunk()) !== null) {
+            $this->observedChunks[] = $chunk;
+            $this->totalBytes += strlen($chunk);
+        }
+        $reader->close();
 
         return 'stream: OK';
     }
