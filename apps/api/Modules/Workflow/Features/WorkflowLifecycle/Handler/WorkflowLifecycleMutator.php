@@ -182,12 +182,15 @@ final class WorkflowLifecycleMutator
         try {
             $now = now();
             $updatedStep = DB::transaction(function () use ($step, $instance, $expectedVersion, $newState, $now, $decision, $reason, $principalId, $correlationId, $idempotency): array {
-                DB::table('workflow_step_instances')->where('id', $step['id'])->where('lock_version', $expectedVersion)->update([
+                $stepUpdated = DB::table('workflow_step_instances')->where('id', $step['id'])->where('lock_version', $expectedVersion)->update([
                     'state' => $newState,
                     'completed_at' => in_array($newState, ['completed', 'rejected'], true) ? $now : null,
                     'lock_version' => ((int) $expectedVersion) + 1,
                     'updated_at' => $now,
                 ]);
+                if ($stepUpdated !== 1) {
+                    throw new \RuntimeException('workflow_step_version_stale');
+                }
                 if ($newState === 'completed' && $instance !== null) {
                     $open = DB::table('workflow_step_instances')->where('workflow_instance_id', $instance['id'])->whereNotIn('state', ['completed', 'cancelled'])->where('id', '!=', $step['id'])->count();
                     if ($open === 0) {
@@ -245,7 +248,10 @@ final class WorkflowLifecycleMutator
                 if ($stepAction === 'reassign') {
                     $updates['assignee_user_id'] = $targetUserId;
                 }
-                DB::table('workflow_step_instances')->where('id', $step['id'])->where('lock_version', $expectedVersion)->update($updates);
+                $stepUpdated = DB::table('workflow_step_instances')->where('id', $step['id'])->where('lock_version', $expectedVersion)->update($updates);
+                if ($stepUpdated !== 1) {
+                    throw new \RuntimeException('workflow_step_version_stale');
+                }
                 $this->outbox->append(Str::uuid7()->toString(), (string) $step['workflow_instance_id'], 'workflow.step.'.$stepAction.'.v1', [
                     'workflow_step_id' => (string) $step['id'],
                     'target_user_id' => $targetUserId,
@@ -277,12 +283,15 @@ final class WorkflowLifecycleMutator
         try {
             $now = now();
             $cancelled = DB::transaction(function () use ($instance, $expectedVersion, $now, $reason, $principalId, $correlationId, $idempotency): array {
-                DB::table('workflow_instances')->where('id', $instance['id'])->where('lock_version', $expectedVersion)->update([
+                $instanceUpdated = DB::table('workflow_instances')->where('id', $instance['id'])->where('lock_version', $expectedVersion)->update([
                     'state' => 'cancelled',
                     'completed_at' => $now,
                     'lock_version' => ((int) $expectedVersion) + 1,
                     'updated_at' => $now,
                 ]);
+                if ($instanceUpdated !== 1) {
+                    throw new \RuntimeException('workflow_instance_version_stale');
+                }
                 DB::table('workflow_step_instances')->where('workflow_instance_id', $instance['id'])->whereNotIn('state', ['completed', 'cancelled'])->update([
                     'state' => 'cancelled',
                     'updated_at' => $now,

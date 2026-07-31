@@ -192,7 +192,10 @@ final class WorkflowAtomicityTest extends TestCase
         $beforeOutbox = DB::table('outbox_events')->count();
 
         try {
-            (new WorkflowStepAdvancer($this->failingOutbox()))->taskCompleted(
+            (new WorkflowStepAdvancer(
+                $this->failingOutbox(),
+                $this->app->make(\Modules\Workflow\Features\Engine\Handler\AdvanceAfterDecision::class),
+            ))->taskCompleted(
                 (string) $step->id,
                 Str::uuid7()->toString(),
                 self::ACTOR,
@@ -209,6 +212,101 @@ final class WorkflowAtomicityTest extends TestCase
         $this->assertSame($instance['state'], $currentInstance->state);
         $this->assertSame((int) $instance['lock_version'], (int) $currentInstance->lock_version);
         $this->assertSame($beforeOutbox, DB::table('outbox_events')->count());
+    }
+
+    public function test_task_completion_advances_multi_step_workflow_without_closing_instance(): void
+    {
+        [$instance, $step] = $this->startMultiStepWorkflow();
+
+        $result = $this->app->make(WorkflowStepAdvancer::class)->taskCompleted(
+            (string) $step->id,
+            Str::uuid7()->toString(),
+            self::ACTOR,
+        );
+
+        $steps = DB::table('workflow_step_instances')
+            ->where('workflow_instance_id', $instance['id'])
+            ->orderBy('created_at')
+            ->get();
+        $this->assertSame('completed', $result['state']);
+        $this->assertSame('running', $result['instance_state']);
+        $this->assertCount(2, $steps);
+        $this->assertSame('completed', $steps[0]->state);
+        $this->assertSame('step-2', $steps[1]->node_key);
+        $this->assertSame('waiting', $steps[1]->state);
+        $this->assertSame('running', DB::table('workflow_instances')->where('id', $instance['id'])->value('state'));
+    }
+
+    public function test_stale_step_decision_does_not_write_side_effects(): void
+    {
+        [$instance, $step] = $this->startWorkflow();
+        DB::table('workflow_step_instances')->where('id', $step->id)->update(['lock_version' => 2]);
+        $beforeOutbox = DB::table('outbox_events')->count();
+
+        $result = $this->mutator()->recordStepDecision(
+            (array) $step,
+            $instance,
+            '1',
+            'completed',
+            'approve',
+            'stale',
+            self::ACTOR,
+            self::CORRELATION,
+            $this->idempotency('recordWorkflowDecision', 'stale-decision', ['step_id' => (string) $step->id]),
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('waiting', DB::table('workflow_step_instances')->where('id', $step->id)->value('state'));
+        $this->assertSame('running', DB::table('workflow_instances')->where('id', $instance['id'])->value('state'));
+        $this->assertSame(0, DB::table('workflow_decisions')->where('workflow_step_id', $step->id)->count());
+        $this->assertSame($beforeOutbox, DB::table('outbox_events')->count());
+        $this->assertSame(0, DB::table('workflow_idempotency_keys')->where('operation', 'recordWorkflowDecision')->count());
+    }
+
+    public function test_stale_step_action_does_not_write_side_effects(): void
+    {
+        [, $step] = $this->startWorkflow();
+        DB::table('workflow_step_instances')->where('id', $step->id)->update(['lock_version' => 2]);
+        $beforeOutbox = DB::table('outbox_events')->count();
+
+        $result = $this->mutator()->actOnStep(
+            (array) $step,
+            '1',
+            'reassign',
+            self::REASSIGNED_TO,
+            'stale',
+            self::ACTOR,
+            self::CORRELATION,
+            $this->idempotency('actOnWorkflowStep.reassign', 'stale-action', ['step_id' => (string) $step->id]),
+        );
+
+        $this->assertFalse($result['ok']);
+        $current = DB::table('workflow_step_instances')->where('id', $step->id)->sole();
+        $this->assertSame($step->assignee_user_id, $current->assignee_user_id);
+        $this->assertSame($beforeOutbox, DB::table('outbox_events')->count());
+        $this->assertSame(0, DB::table('workflow_idempotency_keys')->where('operation', 'actOnWorkflowStep.reassign')->count());
+    }
+
+    public function test_stale_instance_cancel_does_not_write_side_effects(): void
+    {
+        [$instance, $step] = $this->startWorkflow();
+        DB::table('workflow_instances')->where('id', $instance['id'])->update(['lock_version' => 2]);
+        $beforeOutbox = DB::table('outbox_events')->count();
+
+        $result = $this->mutator()->cancelInstance(
+            $instance,
+            '1',
+            'stale',
+            self::ACTOR,
+            self::CORRELATION,
+            $this->idempotency('cancelWorkflow', 'stale-cancel', ['instance_id' => $instance['id']]),
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('running', DB::table('workflow_instances')->where('id', $instance['id'])->value('state'));
+        $this->assertSame($step->state, DB::table('workflow_step_instances')->where('id', $step->id)->value('state'));
+        $this->assertSame($beforeOutbox, DB::table('outbox_events')->count());
+        $this->assertSame(0, DB::table('workflow_idempotency_keys')->where('operation', 'cancelWorkflow')->count());
     }
 
     public function test_idempotency_replay_preserves_same_and_different_fingerprint_semantics(): void
@@ -260,6 +358,38 @@ final class WorkflowAtomicityTest extends TestCase
             'work_record',
             self::ACTOR,
             $this->graph('active'),
+        );
+        $instance = $this->app->make(StartWorkflowHandler::class)->start(
+            $version['id'],
+            'work_records',
+            'record',
+            Str::uuid7()->toString(),
+            self::ACTOR,
+        );
+        $step = DB::table('workflow_step_instances')->where('workflow_instance_id', $instance['id'])->sole();
+
+        return [$instance, $step];
+    }
+
+    private function startMultiStepWorkflow(): array
+    {
+        $version = $this->app->make(PublishWorkflowVersionHandler::class)->publish(
+            'atomic-multi-step-'.Str::uuid7()->toString(),
+            'work_record',
+            self::ACTOR,
+            [
+                'nodes' => [
+                    ['key' => 'start', 'type' => 'start'],
+                    ['key' => 'step-1', 'type' => 'approval', 'assignee_user_id' => self::ACTOR],
+                    ['key' => 'step-2', 'type' => 'approval', 'assignee_user_id' => self::REASSIGNED_TO],
+                    ['key' => 'end', 'type' => 'end'],
+                ],
+                'transitions' => [
+                    ['from' => 'start', 'to' => 'step-1'],
+                    ['from' => 'step-1', 'to' => 'step-2'],
+                    ['from' => 'step-2', 'to' => 'end'],
+                ],
+            ],
         );
         $instance = $this->app->make(StartWorkflowHandler::class)->start(
             $version['id'],

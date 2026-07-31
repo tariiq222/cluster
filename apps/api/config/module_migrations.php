@@ -42,6 +42,7 @@ return [
     base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php'),
     base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W17AddApprovalColumnsToWorkflowVersions.php'),
     base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W22AddWorkflowDecisionStepUnique.php'),
+    base_path('Modules/Workflow/Infrastructure/Persistence/Migrations/W23AddWorkflowInstanceSourceUnique.php'),
     base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/CreateTasksTable.php'),
     base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/W13CreateTaskEngagementTables.php'),
     base_path('Modules/Tasks/Infrastructure/Persistence/Migrations/W21AddTaskIdempotencyResponsePayload.php'),

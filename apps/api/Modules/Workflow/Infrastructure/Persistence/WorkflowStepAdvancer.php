@@ -4,11 +4,15 @@ namespace Modules\Workflow\Infrastructure\Persistence;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Workflow\Contracts\AdvanceWorkflowStep;
+use Modules\Workflow\Features\Engine\Handler\AdvanceAfterDecision;
 use Shared\Contracts\TransactionalOutbox;
 
 final class WorkflowStepAdvancer implements AdvanceWorkflowStep
 {
-    public function __construct(private readonly TransactionalOutbox $outbox) {}
+    public function __construct(
+        private readonly TransactionalOutbox $outbox,
+        private readonly AdvanceAfterDecision $advancer,
+    ) {}
 
     /**
      * Failure after the step state update MUST roll the update back
@@ -32,15 +36,13 @@ final class WorkflowStepAdvancer implements AdvanceWorkflowStep
                 'state' => 'completed', 'task_id' => $taskId, 'completed_at' => $now,
                 'lock_version' => ((int) $step->lock_version) + 1, 'updated_at' => $now,
             ]);
-            DB::table('workflow_instances')->where('id', $step->workflow_instance_id)->update([
-                'state' => 'completed', 'completed_at' => $now,
-                'lock_version' => ((int) $instance->lock_version) + 1, 'updated_at' => $now,
-            ]);
+            $this->advancer->advance($step->workflow_instance_id, $stepId, $actorUserId);
             $this->outbox->append($this->eventId('workflow.step.completed.v1', $stepId), $step->workflow_instance_id, 'workflow.step.completed.v1', [
                 'workflow_step_id' => $stepId, 'workflow_instance_id' => $step->workflow_instance_id, 'task_id' => $taskId, 'actor_user_id' => $actorUserId,
             ]);
+            $instanceState = (string) DB::table('workflow_instances')->where('id', $step->workflow_instance_id)->value('state');
 
-            return ['step_id' => $stepId, 'instance_id' => $step->workflow_instance_id, 'state' => 'completed', 'instance_state' => 'completed'];
+            return ['step_id' => $stepId, 'instance_id' => $step->workflow_instance_id, 'state' => 'completed', 'instance_state' => $instanceState];
         });
     }
 

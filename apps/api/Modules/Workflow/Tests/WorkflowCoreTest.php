@@ -4,6 +4,7 @@ namespace Modules\Workflow\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\Workflow\Features\PublishWorkflowVersion\Handler\PublishWorkflowVersionHandler;
 use Modules\Workflow\Features\StartWorkflow\Handler\StartWorkflowHandler;
 use RuntimeException;
@@ -27,6 +28,15 @@ final class WorkflowCoreTest extends TestCase
         $this->assertNotSame($v1['id'], $v2['id']);
         $this->assertSame(1, $instance['lock_version']);
         $this->assertSame(2, $v2['version_number']);
+    }
+
+    public function test_instance_source_identity_has_unique_constraint(): void
+    {
+        $this->assertTrue(Schema::hasIndex(
+            'workflow_instances',
+            ['source_module', 'source_type', 'source_id', 'workflow_version_id'],
+            'unique',
+        ));
     }
 
     public function test_outbox_failure_rolls_back_version_and_definition(): void
