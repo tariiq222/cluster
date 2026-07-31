@@ -267,7 +267,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
     public function test_role_capability_attach_requires_cluster_covering_authority(): void
     {
         [$cookie, $csrf] = $this->loginFacilityAdminSession();
-        $roleId = $this->createRole($cookie, $csrf, 'facility_attach');
+        $roleId = $this->createRole($cookie, $csrf, 'facility_attach', self::FACILITY_ADMIN_ID, 'facility', self::FACILITY);
 
         // A facility-only administrator holds authorization.assignment.manage at
         // facility scope, which does not cover the cluster-scoped grant-authority
@@ -487,9 +487,9 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $this->seedOrgTree();
         $delegator = self::ADMIN_ID;
         $delegate = '018f6f7d-0c00-7000-8000-00000000dd02';
-        $roleId = $this->createRole($cookie, $csrf, 'facility_delegator');
-        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
+        $roleId = $this->createRole($cookie, $csrf, 'facility_delegator', assignVisible: false);
         $this->assignRole($delegator, $roleId, 'facility', self::FACILITY, null);
+        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations', [
             'resource_type' => 'delegation',
@@ -539,7 +539,8 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'end_at' => '2026-08-01T00:00:00.000Z',
         ], $this->writeHeaders('delegation-wider', $csrf))->assertUnprocessable();
 
-        $windowedRoleId = $this->createRole($cookie, $csrf, 'windowed_delegator');
+        $windowedRoleId = $this->createRole($cookie, $csrf, 'windowed_delegator', assignVisible: false);
+        $this->assignRole($delegator, $windowedRoleId, 'unit', self::UNIT_B, '2026-07-20 00:00:00.000', '2026-07-10 00:00:00.000');
         $this->attach($cookie, $csrf, $windowedRoleId, 'strategy.plan.read');
         DB::table('role_assignments')->where('user_id', $delegator)->where('role_id', $windowedRoleId)->delete();
         $this->assignRole($delegator, $windowedRoleId, 'unit', self::UNIT_B, '2026-07-20 00:00:00.000', '2026-07-10 00:00:00.000');
@@ -671,13 +672,13 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'If-Match' => '"1"',
             'Content-Type' => 'application/merge-patch+json',
             'X-CSRF-Token' => $csrf,
-        ])->assertNotFound();
+        ])->assertForbidden()->assertJsonPath('type', 'https://cluster.example/problems/access-denied');
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments/'.$foreignAssignment.'/revoke', [], [
             'X-Correlation-ID' => self::CORRELATION_ID,
             'If-Match' => '"1"',
             'Idempotency-Key' => 'foreign-assignment-revoke',
             'X-CSRF-Token' => $csrf,
-        ])->assertNotFound();
+        ])->assertForbidden()->assertJsonPath('type', 'https://cluster.example/problems/access-denied');
         $this->assertDatabaseHas('role_assignments', ['id' => $foreignAssignment, 'status' => 'active']);
     }
 
@@ -721,14 +722,26 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ])->assertStatus(412);
     }
 
-    private function createRole(string $cookie, string $csrf, string $code): string
+    private function createRole(string $cookie, string $csrf, string $code, string $actorId = self::ADMIN_ID, string $scopeType = 'cluster', ?string $scopeId = null, bool $assignVisible = true): string
     {
-        return (string) $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles', [
+        $roleId = (string) $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles', [
             'resource_type' => 'role',
             'code' => $code,
             'name' => 'دور '.$code,
             'role_type' => 'operational',
         ], $this->writeHeaders('role-'.$code, $csrf))->assertCreated()->json('data.id');
+        if ($assignVisible) {
+            $this->assignRole(
+                $actorId,
+                $roleId,
+                $scopeType,
+                $scopeId ?? (string) DB::table('clusters')->where('singleton_key', 1)->value('id'),
+                null,
+                '2026-01-01 00:00:00.000',
+            );
+        }
+
+        return $roleId;
     }
 
     private function attach(string $cookie, string $csrf, string $roleId, string $capabilityCode): void

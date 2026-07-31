@@ -55,10 +55,17 @@ export default function AppWorkspaceShell({ locale, session, onLocaleChange, onL
   }, [])
 
   const navigate = useCallback((path: string) => {
-    if (window.location.pathname !== path) {
+    // `path` may carry a query string or hash; routeFromPath only matches on
+    // the pathname, so derive the pathname before delegating. The URL itself
+    // (pathname + search + hash) is what we compare against the current
+    // location so tab switches that share a pathname but change `?tab=` still
+    // update the address bar via pushState.
+    const pathnameOnly = path.split('?')[0]?.split('#')[0] ?? path
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+    if (currentUrl !== path) {
       window.history.pushState({}, '', path)
     }
-    setRoute(routeFromPath(path))
+    setRoute(routeFromPath(pathnameOnly))
   }, [])
 
   const onRouteNavigate = useCallback((next: AppRoute) => {

@@ -540,7 +540,12 @@ function routeCapabilities(route: AppRoute): readonly string[] | null {
     case 'access-scopes':
       return ['authorization.assignment.read']
     case 'access-explanation':
-      return ['authorization.decision.read']
+      // The decision inspector is owned by the unified governance workspace,
+      // which renders an in-panel unavailable state via the tab-level
+      // capability gate (tabAvailableFor). The route-level guard stays open
+      // so deep-linked principals without `authorization.decision.read` still
+      // see the localized unavailable copy instead of a hard redirect.
+      return null
     case 'audit':
       return ['audit.event.read']
     case 'work-definitions':

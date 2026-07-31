@@ -54,6 +54,13 @@ final class DatabaseRecordAuditEvent implements RecordAuditEvent
         $streamKey = $this->streamKey($input);
         $requestHash = $this->requestHash($input, $context);
 
+        // A producer-owned transaction is already atomic. Reuse it directly:
+        // creating a nested DB::transaction here only adds a savepoint and
+        // gives the audit writer a transaction boundary it does not own.
+        if (DB::transactionLevel() > 0) {
+            return $this->appendOrReplay($input, $context, $streamKey, $requestHash);
+        }
+
         // Nested producer calls run inside the caller's transaction and must
         // participate atomically with the outer command. Retrying inside a
         // nested transaction would either mask the caller's failure (we

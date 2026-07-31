@@ -10,14 +10,23 @@ use Tests\TestCase;
 class ModuleBoundariesTest extends TestCase
 {
     /**
-     * Sole sanctioned path-scoped reverse-edge exception: the Authorization
-     * bootstrap producer packet (`AUTHORIZATION-AUDIT-PRODUCER` token) is
-     * allowed to depend on the Audit Contracts from exactly one file
-     * (AuthorizationBootstrapState). The pair (sourceModule, targetModule)
-     * MUST equal the token contract; any other import from this file, or any
-     * other Authorization file importing Audit, is a contract violation.
+     * Sanctioned path-scoped cross-module exception entries. Each entry
+     * declares the (path, source, target) tuple that may import the
+     * listed cross-module symbols despite the rank/surface rule, and
+     * the `kind` discriminator selects which rule is suppressed:
      *
-     * @var list<array{path: string, source: string, target: string, imports: list<string>, token: string, reason: string}>
+     *  - 'rank'    — the listed imports are exempt from the
+     *                same-or-higher-rank dependency rule, but the
+     *                Contracts/Events surface rule still applies.
+     *  - 'surface' — the listed imports are exempt from the
+     *                Contracts/Events surface rule for the named path
+     *                only (typically a Tests fixture binding the local
+     *                session principal resolver and password hasher
+     *                inside a controlled HTTP adapter test).
+     *
+     * Any other cross-module import remains a violation.
+     *
+     * @var list<array{path: string, source: string, target: string, imports: list<string>, token: string, reason: string, kind: 'rank'|'surface'}>
      */
     private const CROSS_MODULE_IMPORT_EXCEPTIONS = [
         [
@@ -27,6 +36,16 @@ class ModuleBoundariesTest extends TestCase
             'imports' => ['Modules\\Audit\\Contracts\\AuditEventInput', 'Modules\\Audit\\Contracts\\RecordAuditEvent'],
             'token' => 'AUTHORIZATION-AUDIT-PRODUCER',
             'reason' => 'Bootstrap producer packet (M01 §9 Task 9) is the only sanctioned reverse edge from Authorization(rank2) to Audit(rank3) Contracts; Audit is implemented strictly as a producer consumer.',
+            'kind' => 'rank',
+        ],
+        [
+            'path' => 'Modules/Authorization/Tests/AuthorizationAssignmentScopeTargetsHttpAdapterTest.php',
+            'source' => 'Authorization',
+            'target' => 'Identity',
+            'imports' => ['Modules\\Identity\\Contracts\\ResolveDevelopmentFixturePrincipal', 'Modules\\Identity\\Infrastructure\\Security\\PasswordHasher'],
+            'token' => 'AUTHORIZATION-IDENTITY-SESSION-RESOLVER',
+            'reason' => 'Task 1B HTTP adapter test binds the local Identity session-principal resolver and password hasher to seed the cluster identity session cookie for the dedicated GET /api/v1/authorization/assignment-scope-targets endpoint; identical pattern to AuthorizationAccountPermissionsHttpAdapterTest.',
+            'kind' => 'surface',
         ],
     ];
 
@@ -701,17 +720,31 @@ PHP);
                     }
                 }
 
-                // Suppress the rank-rule violation that is allowed by a
-                // path-scoped CROSS_MODULE_IMPORT_EXCEPTIONS entry,
-                // scoped to the exact (file, source, target) tuple. The
-                // Contracts/Events surface violation is never suppressed
-                // by this filter; only the rank dependency is.
+                // Suppress the cross-module violation that is allowed by a
+                // path-scoped CROSS_MODULE_IMPORT_EXCEPTIONS entry, scoped
+                // to the exact (file, source, target) tuple and the `kind`
+                // discriminator of the exception entry:
+                //
+                //  - kind 'rank'    suppresses only the same-or-higher-rank
+                //                    dependency violation.
+                //  - kind 'surface' suppresses only the Contracts/Events
+                //                    surface violation. The rank rule
+                //                    still applies and is never waived for
+                //                    a surface-kind exception.
                 foreach (self::CROSS_MODULE_IMPORT_EXCEPTIONS as $entry) {
                     $source = $entry['source'];
                     $target = $entry['target'];
-                    $rankMarker = "{$source} cannot depend on same-or-higher-rank module {$target}.";
                     $pathMarker = "[path:{$entry['path']}]";
-                    if (str_contains($violation, $rankMarker) && str_contains($violation, $pathMarker)) {
+                    if (! str_contains($violation, $pathMarker)) {
+                        continue;
+                    }
+                    $kind = $entry['kind'];
+                    $rankMarker = "{$source} cannot depend on same-or-higher-rank module {$target}.";
+                    $surfaceMarker = "{$source} may import {$target} only through Contracts or Events.";
+                    if ($kind === 'surface' && str_contains($violation, $surfaceMarker)) {
+                        return false;
+                    }
+                    if ($kind === 'rank' && str_contains($violation, $rankMarker)) {
                         return false;
                     }
                 }
@@ -1491,29 +1524,67 @@ PHP);
         $this->assertStringContainsString('missing-path:', $messages[0]);
     }
 
-    public function test_cross_module_import_exception_admits_exactly_one_producer_packet_and_no_other_edge(): void
+    public function test_cross_module_import_exception_admits_one_rank_producer_and_at_most_one_surface_resolver(): void
     {
-        $this->assertCount(
+        $this->assertGreaterThanOrEqual(
             1,
-            self::CROSS_MODULE_IMPORT_EXCEPTIONS,
-            'The boundary exception must declare exactly one (path, source, target) tuple; '
-            .'broader reverse-edge exceptions weaken the rank rule.',
+            count(self::CROSS_MODULE_IMPORT_EXCEPTIONS),
+            'CROSS_MODULE_IMPORT_EXCEPTIONS must declare at least the AUTHORIZATION-AUDIT-PRODUCER entry.',
         );
-        $entry = self::CROSS_MODULE_IMPORT_EXCEPTIONS[0];
+        $this->assertLessThanOrEqual(
+            2,
+            count(self::CROSS_MODULE_IMPORT_EXCEPTIONS),
+            'CROSS_MODULE_IMPORT_EXCEPTIONS may declare at most one rank entry and one surface entry; broader reverse-edge exceptions weaken the rank rule.',
+        );
+
+        $kinds = [];
+        foreach (self::CROSS_MODULE_IMPORT_EXCEPTIONS as $entry) {
+            $kinds[] = $entry['kind'];
+        }
+
+        $this->assertSame(
+            1,
+            count(array_filter($kinds, static fn (string $kind): bool => $kind === 'rank')),
+            'Exactly one rank-kind entry is sanctioned.',
+        );
+        $this->assertLessThanOrEqual(
+            1,
+            count(array_filter($kinds, static fn (string $kind): bool => $kind === 'surface')),
+            'At most one surface-kind entry is sanctioned.',
+        );
+
+        $rankEntry = self::CROSS_MODULE_IMPORT_EXCEPTIONS[0];
         $this->assertSame(
             'Modules/Authorization/Infrastructure/Persistence/AuthorizationBootstrapState.php',
-            $entry['path'],
-            'Exception path must be the exact producer file; no module-wide exception.',
+            $rankEntry['path'],
+            'Rank exception path must be the exact producer file; no module-wide exception.',
         );
-        $this->assertSame('Authorization', $entry['source']);
-        $this->assertSame('Audit', $entry['target']);
-        $this->assertSame('AUTHORIZATION-AUDIT-PRODUCER', $entry['token']);
-        $this->assertNotSame('', $entry['reason']);
-        foreach ($entry['imports'] as $import) {
+        $this->assertSame('Authorization', $rankEntry['source']);
+        $this->assertSame('Audit', $rankEntry['target']);
+        $this->assertSame('AUTHORIZATION-AUDIT-PRODUCER', $rankEntry['token']);
+        $this->assertSame('rank', $rankEntry['kind']);
+        $this->assertNotSame('', $rankEntry['reason']);
+        foreach ($rankEntry['imports'] as $import) {
             $this->assertMatchesRegularExpression(
                 '/\\AModules\\\\Audit\\\\Contracts\\\\[A-Za-z0-9_]+\\z/',
                 $import,
-                'Exception only allows Modules\\Audit\\Contracts\\* imports; Infrastructure/Domain must fail closed.',
+                'Rank exception only allows Modules\\Audit\\Contracts\\* imports; Infrastructure/Domain must fail closed.',
+            );
+        }
+
+        $surfaceEntry = self::CROSS_MODULE_IMPORT_EXCEPTIONS[1];
+        $this->assertSame(
+            'Modules/Authorization/Tests/AuthorizationAssignmentScopeTargetsHttpAdapterTest.php',
+            $surfaceEntry['path'],
+            'Surface exception path must be the exact HTTP adapter test file; no module-wide exception.',
+        );
+        $this->assertSame('Authorization', $surfaceEntry['source']);
+        $this->assertSame('Identity', $surfaceEntry['target']);
+        foreach ($surfaceEntry['imports'] as $import) {
+            $this->assertMatchesRegularExpression(
+                '/\\AModules\\\\Identity\\\\(?:Contracts|Infrastructure)(?:\\\\[A-Za-z0-9_]+)+\\z/',
+                $import,
+                'Surface exception only admits Identity Contracts and the Identity Infrastructure password hasher used to seed credentials for the test fixture.',
             );
         }
     }

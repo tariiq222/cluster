@@ -27,6 +27,8 @@ export type AccessDecisionRequest = generated.AccessDecisionRequest
 export type AccessDecision = generated.AccessDecisionResponse
 export type AuthorizedWorkRecord = generated.WorkRecordSchema & AccessProjection
 export type AuthorizationAdminPatch = generated.AuthorizationAdminPatch
+export type AuthorizationAdminCreate = generated.AuthorizationAdminCreate
+export type AuthorizationRoleAssignment = generated.AuthorizationRoleAssignment
 export type AuthorizationAdminResource = AuthorizationResource
 export { parseStrongEtag, uuidV7 }
 
@@ -110,14 +112,105 @@ export const listDashboards = async (token: string) => unwrap<R1Collection>(awai
 export const getNotifications = async (token: string) => unwrap<R1Collection>(await generated.listMyNotifications({ limit: 50 }, requestInit(token)))
 export const markNotificationRead = async (token: string, notificationId: string) => unwrap<R1Entity>(await generated.markNotificationRead(notificationId, requestInit(token, { command: true })))
 
+function requireLockVersion(lockVersion: number | undefined): number {
+  if (lockVersion === undefined) throw new ApiError(400, { type: 'about:blank', title: 'A lock version is required', status: 400 })
+  return lockVersion
+}
+
+export async function listRoles(token: string, filters?: generated.ListAuthorizationAdminResourcesParams): Promise<generated.AuthorizationRole[]> {
+  return unwrap<{ items: generated.AuthorizationRole[] }>(await generated.listAuthorizationAdminResources('roles', filters, requestInit(token))).items
+}
+export async function getRole(token: string, roleId: string): Promise<generated.AuthorizationRole> {
+  return unwrap<generated.AuthorizationRole>(await generated.getAuthorizationAdminResource('roles', roleId, requestInit(token)))
+}
+export async function listCapabilities(token: string, filters?: generated.ListAuthorizationAdminResourcesParams): Promise<generated.AuthorizationCapability[]> {
+  return unwrap<{ items: generated.AuthorizationCapability[] }>(await generated.listAuthorizationAdminResources('capabilities', filters, requestInit(token))).items
+}
+export async function listRoleAssignments(token: string, filters?: generated.ListAuthorizationAdminResourcesParams): Promise<generated.AuthorizationRoleAssignment[]> {
+  return unwrap<{ items: generated.AuthorizationRoleAssignment[] }>(await generated.listAuthorizationAdminResources('role-assignments', filters, requestInit(token))).items
+}
+export type AssignmentScopeTarget = generated.AssignmentScopeTarget
+export type AssignmentScopeTargetCollection = generated.AssignmentScopeTargetCollection & { lock_version?: number }
+export type AssignmentScopeType = generated.ListAuthorizationAssignmentScopeTargetsScopeType
+export type AssignmentScopeParentType = generated.ListAuthorizationAssignmentScopeTargetsParentScopeType
+export const AssignmentScopeType = generated.ListAuthorizationAssignmentScopeTargetsScopeType
+export const AssignmentScopeParentType = generated.ListAuthorizationAssignmentScopeTargetsParentScopeType
+
+/**
+ * Catalog of manageable assignment scope targets for the current principal.
+ * Distinct from the generic `/authorization/{adminResource}` family: the server
+ * returns the resources the UI is allowed to pick (`scope_id` + bilingual
+ * labels), never a free-text UUID prompt. `record_set` is intentionally absent
+ * from the manageable enum and surfaces as a 422 problem when requested.
+ *
+ * Accepts the typed `AssignmentScopeTargetQuery` (camelCase, screen-friendly
+ * keys) and forwards the snake_case wire form to the generated client. The
+ * returned collection carries `lock_version` when the response has an ETag,
+ * which is the same `unwrap` contract every other read-side wrapper honors.
+ */
+export type AssignmentScopeTargetQuery = {
+  scopeType: AssignmentScopeType
+  parentScopeType?: AssignmentScopeParentType
+  parentScopeId?: string
+  search?: string
+  cursor?: string
+  limit?: number
+}
+export async function listAssignmentScopeTargets(
+  token: string,
+  query: AssignmentScopeTargetQuery,
+): Promise<AssignmentScopeTargetCollection> {
+  const params: generated.ListAuthorizationAssignmentScopeTargetsParams = {
+    scope_type: query.scopeType,
+    ...(query.parentScopeType ? { parent_scope_type: query.parentScopeType } : {}),
+    ...(query.parentScopeId ? { parent_scope_id: query.parentScopeId } : {}),
+    ...(query.search ? { search: query.search } : {}),
+    ...(query.cursor ? { cursor: query.cursor } : {}),
+    ...(query.limit !== undefined ? { limit: query.limit } : {}),
+  }
+  return unwrap<AssignmentScopeTargetCollection>(
+    await generated.listAuthorizationAssignmentScopeTargets(params, requestInit(token)),
+  )
+}
+
+
+
+export async function createRole(token: string, input: generated.AuthorizationAdminCreate & { capability_codes?: string[] }): Promise<generated.AuthorizationRole> {
+  return unwrap<generated.AuthorizationRole>(await generated.createAuthorizationAdminResource('roles', input, requestInit(token, { command: true, idempotency: 'authorization-role' })))
+}
+export async function updateRole(token: string, roleId: string, patch: generated.AuthorizationAdminPatch & { capability_codes?: string[] }, lockVersion: number): Promise<generated.AuthorizationRole> {
+  return unwrap<generated.AuthorizationRole>(await generated.updateAuthorizationAdminResource('roles', roleId, patch, requestInit(token, { mutation: true, lockVersion: requireLockVersion(lockVersion) })))
+}
+export async function archiveRole(token: string, roleId: string, lockVersion: number): Promise<generated.AuthorizationRole> {
+  return updateRole(token, roleId, { status: 'archived' }, requireLockVersion(lockVersion))
+}
+export async function cloneRoleFromSystemRole(token: string, sourceRoleId: string, overrides: generated.RoleCloneInput | undefined, lockVersion: number): Promise<generated.AuthorizationRole> {
+  return unwrap<generated.AuthorizationRole>(await generated.transitionAuthorizationAdminResource('roles', sourceRoleId, 'clone', overrides, requestInit(token, { command: true, idempotency: 'authorization-role-clone', lockVersion: requireLockVersion(lockVersion) })))
+}
+export async function createRoleAssignment(token: string, input: generated.AuthorizationAdminCreate): Promise<generated.AuthorizationRoleAssignment> {
+  return unwrap<generated.AuthorizationRoleAssignment>(await generated.createAuthorizationAdminResource('role-assignments', input, requestInit(token, { command: true, idempotency: 'authorization-role-assignment' })))
+}
+export async function updateRoleAssignment(token: string, assignmentId: string, patch: generated.AuthorizationAdminPatch, lockVersion: number): Promise<generated.AuthorizationRoleAssignment> {
+  return unwrap<generated.AuthorizationRoleAssignment>(await generated.updateAuthorizationAdminResource('role-assignments', assignmentId, patch, requestInit(token, { mutation: true, lockVersion: requireLockVersion(lockVersion) })))
+}
+async function transitionRoleAssignment(token: string, assignmentId: string, action: 'revoke' | 'expire', lockVersion: number): Promise<generated.AuthorizationRoleAssignment> {
+  return unwrap<generated.AuthorizationRoleAssignment>(await generated.transitionAuthorizationAdminResource('role-assignments', assignmentId, action, undefined, requestInit(token, { command: true, idempotency: `authorization-role-assignment-${action}`, lockVersion: requireLockVersion(lockVersion) })))
+}
+export function revokeRoleAssignment(token: string, assignmentId: string, lockVersion: number): Promise<generated.AuthorizationRoleAssignment> {
+  return transitionRoleAssignment(token, assignmentId, 'revoke', lockVersion)
+}
+export function expireRoleAssignment(token: string, assignmentId: string, lockVersion: number): Promise<generated.AuthorizationRoleAssignment> {
+  return transitionRoleAssignment(token, assignmentId, 'expire', lockVersion)
+}
+export async function revokeRoleCapability(token: string, roleId: string, capabilityId: string, lockVersion: number): Promise<R1Entity> {
+  return unwrap<R1Entity>(await generated.transitionAuthorizationAdminResource('role-capabilities', `${roleId}:${capabilityId}`, 'revoke', undefined, requestInit(token, { command: true, idempotency: 'authorization-role-capability-revoke', lockVersion: requireLockVersion(lockVersion) })))
+}
+
 export async function listAuthorization(resource: AuthorizationResource, token: string): Promise<AuthorizationItem[]> {
   return (await unwrap<R1Collection<AuthorizationItem>>(await generated.listAuthorizationAdminResources(resource, { limit: 50 }, requestInit(token)))).items ?? []
 }
 export async function listSupervisoryRelationships(token: string): Promise<AuthorizationItem[]> {
   return (await unwrap<R1Collection<AuthorizationItem>>(await generated.listSupervisoryRelationships({ limit: 50 }, requestInit(token)))).items ?? []
-}
-export async function createRoleAssignment(input: Record<string, unknown>, token: string) {
-  return unwrap<AuthorizationItem>(await generated.createAuthorizationAdminResource('role-assignments', { ...input, resource_type: 'role_assignment' } as generated.AuthorizationAdminCreate, requestInit(token, { command: true })))
 }
 export async function createDelegation(input: Record<string, unknown>, token: string) {
   return unwrap<AuthorizationItem>(await generated.createAuthorizationAdminResource('delegations', { ...input, resource_type: 'delegation' } as generated.AuthorizationAdminCreate, requestInit(token, { command: true })))
@@ -128,47 +221,37 @@ export async function createSupervisoryRelationship(input: generated.Supervisory
 export async function explainAccessDecision(decisionId: string, token: string): Promise<AccessDecision> {
   return unwrap<AccessDecision>(await generated.explainAccessDecision(decisionId, requestInit(token)))
 }
-
 export const getAuthorizationAudit = explainAccessDecision
-
 export async function getAuthorizationAdminResource(resource: AuthorizationResource, resourceId: string, token: string) {
   return unwrap<AuthorizationItem>(await generated.getAuthorizationAdminResource(resource, resourceId, requestInit(token)))
 }
-
-export async function updateAuthorizationAdminResource(
-  resource: AuthorizationResource,
-  resourceId: string,
-  input: AuthorizationAdminPatch,
-  token: string,
-  lockVersion?: number,
-) {
-  return unwrap<AuthorizationItem>(await generated.updateAuthorizationAdminResource(resource, resourceId, input, requestInit(token, { mutation: true, lockVersion })))
+export async function updateAuthorizationAdminResource(resource: AuthorizationResource, resourceId: string, input: AuthorizationAdminPatch, token: string, lockVersion: number) {
+  return unwrap<AuthorizationItem>(await generated.updateAuthorizationAdminResource(resource, resourceId, input, requestInit(token, { mutation: true, lockVersion: requireLockVersion(lockVersion) })))
 }
-
-export type AuthorizationTransitionAction = 'activate' | 'revoke' | 'expire' | 'publish'
-
-/** Apply a governed authorization lifecycle transition with an auditable reason. */
+export type AuthorizationTransitionAction = 'activate' | 'revoke' | 'expire' | 'publish' | 'clone'
+export type AuthorizationReasonAction = 'activate' | 'publish'
+const AUTHORIZATION_REASON_ACTIONS: Record<AuthorizationTransitionAction, boolean> = {
+  activate: true,
+  publish: true,
+  revoke: false,
+  expire: false,
+  clone: false,
+}
 export async function transitionAuthorizationAdminResource(
-  resource: Extract<AuthorizationResource, 'role-assignments' | 'delegations' | 'classification-policies' | 'field-access-templates'>,
+  resource: Extract<AuthorizationResource, 'roles' | 'role-assignments' | 'delegations' | 'classification-policies' | 'field-access-templates'>,
   resourceId: string,
   action: AuthorizationTransitionAction,
   reason: string,
   token: string,
-  lockVersion?: number,
+  lockVersion: number,
 ) {
-  const normalizedReason = reason.trim()
-  if (!normalizedReason) throw new ApiError(400, { type: 'about:blank', title: 'A reason is required', status: 400 })
-  return unwrap<AuthorizationItem>(await generated.transitionAuthorizationAdminResource(
-    resource,
-    resourceId,
-    action,
-    { reason: normalizedReason },
-    requestInit(token, { command: true, lockVersion }),
-  ))
+  const requiresReason = AUTHORIZATION_REASON_ACTIONS[action]
+  const trimmedReason = reason.trim()
+  if (requiresReason && !trimmedReason) throw new ApiError(400, { type: 'about:blank', title: 'A reason is required', status: 400 })
+  const body = requiresReason ? { reason: trimmedReason } : undefined
+  return unwrap<AuthorizationItem>(await generated.transitionAuthorizationAdminResource(resource, resourceId, action, body, requestInit(token, { command: true, lockVersion: requireLockVersion(lockVersion) })))
 }
-
 export async function simulateAccessDecision(input: AccessDecisionRequest, token: string): Promise<AccessDecision> {
   return unwrap<AccessDecision>(await generated.decideAccess(input, requestInit(token, { mutation: true })))
 }
-
 export const decideAccess = simulateAccessDecision

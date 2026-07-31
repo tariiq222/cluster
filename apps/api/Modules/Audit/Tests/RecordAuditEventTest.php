@@ -242,6 +242,22 @@ final class RecordAuditEventTest extends TestCase
      * NOT retry when transactionLevel() !== 0; the outer command owns the
      * full-transaction retry loop.
      */
+    public function test_record_reuses_an_existing_transaction_without_a_savepoint(): void
+    {
+        $savepoints = [];
+        DB::listen(function (object $query) use (&$savepoints): void {
+            if (preg_match('/\A(?:SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT)\b/i', trim((string) $query->sql)) === 1) {
+                $savepoints[] = $query->sql;
+            }
+        });
+
+        DB::transaction(function (): void {
+            $this->recorder()->record($this->input(eventId: '018f6f7d-0c00-7000-8000-0000000004e1'));
+        });
+
+        $this->assertSame([], $savepoints, 'Audit persistence must reuse the producer transaction rather than opening a savepoint.');
+    }
+
     public function test_nested_producer_transaction_rolls_back_audit_row_and_outbox_atomically_on_failure(): void
     {
         $eventId = '018f6f7d-0c00-7000-8000-0000000004f1';

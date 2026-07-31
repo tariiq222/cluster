@@ -43,6 +43,9 @@ import { PlatformHealthScreen } from '../features/platform-settings/PlatformHeal
 import { MaintenanceScreen } from '../features/platform-settings/MaintenanceScreen'
 import { usePlatformSettingsLive } from '../features/platform-settings/usePlatformSettingsLive'
 import { createLivePlatformSettingsDataSource } from '../features/platform-settings/PlatformSettingsMockData'
+// Re-exported so other workspaces can mount the five daily/advanced tabs without
+// path-relativisation. The route entry point that uses them is
+// `AccessWorkspace`, owned by the broader accounts-permissions plan.
 
 const SwaggerUiScreen = lazy(async () => {
   const module = await import('../features/docs/SwaggerUiScreen')

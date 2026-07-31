@@ -833,6 +833,24 @@ export interface AssignmentCollection {
   next_cursor: string | null
 }
 
+/**
+ * Composite identifier for a `role-capabilities` row. Two lowercase
+ * RFC 9562 UUIDv7 values joined by a single colon: `role_uuid:capability_uuid`.
+ * The AuthorizationHttpGateway splits the value on `:` and validates
+ * each side as UUIDv7.
+ * @pattern ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+ */
+export type RoleCapabilityCompositeId = string
+
+/**
+ * Identifier of an authorization-administration resource. Most
+ * resources use a single UUIDv7. The `role-capabilities` resource
+ * uses a composite `role_uuid:capability_uuid` value; the
+ * AuthorizationHttpGateway splits and validates both sides as
+ * UUIDv7.
+ */
+export type AdminResourceId = UUIDv7 | RoleCapabilityCompositeId
+
 export interface Notification {
   id: UUIDv7
   /**
@@ -2168,6 +2186,65 @@ export interface ImportJobRowCollection {
   next_cursor: string | null
 }
 
+export type AssignmentScopeTargetScopeType =
+  (typeof AssignmentScopeTargetScopeType)[keyof typeof AssignmentScopeTargetScopeType]
+
+export const AssignmentScopeTargetScopeType = {
+  cluster: 'cluster',
+  facility: 'facility',
+  unit: 'unit',
+} as const
+
+/**
+ * A manageable assignment scope target for the current principal. The
+ * UI renders `label_ar` and `label_en` (per spec §19.7 the public
+ * identifier surfaces as a label, never a primary label-id). The
+ * `scope_type` enum intentionally excludes `record_set`.
+ */
+export interface AssignmentScopeTarget {
+  scope_type: AssignmentScopeTargetScopeType
+  scope_id: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  label_ar: string
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  label_en: string
+  /**
+   * @maxLength 64
+   * @nullable
+   */
+  code?: string | null
+}
+
+/**
+ * Cursor-paginated catalog page returned by the assignment-scope-targets
+ * endpoint. Flat `{ items, next_cursor }` envelope; the wire shape matches
+ * `AuthorizationApi::collection($items, $nextCursor)`.
+ */
+export interface AssignmentScopeTargetCollection {
+  items: AssignmentScopeTarget[]
+  /** @nullable */
+  next_cursor: string | null
+}
+
+/**
+ * Returned with HTTP 422 when a `record_set` assignment scope is requested.
+ * `record_set` is intentionally not a manageable level (spec §19.6).
+ */
+export interface ProblemScopeTypeNotCatalogued {
+  type: 'urn:cluster:problem:scope_type_not_catalogued'
+  title: string
+  status: 422
+  detail?: string
+  correlation_id?: Uuidv7
+  [key: string]: unknown
+}
+
 export type AuthorizationAdminCreateResourceType =
   (typeof AuthorizationAdminCreateResourceType)[keyof typeof AuthorizationAdminCreateResourceType]
 
@@ -2205,6 +2282,8 @@ export interface AuthorizationAdminCreate {
   start_at?: UtcDateTime
   end_at?: UtcDateTime
   policy_document?: AuthorizationAdminCreatePolicyDocument
+  /** @items.maxLength 128 */
+  capability_codes?: string[]
 }
 
 export type AuthorizationAdminPatchStatus =
@@ -2217,6 +2296,7 @@ export const AuthorizationAdminPatchStatus = {
   revoked: 'revoked',
   expired: 'expired',
   published: 'published',
+  archived: 'archived',
 } as const
 
 export type AuthorizationAdminPatchPolicyDocument = { [key: string]: unknown }
@@ -2227,6 +2307,194 @@ export interface AuthorizationAdminPatch {
   status?: AuthorizationAdminPatchStatus
   end_at?: UtcDateTime
   policy_document?: AuthorizationAdminPatchPolicyDocument
+  /** @items.maxLength 128 */
+  capability_codes?: string[]
+}
+
+export interface EmptyActionBody {
+  [key: string]: unknown
+}
+
+export interface RoleCloneInput {
+  /**
+   * @maxLength 96
+   * @pattern ^[a-z][a-z0-9_.-]{1,95}$
+   */
+  code?: string
+  /** @maxLength 255 */
+  name_ar?: string
+  /** @maxLength 255 */
+  name_en?: string
+  /** @maxLength 2000 */
+  description_ar?: string
+  /** @maxLength 2000 */
+  description_en?: string
+}
+
+export type AuthorizationCapabilitySensitivity =
+  (typeof AuthorizationCapabilitySensitivity)[keyof typeof AuthorizationCapabilitySensitivity]
+
+export const AuthorizationCapabilitySensitivity = {
+  public: 'public',
+  internal: 'internal',
+  confidential: 'confidential',
+  top_secret: 'top_secret',
+} as const
+
+export interface AuthorizationCapability {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  code: string
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  module_code: string
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  action: string
+  sensitivity: AuthorizationCapabilitySensitivity
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  group_label: string
+  /** @maxLength 2000 */
+  description?: string
+}
+
+export type AuthorizationRoleRoleType =
+  (typeof AuthorizationRoleRoleType)[keyof typeof AuthorizationRoleRoleType]
+
+export const AuthorizationRoleRoleType = {
+  system: 'system',
+  custom: 'custom',
+} as const
+
+export type AuthorizationRoleStatus =
+  (typeof AuthorizationRoleStatus)[keyof typeof AuthorizationRoleStatus]
+
+export const AuthorizationRoleStatus = {
+  draft: 'draft',
+  active: 'active',
+  inactive: 'inactive',
+  archived: 'archived',
+} as const
+
+export type AuthorizationRoleAllowedActionsItem =
+  (typeof AuthorizationRoleAllowedActionsItem)[keyof typeof AuthorizationRoleAllowedActionsItem]
+
+export const AuthorizationRoleAllowedActionsItem = {
+  create: 'create',
+  edit: 'edit',
+  clone: 'clone',
+  archive: 'archive',
+  revoke: 'revoke',
+  expire: 'expire',
+  assign: 'assign',
+  view_assignments: 'view_assignments',
+  grant: 'grant',
+  retract: 'retract',
+} as const
+
+export interface AuthorizationRole {
+  id: UUIDv7
+  /** @pattern ^[a-z][a-z0-9_.-]{1,95}$ */
+  code: string
+  /** @maxLength 255 */
+  name_ar?: string
+  /** @maxLength 255 */
+  name_en?: string
+  /** @maxLength 2000 */
+  description_ar?: string
+  /** @maxLength 2000 */
+  description_en?: string
+  role_type: AuthorizationRoleRoleType
+  is_system_role: boolean
+  status: AuthorizationRoleStatus
+  /** @minimum 1 */
+  lock_version: number
+  /** @items.maxLength 128 */
+  capability_codes?: string[]
+  /** @minimum 0 */
+  assignment_count?: number
+  allowed_actions: AuthorizationRoleAllowedActionsItem[]
+}
+
+export type AuthorizationRoleAssignmentScopeType =
+  (typeof AuthorizationRoleAssignmentScopeType)[keyof typeof AuthorizationRoleAssignmentScopeType]
+
+export const AuthorizationRoleAssignmentScopeType = {
+  cluster: 'cluster',
+  facility: 'facility',
+  unit: 'unit',
+  record_set: 'record_set',
+} as const
+
+export type AuthorizationRoleAssignmentEffectiveStatus =
+  (typeof AuthorizationRoleAssignmentEffectiveStatus)[keyof typeof AuthorizationRoleAssignmentEffectiveStatus]
+
+export const AuthorizationRoleAssignmentEffectiveStatus = {
+  active: 'active',
+  expired: 'expired',
+  revoked: 'revoked',
+} as const
+
+export type AuthorizationRoleAssignmentAllowedActionsItem =
+  (typeof AuthorizationRoleAssignmentAllowedActionsItem)[keyof typeof AuthorizationRoleAssignmentAllowedActionsItem]
+
+export const AuthorizationRoleAssignmentAllowedActionsItem = {
+  edit: 'edit',
+  revoke: 'revoke',
+  expire: 'expire',
+} as const
+
+export interface AuthorizationRoleAssignment {
+  id: UUIDv7
+  role_id: UUIDv7
+  subject_user_id: UUIDv7
+  scope_type?: AuthorizationRoleAssignmentScopeType
+  scope_id?: UUIDv7
+  start_at?: UtcDateTime
+  end_at?: UtcDateTime
+  effective_status: AuthorizationRoleAssignmentEffectiveStatus
+  allowed_actions: AuthorizationRoleAssignmentAllowedActionsItem[]
+  /** @minimum 1 */
+  lock_version: number
+}
+
+export type ProblemImmutableSystemRoleType =
+  (typeof ProblemImmutableSystemRoleType)[keyof typeof ProblemImmutableSystemRoleType]
+
+export const ProblemImmutableSystemRoleType = {
+  'urn:cluster:problem:system-role-immutable':
+    'urn:cluster:problem:system-role-immutable',
+} as const
+
+export type ProblemImmutableSystemRoleStatus =
+  (typeof ProblemImmutableSystemRoleStatus)[keyof typeof ProblemImmutableSystemRoleStatus]
+
+export const ProblemImmutableSystemRoleStatus = {
+  NUMBER_409: 409,
+} as const
+
+export type ProblemImmutableSystemRoleCode =
+  (typeof ProblemImmutableSystemRoleCode)[keyof typeof ProblemImmutableSystemRoleCode]
+
+export const ProblemImmutableSystemRoleCode = {
+  system_role_immutable: 'system_role_immutable',
+} as const
+
+export interface ProblemImmutableSystemRole {
+  type: ProblemImmutableSystemRoleType
+  title: string
+  status: ProblemImmutableSystemRoleStatus
+  detail: string
+  code: ProblemImmutableSystemRoleCode
 }
 
 export type AccessContextSchemaClearance =
@@ -2827,6 +3095,51 @@ export const AccessDecisionSchemaObligationsItem = {
   reason_required: 'reason_required',
 } as const
 
+export type AccessDecisionSchemaAssignmentSummariesItemEffectiveStatus =
+  (typeof AccessDecisionSchemaAssignmentSummariesItemEffectiveStatus)[keyof typeof AccessDecisionSchemaAssignmentSummariesItemEffectiveStatus]
+
+export const AccessDecisionSchemaAssignmentSummariesItemEffectiveStatus = {
+  active: 'active',
+  expired: 'expired',
+  revoked: 'revoked',
+} as const
+
+export type AccessDecisionSchemaAssignmentSummariesItemScopeType =
+  (typeof AccessDecisionSchemaAssignmentSummariesItemScopeType)[keyof typeof AccessDecisionSchemaAssignmentSummariesItemScopeType]
+
+export const AccessDecisionSchemaAssignmentSummariesItemScopeType = {
+  cluster: 'cluster',
+  facility: 'facility',
+  unit: 'unit',
+  record_set: 'record_set',
+} as const
+
+export type AccessDecisionSchemaAssignmentSummariesItem = {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  role_code: string
+  effective_status: AccessDecisionSchemaAssignmentSummariesItemEffectiveStatus
+  scope_type?: AccessDecisionSchemaAssignmentSummariesItemScopeType
+  scope_id?: Uuidv7
+}
+
+export type AccessDecisionSchemaPolicyReferencesItem = {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  policy_code: string
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  policy_version: string
+  /** @maxLength 2000 */
+  excerpt?: string
+}
+
 export interface AccessDecisionSchema {
   decision_id: Uuidv7
   decision: AccessDecisionSchemaDecision
@@ -2858,6 +3171,13 @@ export interface AccessDecisionSchema {
   correlation_id: Uuidv7
   classification: Classification
   access_context: AccessContextSchema
+  /**
+   * @minLength 1
+   * @maxLength 1000
+   */
+  applies_in_plain_language?: string
+  assignment_summaries?: AccessDecisionSchemaAssignmentSummariesItem[]
+  policy_references?: AccessDecisionSchemaPolicyReferencesItem[]
 }
 
 /**
@@ -3757,6 +4077,44 @@ export type ListUserAccountsParams = {
    */
   limit?: LimitParameter
 }
+
+export type ListAuthorizationAssignmentScopeTargetsParams = {
+  scope_type: ListAuthorizationAssignmentScopeTargetsScopeType
+  parent_scope_type?: ListAuthorizationAssignmentScopeTargetsParentScopeType
+  parent_scope_id?: UUIDv7
+  /**
+   * @minLength 1
+   * @maxLength 128
+   */
+  search?: string
+  /**
+   * @minLength 1
+   */
+  cursor?: CursorParameter
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: LimitParameter
+}
+
+export type ListAuthorizationAssignmentScopeTargetsScopeType =
+  (typeof ListAuthorizationAssignmentScopeTargetsScopeType)[keyof typeof ListAuthorizationAssignmentScopeTargetsScopeType]
+
+export const ListAuthorizationAssignmentScopeTargetsScopeType = {
+  cluster: 'cluster',
+  facility: 'facility',
+  unit: 'unit',
+  record_set: 'record_set',
+} as const
+
+export type ListAuthorizationAssignmentScopeTargetsParentScopeType =
+  (typeof ListAuthorizationAssignmentScopeTargetsParentScopeType)[keyof typeof ListAuthorizationAssignmentScopeTargetsParentScopeType]
+
+export const ListAuthorizationAssignmentScopeTargetsParentScopeType = {
+  cluster: 'cluster',
+  facility: 'facility',
+} as const
 
 export type ListAuthorizationAdminResourcesParams = {
   /**
@@ -12675,6 +13033,87 @@ export const completeAuthorizationBootstrap = async (
   )
 }
 
+export type listAuthorizationAssignmentScopeTargetsResponse200 = {
+  data: AssignmentScopeTargetCollection
+  status: 200
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse422 = {
+  data: ProblemScopeTypeNotCatalogued
+  status: 422
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponseSuccess =
+  listAuthorizationAssignmentScopeTargetsResponse200 & {
+    headers: Headers
+  }
+export type listAuthorizationAssignmentScopeTargetsResponseError = (
+  | listAuthorizationAssignmentScopeTargetsResponse400
+  | listAuthorizationAssignmentScopeTargetsResponse401
+  | listAuthorizationAssignmentScopeTargetsResponse403
+  | listAuthorizationAssignmentScopeTargetsResponse422
+) & {
+  headers: Headers
+}
+
+export type listAuthorizationAssignmentScopeTargetsResponse =
+  | listAuthorizationAssignmentScopeTargetsResponseSuccess
+  | listAuthorizationAssignmentScopeTargetsResponseError
+
+export const getListAuthorizationAssignmentScopeTargetsUrl = (
+  params: ListAuthorizationAssignmentScopeTargetsParams,
+) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/authorization/assignment-scope-targets?${stringifiedParams}`
+    : `/api/v1/authorization/assignment-scope-targets`
+}
+
+/**
+ * Cursor-paginated catalog of manageable assignment scope targets.
+ * Three manageable levels are published (cluster, facility, unit). The
+ * server filters by the current principal's manageable scope. The catalog
+ * is the single source of truth for the assignment scope picker and is
+ * distinct from the generic `/authorization/{adminResource}` family.
+ * @summary List manageable assignment scope targets for the current principal
+ */
+export const listAuthorizationAssignmentScopeTargets = async (
+  params: ListAuthorizationAssignmentScopeTargetsParams,
+  options?: RequestInit,
+): Promise<listAuthorizationAssignmentScopeTargetsResponse> => {
+  return customFetch<listAuthorizationAssignmentScopeTargetsResponse>(
+    getListAuthorizationAssignmentScopeTargetsUrl(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  )
+}
+
 export type listAuthorizationAdminResourcesResponse200 = {
   data: CollectionResponse
   status: 200
@@ -12709,6 +13148,7 @@ export const getListAuthorizationAdminResourcesUrl = (
   adminResource:
     | 'roles'
     | 'capabilities'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
@@ -12737,6 +13177,7 @@ export const listAuthorizationAdminResources = async (
   adminResource:
     | 'roles'
     | 'capabilities'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
@@ -12783,6 +13224,11 @@ export type createAuthorizationAdminResourceResponse409 = {
   status: 409
 }
 
+export type createAuthorizationAdminResourceResponse422 = {
+  data: ProblemScopeTypeNotCatalogued
+  status: 422
+}
+
 export type createAuthorizationAdminResourceResponseSuccess =
   createAuthorizationAdminResourceResponse201 & {
     headers: Headers
@@ -12793,6 +13239,7 @@ export type createAuthorizationAdminResourceResponseError = (
   | createAuthorizationAdminResourceResponse403
   | createAuthorizationAdminResourceResponse404
   | createAuthorizationAdminResourceResponse409
+  | createAuthorizationAdminResourceResponse422
 ) & {
   headers: Headers
 }
@@ -12805,6 +13252,7 @@ export const getCreateAuthorizationAdminResourceUrl = (
   adminResource:
     | 'roles'
     | 'capabilities'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
@@ -12820,6 +13268,7 @@ export const createAuthorizationAdminResource = async (
   adminResource:
     | 'roles'
     | 'capabilities'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
@@ -12878,11 +13327,12 @@ export const getGetAuthorizationAdminResourceUrl = (
   adminResource:
     | 'roles'
     | 'capabilities'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
     | 'field-access-templates',
-  resourceId: UUIDv7,
+  resourceId: AdminResourceId,
 ) => {
   return `/api/v1/authorization/${encodeURIComponent(String(adminResource))}/${encodeURIComponent(String(resourceId))}`
 }
@@ -12894,11 +13344,12 @@ export const getAuthorizationAdminResource = async (
   adminResource:
     | 'roles'
     | 'capabilities'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
     | 'field-access-templates',
-  resourceId: UUIDv7,
+  resourceId: AdminResourceId,
   options?: RequestInit,
 ): Promise<getAuthorizationAdminResourceResponse> => {
   return customFetch<getAuthorizationAdminResourceResponse>(
@@ -12945,6 +13396,11 @@ export type updateAuthorizationAdminResourceResponse412 = {
   status: 412
 }
 
+export type updateAuthorizationAdminResourceResponse422 = {
+  data: ProblemScopeTypeNotCatalogued
+  status: 422
+}
+
 export type updateAuthorizationAdminResourceResponseSuccess =
   updateAuthorizationAdminResourceResponse200 & {
     headers: Headers
@@ -12956,6 +13412,7 @@ export type updateAuthorizationAdminResourceResponseError = (
   | updateAuthorizationAdminResourceResponse404
   | updateAuthorizationAdminResourceResponse409
   | updateAuthorizationAdminResourceResponse412
+  | updateAuthorizationAdminResourceResponse422
 ) & {
   headers: Headers
 }
@@ -12968,11 +13425,12 @@ export const getUpdateAuthorizationAdminResourceUrl = (
   adminResource:
     | 'roles'
     | 'capabilities'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
     | 'field-access-templates',
-  resourceId: UUIDv7,
+  resourceId: AdminResourceId,
 ) => {
   return `/api/v1/authorization/${encodeURIComponent(String(adminResource))}/${encodeURIComponent(String(resourceId))}`
 }
@@ -12984,11 +13442,12 @@ export const updateAuthorizationAdminResource = async (
   adminResource:
     | 'roles'
     | 'capabilities'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
     | 'field-access-templates',
-  resourceId: UUIDv7,
+  resourceId: AdminResourceId,
   authorizationAdminPatch: AuthorizationAdminPatch,
   options?: RequestInit,
 ): Promise<updateAuthorizationAdminResourceResponse> => {
@@ -13032,7 +13491,7 @@ export type transitionAuthorizationAdminResourceResponse404 = {
 }
 
 export type transitionAuthorizationAdminResourceResponse409 = {
-  data: ConflictResponse
+  data: ProblemDetailsSchema | ProblemImmutableSystemRole
   status: 409
 }
 
@@ -13062,28 +13521,38 @@ export type transitionAuthorizationAdminResourceResponse =
 
 export const getTransitionAuthorizationAdminResourceUrl = (
   adminResource:
+    | 'roles'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
     | 'field-access-templates',
-  resourceId: UUIDv7,
-  authorizationAction: 'activate' | 'revoke' | 'expire' | 'publish',
+  resourceId: AdminResourceId,
+  authorizationAction: 'activate' | 'revoke' | 'expire' | 'publish' | 'clone',
 ) => {
   return `/api/v1/authorization/${encodeURIComponent(String(adminResource))}/${encodeURIComponent(String(resourceId))}/${encodeURIComponent(String(authorizationAction))}`
 }
 
 /**
- * @summary Activate, revoke, expire, or publish an authorization resource
+ * Generic action route. `clone` is limited to `adminResource=roles`
+ * and requires the source role `lock_version` in the `If-Match` header.
+ * `revoke` and `expire` on `role-assignments` and `revoke` on
+ * `role-capabilities` accept an empty body. All other actions carry
+ * a `ReasonAction` body.
+ * @summary Activate, revoke, expire, publish, or clone an authorization resource
  */
 export const transitionAuthorizationAdminResource = async (
   adminResource:
+    | 'roles'
+    | 'role-capabilities'
     | 'role-assignments'
     | 'delegations'
     | 'classification-policies'
     | 'field-access-templates',
-  resourceId: UUIDv7,
-  authorizationAction: 'activate' | 'revoke' | 'expire' | 'publish',
-  reasonAction?: ReasonAction,
+  resourceId: AdminResourceId,
+  authorizationAction: 'activate' | 'revoke' | 'expire' | 'publish' | 'clone',
+  emptyActionBodyRoleCloneInputReasonAction?:
+    EmptyActionBody | RoleCloneInput | ReasonAction,
   options?: RequestInit,
 ): Promise<transitionAuthorizationAdminResourceResponse> => {
   return customFetch<transitionAuthorizationAdminResourceResponse>(
@@ -13096,7 +13565,7 @@ export const transitionAuthorizationAdminResource = async (
       ...options,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...options?.headers },
-      body: JSON.stringify(reasonAction),
+      body: JSON.stringify(emptyActionBodyRoleCloneInputReasonAction),
     },
   )
 }

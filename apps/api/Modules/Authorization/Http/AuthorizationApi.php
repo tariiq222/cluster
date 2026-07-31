@@ -42,8 +42,11 @@ final class AuthorizationApi
     }
 
     /** @param array<string, mixed> $data */
-    public static function resource(array $data, int $status, string $correlationId, ?int $version = null): JsonResponse
+    public static function resource(array $data, int $status, string $correlationId, ?int $version = null, ?array $allowedActions = null): JsonResponse
     {
+        if ($allowedActions !== null && ! array_key_exists('allowed_actions', $data)) {
+            $data['allowed_actions'] = array_values($allowedActions);
+        }
         $response = response()->json(['data' => $data], $status)->header('X-Correlation-ID', $correlationId);
         if ($version !== null) {
             $response->header('ETag', '"'.$version.'"');
@@ -65,8 +68,9 @@ final class AuthorizationApi
 
     public static function problem(int $status, string $type, string $title, string $detail, ?string $correlationId = null): JsonResponse
     {
+        $problemType = str_starts_with($type, 'urn:') ? $type : "https://cluster.example/problems/{$type}";
         $response = response()->json([
-            'type' => "https://cluster.example/problems/{$type}",
+            'type' => $problemType,
             'title' => $title,
             'status' => $status,
             'detail' => $detail,
