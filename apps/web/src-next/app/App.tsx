@@ -1,0 +1,96 @@
+import { useCallback, useEffect, useState } from 'react'
+import { clearStoredSession, identityLogout, login, restoreSession, storedSession, type Session } from '../api/session'
+import { registerSessionExpiredHandler } from '../api/http'
+import { directionForLocale, initialLocale, shellCopy, LOCALE_KEY, type Locale } from '../i18n'
+import { LoginScreen } from './LoginScreen'
+import { SessionProvider } from './session-context'
+import { PrincipalProvider } from './principal-context'
+import { AppShell } from './AppShell'
+
+export function App() {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale)
+  const [session, setSession] = useState<Session | null>(storedSession)
+  const [sessionExpired, setSessionExpired] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
+
+  const expireSession = useCallback(() => {
+    clearStoredSession()
+    setSession(null)
+    setSessionExpired(true)
+  }, [])
+
+  useEffect(() => {
+    registerSessionExpiredHandler(expireSession)
+    return () => registerSessionExpiredHandler(() => {})
+  }, [expireSession])
+
+  useEffect(() => {
+    let cancelled = false
+    const restore = async () => {
+      try {
+        const restored = await restoreSession()
+        if (cancelled) return
+        if (restored) setSession(restored)
+      } catch {
+        // network failure: fall back to stored session if any
+      } finally {
+        if (!cancelled) setAuthChecked(true)
+      }
+    }
+    if (!storedSession()) {
+      void restore()
+    } else {
+      setAuthChecked(true)
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const setLocale = useCallback((next: Locale) => {
+    setLocaleState(next)
+    localStorage.setItem(LOCALE_KEY, next)
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.lang = locale
+    document.documentElement.dir = directionForLocale(locale)
+  }, [locale])
+
+  const handleLogin = useCallback(
+    async (username: string, password: string) => {
+      const next = await login(username, password)
+      setSessionExpired(false)
+      setSession(next)
+      setAuthChecked(true)
+    },
+    [],
+  )
+
+  const handleLogout = useCallback(() => {
+    const current = storedSession()
+    if (current) void identityLogout(current.csrfToken)
+    clearStoredSession()
+    setSession(null)
+  }, [])
+
+  if (!authChecked) {
+    return (
+      <div className="state-panel" role="status">
+        {shellCopy[locale].signingIn}
+      </div>
+    )
+  }
+
+  if (!session) {
+    return <LoginScreen locale={locale} setLocale={setLocale} sessionExpired={sessionExpired} onLogin={handleLogin} />
+  }
+
+  return (
+    <SessionProvider session={session} locale={locale} setLocale={setLocale}>
+      <PrincipalProvider>
+        <AppShell onLogout={handleLogout} />
+      </PrincipalProvider>
+    </SessionProvider>
+  )
+}

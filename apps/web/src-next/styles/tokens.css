@@ -1,0 +1,83 @@
+:root {
+  /* Color primitives */
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f1f3fb;
+  --color-ink: #1a2735;
+  --color-muted: #5a6875;
+  --color-border: #e4e4e7;
+  --color-border-strong: #ced6df;
+
+  --color-primary: #293b85;
+  --color-primary-hover: #253679;
+  --color-primary-soft: #e8ebf7;
+  --color-primary-border: #b9c1e8;
+  --color-accent: #3daae1;
+  --color-accent-soft: #e6f4fc;
+  --color-accent-border: #a8d8f0;
+
+  --color-success: #247a42;
+  --color-success-soft: #e6f4ec;
+  --color-success-border: #a9d8bc;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fbf0dd;
+  --color-warning-border: #e4c98e;
+  --color-danger: #b42318;
+  --color-danger-strong: #8f1c14;
+  --color-danger-soft: #fdecea;
+  --color-danger-border: #f0b3ae;
+  --color-info-strong: #253679;
+  --color-info-soft: #e8ebf7;
+  --color-info-border: #b9c1e8;
+
+  --color-gray-50: #f8f9fb;
+  --color-gray-100: #eef1f5;
+  --color-gray-200: #e0e5ec;
+  --color-gray-300: #ccd3dd;
+  --color-gray-400: #aab4c1;
+  --color-gray-500: #8a95a4;
+  --color-gray-600: #5a6875;
+  --color-gray-700: #3d4a58;
+
+  /* Typography */
+  --font-family: 'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
+  --font-size-base: 16px;
+  --font-size-sm: 0.875rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.375rem;
+
+  /* Radii */
+  --radius-control: 12px;
+  --radius-surface: 16px;
+  --radius-pill: 999px;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Controls */
+  --control-height: 44px;
+  --control-height-compact: 36px;
+  --icon-size: 18px;
+  --badge-height: 28px;
+
+  /* Shadows */
+  --shadow-float: 0 4px 16px rgb(26 39 53 / 10%);
+  --shadow-dialog: 0 16px 48px rgb(26 39 53 / 22%);
+  --focus-ring: 3px solid var(--color-primary);
+
+  /* Layers */
+  --z-popover: 50;
+  --z-drawer: 60;
+  --z-overlay: 40;
+
+  /* Motion */
+  --motion-base: 180ms;
+  --interactive-duration: 150ms;
+  --interactive-easing: ease-out;
+}
