@@ -13824,77 +13824,147 @@ export const setPlatformSetting = async (
   )
 }
 
-export type transitionPlatformSettingsVersionResponse200 = {
+export type validatePlatformSettingsVersionResponse200 = {
   data: EntityResponse
   status: 200
 }
 
-export type transitionPlatformSettingsVersionResponse400 = {
+export type validatePlatformSettingsVersionResponse400 = {
   data: BadRequestResponse
   status: 400
 }
 
-export type transitionPlatformSettingsVersionResponse401 = {
+export type validatePlatformSettingsVersionResponse401 = {
   data: UnauthorizedResponse
   status: 401
 }
 
-export type transitionPlatformSettingsVersionResponse403 = {
+export type validatePlatformSettingsVersionResponse403 = {
   data: ForbiddenResponse
   status: 403
 }
 
-export type transitionPlatformSettingsVersionResponse404 = {
+export type validatePlatformSettingsVersionResponse404 = {
   data: NotFoundResponse
   status: 404
 }
 
-export type transitionPlatformSettingsVersionResponse409 = {
+export type validatePlatformSettingsVersionResponse409 = {
   data: ConflictResponse
   status: 409
 }
 
-export type transitionPlatformSettingsVersionResponse412 = {
+export type validatePlatformSettingsVersionResponse412 = {
   data: PreconditionFailedResponse
   status: 412
 }
 
-export type transitionPlatformSettingsVersionResponseSuccess =
-  transitionPlatformSettingsVersionResponse200 & {
+export type validatePlatformSettingsVersionResponseSuccess =
+  validatePlatformSettingsVersionResponse200 & {
     headers: Headers
   }
-export type transitionPlatformSettingsVersionResponseError = (
-  | transitionPlatformSettingsVersionResponse400
-  | transitionPlatformSettingsVersionResponse401
-  | transitionPlatformSettingsVersionResponse403
-  | transitionPlatformSettingsVersionResponse404
-  | transitionPlatformSettingsVersionResponse409
-  | transitionPlatformSettingsVersionResponse412
+export type validatePlatformSettingsVersionResponseError = (
+  | validatePlatformSettingsVersionResponse400
+  | validatePlatformSettingsVersionResponse401
+  | validatePlatformSettingsVersionResponse403
+  | validatePlatformSettingsVersionResponse404
+  | validatePlatformSettingsVersionResponse409
+  | validatePlatformSettingsVersionResponse412
 ) & {
   headers: Headers
 }
 
-export type transitionPlatformSettingsVersionResponse =
-  | transitionPlatformSettingsVersionResponseSuccess
-  | transitionPlatformSettingsVersionResponseError
+export type validatePlatformSettingsVersionResponse =
+  | validatePlatformSettingsVersionResponseSuccess
+  | validatePlatformSettingsVersionResponseError
 
-export const getTransitionPlatformSettingsVersionUrl = (
-  versionId: string,
-  settingsAction: 'validate' | 'publish',
-) => {
-  return `/api/v1/platform-settings/versions/${encodeURIComponent(String(versionId))}/${encodeURIComponent(String(settingsAction))}`
+export const getValidatePlatformSettingsVersionUrl = (versionId: string) => {
+  return `/api/v1/platform-settings/versions/${encodeURIComponent(String(versionId))}/validate`
 }
 
 /**
- * @summary Validate or publish a settings version
+ * @summary Validate a settings version
  */
-export const transitionPlatformSettingsVersion = async (
+export const validatePlatformSettingsVersion = async (
   versionId: string,
-  settingsAction: 'validate' | 'publish',
   options?: RequestInit,
-): Promise<transitionPlatformSettingsVersionResponse> => {
-  return customFetch<transitionPlatformSettingsVersionResponse>(
-    getTransitionPlatformSettingsVersionUrl(versionId, settingsAction),
+): Promise<validatePlatformSettingsVersionResponse> => {
+  return customFetch<validatePlatformSettingsVersionResponse>(
+    getValidatePlatformSettingsVersionUrl(versionId),
+    {
+      ...options,
+      method: 'POST',
+    },
+  )
+}
+
+export type publishPlatformSettingsVersionResponse200 = {
+  data: EntityResponse
+  status: 200
+}
+
+export type publishPlatformSettingsVersionResponse400 = {
+  data: BadRequestResponse
+  status: 400
+}
+
+export type publishPlatformSettingsVersionResponse401 = {
+  data: UnauthorizedResponse
+  status: 401
+}
+
+export type publishPlatformSettingsVersionResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type publishPlatformSettingsVersionResponse404 = {
+  data: NotFoundResponse
+  status: 404
+}
+
+export type publishPlatformSettingsVersionResponse409 = {
+  data: ConflictResponse
+  status: 409
+}
+
+export type publishPlatformSettingsVersionResponse412 = {
+  data: PreconditionFailedResponse
+  status: 412
+}
+
+export type publishPlatformSettingsVersionResponseSuccess =
+  publishPlatformSettingsVersionResponse200 & {
+    headers: Headers
+  }
+export type publishPlatformSettingsVersionResponseError = (
+  | publishPlatformSettingsVersionResponse400
+  | publishPlatformSettingsVersionResponse401
+  | publishPlatformSettingsVersionResponse403
+  | publishPlatformSettingsVersionResponse404
+  | publishPlatformSettingsVersionResponse409
+  | publishPlatformSettingsVersionResponse412
+) & {
+  headers: Headers
+}
+
+export type publishPlatformSettingsVersionResponse =
+  | publishPlatformSettingsVersionResponseSuccess
+  | publishPlatformSettingsVersionResponseError
+
+export const getPublishPlatformSettingsVersionUrl = (versionId: string) => {
+  return `/api/v1/platform-settings/versions/${encodeURIComponent(String(versionId))}/publish`
+}
+
+/**
+ * @summary Publish a settings version
+ */
+export const publishPlatformSettingsVersion = async (
+  versionId: string,
+  options?: RequestInit,
+): Promise<publishPlatformSettingsVersionResponse> => {
+  return customFetch<publishPlatformSettingsVersionResponse>(
+    getPublishPlatformSettingsVersionUrl(versionId),
     {
       ...options,
       method: 'POST',

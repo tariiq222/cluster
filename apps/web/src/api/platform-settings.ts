@@ -21,14 +21,15 @@ import {
   listPlatformSettingsVersions as listGeneratedPlatformSettingsVersions,
   listPlatformTechnicalLogs as listGeneratedPlatformTechnicalLogs,
   publishPlatformSettingsCalendar,
+  publishPlatformSettingsVersion as generatedPublishPlatformSettingsVersion,
   requestPlatformRestore as requestGeneratedPlatformRestore,
   requestPlatformTechnicalLogsRestore as requestGeneratedPlatformTechnicalLogsRestore,
   schedulePlatformMaintenanceWindow as scheduleGeneratedPlatformMaintenanceWindow,
   setPlatformSetting as setGeneratedPlatformSetting,
   setPlatformSettingsCalendarException,
   setPlatformSettingsCalendarWeekday,
-  transitionPlatformSettingsVersion,
   updatePlatformAlertPolicy as updateGeneratedPlatformAlertPolicy,
+  validatePlatformSettingsVersion as generatedValidatePlatformSettingsVersion,
   type BusinessCalendarCreate,
   type BusinessCalendarException,
   type BusinessCalendarWeekday,
@@ -100,9 +101,8 @@ export async function validatePlatformSettingsVersion(
   lockVersion: number,
 ): Promise<PlatformSettingsEntity> {
   return unwrap<PlatformSettingsEntity>(
-    await transitionPlatformSettingsVersion(
+    await generatedValidatePlatformSettingsVersion(
       versionId,
-      'validate',
       requestInit(token, { mutation: true, lockVersion }),
     ),
   )
@@ -114,9 +114,8 @@ export async function publishPlatformSettingsVersion(
   lockVersion: number,
 ): Promise<PlatformSettingsEntity> {
   return unwrap<PlatformSettingsEntity>(
-    await transitionPlatformSettingsVersion(
+    await generatedPublishPlatformSettingsVersion(
       versionId,
-      'publish',
       requestInit(token, {
         command: true,
         idempotency: 'platform-settings-publish',
