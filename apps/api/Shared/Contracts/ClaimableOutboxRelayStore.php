@@ -5,43 +5,26 @@ declare(strict_types=1);
 namespace Shared\Contracts;
 
 /**
- * Outbox relay store contract with an atomic, exclusive claim semantic.
+ * Outbox relay store contract with an atomic, exclusive claim semantic that
+ * survives worker crashes and supports safe horizontal scaling.
  *
- * Claim is a compare-and-set on the existing `delivery_attempts` column:
- * the first caller transitions the row from `delivery_attempts = 0` to
- * `delivery_attempts = 1` and wins; concurrent callers see `false` and
- * must skip XADD. `release` decrements back to 0 so the row remains
- * retryable after a transport failure.
+ * The claim is a compare-and-set on the row's `claim_owner` and
+ * `lease_expires_at` columns. A worker wins the claim only when the row is
+ * either unclaimed or held by a stale (expired) lease, and the lease is
+ * always refreshed in the same UPDATE so a lost heart-beat is recoverable
+ * by the reaper rather than by a second worker stealing the claim while
+ * the first is still alive.
  *
- * KNOWN LIMITATION (documented blocker in this round): because there is
- * no `lease_until` column and no external lock, a worker crash between
- * `claim` and XADD leaves the row stuck at `delivery_attempts = 1` and
- * never re-claimable by another worker. Operators must deploy a single
- * relay instance per cluster until a follow-up migration adds a lease
- * timestamp or a Redis SETNX lock is introduced as the sole arbiter.
- *
- * The relay MUST XADD only when `claim` returns `true`, and MUST call
- * `release` when XADD throws so the row is retryable on the next
- * iteration. `markPublished` remains the final and authoritative step.
+ * The relay MUST XADD only when `claim` returns `true`, MUST call `release`
+ * with the same `workerId` when XADD throws, and MUST NOT race another
+ * worker that has won a fresh claim. `reapAbandonedClaims` is the operator
+ * hook for crashed workers and is safe to call from any process.
  */
 interface ClaimableOutboxRelayStore extends OutboxRelayStore
 {
-    /**
-     * Atomically transition the row to the "claimed" state.
-     *
-     * Returns `true` only if this caller is the sole winner of the
-     * exclusive claim. Concurrent callers, callers racing an already-
-     * published row, and callers racing a row left claimed by a crashed
-     * worker MUST observe `false`.
-     */
-    public function claim(string $eventId): bool;
+    public function claim(string $eventId, string $workerId, int $leaseSeconds): bool;
 
-    /**
-     * Best-effort release of a claim the caller previously won.
-     *
-     * MUST be a no-op when the row has already been published, when no
-     * claim was held by this caller, and when the row no longer exists.
-     * MUST NOT mutate `published_at`. MUST NOT decrement past zero.
-     */
-    public function release(string $eventId): void;
+    public function release(string $eventId, string $workerId): void;
+
+    public function reapAbandonedClaims(\DateTimeInterface $now): int;
 }

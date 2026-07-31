@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Outbox\Relay;
 
+use Illuminate\Support\Str;
 use Shared\Contracts\ClaimableOutboxRelayStore;
-use Shared\Contracts\OutboxRelayStore;
 use Shared\Infrastructure\Streams\RedisStreamTransport;
 use Throwable;
 
@@ -13,15 +13,11 @@ use Throwable;
  * Single-instance relay for the shared outbox_events table.
  *
  * The relay runs XADD against the Redis stream named below, but only
- * after it has won an exclusive claim on the row. This stops two relays
- * running on the same cluster from double-publishing the same event id
+ * after it has won an exclusive claim on the row. The claim carries a
+ * worker id and a short lease so a crashed worker's events are
+ * reclaimable by the next iteration or by the reaper, and so two relays
+ * running on the same cluster cannot double-publish the same event id
  * under normal operation.
- *
- * CRASH-RECOVERY BLOCKER (documented): the existing schema has no
- * `lease_until` column, so a worker crash between `claim` and XADD
- * orphans the row at `delivery_attempts = 1`. The single-instance
- * deployment is the only safe option in this round. Adding a lease
- * timestamp (or a Redis SETNX lock) is the agreed follow-up.
  */
 final class RedisOutboxRelay
 {
@@ -31,25 +27,37 @@ final class RedisOutboxRelay
 
     private const MAX_BATCH_SIZE = 100;
 
-    /**
-     * The constructor narrows to the claimable contract so the relay
-     * cannot be wired to a store that does not guarantee atomic claim.
-     * The parent {@see OutboxRelayStore} contract is preserved on the
-     * module relays; the Shared relay opts into the strict contract.
-     */
+    private const LEASE_SECONDS = 30;
+
     public function __construct(
         private readonly ClaimableOutboxRelayStore $store,
         private readonly RedisStreamTransport $transport,
+        private ?string $workerId = null,
     ) {}
+
+    public function workerId(): string
+    {
+        if ($this->workerId === null) {
+            $this->workerId = (string) Str::uuid7();
+        }
+
+        return $this->workerId;
+    }
+
+    public function reap(): int
+    {
+        return $this->store->reapAbandonedClaims(now());
+    }
 
     public function relayPending(int $limit = 100): int
     {
         $batchSize = max(1, min($limit, self::MAX_BATCH_SIZE));
         $rows = $this->store->pending([self::EVENT_TYPE], $batchSize);
 
+        $workerId = $this->workerId();
         $published = 0;
         foreach ($rows as $row) {
-            if (! $this->store->claim($row->eventId)) {
+            if (! $this->store->claim($row->eventId, $workerId, self::LEASE_SECONDS)) {
                 continue;
             }
 
@@ -58,7 +66,7 @@ final class RedisOutboxRelay
                     'event' => json_encode($row->payload, JSON_THROW_ON_ERROR),
                 ]);
             } catch (Throwable $e) {
-                $this->store->release($row->eventId);
+                $this->store->release($row->eventId, $workerId);
 
                 throw $e;
             }

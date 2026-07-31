@@ -79,10 +79,9 @@ class RedisOutboxRelayTest extends TestCase
             ->doesntExpectOutputToContain('access_context');
 
         $this->assertNull(DB::table('outbox_events')->where('event_id', $event['id'])->value('published_at'));
-        $this->assertSame(
-            0,
-            (int) DB::table('outbox_events')->where('event_id', $event['id'])->value('delivery_attempts'),
-            'claim must be released after XADD failure so the next relay iteration can retry',
+        $this->assertNull(
+            DB::table('outbox_events')->where('event_id', $event['id'])->value('claim_owner'),
+            'XADD failure must release the claim so the next relay iteration can retry',
         );
     }
 
@@ -94,7 +93,7 @@ class RedisOutboxRelayTest extends TestCase
 
         $store = $this->app->make(DatabaseOutboxRelayStore::class);
         $this->assertTrue(
-            $store->claim($event['id']),
+            $store->claim($event['id'], 'other-worker', 30),
             'precondition: another worker has already claimed this row',
         );
 
@@ -129,13 +128,8 @@ class RedisOutboxRelayTest extends TestCase
         }
 
         $this->assertNull(
-            DB::table('outbox_events')->where('event_id', $event['id'])->value('published_at'),
-            'XADD failure must not leak into published_at',
-        );
-        $this->assertSame(
-            0,
-            (int) DB::table('outbox_events')->where('event_id', $event['id'])->value('delivery_attempts'),
-            'claim must be released after XADD failure so the next claim can win',
+            DB::table('outbox_events')->where('event_id', $event['id'])->value('claim_owner'),
+            'XADD failure must release the claim so the next worker can take the row',
         );
 
         $transport = Mockery::mock(RedisStreamTransport::class);

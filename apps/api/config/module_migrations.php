@@ -59,4 +59,5 @@ return [
     base_path('Modules/PlatformSettings/Infrastructure/Persistence/Migrations/ZAddPlatformSettingsIdempotency.php'),
     base_path('Modules/PlatformSettings/Infrastructure/Persistence/Migrations/CreateTechnicalLogArchiveTables.php'),
     base_path('Shared/Infrastructure/Outbox/Migrations/MigrateLegacyModuleOutboxes.php'),
+    base_path('Shared/Infrastructure/Outbox/Migrations/W24AddOutboxClaimLease.php'),
 ];
