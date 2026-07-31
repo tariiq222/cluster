@@ -3,13 +3,13 @@
 > Source-grounded inventory of existing E2E runner surfaces, configs, and
 > scripts. Inventory only; no source change.
 >
-> Approved plan: docs/superpowers/plans/2026-07-26-cluster-e2e-runner-readiness.md
+> Approved plan: 2026-07-26-cluster-e2e-runner-readiness.md (removed 2026-08-01; see git history)
 > Source commit: df2588c
 
 version: 1
 baseline_date: '2026-07-27'
 source_commit: df2588c
-plan: docs/superpowers/plans/2026-07-26-cluster-e2e-runner-readiness.md
+plan: 2026-07-26-cluster-e2e-runner-readiness.md (removed 2026-08-01; see git history)
 
 # ----------------------------------------------------------------------------
 # 1. Existing E2E runner surfaces

@@ -1,7 +1,7 @@
 # Cluster Architecture Closure Dossier
 
 > **Date:** 2026-07-27  
-> **Source plan:** [`docs/superpowers/plans/2026-07-26-cluster-complete-architecture-closure.md`](../superpowers/plans/2026-07-26-cluster-complete-architecture-closure.md)  
+> **Source plan:** `2026-07-26-cluster-complete-architecture-closure.md` (removed 2026-08-01; see git history)  
 > **Closure-decision status:** `CLOSED`  
 > **Verification command:** `make verify-architecture-closure`
 
@@ -127,7 +127,7 @@ The mutation script references the following `closed_by` commits and tests, each
 
 ## 7. Post-closure handoff
 
-`docs/superpowers/plans/2026-07-26-cluster-program-orchestration.md` (P01–P08 and M00–M07) remains `planned` or
+`2026-07-26-cluster-program-orchestration.md` (removed 2026-08-01; see git history) (P01–P08 and M00–M07) remains `planned` or
 `blocked` per its own status table until a separate post-closure program authorization message is issued.
 The architecture-closure plan is now finished and T13/T14 handoffs are recorded in this dossier.
 

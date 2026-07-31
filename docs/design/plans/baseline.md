@@ -8,10 +8,10 @@
 
 | البوابة | الأمر | المتوقّع |
 |---|---|---|
-| الأنواع | `npm --prefix apps/web exec tsc -b` | خروج 0 |
-| الفحص | `npm --prefix apps/web run lint` | 0 أخطاء (تحذيرات مقبولة) |
+| الأنواع | `cd apps/web && npx tsc -b` | خروج 0 |
+| الفحص | `npm --prefix apps/web run lint` | 10 تحذيرات، 0 أخطاء |
 | الوحدة | `npm --prefix apps/web run test:unit` | 9 اختبارات / 3 ملفات |
-| المتصفّح | `npm --prefix apps/web run test:e2e:list` | 53 اختبار / 15 ملف |
+| المتصفّح | `npm --prefix apps/web run test:e2e:list` | 52 اختبار / 14 ملف |
 | التغطية | `npm --prefix apps/web run coverage` | **`0/0` — البوابة معطّلة فعلياً** حتى تُصلَح في المهمة ١ |
 
 ## تغطية

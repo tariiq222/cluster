@@ -73,7 +73,9 @@ cd /Users/tariq/code/R3/cluster
 cat docs/design/plans/baseline.md
 ```
 
-Expected: `tsc` exit 0 · lint reports warnings but 0 errors · unit `9 passed (9)` / `3 passed (3)` · e2e list `Total: 53 tests in 15 files`.
+Expected: `tsc` exit 0 · lint reports 10 warnings and 0 errors · unit `9 passed (9)` / `3 passed (3)` · e2e list `Total: 52 tests in 14 files`.
+
+Note `npm exec` swallows the `-b` flag; run the type check as `cd apps/web && npx tsc -b`.
 
 If any of these differ, **stop and report** — the repository is not in the state this plan assumes.
 

@@ -14,7 +14,7 @@
 
 **أ. لا يوجد نظام تصميم — يوجد CSS متراكم.** `apps/web/src/styles/` أربعة ملفات و~870 سطراً، بتوكنز مخصّصة (`--color-primary: #293b85`) ومكوّنات يدوية في `src/ui/index.tsx`. لا وضع ليلي، ولا مصدر حقيقة خارجي يمنع الانحراف.
 
-**ب. تعليمات التصميم متناقضة وبائدة.** `docs/analysis/15-web-client.md` يصف `AppShell.css` بـ864 سطر و`WorkspaceTabs.css` و`ui.css` — **وكلها محذوفة**. `AGENTS.md` يحيل إلى `src/shell/routes.ts` و`RouteAccessGuard` و`AppWorkspace` — **وكلها غير موجودة** بعد إعادة بناء الواجهة في `26ab2dc`. وسبيكة `2026-07-28-cluster-task-only-workspace` تقيّد المنتج على «المهام فقط» بما يناقض تغطية 205 عملية.
+**ب. تعليمات التصميم متناقضة وبائدة.** `15-web-client.md` (أُزيل 2026-08-01) كان يصف `AppShell.css` بـ864 سطر و`WorkspaceTabs.css` و`ui.css` — **وكلها محذوفة**. `AGENTS.md` يحيل إلى `src/shell/routes.ts` و`RouteAccessGuard` و`AppWorkspace` — **وكلها غير موجودة** بعد إعادة بناء الواجهة في `26ab2dc`. وسبيكة `2026-07-28-cluster-task-only-workspace` تقيّد المنتج على «المهام فقط» بما يناقض تغطية 205 عملية.
 
 **ج. الصفحات مجمَّعة بالمورد لا بالغرض.** `docs/api/endpoints-table.md` يعدّ 47 «صفحة»، منها 11 صفحة تنظيمية منفصلة (المسميات، الوظائف، الأشخاص، التكليفات…) هي عملياً أوجه لسؤال واحد: من يعمل أين وبأي صفة. النتيجة تنقّل مفكّك، وفجوة بين ما يوفّره الـAPI وما تعرضه الواجهة.
 
@@ -85,7 +85,7 @@
 
 ## 8. الحذف
 
-**نهائياً** — `docs/superpowers/specs/` و`plans/` (27 ملف) · `docs/analysis/15-web-client.md` · `apps/web/src/styles/` (4 ملفات) · `apps/web/src/ui/index.tsx` · `apps/web/e2e/accounts-debug.tmp.spec.ts`
+**نهائياً** — `docs/superpowers/specs/` و`plans/` (27 ملف) · `analysis/15-web-client.md` · `apps/web/src/styles/` (4 ملفات) · `apps/web/src/ui/index.tsx` · `apps/web/e2e/accounts-debug.tmp.spec.ts`
 
 **تحديثاً** — `AGENTS.md`: إزالة `shell/routes.ts` و`RouteAccessGuard` و`AppWorkspace`، وإضافة إحالة لـ`DESIGN-RULES.md`
 

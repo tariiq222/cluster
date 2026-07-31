@@ -36,16 +36,16 @@ restrictions.
 
 ## 1 · Source of truth
 
-- Approved source of truth: `docs/superpowers/specs/2026-07-26-cluster-production-and-modules-program-design.md`
-- M00 plan: `docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md`
+- Approved source of truth: `2026-07-26-cluster-production-and-modules-program-design.md` (removed 2026-08-01; see git history)
+- M00 plan: `2026-07-26-cluster-planned-module-contracts-baseline.md` (removed 2026-08-01; see git history)
 - M00 child plans:
-  - M01: `docs/superpowers/plans/2026-07-26-cluster-audit-module.md`
-  - M02: `docs/superpowers/plans/2026-07-26-cluster-records-governance-module.md`
-  - M03: `docs/superpowers/plans/2026-07-26-cluster-collaboration-module.md`
-  - M04: `docs/superpowers/plans/2026-07-26-cluster-strategy-module.md`
-  - M05: `docs/superpowers/plans/2026-07-26-cluster-portfolio-projects-module.md`
-  - M06: `docs/superpowers/plans/2026-07-26-cluster-risk-module.md`
-  - M07: `docs/superpowers/plans/2026-07-26-cluster-workspace-module.md`
+  - M01: `2026-07-26-cluster-audit-module.md` (removed 2026-08-01; see git history)
+  - M02: `2026-07-26-cluster-records-governance-module.md` (removed 2026-08-01; see git history)
+  - M03: `2026-07-26-cluster-collaboration-module.md` (removed 2026-08-01; see git history)
+  - M04: `2026-07-26-cluster-strategy-module.md` (removed 2026-08-01; see git history)
+  - M05: `2026-07-26-cluster-portfolio-projects-module.md` (removed 2026-08-01; see git history)
+  - M06: `2026-07-26-cluster-risk-module.md` (removed 2026-08-01; see git history)
+  - M07: `2026-07-26-cluster-workspace-module.md` (removed 2026-08-01; see git history)
 - Architecture-test surfaces (M00 owns only these constants and only after
   T4 handoff):
   - `apps/api/tests/Architecture/ModuleBoundariesTest.php::MODULE_RANKS`
@@ -564,7 +564,7 @@ M01 completion remain blocked on that commit gate.
 
 When this Markdown and the canonical YAML disagree, the YAML wins
 until an approved mutation updates both artifacts atomically. The M00
-plan (`docs/superpowers/plans/2026-07-26-cluster-planned-module-contracts-baseline.md`)
+plan (`2026-07-26-cluster-planned-module-contracts-baseline.md` (removed 2026-08-01; see git history))
 is the authoritative source for the values copied below; sections 7–12
 of that plan freeze every value above. Any future change to the M01–M07
 matrix must update the YAML first, then this Markdown, then

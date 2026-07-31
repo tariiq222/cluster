@@ -4,13 +4,13 @@
 > and existing query-count or artifact-size data. Baseline only; no source
 > change.
 >
-> Approved plan: docs/superpowers/plans/2026-07-26-cluster-quality-performance-hardening.md
+> Approved plan: 2026-07-26-cluster-quality-performance-hardening.md (removed 2026-08-01; see git history)
 > Source commit: df2588c
 
 version: 1
 baseline_date: '2026-07-27'
 source_commit: df2588c
-plan: docs/superpowers/plans/2026-07-26-cluster-quality-performance-hardening.md
+plan: 2026-07-26-cluster-quality-performance-hardening.md (removed 2026-08-01; see git history)
 
 # ----------------------------------------------------------------------------
 # 1. Tool inventory
@@ -137,4 +137,4 @@ approval:
     - Modifying apps/web/build
     - Touching Makefile or CI
     - Adding new dependencies
-    - Phase 2 remediation in docs/superpowers/plans/2026-07-26-cluster-quality-performance-hardening.md
+    - Phase 2 remediation in 2026-07-26-cluster-quality-performance-hardening.md (removed 2026-08-01; see git history)

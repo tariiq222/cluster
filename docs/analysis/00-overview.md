@@ -28,7 +28,6 @@
 | 11 | [`11-workflow.md`](11-workflow.md) | Workflow |
 | 12 | [`12-reporting.md`](12-reporting.md) | Reporting وSearch |
 | 14 | [`14-platform-settings.md`](14-platform-settings.md) | PlatformSettings والعمليات |
-| 15 | [`15-web-client.md`](15-web-client.md) | React/Vite والرحلات |
 | 16 | [`16-scripts-and-tooling.md`](16-scripts-and-tooling.md) | scripts وCI وMake |
 | 17 | [`17-cross-cutting-risks.md`](17-cross-cutting-risks.md) | المخاطر الحالية وخارطة الإغلاق |
 

@@ -4,13 +4,13 @@
 > primitive, and every stylesheet that affects the user-facing surface. This
 > audit is read-only; no source, contract, or runtime change.
 >
-> Approved plan: docs/superpowers/plans/2026-07-26-cluster-accessibility-wcag.md
+> Approved plan: 2026-07-26-cluster-accessibility-wcag.md (removed 2026-08-01; see git history)
 > Source commit: df2588c
 
 version: 1
 baseline_date: '2026-07-27'
 source_commit: df2588c
-plan: docs/superpowers/plans/2026-07-26-cluster-accessibility-wcag.md
+plan: 2026-07-26-cluster-accessibility-wcag.md (removed 2026-08-01; see git history)
 target: WCAG 2.2 Level AA
 
 # ----------------------------------------------------------------------------
