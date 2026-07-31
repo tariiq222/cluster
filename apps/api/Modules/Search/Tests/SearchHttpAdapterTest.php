@@ -37,8 +37,44 @@ final class SearchHttpAdapterTest extends TestCase
         $response = (new SearchController(new SearchPrincipalResolver, new SearchAccessibleRecordsHandler(new SearchAllowingDecider)))->__invoke($request);
 
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame(1, $response->getData(true)['total']);
+        $this->assertCount(1, $response->getData(true)['items']);
+        $this->assertNull($response->getData(true)['next_cursor']);
         $this->assertSame('0197f0e0-0000-7000-8000-000000000001', $response->headers->get('X-Correlation-ID'));
+    }
+
+    public function test_get_search_advertises_a_real_next_cursor_and_link_header(): void
+    {
+        $indexer = new IndexSourceEventHandler;
+        foreach (['record-1', 'record-2', 'record-3'] as $index => $recordId) {
+            $indexer->handle([
+                'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => $recordId, 'source_version' => 'v1',
+                'scope_id' => 'scope-a', 'indexable' => ['title' => 'Visible request '.$index, 'text' => 'Visible request '.$index],
+            ]);
+        }
+        $request = Request::create('/api/v1/search', 'GET', ['q' => 'Visible', 'limit' => '1']);
+        $request->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
+        $response = (new SearchController(new SearchPrincipalResolver, new SearchAccessibleRecordsHandler(new SearchAllowingDecider)))->__invoke($request);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertCount(1, $response->getData(true)['items']);
+        $cursor = $response->getData(true)['next_cursor'];
+        $this->assertIsString($cursor);
+        $this->assertStringContainsString('rel="next"', (string) $response->headers->get('Link'));
+        $this->assertStringContainsString('cursor=', (string) $response->headers->get('Link'));
+    }
+
+    public function test_get_search_rejects_a_malformed_cursor(): void
+    {
+        (new IndexSourceEventHandler)->handle([
+            'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-1', 'source_version' => 'v1',
+            'scope_id' => 'scope-a', 'indexable' => ['title' => 'Visible request', 'text' => 'Visible request'],
+        ]);
+        $request = Request::create('/api/v1/search', 'GET', ['q' => 'Visible', 'cursor' => 'not-a-ciphertext']);
+        $request->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
+        $response = (new SearchController(new SearchPrincipalResolver, new SearchAccessibleRecordsHandler(new SearchAllowingDecider)))->__invoke($request);
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('https://cluster.example/problems/invalid-search-query', $response->getData(true)['type']);
     }
 }
 

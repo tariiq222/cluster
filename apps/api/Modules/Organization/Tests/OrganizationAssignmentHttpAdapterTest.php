@@ -141,6 +141,107 @@ class OrganizationAssignmentHttpAdapterTest extends TestCase
         ]);
     }
 
+    public function test_pending_assignment_can_be_cancelled_with_a_future_end_date(): void
+    {
+        [$token, $personId, $positionId] = $this->assignmentReferences();
+        $startAt = now('UTC')->addDays(5)->format('Y-m-d\TH:i:s.v\Z');
+        $pendingId = (string) $this->withToken($token)
+            ->postJson('/api/v1/organization/assignments', [
+                'person_id' => $personId,
+                'position_id' => $positionId,
+                'start_at' => $startAt,
+                'is_primary' => true,
+            ], $this->writeHeaders('pending-create'))
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'pending')
+            ->json('data.id');
+
+        $cancelled = $this->withToken($token)
+            ->postJson("/api/v1/organization/assignments/{$pendingId}/end", [
+                'end_at' => $startAt,
+                'reason' => 'إلغاء التكليف المستقبلي',
+            ], $this->actionHeaders('"1"', 'pending-end'))
+            ->assertOk()
+            ->assertHeader('ETag', '"2"')
+            ->assertJsonPath('data.status', 'ended')
+            ->assertJsonPath('data.end_at', $startAt)
+            ->assertJsonPath('data.end_reason', 'إلغاء التكليف المستقبلي');
+        $this->assertSame($pendingId, $cancelled->json('data.id'));
+
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/assignments/{$pendingId}/end", [
+                'end_at' => $startAt,
+                'reason' => 'إلغاء التكليف المستقبلي',
+            ], $this->actionHeaders('"1"', 'pending-end'))
+            ->assertOk()
+            ->assertHeader('ETag', '"2"');
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/assignments/{$pendingId}/end", [
+                'end_at' => $startAt,
+                'reason' => 'محاولة ثانية',
+            ], $this->actionHeaders('"2"', 'pending-end-again'))
+            ->assertConflict()
+            ->assertJsonPath('type', 'https://cluster.example/problems/assignment-already-ended');
+
+        $trimId = (string) $this->withToken($token)
+            ->postJson('/api/v1/organization/assignments', [
+                'person_id' => $personId,
+                'position_id' => $positionId,
+                'start_at' => $startAt,
+                'end_at' => now('UTC')->addDays(10)->format('Y-m-d\TH:i:s.v\Z'),
+            ], $this->writeHeaders('pending-trim-create'))
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'pending')
+            ->json('data.id');
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/assignments/{$trimId}/end", [
+                'end_at' => now('UTC')->addDays(6)->format('Y-m-d\TH:i:s.v\Z'),
+                'reason' => 'تقليص النافذة',
+            ], $this->actionHeaders('"1"', 'pending-trim-end'))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'ended');
+    }
+
+    public function test_pending_assignment_end_rejects_a_date_before_its_start(): void
+    {
+        [$token, $personId, $positionId] = $this->assignmentReferences();
+        $startAt = now('UTC')->addDays(5)->format('Y-m-d\TH:i:s.v\Z');
+        $pendingId = (string) $this->withToken($token)
+            ->postJson('/api/v1/organization/assignments', [
+                'person_id' => $personId,
+                'position_id' => $positionId,
+                'start_at' => $startAt,
+            ], $this->writeHeaders('pending-before-start-create'))
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'pending')
+            ->json('data.id');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/assignments/{$pendingId}/end", [
+                'end_at' => now('UTC')->subDay()->format('Y-m-d\TH:i:s.v\Z'),
+                'reason' => 'قبل البدء',
+            ], $this->actionHeaders('"1"', 'pending-before-start'))
+            ->assertBadRequest()
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-assignment-end');
+        $this->assertDatabaseHas('assignments', ['id' => $pendingId, 'end_at' => null, 'lock_version' => 1]);
+    }
+
+    public function test_active_assignment_end_still_rejects_future_dates(): void
+    {
+        [$token, $personId, $positionId] = $this->assignmentReferences();
+        $assignmentId = (string) $this->withToken($token)
+            ->postJson('/api/v1/organization/assignments', $this->assignmentBody($personId, $positionId), $this->writeHeaders('active-future-create'))
+            ->assertCreated()->json('data.id');
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/assignments/{$assignmentId}/end", [
+                'end_at' => now('UTC')->addHour()->format('Y-m-d\TH:i:s.v\Z'),
+                'reason' => 'تاريخ مستقبلي',
+            ], $this->actionHeaders('"1"', 'active-future-end'))
+            ->assertBadRequest()
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-assignment-end');
+        $this->assertDatabaseHas('assignments', ['id' => $assignmentId, 'lock_version' => 1, 'end_reason' => null]);
+    }
+
     public function test_assignment_requests_are_authorized_and_roll_back_with_outbox(): void
     {
         [$token, $personId, $positionId] = $this->assignmentReferences();

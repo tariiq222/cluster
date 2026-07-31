@@ -176,7 +176,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
 
         $this->assertSame(Response::HTTP_ACCEPTED, $completed->getStatusCode());
         $this->assertTrue($completed->getData(true)['accepted']);
-        $this->assertSame(1, (int) DB::table('documents')->where('public_id', $documentId)->value('lock_version'));
+        $this->assertSame(2, (int) DB::table('documents')->where('public_id', $documentId)->value('lock_version'));
     }
 
     public function test_complete_document_upload_without_if_match_preserves_the_existing_precondition_contract(): void

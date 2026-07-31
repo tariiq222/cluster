@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Reporting\Features\ExportAuthorizedReport\Handler\ExportAuthorizedReportHandler;
 use Modules\Reporting\Features\ExportAuthorizedReport\Handler\ExportIdempotencyConflict;
+use Modules\Reporting\Features\ExportAuthorizedReport\Handler\UnsupportedExportFormatException;
 use Modules\Reporting\Http\ReportingApi;
 
 final class CreateReportExportController
@@ -46,7 +47,7 @@ final class CreateReportExportController
                 return ReportingApi::response($replay, 202, $correlationId);
             }
             $validator = Validator::make($input, [
-                'format' => ['required', 'string', 'in:csv,xlsx,pdf'],
+                'format' => ['required', 'string'],
                 'scope_id' => ['sometimes', 'string', 'max:128'],
             ]);
             if ($validator->fails() || array_diff(array_keys($input), ['format', 'scope_id']) !== []) {
@@ -68,6 +69,8 @@ final class CreateReportExportController
             );
         } catch (ExportIdempotencyConflict) {
             return ReportingApi::problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId);
+        } catch (UnsupportedExportFormatException) {
+            return ReportingApi::problem(422, 'unsupported-export-format', 'Unprocessable Entity', 'Only csv and json exports are supported.', $correlationId);
         }
     }
 }

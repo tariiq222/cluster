@@ -75,6 +75,7 @@ final class IdentityOutbox
         $safeCodes = [
             'manual_logout', 'security_change', 'password_change',
             'binding_mismatch', 'session_expired',
+            'password_version_changed', 'account_not_active', 'totp_policy_changed', 'credentials_missing',
             'invalid_credentials', 'source_rate_limited', 'account_rate_limited', 'credential_recovery_required',
             'throttled', 'account_unavailable', 'mfa_required', 'mfa_failed',
         ];

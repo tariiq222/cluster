@@ -2,7 +2,11 @@
 
 namespace Modules\Search\Features\SearchAccessibleRecords\Handler;
 
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+use JsonException;
 use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
@@ -19,16 +23,26 @@ final class SearchAccessibleRecordsHandler
 
     private const CANDIDATE_HARD_CEILING = 500;
 
+    private const CURSOR_VERSION = 1;
+
     public function __construct(private readonly DecideAccess $access) {}
 
     /**
      * @param  array{user_id?: string, facility_id?: string}  $actor
-     * @return array{items: list<array<string, mixed>>, total: int, next_cursor: null}
+     * @return array{items: list<array<string, mixed>>, next_cursor: string|null}
      */
-    public function handle(array $actor, string $query, ?string $scopeId = null, int $limit = 25): array
-    {
+    public function handle(
+        array $actor,
+        string $query,
+        ?string $scopeId = null,
+        int $limit = 25,
+        ?string $cursor = null,
+    ): array {
         $query = trim($query);
         $limit = max(1, min($limit, 100));
+        $afterId = $cursor === null
+            ? null
+            : $this->decodeCursor($cursor, $actor, $limit, $query, $scopeId);
         $candidateLimit = min($limit * self::CANDIDATE_OVER_FETCH_FACTOR, self::CANDIDATE_HARD_CEILING);
         $builder = DB::table('search_index_entries')
             ->where('visibility', 'eligible')
@@ -39,11 +53,13 @@ final class SearchAccessibleRecordsHandler
             $builder->where('scope_id', $scopeId);
         }
         if ($query !== '') {
-            $builder->where('search_text', 'like', '%'.$query.'%');
+            $builder->whereRaw('search_text LIKE ? ESCAPE ?', ['%'.$this->escapeLike($query).'%', '\\']);
+        }
+        if ($afterId !== null) {
+            $builder->where('id', '>', $afterId);
         }
 
-        $items = [];
-        $total = 0;
+        $authorized = [];
         foreach ($builder->get() as $row) {
             $decision = $this->access->decide(
                 $actor,
@@ -54,19 +70,99 @@ final class SearchAccessibleRecordsHandler
                 continue;
             }
 
-            $total++;
-            if (count($items) < $limit) {
-                $items[] = AccessProjection::fromDecision($decision)->compose([
-                    'id' => $row->id,
-                    'source_type' => $row->source_type,
-                    'source_id' => $row->source_id,
-                    'title' => $row->title,
-                    'excerpt' => $row->excerpt,
-                    'scope_id' => $row->scope_id,
-                ]);
+            $authorized[] = AccessProjection::fromDecision($decision)->compose([
+                'id' => $row->id,
+                'source_type' => $row->source_type,
+                'source_id' => $row->source_id,
+                'title' => $row->title,
+                'excerpt' => $row->excerpt,
+                'scope_id' => $row->scope_id,
+            ]);
+            if (count($authorized) > $limit) {
+                break;
             }
         }
 
-        return ['items' => $items, 'total' => $total, 'next_cursor' => null];
+        $hasNextPage = count($authorized) > $limit;
+        if ($hasNextPage) {
+            array_pop($authorized);
+        }
+
+        return [
+            'items' => $authorized,
+            'next_cursor' => $hasNextPage
+                ? $this->encodeCursor(
+                    $authorized[array_key_last($authorized)]['id'],
+                    $actor,
+                    $limit,
+                    $query,
+                    $scopeId,
+                )
+                : null,
+        ];
+    }
+
+    private function escapeLike(string $query): string
+    {
+        return addcslashes($query, '%_\\');
+    }
+
+    /** @param array{user_id?: string, facility_id?: string} $actor */
+    private function encodeCursor(
+        string $entryId,
+        array $actor,
+        int $limit,
+        string $query,
+        ?string $scopeId,
+    ): string {
+        return Crypt::encryptString(json_encode([
+            'version' => self::CURSOR_VERSION,
+            'after_id' => $entryId,
+            'query' => [
+                'limit' => $limit,
+                'q' => $query,
+                'scope_id' => $scopeId,
+            ],
+            'scope' => [
+                'principal_id' => $actor['user_id'] ?? '',
+                'facility_id' => $actor['facility_id'] ?? '',
+            ],
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    /** @param array{user_id?: string, facility_id?: string} $actor */
+    private function decodeCursor(
+        string $cursor,
+        array $actor,
+        int $limit,
+        string $query,
+        ?string $scopeId,
+    ): string {
+        try {
+            $payload = json_decode(Crypt::decryptString($cursor), true, 16, JSON_THROW_ON_ERROR);
+        } catch (DecryptException|JsonException) {
+            throw new InvalidArgumentException('The pagination cursor is invalid.');
+        }
+
+        if (! is_array($payload)
+            || array_keys($payload) !== ['version', 'after_id', 'query', 'scope']
+            || $payload['version'] !== self::CURSOR_VERSION
+            || ! is_array($payload['query'])
+            || array_keys($payload['query']) !== ['limit', 'q', 'scope_id']
+            || $payload['query']['limit'] !== $limit
+            || $payload['query']['q'] !== $query
+            || $payload['query']['scope_id'] !== $scopeId
+            || ! is_array($payload['scope'])
+            || array_keys($payload['scope']) !== ['principal_id', 'facility_id']
+            || ! is_string($payload['scope']['principal_id'])
+            || ! hash_equals((string) $actor['user_id'], $payload['scope']['principal_id'])
+            || ! is_string($payload['scope']['facility_id'])
+            || ! hash_equals((string) $actor['facility_id'], $payload['scope']['facility_id'])
+            || ! is_string($payload['after_id'])
+            || preg_match('/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/', $payload['after_id']) !== 1) {
+            throw new InvalidArgumentException('The pagination cursor is invalid.');
+        }
+
+        return $payload['after_id'];
     }
 }

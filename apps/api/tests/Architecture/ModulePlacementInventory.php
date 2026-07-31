@@ -32,12 +32,11 @@ final class ModulePlacementInventory
     public static function misplacedBusinessFiles(): array
     {
         return [
-            // Deferred: middleware for the legacy notification consumption path until Notifications owns its own pipeline.
-            [
-                'path' => 'app/Http/Middleware/ConsumeSubmittedNotification.php',
-                'reason' => 'Legacy notification consumption middleware is intentionally left under app/Http/Middleware until Notifications exposes its own inbox-driven pipeline; relocating it now would break the bootstrap wiring of the existing identity sessions. Tracked for the Notifications follow-up migration.',
-                'expires_on' => '2027-04-25',
-            ],
+            // NOTE: the app/Http/Middleware/ConsumeSubmittedNotification.php
+            // entry was removed: the file itself was deleted because it was a
+            // dead duplicate of Modules/Notifications/Features/Http/
+            // ConsumeSubmittedNotification.php (zero references; routes/web.php
+            // wires the module-owned middleware).
             // NOTE: the two previous Reporting HTTP controller entries
             // (Modules/Reporting/Http/ListDashboardsController.php and
             // Modules/Reporting/Http/ListReportsController.php) were dropped

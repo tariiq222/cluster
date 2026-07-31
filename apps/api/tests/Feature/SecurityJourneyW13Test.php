@@ -462,7 +462,7 @@ final class SecurityJourneyW13Test extends TestCase
         $this->seedReportRow($recordInB, self::FACILITY_B);
 
         // Without a grant the projections return nothing for facility A.
-        $this->getAsB('/api/v1/search?q=budget&scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 0);
+        $this->getAsB('/api/v1/search?q=budget&scope_id='.self::FACILITY_A)->assertOk()->assertJsonCount(0, 'items');
         $this->getAsB('/api/v1/reports/'.self::REPORT_ID.'?scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 0);
         $this->getAsB('/api/v1/dashboards/'.self::DASHBOARD_ID.'?scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 0);
 
@@ -475,7 +475,7 @@ final class SecurityJourneyW13Test extends TestCase
         );
 
         $search = $this->getAsB('/api/v1/search?q=budget&scope_id='.self::FACILITY_A)->assertOk();
-        $this->assertSame(1, $search->json('total'), 'Search must expose the authorized facility row.');
+        $this->assertCount(1, $search->json('items'), 'Search must expose the authorized facility row.');
         $this->assertSame(self::FACILITY_A, $search->json('items.0.scope_id'));
         $report = $this->getAsB('/api/v1/reports/'.self::REPORT_ID.'?scope_id='.self::FACILITY_A)->assertOk();
         $this->assertSame(1, $report->json('total'), 'Reporting must expose the authorized facility row.');
@@ -485,11 +485,11 @@ final class SecurityJourneyW13Test extends TestCase
         $this->assertSame(self::FACILITY_A, $dashboard->json('items.0.scope_id'));
 
         // The grant never leaks the other facility's rows in the default scope.
-        $this->getAsB('/api/v1/search?q=budget')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('items.0.scope_id', self::FACILITY_A);
+        $this->getAsB('/api/v1/search?q=budget')->assertOk()->assertJsonCount(1, 'items')->assertJsonPath('items.0.scope_id', self::FACILITY_A);
 
         // Revocation empties the projections immediately.
         $this->adminTransition('/api/v1/authorization/role-assignments/'.$grant['assignment_id'].'/revoke', 2);
-        $this->getAsB('/api/v1/search?q=budget&scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 0);
+        $this->getAsB('/api/v1/search?q=budget&scope_id='.self::FACILITY_A)->assertOk()->assertJsonCount(0, 'items');
         $this->getAsB('/api/v1/reports/'.self::REPORT_ID.'?scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 0);
         $this->getAsB('/api/v1/dashboards/'.self::DASHBOARD_ID.'?scope_id='.self::FACILITY_A)->assertOk()->assertJsonPath('total', 0);
     }

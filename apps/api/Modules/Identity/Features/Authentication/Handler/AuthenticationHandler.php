@@ -46,7 +46,7 @@ final class AuthenticationHandler implements AuthenticateUser
             }
 
             $user = DB::table('users')->where('username', $normalizedUsername)->lockForUpdate()->first([
-                'id', 'username', 'status', 'password_version', 'failed_login_count', 'lockout_level', 'locked_until', 'is_admin',
+                'id', 'username', 'status', 'password_version', 'failed_login_count', 'lockout_level', 'locked_until', 'is_admin', 'mfa_required',
             ]);
             if (! $user instanceof stdClass) {
                 $this->hasher->check($password, $this->hasher->dummyHash());
@@ -92,7 +92,10 @@ final class AuthenticationHandler implements AuthenticateUser
             }
 
             if (! $credential instanceof stdClass || $legacyCredential || ! $passwordVerified) {
-                if ($credential instanceof stdClass) {
+                // A legacy/unusable hash is not a wrong password: the attempt
+                // must not escalate failed_login_count or the lockout. The
+                // credential simply needs administrative recovery.
+                if ($credential instanceof stdClass && ! $legacyCredential) {
                     $this->recordCredentialFailure($user);
                 }
                 $failureCode = $legacyCredential ? 'credential_recovery_required' : 'invalid_credentials';
@@ -100,7 +103,7 @@ final class AuthenticationHandler implements AuthenticateUser
                 return $this->genericFailure($source, $normalizedUsername, $failureCode, (string) $user->id);
             }
 
-            $isAdmin = (bool) $user->is_admin;
+            $isAdmin = (bool) $user->is_admin || (bool) $user->mfa_required;
             if ($isAdmin && ! $this->totp->isSatisfied((string) $user->id)) {
                 return $this->genericFailure($source, $normalizedUsername, 'mfa_required', (string) $user->id);
             }

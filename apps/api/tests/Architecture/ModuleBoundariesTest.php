@@ -223,6 +223,11 @@ class ModuleBoundariesTest extends TestCase
         'notification_dead_letters' => 'Notifications',
         // Search (rank 11)
         'search_index_entries' => 'Search',
+        // `search_inbox` remains registered because CreateSearchProjectionTables
+        // still declares it; the DropSearchInboxTable migration retires the
+        // table (up() drops it) and is excluded from the table scan like the
+        // legacy module outbox restorations, since its Schema::create call is
+        // rollback-only. TABLE_OWNERS must equal the migrated table set exactly.
         'search_inbox' => 'Search',
         'search_checkpoints' => 'Search',
         // Reporting (rank 11)
@@ -1212,6 +1217,11 @@ PHP);
                 if (basename($file) === 'MigrateLegacyModuleOutboxes.php') {
                     // Its Schema::create calls are rollback-only restorations of retired
                     // module outboxes; up() creates no live table and drops both after copy.
+                    continue;
+                }
+                if (basename($file) === 'DropSearchInboxTable.php') {
+                    // Its Schema::create call is the rollback-only restoration of the
+                    // retired vestigial search_inbox table; up() only drops it.
                     continue;
                 }
                 $moduleName = basename(dirname(dirname(dirname(dirname($file)))));

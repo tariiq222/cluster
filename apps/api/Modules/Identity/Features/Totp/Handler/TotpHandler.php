@@ -17,8 +17,8 @@ final class TotpHandler
     public function enroll(string $userId): array
     {
         return DB::transaction(function () use ($userId): array {
-            $user = DB::table('users')->where('id', $userId)->lockForUpdate()->first(['id', 'username', 'is_admin']);
-            if (! $user instanceof stdClass || ! (bool) $user->is_admin) {
+            $user = DB::table('users')->where('id', $userId)->lockForUpdate()->first(['id', 'username', 'is_admin', 'mfa_required']);
+            if (! $user instanceof stdClass || (! (bool) $user->is_admin && ! (bool) $user->mfa_required)) {
                 throw new DomainException('totp_not_required');
             }
 
@@ -82,8 +82,8 @@ final class TotpHandler
 
     public function isSatisfied(string $userId): bool
     {
-        $user = DB::table('users')->where('id', $userId)->first(['is_admin']);
-        if (! $user instanceof stdClass || ! (bool) $user->is_admin) {
+        $user = DB::table('users')->where('id', $userId)->first(['is_admin', 'mfa_required']);
+        if (! $user instanceof stdClass || (! (bool) $user->is_admin && ! (bool) $user->mfa_required)) {
             return true;
         }
 

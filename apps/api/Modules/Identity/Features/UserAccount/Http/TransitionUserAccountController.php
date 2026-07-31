@@ -16,7 +16,7 @@ use UnexpectedValueException;
 
 final class TransitionUserAccountController
 {
-    private const ACTIONS = ['activate', 'unlock', 'disable', 'archive', 'revoke-sessions', 'force-password-change'];
+    private const ACTIONS = ['activate', 'unlock', 'disable', 'archive', 'revoke-sessions', 'force-password-change', 'require-mfa', 'optional-mfa', 'reset-credential'];
 
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,

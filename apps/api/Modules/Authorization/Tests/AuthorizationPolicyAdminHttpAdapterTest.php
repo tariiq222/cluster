@@ -637,16 +637,22 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ]);
         $this->assertSame(['work_record.read'], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($expiredDelegate));
 
-        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations/'.$expiredId.'/expire', [], [
+        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/delegations/'.$expiredId, ['end_at' => now()->subSeconds(2)->utc()->format('Y-m-d\TH:i:s.v\Z')], [
             'X-Correlation-ID' => self::CORRELATION_ID,
             'If-Match' => '"1"',
+            'Content-Type' => 'application/merge-patch+json',
+            'X-CSRF-Token' => $csrf,
+        ])->assertOk()->assertHeader('ETag', '"2"');
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations/'.$expiredId.'/expire', [], [
+            'X-Correlation-ID' => self::CORRELATION_ID,
+            'If-Match' => '"2"',
             'Idempotency-Key' => 'delegation-lifecycle-expire',
             'X-CSRF-Token' => $csrf,
         ])->assertOk()->assertJsonPath('data.status', 'expired');
         $this->assertDatabaseHas('delegations', [
             'id' => $expiredId,
             'status' => 'expired',
-            'lock_version' => 2,
+            'lock_version' => 3,
         ]);
         $this->assertSame([], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($expiredDelegate));
     }
@@ -667,7 +673,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $this->withIdentitySession($cookie)->getJson('/api/v1/authorization/role-assignments/'.$foreignAssignment, [
             'X-Correlation-ID' => self::CORRELATION_ID,
         ])->assertNotFound();
-        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-assignments/'.$foreignAssignment, ['status' => 'revoked'], [
+        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-assignments/'.$foreignAssignment, ['scope_id' => self::UNIT_B], [
             'X-Correlation-ID' => self::CORRELATION_ID,
             'If-Match' => '"1"',
             'Content-Type' => 'application/merge-patch+json',
@@ -708,16 +714,16 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'start_at' => '2026-07-01T00:00:00.000Z',
         ], $this->writeHeaders('facility-assignment-contained', $csrf))->assertCreated();
         $id = (string) $created->json('data.id');
-        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-assignments/'.$id, ['status' => 'active'], [
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments/'.$id.'/activate', [], [
             'X-Correlation-ID' => self::CORRELATION_ID,
             'If-Match' => '"1"',
-            'Content-Type' => 'application/merge-patch+json',
+            'Idempotency-Key' => 'facility-assignment-activate',
             'X-CSRF-Token' => $csrf,
         ])->assertOk()->assertHeader('ETag', '"2"');
-        $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/role-assignments/'.$id, ['status' => 'revoked'], [
+        $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments/'.$id.'/revoke', [], [
             'X-Correlation-ID' => self::CORRELATION_ID,
             'If-Match' => '"1"',
-            'Content-Type' => 'application/merge-patch+json',
+            'Idempotency-Key' => 'facility-assignment-revoke-stale',
             'X-CSRF-Token' => $csrf,
         ])->assertStatus(412);
     }

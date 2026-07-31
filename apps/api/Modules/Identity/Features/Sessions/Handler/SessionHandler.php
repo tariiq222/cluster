@@ -35,7 +35,7 @@ final class SessionHandler implements ResolveSession
     public function issueWithinTransaction(string $userId, array $metadata = [], bool $mfaVerified = false): SessionTransport
     {
         $user = DB::table('users')->where('id', $userId)->lockForUpdate()->first([
-            'id', 'status', 'password_version', 'is_admin', 'must_change_password', 'locked_until',
+            'id', 'status', 'password_version', 'is_admin', 'mfa_required', 'must_change_password', 'locked_until',
         ]);
         if (! $user instanceof stdClass || $user->status !== 'active'
             || ($user->locked_until !== null && CarbonImmutable::parse($user->locked_until, 'UTC')->greaterThan(CarbonImmutable::now('UTC')))) {
@@ -44,7 +44,7 @@ final class SessionHandler implements ResolveSession
         if (! DB::table('credentials')->where('user_id', $userId)->exists()) {
             throw new AuthenticationFailed;
         }
-        if ((bool) $user->is_admin && ! $this->adminMfaSatisfied($userId, $mfaVerified)) {
+        if (((bool) $user->is_admin || (bool) $user->mfa_required) && ! $this->adminMfaSatisfied($userId, $mfaVerified)) {
             throw new AuthenticationFailed;
         }
 
@@ -135,7 +135,8 @@ final class SessionHandler implements ResolveSession
                     'sessions.id', 'sessions.user_id', 'sessions.csrf_token_hash', 'sessions.password_version',
                     'sessions.issued_at', 'sessions.expires_at', 'sessions.last_seen_at', 'sessions.revoked_at',
                     'sessions.metadata', 'sessions.mfa_verified', 'users.status',
-                    'users.password_version as current_password_version', 'users.is_admin', 'users.must_change_password',
+                    'users.password_version as current_password_version', 'users.is_admin', 'users.mfa_required',
+                    'users.must_change_password',
                 ]);
             if (! $session instanceof stdClass) {
                 return null;
@@ -158,18 +159,33 @@ final class SessionHandler implements ResolveSession
                 && is_string($metadata['user_agent_hash'] ?? null)
                 && hash_equals($metadata['ip_cidr'], $context->ipCidr)
                 && hash_equals($metadata['user_agent_hash'], $context->userAgentHash);
+            $mfaRequired = (bool) $session->is_admin || (bool) $session->mfa_required;
+            $totpPolicySatisfied = true;
+            if ($mfaRequired) {
+                $totp = DB::table('identity_totp')->where('user_id', $session->user_id)->first(['required', 'enabled']);
+                $totpPolicySatisfied = $totp instanceof stdClass && (bool) $totp->required && (bool) $totp->enabled;
+            }
+            $credentialsPresent = DB::table('credentials')->where('user_id', $session->user_id)->exists();
+            // Compute the reason code from the first failing account check so
+            // revocation reflects the real cause (password-version bump,
+            // account status change, TOTP policy change, missing credentials,
+            // binding mismatch) instead of always reporting expiry.
+            $reasonCode = match (true) {
+                $session->status !== 'active' => 'account_not_active',
+                (int) $session->password_version !== (int) $session->current_password_version => 'password_version_changed',
+                (bool) $session->must_change_password && ! $restricted => 'password_version_changed',
+                $mfaRequired && ! (bool) $session->mfa_verified => 'totp_policy_changed',
+                $mfaRequired && ! $totpPolicySatisfied => 'totp_policy_changed',
+                ! $credentialsPresent => 'credentials_missing',
+                ! $bindingMatches => 'binding_mismatch',
+                default => 'session_expired',
+            };
             $invalid = $session->status !== 'active'
                 || (int) $session->password_version !== (int) $session->current_password_version
-                || ((bool) $session->is_admin && ! (bool) $session->mfa_verified)
+                || ($mfaRequired && (! (bool) $session->mfa_verified || ! $totpPolicySatisfied))
                 || ((bool) $session->must_change_password && ! $restricted)
+                || ! $credentialsPresent
                 || ! $bindingMatches;
-            if (! DB::table('credentials')->where('user_id', $session->user_id)->exists()) {
-                $invalid = true;
-            }
-            if ((bool) $session->is_admin) {
-                $totp = DB::table('identity_totp')->where('user_id', $session->user_id)->first(['required', 'enabled']);
-                $invalid = $invalid || ! ($totp instanceof stdClass) || ! (bool) $totp->required || ! (bool) $totp->enabled;
-            }
             if ($expired || $invalid) {
                 if ($session->revoked_at === null) {
                     DB::table('identity_sessions')->where('id', $session->id)->update([
@@ -179,7 +195,7 @@ final class SessionHandler implements ResolveSession
                     $this->outbox->insertSecurityEvent('session_revoked', (string) $session->user_id, [
                         'user_id' => (string) $session->user_id,
                         'session_id' => (string) $session->id,
-                        'reason_code' => ! $bindingMatches ? 'binding_mismatch' : 'session_expired',
+                        'reason_code' => $reasonCode,
                     ]);
                 }
 

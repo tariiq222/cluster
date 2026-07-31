@@ -2243,7 +2243,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
     post:
-      summary: Archive, place on hold, or release hold without physical deletion
+      summary: Archive, unarchive, place on hold, or release hold without physical deletion
       operationId: transitionDocument
       parameters:
         - $ref: '#/components/parameters/DocumentId'
@@ -2254,6 +2254,7 @@ paths:
             type: string
             enum:
               - archive
+              - unarchive
               - place-hold
               - release-hold
         - $ref: '#/components/parameters/IfMatch'
@@ -2431,8 +2432,7 @@ paths:
                   type: string
                   enum:
                     - csv
-                    - xlsx
-                    - pdf
+                    - json
                 filters:
                   type: object
       responses:
@@ -2448,6 +2448,15 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          description: Export requested in a format the API cannot produce (only csv and json are supported).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/problem-details.schema'
   /exports/{exportId}:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -2456,11 +2465,35 @@ paths:
       operationId: getExport
       parameters:
         - $ref: '#/components/parameters/ExportId'
+      description: |
+        Returns the export envelope (JSON) for polling and inspection by
+        default; when the request Accept header includes text/csv the raw
+        artifact file is returned instead, with the Content-Type and body
+        matching the stored format.
       responses:
         '200':
-          $ref: '#/components/responses/Entity'
+          description: Export envelope, or the raw artifact file when the Accept header includes text/csv.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+            text/csv:
+              schema:
+                type: string
         '404':
           $ref: '#/components/responses/Problem'
+        '406':
+          description: The requested artifact format cannot satisfy the Accept header.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/Correlation'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/problem-details.schema'
   /audit/events:
     parameters:
       - $ref: '#/components/parameters/CorrelationId'
@@ -3512,9 +3545,13 @@ paths:
     post:
       tags:
         - Organization Admin
-      summary: End an active assignment
+      summary: End an active or pending assignment
       operationId: endAssignment
       x-implementation-status: implemented
+      description: |
+        Ends an active assignment at a past or current time. A pending
+        (future-dated) assignment can be cancelled with an end time in the
+        future as long as it is not before the assignment start time.
       parameters:
         - name: assignmentId
           in: path
@@ -3817,6 +3854,9 @@ paths:
             - archive
             - revoke-sessions
             - force-password-change
+            - require-mfa
+            - optional-mfa
+            - reset-credential
     post:
       tags:
         - Identity Admin
@@ -4146,7 +4186,21 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: |
+            Returned when the patched grant window (`end_at`) or scope
+            (`scope_id`) exceeds the actor's own grant authority
+            (`urn:cluster:problem:grant-authority-invalid`), or when a grant
+            status transition is requested through the patch body instead of
+            the dedicated transition actions
+            (`urn:cluster:problem:invalid-grant-status`). Status is not a
+            mutable patch field for `role-assignments`/`delegations`.
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/problem-details.schema'
+                  - $ref: '#/components/schemas/ProblemGrantAuthorityInvalid'
+                  - $ref: '#/components/schemas/ProblemInvalidGrantStatus'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
         '422':
@@ -4233,8 +4287,11 @@ paths:
         '409':
           description: |
             Conflict. When `adminResource=roles` and the role is a system role,
-            returns `urn:cluster:problem:system-role-immutable`. All other
-            conflicts fall back to the standard problem envelope.
+            returns `urn:cluster:problem:system-role-immutable`. Grant status
+            transitions are gated by the state machine: `revoked` is terminal
+            and `expired` requires the window to have closed, returning
+            `urn:cluster:problem:invalid-grant-status`. All other conflicts
+            fall back to the standard problem envelope.
           headers:
             X-Correlation-ID:
               $ref: '#/components/headers/Correlation'
@@ -4244,6 +4301,8 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/problem-details.schema'
                   - $ref: '#/components/schemas/ProblemImmutableSystemRole'
+                  - $ref: '#/components/schemas/ProblemGrantAuthorityInvalid'
+                  - $ref: '#/components/schemas/ProblemInvalidGrantStatus'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
   /authorization/access-decisions:
@@ -9859,6 +9918,7 @@ components:
         - person_version
         - status
         - must_change_password
+        - mfa_required
         - password_version
         - locked_until
         - display_name_ar
@@ -9878,6 +9938,9 @@ components:
         status:
           $ref: '#/components/schemas/AccountStatus'
         must_change_password:
+          type: boolean
+        mfa_required:
+          description: Whether the account must satisfy TOTP (admin-like MFA policy) before authenticating.
           type: boolean
         password_version:
           type: integer
@@ -10157,6 +10220,8 @@ components:
           oneOf:
             - $ref: '#/components/schemas/UUIDv7'
             - type: 'null'
+        is_active:
+          type: boolean
     PersonCreate:
       type: object
       additionalProperties: false
@@ -10526,6 +10591,56 @@ components:
         status:
           type: integer
           const: 422
+        detail:
+          type: string
+        correlation_id:
+          $ref: '#/components/schemas/uuidv7'
+    ProblemGrantAuthorityInvalid:
+      description: |
+        Returned with HTTP 409 when a role-assignment or delegation patch
+        widens the granted window (`end_at`) beyond the actor's own grant
+        window/scope. Grant authority is re-validated on window/scope
+        updates, not only at creation.
+      type: object
+      additionalProperties: true
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          const: 'urn:cluster:problem:grant-authority-invalid'
+        title:
+          type: string
+        status:
+          type: integer
+          const: 409
+        detail:
+          type: string
+        correlation_id:
+          $ref: '#/components/schemas/uuidv7'
+    ProblemInvalidGrantStatus:
+      description: |
+        Returned with HTTP 409 when a role-assignment or delegation status
+        transition is not permitted: `revoked` is terminal (no path back to
+        `active`), and `expired` may only be recorded once `end_at <= now`.
+        Status is only mutable through the dedicated transition actions.
+      type: object
+      additionalProperties: true
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          const: 'urn:cluster:problem:invalid-grant-status'
+        title:
+          type: string
+        status:
+          type: integer
+          const: 409
         detail:
           type: string
         correlation_id:
@@ -11535,6 +11650,20 @@ components:
             - string
             - 'null'
           maxLength: 128
+        restriction_policy_key:
+          type:
+            - string
+            - 'null'
+          maxLength: 128
+        retention_policy_key:
+          type:
+            - string
+            - 'null'
+          maxLength: 128
+        retention_until:
+          oneOf:
+            - $ref: '#/components/schemas/UtcDateTime'
+            - type: 'null'
         due_at:
           $ref: '#/components/schemas/UtcDateTime'
         effective_from:

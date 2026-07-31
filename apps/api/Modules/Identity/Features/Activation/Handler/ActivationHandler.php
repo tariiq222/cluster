@@ -25,7 +25,7 @@ final class ActivationHandler implements IssueActivationToken
     public function issue(string $userId): array
     {
         return DB::transaction(function () use ($userId): array {
-            $user = DB::table('users')->where('id', $userId)->lockForUpdate()->first(['id', 'status', 'is_admin']);
+            $user = DB::table('users')->where('id', $userId)->lockForUpdate()->first(['id', 'status', 'is_admin', 'mfa_required']);
             if (! $user instanceof stdClass || $user->status !== 'pending') {
                 throw new DomainException('activation_not_available');
             }
@@ -50,7 +50,7 @@ final class ActivationHandler implements IssueActivationToken
                 'updated_at' => $now,
             ]);
             $this->outbox->insertSecurityEvent('activation_token_issued', $userId, ['user_id' => $userId]);
-            $totpEnrollment = (bool) $user->is_admin ? $this->totp->enroll($userId) : null;
+            $totpEnrollment = ((bool) $user->is_admin || (bool) $user->mfa_required) ? $this->totp->enroll($userId) : null;
 
             return [
                 'user_id' => $userId,
@@ -73,8 +73,9 @@ final class ActivationHandler implements IssueActivationToken
                 ->lockForUpdate()
                 ->first(['user_id']);
             if ($activation instanceof stdClass) {
-                $isAdmin = DB::table('users')->where('id', $activation->user_id)->value('is_admin');
-                if ((bool) $isAdmin) {
+                $user = DB::table('users')->where('id', $activation->user_id)->first(['is_admin', 'mfa_required']);
+                $adminLike = $user instanceof stdClass && ((bool) $user->is_admin || (bool) $user->mfa_required);
+                if ($adminLike) {
                     $totpEnabled = DB::table('identity_totp')->where('user_id', $activation->user_id)->value('enabled');
                     $totpAccepted = (bool) $totpEnabled
                         ? $this->totp->verify((string) $activation->user_id, (string) $totpCode)

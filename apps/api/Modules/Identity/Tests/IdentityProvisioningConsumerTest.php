@@ -39,8 +39,13 @@ class IdentityProvisioningConsumerTest extends TestCase
         $token = $this->loginToken();
         $personId = $this->createPerson($token);
         $accountId = $this->createAccount($token, $personId);
+        // A pending account has no credential yet; disable first so the
+        // activation transition targets a disabled account.
         $this->withToken($token)
-            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"1"', 'activate-consumer-account'))
+            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'disable-consumer-account'))
+            ->assertOk();
+        $this->withToken($token)
+            ->postJson("/api/v1/identity/accounts/{$accountId}/activate", [], $this->actionHeaders('"2"', 'activate-consumer-account'))
             ->assertOk();
         DB::table('identity_sessions')->insert([
             'id' => '018f6f7d-0c00-7000-8000-000000000702',

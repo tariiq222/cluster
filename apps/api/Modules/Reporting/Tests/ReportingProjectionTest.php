@@ -3,6 +3,7 @@
 namespace Modules\Reporting\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Authorization\Contracts\AccessDecision;
@@ -45,19 +46,25 @@ final class ReportingProjectionTest extends TestCase
 
         $run = (new RunAuthorizedReportHandler($decider))->handle($reportId, $actor);
         $export = (new ExportAuthorizedReportHandler($decider))->handle($reportId, $actor);
-        $download = (new DownloadExportArtifactHandler($decider))->handle($export['id'], $actor);
+        $request = Request::create('/exports/'.$export['id'], 'GET');
+        $request->headers->set('Accept', '*/*');
+        $download = (new DownloadExportArtifactHandler($decider))->handle($request, $export['id'], $actor, null);
         $dashboard = (new GetAuthorizedDashboardHandler($decider))->handle($dashboardId, $actor);
 
         $this->assertSame(1, $run['total']);
         $this->assertSame(1, $export['total']);
-        $this->assertNotNull($download);
-        $this->assertSame(1, $download['total']);
+        $this->assertInstanceOf(\Illuminate\Http\JsonResponse::class, $download);
+        $this->assertSame(1, $download->getData(true)['total']);
         $this->assertSame(1, $dashboard['total']);
-        foreach ([$run, $export, $download, $dashboard] as $result) {
+        foreach ([$run, $export, $dashboard] as $result) {
             $this->assertArrayHasKey('allowed_actions', $result['items'][0]);
             $this->assertArrayHasKey('field_access', $result['items'][0]);
             $this->assertArrayHasKey('decision_id', $result['items'][0]);
         }
+        $downloadItems = $download->getData(true)['items'][0];
+        $this->assertArrayHasKey('allowed_actions', $downloadItems);
+        $this->assertArrayHasKey('field_access', $downloadItems);
+        $this->assertArrayHasKey('decision_id', $downloadItems);
         $this->assertEqualsCanonicalizing(
             ['reporting.run', 'reporting.export', 'reporting.download', 'reporting.dashboard'],
             array_values(array_unique($decider->capabilities)),

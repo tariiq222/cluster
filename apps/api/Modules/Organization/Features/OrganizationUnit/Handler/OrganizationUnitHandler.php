@@ -86,6 +86,9 @@ final class OrganizationUnitHandler
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            // A new sibling changes the ordering surface, so the cluster
+            // version token that guards reorder If-Match must advance.
+            $this->advanceClusterVersion($input['cluster_id']);
             $this->idempotency->storeResponse($idempotency, $data);
             $this->outbox->insert($eventFactory($data), $unitId);
 
@@ -158,6 +161,14 @@ final class OrganizationUnitHandler
     public function update(string $unitId, int $expectedVersion, array $changes, Closure $eventFactory): array
     {
         return DB::transaction(function () use ($unitId, $expectedVersion, $changes, $eventFactory): array {
+            // Lock the owning cluster before the unit row so every unit
+            // mutation acquires locks in the same order as reorderAll and
+            // advances the reorder ETag token on the same row.
+            $seed = DB::table('organization_units')->where('id', $unitId)->first();
+            if (! $seed instanceof stdClass) {
+                throw new DomainException('organization_unit_not_found');
+            }
+            $this->advanceClusterVersion((string) $seed->cluster_id);
             $row = DB::table('organization_units')->where('id', $unitId)->lockForUpdate()->first();
             if (! $row instanceof stdClass) {
                 throw new DomainException('organization_unit_not_found');
@@ -388,6 +399,27 @@ final class OrganizationUnitHandler
             'request_hash_matches' => hash_equals((string) $existing->request_hash, $requestHash),
             ...json_decode($existing->response_payload, true, 32, JSON_THROW_ON_ERROR),
         ];
+    }
+
+    /**
+     * Locks the cluster row and advances its lock_version by one. The
+     * cluster lock_version is the optimistic-concurrency token for the
+     * reorder endpoint; every unit create/update/move bumps it so a stale
+     * If-Match on reorder can never be applied against moved siblings.
+     */
+    private function advanceClusterVersion(string $clusterId): void
+    {
+        $cluster = DB::table('clusters')->where('id', $clusterId)->lockForUpdate()->first();
+        if (! $cluster instanceof stdClass) {
+            throw new InvalidArgumentException('Organization unit cluster is invalid.');
+        }
+        $advanced = DB::table('clusters')
+            ->where('id', $clusterId)
+            ->where('lock_version', (int) $cluster->lock_version)
+            ->update(['lock_version' => (int) $cluster->lock_version + 1, 'updated_at' => now()]);
+        if ($advanced !== 1) {
+            throw new UnexpectedValueException('The organization version could not be advanced.');
+        }
     }
 
     /** @return array{id: string, type: string, path: string, depth: int} */

@@ -317,7 +317,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-documents-documentId-download:get:downloaddocumentcontroller`](rbac-matrix.md#row-144); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_documents_documentId_download_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_documents_documentId_download_response` (schema placeholder).
-- **Status codes:** `400, 404`.
+- **Status codes:** `400, 404, 409`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Documents\Features\DocumentDownload\Http\DownloadDocumentController`.
 - **Controller source:** `apps/api/Modules/Documents/Features/DocumentDownload/Http/DownloadDocumentController.php`.
@@ -1819,7 +1819,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-exports-exportId:get:downloadexportcontroller`](rbac-matrix.md#row-167); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_exports_exportId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_exports_exportId_response` (schema placeholder).
-- **Status codes:** `200, 400, 404`.
+- **Status codes:** `400, 404`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Reporting\Features\Exports\Http\DownloadExportController`.
 - **Controller source:** `apps/api/Modules/Reporting/Features/Exports/Http/DownloadExportController.php`.
@@ -1851,7 +1851,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-reports-reportId-exports:post:createreportexportcontroller`](rbac-matrix.md#row-175); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/post_api_v1_reports_reportId_exports_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/post_api_v1_reports_reportId_exports_response` (schema placeholder).
-- **Status codes:** `202, 400, 403, 409`.
+- **Status codes:** `202, 400, 403, 409, 422`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Reporting\Features\Exports\Http\CreateReportExportController`.
 - **Controller source:** `apps/api/Modules/Reporting/Features/Exports/Http/CreateReportExportController.php`.

@@ -80,6 +80,11 @@ final class AssignmentHandler
     }
 
     /**
+     * Ends an active assignment at a past or current time. A pending
+     * assignment (future start) can also be cancelled: its end time may lie
+     * in the future as long as it is not before the start time, which leaves
+     * the empty window before the planned start as a cancellation.
+     *
      * @param  array{principal_id: string, operation: string, key_hash: string, request_hash: string}  $idempotency
      * @param  Closure(array<string, mixed>, string): array<string, mixed>  $eventFactory
      * @return array{request_hash_matches: bool, assignment: array<string, mixed>}
@@ -121,10 +126,11 @@ final class AssignmentHandler
             if ($status === 'ended') {
                 throw new DomainException('assignment_already_ended');
             }
-            if ($status !== 'active') {
+            if ($status !== 'active' && $status !== 'pending') {
                 throw new DomainException('assignment_not_active');
             }
-            if ($effectiveEnd->lessThan($this->timestamp((string) $row->start_at)) || $effectiveEnd->greaterThan($now)) {
+            if ($effectiveEnd->lessThan($this->timestamp((string) $row->start_at))
+                || ($status === 'active' && $effectiveEnd->greaterThan($now))) {
                 throw new InvalidArgumentException('assignment_end_invalid');
             }
 
@@ -287,7 +293,10 @@ final class AssignmentHandler
     private function status(stdClass $row, CarbonImmutable $at): string
     {
         if ($this->timestamp((string) $row->start_at)->greaterThan($at)) {
-            return 'pending';
+            // A pending assignment that was ended before its start (a
+            // cancellation) is terminal: the recorded end_reason proves the
+            // end action ran, so it reads 'ended' instead of 'pending'.
+            return $row->end_reason === null ? 'pending' : 'ended';
         }
         if ($row->end_at !== null && $this->timestamp((string) $row->end_at)->lessThanOrEqualTo($at)) {
             return 'ended';

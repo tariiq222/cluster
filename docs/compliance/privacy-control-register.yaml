@@ -141,7 +141,7 @@ controls:
     threat: long-lived plaintext PHI in reporting result rows
     owner: Reporting
     status: open
-    evidence: ExportAuthorizedReportHandler.php duplicates item arrays into report_runs.result and export_artifacts.safe_result
+    evidence: report_runs.result is the single canonical run-result store; export_artifacts.safe_result holds only the serialized export payload (CSV or JSON text) with a 1-day logical expiry purged by reporting:purge-expired
     exit_criterion: P04 Phase B encrypts result payload; tests assert reauthorization + classification carry through
 
   - id: PC-017

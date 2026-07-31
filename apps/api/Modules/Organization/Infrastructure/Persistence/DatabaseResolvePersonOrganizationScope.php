@@ -11,6 +11,19 @@ final class DatabaseResolvePersonOrganizationScope implements ResolvePersonOrgan
 {
     public function forPerson(string $personId): array
     {
+        $person = DB::table('people')->where('id', $personId)->first(['status']);
+        if (! $person instanceof stdClass) {
+            return $this->emptyScope();
+        }
+        // A person who has left the organization loses all organization
+        // scope: assignments no longer imply read access once the person is
+        // gone. A suspended person keeps read scope — suspension is a
+        // temporary access-control measure (Identity treats suspended
+        // accounts as disabled) while the assignment window stays current,
+        // so read scope remains consistent with the person's own record.
+        if ($person->status === 'left') {
+            return $this->emptyScope();
+        }
         $at = CarbonImmutable::now('UTC')->floorMillisecond()->format('Y-m-d H:i:s.v');
 
         $assignments = DB::table('assignments as assignment')
@@ -81,6 +94,17 @@ final class DatabaseResolvePersonOrganizationScope implements ResolvePersonOrgan
             'facility_ids' => $this->sortedIds($facilityIds),
             'organization_unit_ids' => $this->sortedIds($unitIds),
             'primary_organization_unit_id' => $primaryUnitId,
+        ];
+    }
+
+    /** @return array{cluster_ids: list<string>, facility_ids: list<string>, organization_unit_ids: list<string>, primary_organization_unit_id: null} */
+    private function emptyScope(): array
+    {
+        return [
+            'cluster_ids' => [],
+            'facility_ids' => [],
+            'organization_unit_ids' => [],
+            'primary_organization_unit_id' => null,
         ];
     }
 

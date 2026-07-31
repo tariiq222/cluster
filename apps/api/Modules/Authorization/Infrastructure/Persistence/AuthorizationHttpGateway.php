@@ -209,7 +209,7 @@ final class AuthorizationHttpGateway
 
     /** @param array<string,mixed> $patch */
     /** @return array<string,mixed>|null */
-    public function update(string $resource, string $id, array $patch, int $expectedVersion, string $actorUserId): ?array
+    public function update(string $resource, string $id, array $patch, int $expectedVersion, string $actorUserId, bool $allowStatus = false): ?array
     {
         $table = $this->requireTable($resource);
         if ($resource === 'roles') {
@@ -246,47 +246,21 @@ final class AuthorizationHttpGateway
 
             return $this->find($resource, $id, $actorUserId);
         }
-        if ($resource === 'role-assignments' && array_key_exists('scope_id', $patch)) {
-            $visible = DB::table($table)->where('id', $id);
-            $this->applyActorScope($visible, $resource, $actorUserId);
-            $assignment = $visible->first();
-            if ($assignment === null) {
-                if (! collect($this->actorScopes($actorUserId))->contains(fn (array $scope): bool => $scope['scope_type'] === 'cluster')) {
-                    throw new InvalidArgumentException('authorization_scope_denied');
-                }
-                if (! DB::table($table)->where('id', $id)->exists()) {
-                    return null;
-                }
-
-                throw new InvalidArgumentException('authorization_scope_denied');
+        if (in_array($resource, ['role-assignments', 'delegations'], true)
+            && ($allowStatus || array_key_exists('scope_id', $patch) || array_key_exists('end_at', $patch))) {
+            $row = $this->visibleGrantRow($resource, $id, $actorUserId);
+            if ($row === null) {
+                return null;
             }
-            if (! is_string($patch['scope_id']) || trim($patch['scope_id']) === '') {
-                throw new InvalidArgumentException('authorization_scope_required');
+            if ($allowStatus && array_key_exists('status', $patch)) {
+                $this->assertGrantStatusTransition($row, (string) $patch['status']);
             }
-            $capabilityCodes = DB::table('role_capabilities')
-                ->join('capabilities', 'capabilities.id', '=', 'role_capabilities.capability_id')
-                ->where('role_capabilities.role_id', $assignment->role_id)
-                ->where('role_capabilities.effect', 'allow')
-                ->where('capabilities.status', 'active')
-                ->pluck('capabilities.capability_code')->all();
-            try {
-                $this->grantAuthority->assertCovered(
-                    $actorUserId,
-                    $capabilityCodes,
-                    (string) $assignment->scope_type,
-                    $patch['scope_id'],
-                    (string) $assignment->start_at,
-                    $assignment->end_at === null ? null : (string) $assignment->end_at,
-                );
-            } catch (InvalidArgumentException $exception) {
-                if ($exception->getMessage() === 'authorization_grant_exceeds_actor_authority') {
-                    throw new InvalidArgumentException('authorization_scope_denied');
-                }
-
-                throw $exception;
+            $this->assertGrantWindowAuthority($resource, $row, $patch, $actorUserId);
+            if ($allowStatus && array_key_exists('status', $patch) && $patch['status'] === 'expired' && $row->end_at === null) {
+                $patch['end_at'] = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
             }
         }
-        $changes = $this->normalisePatch($resource, $patch);
+        $changes = $this->normalisePatch($resource, $patch, $allowStatus);
         if ($changes === []) {
             throw new InvalidArgumentException('authorization_patch_empty');
         }
@@ -418,7 +392,7 @@ final class AuthorizationHttpGateway
             'publish' => 'published',
         };
 
-        return $this->update($resource, $id, ['status' => $status], $expectedVersion, $actorUserId);
+        return $this->update($resource, $id, ['status' => $status], $expectedVersion, $actorUserId, true);
     }
 
     private function isVisibleRole(string $roleId, string $actorUserId): bool
@@ -909,14 +883,14 @@ final class AuthorizationHttpGateway
 
     /** @param array<string,mixed> $patch */
     /** @return array<string,mixed> */
-    private function normalisePatch(string $resource, array $patch): array
+    private function normalisePatch(string $resource, array $patch, bool $allowStatus = false): array
     {
         $allowed = match ($resource) {
             'roles' => ['name', 'name_ar', 'name_en', 'description_ar', 'description_en', 'status'],
             'capabilities' => ['action', 'sensitivity', 'status'],
             'role-capabilities' => ['effect'],
-            'role-assignments' => ['end_at', 'scope_id', 'status'],
-            'delegations' => ['end_at', 'status'],
+            'role-assignments' => $allowStatus ? ['end_at', 'scope_id', 'status'] : ['end_at', 'scope_id'],
+            'delegations' => $allowStatus ? ['end_at', 'status'] : ['end_at'],
             'explicit-denies' => ['expires_at', 'reason', 'classification', 'resource_pattern'],
             'classification-policies' => ['status', 'policy_document', 'is_active', 'export_policy', 'download_policy', 'policy_version'],
             'field-access-templates' => ['status', 'policy_document', 'is_active'],
@@ -999,6 +973,142 @@ final class AuthorizationHttpGateway
         }
 
         return $changes;
+    }
+
+    /**
+     * Fetches the role-assignment/delegation row the patch targets, keeping
+     * the actor-scope semantics of the legacy role-assignment scope block:
+     * a missing row resolves to null (404), an existing-but-invisible
+     * role-assignment resolves to authorization_scope_denied (403), and an
+     * invisible delegation resolves to null so the generic update tail keeps
+     * its 404 behavior.
+     */
+    private function visibleGrantRow(string $resource, string $id, string $actorUserId): ?object
+    {
+        $table = $this->requireTable($resource);
+        $visible = DB::table($table)->where('id', $id);
+        $this->applyActorScope($visible, $resource, $actorUserId);
+        $row = $visible->first();
+        if ($row !== null) {
+            return $row;
+        }
+        if ($resource === 'role-assignments'
+            && ! collect($this->actorScopes($actorUserId))->contains(fn (array $scope): bool => $scope['scope_type'] === 'cluster')) {
+            throw new InvalidArgumentException('authorization_scope_denied');
+        }
+        if (! DB::table($table)->where('id', $id)->exists()) {
+            return null;
+        }
+        if ($resource === 'role-assignments') {
+            throw new InvalidArgumentException('authorization_scope_denied');
+        }
+
+        return null;
+    }
+
+    /**
+     * The only permitted status changes for role-assignments and delegations.
+     * `revoked` is terminal: nothing may bring a revoked grant back to life
+     * except a fresh grant. `expired` may only be recorded once the granted
+     * window has actually closed (`end_at <= now`), keeping the status column
+     * coherent with the engine's time-based expiry; a grant without an end
+     * window is closed by the expire action itself (end_at := now).
+     */
+    private function assertGrantStatusTransition(object $row, string $targetStatus): void
+    {
+        $currentStatus = (string) $row->status;
+        if ($targetStatus === 'active' && in_array($currentStatus, ['revoked', 'expired'], true)) {
+            throw new InvalidArgumentException('authorization_grant_status_invalid');
+        }
+        if ($targetStatus === 'expired'
+            && ($currentStatus === 'revoked'
+                || ($row->end_at !== null && (string) $row->end_at > now()->utc()->format('Y-m-d H:i:s.v')))) {
+            throw new InvalidArgumentException('authorization_grant_status_invalid');
+        }
+    }
+
+    /**
+     * Re-validates grant authority whenever a patch widens the granted window
+     * (`end_at`) or scope (`scope_id`) of a role-assignment or delegation.
+     * The create path checks coverage once; without this re-check an actor
+     * whose own grant has lapsed could extend grants they gave earlier beyond
+     * their own window (ValidateGrantAuthority::windowCovers is only enforced
+     * at creation). Rows whose role/delegation carries no capabilities confer
+     * nothing and are skipped.
+     *
+     * @param  array<string,mixed>  $patch
+     */
+    private function assertGrantWindowAuthority(string $resource, object $row, array $patch, string $actorUserId): void
+    {
+        if ($resource === 'role-assignments') {
+            if (! array_key_exists('scope_id', $patch) && ! array_key_exists('end_at', $patch)) {
+                return;
+            }
+            if (array_key_exists('scope_id', $patch) && (! is_string($patch['scope_id']) || trim($patch['scope_id']) === '')) {
+                throw new InvalidArgumentException('authorization_scope_required');
+            }
+            $scopeId = array_key_exists('scope_id', $patch) ? (string) $patch['scope_id'] : (string) $row->scope_id;
+            $endAt = array_key_exists('end_at', $patch) && $patch['end_at'] !== null
+                ? $this->databaseUtc($this->domainUtc((string) $patch['end_at']))
+                : ($row->end_at === null ? null : (string) $row->end_at);
+            $capabilityCodes = DB::table('role_capabilities')
+                ->join('capabilities', 'capabilities.id', '=', 'role_capabilities.capability_id')
+                ->where('role_capabilities.role_id', $row->role_id)
+                ->where('role_capabilities.effect', 'allow')
+                ->where('capabilities.status', 'active')
+                ->pluck('capabilities.capability_code')->all();
+            if ($capabilityCodes === []) {
+                return;
+            }
+            try {
+                $this->grantAuthority->assertCovered(
+                    $actorUserId,
+                    $capabilityCodes,
+                    (string) $row->scope_type,
+                    $scopeId,
+                    (string) $row->start_at,
+                    $endAt,
+                );
+            } catch (InvalidArgumentException $exception) {
+                if ($exception->getMessage() !== 'authorization_grant_exceeds_actor_authority') {
+                    throw $exception;
+                }
+                if (array_key_exists('scope_id', $patch)) {
+                    throw new InvalidArgumentException('authorization_scope_denied');
+                }
+
+                throw new InvalidArgumentException('authorization_grant_authority_invalid');
+            }
+
+            return;
+        }
+        if (! array_key_exists('end_at', $patch) || $patch['end_at'] === null) {
+            return;
+        }
+        $endAt = $this->databaseUtc($this->domainUtc((string) $patch['end_at']));
+        $capabilityCodes = DB::table('delegation_capabilities')
+            ->where('delegation_id', $row->id)
+            ->orderBy('capability_code')
+            ->pluck('capability_code')->all();
+        if ($capabilityCodes === []) {
+            return;
+        }
+        try {
+            $this->delegationAuthority->assertCovered(
+                $actorUserId,
+                $capabilityCodes,
+                (string) $row->scope_type,
+                (string) $row->scope_id,
+                (string) $row->start_at,
+                $endAt,
+            );
+        } catch (InvalidArgumentException $exception) {
+            if ($exception->getMessage() === 'delegation_exceeds_delegator_authority') {
+                throw new InvalidArgumentException('authorization_grant_authority_invalid');
+            }
+
+            throw $exception;
+        }
     }
 
     /** @return array<string,mixed> */

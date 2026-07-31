@@ -7,10 +7,14 @@ use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Reporting\Infrastructure\Export\CsvExportEncoder;
 use UnexpectedValueException;
 
 final class ExportAuthorizedReportHandler
 {
+    /** @var list<string> */
+    private const SUPPORTED_FORMATS = ['csv', 'json'];
+
     public function __construct(private readonly DecideAccess $access) {}
 
     /**
@@ -43,6 +47,11 @@ final class ExportAuthorizedReportHandler
     }
 
     /**
+     * Synchronous, transactional export creation. The run row is claimed
+     * and completed inside one transaction, so an execution failure rolls
+     * every effect back and a retry with the same idempotency key starts
+     * a fresh attempt; no fictional intermediate state is ever persisted.
+     *
      * @param  array{user_id?: string, facility_id?: string}  $actor
      * @return array{id: string, report_id: string, format: string, items: list<array<string, mixed>>, total: int, status: string}
      */
@@ -55,8 +64,8 @@ final class ExportAuthorizedReportHandler
         ?string $requestHash = null,
     ): array {
         $format = strtolower($format);
-        if (! in_array($format, ['csv', 'xlsx', 'pdf'], true)) {
-            throw new \InvalidArgumentException('Unsupported export format.');
+        if (! in_array($format, self::SUPPORTED_FORMATS, true)) {
+            throw new UnsupportedExportFormatException($format);
         }
         $scopeId ??= $actor['facility_id'] ?? null;
 
@@ -69,7 +78,7 @@ final class ExportAuthorizedReportHandler
                     'report_id' => $reportId,
                     'actor_id' => $actor['user_id'] ?? null,
                     'scope_id' => $scopeId,
-                    'status' => 'processing',
+                    'status' => 'completed',
                     'result_count' => 0,
                     'result' => json_encode([], JSON_THROW_ON_ERROR),
                     'idempotency_key_hash' => $keyHash,
@@ -117,6 +126,10 @@ final class ExportAuthorizedReportHandler
                 ]);
             }
 
+            $payload = $format === 'csv'
+                ? CsvExportEncoder::encode($items)
+                : json_encode($items, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
             $artifactId = (string) Str::uuid();
             $now = now();
             if ($keyHash === null) {
@@ -145,7 +158,7 @@ final class ExportAuthorizedReportHandler
                 'format' => $format,
                 'status' => 'available',
                 'result_count' => count($items),
-                'safe_result' => json_encode($items, JSON_THROW_ON_ERROR),
+                'safe_result' => $payload,
                 'expires_at' => $now->copy()->addDay(),
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -170,6 +183,9 @@ final class ExportAuthorizedReportHandler
             throw new UnexpectedValueException('Stored report export idempotency state is incomplete.');
         }
         $items = json_decode((string) $run->result, true, 32, JSON_THROW_ON_ERROR);
+        if (! is_array($items)) {
+            throw new UnexpectedValueException('Stored report export idempotency state is incomplete.');
+        }
 
         return [
             'id' => $artifact->id,

@@ -23,7 +23,7 @@ final class UpdatePositionController
     ) {}
 
     /**
-     * PATCH accepts a title only; job_title_id is preserved or nulled by the handler's title resolution semantics.
+     * PATCH accepts unit, title, manager and is_active changes; job_title_id is preserved or nulled by the handler's title resolution semantics.
      */
     public function __invoke(Request $request, string $positionId): JsonResponse
     {
@@ -58,9 +58,10 @@ final class UpdatePositionController
             'organization_unit_id' => ['sometimes', 'required', 'string', 'regex:/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/'],
             'title' => ['sometimes', 'required', 'string', 'min:1', 'max:255'],
             'manager_position_id' => ['sometimes', 'nullable', 'string', 'regex:/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/'],
+            'is_active' => ['sometimes', 'required', 'boolean'],
         ]);
-        $hasChange = array_intersect(array_keys($input), ['organization_unit_id', 'title', 'manager_position_id']) !== [];
-        if ($validator->fails() || ! $hasChange || array_diff(array_keys($input), ['organization_unit_id', 'title', 'manager_position_id']) !== []) {
+        $hasChange = array_intersect(array_keys($input), ['organization_unit_id', 'title', 'manager_position_id', 'is_active']) !== [];
+        if ($validator->fails() || ! $hasChange || array_diff(array_keys($input), ['organization_unit_id', 'title', 'manager_position_id', 'is_active']) !== []) {
             return OrganizationApi::problem(400, 'invalid-position', 'Bad Request', 'The position patch is invalid.', $correlationId);
         }
         $changes = $validator->validated();
@@ -88,6 +89,7 @@ final class UpdatePositionController
                 'position_not_found' => OrganizationApi::problem(404, 'position-not-found', 'Not Found', 'The position is not available.', $correlationId),
                 'precondition_failed' => OrganizationApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current position version.', $correlationId),
                 'position_manager_cycle' => OrganizationApi::problem(409, 'position-manager-cycle', 'Conflict', 'The manager position relationship would create a cycle.', $correlationId),
+                'position_has_subordinates' => OrganizationApi::problem(409, 'position-deactivation-conflict', 'Conflict', 'The position is the manager of other positions and cannot be deactivated.', $correlationId),
                 default => OrganizationApi::problem(409, 'position-conflict', 'Conflict', 'The position cannot be updated.', $correlationId),
             };
         } catch (InvalidArgumentException) {

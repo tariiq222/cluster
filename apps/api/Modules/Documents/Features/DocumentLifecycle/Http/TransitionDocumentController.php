@@ -52,7 +52,7 @@ final class TransitionDocumentController
         if ($document === null) {
             return DocumentsApi::problem(404, 'resource-not-found', 'Not Found', 'The document is not available.', $correlationId);
         }
-        $capability = $documentAction === 'archive' ? 'documents.archive' : 'documents.hold';
+        $capability = in_array($documentAction, ['archive', 'unarchive'], true) ? 'documents.archive' : 'documents.hold';
         if (($deny = $this->decideOnDocument($principal, $this->access, $document, $capability, $correlationId)) instanceof JsonResponse) {
             return $deny;
         }
@@ -85,6 +85,7 @@ final class TransitionDocumentController
         }
         $changes = match ($documentAction) {
             'archive' => ['status' => 'archived'],
+            'unarchive' => ['status' => 'active'],
             'place-hold' => ['legal_hold' => true, 'legal_hold_reason' => trim($reason), 'legal_hold_at' => now()],
             'release-hold' => ['legal_hold' => false, 'legal_hold_reason' => null, 'legal_hold_at' => null],
             default => null,
@@ -92,8 +93,19 @@ final class TransitionDocumentController
         if ($changes === null) {
             return DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'The document operation cannot be completed.', $correlationId);
         }
-        if ($documentAction === 'archive' && $document->status === 'archived') {
-            return DocumentsApi::problem(409, 'document-upload-invalid-state', 'Conflict', 'The document is not in a state for this action.', $correlationId);
+        if ($documentAction === 'archive') {
+            if ((bool) $document->legal_hold) {
+                return DocumentsApi::problem(409, 'document-legal-hold-active', 'Conflict', 'The document is under a legal hold and cannot be archived.', $correlationId);
+            }
+            if ($document->status === 'archived') {
+                return DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'The document is not in a state for this action.', $correlationId);
+            }
+        }
+        if ($documentAction === 'unarchive' && $document->status !== 'archived') {
+            return DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'Only an archived document can be unarchived.', $correlationId);
+        }
+        if (in_array($documentAction, ['place-hold', 'release-hold'], true) && $document->status === 'archived') {
+            return DocumentsApi::problem(409, 'document-operation-conflict', 'Conflict', 'An archived document cannot be placed on or released from a legal hold.', $correlationId);
         }
 
         try {

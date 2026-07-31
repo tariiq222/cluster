@@ -97,6 +97,8 @@ final class AuthorizationAdminController
                 'authorization_idempotency_conflict' => AuthorizationApi::problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId),
                 'authorization_system_role_immutable' => AuthorizationApi::problem(409, 'urn:cluster:problem:system-role-immutable', 'Conflict', 'System roles cannot be changed.', $correlationId),
                 'authorization_scope_denied' => AuthorizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId),
+                'authorization_grant_authority_invalid' => AuthorizationApi::problem(409, 'urn:cluster:problem:grant-authority-invalid', 'Conflict', 'The patched grant window or scope exceeds the actor\'s own grant authority.', $correlationId),
+                'authorization_grant_status_invalid' => AuthorizationApi::problem(409, 'urn:cluster:problem:invalid-grant-status', 'Conflict', 'The requested grant status transition is not permitted.', $correlationId),
                 'authorization_resource_not_found' => AuthorizationApi::problem(404, 'resource-not-found', 'Not Found', 'The authorization resource is not available.', $correlationId),
                 'authorization_scope_type_not_catalogued' => AuthorizationApi::problem(422, 'urn:cluster:problem:scope_type_not_catalogued', 'Unprocessable Entity', 'The requested scope_type is not part of the catalog.', $correlationId),
                 'capability_code_not_in_catalog' => AuthorizationApi::problem(422, 'urn:cluster:problem:capability_code_not_in_catalog', 'Unprocessable Entity', 'The requested capability_code is not part of the catalog.', $correlationId),

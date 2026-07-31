@@ -121,7 +121,7 @@ final class PositionHandler
     }
 
     /**
-     * @param  array{organization_unit_id?: string, title?: string, job_title_id?: string|null, manager_position_id?: string|null}  $changes
+     * @param  array{organization_unit_id?: string, title?: string, job_title_id?: string|null, manager_position_id?: string|null, is_active?: bool}  $changes
      * @param  Closure(array<string, mixed>, string): array<string, mixed>  $eventFactory
      * @return array<string, mixed>
      */
@@ -138,6 +138,7 @@ final class PositionHandler
 
             $unitId = $changes['organization_unit_id'] ?? $row->organization_unit_id;
             $managerId = array_key_exists('manager_position_id', $changes) ? $changes['manager_position_id'] : $row->manager_position_id;
+            $nextIsActive = array_key_exists('is_active', $changes) ? (bool) $changes['is_active'] : (bool) $row->is_active;
             if (! is_string($unitId) || ($managerId !== null && ! is_string($managerId))) {
                 throw new InvalidArgumentException('Position change is invalid.');
             }
@@ -152,19 +153,26 @@ final class PositionHandler
                 $nextJobTitleId = $currentJobTitleId;
             }
             $changeTitle = $changes['title'] ?? null;
-            $resolvedTitle = $this->resolveTitle(
-                $nextJobTitleId,
-                is_string($changeTitle) ? $changeTitle : null,
-            );
-            if ($nextJobTitleId === null && $currentJobTitleId === null) {
-                $resolvedTitle = $resolvedTitle !== '' ? $resolvedTitle : (string) $row->title_ar;
-            }
+            // A patch that does not touch the title keeps the stored title;
+            // resolveTitle would reject a missing free-text title when the
+            // position has no job_title_id reference.
+            $resolvedTitle = $nextJobTitleId === null && $currentJobTitleId === null && ! is_string($changeTitle)
+                ? (string) $row->title_ar
+                : $this->resolveTitle(
+                    $nextJobTitleId,
+                    is_string($changeTitle) ? $changeTitle : null,
+                );
 
             if ($unitId === $row->organization_unit_id
                 && $resolvedTitle === $row->title_ar
                 && $managerId === $row->manager_position_id
-                && $nextJobTitleId === $currentJobTitleId) {
+                && $nextJobTitleId === $currentJobTitleId
+                && $nextIsActive === (bool) $row->is_active) {
                 throw new InvalidArgumentException('Position patch does not change the resource.');
+            }
+            if ($nextIsActive === false && (bool) $row->is_active === true
+                && DB::table('positions')->where('manager_position_id', $positionId)->exists()) {
+                throw new DomainException('position_has_subordinates');
             }
             if (DB::table('positions')
                 ->where('id', '!=', $positionId)
@@ -183,6 +191,7 @@ final class PositionHandler
                     'title_ar' => $resolvedTitle,
                     'job_title_id' => $nextJobTitleId,
                     'manager_position_id' => $managerId,
+                    'is_active' => $nextIsActive,
                     'lock_version' => $version,
                     'updated_at' => now(),
                 ]);
@@ -197,7 +206,7 @@ final class PositionHandler
                 'title_ar' => $resolvedTitle,
                 'job_title_id' => $nextJobTitleId,
                 'manager_position_id' => $managerId,
-                'is_active' => (bool) $row->is_active,
+                'is_active' => $nextIsActive,
                 'lock_version' => $version,
             ];
             $this->outbox->insert($eventFactory($position, (string) $unit->cluster_id), $positionId);

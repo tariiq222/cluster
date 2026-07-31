@@ -39,22 +39,9 @@ final class ValidateGrantAuthority
             throw new InvalidArgumentException('authorization_grant_exceeds_actor_authority');
         }
         foreach (array_unique($capabilityCodes) as $code) {
-            $covered = false;
-            foreach ($this->actorGrants($actorUserId, $code) as $grant) {
-                if ($this->windowCovers($grant, $startAt, $endAt)
-                    && $this->scopeCovers($grant, $scopeType, $scopeId, $requestedAncestry)) {
-                    $covered = true;
-                    break;
-                }
-            }
-            if (! $covered && $allowAdministrativeAuthority && $this->hasAdministrativeGrantAuthority($actorUserId, $scopeType, $scopeId, $startAt, $endAt, $requestedAncestry)) {
-                foreach ($this->actorGrants($actorUserId, 'authorization.assignment.manage') as $grant) {
-                    if ($this->windowCovers($grant, $startAt, $endAt)
-                        && $this->scopeCovers($grant, $scopeType, $scopeId, $requestedAncestry)) {
-                        $covered = true;
-                        break;
-                    }
-                }
+            $covered = $this->anyGrantCovers($actorUserId, $code, $scopeType, $scopeId, $requestedAncestry, $startAt, $endAt);
+            if (! $covered && $allowAdministrativeAuthority) {
+                $covered = $this->anyGrantCovers($actorUserId, 'authorization.assignment.manage', $scopeType, $scopeId, $requestedAncestry, $startAt, $endAt);
             }
             if (! $covered) {
                 throw new InvalidArgumentException('authorization_grant_exceeds_actor_authority');
@@ -63,15 +50,16 @@ final class ValidateGrantAuthority
     }
 
     /** @param array{cluster_id: ?string, facility_id: ?string, unit_id: ?string} $requestedAncestry */
-    private function hasAdministrativeGrantAuthority(
+    private function anyGrantCovers(
         string $actorUserId,
+        string $capabilityCode,
         string $scopeType,
         string $scopeId,
+        array $requestedAncestry,
         string $startAt,
         ?string $endAt,
-        array $requestedAncestry,
     ): bool {
-        foreach ($this->actorGrants($actorUserId, 'authorization.assignment.manage') as $grant) {
+        foreach ($this->actorGrants($actorUserId, $capabilityCode) as $grant) {
             if ($this->windowCovers($grant, $startAt, $endAt)
                 && $this->scopeCovers($grant, $scopeType, $scopeId, $requestedAncestry)) {
                 return true;

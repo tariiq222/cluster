@@ -318,7 +318,7 @@ Route::prefix('api/v1')->group(function (): void {
         Route::patch('documents/{documentId}', UpdateDocumentController::class);
         Route::post('documents/{documentId}/versions', AddDocumentVersionController::class);
         Route::post('documents/{documentId}/links', DocumentLinkController::class);
-        Route::post('documents/{documentId}/{documentAction}', TransitionDocumentController::class)->whereIn('documentAction', ['archive', 'place-hold', 'release-hold']);
+        Route::post('documents/{documentId}/{documentAction}', TransitionDocumentController::class)->whereIn('documentAction', ['archive', 'unarchive', 'place-hold', 'release-hold']);
         Route::post('documents/{documentId}/{documentGrantType}-grant', CreateDocumentGrantController::class)->whereIn('documentGrantType', ['preview', 'download']);
     });
 })->withoutMiddleware(['web', PreventRequestForgery::class]);

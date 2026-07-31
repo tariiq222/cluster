@@ -5,13 +5,17 @@ use App\Support\W12E2EFixtureSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Modules\Documents\Features\Retention\ExpireExpiredDocuments;
 use Modules\Documents\Infrastructure\Outbox\Relay\DocumentsOutboxRelay;
 use Modules\Identity\Features\ConsumeOrganizationPersonEvents\Worker\IdentityPersonStreamWorker;
 use Modules\Notifications\Features\ConsumeTechnicalAlert\Worker\NotificationsTechnicalAlertWorker;
 use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
+use Modules\Notifications\Features\ReplayDeadLetters\Handler\ReplayDeadLettersHandler;
 use Modules\Organization\Infrastructure\Outbox\Relay\OrganizationPersonOutboxRelay;
 use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutboxRelay;
 use Modules\PlatformSettings\Infrastructure\Outbox\TechnicalAlertOutboxRelay;
+use Modules\Reporting\Features\PurgeExpiredReporting\Handler\PurgeExpiredReportingHandler;
+use Modules\Search\Features\BackfillSearchProjection\Handler\BackfillSearchProjectionHandler;
 use Shared\Infrastructure\Outbox\Relay\RedisOutboxRelay;
 use Symfony\Component\Console\Command\Command;
 
@@ -85,6 +89,27 @@ Artisan::command('documents:relay-events {--once} {--limit=100}', function (): i
         return Command::FAILURE;
     }
 })->purpose('Relay one bounded batch of committed Documents events');
+
+Artisan::command('documents:expire-retention {--once} {--limit=100}', function (): int {
+    if (! $this->option('once')) {
+        $this->error('The bounded --once mode is required.');
+
+        return Command::FAILURE;
+    }
+
+    $limit = max(1, min((int) $this->option('limit'), 100));
+
+    try {
+        $expired = app(ExpireExpiredDocuments::class)->expireOnce($limit);
+        $this->info("Expired documents: {$expired}");
+
+        return Command::SUCCESS;
+    } catch (Throwable) {
+        $this->error('The bounded Documents retention expiry cycle failed.');
+
+        return Command::FAILURE;
+    }
+})->purpose('Expire one bounded batch of Documents whose retention period has elapsed');
 
 Artisan::command('platform-settings:relay-technical-alerts {--once} {--limit=100}', function (): int {
     if (! $this->option('once')) {
@@ -184,6 +209,81 @@ Artisan::command(
         }
     },
 )->purpose('Consume one bounded technical alert cycle');
+
+Artisan::command('notifications:replay-dlq {--once} {--limit=100}', function (): int {
+    if (! $this->option('once')) {
+        $this->error('The bounded --once mode is required.');
+
+        return Command::FAILURE;
+    }
+
+    $limit = max(1, min((int) $this->option('limit'), 100));
+
+    try {
+        $result = app(ReplayDeadLettersHandler::class)->replayOnce($limit);
+        $this->info("Replayed dead letters: {$result['replayed']} (skipped: {$result['skipped']}, failed: {$result['failed']})");
+
+        return Command::SUCCESS;
+    } catch (Throwable) {
+        $this->error('The bounded DLQ replay cycle failed.');
+
+        return Command::FAILURE;
+    }
+})->purpose('Replay one bounded batch of notification dead letters');
+
+Artisan::command('search:backfill {--once} {--limit=25}', function (): int {
+    $limit = $this->option('limit');
+    if (! $this->option('once')
+        || ! is_string($limit)
+        || preg_match('/\A[1-9][0-9]{0,2}\z/', $limit) !== 1
+        || (int) $limit > 100) {
+        $this->error('The bounded --once mode and a --limit between 1 and 100 are required.');
+
+        return Command::FAILURE;
+    }
+
+    try {
+        $result = app(BackfillSearchProjectionHandler::class)->handle((int) $limit);
+        $this->info(sprintf(
+            'Indexed %d work record(s) into the search projection; batch complete: %s (projection %s).',
+            $result['indexed'],
+            $result['complete'] ? 'yes' : 'no',
+            $result['projection_version'],
+        ));
+
+        return Command::SUCCESS;
+    } catch (Throwable) {
+        $this->error('The bounded search backfill cycle failed.');
+
+        return Command::FAILURE;
+    }
+})->purpose('Backfill one bounded batch of work records into the search index projection');
+
+Artisan::command('reporting:purge-expired {--once} {--limit=100}', function (): int {
+    if (! $this->option('once')) {
+        $this->error('The bounded --once mode is required.');
+
+        return Command::FAILURE;
+    }
+
+    $limit = max(1, min((int) $this->option('limit'), 100));
+
+    try {
+        $result = app(PurgeExpiredReportingHandler::class)->purge($limit);
+        $this->info(sprintf(
+            'Purged %d expired artifact(s) and %d orphaned run(s); more due: %s.',
+            $result['artifacts_purged'],
+            $result['runs_purged'],
+            $result['has_more'] ? 'yes' : 'no',
+        ));
+
+        return Command::SUCCESS;
+    } catch (Throwable) {
+        $this->error('The bounded Reporting purge cycle failed.');
+
+        return Command::FAILURE;
+    }
+})->purpose('Purge one bounded batch of expired report exports and orphaned runs');
 
 Artisan::command('organization:relay-person-events {--once}', function (): int {
     if (! $this->option('once')) {

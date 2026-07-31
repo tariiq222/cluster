@@ -121,6 +121,7 @@ final class DocumentsApi
             in_array($exception->getMessage(), ['idempotency_request_mismatch', 'idempotency_resource_mismatch'], true) => self::problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId),
             in_array($exception->getMessage(), ['upload_intent_already_consumed', 'upload_completion_invalid_state', 'document_scan_invalid_state', 'document_promotion_invalid_state'], true) => self::problem(409, 'document-upload-invalid-state', 'Conflict', 'The document upload is not in a state for this action.', $correlationId),
             $exception->getMessage() === 'document_promotion_integrity_mismatch' => self::problem(409, 'document-promotion-integrity-mismatch', 'Conflict', 'The document promotion integrity check failed.', $correlationId),
+            $exception->getMessage() === 'document_promotion_archived' => self::problem(409, 'document-promotion-archived', 'Conflict', 'An archived document cannot be promoted until it is unarchived.', $correlationId),
             in_array($exception->getMessage(), ['quarantine_object_unavailable', 'document_promotion_unavailable'], true) => self::problem(503, 'document-storage-unavailable', 'Service Unavailable', 'The document storage service is unavailable.', $correlationId),
             default => self::problem(409, 'document-operation-conflict', 'Conflict', 'The document operation cannot be completed.', $correlationId),
         };

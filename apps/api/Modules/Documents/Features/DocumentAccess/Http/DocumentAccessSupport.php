@@ -2,6 +2,8 @@
 
 namespace Modules\Documents\Features\DocumentAccess\Http;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -75,7 +77,9 @@ trait DocumentAccessSupport
             'owner_organization_unit_id' => $document->owner_organization_unit_id,
             'legal_hold' => (bool) $document->legal_hold,
             'legal_hold_reason' => $document->legal_hold_reason,
-            'restriction_policy_key' => $document->retention_policy_key,
+            'restriction_policy_key' => $document->restriction_policy_key,
+            'retention_policy_key' => $document->retention_policy_key,
+            'retention_until' => self::serializeUtcTimestamp($document->retention_until),
             'current_version_id' => $document->current_version_id,
             'lock_version' => (int) $document->lock_version,
             'created_at' => $document->created_at,
@@ -87,6 +91,21 @@ trait DocumentAccessSupport
         }
 
         return $resource;
+    }
+
+    private static function serializeUtcTimestamp(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $date = DateTimeImmutable::createFromFormat('Y-m-d H:i:s.u', $value, new DateTimeZone('UTC'));
+        if ($date === false) {
+            $date = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value, new DateTimeZone('UTC'));
+        }
+
+        return $date === false
+            ? $value
+            : $date->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.v\Z');
     }
 
     /** @return list<string> */
@@ -111,12 +130,14 @@ trait DocumentAccessSupport
             ];
         }
         if ($document->status !== 'archived') {
-            $decisionCapabilities['archive'] = 'documents.archive';
-        }
-        if (! (bool) $document->legal_hold) {
-            $decisionCapabilities['place-hold'] = 'documents.hold';
+            if (! (bool) $document->legal_hold) {
+                $decisionCapabilities['archive'] = 'documents.archive';
+                $decisionCapabilities['place-hold'] = 'documents.hold';
+            } else {
+                $decisionCapabilities['release-hold'] = 'documents.hold';
+            }
         } else {
-            $decisionCapabilities['release-hold'] = 'documents.hold';
+            $decisionCapabilities['unarchive'] = 'documents.archive';
         }
         foreach ($decisionCapabilities as $action => $capability) {
             if ($this->documentDecision($principal, $this->access, $document, $capability, $correlationId)->isAllowed()) {

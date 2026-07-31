@@ -170,6 +170,7 @@ final class UserAccountHandler
 
             $status = (string) $row->status;
             $mustChangePassword = (bool) $row->must_change_password;
+            $mfaRequired = (bool) $row->mfa_required;
             $lockedUntil = $row->locked_until;
             $revokeSessions = false;
             if ($action === 'activate') {
@@ -210,6 +211,29 @@ final class UserAccountHandler
                 }
                 $mustChangePassword = true;
                 $revokeSessions = true;
+            } elseif ($action === 'require-mfa') {
+                if ($status === 'archived') {
+                    throw new DomainException('invalid_account_transition');
+                }
+                $mfaRequired = true;
+                $revokeSessions = true;
+            } elseif ($action === 'optional-mfa') {
+                if ($status === 'archived') {
+                    throw new DomainException('invalid_account_transition');
+                }
+                $mfaRequired = false;
+            } elseif ($action === 'reset-credential') {
+                // A legacy or unusable credential hash must not strand the
+                // account: clearing it returns the account to pending so the
+                // existing activation token flow can re-issue a credential.
+                if ($status === 'archived' || ! DB::table('credentials')->where('user_id', $accountId)->exists()) {
+                    throw new DomainException('invalid_account_transition');
+                }
+                DB::table('credentials')->where('user_id', $accountId)->delete();
+                $status = 'pending';
+                $mustChangePassword = true;
+                $lockedUntil = null;
+                $revokeSessions = true;
             } else {
                 throw new InvalidArgumentException('Unsupported account action.');
             }
@@ -234,13 +258,14 @@ final class UserAccountHandler
             }
 
             $version = (int) $row->lock_version + 1;
-            $passwordVersion = (int) $row->password_version + ($action === 'force-password-change' ? 1 : 0);
+            $passwordVersion = (int) $row->password_version + (in_array($action, ['force-password-change', 'reset-credential'], true) ? 1 : 0);
             $updated = DB::table('users')->where('id', $accountId)->where('lock_version', $expectedVersion)->update([
                 'status' => $status,
                 'must_change_password' => $mustChangePassword,
+                'mfa_required' => $mfaRequired,
                 'password_version' => $passwordVersion,
                 'locked_until' => $lockedUntil,
-                'failed_login_count' => $action === 'unlock' ? 0 : $row->failed_login_count,
+                'failed_login_count' => in_array($action, ['unlock', 'reset-credential'], true) ? 0 : $row->failed_login_count,
                 'lock_version' => $version,
                 'updated_at' => now(),
             ]);
@@ -257,7 +282,7 @@ final class UserAccountHandler
                 DB::table('identity_person_account_claims')->where('account_id', $accountId)->delete();
             }
 
-            $account = $this->serializeValues($row, $status, $mustChangePassword, $passwordVersion, $lockedUntil);
+            $account = $this->serializeValues($row, $status, $mustChangePassword, $mfaRequired, $passwordVersion, $lockedUntil);
             $this->storeReplay($idempotency, $account, $version);
             $this->outbox->insert($eventFactory($account, $action, $reason, $version), $accountId);
 
@@ -296,8 +321,8 @@ final class UserAccountHandler
     private function accountQuery(): mixed
     {
         return DB::table('users')->select([
-            'id', 'username', 'person_id', 'person_version', 'status', 'must_change_password', 'password_version',
-            'locked_until', 'display_name_ar', 'display_name_en', 'lock_version',
+            'id', 'username', 'person_id', 'person_version', 'status', 'must_change_password', 'mfa_required',
+            'password_version', 'locked_until', 'display_name_ar', 'display_name_en', 'lock_version',
         ]);
     }
 
@@ -311,6 +336,7 @@ final class UserAccountHandler
             'person_version' => (int) $row->person_version,
             'status' => $row->status,
             'must_change_password' => (bool) $row->must_change_password,
+            'mfa_required' => (bool) $row->mfa_required,
             'password_version' => (int) $row->password_version,
             'locked_until' => $this->timestamp($row->locked_until),
             'display_name_ar' => $row->display_name_ar,
@@ -319,7 +345,7 @@ final class UserAccountHandler
     }
 
     /** @return array<string, mixed> */
-    private function serializeValues(stdClass $row, string $status, bool $mustChangePassword, int $passwordVersion, mixed $lockedUntil): array
+    private function serializeValues(stdClass $row, string $status, bool $mustChangePassword, bool $mfaRequired, int $passwordVersion, mixed $lockedUntil): array
     {
         return [
             'id' => $row->id,
@@ -328,6 +354,7 @@ final class UserAccountHandler
             'person_version' => (int) $row->person_version,
             'status' => $status,
             'must_change_password' => $mustChangePassword,
+            'mfa_required' => $mfaRequired,
             'password_version' => $passwordVersion,
             'locked_until' => $this->timestamp($lockedUntil),
             'display_name_ar' => $row->display_name_ar,

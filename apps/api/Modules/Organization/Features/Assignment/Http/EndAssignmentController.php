@@ -95,7 +95,7 @@ final class EndAssignmentController
                 'assignment_not_found' => OrganizationApi::problem(404, 'assignment-not-found', 'Not Found', 'The assignment is not available.', $correlationId),
                 'precondition_failed' => OrganizationApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current assignment version.', $correlationId),
                 'assignment_already_ended' => OrganizationApi::problem(409, 'assignment-already-ended', 'Conflict', 'The assignment has already ended.', $correlationId),
-                'assignment_not_active' => OrganizationApi::problem(409, 'assignment-not-active', 'Conflict', 'Only an active assignment can be ended.', $correlationId),
+                'assignment_not_active' => OrganizationApi::problem(409, 'assignment-not-active', 'Conflict', 'Only an active or pending assignment can be ended.', $correlationId),
                 default => OrganizationApi::problem(409, 'assignment-conflict', 'Conflict', 'The assignment cannot be ended.', $correlationId),
             };
         } catch (QueryException) {

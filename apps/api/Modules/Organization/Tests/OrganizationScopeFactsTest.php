@@ -77,6 +77,14 @@ class OrganizationScopeFactsTest extends TestCase
 
     private const CAP_THREE_ID = '018f6f7d-0c00-7000-8000-000000000931';
 
+    private const LEFT_PERSON_ID = '018f6f7d-0c00-7000-8000-000000000932';
+
+    private const SUSPENDED_PERSON_ID = '018f6f7d-0c00-7000-8000-000000000933';
+
+    private const LEFT_ASSIGNMENT_ID = '018f6f7d-0c00-7000-8000-000000000934';
+
+    private const SUSPENDED_ASSIGNMENT_ID = '018f6f7d-0c00-7000-8000-000000000935';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -140,6 +148,25 @@ class OrganizationScopeFactsTest extends TestCase
 
         $this->assertSame($empty, $resolver->forPerson('018f6f7d-0c00-7000-8000-000000000999'));
         $this->assertSame($empty, $resolver->forPerson(''));
+    }
+
+    public function test_scope_is_empty_for_a_person_who_left_and_kept_for_a_suspended_person(): void
+    {
+        $empty = [
+            'cluster_ids' => [],
+            'facility_ids' => [],
+            'organization_unit_ids' => [],
+            'primary_organization_unit_id' => null,
+        ];
+        $resolver = new DatabaseResolvePersonOrganizationScope;
+
+        $this->assertSame($empty, $resolver->forPerson(self::LEFT_PERSON_ID));
+
+        $scope = $resolver->forPerson(self::SUSPENDED_PERSON_ID);
+        $this->assertSame([self::UNIT_A_ID], $scope['organization_unit_ids']);
+        $this->assertSame([self::FACILITY_ID], $scope['facility_ids']);
+        $this->assertSame([self::CLUSTER_ID], $scope['cluster_ids']);
+        $this->assertSame(self::UNIT_A_ID, $scope['primary_organization_unit_id']);
     }
 
     public function test_supervisory_facts_return_windowed_relationships_with_ordered_capabilities(): void
@@ -266,6 +293,22 @@ class OrganizationScopeFactsTest extends TestCase
                 'updated_at' => now(),
             ]);
         }
+        DB::table('people')->insert([
+            'id' => self::LEFT_PERSON_ID,
+            'employee_number' => 'SCOPE-EMP-003',
+            'display_name_ar' => 'موظف غادر',
+            'status' => 'left',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('people')->insert([
+            'id' => self::SUSPENDED_PERSON_ID,
+            'employee_number' => 'SCOPE-EMP-004',
+            'display_name_ar' => 'موظف موقوف',
+            'status' => 'suspended',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function seedWorkforceAssignments(): void
@@ -274,6 +317,8 @@ class OrganizationScopeFactsTest extends TestCase
             [self::ASSIGNMENT_PRIMARY_ID, self::PERSON_ID, self::POSITION_A_ID, $this->databaseAt('-1 day'), null, true],
             [self::ASSIGNMENT_SECONDARY_ID, self::PERSON_ID, self::POSITION_B_ID, $this->databaseAt('-1 day'), null, false],
             [self::ASSIGNMENT_ENDED_ID, self::PERSON_ID, self::POSITION_D_ID, $this->databaseAt('-2 days'), $this->databaseAt('-1 hour'), false],
+            [self::LEFT_ASSIGNMENT_ID, self::LEFT_PERSON_ID, self::POSITION_A_ID, $this->databaseAt('-1 day'), null, true],
+            [self::SUSPENDED_ASSIGNMENT_ID, self::SUSPENDED_PERSON_ID, self::POSITION_A_ID, $this->databaseAt('-1 day'), null, true],
         ] as [$id, $personId, $positionId, $startAt, $endAt, $isPrimary]) {
             DB::table('assignments')->insert([
                 'id' => $id,

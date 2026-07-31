@@ -5,6 +5,7 @@ namespace Modules\Search\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
@@ -77,22 +78,7 @@ final class SearchAccessibleRecordsHandlerBoundTest extends TestCase
         $this->assertSame(500, $this->extractLimit($this->capturedSearchSelects[0]->sql));
     }
 
-    public function test_total_is_bounded_when_table_has_many_more_rows(): void
-    {
-        $this->bulkSeedRows(2500, 'scope-a');
-
-        $result = (new SearchAccessibleRecordsHandler(new SearchBoundAllowDecider))->handle(
-            ['user_id' => 'u', 'facility_id' => 'scope-a'],
-            '',
-            null,
-            25,
-        );
-
-        $this->assertCount(25, $result['items']);
-        $this->assertSame(125, $result['total']);
-    }
-
-    public function test_denied_rows_are_excluded_from_items_and_total(): void
+    public function test_denied_rows_are_excluded_from_items(): void
     {
         $this->bulkSeedRows(20, 'scope-a');
         $this->bulkSeedRows(20, 'scope-b');
@@ -105,10 +91,77 @@ final class SearchAccessibleRecordsHandlerBoundTest extends TestCase
         );
 
         $this->assertCount(20, $result['items']);
-        $this->assertSame(20, $result['total']);
+        $this->assertNull($result['next_cursor']);
         foreach ($result['items'] as $item) {
             $this->assertSame('scope-a', $item['scope_id']);
         }
+    }
+
+    public function test_like_wildcards_in_the_query_match_literally(): void
+    {
+        $this->seedSearchEntry('literal-percent', 'scope-a', '100% complete');
+        $this->seedSearchEntry('other-percent', 'scope-a', 'progress 50%');
+        $this->seedSearchEntry('literal-underscore', 'scope-a', 'a_b exact');
+        $this->seedSearchEntry('no-underscore', 'scope-a', 'axb approximate');
+        $handler = new SearchAccessibleRecordsHandler(new SearchBoundAllowDecider);
+        $actor = ['user_id' => 'u', 'facility_id' => 'scope-a'];
+
+        $percent = $handler->handle($actor, '100%');
+        $this->assertSame(['literal-percent'], array_column($percent['items'], 'source_id'));
+
+        $underscore = $handler->handle($actor, 'a_b');
+        $this->assertSame(['literal-underscore'], array_column($underscore['items'], 'source_id'));
+    }
+
+    public function test_cursor_paginates_authorized_rows_without_duplicates_or_gaps(): void
+    {
+        $this->bulkSeedRows(60, 'scope-a');
+        $handler = new SearchAccessibleRecordsHandler(new SearchBoundAllowDecider);
+        $actor = ['user_id' => 'u', 'facility_id' => 'scope-a'];
+
+        $pageOne = $handler->handle($actor, '', null, 25);
+        $this->assertCount(25, $pageOne['items']);
+        $this->assertIsString($pageOne['next_cursor']);
+
+        $pageTwo = $handler->handle($actor, '', null, 25, $pageOne['next_cursor']);
+        $this->assertCount(25, $pageTwo['items']);
+        $this->assertIsString($pageTwo['next_cursor']);
+
+        $pageThree = $handler->handle($actor, '', null, 25, $pageTwo['next_cursor']);
+        $this->assertCount(10, $pageThree['items']);
+        $this->assertNull($pageThree['next_cursor']);
+
+        $seen = [
+            ...array_column($pageOne['items'], 'id'),
+            ...array_column($pageTwo['items'], 'id'),
+            ...array_column($pageThree['items'], 'id'),
+        ];
+        $this->assertCount(60, array_unique($seen));
+        $this->assertCount(60, $seen);
+    }
+
+    public function test_cursor_is_bound_to_the_originating_principal_and_parameters(): void
+    {
+        $this->bulkSeedRows(30, 'scope-a');
+        $handler = new SearchAccessibleRecordsHandler(new SearchBoundAllowDecider);
+        $page = $handler->handle(['user_id' => 'u', 'facility_id' => 'scope-a'], '', null, 25);
+
+        $this->assertIsString($page['next_cursor']);
+        $this->expectException(InvalidArgumentException::class);
+
+        $handler->handle(['user_id' => 'other', 'facility_id' => 'scope-a'], '', null, 25, $page['next_cursor']);
+    }
+
+    public function test_cursor_is_bound_to_the_originating_limit(): void
+    {
+        $this->bulkSeedRows(30, 'scope-a');
+        $handler = new SearchAccessibleRecordsHandler(new SearchBoundAllowDecider);
+        $page = $handler->handle(['user_id' => 'u', 'facility_id' => 'scope-a'], '', null, 25);
+
+        $this->assertIsString($page['next_cursor']);
+        $this->expectException(InvalidArgumentException::class);
+
+        $handler->handle(['user_id' => 'u', 'facility_id' => 'scope-a'], '', null, 10, $page['next_cursor']);
     }
 
     private function captureSearchSelect(): void
@@ -133,6 +186,27 @@ final class SearchAccessibleRecordsHandlerBoundTest extends TestCase
         }
 
         return (int) $m[1];
+    }
+
+    private function seedSearchEntry(string $sourceId, string $scope, string $searchText): void
+    {
+        $now = now();
+        DB::table('search_index_entries')->insert([
+            'id' => $this->deterministicUuid('work_record|'.$sourceId.'|'.IndexSourceEventHandler::PROJECTION_VERSION),
+            'source_module' => 'work-records',
+            'source_type' => 'work_record',
+            'source_id' => $sourceId,
+            'source_version' => 'v1',
+            'projection_version' => IndexSourceEventHandler::PROJECTION_VERSION,
+            'scope_id' => $scope,
+            'classification' => 'internal',
+            'visibility' => 'eligible',
+            'title' => $searchText,
+            'excerpt' => null,
+            'search_text' => $searchText,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     private function bulkSeedRows(int $count, string $scope): void

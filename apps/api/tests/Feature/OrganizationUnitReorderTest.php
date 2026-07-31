@@ -207,6 +207,47 @@ final class OrganizationUnitReorderTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_unit_move_invalidates_the_reorder_etag(): void
+    {
+        $version = (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
+        $section = DB::table('organization_units')->where('code', 'REORDER-SECT-2')->first();
+        $this->assertNotFalse($section, 'seeded unit REORDER-SECT-2 missing');
+
+        $this->patchAsAdmin("/api/v1/organization/units/{$section->id}", ['parent_id' => $this->clusterId], '"'.$section->lock_version.'"')
+            ->assertOk()
+            ->assertHeader('ETag', '"'.((int) $section->lock_version + 1).'"')
+            ->assertJsonPath('data.parent_type', 'cluster')
+            ->assertJsonPath('data.parent_id', $this->clusterId);
+
+        $advanced = (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
+        $this->assertSame($version + 1, $advanced, 'a unit move must advance the cluster version token');
+        $this->postAsAdmin('/api/v1/organization/units/reorder', [], 'reorder-after-move', $version)
+            ->assertStatus(412)
+            ->assertJsonPath('type', 'https://cluster.example/problems/precondition-failed');
+        $this->postAsAdmin('/api/v1/organization/units/reorder', [], 'reorder-after-move-current', $advanced)
+            ->assertOk();
+    }
+
+    public function test_unit_create_invalidates_the_reorder_etag(): void
+    {
+        $version = (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
+
+        $this->postAsAdmin('/api/v1/organization/units', [
+            'cluster_id' => $this->clusterId,
+            'type_code' => 'department',
+            'code' => 'REORDER-ADDED',
+            'name' => 'إدارة مضافة',
+        ])->assertCreated();
+
+        $advanced = (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
+        $this->assertSame($version + 1, $advanced, 'a unit create must advance the cluster version token');
+        $this->postAsAdmin('/api/v1/organization/units/reorder', [], 'reorder-after-create', $version)
+            ->assertStatus(412)
+            ->assertJsonPath('type', 'https://cluster.example/problems/precondition-failed');
+        $this->postAsAdmin('/api/v1/organization/units/reorder', [], 'reorder-after-create-current', $advanced)
+            ->assertOk();
+    }
+
     private function listAllUnits(): array
     {
         $response = $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
@@ -228,6 +269,18 @@ final class OrganizationUnitReorderTest extends TestCase
                 'X-CSRF-Token' => $this->adminCsrf,
                 'Idempotency-Key' => $idempotencyKey ?? $this->nextKey(),
                 'If-Match' => '"'.$version.'"',
+            ]);
+    }
+
+    private function patchAsAdmin(string $uri, array $payload, string $etag): TestResponse
+    {
+        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+            ->withCredentials()
+            ->patchJson($uri, $payload, [
+                'X-Correlation-ID' => self::CORRELATION_ID,
+                'X-CSRF-Token' => $this->adminCsrf,
+                'If-Match' => $etag,
+                'Content-Type' => 'application/merge-patch+json',
             ]);
     }
 

@@ -32,12 +32,18 @@ final class DownloadDocumentController
         if ($principal instanceof JsonResponse) {
             return $principal;
         }
-        $versionId = DB::table('document_versions as v')->join('documents as d', 'd.id', '=', 'v.document_id')
+        $version = DB::table('document_versions as v')->join('documents as d', 'd.id', '=', 'v.document_id')
             ->where('d.public_id', $documentId)->where('v.scan_status', 'clean')->where('v.availability_status', 'available')
-            ->orderByDesc('v.version_number')->value('v.public_id');
-        if (! is_string($versionId)) {
+            ->orderByDesc('v.version_number')
+            ->select(['v.public_id', 'd.retention_until', 'd.legal_hold'])
+            ->first();
+        if (! $version instanceof \stdClass) {
             return DocumentsApi::problem(404, 'document-upload-not-found', 'Not Found', 'The document is not available.', $correlationId);
         }
+        if (! (bool) $version->legal_hold && $this->retentionExpired($version->retention_until)) {
+            return DocumentsApi::problem(409, 'document-retention-expired', 'Conflict', 'The document retention period has expired.', $correlationId);
+        }
+        $versionId = (string) $version->public_id;
         try {
             $grant = $this->service->download($documentId, $versionId, new DocumentAccessRequest(
                 $principal['user_id'], $principal['facility_id'], $correlationId, $request->ip(), $request->header('X-Device-Fingerprint-Hash'),
@@ -47,5 +53,15 @@ final class DownloadDocumentController
         }
 
         return redirect()->away($grant->url, 302)->header('X-Correlation-ID', $correlationId);
+    }
+
+    private function retentionExpired(?string $retentionUntil): bool
+    {
+        if ($retentionUntil === null || $retentionUntil === '') {
+            return false;
+        }
+        $until = new \DateTimeImmutable($retentionUntil, new \DateTimeZone('UTC'));
+
+        return $until <= new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
     }
 }

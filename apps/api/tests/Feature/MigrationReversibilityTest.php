@@ -407,6 +407,70 @@ final class MigrationReversibilityTest extends TestCase
         $this->assertTrue(Schema::hasColumn('users', 'is_admin'));
     }
 
+    public function test_identity_mfa_required_column_up_adds_the_admin_like_flag_to_users(): void
+    {
+        $this->dropTables([
+            'identity_auth_attempt_ledgers', 'identity_totp', 'identity_activation_tokens',
+            'identity_password_history', 'credentials', 'identity_person_provisioning',
+            'identity_person_event_watermarks', 'identity_inbox', 'identity_idempotency_keys',
+            'identity_sessions', 'identity_person_account_claims', 'users',
+        ]);
+        $accounts = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/CreateIdentityAccountTables.php',
+        );
+        $credentials = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php',
+        );
+        $mfa = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityMfaRequiredColumn.php',
+        );
+        $accounts->up();
+        $credentials->up();
+
+        $mfa->up();
+
+        $this->assertTrue(Schema::hasColumn('users', 'mfa_required'));
+        $userId = '018f6f7d-0c00-7000-8000-000000000973';
+        DB::table('users')->insert([
+            'id' => $userId,
+            'username' => 'mfa-flag-guard',
+            'display_name_ar' => 'حارس التحقق',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->assertFalse((bool) DB::table('users')->where('id', $userId)->value('mfa_required'));
+        DB::table('users')->where('id', $userId)->update(['mfa_required' => true]);
+        $this->assertTrue((bool) DB::table('users')->where('id', $userId)->value('mfa_required'));
+    }
+
+    public function test_identity_mfa_required_column_down_reverses_exactly(): void
+    {
+        $this->dropTables([
+            'identity_auth_attempt_ledgers', 'identity_totp', 'identity_activation_tokens',
+            'identity_password_history', 'credentials', 'identity_person_provisioning',
+            'identity_person_event_watermarks', 'identity_inbox', 'identity_idempotency_keys',
+            'identity_sessions', 'identity_person_account_claims', 'users',
+        ]);
+        $accounts = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/CreateIdentityAccountTables.php',
+        );
+        $credentials = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityCredentialCoreTables.php',
+        );
+        $mfa = self::loadMigration(
+            'Modules/Identity/Infrastructure/Persistence/Migrations/ZAddIdentityMfaRequiredColumn.php',
+        );
+        $accounts->up();
+        $credentials->up();
+        $mfa->up();
+
+        $mfa->down();
+
+        $this->assertFalse(Schema::hasColumn('users', 'mfa_required'));
+        $this->assertTrue(Schema::hasColumn('users', 'is_admin'));
+        $this->assertTrue(Schema::hasTable('credentials'));
+    }
+
     public function test_organization_seed_downs_remove_only_their_unreferenced_owned_rows(): void
     {
         $this->dropTables([
@@ -525,6 +589,23 @@ final class MigrationReversibilityTest extends TestCase
         }
 
         $this->assertSame(5, DB::table('unit_types')->count());
+    }
+
+    public function test_documents_w26_up_adds_and_down_drops_the_restriction_policy_key_column(): void
+    {
+        Schema::table('documents', function ($table): void {
+            $table->dropColumn('restriction_policy_key');
+        });
+        $this->assertFalse(Schema::hasColumn('documents', 'restriction_policy_key'));
+
+        $migration = self::loadMigration(
+            'Modules/Documents/Infrastructure/Persistence/Migrations/W26AddDocumentRestrictionPolicyKey.php',
+        );
+        $migration->up();
+        $this->assertTrue(Schema::hasColumn('documents', 'restriction_policy_key'));
+
+        $migration->down();
+        $this->assertFalse(Schema::hasColumn('documents', 'restriction_policy_key'));
     }
 
     public function test_notifications_w18_up_adds_columns_indexes_and_delivery_tables(): void
@@ -790,5 +871,20 @@ final class MigrationReversibilityTest extends TestCase
         $this->assertNotContains(OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE, $remainingCodes);
         $this->assertNotContains(OperationsOfficeRoleCatalog::OFFICE_MEMBER_ROLE, $remainingCodes);
         $this->assertContains('unrelated-role', $remainingCodes, 'Down must only remove office-owned roles.');
+    }
+
+    public function test_search_drop_inbox_removes_the_vestigial_table_and_down_restores_it(): void
+    {
+        $this->dropTables(['search_inbox']);
+        $migration = self::loadMigration(
+            'Modules/Search/Infrastructure/Persistence/Migrations/DropSearchInboxTable.php',
+        );
+        $migration->up();
+        $this->assertFalse(Schema::hasTable('search_inbox'));
+        $migration->down();
+        $this->assertTrue(Schema::hasTable('search_inbox'));
+        $this->assertTrue(Schema::hasColumns('search_inbox', [
+            'id', 'event_id', 'event_type', 'created_at', 'updated_at',
+        ]));
     }
 }

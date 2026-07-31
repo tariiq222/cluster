@@ -336,6 +336,67 @@ class OrganizationTreeHttpAdapterTest extends TestCase
         $this->assertDatabaseMissing('positions', ['code' => 'DEPTH-LIMITED']);
     }
 
+    public function test_position_deactivation_blocks_new_assignments_keeps_existing_and_guards_subordinates(): void
+    {
+        $token = $this->loginToken();
+        $clusterId = $this->createCluster($token);
+        $unitId = $this->createUnit($token, $clusterId, null, 'department', 'HR', 'الموارد البشرية');
+        $managerId = $this->createPosition($token, $unitId, 'DIRECTOR', 'المدير', null);
+        $employeeId = $this->createPosition($token, $unitId, 'SPECIALIST', 'أخصائي', $managerId);
+        $personId = $this->createPerson($token, 'EMP-DEACT-001', 'deactivation-person');
+        $assignmentBody = [
+            'person_id' => $personId,
+            'position_id' => $employeeId,
+            'start_at' => now('UTC')->subHour()->format('Y-m-d\TH:i:s.v\Z'),
+        ];
+
+        $assignmentId = (string) $this->withToken($token)
+            ->postJson('/api/v1/organization/assignments', $assignmentBody, $this->writeHeaders('deactivation-assignment'))
+            ->assertCreated()->json('data.id');
+
+        $this->withToken($token)
+            ->patchJson("/api/v1/organization/positions/{$employeeId}", ['is_active' => false], $this->patchHeaders('"1"'))
+            ->assertOk()
+            ->assertHeader('ETag', '"2"')
+            ->assertJsonPath('data.is_active', false);
+        $this->assertDatabaseHas('assignments', ['id' => $assignmentId, 'position_id' => $employeeId, 'end_at' => null, 'lock_version' => 1]);
+
+        $secondPersonId = $this->createPerson($token, 'EMP-DEACT-002', 'deactivation-person-2');
+        $this->withToken($token)
+            ->postJson('/api/v1/organization/assignments', [...$assignmentBody, 'person_id' => $secondPersonId], $this->writeHeaders('deactivation-assignment-refused'))
+            ->assertConflict()
+            ->assertJsonPath('type', 'https://cluster.example/problems/position-inactive');
+
+        $this->withToken($token)
+            ->patchJson("/api/v1/organization/positions/{$managerId}", ['is_active' => false], $this->patchHeaders('"1"'))
+            ->assertConflict()
+            ->assertJsonPath('type', 'https://cluster.example/problems/position-deactivation-conflict');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/organization/assignments/{$assignmentId}/end", [
+                'end_at' => now('UTC')->format('Y-m-d\TH:i:s.v\Z'),
+                'reason' => 'انتهاء قبل إعادة التفعيل',
+            ], [
+                ...$this->headers(),
+                'If-Match' => '"1"',
+                'Idempotency-Key' => 'deactivation-assignment-end',
+            ])->assertOk();
+
+        $this->withToken($token)
+            ->patchJson("/api/v1/organization/positions/{$employeeId}", ['is_active' => true], $this->patchHeaders('"2"'))
+            ->assertOk()
+            ->assertHeader('ETag', '"3"')
+            ->assertJsonPath('data.is_active', true);
+        $this->withToken($token)
+            ->postJson('/api/v1/organization/assignments', [
+                ...$assignmentBody,
+                'person_id' => $secondPersonId,
+                'start_at' => now('UTC')->addMinute()->format('Y-m-d\TH:i:s.v\Z'),
+            ], $this->writeHeaders('deactivation-assignment-restored'))
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'pending');
+    }
+
     public function test_tree_writes_fail_closed_and_roll_back_with_outbox(): void
     {
         $admin = $this->loginToken();
@@ -461,6 +522,18 @@ class OrganizationTreeHttpAdapterTest extends TestCase
 
         return (string) $this->withToken($token)
             ->postJson('/api/v1/organization/positions', $body, $this->writeHeaders('position-'.$code))
+            ->assertCreated()
+            ->json('data.id');
+    }
+
+    private function createPerson(string $token, string $employeeNumber, string $key): string
+    {
+        return (string) $this->withToken($token)
+            ->postJson('/api/v1/organization/people', [
+                'employee_number' => $employeeNumber,
+                'display_name_ar' => 'موظف الاختبار',
+                'status' => 'active',
+            ], $this->writeHeaders($key))
             ->assertCreated()
             ->json('data.id');
     }

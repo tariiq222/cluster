@@ -252,6 +252,69 @@ class IdentityAccountHttpAdapterTest extends TestCase
         $this->getJson('/api/v1/identity/accounts')->assertBadRequest()->assertHeader('X-Correlation-ID');
     }
 
+    public function test_require_mfa_and_optional_mfa_toggle_the_account_mfa_policy(): void
+    {
+        $token = $this->loginToken();
+        $personId = $this->createPerson($token);
+        $accountId = $this->createAccount($token, $personId, 'mfa-toggle.user');
+        // A pending account has no credential; disable first so the account
+        // has a session-issuing lifecycle state to toggle.
+        $this->withToken($token)
+            ->postJson("/api/v1/identity/accounts/{$accountId}/disable", [], $this->actionHeaders('"1"', 'mfa-toggle-disable'))
+            ->assertOk()->assertJsonPath('mfa_required', false);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/identity/accounts/{$accountId}/require-mfa", [], $this->actionHeaders('"2"', 'mfa-toggle-require'))
+            ->assertOk()->assertHeader('ETag', '"3"')->assertJsonPath('mfa_required', true);
+        $this->assertDatabaseHas('users', ['id' => $accountId, 'mfa_required' => true]);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/identity/accounts/{$accountId}/optional-mfa", ['reason' => 'policy review'], $this->actionHeaders('"3"', 'mfa-toggle-optional'))
+            ->assertOk()->assertHeader('ETag', '"4"')->assertJsonPath('mfa_required', false);
+        $this->assertDatabaseHas('users', ['id' => $accountId, 'mfa_required' => false]);
+    }
+
+    public function test_reset_credential_clears_the_legacy_hash_and_the_account_reactivates(): void
+    {
+        $token = $this->loginToken();
+        $personId = $this->createPerson($token);
+        $accountId = $this->createAccount($token, $personId, 'reset-credential.user');
+        DB::table('credentials')->insert([
+            'id' => '018f6f7d-0c00-7000-8000-000000000811',
+            'user_id' => $accountId,
+            'password_hash' => '$2y$12$legacy-recovery-hash',
+            'hash_algorithm' => 'bcrypt',
+            'password_changed_at' => now(),
+            'policy_version' => 'identity-password-v1',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/identity/accounts/{$accountId}/reset-credential", ['reason' => 'legacy hash'], $this->actionHeaders('"1"', 'reset-credential'))
+            ->assertOk()->assertHeader('ETag', '"2"')->assertJsonPath('status', 'pending')->assertJsonPath('must_change_password', true);
+
+        $this->assertDatabaseMissing('credentials', ['user_id' => $accountId]);
+        $this->assertDatabaseHas('users', [
+            'id' => $accountId,
+            'status' => 'pending',
+            'must_change_password' => true,
+            'password_version' => 2,
+            'failed_login_count' => 0,
+        ]);
+    }
+
+    public function test_unsupported_account_actions_stay_invalid(): void
+    {
+        $token = $this->loginToken();
+        $personId = $this->createPerson($token);
+        $accountId = $this->createAccount($token, $personId, 'invalid-action.user');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/identity/accounts/{$accountId}/promote", [], $this->actionHeaders('"1"', 'invalid-action'))
+            ->assertBadRequest();
+    }
+
     private function createPerson(
         string $token,
         string $employeeNumber = 'EMP-IDENTITY-001',

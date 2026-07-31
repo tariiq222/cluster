@@ -44,15 +44,15 @@ final class SearchProjectionTest extends TestCase
         $this->assertArrayNotHasKey('payload', (array) $row);
     }
 
-    public function test_denied_scope_is_absent_from_items_and_total(): void
+    public function test_denied_scope_is_absent_from_items(): void
     {
         $indexer = new IndexSourceEventHandler;
         $indexer->handle($this->event('scope-a'));
         $indexer->handle($this->event('scope-b'));
 
         $result = (new SearchAccessibleRecordsHandler(new ScopeDecider))->handle(['user_id' => 'u', 'facility_id' => 'scope-a'], 'request');
-        $this->assertSame(1, $result['total']);
         $this->assertCount(1, $result['items']);
+        $this->assertNull($result['next_cursor']);
         $this->assertSame('scope-a', $result['items'][0]['scope_id']);
     }
 

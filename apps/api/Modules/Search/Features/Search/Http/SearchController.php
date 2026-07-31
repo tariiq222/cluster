@@ -5,6 +5,7 @@ namespace Modules\Search\Features\Search\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use InvalidArgumentException;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler;
 use Modules\Search\Http\SearchApi;
@@ -32,13 +33,34 @@ final class SearchController
             'q' => ['required', 'string', 'min:1', 'max:256'],
             'scope_id' => ['sometimes', 'string', 'max:128'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'cursor' => ['sometimes', 'string', 'min:1', 'max:2048'],
         ]);
-        if ($validator->fails() || array_diff(array_keys($input), ['q', 'scope_id', 'limit']) !== []) {
+        if ($validator->fails() || array_diff(array_keys($input), ['q', 'scope_id', 'limit', 'cursor']) !== []) {
             return SearchApi::problem(400, 'invalid-search-query', 'Bad Request', 'The search query is invalid.', $correlationId);
         }
         $validated = $validator->validated();
-        $result = $this->search->handle($principal, (string) $validated['q'], $validated['scope_id'] ?? null, (int) ($validated['limit'] ?? 25));
+        $limit = (int) ($validated['limit'] ?? 25);
+        try {
+            $result = $this->search->handle(
+                $principal,
+                (string) $validated['q'],
+                $validated['scope_id'] ?? null,
+                $limit,
+                $validated['cursor'] ?? null,
+            );
+        } catch (InvalidArgumentException) {
+            return SearchApi::problem(400, 'invalid-search-query', 'Bad Request', 'The search query is invalid.', $correlationId);
+        }
 
-        return SearchApi::response($result, 200, $correlationId);
+        $response = SearchApi::response($result, 200, $correlationId);
+        if ($result['next_cursor'] !== null) {
+            $nextQuery = ['cursor' => $result['next_cursor'], 'limit' => $limit, 'q' => $validated['q']];
+            if (isset($validated['scope_id'])) {
+                $nextQuery['scope_id'] = $validated['scope_id'];
+            }
+            $response->header('Link', '</api/v1/search?'.http_build_query($nextQuery, '', '&', PHP_QUERY_RFC3986).'>; rel="next"');
+        }
+
+        return $response;
     }
 }

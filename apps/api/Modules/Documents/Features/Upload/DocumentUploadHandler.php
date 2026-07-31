@@ -473,6 +473,9 @@ final class DocumentUploadHandler
             || $version->availability_status !== DocumentVersionAvailabilityStatus::PromotionPending->value) {
             throw new DomainException('document_promotion_invalid_state');
         }
+        if ($version->document_status === DocumentStatus::Archived->value) {
+            throw new DomainException('document_promotion_archived');
+        }
 
         try {
             $promoted = $this->storage->promoteVerifiedObject(new VerifiedQuarantineObject(
@@ -499,6 +502,9 @@ final class DocumentUploadHandler
             if ($version->scan_status !== DocumentScanStatus::Clean->value
                 || $version->availability_status !== DocumentVersionAvailabilityStatus::PromotionPending->value) {
                 throw new DomainException('document_promotion_invalid_state');
+            }
+            if ($version->document_status === DocumentStatus::Archived->value) {
+                throw new DomainException('document_promotion_archived');
             }
             $now = $this->now();
             if (! $this->claimIdempotency($idempotency, 'document_version', (string) $version->version_public_id, [], $now)) {

@@ -203,6 +203,17 @@ export interface DomainResource {
    * @nullable
    */
   constraint_policy_key?: string | null
+  /**
+   * @maxLength 128
+   * @nullable
+   */
+  restriction_policy_key?: string | null
+  /**
+   * @maxLength 128
+   * @nullable
+   */
+  retention_policy_key?: string | null
+  retention_until?: UtcDateTime | null
   due_at?: UtcDateTime
   effective_from?: UtcDateTime
   effective_to?: UtcDateTime
@@ -956,6 +967,8 @@ export interface UserAccount {
   person_version: number
   status: AccountStatus
   must_change_password: boolean
+  /** Whether the account must satisfy TOTP (admin-like MFA policy) before authenticating. */
+  mfa_required: boolean
   /** @minimum 1 */
   password_version: number
   locked_until: UtcDateTime | null
@@ -1938,6 +1951,7 @@ export interface PositionPatch {
   title?: string
   job_title_id?: UUIDv7 | null
   manager_position_id?: UUIDv7 | null
+  is_active?: boolean
 }
 
 export type PersonCreateStatus =
@@ -2240,6 +2254,36 @@ export interface ProblemScopeTypeNotCatalogued {
   type: 'urn:cluster:problem:scope_type_not_catalogued'
   title: string
   status: 422
+  detail?: string
+  correlation_id?: Uuidv7
+  [key: string]: unknown
+}
+
+/**
+ * Returned with HTTP 409 when a role-assignment or delegation patch
+ * widens the granted window (`end_at`) beyond the actor's own grant
+ * window/scope. Grant authority is re-validated on window/scope
+ * updates, not only at creation.
+ */
+export interface ProblemGrantAuthorityInvalid {
+  type: 'urn:cluster:problem:grant-authority-invalid'
+  title: string
+  status: 409
+  detail?: string
+  correlation_id?: Uuidv7
+  [key: string]: unknown
+}
+
+/**
+ * Returned with HTTP 409 when a role-assignment or delegation status
+ * transition is not permitted: `revoked` is terminal (no path back to
+ * `active`), and `expired` may only be recorded once `end_at <= now`.
+ * Status is only mutable through the dedicated transition actions.
+ */
+export interface ProblemInvalidGrantStatus {
+  type: 'urn:cluster:problem:invalid-grant-status'
+  title: string
+  status: 409
   detail?: string
   correlation_id?: Uuidv7
   [key: string]: unknown
@@ -3886,8 +3930,7 @@ export type CreateReportExportBodyFormat =
 
 export const CreateReportExportBodyFormat = {
   csv: 'csv',
-  xlsx: 'xlsx',
-  pdf: 'pdf',
+  json: 'json',
 } as const
 
 export type CreateReportExportBodyFilters = { [key: string]: unknown }
@@ -9460,17 +9503,17 @@ export type transitionDocumentResponse =
 
 export const getTransitionDocumentUrl = (
   documentId: string,
-  documentAction: 'archive' | 'place-hold' | 'release-hold',
+  documentAction: 'archive' | 'unarchive' | 'place-hold' | 'release-hold',
 ) => {
   return `/api/v1/documents/${encodeURIComponent(String(documentId))}/${encodeURIComponent(String(documentAction))}`
 }
 
 /**
- * @summary Archive, place on hold, or release hold without physical deletion
+ * @summary Archive, unarchive, place on hold, or release hold without physical deletion
  */
 export const transitionDocument = async (
   documentId: string,
-  documentAction: 'archive' | 'place-hold' | 'release-hold',
+  documentAction: 'archive' | 'unarchive' | 'place-hold' | 'release-hold',
   reasonAction: ReasonAction,
   options?: RequestInit,
 ): Promise<transitionDocumentResponse> => {
@@ -9792,6 +9835,11 @@ export type createReportExportResponse409 = {
   status: 409
 }
 
+export type createReportExportResponse422 = {
+  data: ProblemDetailsSchema
+  status: 422
+}
+
 export type createReportExportResponseSuccess =
   createReportExportResponse202 & {
     headers: Headers
@@ -9802,6 +9850,7 @@ export type createReportExportResponseError = (
   | createReportExportResponse403
   | createReportExportResponse404
   | createReportExportResponse409
+  | createReportExportResponse422
 ) & {
   headers: Headers
 }
@@ -9832,8 +9881,13 @@ export const createReportExport = async (
   )
 }
 
-export type getExportResponse200 = {
-  data: EntityResponse
+export type getExportResponse200ApplicationJson = {
+  data: Entity
+  status: 200
+}
+
+export type getExportResponse200TextCsv = {
+  data: string
   status: 200
 }
 
@@ -9842,10 +9896,19 @@ export type getExportResponse404 = {
   status: 404
 }
 
-export type getExportResponseSuccess = getExportResponse200 & {
+export type getExportResponse406 = {
+  data: ProblemDetailsSchema
+  status: 406
+}
+
+export type getExportResponseSuccess = (
+  getExportResponse200ApplicationJson | getExportResponse200TextCsv
+) & {
   headers: Headers
 }
-export type getExportResponseError = getExportResponse404 & {
+export type getExportResponseError = (
+  getExportResponse404 | getExportResponse406
+) & {
   headers: Headers
 }
 
@@ -9857,6 +9920,10 @@ export const getGetExportUrl = (exportId: string) => {
 }
 
 /**
+ * Returns the export envelope (JSON) for polling and inspection by
+ * default; when the request Accept header includes text/csv the raw
+ * artifact file is returned instead, with the Content-Type and body
+ * matching the stored format.
  * @summary Get an export
  */
 export const getExport = async (
@@ -12187,7 +12254,10 @@ export const getEndAssignmentUrl = (assignmentId: UUIDv7) => {
 }
 
 /**
- * @summary End an active assignment
+ * Ends an active assignment at a past or current time. A pending
+ * (future-dated) assignment can be cancelled with an end time in the
+ * future as long as it is not before the assignment start time.
+ * @summary End an active or pending assignment
  */
 export const endAssignment = async (
   assignmentId: UUIDv7,
@@ -12884,7 +12954,10 @@ export const getTransitionUserAccountUrl = (
     | 'disable'
     | 'archive'
     | 'revoke-sessions'
-    | 'force-password-change',
+    | 'force-password-change'
+    | 'require-mfa'
+    | 'optional-mfa'
+    | 'reset-credential',
 ) => {
   return `/api/v1/identity/accounts/${encodeURIComponent(String(accountId))}/${encodeURIComponent(String(accountAction))}`
 }
@@ -12900,7 +12973,10 @@ export const transitionUserAccount = async (
     | 'disable'
     | 'archive'
     | 'revoke-sessions'
-    | 'force-password-change',
+    | 'force-password-change'
+    | 'require-mfa'
+    | 'optional-mfa'
+    | 'reset-credential',
   reasonAction?: ReasonAction,
   options?: RequestInit,
 ): Promise<transitionUserAccountResponse> => {
@@ -13387,7 +13463,10 @@ export type updateAuthorizationAdminResourceResponse404 = {
 }
 
 export type updateAuthorizationAdminResourceResponse409 = {
-  data: ConflictResponse
+  data:
+    | ProblemDetailsSchema
+    | ProblemGrantAuthorityInvalid
+    | ProblemInvalidGrantStatus
   status: 409
 }
 
@@ -13491,7 +13570,11 @@ export type transitionAuthorizationAdminResourceResponse404 = {
 }
 
 export type transitionAuthorizationAdminResourceResponse409 = {
-  data: ProblemDetailsSchema | ProblemImmutableSystemRole
+  data:
+    | ProblemDetailsSchema
+    | ProblemImmutableSystemRole
+    | ProblemGrantAuthorityInvalid
+    | ProblemInvalidGrantStatus
   status: 409
 }
 
