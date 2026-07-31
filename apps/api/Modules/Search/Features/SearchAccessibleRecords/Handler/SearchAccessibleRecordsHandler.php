@@ -3,11 +3,22 @@
 namespace Modules\Search\Features\SearchAccessibleRecords\Handler;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 
 final class SearchAccessibleRecordsHandler
 {
+    /**
+     * Per-row authorization can reject candidate rows (denied scope, classification
+     * mismatch, etc.), so we over-fetch the projection before authorization to keep
+     * the items window full even when many rows are denied. The hard ceiling stops a
+     * single query from blowing up if the projection table grows large.
+     */
+    private const CANDIDATE_OVER_FETCH_FACTOR = 5;
+
+    private const CANDIDATE_HARD_CEILING = 500;
+
     public function __construct(private readonly DecideAccess $access) {}
 
     /**
@@ -18,9 +29,11 @@ final class SearchAccessibleRecordsHandler
     {
         $query = trim($query);
         $limit = max(1, min($limit, 100));
+        $candidateLimit = min($limit * self::CANDIDATE_OVER_FETCH_FACTOR, self::CANDIDATE_HARD_CEILING);
         $builder = DB::table('search_index_entries')
             ->where('visibility', 'eligible')
-            ->orderBy('id');
+            ->orderBy('id')
+            ->limit($candidateLimit);
 
         if ($scopeId !== null) {
             $builder->where('scope_id', $scopeId);
@@ -43,7 +56,7 @@ final class SearchAccessibleRecordsHandler
 
             $total++;
             if (count($items) < $limit) {
-                $items[] = \Modules\Authorization\Contracts\AccessProjection::fromDecision($decision)->compose([
+                $items[] = AccessProjection::fromDecision($decision)->compose([
                     'id' => $row->id,
                     'source_type' => $row->source_type,
                     'source_id' => $row->source_id,
