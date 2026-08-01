@@ -85,6 +85,7 @@ const ROUTES = [
  * They are compatibility shims, not destinations — routePaths() omits them.
  */
 const REDIRECTS = [
+  { path: '/api-docs', element: <Navigate to="/" replace /> },
   { path: '/accounts-permissions', element: <Navigate to="/access" replace /> },
   { path: '/reports-monitoring', element: <Navigate to="/reports" replace /> },
   { path: '/platform-management', element: <Navigate to="/platform" replace /> },
