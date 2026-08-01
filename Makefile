@@ -305,5 +305,10 @@ verify-production-images:
 verify-w1-1-local: validate-production-bundle build-production-images verify-production-images
 	./infra/platform/production/run-local-e2e.sh
 
+verify-design:
+	./scripts/check-design-rules.sh
+	python3 scripts/verify-page-coverage.py
+.PHONY: verify-design
+
 deploy-vps: validate-production-bundle
 	./infra/platform/production/deploy-vps.sh
