@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { RouterProvider } from 'react-router-dom'
 import { DirectionProvider } from '@radix-ui/react-direction'
 import { clearStoredSession, identityLogout, login, restoreSession, storedSession, type Session } from '../api/session'
 import { registerSessionExpiredHandler } from '../api/http'
 import { directionForLocale, initialLocale, shellCopy, LOCALE_KEY, type Locale } from '../i18n'
 import { LoginScreen } from './LoginScreen'
-import { router } from '../router'
+import { SessionProvider } from './session-context'
+import { PrincipalProvider } from './principal-context'
+import { AppRouter } from '../router'
 
 export function App() {
   const [locale, setLocaleState] = useState<Locale>(initialLocale)
@@ -85,7 +86,11 @@ export function App() {
 
   return (
     <DirectionProvider dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-      <RouterProvider router={router({ session, locale, setLocale, onLogout: handleLogout })} />
+      <SessionProvider session={session} locale={locale} setLocale={setLocale}>
+        <PrincipalProvider>
+          <AppRouter onLogout={handleLogout} />
+        </PrincipalProvider>
+      </SessionProvider>
     </DirectionProvider>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText,
@@ -110,7 +110,7 @@ export function CommandMenu({
   const [debouncedQuery, setDebouncedQuery] = useState('')
 
   const open = openProp ?? internalOpen
-  const setOpen = (next: boolean | ((current: boolean) => boolean)) => {
+  const setOpen = useCallback((next: boolean | ((current: boolean) => boolean)) => {
     if (typeof next === 'function') {
       const computed = next(open)
       setInternalOpen(computed)
@@ -119,7 +119,7 @@ export function CommandMenu({
       setInternalOpen(next)
       onOpenChange?.(next)
     }
-  }
+  }, [open, onOpenChange])
 
   useEffect(() => {
     if (!open) return
@@ -138,7 +138,7 @@ export function CommandMenu({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [setOpen])
 
   const navigateTo = (path: string) => {
     setOpen(false)
