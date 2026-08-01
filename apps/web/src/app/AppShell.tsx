@@ -135,7 +135,7 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
         <header className="flex h-14 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ms-2" />
           <div className="ms-auto flex items-center gap-2">
-            {principal.effectiveScope && <Badge variant="outline">{principal.effectiveScope.label}</Badge>}
+            {principal.effectiveScope && <Badge variant="outline" className="hidden md:inline-flex">{principal.effectiveScope.label}</Badge>}
             <Button variant="ghost" size="sm" onClick={() => setCommandOpen(true)} aria-label={`${copy.search} (⌘K)`}>
               <Search aria-hidden="true" />
               <span className="hidden lg:inline">⌘K</span>

@@ -127,7 +127,7 @@ test('dashboard shell passes desktop, 200 percent, mobile, RTL and LTR visual ch
   await page.setViewportSize({ width: 320, height: 720 })
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await expectNoHorizontalOverflow(page)
-  const menu = page.getByRole('button', { name: '☰' })
+  const menu = page.getByRole('button', { name: 'Toggle Sidebar' })
   await menu.click()
   const navigation = page.getByRole('navigation', { name: 'القائمة' })
   await expect(navigation).toBeVisible()
