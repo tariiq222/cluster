@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
   BarChart3,
@@ -11,6 +11,7 @@ import {
   ListTodo,
   LogOut,
   Moon,
+  Search,
   Settings,
   ShieldCheck,
   Sun,
@@ -20,6 +21,7 @@ import {
 import { usePrincipal } from './principal-context'
 import { useLocale, useSetLocale } from './session-context'
 import { useTheme } from '@/components/theme-provider'
+import { CommandMenu } from '@/components/command-menu'
 import { shellCopy } from '../i18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,6 +59,7 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
   const principal = usePrincipal()
   const location = useLocation()
   const { resolved, setTheme } = useTheme()
+  const [commandOpen, setCommandOpen] = useState(false)
 
   const capabilities = useMemo(() => principal.capabilities ?? [], [principal.capabilities])
   const features = useMemo(() => principal.features ?? { work_management: false, tasks: false }, [principal.features])
@@ -133,6 +136,10 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
           <SidebarTrigger className="-ms-2" />
           <div className="ms-auto flex items-center gap-2">
             {principal.effectiveScope && <Badge variant="outline">{principal.effectiveScope.label}</Badge>}
+            <Button variant="ghost" size="sm" onClick={() => setCommandOpen(true)} aria-label={`${copy.search} (⌘K)`}>
+              <Search aria-hidden="true" />
+              <span className="hidden lg:inline">⌘K</span>
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}>
               <Languages aria-hidden="true" />
               {locale === 'ar' ? 'English' : 'العربية'}
@@ -168,6 +175,7 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
           <Outlet />
         </main>
       </SidebarInset>
+      <CommandMenu locale={locale} open={commandOpen} onOpenChange={setCommandOpen} />
     </SidebarProvider>
   )
 }

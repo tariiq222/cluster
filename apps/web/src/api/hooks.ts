@@ -251,3 +251,14 @@ export function useCapabilitiesList() {
     queryFn: async () => unwrap(await generated.listAuthorizationAdminResources('capabilities', { limit: 100 }, requestInit(null))),
   })
 }
+
+/* ============ Search ============ */
+
+export function useSearch(query: string, enabled: boolean) {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.CollectionResponse>({
+    queryKey: ['search', query, scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.search({ q: query, limit: 10 }, requestInit(null))),
+    enabled: enabled && query.trim().length >= 2,
+  })
+}
