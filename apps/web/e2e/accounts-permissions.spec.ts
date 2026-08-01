@@ -6,9 +6,10 @@ import { expect, test, type Page, type Route } from '@playwright/test'
  * API origin; no remote service, fixture account, or shared mutable seed is
  * required. Fixture UUIDs never appear as rendered copy.
  *
- * The rebuilt screen has three tabs — Accounts / Roles / Decision inspector —
- * so the legacy fifth-tab surfaces (scope pickers, policies, delegations)
- * are not exercised here.
+ * The rebuilt screen has four tabs — Accounts / Roles / Diagnostics /
+ * Bootstrap — so the legacy fifth-tab surfaces (scope pickers, policies,
+ * delegations) are not exercised here. The Bootstrap tab renders only while
+ * the bootstrap state is pending.
  *
  * Network guard:
  *   Every journey installs `enforceLocalApiOnly` BEFORE any other route
@@ -31,6 +32,7 @@ const fullCapabilities = [
   'identity.account.read', 'authorization.role.read', 'authorization.role.manage',
   'authorization.capability.read', 'authorization.assignment.read', 'authorization.assignment.manage',
   'authorization.policy.read', 'authorization.policy.manage', 'authorization.decision.read',
+  'authorization.bootstrap.complete',
 ] as const
 
 /**
@@ -62,6 +64,8 @@ async function json(route: Route, data: unknown, status = 200, headers: Record<s
 type WorkspaceOptions = {
   capabilities?: readonly string[]
   roles?: ReadonlyArray<{ id: string; code: string; name_en: string; name_ar: string; is_system_role: boolean; role_type: 'system' | 'custom'; status: 'active' | 'archived'; lock_version: number; capability_codes: string[]; allowed_actions: string[] }>
+  bootstrapState?: 'pending' | 'completed'
+  denyExplanation?: boolean
 }
 
 /**
@@ -83,6 +87,8 @@ async function enforceLocalApiOnly(page: Page): Promise<void> {
 
 async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promise<void> {
   const capabilities = options.capabilities ?? fullCapabilities
+  const bootstrapState = options.bootstrapState ?? 'pending'
+  const denyExplanation = options.denyExplanation ?? false
   const seenRoles: () => unknown = () => [systemRole, customRole]
 
   let authenticated = false
@@ -104,17 +110,62 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
     return json(route, { data: { user_id: ids.admin, expires_at: '2099-01-01T00:00:00Z', restricted: false, csrf_token: 'accounts-csrf' } }, 200, { 'set-cookie': 'cluster_identity_session=accounts; Path=/; HttpOnly; SameSite=Lax', 'x-csrf-token': 'accounts-csrf' })
   })
   await page.route('**/api/v1/identity/csrf', (route) => json(route, { data: { csrf_token: 'accounts-csrf' } }))
+  // The rebuilt PrincipalProvider reads the principal snapshot from
+  // /api/v1/me (not /api/v1/identity/me) and expects capabilities/features
+  // on the root projection. This is the primary known-red repair.
+  await page.route('**/api/v1/me', (route) => json(route, {
+    subject_id: ids.admin,
+    tenant_id: ids.tenant,
+    organization_unit_ids: [ids.unit],
+    roles: ['platform-admin'],
+    capabilities: [...capabilities],
+    clearance: 'internal',
+    break_glass: false,
+    features: { work_management: false, tasks: false },
+    correlation_id: ids.admin,
+  }))
   await page.route('**/api/v1/me/scopes', (route) => json(route, { available_scopes: [{ scope_type: 'facility', scope_id: ids.facility, label: 'North facility' }, { scope_type: 'unit', scope_id: ids.unit, label: 'North unit' }], effective_scope: { scope_type: 'facility', scope_id: ids.facility, label: 'North facility' } }, 200, { ETag: '"1"' }))
   await page.route('**/api/v1/notifications?limit=**', (route) => json(route, { items: [], next_cursor: null }))
   await page.route('**/api/v1/work-records?limit=**', (route) => json(route, { items: [], next_cursor: null }))
   await page.route('**/api/v1/identity/accounts?**', (route) => json(route, { items: [{ id: ids.account, username: 'finance', display_name_en: 'Finance officer', display_name_ar: 'مسؤول المالية', status: 'active', must_change_password: false }], next_cursor: null }))
   await page.route('**/api/v1/organization/people?**', (route) => json(route, { items: [], next_cursor: null }))
-  await page.route('**/api/v1/authorization/capabilities**', (route) => json(route, { data: { items: [{ id: '01980f50-5f0d-7000-8000-000000000810', code: 'records.read', name_en: 'Read records' }], next_cursor: null } }))
+  await page.route('**/api/v1/authorization/capabilities?**', (route) => json(route, { data: { items: [{ id: '01980f50-5f0d-7000-8000-000000000810', code: 'records.read', name_en: 'Read records' }], next_cursor: null } }))
 
-  await page.route('**/api/v1/authorization/roles', (route) => {
+  await page.route('**/api/v1/authorization/roles?**', (route) => {
     const items = seenRoles()
     return json(route, { data: { items, next_cursor: null } }, 200, { ETag: `"${items.length}"` })
   })
+
+  // Role enrichment walks the scoped `role-capabilities` collection for
+  // each role page. The live projection serializes `id` as
+  // `role_id:capability_id` plus the capability code and effect; only
+  // `allow` rows contribute to a role's capability_codes. The two fixture
+  // roles both carry `records.read`, so two allow rows keep the enriched
+  // shape consistent with the role fixtures.
+  await page.route('**/api/v1/authorization/role-capabilities?**', (route) => json(route, {
+    data: {
+      items: [
+        { id: `${ids.systemRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.systemRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'records.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
+        { id: `${ids.customRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.customRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'records.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
+      ],
+      next_cursor: null,
+    },
+  }))
+
+  // Live backend projection: `{ state, completed_at, completed_by_user_id,
+  // version }` with a strong ETag; GET is only issued when the capability
+  // exists. Pending => the fourth tab appears; complete => it never renders.
+  if (capabilities.includes('authorization.bootstrap.complete')) {
+    await page.route('**/api/v1/authorization/bootstrap', (route) => {
+      if (route.request().method() !== 'GET') {
+        throw new Error(`Unexpected method ${route.request().method()} on /authorization/bootstrap`)
+      }
+      const body = bootstrapState === 'pending'
+        ? { state: 'pending', completed_at: null, completed_by_user_id: null, version: 1 }
+        : { state: 'complete', completed_at: '2026-08-01T10:00:00Z', completed_by_user_id: ids.admin, version: 2 }
+      return json(route, { data: body }, 200, { ETag: `"${bootstrapState === 'pending' ? 1 : 2}"` })
+    })
+  }
 
   await page.route(`**/api/v1/authorization/roles/${ids.systemRole}/clone`, async (route) => {
     expect(route.request().method()).toBe('POST')
@@ -155,8 +206,12 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
     await json(route, { data: customRoleAfterEdit }, 200, { ETag: '"3"' })
   })
 
-  await page.route('**/api/v1/authorization/access-decisions/**/explanation', (route) => json(route, { type: 'about:blank', title: 'Forbidden', status: 403, detail: 'You cannot inspect this decision.' }, 403))
-  await page.route(`**/api/v1/authorization/access-decisions/${ids.decision}/explanation`, (route) => json(route, { data: { decision_id: ids.decision, decision: 'allow', action: 'records.read', resource_type: 'record', reason_codes: [], assignment_summaries: [], policy_references: [], applies_in_plain_language: 'Finance officer may read records in North facility.' } }))
+  await page.route('**/api/v1/authorization/access-decisions/**/explanation', (route) => {
+    if (denyExplanation) {
+      return json(route, { type: 'about:blank', title: 'Forbidden', status: 403, detail: 'You cannot inspect this decision.' }, 403)
+    }
+    return json(route, { data: { decision_id: ids.decision, decision: 'allow', action: 'records.read', resource_type: 'record', reason_codes: [], assignment_summaries: [], policy_references: [], applies_in_plain_language: 'Finance officer may read records in North facility.' } })
+  })
 }
 
 async function signIn(page: Page): Promise<void> {
@@ -168,25 +223,31 @@ async function signIn(page: Page): Promise<void> {
 }
 
 async function openWorkspace(page: Page): Promise<void> {
-  await page.goto('/accounts-permissions')
+  await page.goto('/access')
   await expect(page.getByRole('heading', { name: 'الحسابات والصلاحيات' })).toBeVisible()
+}
+
+async function openTab(page: Page, name: string): Promise<void> {
+  await page.getByRole('tab', { name, exact: true }).click()
 }
 
 async function openRolesTab(page: Page): Promise<void> {
   await openWorkspace(page)
-  await page.getByRole('button', { name: 'الأدوار', exact: true }).click()
+  await openTab(page, 'الأدوار')
   await expect(page.getByRole('heading', { name: 'الأدوار والصلاحيات' })).toBeVisible()
 }
 
-test('three governance tabs keep their order, RTL flow, and never leak fixture UUIDs', async ({ page }) => {
+test('four governance tabs keep their order, RTL flow, and never leak fixture UUIDs', async ({ page }) => {
   await enforceLocalApiOnly(page)
   await mockWorkspace(page)
   await signIn(page)
   await openWorkspace(page)
 
+  // Pending bootstrap adds a fourth semantic tab; the workspace renders the
+  // tablist with the canonical order.
   const workspaceNav = page.getByRole('navigation', { name: 'مساحات الحسابات والصلاحيات' })
-  const tabs = workspaceNav.getByRole('button')
-  await expect(tabs).toHaveText(['الحسابات', 'الأدوار', 'مفتش القرارات'])
+  const tabs = workspaceNav.getByRole('tab')
+  await expect(tabs).toHaveText(['الحسابات', 'الأدوار', 'تشخيص الوصول', 'التهيئة'])
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
 
   // UUIDs must never leak into rendered copy.
@@ -194,11 +255,30 @@ test('three governance tabs keep their order, RTL flow, and never leak fixture U
   await expect(page.getByText(ids.customRole, { exact: false })).toHaveCount(0)
   await expect(page.getByText(ids.decision, { exact: false })).toHaveCount(0)
 
-  // Each tab renders its canonical panel.
+  // Each tab renders its canonical panel heading.
   await expect(page.getByRole('heading', { name: 'حسابات الدخول' })).toBeVisible()
-  await page.getByRole('button', { name: 'الأدوار', exact: true }).click()
+  await openTab(page, 'الأدوار')
   await expect(page.getByRole('heading', { name: 'الأدوار والصلاحيات' })).toBeVisible()
-  await page.getByRole('button', { name: 'مفتش القرارات', exact: true }).click()
+  await openTab(page, 'تشخيص الوصول')
+  await expect(page.getByRole('heading', { name: 'مفتش قرارات الوصول' })).toBeVisible()
+  await openTab(page, 'التهيئة')
+  await expect(page.getByRole('heading', { name: 'التهيئة الأولية' })).toBeVisible()
+})
+
+test('a completed bootstrap never renders the bootstrap tab while the other tabs remain', async ({ page }) => {
+  await enforceLocalApiOnly(page)
+  await mockWorkspace(page, { bootstrapState: 'completed' })
+  await signIn(page)
+  await openWorkspace(page)
+
+  const workspaceNav = page.getByRole('navigation', { name: 'مساحات الحسابات والصلاحيات' })
+  await expect(workspaceNav.getByRole('tab')).toHaveText(['الحسابات', 'الأدوار', 'تشخيص الوصول'])
+  await expect(page.getByRole('tab', { name: 'التهيئة' })).toHaveCount(0)
+
+  // The other tabs still render their canonical panel headings.
+  await openTab(page, 'الأدوار')
+  await expect(page.getByRole('heading', { name: 'الأدوار والصلاحيات' })).toBeVisible()
+  await openTab(page, 'تشخيص الوصول')
   await expect(page.getByRole('heading', { name: 'مفتش قرارات الوصول' })).toBeVisible()
 })
 
@@ -275,23 +355,28 @@ test('decision inspector renders plain-language explanation and an ineligible pr
   await mockWorkspace(privilegedPage)
   await signIn(privilegedPage)
   await openWorkspace(privilegedPage)
-  await privilegedPage.getByRole('button', { name: 'مفتش القرارات', exact: true }).click()
+  await openTab(privilegedPage, 'تشخيص الوصول')
   await privilegedPage.getByLabel('معرّف القرار').fill(ids.decision)
   await privilegedPage.getByRole('button', { name: 'فحص' }).click()
   await expect(privilegedPage.getByText('Finance officer may read records in North facility.')).toBeVisible()
   await expect(privilegedPage.locator('html')).toHaveAttribute('dir', 'rtl')
   await privileged.close()
 
+  // The restricted principal still holds `authorization.decision.read`, so
+  // the Diagnostics tab stays visible — the server answers the explanation
+  // with 403. The UI must render the shared non-disclosing denied copy, not
+  // a bespoke permission message, and the canonical /access path survives.
   const restricted = await browser.newContext({ locale: 'ar-SA' })
   const restrictedPage = await restricted.newPage()
   await enforceLocalApiOnly(restrictedPage)
-  await mockWorkspace(restrictedPage, { capabilities: ['authorization.role.read'] })
+  await mockWorkspace(restrictedPage, { capabilities: ['authorization.decision.read'], denyExplanation: true })
   await signIn(restrictedPage)
   await openWorkspace(restrictedPage)
-  await restrictedPage.getByRole('button', { name: 'مفتش القرارات', exact: true }).click()
-  await expect(restrictedPage.getByText('لا تملك الصلاحية المطلوبة لعرض هذا القسم.')).toBeVisible()
-  // The URL survives the deep-link visit (no redirect away from the path).
-  await expect.poll(() => new URL(restrictedPage.url()).pathname).toBe('/accounts-permissions')
+  await openTab(restrictedPage, 'تشخيص الوصول')
+  await restrictedPage.getByLabel('معرّف القرار').fill(ids.decision)
+  await restrictedPage.getByRole('button', { name: 'فحص' }).click()
+  await expect(restrictedPage.getByText('لا يمكن الوصول إلى هذا المحتوى.')).toBeVisible()
+  await expect.poll(() => new URL(restrictedPage.url()).pathname).toBe('/access')
   await restricted.close()
 })
 

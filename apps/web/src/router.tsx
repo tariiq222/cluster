@@ -10,7 +10,7 @@ import { TaskCreateScreen } from './features/tasks/TaskCreateScreen'
 import { DocumentsScreen } from './features/documents/DocumentsScreen'
 import { DocumentDetailScreen } from './features/documents/DocumentDetailScreen'
 import { OrganizationScreen } from './features/organization/OrganizationScreen'
-import { AccountsPermissionsScreen } from './features/accounts/AccountsPermissionsScreen'
+import { AccessScreen } from './features/accounts/AccessScreen'
 import { ReportsMonitoringScreen } from './features/reports/ReportsMonitoringScreen'
 import { PlatformManagementScreen } from './features/platform/PlatformManagementScreen'
 import { NotificationsScreen } from './features/notifications/NotificationsScreen'
@@ -71,7 +71,7 @@ const ROUTES = [
   { path: '/organization', element: <OrganizationScreen /> },
   { path: '/organization/import', element: <ImportReviewRoute /> },
   { path: '/organization/import/:jobId', element: <ImportReviewRoute /> },
-  { path: '/access', element: <AccountsPermissionsScreen /> },
+  { path: '/access', element: <AccessScreen /> },
   { path: '/reports', element: <ReportsMonitoringScreen /> },
   { path: '/platform', element: <PlatformManagementScreen /> },
   { path: '/notifications', element: <NotificationsScreen /> },

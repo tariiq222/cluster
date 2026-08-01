@@ -582,12 +582,14 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **PAGES.md sections:** الحسابات · الأدوار والقدرات · تشخيص الوصول · التهيئة الأولية (17 operations)
 
-- [ ] **Step 1: Write the failing tests for the two rules that matter**
+- [x] **Step 1: Write the failing tests for the two rules that matter**
 
 ```tsx
-it('shows the activation token once, in a dialog, and not in any list', () => {
-  // Issue an activation. Assert the token string appears inside a dialog and
-  // nowhere in the surrounding table markup.
+it('confirms controlled activation delivery and expiry without ever exposing the secret', () => {
+  // Issue an activation. The mocked response deliberately carries an
+  // unexpected `token` property. Assert the dialog shows controlled delivery
+  // and expiry, and that the sentinel secret appears nowhere in the rendered
+  // table or dialog.
 })
 
 it('searches assignment scopes on demand rather than preloading them', () => {
@@ -596,34 +598,34 @@ it('searches assignment scopes on demand rather than preloading them', () => {
 })
 ```
 
-- [ ] **Step 2: Run them and confirm they fail**
+- [x] **Step 2: Run them and confirm they fail**
 
 ```bash
 npm --prefix apps/web run test:unit -- Access
 ```
 
-- [ ] **Step 3: Extract the four tabs verbatim, commit the pure split**
+- [x] **Step 3: Extract the tabs verbatim, commit the pure split**
 
-Same discipline as Task 6 Step 3 — extraction with no restyle, verified, committed alone.
+The pure split already produced three extracted legacy tabs (`AccountsTab`, `RolesTab`, `InspectorTab`); the migration later adds the fourth `BootstrapTab`. Extraction discipline is the same as Task 6 Step 3 — extraction with no restyle, verified, committed alone.
 
 ```bash
 cd apps/web && npx tsc -b && npm run test:unit
 git add apps/web/src/features/accounts/
-git commit -m "refactor(web): split the access workspace into four tab modules
+git commit -m "refactor(web): split the access workspace into three tab modules
 
 Pure extraction, no behaviour change.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 4: Migrate**
+- [x] **Step 4: Migrate**
 
-- **الحسابات** — `DataTable`; activation token in a `Dialog` with copy and a "will not be shown again" warning; status changes behind `AlertDialog`.
+- **الحسابات** — `DataTable`; activation secret is delivered through the controlled approved channel and is never exposed by this administrative UI. A `Dialog` confirms issuance and expiry only (no copy button, no "shown once" warning); status changes behind `AlertDialog`.
 - **الأدوار** — one `DataTable` with a resource-type switcher (roles / capabilities / assignments) in the toolbar, not three tabs. Scope target selection is a `Combobox` querying `assignment-scope-targets` incrementally. Sensitive capabilities carry a `ShieldAlert` icon, not a colour.
 - **التشخيص** — decision form rendering the justification chain as a timeline. This screen may use technical terminology; state that on the page, as `DESIGN-RULES.md` §2.5 otherwise forbids it.
 - **التهيئة** — visible only while the bootstrap status permits it; disappears once complete.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 npm --prefix apps/web run test:unit -- Access
@@ -874,7 +876,17 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ## Task 14: Final verification
 
-- [ ] **Step 1: Run every gate**
+- [ ] **Step 1: Route-level code splitting (React.lazy + Suspense)**
+
+Convert the route screens in `apps/web/src/router.tsx` to route-level `React.lazy` + `Suspense` boundaries before the final gates:
+
+- Wrap every route element (workspace shells and detail screens) in `React.lazy(() => import('./features/...'))` with a shared `Suspense` fallback per route.
+- Preserve feature-gated route absence: work-management routes are still registered only when the flag is on — lazy loading must never re-register a hidden path or leak a loading skeleton for a non-disclosing 404.
+- Keep the fallback accessible: skeleton-based (the shared `LoadingState`), labelled with `role="status"` where appropriate, and no raw spinners.
+- After conversion, run `npm --prefix apps/web run build` and record the new **main-entry chunk** and **per-route chunk** sizes (minified + gzip) in `docs/design/plans/baseline.md`.
+- Resolve the current >1 MB monolithic warning: the pre-Task-8 main chunk was **1,023.86 kB minified · 284.54 kB gzip** with Vite's ">500 kB" warning. Route-level splitting must bring the main entry under the warning threshold or the remaining size must be explicitly justified in the baseline record. **Plan-only for Task 8 — do not implement lazy routing before this step.**
+
+- [ ] **Step 2: Run every gate**
 
 ```bash
 cd apps/web && npx tsc -b && cd ..
@@ -891,7 +903,7 @@ W1_1_API_ORIGIN=http://127.0.0.1:8000 npm --prefix apps/web run test:e2e:local
 
 Expected: every command exits 0. Record the results in `docs/design/plans/baseline.md` under `## final`.
 
-- [ ] **Step 2: Confirm no legacy remains**
+- [ ] **Step 3: Confirm no legacy remains**
 
 ```bash
 rg -n "from '.*\/ui'" apps/web/src | wc -l
@@ -900,7 +912,7 @@ ls apps/web/src/styles/
 
 Expected: `0`, and `styles/` containing only `theme.css` and `index.css`.
 
-- [ ] **Step 3: Commit the record**
+- [ ] **Step 4: Commit the record**
 
 ```bash
 git add docs/design/plans/baseline.md

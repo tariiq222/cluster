@@ -1,29 +1,5 @@
 [
   {
-    "file": "e2e/accounts-permissions.spec.ts",
-    "title": "three governance tabs keep their order, RTL flow, and never leak fixture UUIDs",
-    "owner": "screen",
-    "reason": "The spec's **/api/v1/** route mocks predate the PrincipalProvider /me fetch the shell performs on boot; the unhandled /api/v1/me request aborts the run before the workspace renders. The access migration (Task 8) must teach the mocks the /me projection."
-  },
-  {
-    "file": "e2e/accounts-permissions.spec.ts",
-    "title": "system roles must be cloned before custom-role editing; direct system PATCH is documented as immutable",
-    "owner": "screen",
-    "reason": "Same unhandled /api/v1/me abort as above: the principal projection is not mocked, so the shell never reaches the roles workspace."
-  },
-  {
-    "file": "e2e/accounts-permissions.spec.ts",
-    "title": "decision inspector renders plain-language explanation and an ineligible principal stays denied",
-    "owner": "screen",
-    "reason": "Same unhandled /api/v1/me abort as above."
-  },
-  {
-    "file": "e2e/accounts-permissions.spec.ts",
-    "title": "mutation feedback proves the 412 path through the alert region",
-    "owner": "screen",
-    "reason": "Same unhandled /api/v1/me abort as above."
-  },
-  {
     "file": "e2e/walking-skeleton.spec.ts",
     "title": "cookie session restores after storage loss and a later 401 expires the whole shell",
     "owner": "screen",

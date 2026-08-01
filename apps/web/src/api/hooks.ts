@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as generated from '../api/generated/cluster'
 import { requestInit, unwrap } from './http'
+import { listAccounts, type AccountCollection as AccessAccountCollection } from './access'
 import { useSessionToken } from '../app/session-context'
 import { usePrincipal } from '../app/principal-context'
 
@@ -182,10 +183,10 @@ export function useAssignments() {
 
 /* ============ Accounts ============ */
 
-export function useUserAccounts() {
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['user-accounts'] as const,
-    queryFn: async () => unwrap(await generated.listUserAccounts({ limit: 100 }, requestInit(null))),
+export function useUserAccounts(cursor?: string) {
+  return useQuery<AccessAccountCollection>({
+    queryKey: ['user-accounts', cursor ?? null] as const,
+    queryFn: async () => listAccounts(cursor),
   })
 }
 
