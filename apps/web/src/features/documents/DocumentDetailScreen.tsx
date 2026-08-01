@@ -1,228 +1,42 @@
-import { useCallback, useState, type FormEvent } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Archive, FileText, Link2, Lock, ShieldCheck, Unlock, XCircle } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Archive, ArrowRight, Link2, Lock, ShieldCheck, Unlock } from 'lucide-react'
 import * as generated from '../../api/generated/cluster'
 import { useDocument, useDocumentLinks, useDocumentVersions } from '../../api/hooks'
-import { ApiError, customFetch, requestInit, stateFromError, unwrap, type ResourceState } from '../../api/http'
+import { ApiError, requestInit, stateFromError, unwrap, type ResourceState } from '../../api/http'
 import { useNavigate } from '../../app/navigation-context'
 import { useLocale, useSessionToken } from '../../app/session-context'
-import { formatDate, statusLabel } from '../../i18n'
-import { Button, Drawer, EmptyState, Field, InlineError, Page, PageHeader, Panel, Select, type SelectOption, SkeletonList, StatusBadge } from '../../ui'
-
-type DocumentAction = 'archive' | 'unarchive' | 'place-hold' | 'release-hold'
-
-interface DocumentRecord {
-  id: string
-  title?: string
-  name?: string
-  description?: string
-  classification: generated.Classification
-  status: string
-  lifecycle_state?: string
-  retention_until?: string | null
-  restriction_policy_key?: string | null
-  owner_organization_unit_id?: string
-  lock_version: number
-  allowed_actions?: string[]
-  created_at: string
-  updated_at: string
-}
-
-interface DocumentVersion {
-  id: string
-  version_number?: number
-  file_name?: string
-  status?: string
-  availability_status?: string
-  created_at?: string
-}
-
-interface DocumentLink {
-  id: string
-  relation_type?: string
-  source?: { source_module?: string; record_type?: string; record_id?: string }
-  created_at?: string
-}
-
-type UploadState = 'idle' | 'hashing' | 'initiating' | 'uploading' | 'checking' | 'completing' | 'done'
-
-const copy = {
-  ar: {
-    pageTitle: 'المستندات',
-    back: 'عودة إلى المستندات',
-    loading: 'جارٍ تحميل المستند…',
-    notFound: 'المستند غير موجود أو لا يمكن الوصول إليه.',
-    forbidden: 'غير مصرح لك بعرض هذا المستند.',
-    error: 'تعذر تحميل المستند. يرجى إعادة المحاولة.',
-    retry: 'إعادة المحاولة',
-    metadataTitle: 'بيانات المستند',
-    name: 'الاسم',
-    classification: 'التصنيف',
-    classificationPublic: 'عام',
-    classificationInternal: 'داخلي',
-    classificationConfidential: 'سري',
-    classificationTopSecret: 'سري للغاية',
-    state: 'الحالة',
-    retentionUntil: 'الاحتفاظ حتى',
-    restrictionPolicy: 'سياسة التقييد',
-    owner: 'الوحدة المالكة',
-    createdAt: 'تاريخ الإنشاء',
-    updatedAt: 'آخر تحديث',
-    description: 'الوصف',
-    noDescription: 'لا يوجد وصف',
-    versionsTitle: 'الإصدارات',
-    noVersions: 'لا توجد إصدارات',
-    versionNumber: 'الإصدار',
-    fileName: 'اسم الملف',
-    linksTitle: 'الروابط',
-    noLinks: 'لا توجد روابط',
-    relationType: 'نوع العلاقة',
-    sourceRecord: 'السجل المصدر',
-    actionsTitle: 'الإجراءات المتاحة',
-    actionArchive: 'أرشفة',
-    actionUnarchive: 'إلغاء الأرشفة',
-    actionPlaceHold: 'وضع قيد الحجز',
-    actionReleaseHold: 'رفع الحجز',
-    actionLink: 'ربط مستند',
-    actionUpload: 'رفع إصدار جديد',
-    noActions: 'لا توجد إجراءات متاحة حالياً',
-    reasonTitle: 'سبب الإجراء',
-    reasonLabel: 'السبب',
-    reasonPlaceholder: 'اذكر سبباً واضحاً…',
-    reasonRequired: 'السبب مطلوب.',
-    stale: 'تعارض في الإصدار: تم تحديث المستند من جهة أخرى، تم إعادة تحميله.',
-    actionError: 'تعذر تنفيذ الإجراء. يرجى إعادة المحاولة.',
-    cancel: 'إلغاء',
-    confirm: 'تأكيد',
-    linkTitle: 'ربط سجل مصدر',
-    linkRelationLabel: 'نوع العلاقة',
-    linkRelationAttachment: 'مرفق',
-    linkRelationEvidence: 'دليل',
-    linkRecordIdLabel: 'معرّف السجل المصدر',
-    linkRecordIdPlaceholder: 'معرّف UUID للسجل المرتبط',
-    linkModuleLabel: 'الوحدة المصدر',
-    linkModulePlaceholder: 'مثال: tasks',
-    linkRecordTypeLabel: 'نوع السجل',
-    linkRecordTypePlaceholder: 'مثال: task',
-    recordIdRequired: 'معرّف السجل المصدر مطلوب.',
-    uploadTitle: 'رفع إصدار جديد',
-    uploadFileLabel: 'الملف',
-    uploadIdle: 'اختر ملفاً لرفعه كإصدار جديد.',
-    uploadHashing: 'جارٍ حساب بصمة الملف…',
-    uploadInitiating: 'جارٍ تجهيز الرفع…',
-    uploadUploading: 'جارٍ نقل الملف إلى التخزين…',
-    uploadChecking: 'جارٍ التحقق من حالة الرفع…',
-    uploadCompleting: 'جارٍ إكمال الرفع…',
-    uploadDone: 'تم رفع الإصدار بنجاح.',
-    uploadError: 'تعذر رفع الملف. يرجى إعادة المحاولة.',
-    uploadRejected: 'رُفض الإصدار بعد الفحص.',
-    chooseFile: 'اختيار ملف',
-    uploadNow: 'رفع',
-  },
-  en: {
-    pageTitle: 'Documents',
-    back: 'Back to documents',
-    loading: 'Loading document…',
-    notFound: 'Document not found or not accessible.',
-    forbidden: 'You are not authorized to view this document.',
-    error: 'Could not load the document. Please try again.',
-    retry: 'Retry',
-    metadataTitle: 'Document metadata',
-    name: 'Name',
-    classification: 'Classification',
-    classificationPublic: 'Public',
-    classificationInternal: 'Internal',
-    classificationConfidential: 'Confidential',
-    classificationTopSecret: 'Top secret',
-    state: 'State',
-    retentionUntil: 'Retention until',
-    restrictionPolicy: 'Restriction policy',
-    owner: 'Owner organization unit',
-    createdAt: 'Created at',
-    updatedAt: 'Updated at',
-    description: 'Description',
-    noDescription: 'No description',
-    versionsTitle: 'Versions',
-    noVersions: 'No versions',
-    versionNumber: 'Version',
-    fileName: 'File name',
-    linksTitle: 'Links',
-    noLinks: 'No links',
-    relationType: 'Relation type',
-    sourceRecord: 'Source record',
-    actionsTitle: 'Available actions',
-    actionArchive: 'Archive',
-    actionUnarchive: 'Unarchive',
-    actionPlaceHold: 'Place on hold',
-    actionReleaseHold: 'Release hold',
-    actionLink: 'Link document',
-    actionUpload: 'Upload new version',
-    noActions: 'No actions are currently available',
-    reasonTitle: 'Action reason',
-    reasonLabel: 'Reason',
-    reasonPlaceholder: 'Provide a clear reason…',
-    reasonRequired: 'A reason is required.',
-    stale: 'Version conflict: the document was updated elsewhere, it has been reloaded.',
-    actionError: 'Could not perform the action. Please try again.',
-    cancel: 'Cancel',
-    confirm: 'Confirm',
-    linkTitle: 'Link a source record',
-    linkRelationLabel: 'Relation type',
-    linkRelationAttachment: 'Attachment',
-    linkRelationEvidence: 'Evidence',
-    linkRecordIdLabel: 'Source record id',
-    linkRecordIdPlaceholder: 'UUID of the linked record',
-    linkModuleLabel: 'Source module',
-    linkModulePlaceholder: 'e.g. tasks',
-    linkRecordTypeLabel: 'Record type',
-    linkRecordTypePlaceholder: 'e.g. task',
-    recordIdRequired: 'A source record id is required.',
-    uploadTitle: 'Upload a new version',
-    uploadFileLabel: 'File',
-    uploadIdle: 'Pick a file to upload as a new version.',
-    uploadHashing: 'Hashing the file…',
-    uploadInitiating: 'Preparing the upload…',
-    uploadUploading: 'Transferring the file to storage…',
-    uploadChecking: 'Checking upload status…',
-    uploadCompleting: 'Completing the upload…',
-    uploadDone: 'Version uploaded successfully.',
-    uploadError: 'Could not upload the file. Please try again.',
-    uploadRejected: 'The version was rejected after scanning.',
-    chooseFile: 'Choose file',
-    uploadNow: 'Upload',
-  },
-} as const
-
-type DocDetailCopy = (typeof copy)[keyof typeof copy]
+import { statusLabel } from '../../i18n'
+import { ResourceBoundary } from '@/components/states'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DocumentDialogs, type DocumentAction, type DocumentDialog } from './DocumentDialogs'
+import { UploadVersionSheet } from './UploadVersionSheet'
+import { documentsCopy } from './documents-copy'
+import { DocumentPreviewTab, type DocumentRecord } from './tabs/DocumentPreviewTab'
+import { DocumentVersionsTab, type DocumentVersion } from './tabs/DocumentVersionsTab'
+import { DocumentLinksTab, type DocumentLink } from './tabs/DocumentLinksTab'
+import { DocumentAccessTab } from './tabs/DocumentAccessTab'
 
 export function DocumentDetailScreen({ documentId }: { documentId: string }) {
   const locale = useLocale()
   const csrfToken = useSessionToken()
   const navigate = useNavigate()
-  const t = copy[locale]
+  const t = documentsCopy[locale]
   const queryClient = useQueryClient()
 
-  const [busy, setBusy] = useState(false)
+  const [dialog, setDialog] = useState<DocumentDialog | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [reasonDraft, setReasonDraft] = useState('')
-  const [pendingAction, setPendingAction] = useState<DocumentAction | null>(null)
-  const [linkOpen, setLinkOpen] = useState(false)
-  const [linkRelation, setLinkRelation] = useState('attachment')
-  const [linkRecordId, setLinkRecordId] = useState('')
-  const [linkModule, setLinkModule] = useState('tasks')
-  const [linkRecordType, setLinkRecordType] = useState('task')
-  const [file, setFile] = useState<File | null>(null)
-  const [uploadState, setUploadState] = useState<UploadState>('idle')
-  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const documentQuery = useDocument(documentId)
   const versionsQuery = useDocumentVersions(documentId)
   const linksQuery = useDocumentLinks(documentId)
   const document = documentQuery.data as DocumentRecord | undefined
-  const versions =
-    ((versionsQuery.data as generated.EntityCollection | undefined)?.items as unknown as DocumentVersion[]) ?? []
-  const links =
-    ((linksQuery.data as generated.EntityCollection | undefined)?.items as unknown as DocumentLink[]) ?? []
+  const versions = ((versionsQuery.data as generated.EntityCollection | undefined)?.items as unknown as DocumentVersion[]) ?? []
+  const links = ((linksQuery.data as generated.EntityCollection | undefined)?.items as unknown as DocumentLink[]) ?? []
 
   const screenState: ResourceState = documentQuery.isError
     ? stateFromError(documentQuery.error)
@@ -235,23 +49,6 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
     void queryClient.invalidateQueries({ queryKey: ['document-versions', documentId] })
     void queryClient.invalidateQueries({ queryKey: ['document-links', documentId] })
   }, [queryClient, documentId])
-
-  const retryLoad = useCallback(() => {
-    void documentQuery.refetch()
-    void versionsQuery.refetch()
-    void linksQuery.refetch()
-  }, [documentQuery, linksQuery, versionsQuery])
-
-  const completeUpload = useMutation({
-    mutationFn: async ({ uploadId, sha256, byteSize }: { uploadId: string; sha256: string; byteSize: number }) =>
-      unwrap<generated.DocumentUploadCompletion>(
-        await generated.completeDocumentUpload(
-          uploadId,
-          { sha256, byte_size: byteSize },
-          requestInit(csrfToken, { command: true, idempotency: 'document-upload-complete' }),
-        ),
-      ),
-  })
 
   const runTransition = useCallback(
     async (action: DocumentAction, reason: string) => {
@@ -267,12 +64,11 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
             requestInit(csrfToken, { command: true, idempotency: `document-${action}`, lockVersion: document.lock_version }),
           ),
         )
-        setPendingAction(null)
-        setReasonDraft('')
+        setDialog(null)
         reload()
       } catch (error) {
         if (error instanceof ApiError && error.status === 412) {
-          setPendingAction(null)
+          setDialog(null)
           reload()
           setActionError(t.stale)
           return
@@ -285,477 +81,168 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
     [csrfToken, document, documentId, reload, t.actionError, t.stale],
   )
 
-  const submitLink = useCallback(async () => {
-    if (!document) return
-    const recordId = linkRecordId.trim()
-    if (!recordId) {
-      setActionError(t.recordIdRequired)
-      return
-    }
-    setBusy(true)
-    setActionError(null)
-    try {
-      await unwrap<generated.Entity>(
-        await generated.linkDocument(
-          document.id,
-          {
-            source: {
-              source_module: linkModule.trim() || 'tasks',
-              record_type: linkRecordType.trim() || 'task',
-              record_id: recordId,
+  const submitLink = useCallback(
+    async (link: { relation: string; module: string; recordType: string; recordId: string }) => {
+      if (!document) return
+      setBusy(true)
+      setActionError(null)
+      try {
+        await unwrap<generated.Entity>(
+          await generated.linkDocument(
+            document.id,
+            {
+              source: {
+                source_module: link.module.trim() || 'tasks',
+                record_type: link.recordType.trim() || 'task',
+                record_id: link.recordId,
+              },
+              relation_type: link.relation,
             },
-            relation_type: linkRelation,
-          },
-          requestInit(csrfToken, { command: true, idempotency: 'document-link', lockVersion: document.lock_version }),
-        ),
-      )
-      setLinkOpen(false)
-      setLinkRecordId('')
-      reload()
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 412) {
-        setLinkOpen(false)
+            requestInit(csrfToken, { command: true, idempotency: 'document-link', lockVersion: document.lock_version }),
+          ),
+        )
+        setDialog(null)
         reload()
-        setActionError(t.stale)
-        return
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 412) {
+          setDialog(null)
+          reload()
+          setActionError(t.stale)
+          return
+        }
+        setActionError(errorMessage(error, t.actionError))
+      } finally {
+        setBusy(false)
       }
-      setActionError(errorMessage(error, t.actionError))
-    } finally {
-      setBusy(false)
-    }
-  }, [csrfToken, document, linkModule, linkRecordId, linkRecordType, linkRelation, reload, t.actionError, t.recordIdRequired, t.stale])
-
-  const submitUpload = useCallback(async () => {
-    if (!file || uploadState === 'hashing' || uploadState === 'initiating' || uploadState === 'uploading' || uploadState === 'checking' || uploadState === 'completing') return
-    if (!document) return
-    const chosen = file
-    setUploadError(null)
-    try {
-      setUploadState('hashing')
-      const sha256 = await sha256ForFile(chosen)
-      setUploadState('initiating')
-      const intent = unwrap<generated.DocumentUploadInitiated>(
-        await generated.initiateDocumentUpload(
-          {
-            purpose: 'document_version',
-            name: chosen.name,
-            file_name: chosen.name,
-            content_type: chosen.type || 'application/octet-stream',
-            byte_size: chosen.size,
-            sha256,
-            classification: document.classification,
-            description: null,
-          },
-          requestInit(csrfToken, { command: true, idempotency: 'document-upload' }),
-        ),
-      )
-      setUploadState('uploading')
-      const putResult = await customFetch(intent.upload_url, {
-        method: 'PUT',
-        body: chosen,
-        headers: { 'Content-Type': chosen.type || 'application/octet-stream' },
-      })
-      if (putResult.status >= 400) {
-        throw new ApiError(putResult.status, {
-          type: 'about:blank',
-          title: 'Upload to storage failed',
-          status: putResult.status,
-        })
-      }
-      setUploadState('checking')
-      const uploadStatus = unwrap<generated.DocumentUploadStatus>(
-        await generated.getDocumentUploadStatus(intent.upload_id, requestInit(csrfToken)),
-      )
-      if (uploadStatus.scan_status === 'rejected') {
-        setUploadError(t.uploadRejected)
-        setUploadState('idle')
-        return
-      }
-      setUploadState('completing')
-      const completion = await completeUpload.mutateAsync({
-        uploadId: intent.upload_id,
-        sha256,
-        byteSize: chosen.size,
-      })
-      if (!completion.accepted) {
-        setUploadError(completion.failure_codes.length > 0 ? `${t.uploadRejected} (${completion.failure_codes.join(', ')})` : t.uploadRejected)
-        setUploadState('idle')
-        return
-      }
-      setUploadState('done')
-      setFile(null)
-      reload()
-    } catch (error) {
-      setUploadError(errorMessage(error, t.uploadError))
-      setUploadState('idle')
-    }
-  }, [completeUpload, csrfToken, document, file, reload, t.uploadError, t.uploadRejected, uploadState])
-
-  const backAction = (
-    <Button variant="secondary" onClick={() => navigate('/documents')}>
-      {t.back}
-    </Button>
+    },
+    [csrfToken, document, reload, t.actionError, t.stale],
   )
 
-  if (screenState === 'loading' && !document) {
-    return (
-      <Page aria-labelledby="document-detail-heading">
-        <PageHeader id="document-detail-heading" title={t.pageTitle} actions={backAction} />
-        <SkeletonList />
-      </Page>
-    )
-  }
-
-  if (screenState === 'forbidden' && !document) {
-    return (
-      <Page aria-labelledby="document-detail-heading">
-        <PageHeader id="document-detail-heading" title={t.pageTitle} actions={backAction} />
-        <EmptyState title={t.forbidden} />
-      </Page>
-    )
-  }
-
-  if (screenState === 'not-found' && !document) {
-    return (
-      <Page aria-labelledby="document-detail-heading">
-        <PageHeader id="document-detail-heading" title={t.pageTitle} actions={backAction} />
-        <EmptyState icon={<XCircle aria-hidden="true" />} title={t.notFound} />
-      </Page>
-    )
-  }
-
-  if ((screenState === 'error' || screenState === 'conflict' || screenState === 'stale') && !document) {
-    return (
-      <Page aria-labelledby="document-detail-heading">
-        <PageHeader id="document-detail-heading" title={t.pageTitle} actions={backAction} />
-        <InlineError message={t.error} retryLabel={t.retry} onRetry={retryLoad} />
-      </Page>
-    )
-  }
-
-  if (!document) return null
-
-  const allowed = document.allowed_actions ?? []
+  const allowed = document?.allowed_actions ?? []
   const can = (action: string) => allowed.some((item) => item === action)
-  const docTitle = document.title ?? document.name ?? document.id
+  const canUpload = can('add-version') || can('initiate-upload')
 
   return (
-    <Page aria-labelledby="document-detail-heading">
-      <PageHeader id="document-detail-heading" title={docTitle} description={t.pageTitle} actions={backAction} />
+    <div className="space-y-4">
+      <div>
+        <Button variant="ghost" size="sm" onClick={() => navigate('/documents')} className="-ms-2">
+          <ArrowRight aria-hidden="true" />
+          {t.back}
+        </Button>
+      </div>
 
-      {screenState === 'stale' ? (
-        <InlineError message={t.stale} retryLabel={t.retry} onRetry={retryLoad} />
-      ) : null}
-      {actionError ? (
-        <InlineError message={actionError} retryLabel={t.retry} onRetry={() => setActionError(null)} />
-      ) : null}
-
-      <Panel id="document-metadata-panel" title={t.metadataTitle} level={2}>
-        <dl className="detail-list">
-          <div>
-            <dt>{t.classification}</dt>
-            <dd>{classificationLabel(document.classification, t)}</dd>
-          </div>
-          <div>
-            <dt>{t.state}</dt>
-            <dd>
-              <StatusBadge>{statusLabel(document.lifecycle_state ?? document.status, locale)}</StatusBadge>
-            </dd>
-          </div>
-          {document.retention_until ? (
-            <div>
-              <dt>{t.retentionUntil}</dt>
-              <dd>
-                <time dateTime={document.retention_until}>{formatDate(document.retention_until, locale)}</time>
-              </dd>
-            </div>
-          ) : null}
-          <div>
-            <dt>{t.restrictionPolicy}</dt>
-            <dd>{document.restriction_policy_key ?? '—'}</dd>
-          </div>
-          {document.owner_organization_unit_id ? (
-            <div>
-              <dt>{t.owner}</dt>
-              <dd>{document.owner_organization_unit_id}</dd>
-            </div>
-          ) : null}
-          <div>
-            <dt>{t.description}</dt>
-            <dd>{document.description || t.noDescription}</dd>
-          </div>
-          <div>
-            <dt>{t.createdAt}</dt>
-            <dd>
-              <time dateTime={document.created_at}>{formatDate(document.created_at, locale)}</time>
-            </dd>
-          </div>
-          <div>
-            <dt>{t.updatedAt}</dt>
-            <dd>
-              <time dateTime={document.updated_at}>{formatDate(document.updated_at, locale)}</time>
-            </dd>
-          </div>
-        </dl>
-      </Panel>
-
-      <Panel id="document-versions-panel" title={t.versionsTitle} level={2}>
-        {versions.length > 0 ? (
-          <ul className="ui-list">
-            {versions.map((version) => (
-              <li key={version.id} className="ui-comment">
-                <FileText aria-hidden="true" /> {version.file_name ?? version.id}
-                {version.version_number ? (
-                  <span>
-                    {' '}
-                    {t.versionNumber}: {version.version_number}
-                  </span>
+      <ResourceBoundary state={screenState} locale={locale} rows={5}>
+        {document ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold tracking-tight">
+                  {document.title ?? document.name ?? document.id}
+                </h1>
+                <Badge variant="outline">{statusLabel(document.lifecycle_state ?? document.status, locale)}</Badge>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {can('archive') ? (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'archive' })}>
+                    <Archive aria-hidden="true" />
+                    {t.actionArchive}
+                  </Button>
                 ) : null}
-                <small>
-                  {version.availability_status ? statusLabel(version.availability_status, locale) : ''}
-                  {version.created_at ? ` · ${formatDate(version.created_at, locale)}` : ''}
-                </small>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState icon={<FileText aria-hidden="true" />} title={t.noVersions} />
-        )}
-      </Panel>
-
-      <Panel id="document-links-panel" title={t.linksTitle} level={2}>
-        {links.length > 0 ? (
-          <ul className="ui-list">
-            {links.map((link) => (
-              <li key={link.id} className="ui-comment">
-                <Link2 aria-hidden="true" />
-                <span>{link.relation_type ?? '—'}</span>
-                <small>
-                  {link.source ? `${link.source.source_module ?? ''}/${link.source.record_type ?? ''}/${link.source.record_id ?? ''}` : link.id}
-                </small>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState icon={<Link2 aria-hidden="true" />} title={t.noLinks} />
-        )}
-      </Panel>
-
-      <Panel id="document-actions-panel" title={t.actionsTitle} level={2}>
-        <div className="server-actions" aria-label={t.actionsTitle}>
-          {can('archive') ? (
-            <Button variant="secondary" disabled={busy} onClick={() => openReasonDialog(setPendingAction, setActionError, 'archive')}>
-              <Archive aria-hidden="true" /> {t.actionArchive}
-            </Button>
-          ) : null}
-          {can('unarchive') ? (
-            <Button variant="secondary" disabled={busy} onClick={() => openReasonDialog(setPendingAction, setActionError, 'unarchive')}>
-              <Unlock aria-hidden="true" /> {t.actionUnarchive}
-            </Button>
-          ) : null}
-          {can('place-hold') ? (
-            <Button variant="secondary" disabled={busy} onClick={() => openReasonDialog(setPendingAction, setActionError, 'place-hold')}>
-              <Lock aria-hidden="true" /> {t.actionPlaceHold}
-            </Button>
-          ) : null}
-          {can('release-hold') ? (
-            <Button variant="secondary" disabled={busy} onClick={() => openReasonDialog(setPendingAction, setActionError, 'release-hold')}>
-              <ShieldCheck aria-hidden="true" /> {t.actionReleaseHold}
-            </Button>
-          ) : null}
-          {can('link') ? (
-            <Button variant="secondary" disabled={busy} onClick={() => setLinkOpen(true)}>
-              <Link2 aria-hidden="true" /> {t.actionLink}
-            </Button>
-          ) : null}
-          {!can('archive') &&
-          !can('unarchive') &&
-          !can('place-hold') &&
-          !can('release-hold') &&
-          !can('link') ? (
-            <p className="ui-muted">{t.noActions}</p>
-          ) : null}
-        </div>
-      </Panel>
-
-      {can('add-version') || can('initiate-upload') ? (
-        <details className="ui-collapsible">
-          <summary>{t.uploadTitle}</summary>
-          <form
-            className="ui-form-grid"
-            onSubmit={(event: FormEvent) => {
-              event.preventDefault()
-              void submitUpload()
-            }}
-          >
-            <Field id="document-upload-file" label={t.uploadFileLabel}>
-              <input
-                id="document-upload-file"
-                className="field__control"
-                type="file"
-                onChange={(event) => {
-                  setFile(event.target.files?.[0] ?? null)
-                  setUploadError(null)
-                  setUploadState('idle')
-                }}
-                disabled={uploadState === 'hashing' || uploadState === 'initiating' || uploadState === 'uploading' || uploadState === 'checking' || uploadState === 'completing'}
-              />
-            </Field>
-            <p className="ui-muted">{uploadStatusCopy(uploadState, t)}</p>
-            {uploadError ? <InlineError message={uploadError} /> : null}
-            <div className="dialog-actions">
-              <Button
-                type="submit"
-                disabled={!file || uploadState === 'hashing' || uploadState === 'initiating' || uploadState === 'uploading' || uploadState === 'checking' || uploadState === 'completing' || uploadState === 'done'}
-              >
-                {t.uploadNow}
-              </Button>
+                {can('unarchive') ? (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'unarchive' })}>
+                    <Unlock aria-hidden="true" />
+                    {t.actionUnarchive}
+                  </Button>
+                ) : null}
+                {can('place-hold') ? (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'place-hold' })}>
+                    <Lock aria-hidden="true" />
+                    {t.actionPlaceHold}
+                  </Button>
+                ) : null}
+                {can('release-hold') ? (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'release-hold' })}>
+                    <ShieldCheck aria-hidden="true" />
+                    {t.actionReleaseHold}
+                  </Button>
+                ) : null}
+                {can('link') ? (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'link' })}>
+                    <Link2 aria-hidden="true" />
+                    {t.actionLink}
+                  </Button>
+                ) : null}
+                {canUpload ? (
+                  <Button size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
+                    {t.actionUpload}
+                  </Button>
+                ) : null}
+              </div>
             </div>
-          </form>
-        </details>
-      ) : null}
 
-      {pendingAction ? (
-        <Drawer open onClose={() => setPendingAction(null)} title={t.reasonTitle}>
-          <Field id="document-reason" label={t.reasonLabel} required>
-            <textarea
-              id="document-reason"
-              className="field__control"
-              value={reasonDraft}
-              onChange={(event) => setReasonDraft(event.target.value)}
-              disabled={busy}
-              aria-required="true"
-              placeholder={t.reasonPlaceholder}
-            />
-          </Field>
-          <div className="dialog-actions">
-            <Button variant="secondary" onClick={() => setPendingAction(null)} disabled={busy}>
-              {t.cancel}
-            </Button>
-            <Button
-              disabled={busy}
-              onClick={() => {
-                const reason = reasonDraft.trim()
-                if (!reason) {
-                  setActionError(t.reasonRequired)
-                  return
-                }
-                void runTransition(pendingAction, reason)
-              }}
-            >
-              {t.confirm}
-            </Button>
-          </div>
-        </Drawer>
-      ) : null}
+            {actionError ? (
+              <p className="text-destructive text-sm" role="alert">{actionError}</p>
+            ) : null}
 
-      {linkOpen ? (
-        <Drawer open onClose={() => setLinkOpen(false)} title={t.linkTitle}>
-          <Field id="document-link-relation" label={t.linkRelationLabel}>
-            <Select
-              id="document-link-relation"
-              value={linkRelation}
-              onChange={setLinkRelation}
-              options={linkRelationOptions(t)}
-              ariaLabel={t.linkRelationLabel}
-            />
-          </Field>
-          <Field id="document-link-module" label={t.linkModuleLabel}>
-            <input
-              id="document-link-module"
-              className="field__control"
-              value={linkModule}
-              onChange={(event) => setLinkModule(event.target.value)}
-              disabled={busy}
-            />
-          </Field>
-          <Field id="document-link-record-type" label={t.linkRecordTypeLabel}>
-            <input
-              id="document-link-record-type"
-              className="field__control"
-              value={linkRecordType}
-              onChange={(event) => setLinkRecordType(event.target.value)}
-              disabled={busy}
-            />
-          </Field>
-          <Field id="document-link-record-id" label={t.linkRecordIdLabel} required>
-            <input
-              id="document-link-record-id"
-              className="field__control"
-              value={linkRecordId}
-              onChange={(event) => setLinkRecordId(event.target.value)}
-              disabled={busy}
-              aria-required="true"
-              placeholder={t.linkRecordIdPlaceholder}
-            />
-          </Field>
-          <div className="dialog-actions">
-            <Button variant="secondary" onClick={() => setLinkOpen(false)} disabled={busy}>
-              {t.cancel}
-            </Button>
-            <Button disabled={busy} onClick={() => void submitLink()}>
-              {t.confirm}
-            </Button>
-          </div>
-        </Drawer>
+            <Tabs defaultValue="preview">
+              <TabsList>
+                <TabsTrigger value="preview">{t.previewTab}</TabsTrigger>
+                <TabsTrigger value="versions">{t.versionsTab}</TabsTrigger>
+                <TabsTrigger value="links">{t.linksTab}</TabsTrigger>
+                <TabsTrigger value="access">{t.accessTab}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="preview">
+                <DocumentPreviewTab document={document} />
+              </TabsContent>
+              <TabsContent value="versions">
+                <DocumentVersionsTab versions={versions} />
+              </TabsContent>
+              <TabsContent value="links">
+                <DocumentLinksTab links={links} canLink={can('link')} onLink={() => setDialog({ kind: 'link' })} />
+              </TabsContent>
+              <TabsContent value="access">
+                <DocumentAccessTab documentId={document.id} versions={versions} canGrant={can('grant-access') || can('grant-preview') || can('grant-download')} />
+              </TabsContent>
+            </Tabs>
+          </>
+        ) : null}
+      </ResourceBoundary>
+
+      <DocumentDialogs
+        dialog={dialog}
+        busy={busy}
+        onSubmit={async (payload) => {
+          if (payload.type === 'transition') {
+            if (!payload.reason?.trim()) {
+              setActionError(t.reasonRequired)
+              return
+            }
+            await runTransition(payload.action, payload.reason)
+            return
+          }
+          if (payload.type === 'link') {
+            if (!payload.recordId.trim()) {
+              setActionError(t.recordIdRequired)
+              return
+            }
+            await submitLink(payload)
+          }
+        }}
+        onClose={() => {
+          setDialog(null)
+          setActionError(null)
+        }}
+      />
+
+      {document && canUpload ? (
+        <UploadVersionSheet
+          document={{ id: document.id, classification: document.classification }}
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+        />
       ) : null}
-    </Page>
+    </div>
   )
-}
-
-function openReasonDialog(
-  setPendingAction: (value: DocumentAction | null) => void,
-  setActionError: (value: string | null) => void,
-  action: DocumentAction,
-): void {
-  setActionError(null)
-  setPendingAction(action)
-}
-
-function linkRelationOptions(t: DocDetailCopy): SelectOption[] {
-  return [
-    { value: 'attachment', label: t.linkRelationAttachment },
-    { value: 'evidence', label: t.linkRelationEvidence },
-  ]
-}
-
-function classificationLabel(classification: generated.Classification, t: DocDetailCopy): string {
-  switch (classification) {
-    case 'public':
-      return t.classificationPublic
-    case 'internal':
-      return t.classificationInternal
-    case 'confidential':
-      return t.classificationConfidential
-    case 'top_secret':
-      return t.classificationTopSecret
-    default:
-      return classification
-  }
-}
-
-function uploadStatusCopy(uploadState: UploadState, t: DocDetailCopy): string {
-  switch (uploadState) {
-    case 'idle':
-      return t.uploadIdle
-    case 'hashing':
-      return t.uploadHashing
-    case 'initiating':
-      return t.uploadInitiating
-    case 'uploading':
-      return t.uploadUploading
-    case 'checking':
-      return t.uploadChecking
-    case 'completing':
-      return t.uploadCompleting
-    case 'done':
-      return t.uploadDone
-  }
-}
-
-async function sha256ForFile(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 function errorMessage(error: unknown, fallback: string): string {

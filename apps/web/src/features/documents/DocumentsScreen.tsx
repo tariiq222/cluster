@@ -1,14 +1,21 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { FileText, Inbox } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Plus, Search } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
 import * as generated from '../../api/generated/cluster'
 import { useDocumentsList } from '../../api/hooks'
-import { ApiError, requestInit, unwrap } from '../../api/http'
+import { ApiError, requestInit, stateFromError, unwrap } from '../../api/http'
 import { useNavigate } from '../../app/navigation-context'
-import { useLocale, useSessionToken } from '../../app/session-context'
-import { usePrincipal } from '../../app/principal-context'
+import { useLocale } from '../../app/session-context'
 import { formatDate, statusLabel } from '../../i18n'
-import { Button, EmptyState, Field, InlineError, Page, PageHeader, Panel, Select, type SelectOption, SkeletonList, StatusBadge } from '../../ui'
+import { DataTable } from '@/components/data-table'
+import { EmptyState } from '@/components/states'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DocumentCreateSheet } from './DocumentCreateSheet'
+import { documentsCopy } from './documents-copy'
 
 interface DocumentSummary {
   id: string
@@ -17,101 +24,25 @@ interface DocumentSummary {
   classification?: string
   status?: string
   lifecycle_state?: string
-  retention_until?: string | null
+  updated_at?: string
 }
 
 type ClassificationFilter = 'all' | generated.Classification
 
-const copy = {
-  ar: {
-    pageTitle: 'المستندات',
-    pageDescription: 'مستندات التجمع الصحي وتصنيفاتها',
-    classificationLabel: 'التصنيف',
-    classificationAll: 'كل التصنيفات',
-    classificationPublic: 'عام',
-    classificationInternal: 'داخلي',
-    classificationConfidential: 'سري',
-    classificationTopSecret: 'سري للغاية',
-    loadMore: 'عرض المزيد',
-    loading: 'جارٍ تحميل المستندات…',
-    emptyTitle: 'لا توجد مستندات',
-    emptyBody: 'أنشئ مستنداً جديداً أو غيّر عامل التصفية.',
-    error: 'تعذر تحميل المستندات. يرجى إعادة المحاولة.',
-    forbidden: 'غير مصرح لك بعرض المستندات.',
-    retry: 'إعادة المحاولة',
-    open: 'فتح المستند',
-    state: 'الحالة',
-    retentionUntil: 'الاحتفاظ حتى',
-    createTitle: 'إنشاء مستند',
-    createTitleLabel: 'العنوان',
-    createTitlePlaceholder: 'عنوان المستند…',
-    ownerLabel: 'الوحدة المالكة',
-    ownerHelp: 'تُستخدم الوحدة الحالية من سياق الوصول.',
-    ownerMissing: 'لا توجد وحدة تابعة لمنشأة في سياق الوصول الحالي، لا يمكن إنشاء مستند.',
-    restrictionPolicyLabel: 'سياسة التقييد',
-    restrictionPolicyHelp: 'مفتاح سياسة التقييد المطبقة على المستند.',
-    create: 'إنشاء',
-    creating: 'جارٍ الإنشاء…',
-    titleRequired: 'عنوان المستند مطلوب.',
-    createError: 'تعذر إنشاء المستند. يرجى إعادة المحاولة.',
-  },
-  en: {
-    pageTitle: 'Documents',
-    pageDescription: 'Health cluster documents and their classifications',
-    classificationLabel: 'Classification',
-    classificationAll: 'All classifications',
-    classificationPublic: 'Public',
-    classificationInternal: 'Internal',
-    classificationConfidential: 'Confidential',
-    classificationTopSecret: 'Top secret',
-    loadMore: 'Load more',
-    loading: 'Loading documents…',
-    emptyTitle: 'No documents',
-    emptyBody: 'Create a new document or adjust the filter.',
-    error: 'Could not load documents. Please try again.',
-    forbidden: 'You are not authorized to view documents.',
-    retry: 'Retry',
-    open: 'Open document',
-    state: 'State',
-    retentionUntil: 'Retention until',
-    createTitle: 'Create document',
-    createTitleLabel: 'Title',
-    createTitlePlaceholder: 'Document title…',
-    ownerLabel: 'Owner organization unit',
-    ownerHelp: 'Uses the current unit from the access context.',
-    ownerMissing: 'No facility-scoped unit in the current access context; documents cannot be created.',
-    restrictionPolicyLabel: 'Restriction policy',
-    restrictionPolicyHelp: 'Restriction policy key applied to the document.',
-    create: 'Create',
-    creating: 'Creating…',
-    titleRequired: 'A document title is required.',
-    createError: 'Could not create the document. Please try again.',
-  },
-} as const
-
-type DocsCopy = (typeof copy)[keyof typeof copy]
+interface PageState {
+  items: DocumentSummary[]
+  nextCursor: string | null
+}
 
 export function DocumentsScreen() {
   const locale = useLocale()
-  const csrfToken = useSessionToken()
   const navigate = useNavigate()
-  const principal = usePrincipal()
-  const t = copy[locale]
-  const queryClient = useQueryClient()
+  const t = documentsCopy[locale]
 
   const [classification, setClassification] = useState<ClassificationFilter>('all')
-  const [extraPages, setExtraPages] = useState<DocumentSummary[][]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-
-  const [createTitle, setCreateTitle] = useState('')
-  const [createClassification, setCreateClassification] = useState('internal')
-  const [restrictionPolicyKey, setRestrictionPolicyKey] = useState('restricted')
-  const [creating, setCreating] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
-
-  const ownerUnitId = principal.effectiveScope?.scopeType === 'facility' ? principal.effectiveScope.scopeId : ''
-  const canCreate = ownerUnitId.length > 0
+  const [search, setSearch] = useState('')
+  const [pages, setPages] = useState<PageState[]>([])
+  const [createOpen, setCreateOpen] = useState(false)
 
   const filters = useMemo<generated.ListDocumentsParams>(() => {
     const params: generated.ListDocumentsParams = { limit: 50 }
@@ -123,230 +54,151 @@ export function DocumentsScreen() {
   const collection = query.data as generated.EntityCollection | undefined
   const forbidden = query.isError && query.error instanceof ApiError && query.error.status === 403
 
-  const items = useMemo<DocumentSummary[] | null>(() => {
-    if (!collection) return null
-    return [...(collection.items as unknown as DocumentSummary[]), ...extraPages.flat()]
-  }, [collection, extraPages])
-
   useEffect(() => {
-    if (!collection) return
-    setExtraPages([])
-    setNextCursor(collection.next_cursor)
-  }, [collection])
+    setPages([])
+  }, [filters])
 
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingMore) return
-    setLoadingMore(true)
-    try {
-      const params: generated.ListDocumentsParams = { limit: 50, cursor: nextCursor }
-      if (classification !== 'all') params.classification = classification
-      const collection = unwrap<generated.EntityCollection>(
-        await generated.listDocuments(params, requestInit(null)),
-      )
-      setExtraPages((current) => [...current, collection.items as unknown as DocumentSummary[]])
-      setNextCursor(collection.next_cursor)
-    } catch {
-      // keep the current page; the load-more button remains for a retry
-    } finally {
-      setLoadingMore(false)
-    }
-  }, [classification, loadingMore, nextCursor])
+  const loaded = useMemo<DocumentSummary[]>(() => {
+    const base = (collection?.items as unknown as DocumentSummary[]) ?? []
+    return [...base, ...pages.flatMap((page) => page.items)]
+  }, [collection, pages])
 
-  const createDocument = async (event: FormEvent) => {
-    event.preventDefault()
-    const trimmedTitle = createTitle.trim()
-    if (!trimmedTitle) {
-      setCreateError(t.titleRequired)
-      return
-    }
-    if (!canCreate) {
-      setCreateError(t.ownerMissing)
-      return
-    }
-    setCreating(true)
-    setCreateError(null)
-    try {
-      const input: generated.DocumentCreate = {
-        title: trimmedTitle,
-        classification: createClassification as generated.Classification,
-        owner_organization_unit_id: ownerUnitId,
-        restriction_policy_key: restrictionPolicyKey.trim() || 'restricted',
-      }
-      unwrap<generated.Entity>(
-        await generated.createDocument(input, requestInit(csrfToken, { command: true, idempotency: 'document-create' })),
-      )
-      setCreateTitle('')
-      setCreateClassification('internal')
-      setRestrictionPolicyKey('restricted')
-      void queryClient.invalidateQueries({ queryKey: ['documents'] })
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 403) {
-        setCreateError(t.forbidden)
-      } else {
-        setCreateError(t.createError)
-      }
-    } finally {
-      setCreating(false)
-    }
-  }
+  const nextCursor = pages.at(-1)?.nextCursor ?? collection?.next_cursor ?? null
 
-  const classificationOptions = useMemo<SelectOption[]>(
+  const loadNext = useCallback(async () => {
+    if (!nextCursor) return
+    const params: generated.ListDocumentsParams = { limit: 50, cursor: nextCursor }
+    if (classification !== 'all') params.classification = classification
+    const collection = unwrap<generated.EntityCollection>(
+      await generated.listDocuments(params, requestInit(null)),
+    )
+    setPages((current) => [...current, { items: collection.items as unknown as DocumentSummary[], nextCursor: collection.next_cursor }])
+  }, [classification, nextCursor])
+
+  const items = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return loaded
+    return loaded.filter((document) => {
+      const title = document.title ?? document.name ?? ''
+      return title.toLowerCase().includes(q)
+    })
+  }, [loaded, search])
+
+  const screenState = forbidden
+    ? 'forbidden'
+    : query.isError ? stateFromError(query.error)
+    : query.isPending ? 'loading'
+    : items.length === 0 ? 'empty'
+    : 'ready'
+
+  const columns = useMemo<ColumnDef<DocumentSummary>[]>(
     () => [
-      { value: 'all', label: t.classificationAll },
-      { value: 'public', label: t.classificationPublic },
-      { value: 'internal', label: t.classificationInternal },
-      { value: 'confidential', label: t.classificationConfidential },
-      { value: 'top_secret', label: t.classificationTopSecret },
+      {
+        accessorKey: 'title',
+        header: t.name,
+        cell: ({ row }) => <span className="font-medium">{row.original.title ?? row.original.name ?? row.original.id}</span>,
+      },
+      {
+        accessorKey: 'classification',
+        header: t.classificationLabel,
+        cell: ({ row }) => <span>{classificationLabel(row.original.classification, t)}</span>,
+      },
+      {
+        accessorKey: 'lifecycle_state',
+        header: t.state,
+        cell: ({ row }) => (
+          <Badge variant="outline">
+            {statusLabel(row.original.lifecycle_state ?? row.original.status ?? '', locale)}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: 'updated_at',
+        header: t.updatedAt,
+        cell: ({ row }) => (row.original.updated_at ? formatDate(row.original.updated_at, locale) : '—'),
+      },
     ],
-    [t],
+    [locale, t],
   )
 
-  const createClassificationOptions = classificationOptions.slice(1)
-
   return (
-    <Page aria-labelledby="documents-heading">
-      <PageHeader id="documents-heading" title={t.pageTitle} description={t.pageDescription} />
-
-      <Panel id="documents-create" title={t.createTitle} level={2}>
-        {!canCreate ? <p className="ui-muted">{t.ownerMissing}</p> : null}
-        <form className="ui-form-grid" onSubmit={(event) => void createDocument(event)}>
-          <Field id="document-create-title" label={t.createTitleLabel} required>
-            <input
-              id="document-create-title"
-              className="field__control"
-              value={createTitle}
-              onChange={(event) => setCreateTitle(event.target.value)}
-              maxLength={255}
-              disabled={creating || !canCreate}
-              aria-required="true"
-              placeholder={t.createTitlePlaceholder}
-            />
-          </Field>
-          <Field id="document-create-classification" label={t.classificationLabel}>
-            <Select
-              id="document-create-classification"
-              value={createClassification}
-              onChange={setCreateClassification}
-              options={createClassificationOptions}
-              ariaLabel={t.classificationLabel}
-            />
-          </Field>
-          <Field id="document-create-owner" label={t.ownerLabel} help={t.ownerHelp}>
-            <input
-              id="document-create-owner"
-              className="field__control"
-              value={ownerUnitId}
-              disabled
-              readOnly
-            />
-          </Field>
-          <Field id="document-create-restriction" label={t.restrictionPolicyLabel} help={t.restrictionPolicyHelp}>
-            <input
-              id="document-create-restriction"
-              className="field__control"
-              value={restrictionPolicyKey}
-              onChange={(event) => setRestrictionPolicyKey(event.target.value)}
-              maxLength={128}
-              disabled={creating || !canCreate}
-            />
-          </Field>
-          {createError ? <InlineError message={createError} /> : null}
-          <div className="dialog-actions">
-            <Button type="submit" disabled={creating || !canCreate}>
-              {creating ? t.creating : t.create}
-            </Button>
-          </div>
-        </form>
-      </Panel>
-
-      <Panel id="documents-list" title={t.pageTitle} level={2}>
-        <div role="group" aria-label={t.classificationLabel} className="ui-form-grid">
-          <Select
-            id="documents-classification-filter"
-            value={classification}
-            onChange={(value) => setClassification(value as ClassificationFilter)}
-            options={classificationOptions}
-            ariaLabel={t.classificationLabel}
-          />
-        </div>
-
-        {query.isPending ? (
-          <SkeletonList />
-        ) : forbidden ? (
-          <EmptyState title={t.forbidden} />
-        ) : query.isError || !items || items.length === 0 ? (
-          <EmptyState icon={<Inbox aria-hidden="true" />} title={t.emptyTitle} body={t.emptyBody} />
-        ) : (
-          <>
-            <ul className="ui-list" aria-label={t.pageTitle}>
-              {items.map((document) => (
-                <li key={document.id}>
-                  <DocumentRow document={document} onOpen={() => navigate(`/documents/${document.id}`)} />
-                </li>
-              ))}
-            </ul>
-            {nextCursor ? (
-              <div className="ui-pagination">
-                <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
-                  {loadingMore ? t.loading : t.loadMore}
-                </Button>
-              </div>
-            ) : null}
-          </>
-        )}
-        {query.isError && !forbidden ? (
-          <InlineError message={t.error} retryLabel={t.retry} onRetry={() => void query.refetch()} />
-        ) : null}
-      </Panel>
-    </Page>
-  )
-}
-
-function DocumentRow({ document, onOpen }: { document: DocumentSummary; onOpen: () => void }) {
-  const locale = useLocale()
-  const t = copy[locale]
-  const title = document.title ?? document.name ?? document.id
-  const stateValue = document.lifecycle_state ?? document.status ?? ''
-  const variant =
-    stateValue === 'archived'
-      ? 'neutral'
-      : stateValue === 'draft'
-        ? 'warning'
-        : stateValue === 'active'
-          ? 'success'
-          : 'info'
-  return (
-    <article className="ui-panel" aria-labelledby={`document-row-${document.id}`}>
-      <header className="ui-panel__header">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 id={`document-row-${document.id}`}>{title}</h3>
-          {document.classification ? <p>{classificationLabel(document.classification, t)}</p> : null}
+          <h1 className="text-2xl font-semibold tracking-tight">{t.pageTitle}</h1>
+          <p className="text-muted-foreground text-sm">{t.pageDescription}</p>
         </div>
-        <Button variant="quiet" onClick={onOpen}>
-          <FileText aria-hidden="true" /> {t.open}
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus aria-hidden="true" />
+          {t.createTitle}
         </Button>
-      </header>
-      <dl className="detail-list">
-        <div>
-          <dt>{t.state}</dt>
-          <dd>
-            <StatusBadge variant={variant}>{stateValue ? statusLabel(stateValue, locale) : '—'}</StatusBadge>
-          </dd>
-        </div>
-        {document.retention_until ? (
-          <div>
-            <dt>{t.retentionUntil}</dt>
-            <dd>
-              <time dateTime={document.retention_until}>{formatDate(document.retention_until, locale)}</time>
-            </dd>
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={items}
+        state={screenState}
+        nextCursor={nextCursor}
+        onNext={() => void loadNext()}
+        onPrev={() => setPages((current) => current.slice(0, -1))}
+        canPrev={pages.length > 0}
+        locale={locale}
+        onRowClick={(row) => navigate(`/documents/${row.id}`)}
+        empty={
+          <EmptyState
+            icon={<Search aria-hidden="true" />}
+            title={t.emptyTitle}
+            body={t.emptyBody}
+            action={
+              <Button variant="outline" onClick={() => setCreateOpen(true)}>
+                {t.createTitle}
+              </Button>
+            }
+          />
+        }
+        toolbar={
+          <div className="flex flex-wrap items-end gap-2 pb-2">
+            <div className="grid gap-1">
+              <Label htmlFor="documents-search">{t.searchLabel}</Label>
+              <Input
+                id="documents-search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t.searchPlaceholder}
+                className="w-56"
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="documents-classification-filter">{t.classificationLabel}</Label>
+              <Select value={classification} onValueChange={(value) => setClassification(value as ClassificationFilter)}>
+                <SelectTrigger id="documents-classification-filter" className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.classificationAll}</SelectItem>
+                  <SelectItem value="public">{t.classificationPublic}</SelectItem>
+                  <SelectItem value="internal">{t.classificationInternal}</SelectItem>
+                  <SelectItem value="confidential">{t.classificationConfidential}</SelectItem>
+                  <SelectItem value="top_secret">{t.classificationTopSecret}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        ) : null}
-      </dl>
-    </article>
+        }
+      />
+
+      <DocumentCreateSheet
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={() => {
+          void query.refetch()
+        }}
+      />
+    </div>
   )
 }
 
-function classificationLabel(classification: string, t: DocsCopy): string {
+function classificationLabel(classification: string | undefined, t: (typeof documentsCopy)[keyof typeof documentsCopy]): string {
   switch (classification) {
     case 'public':
       return t.classificationPublic
@@ -357,6 +209,6 @@ function classificationLabel(classification: string, t: DocsCopy): string {
     case 'top_secret':
       return t.classificationTopSecret
     default:
-      return classification
+      return classification ?? '—'
   }
 }
