@@ -78,6 +78,8 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm --prefix apps/web ci
       - run: npm --prefix apps/web run lint
+      - name: Verify design rules and page coverage
+        run: make verify-design
       - run: npm --prefix apps/web run build
 
   secrets:
