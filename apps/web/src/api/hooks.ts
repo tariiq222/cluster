@@ -262,3 +262,23 @@ export function useSearch(query: string, enabled: boolean) {
     enabled: enabled && query.trim().length >= 2,
   })
 }
+
+/* ============ Organization: temporary assignments ============ */
+
+export function useTemporaryAssignments() {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.CollectionResponse>({
+    queryKey: ['temporary-assignments', scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listTemporaryAssignments({ limit: 100, organization_unit_id: '*' }, requestInit(null))),
+  })
+}
+
+/* ============ Organization: supervisory relationships ============ */
+
+export function useSupervisoryRelationships() {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.CollectionResponse>({
+    queryKey: ['supervisory-relationships', scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listSupervisoryRelationships({ limit: 100 }, requestInit(null))),
+  })
+}
