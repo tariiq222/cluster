@@ -129,13 +129,9 @@ test('W1.3 real browser security journey uses server identity, scoped projection
 
     const adminRole = await expectApi(pageA, '/api/v1/authorization/roles', sessionA, {
       method: 'POST', headers: { 'Idempotency-Key': `w13-browser-role-${suffix}` },
-      body: JSON.stringify({ resource_type: 'role', code: `w13-browser-${suffix}`, name: `W1.3 ${suffix}`, role_type: 'operational' }),
+      body: JSON.stringify({ resource_type: 'role', code: `w13-browser-${suffix}`, name: `W1.3 ${suffix}`, role_type: 'operational', capability_codes: ['work_record.read'] }),
     }, 201)
     const roleId = String((adminRole.data as JsonBody).id)
-    await expectApi(pageA, '/api/v1/authorization/role-capabilities', sessionA, {
-      method: 'POST', headers: { 'Idempotency-Key': `w13-browser-cap-${suffix}` },
-      body: JSON.stringify({ resource_type: 'role_capability', role_id: roleId, capability_code: 'work_record.read', effect: 'allow' }),
-    }, 201)
     const assignment = await expectApi(pageA, '/api/v1/authorization/role-assignments', sessionA, {
       method: 'POST', headers: { 'Idempotency-Key': `w13-browser-assignment-${suffix}` },
       body: JSON.stringify({ resource_type: 'role_assignment', user_id: USER_B_ID, role_id: roleId, scope_type: 'facility', scope_id: FACILITY_A, start_at: new Date(Date.now() - 60_000).toISOString() }),

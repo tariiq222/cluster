@@ -54,6 +54,9 @@ readonly API_ENV=(
   DB_CONNECTION=sqlite DB_DATABASE="$DATABASE"
   SESSION_DRIVER=file SESSION_FILES="$SESSION_FILES" CACHE_STORE=array
   IDENTITY_SESSION_SECURE=false
+  # The W1.3 journey exercises work-record endpoints, so work management must
+  # be enabled even though apps/api/config/features.php defaults it off.
+  CLUSTER_WORK_MANAGEMENT_ENABLED=true
 )
 
 (cd "$API_DIR" && env "${API_ENV[@]}" php artisan migrate:fresh --force && env "${API_ENV[@]}" php artisan db:seed --class=Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder --force) >>"$LOG_FILE" 2>&1
@@ -61,6 +64,13 @@ readonly API_ENV=(
 # bootstrap lifecycle. The journey fixtures model an already-bootstrapped
 # environment, so close the window exactly like the feature harness does.
 (cd "$API_DIR" && env "${API_ENV[@]}" php artisan tinker --execute="DB::table('authorization_bootstrap')->update(['state' => 'complete', 'completed_by_user_id' => \\Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, 'completed_at' => now(), 'lock_version' => 2, 'updated_at' => now()]);") >>"$LOG_FILE" 2>&1
+# Cluster authority is required for role-capability attachment and cluster-wide
+# administration (role-capability create validates grant authority at the
+# default cluster scope). The seeder grants Account A at facility scope only,
+# so add the cluster-scoped authorization-admin assignment exactly like the
+# feature journey fixture (SecurityJourneyW13Test.php lines 139-154). This
+# touches only the fresh temporary SQLite database.
+(cd "$API_DIR" && env "${API_ENV[@]}" php artisan tinker --execute="\$clusterId = DB::table('clusters')->where('singleton_key', 1)->value('id'); \$roleId = DB::table('roles')->where('code', \\Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder::AUTHORIZATION_ROLE_CODE)->value('id'); if (is_string(\$clusterId) && is_string(\$roleId)) { DB::table('role_assignments')->insertOrIgnore(['id' => \\Illuminate\\Support\\Str::uuid7()->toString(), 'user_id' => \\Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, 'role_id' => \$roleId, 'scope_type' => 'cluster', 'scope_id' => \$clusterId, 'start_at' => '2026-01-01 00:00:00.000', 'end_at' => null, 'status' => 'active', 'granted_by_user_id' => \\Database\\Seeders\\DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID, 'created_at' => now(), 'updated_at' => now()]); }") >>"$LOG_FILE" 2>&1
 (
   cd "$API_DIR"
   exec env "${API_ENV[@]}" php artisan serve --host=127.0.0.1 --port="$API_PORT"
