@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DirectionProvider } from '@radix-ui/react-direction'
+import { toast } from 'sonner'
 import { clearStoredSession, identityLogout, login, restoreSession, storedSession, type Session } from '../api/session'
 import { registerSessionExpiredHandler } from '../api/http'
 import { directionForLocale, initialLocale, shellCopy, LOCALE_KEY, type Locale } from '../i18n'
@@ -11,14 +12,17 @@ import { AppRouter } from '../router'
 export function App() {
   const [locale, setLocaleState] = useState<Locale>(initialLocale)
   const [session, setSession] = useState<Session | null>(storedSession)
-  const [sessionExpired, setSessionExpired] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
 
   const expireSession = useCallback(() => {
     clearStoredSession()
     setSession(null)
-    setSessionExpired(true)
-  }, [])
+    // A fresh browser's session-restore probe 401s too; only a real session
+    // expiry deserves the toast (PAGES.md: الدخول والجلسة).
+    if (session !== null) {
+      toast(shellCopy[locale].sessionExpired)
+    }
+  }, [session, locale])
 
   useEffect(() => {
     registerSessionExpiredHandler(expireSession)
@@ -60,7 +64,6 @@ export function App() {
 
   const handleLogin = useCallback(async (username: string, password: string) => {
     const next = await login(username, password)
-    setSessionExpired(false)
     setSession(next)
     setAuthChecked(true)
   }, [])
@@ -81,7 +84,7 @@ export function App() {
   }
 
   if (!session) {
-    return <LoginScreen locale={locale} setLocale={setLocale} sessionExpired={sessionExpired} onLogin={handleLogin} />
+    return <LoginScreen locale={locale} setLocale={setLocale} onLogin={handleLogin} />
   }
 
   return (

@@ -24,12 +24,6 @@
     "reason": "Same unhandled /api/v1/me abort as above."
   },
   {
-    "file": "e2e/login.spec.ts",
-    "title": "login surface is Arabic-first, accessible, and runtime-local",
-    "owner": "screen",
-    "reason": "The session-restore probe 401s on a fresh browser and the transport fires the global session-expired handler before any session existed, so the login page opens already showing the expiry alert and the runtime-local error loses the first-alert slot the spec asserts."
-  },
-  {
     "file": "e2e/walking-skeleton.spec.ts",
     "title": "cookie session restores after storage loss and a later 401 expires the whole shell",
     "owner": "screen",
