@@ -152,3 +152,30 @@ export function usePrincipal(): PrincipalSnapshot {
   if (!context) throw new Error('usePrincipal must be used within PrincipalProvider')
   return context
 }
+
+export function PrincipalContextTestProvider({
+  capabilities,
+  features,
+  children,
+}: {
+  capabilities: string[]
+  features: { work_management: boolean; tasks: boolean }
+  children: ReactNode
+}) {
+  const value: PrincipalSnapshot = useMemo(
+    () => ({
+      state: 'ready',
+      capabilities,
+      features,
+      effectiveScope: null,
+      availableScopes: [],
+      revision: 0,
+      scopeEpoch: 0,
+      scopeReady: true,
+      refresh: () => {},
+      selectScope: async () => {},
+    }),
+    [capabilities, features],
+  )
+  return <PrincipalContext.Provider value={value}>{children}</PrincipalContext.Provider>
+}
