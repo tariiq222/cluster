@@ -1,23 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Inbox, Plus } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
 import * as generated from '../../api/generated/cluster'
 import { useTasksList } from '../../api/hooks'
-import { ApiError, requestInit, unwrap } from '../../api/http'
+import { ApiError, requestInit, stateFromError, unwrap } from '../../api/http'
 import { useNavigate } from '../../app/navigation-context'
 import { useLocale } from '../../app/session-context'
 import { formatDate, statusLabel } from '../../i18n'
-import {
-  Button,
-  EmptyState,
-  InlineError,
-  Page,
-  PageHeader,
-  Panel,
-  Select,
-  type SelectOption,
-  SkeletonList,
-  StatusBadge,
-} from '../../ui'
+import { DataTable } from '@/components/data-table'
+import { EmptyState } from '@/components/states'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface TaskSummary {
   id: string
@@ -36,7 +32,7 @@ const copy = {
   ar: {
     pageTitle: 'المهام',
     pageDescription: 'المهام المسندة والمنشأة والمشترك فيها ضمن التجمع الصحي',
-    createTask: 'إنشاء مهمة',
+    createTask: 'أنشئ مهمة',
     relationshipLabel: 'علاقة المهمة',
     relationshipAll: 'الكل',
     relationshipAssigned: 'مسندة إليّ',
@@ -44,15 +40,16 @@ const copy = {
     relationshipParticipating: 'أشارك فيها',
     stateLabel: 'الحالة',
     stateAll: 'كل الحالات',
+    searchLabel: 'بحث',
+    searchPlaceholder: 'ابحث في العنوان…',
+    priorityLabel: 'الأولوية',
+    priorityAll: 'كل الأولويات',
     emptyTitle: 'لا توجد مهام',
     emptyBody: 'ابدأ بإنشاء مهمة جديدة أو غيّر عوامل التصفية.',
-    loadMore: 'عرض المزيد',
     loading: 'جارٍ تحميل المهام…',
     error: 'تعذر تحميل المهام. يرجى إعادة المحاولة.',
-    forbidden: 'غير مصرح لك بعرض المهام.',
     retry: 'إعادة المحاولة',
-    open: 'فتح المهمة',
-    priority: 'الأولوية',
+    title: 'العنوان',
     priorityLow: 'منخفضة',
     priorityNormal: 'عادية',
     priorityHigh: 'عالية',
@@ -71,15 +68,16 @@ const copy = {
     relationshipParticipating: 'I participate in',
     stateLabel: 'State',
     stateAll: 'All states',
+    searchLabel: 'Search',
+    searchPlaceholder: 'Search by title…',
+    priorityLabel: 'Priority',
+    priorityAll: 'All priorities',
     emptyTitle: 'No tasks',
     emptyBody: 'Create a new task or adjust the filters.',
-    loadMore: 'Load more',
     loading: 'Loading tasks…',
     error: 'Could not load tasks. Please try again.',
-    forbidden: 'You are not authorized to view tasks.',
     retry: 'Retry',
-    open: 'Open task',
-    priority: 'Priority',
+    title: 'Title',
     priorityLow: 'Low',
     priorityNormal: 'Normal',
     priorityHigh: 'High',
@@ -89,6 +87,11 @@ const copy = {
   },
 } as const
 
+interface PageState {
+  items: TaskSummary[]
+  nextCursor: string | null
+}
+
 export function TasksScreen() {
   const locale = useLocale()
   const navigate = useNavigate()
@@ -96,9 +99,9 @@ export function TasksScreen() {
 
   const [relationship, setRelationship] = useState<RelationshipFilter>('all')
   const [state, setState] = useState<StateFilter>('all')
-  const [extraPages, setExtraPages] = useState<TaskSummary[][]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const [priority, setPriority] = useState<'all' | string>('all')
+  const [search, setSearch] = useState('')
+  const [pages, setPages] = useState<PageState[]>([])
 
   const filters = useMemo<generated.ListTasksParams>(() => {
     const params: generated.ListTasksParams = { limit: 50 }
@@ -111,194 +114,183 @@ export function TasksScreen() {
   const collection = query.data as generated.EntityCollection | undefined
   const forbidden = query.isError && query.error instanceof ApiError && query.error.status === 403
 
-  const items = useMemo<TaskSummary[] | null>(() => {
-    if (!collection) return null
-    return [...(collection.items as unknown as TaskSummary[]), ...extraPages.flat()]
-  }, [collection, extraPages])
-
   useEffect(() => {
-    if (!collection) return
-    setExtraPages([])
-    setNextCursor(collection.next_cursor)
-  }, [collection])
+    setPages([])
+  }, [filters])
 
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingMore) return
-    setLoadingMore(true)
-    try {
-      const params: generated.ListTasksParams = { limit: 50, cursor: nextCursor }
-      if (relationship !== 'all') params.relationship = relationship
-      if (state !== 'all') params.state = state
-      const collection = unwrap<generated.EntityCollection>(
-        await generated.listTasks(params, requestInit(null)),
-      )
-      setExtraPages((current) => [...current, collection.items as unknown as TaskSummary[]])
-      setNextCursor(collection.next_cursor)
-    } catch {
-      // keep the current page; the load-more button remains for a retry
-    } finally {
-      setLoadingMore(false)
-    }
-  }, [loadingMore, nextCursor, relationship, state])
+  const loaded = useMemo<TaskSummary[]>(() => {
+    const base = (collection?.items as unknown as TaskSummary[]) ?? []
+    return [...base, ...pages.flatMap((page) => page.items)]
+  }, [collection, pages])
 
-  const relationshipOptions = useMemo<SelectOption[]>(
+  const nextCursor = pages.at(-1)?.nextCursor ?? collection?.next_cursor ?? null
+
+  const loadNext = useCallback(async () => {
+    if (!nextCursor) return
+    const params: generated.ListTasksParams = { limit: 50, cursor: nextCursor }
+    if (relationship !== 'all') params.relationship = relationship
+    if (state !== 'all') params.state = state
+    const collection = unwrap<generated.EntityCollection>(
+      await generated.listTasks(params, requestInit(null)),
+    )
+    setPages((current) => [...current, { items: collection.items as unknown as TaskSummary[], nextCursor: collection.next_cursor }])
+  }, [nextCursor, relationship, state])
+
+  const items = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return loaded.filter((task) => {
+      if (priority !== 'all' && task.priority !== priority) return false
+      if (query && !task.title.toLowerCase().includes(query)) return false
+      return true
+    })
+  }, [loaded, priority, search])
+
+  const screenState = forbidden
+    ? 'forbidden'
+    : query.isError ? stateFromError(query.error)
+    : query.isPending ? 'loading'
+    : items.length === 0 ? 'empty'
+    : 'ready'
+
+  const columns = useMemo<ColumnDef<TaskSummary>[]>(
     () => [
-      { value: 'all', label: t.relationshipAll },
-      { value: 'assigned', label: t.relationshipAssigned },
-      { value: 'created', label: t.relationshipCreated },
-      { value: 'participating', label: t.relationshipParticipating },
-    ],
-    [t],
-  )
-
-  const stateOptions = useMemo<SelectOption[]>(
-    () => [
-      { value: 'all', label: t.stateAll },
-      { value: 'open', label: statusLabel('open', locale) },
-      { value: 'in_progress', label: statusLabel('in_progress', locale) },
-      { value: 'blocked', label: statusLabel('blocked', locale) },
-      { value: 'completed', label: statusLabel('completed', locale) },
-      { value: 'cancelled', label: statusLabel('cancelled', locale) },
+      {
+        accessorKey: 'title',
+        header: t.title,
+        cell: ({ row }) => <span className="font-medium">{row.original.title}</span>,
+      },
+      {
+        accessorKey: 'state',
+        header: t.stateLabel,
+        cell: ({ row }) => <Badge variant="outline">{statusLabel(row.original.state, locale)}</Badge>,
+      },
+      {
+        accessorKey: 'priority',
+        header: t.priorityLabel,
+        cell: ({ row }) => priorityLabel(row.original.priority, t),
+      },
+      {
+        accessorKey: 'assignee_user_id',
+        header: t.assignee,
+        cell: ({ row }) => row.original.assignee_user_id ?? '—',
+      },
+      {
+        accessorKey: 'due_at',
+        header: t.dueAt,
+        cell: ({ row }) => (row.original.due_at ? formatDate(row.original.due_at, locale) : '—'),
+      },
     ],
     [locale, t],
   )
 
   return (
-    <Page aria-labelledby="tasks-heading">
-      <PageHeader
-        id="tasks-heading"
-        title={t.pageTitle}
-        description={t.pageDescription}
-        actions={
-          <Button variant="primary" onClick={() => navigate('/tasks/new')}>
-            <Plus aria-hidden="true" /> {t.createTask}
-          </Button>
-        }
-      />
-
-      <Panel id="tasks-filters" title={t.stateLabel} level={2}>
-        <div
-          role="group"
-          aria-label={t.stateLabel}
-          className="ui-form-grid"
-        >
-          <Select
-            id="tasks-relationship-filter"
-            value={relationship}
-            onChange={(value) => setRelationship(value as RelationshipFilter)}
-            options={relationshipOptions}
-            ariaLabel={t.relationshipLabel}
-          />
-          <Select
-            id="tasks-state-filter"
-            value={state}
-            onChange={(value) => setState(value as StateFilter)}
-            options={stateOptions}
-            ariaLabel={t.stateLabel}
-          />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{t.pageTitle}</h1>
+          <p className="text-muted-foreground text-sm">{t.pageDescription}</p>
         </div>
-      </Panel>
+        <Button onClick={() => navigate('/tasks/new')}>
+          <Plus aria-hidden="true" />
+          {t.createTask}
+        </Button>
+      </div>
 
-      <Panel id="tasks-results" title={t.pageTitle} level={2}>
-        {query.isPending ? (
-          <SkeletonList />
-        ) : forbidden ? (
-          <EmptyState title={t.forbidden} />
-        ) : query.isError || !items || items.length === 0 ? (
+      <DataTable
+        columns={columns}
+        data={items}
+        state={screenState}
+        nextCursor={nextCursor}
+        onNext={() => void loadNext()}
+        onPrev={() => setPages((current) => current.slice(0, -1))}
+        canPrev={pages.length > 0}
+        locale={locale}
+        onRowClick={(row) => navigate(`/tasks/${row.id}`)}
+        empty={
           <EmptyState
-            icon={<Inbox aria-hidden="true" />}
+            icon={<Search aria-hidden="true" />}
             title={t.emptyTitle}
             body={t.emptyBody}
             action={
-              <Button variant="secondary" onClick={() => navigate('/tasks/new')}>
+              <Button variant="outline" onClick={() => navigate('/tasks/new')}>
                 {t.createTask}
               </Button>
             }
           />
-        ) : (
-          <>
-            <ul className="ui-list" aria-label={t.pageTitle}>
-              {items.map((task) => (
-                <li key={task.id}>
-                  <TaskRow task={task} onOpen={() => navigate(`/tasks/${task.id}`)} />
-                </li>
-              ))}
-            </ul>
-            {nextCursor ? (
-              <div className="ui-pagination">
-                <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
-                  {loadingMore ? t.loading : t.loadMore}
-                </Button>
-              </div>
-            ) : null}
-          </>
-        )}
-        {query.isError && !forbidden ? (
-          <InlineError message={t.error} retryLabel={t.retry} onRetry={() => void query.refetch()} />
-        ) : null}
-      </Panel>
-    </Page>
+        }
+        toolbar={
+          <div className="flex flex-wrap items-end gap-2 pb-2">
+            <div className="grid gap-1">
+              <Label htmlFor="tasks-search">{t.searchLabel}</Label>
+              <Input
+                id="tasks-search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t.searchPlaceholder}
+                className="w-56"
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="tasks-state-filter">{t.stateLabel}</Label>
+              <Select value={state} onValueChange={(value) => setState(value as StateFilter)}>
+                <SelectTrigger id="tasks-state-filter" className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.stateAll}</SelectItem>
+                  <SelectItem value="open">{statusLabel('open', locale)}</SelectItem>
+                  <SelectItem value="in_progress">{statusLabel('in_progress', locale)}</SelectItem>
+                  <SelectItem value="blocked">{statusLabel('blocked', locale)}</SelectItem>
+                  <SelectItem value="completed">{statusLabel('completed', locale)}</SelectItem>
+                  <SelectItem value="cancelled">{statusLabel('cancelled', locale)}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="tasks-priority-filter">{t.priorityLabel}</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger id="tasks-priority-filter" className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.priorityAll}</SelectItem>
+                  <SelectItem value="low">{t.priorityLow}</SelectItem>
+                  <SelectItem value="normal">{t.priorityNormal}</SelectItem>
+                  <SelectItem value="high">{t.priorityHigh}</SelectItem>
+                  <SelectItem value="urgent">{t.priorityUrgent}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="tasks-relationship-filter">{t.relationshipLabel}</Label>
+              <Select value={relationship} onValueChange={(value) => setRelationship(value as RelationshipFilter)}>
+                <SelectTrigger id="tasks-relationship-filter" className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.relationshipAll}</SelectItem>
+                  <SelectItem value="assigned">{t.relationshipAssigned}</SelectItem>
+                  <SelectItem value="created">{t.relationshipCreated}</SelectItem>
+                  <SelectItem value="participating">{t.relationshipParticipating}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        }
+      />
+    </div>
   )
 }
 
-function TaskRow({ task, onOpen }: { task: TaskSummary; onOpen: () => void }) {
-  const locale = useLocale()
-  const t = copy[locale]
-  const variant =
-    task.state === 'completed'
-      ? 'success'
-      : task.state === 'cancelled'
-        ? 'danger'
-        : task.state === 'blocked'
-          ? 'warning'
-          : task.state === 'in_progress'
-            ? 'info'
-            : 'neutral'
-  const priorityLabel =
-    task.priority === 'low'
-      ? t.priorityLow
-      : task.priority === 'high'
-        ? t.priorityHigh
-        : task.priority === 'urgent'
-          ? t.priorityUrgent
-          : t.priorityNormal
-  return (
-    <article className="ui-panel" aria-labelledby={`task-row-${task.id}`}>
-      <header className="ui-panel__header">
-        <div>
-          <h3 id={`task-row-${task.id}`}>{task.title}</h3>
-          {task.description ? <p>{task.description}</p> : null}
-        </div>
-        <Button variant="quiet" onClick={onOpen}>
-          {t.open}
-        </Button>
-      </header>
-      <dl className="detail-list">
-        <div>
-          <dt>{t.stateLabel}</dt>
-          <dd>
-            <StatusBadge variant={variant}>{statusLabel(task.state, locale)}</StatusBadge>
-          </dd>
-        </div>
-        <div>
-          <dt>{t.priority}</dt>
-          <dd>{priorityLabel}</dd>
-        </div>
-        {task.assignee_user_id ? (
-          <div>
-            <dt>{t.assignee}</dt>
-            <dd>{task.assignee_user_id}</dd>
-          </div>
-        ) : null}
-        {task.due_at ? (
-          <div>
-            <dt>{t.dueAt}</dt>
-            <dd>
-              <time dateTime={task.due_at}>{formatDate(task.due_at, locale)}</time>
-            </dd>
-          </div>
-        ) : null}
-      </dl>
-    </article>
-  )
+function priorityLabel(priority: string, t: (typeof copy)[keyof typeof copy]): string {
+  switch (priority) {
+    case 'low':
+      return t.priorityLow
+    case 'high':
+      return t.priorityHigh
+    case 'urgent':
+      return t.priorityUrgent
+    default:
+      return t.priorityNormal
+  }
 }

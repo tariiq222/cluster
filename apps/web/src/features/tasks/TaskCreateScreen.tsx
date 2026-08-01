@@ -1,10 +1,24 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { ArrowRight } from 'lucide-react'
 import * as generated from '../../api/generated/cluster'
 import { useTaskMutations } from '../../api/hooks'
 import { ApiError } from '../../api/http'
 import { useNavigate } from '../../app/navigation-context'
 import { useLocale, useSession } from '../../app/session-context'
-import { Button, Field, InlineError, Page, PageHeader, Panel, Select, type SelectOption } from '../../ui'
+import { Button } from '@/components/ui/button'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 
 const copy = {
   ar: {
@@ -29,7 +43,7 @@ const copy = {
     classificationTopSecret: 'سري للغاية',
     dueAtLabel: 'تاريخ الاستحقاق',
     dueAtHelp: 'تاريخ ووقت الاستحقاق (اختياري)',
-    submit: 'إنشاء المهمة',
+    submit: 'أنشئ المهمة',
     titleRequired: 'العنوان مطلوب.',
     titleTooLong: 'يجب ألا يتجاوز العنوان 255 حرفاً.',
     descriptionTooLong: 'يجب ألا يتجاوز الوصف 4000 حرف.',
@@ -73,7 +87,14 @@ const copy = {
   },
 } as const
 
-type CreateCopy = (typeof copy)[keyof typeof copy]
+interface TaskFormValues {
+  title: string
+  description: string
+  priority: string
+  assignee: string
+  classification: string
+  dueAt: string
+}
 
 export function TaskCreateScreen() {
   const locale = useLocale()
@@ -83,161 +104,182 @@ export function TaskCreateScreen() {
   const { create } = useTaskMutations()
   const saving = create.isPending
 
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [priority, setPriority] = useState('normal')
-  const [assignee, setAssignee] = useState(session.session.userId)
-  const [classification, setClassification] = useState('internal')
-  const [dueAt, setDueAt] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const schema = useMemo(
+    () =>
+      z.object({
+        title: z.string().trim().min(1, t.titleRequired).max(255, t.titleTooLong),
+        description: z.string().max(4000, t.descriptionTooLong),
+        priority: z.string(),
+        assignee: z.string(),
+        classification: z.string(),
+        dueAt: z
+          .string()
+          .refine((value) => !value || !Number.isNaN(new Date(value).getTime()), t.invalidDueAt),
+      }),
+    [t],
+  )
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    const trimmedTitle = title.trim()
-    if (!trimmedTitle) {
-      setError(t.titleRequired)
-      return
-    }
-    if (trimmedTitle.length > 255) {
-      setError(t.titleTooLong)
-      return
-    }
-    if (description.length > 4000) {
-      setError(t.descriptionTooLong)
-      return
-    }
-    let dueAtValue: string | undefined
-    if (dueAt) {
-      const parsed = new Date(dueAt)
-      if (Number.isNaN(parsed.getTime())) {
-        setError(t.invalidDueAt)
-        return
-      }
-      dueAtValue = parsed.toISOString()
-    }
-    setError(null)
+  const form = useForm<TaskFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      title: '',
+      description: '',
+      priority: 'normal',
+      assignee: session.session.userId,
+      classification: 'internal',
+      dueAt: '',
+    },
+  })
+
+  const submit = form.handleSubmit(async (values) => {
     try {
       const input: generated.TaskCreate = {
-        title: trimmedTitle,
-        priority: priority as generated.TaskCreatePriority,
-        classification: classification as generated.Classification,
-        assignee_user_id: assignee.trim() || undefined,
-        ...(description.trim() ? { description: description.trim() } : {}),
-        ...(dueAtValue ? { due_at: dueAtValue } : {}),
+        title: values.title,
+        priority: values.priority as generated.TaskCreatePriority,
+        classification: values.classification as generated.Classification,
+        assignee_user_id: values.assignee.trim() || undefined,
+        ...(values.description.trim() ? { description: values.description.trim() } : {}),
+        ...(values.dueAt ? { due_at: new Date(values.dueAt).toISOString() } : {}),
       }
       const created = (await create.mutateAsync(input)) as generated.Task
       navigate(`/tasks/${created.id}`)
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 403) {
-        setError(t.forbidden)
+        form.setError('title', { message: t.forbidden })
       } else if (cause instanceof ApiError && cause.status === 409) {
-        setError(t.conflict)
+        form.setError('title', { message: t.conflict })
       } else {
-        setError(t.submitError)
+        form.setError('title', { message: t.submitError })
       }
     }
-  }
+  })
 
   return (
-    <Page aria-labelledby="task-create-heading">
-      <PageHeader
-        id="task-create-heading"
-        title={t.pageTitle}
-        description={t.pageDescription}
-        actions={
-          <Button variant="secondary" onClick={() => navigate('/tasks')}>
-            {t.back}
-          </Button>
-        }
-      />
-      {error ? <InlineError message={error} /> : null}
-      <Panel id="task-create-form" title={t.pageTitle} level={2}>
-        <form className="ui-form-grid" onSubmit={(event) => void submit(event)}>
-          <Field id="task-create-title" label={t.titleLabel} required>
-            <input
-              id="task-create-title"
-              className="field__control"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              maxLength={255}
-              disabled={saving}
-              aria-required="true"
-              placeholder={t.titlePlaceholder}
+    <div className="space-y-4">
+      <div>
+        <Button variant="ghost" size="sm" onClick={() => navigate('/tasks')} className="-ms-2">
+          <ArrowRight aria-hidden="true" />
+          {t.back}
+        </Button>
+      </div>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">{t.pageTitle}</h1>
+        <p className="text-muted-foreground text-sm">{t.pageDescription}</p>
+      </div>
+
+      <div className="max-w-2xl rounded-lg border p-4">
+        <Form {...form}>
+          <form onSubmit={(event) => void submit(event)} className="grid gap-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="task-create-title">{t.titleLabel}</FormLabel>
+                  <FormControl>
+                    <Input id="task-create-title" disabled={saving} maxLength={255} placeholder={t.titlePlaceholder} {...field} />
+                  </FormControl>
+                  <FormMessage role="alert" />
+                </FormItem>
+              )}
             />
-          </Field>
-          <Field id="task-create-description" label={t.descriptionLabel}>
-            <textarea
-              id="task-create-description"
-              className="field__control"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              maxLength={4000}
-              disabled={saving}
-              placeholder={t.descriptionPlaceholder}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="task-create-description">{t.descriptionLabel}</FormLabel>
+                  <FormControl>
+                    <Textarea id="task-create-description" disabled={saving} maxLength={4000} placeholder={t.descriptionPlaceholder} {...field} />
+                  </FormControl>
+                  <FormMessage role="alert" />
+                </FormItem>
+              )}
             />
-          </Field>
-          <Field id="task-create-priority" label={t.priorityLabel}>
-            <Select
-              id="task-create-priority"
-              value={priority}
-              onChange={setPriority}
-              options={priorityOptions(t)}
-              ariaLabel={t.priorityLabel}
-            />
-          </Field>
-          <Field id="task-create-assignee" label={t.assigneeLabel} help={t.assigneeHelp}>
-            <input
-              id="task-create-assignee"
-              className="field__control"
-              value={assignee}
-              onChange={(event) => setAssignee(event.target.value)}
-              disabled={saving}
-            />
-          </Field>
-          <Field id="task-create-classification" label={t.classificationLabel}>
-            <Select
-              id="task-create-classification"
-              value={classification}
-              onChange={setClassification}
-              options={classificationOptions(t)}
-              ariaLabel={t.classificationLabel}
-            />
-          </Field>
-          <Field id="task-create-due-at" label={t.dueAtLabel} help={t.dueAtHelp}>
-            <input
-              id="task-create-due-at"
-              className="field__control"
-              type="datetime-local"
-              value={dueAt}
-              onChange={(event) => setDueAt(event.target.value)}
-              disabled={saving}
-            />
-          </Field>
-          <div className="dialog-actions">
-            <Button type="submit" disabled={saving}>
-              {saving ? t.loading : t.submit}
-            </Button>
-          </div>
-        </form>
-      </Panel>
-    </Page>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="task-create-priority">{t.priorityLabel}</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger id="task-create-priority">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="low">{t.priorityLow}</SelectItem>
+                        <SelectItem value="normal">{t.priorityNormal}</SelectItem>
+                        <SelectItem value="high">{t.priorityHigh}</SelectItem>
+                        <SelectItem value="urgent">{t.priorityUrgent}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage role="alert" />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="classification"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="task-create-classification">{t.classificationLabel}</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger id="task-create-classification">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="public">{t.classificationPublic}</SelectItem>
+                        <SelectItem value="internal">{t.classificationInternal}</SelectItem>
+                        <SelectItem value="confidential">{t.classificationConfidential}</SelectItem>
+                        <SelectItem value="top_secret">{t.classificationTopSecret}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage role="alert" />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="assignee"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="task-create-assignee">{t.assigneeLabel}</FormLabel>
+                    <FormControl>
+                      <Input id="task-create-assignee" disabled={saving} {...field} />
+                    </FormControl>
+                    <p className="text-muted-foreground text-xs">{t.assigneeHelp}</p>
+                    <FormMessage role="alert" />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="dueAt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor="task-create-due-at">{t.dueAtLabel}</FormLabel>
+                    <FormControl>
+                      <Input id="task-create-due-at" type="datetime-local" disabled={saving} {...field} />
+                    </FormControl>
+                    <p className="text-muted-foreground text-xs">{t.dueAtHelp}</p>
+                    <FormMessage role="alert" />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div>
+              <Button type="submit" disabled={saving}>
+                {saving ? t.loading : t.submit}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
+    </div>
   )
-}
-
-function priorityOptions(t: CreateCopy): SelectOption[] {
-  return [
-    { value: 'low', label: t.priorityLow },
-    { value: 'normal', label: t.priorityNormal },
-    { value: 'high', label: t.priorityHigh },
-    { value: 'urgent', label: t.priorityUrgent },
-  ]
-}
-
-function classificationOptions(t: CreateCopy): SelectOption[] {
-  return [
-    { value: 'public', label: t.classificationPublic },
-    { value: 'internal', label: t.classificationInternal },
-    { value: 'confidential', label: t.classificationConfidential },
-    { value: 'top_secret', label: t.classificationTopSecret },
-  ]
 }
