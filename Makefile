@@ -310,5 +310,10 @@ verify-design:
 	python3 scripts/verify-page-coverage.py
 .PHONY: verify-design
 
+verify-e2e-drift:
+	W1_1_E2E_JSON_REPORT=/tmp/e2e-results.json bash infra/dev/run-w1-1-e2e.sh || true
+	python3 scripts/check-e2e-drift.py /tmp/e2e-results.json
+.PHONY: verify-e2e-drift
+
 deploy-vps: validate-production-bundle
 	./infra/platform/production/deploy-vps.sh

@@ -1,0 +1,56 @@
+[
+  {
+    "file": "e2e/accounts-permissions.spec.ts",
+    "title": "three governance tabs keep their order, RTL flow, and never leak fixture UUIDs",
+    "owner": "screen",
+    "reason": "The spec's **/api/v1/** route mocks predate the PrincipalProvider /me fetch the shell performs on boot; the unhandled /api/v1/me request aborts the run before the workspace renders. The access migration (Task 8) must teach the mocks the /me projection."
+  },
+  {
+    "file": "e2e/accounts-permissions.spec.ts",
+    "title": "system roles must be cloned before custom-role editing; direct system PATCH is documented as immutable",
+    "owner": "screen",
+    "reason": "Same unhandled /api/v1/me abort as above: the principal projection is not mocked, so the shell never reaches the roles workspace."
+  },
+  {
+    "file": "e2e/accounts-permissions.spec.ts",
+    "title": "decision inspector renders plain-language explanation and an ineligible principal stays denied",
+    "owner": "screen",
+    "reason": "Same unhandled /api/v1/me abort as above."
+  },
+  {
+    "file": "e2e/accounts-permissions.spec.ts",
+    "title": "mutation feedback proves the 412 path through the alert region",
+    "owner": "screen",
+    "reason": "Same unhandled /api/v1/me abort as above."
+  },
+  {
+    "file": "e2e/login.spec.ts",
+    "title": "login surface is Arabic-first, accessible, and runtime-local",
+    "owner": "screen",
+    "reason": "The session-restore probe 401s on a fresh browser and the transport fires the global session-expired handler before any session existed, so the login page opens already showing the expiry alert and the runtime-local error loses the first-alert slot the spec asserts."
+  },
+  {
+    "file": "e2e/walking-skeleton.spec.ts",
+    "title": "cookie session restores after storage loss and a later 401 expires the whole shell",
+    "owner": "screen",
+    "reason": "After the storage-loss reload the app re-runs restore, and the /identity/csrf refresh rotates the CSRF token; the spec's pre-captured proof is stale, so the logout POST returns 403 and the expiry path never runs."
+  },
+  {
+    "file": "e2e/walking-skeleton.spec.ts",
+    "title": "server capabilities gate both the platform-management route and its create control",
+    "owner": "seed",
+    "reason": "The W1.1 seed grants no platform_settings.calendar.manage and seeds no calendar, and the CalendarsSection create control renders only when an existing item carries the manage action, so 'إنشاء تقويم' can never appear."
+  },
+  {
+    "file": "e2e/walking-skeleton.spec.ts",
+    "title": "Organization surfaces a save error to the 409 loser when two owners create the same facility",
+    "owner": "screen",
+    "reason": "The dual-owner facility-create flow times out at 60s with the page stuck before the dialog; the organization workspace migration (Task 6) must re-establish the save-error path."
+  },
+  {
+    "file": "e2e/walking-skeleton.spec.ts",
+    "title": "Organization stale-write loser sees 412 feedback and refreshes to the winner value",
+    "owner": "screen",
+    "reason": "Same stall as the 409 loser: the concurrent-edit flow times out at 60s; Task 6 must re-establish the 412 feedback path."
+  }
+]

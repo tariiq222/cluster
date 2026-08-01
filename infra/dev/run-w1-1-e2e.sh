@@ -61,6 +61,12 @@ PLAYWRIGHT_ARGS=(
 if [[ -n "$PLAYWRIGHT_GREP" ]]; then
   PLAYWRIGHT_ARGS+=(--grep "$PLAYWRIGHT_GREP")
 fi
+# When W1_1_E2E_JSON_REPORT names a file, playwright emits its JSON report
+# there (tee'd to stdout, which still lands in the runner log). The drift
+# gate consumes that file.
+if [[ -n "${W1_1_E2E_JSON_REPORT:-}" ]]; then
+  PLAYWRIGHT_ARGS+=(--reporter=json)
+fi
 API_PID=""
 VITE_PID=""
 COORDINATOR_PID=""
@@ -259,7 +265,8 @@ if ! (
   W1_1_API_ORIGIN="http://127.0.0.1:${API_PORT}" \
   W1_1_WEB_PORT="$WEB_PORT" \
   PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/cluster-playwright/1.61.1}" \
-  ./node_modules/.bin/playwright test "${PLAYWRIGHT_ARGS[@]}"
+  ./node_modules/.bin/playwright test "${PLAYWRIGHT_ARGS[@]}" \
+    | tee "${W1_1_E2E_JSON_REPORT:-/dev/null}"
 ) >>"$LOG_FILE" 2>&1; then
   printf 'ERROR: Playwright walking-skeleton suite failed; see %s for diagnostics.\n' "$LOG_FILE" >&2
   # CI has no interactive access to the runner log; surface the failure
