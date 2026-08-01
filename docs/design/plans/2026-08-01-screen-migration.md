@@ -35,7 +35,7 @@ Every task in this plan follows the same nine steps. This is the recipe; the tas
 5. Replace every bespoke `className` with token utilities; delete the screen's CSS dependencies.
 6. Wrap fetches in `ResourceBoundary`; use `DataTable` for every list.
 7. Run the screen's unit tests, `npx tsc -b`, and `./scripts/check-design-rules.sh`.
-8. Run the relevant e2e spec. A selector break from a moved path is fixable; a behavioural failure is a regression — stop and report it rather than weakening the assertion.
+8. Run `make verify-e2e-drift` (Task 0). The criterion is **no drift**, not "all green": nine specs are frozen red from before this programme. A newly failing spec is a regression — stop and report it rather than weakening the assertion. A newly passing spec that is still in `known-red.json` means you fixed it — remove its entry in this same commit.
 9. Commit.
 
 - Commands run from the repo root. Type check is `cd apps/web && npx tsc -b` (`npm exec` swallows `-b`).
@@ -63,6 +63,83 @@ Every task in this plan follows the same nine steps. This is the recipe; the tas
 | `apps/web/src/features/search/SearchScreen.tsx` | Migrate (255) |
 | `apps/web/src/features/api-docs/ApiDocsScreen.tsx` | **Delete** — see Task 1 |
 | `apps/web/src/features/work-records/`, `inbox/`, `workflow/`, `work-definitions/` | Create — Tasks 12–13 |
+
+---
+
+## Task 0: Freeze the known-red e2e list
+
+The foundation plan ended with **9 of 15 e2e specs failing**, and that was verified against commit `17a84ac` through a worktree: identical counts, so none of it is a regression from the theme work. Those failures are older than this programme.
+
+That fact makes every "run the e2e spec and confirm it passes" step in the tasks below unusable as written. With nine specs already red, an implementer either halts at every task or — worse — learns to wave failures away as pre-existing and lets a real regression through. A gate that cannot distinguish known red from new red is not a gate.
+
+This task converts the acceptance criterion from *passes* to *does not differ from the frozen list*.
+
+**Files:**
+- Create: `apps/web/e2e/known-red.json`
+- Create: `scripts/check-e2e-drift.py`
+- Modify: `Makefile`
+
+**Interfaces:**
+- Produces: `scripts/check-e2e-drift.py <results.json>` — exit 0 when the failing set equals the frozen set; exit 1 naming any spec that newly failed **or** newly passed.
+
+- [ ] **Step 1: Capture the current failing set**
+
+```bash
+cd /Users/tariq/code/R3/cluster
+bash infra/dev/run-w1-1-e2e.sh 2>&1 | tee /tmp/e2e-baseline.txt | tail -20
+```
+
+Expected: 9 failed · 5 passed · 1 skipped. **If the counts differ from that, stop and report** — the environment is not the one this list was frozen against.
+
+- [ ] **Step 2: Write the frozen list**
+
+Create `apps/web/e2e/known-red.json` with an entry per failing spec: its `file`, its `title`, and a one-line `reason`. Take the reasons from `docs/design/plans/baseline.md` §"e2e بعد إعادة التوجيه" — for example the W1.1 seed granting no `platform_settings.calendar.manage` and seeding no calendar.
+
+Every entry also carries `"owner"`: either `"seed"` (the W1.1 fixture lacks data or capabilities) or `"screen"` (the screen genuinely misbehaves). This matters because the `"screen"` entries are expected to turn green during migration, and the `"seed"` ones are not.
+
+- [ ] **Step 3: Write the drift checker**
+
+`scripts/check-e2e-drift.py` reads a Playwright JSON report and `known-red.json`, then:
+
+- fails naming any spec that failed but is **not** in the frozen list — a real regression;
+- fails naming any spec that passed but **is** in the frozen list — the list is stale and must be updated in the same commit that fixed it.
+
+Both directions matter. A frozen list that is never pruned rots into permission to fail.
+
+- [ ] **Step 4: Prove the checker fires in both directions**
+
+```bash
+python3 scripts/check-e2e-drift.py /tmp/e2e-results.json; echo "exit=$?"
+```
+
+Expected: exit 0 against the frozen state. Then temporarily delete one entry from `known-red.json` and re-run: expect exit 1 naming that spec as a regression. Restore the entry and confirm exit 0 again.
+
+- [ ] **Step 5: Wire it in**
+
+Add to `Makefile`:
+
+```make
+verify-e2e-drift:
+	bash infra/dev/run-w1-1-e2e.sh --reporter=json > /tmp/e2e-results.json || true
+	python3 scripts/check-e2e-drift.py /tmp/e2e-results.json
+.PHONY: verify-e2e-drift
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/web/e2e/known-red.json scripts/check-e2e-drift.py Makefile
+git commit -m "test(web): freeze the known-red e2e list and gate on drift
+
+Nine specs were already failing at 17a84ac, verified through a worktree, so
+'run the spec and confirm it passes' cannot be an acceptance criterion. The
+gate now fails on any spec that newly fails or newly passes, so a regression
+is visible and a fix cannot silently rot the list.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+**From here on, every task's e2e step means `make verify-e2e-drift`, not "confirm it passes".** When a task migrates a screen whose spec is frozen with `"owner": "screen"`, re-run that spec and, if it now passes, remove its entry from `known-red.json` in the same commit.
 
 ---
 
