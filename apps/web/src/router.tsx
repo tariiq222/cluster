@@ -16,7 +16,7 @@ import { PlatformManagementScreen } from './features/platform/PlatformManagement
 import { NotificationsScreen } from './features/notifications/NotificationsScreen'
 import { SearchScreen } from './features/search/SearchScreen'
 import { PersonalSecurityScreen } from './features/identity/PersonalSecurityScreen'
-import { ImportReviewScreen } from './features/imports/ImportReviewScreen'
+import { ImportWizard } from './features/imports/ImportWizard'
 
 function TaskDetailRoute() {
   const { taskId } = useParams()
@@ -30,7 +30,7 @@ function DocumentDetailRoute() {
 
 function ImportReviewRoute() {
   const { jobId } = useParams()
-  return <ImportReviewScreen jobId={jobId} />
+  return <ImportWizard jobId={jobId} />
 }
 
 function NotFoundScreen() {

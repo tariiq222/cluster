@@ -29,6 +29,7 @@ export function DataTable<T>({
   locale,
   toolbar,
   onRowClick,
+  empty,
 }: {
   columns: ColumnDef<T>[]
   data: T[]
@@ -40,6 +41,7 @@ export function DataTable<T>({
   locale: Locale
   toolbar?: React.ReactNode
   onRowClick?: (row: T) => void
+  empty?: React.ReactNode
 }) {
   const table = useReactTable({
     data,
@@ -48,7 +50,7 @@ export function DataTable<T>({
   })
 
   return (
-    <ResourceBoundary state={state} locale={locale}>
+    <ResourceBoundary state={state} locale={locale} empty={empty}>
       {toolbar}
       <Table>
         <TableHeader>
