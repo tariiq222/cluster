@@ -46,6 +46,9 @@ local:/
 artifacts/local-live/
 apps/api/artifacts/local-live/
 
+# Browser QA screenshots produced by the e2e runs
+artifacts/*.png
+
 # Tool-generated placeholder output
 SUMMARY.txt
 
