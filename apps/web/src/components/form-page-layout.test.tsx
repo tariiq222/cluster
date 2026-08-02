@@ -69,6 +69,8 @@ describe('TwoRegionFormLayout', () => {
     expect(main).toHaveClass('bg-card')
     expect(main).toHaveClass('p-4')
     expect(main).toHaveClass('sm:p-6')
+    expect(main).toHaveClass('grid')
+    expect(main).toHaveClass('gap-6')
     // Main must never be sticky — only the review aside sticks at desktop.
     expect(main.className).not.toMatch(/\bsticky\b/)
     expect(main.className).not.toMatch(/\btop-/)
@@ -84,6 +86,8 @@ describe('TwoRegionFormLayout', () => {
     expect(aside).toHaveClass('border')
     expect(aside).toHaveClass('bg-card')
     expect(aside).toHaveClass('p-4')
+    expect(aside).toHaveClass('grid')
+    expect(aside).toHaveClass('gap-4')
     expect(aside).toHaveClass('lg:sticky')
     expect(aside).toHaveClass('lg:top-20')
   })

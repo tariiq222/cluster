@@ -102,14 +102,14 @@ export function TwoRegionFormLayout({
     >
       <div
         data-testid={mainTestId}
-        className={cn('rounded-xl border bg-card p-4 sm:p-6', mainClassName)}
+        className={cn('grid gap-6 rounded-xl border bg-card p-4 sm:p-6', mainClassName)}
       >
         {main}
       </div>
       <aside
         data-testid={reviewTestId}
         className={cn(
-          'rounded-xl border bg-card p-4 lg:sticky lg:top-20',
+          'grid gap-4 rounded-xl border bg-card p-4 lg:sticky lg:top-20',
           reviewClassName,
         )}
       >
