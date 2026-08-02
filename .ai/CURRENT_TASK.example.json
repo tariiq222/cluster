@@ -1,0 +1,29 @@
+{
+  "id": "TASK-000",
+  "title": "وصف قصير ودقيق للمهمة",
+  "mode": "plan",
+  "objective": "النتيجة المحددة التي يجب الوصول إليها دون توسيع النطاق.",
+  "acceptance_criteria": [
+    "معيار قبول قابل للتحقق",
+    "معيار قبول ثانٍ"
+  ],
+  "allowed_paths": [
+    "apps/web/src/features/example/**"
+  ],
+  "forbidden_paths": [
+    "apps/api/database/migrations/**",
+    "docs/contracts/api/openapi.yaml"
+  ],
+  "required_context": [
+    "AGENTS.md",
+    "PRODUCT.md",
+    "docs/design/DESIGN-RULES.md"
+  ],
+  "verification_commands": [
+    "npm --prefix apps/web run test:unit",
+    "npm --prefix apps/web run lint",
+    "npm --prefix apps/web run build"
+  ],
+  "risk": "medium",
+  "notes": "أي افتراض غير مثبت يُذكر صراحة ولا يتحول إلى تعديل تلقائي."
+}
