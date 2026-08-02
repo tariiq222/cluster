@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useForm } from 'react-hook-form'
@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useLocale, useSessionToken } from '../../../app/session-context'
 import { usePrincipal } from '../../../app/principal-context'
-import { usePeople, useUserAccounts } from '../../../api/hooks'
+import { useUserAccounts } from '../../../api/hooks'
 import { ApiError, stateFromError, type ResourceState } from '../../../api/http'
 import * as generated from '../../../api/generated/cluster'
 import * as access from '../../../api/access'
@@ -16,7 +16,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -32,17 +31,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Sheet, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { accountCopy, accountsCopy } from '../accounts-copy'
+import { PeoplePickerCombobox } from './PeoplePickerCombobox'
+import { AccessSheetSurface, AccessDialogSurface } from '../access-overlays'
 
 /* ------------------------------------------------------------------ */
 /* Accounts tab                                                        */
@@ -151,14 +145,20 @@ export function AccountsTab() {
       accessorKey: 'display_name_ar',
       header: text.employee,
       cell: ({ row }) => (
-        <span className="font-medium">{personName(row.original, locale)}</span>
+        <span className="font-medium break-words whitespace-normal">{personName(row.original, locale)}</span>
       ),
     },
     {
       accessorKey: 'username',
       header: text.username,
       cell: ({ row }) => (
-        <span className="font-mono text-sm" dir="ltr">{row.original.username}</span>
+        /*
+         * The TableCell primitive applies `whitespace-nowrap`; the inner
+         * span re-enables wrapping and forces long technical identifiers
+         * (up to 128 chars) to break inside the cell rather than expand
+         * the table. `dir="ltr"` is preserved for the technical string.
+         */
+        <span className="font-mono text-sm break-all whitespace-normal" dir="ltr">{row.original.username}</span>
       ),
     },
     {
@@ -174,7 +174,7 @@ export function AccountsTab() {
       cell: ({ row }) => {
         const account = row.original
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canManage && account.status === 'pending' ? (
               <Button
                 size="sm"
@@ -206,7 +206,7 @@ export function AccountsTab() {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       <h2 className="text-xl font-semibold tracking-tight">{text.accounts}</h2>
       <div className="flex justify-end">
         {canManage ? (
@@ -233,6 +233,12 @@ export function AccountsTab() {
         onPrev={() => setHistory((current) => current.slice(0, -1))}
         canPrev={history.length > 0}
         locale={locale}
+        onRetry={() => void accountsQuery.refetch()}
+        correlationId={
+          accountsQuery.error instanceof ApiError
+            ? accountsQuery.error.correlationId
+            : null
+        }
         empty={
           <div className="py-12 text-center">
             <p className="text-foreground font-medium">{text.noAccounts}</p>
@@ -283,11 +289,22 @@ function CreateAccountSheet({
   const locale = useLocale()
   const csrfToken = useSessionToken()
   const text = accountCopy[locale]
-  const peopleQuery = usePeople()
-  const people =
-    (peopleQuery.data as { items: generated.Person[] } | undefined)?.items ?? []
+  /*
+   * The picker is the sole owner of cursor loading, error/denied/empty
+   * state, and the refetch affordance. The sheet only needs to keep the
+   * full selected Person (with its `person_version`) so submit can carry
+   * the right version regardless of which page the row came from.
+   */
   const [saveError, setSaveError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  /*
+   * The full selected Person (with `person_version`) is cached here so
+   * the submit handler can read the right version regardless of which
+   * page the row came from. Reading from a hypothetical people-query
+   * cache here would only see the first cursor page and silently drop
+   * later-page selections — that P1 gap is exactly what this ref closes.
+   */
+  const selectedPersonRef = useRef<generated.Person | null>(null)
 
   const schema = useMemo(
     () =>
@@ -303,109 +320,124 @@ function CreateAccountSheet({
     defaultValues: { personId: '', username: '' },
   })
 
+  /*
+   * Reset the cached Person whenever the sheet closes, so an old
+   * (potentially stale-version) row can never be submitted against a new
+   * personId. The picker manages its own open-state and refetches the
+   * first page on demand — the sheet does not pre-load or refetch.
+   */
+  useEffect(() => {
+    if (!open) {
+      selectedPersonRef.current = null
+    }
+  }, [open])
+
   if (!open) return null
 
   return (
     <Sheet open onOpenChange={(next) => { if (!next && !submitting) onClose() }}>
-      <SheetContent>
+      <AccessSheetSurface>
         <SheetHeader>
           <SheetTitle>{text.addAccountTitle}</SheetTitle>
           <SheetDescription>{text.addAccountIntro}</SheetDescription>
         </SheetHeader>
-        {peopleQuery.isError ? (
-          <p className="text-destructive text-sm" role="alert">{text.peopleError}</p>
-        ) : people.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{text.peopleLoading}</p>
-        ) : (
-          <Form {...form}>
-            <form
-              className="grid gap-4"
-              onSubmit={(event) => {
-                event.preventDefault()
-                setSaveError(null)
-                void form.handleSubmit(async (values) => {
-                  const person = people.find((item) => item.id === values.personId)
-                  if (!person) return
-                  setSubmitting(true)
-                  try {
-                    await access.createAccount(
-                      {
-                        person_id: person.id,
-                        person_version: person.person_version,
-                        username: values.username.trim(),
-                      },
-                      csrfToken,
-                    )
-                    form.reset()
-                    onCreated()
-                  } catch (cause) {
-                    setSaveError(
-                      cause instanceof ApiError && cause.status === 412
-                        ? accountsCopy[locale].stale
-                        : text.saveError,
-                    )
-                  } finally {
-                    setSubmitting(false)
-                  }
-                })()
-              }}
-              noValidate
-            >
-              <FormField
-                control={form.control}
-                name="personId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel htmlFor="account-person">{text.employee}</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger id="account-person">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {people.map((person) => (
-                          <SelectItem key={person.id} value={person.id}>
-                            {locale === 'en' && person.display_name_en
-                              ? person.display_name_en
-                              : person.display_name_ar}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage role="alert" />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel htmlFor="account-username">{text.username}</FormLabel>
-                    <FormControl>
-                      <Input id="account-username" dir="ltr" {...field} />
-                    </FormControl>
-                    <p className="text-muted-foreground text-xs">{text.usernameHint}</p>
-                    <FormMessage role="alert" />
-                  </FormItem>
-                )}
-              />
-              {saveError ? (
-                <p className="text-destructive text-sm" role="alert">{saveError}</p>
-              ) : null}
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-                  {accountsCopy[locale].cancel}
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? text.saving : text.create}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        )}
-      </SheetContent>
+        <Form {...form}>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setSaveError(null)
+              void form.handleSubmit(async (values) => {
+                /*
+                 * Read the cached Person instead of re-querying: the row
+                 * may live on a later page that the picker has not yet
+                 * loaded into local state.
+                 */
+                const cached = selectedPersonRef.current
+                if (!cached || cached.id !== values.personId) {
+                  /*
+                   * RHF validation has already ensured personId is set;
+                   * this branch means the cached person drifted from
+                   * the form (e.g. sheet re-opened) and must be re-picked.
+                   */
+                  setSaveError(text.validation)
+                  return
+                }
+                setSubmitting(true)
+                try {
+                  await access.createAccount(
+                    {
+                      person_id: cached.id,
+                      person_version: cached.person_version,
+                      username: values.username.trim(),
+                    },
+                    csrfToken,
+                  )
+                  form.reset()
+                  selectedPersonRef.current = null
+                  onCreated()
+                } catch (cause) {
+                  setSaveError(
+                    cause instanceof ApiError && cause.status === 412
+                      ? accountsCopy[locale].stale
+                      : text.saveError,
+                  )
+                } finally {
+                  setSubmitting(false)
+                }
+              })()
+            }}
+            noValidate
+          >
+            <FormField
+              control={form.control}
+              name="personId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-person">{text.employee}</FormLabel>
+                  <FormControl>
+                    <PeoplePickerCombobox
+                      triggerId="account-person"
+                      selectedId={field.value}
+                      onSelect={(person) => {
+                        selectedPersonRef.current = person
+                        field.onChange(person.id)
+                      }}
+                      invalid={!field.value}
+                    />
+                  </FormControl>
+                  <FormMessage role="alert" />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-username">{text.username}</FormLabel>
+                  <FormControl>
+                    <Input id="account-username" dir="ltr" {...field} />
+                  </FormControl>
+                  <FormDescription>{text.usernameHint}</FormDescription>
+                  <FormMessage role="alert" />
+                </FormItem>
+              )}
+            />
+            {saveError ? (
+              <p className="text-destructive text-sm" role="alert">{saveError}</p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+                {accountsCopy[locale].cancel}
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? text.saving : text.create}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </AccessSheetSurface>
     </Sheet>
   )
 }
@@ -480,19 +512,25 @@ function ManageAccountSheet({
 
   return (
     <Sheet open onOpenChange={(next) => { if (!next && !busy) onClose() }}>
-      <SheetContent>
+      <AccessSheetSurface>
         <SheetHeader>
           <SheetTitle>{text.manageAccount}</SheetTitle>
           <SheetDescription>{personName(account, locale)}</SheetDescription>
         </SheetHeader>
         <dl className="grid gap-2 text-sm">
-          <div className="flex justify-between gap-4">
+          {/*
+           * `min-w-0` on the value cell lets the username (up to 128
+           * chars) break inside the description list rather than push the
+           * sheet wider than the viewport. The label keeps its own width
+           * for readability.
+           */}
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <dt className="text-muted-foreground">{text.username}</dt>
-            <dd className="font-mono" dir="ltr">{account.username}</dd>
+            <dd className="min-w-0 max-w-full break-all font-mono" dir="ltr">{account.username}</dd>
           </div>
-          <div className="flex justify-between gap-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <dt className="text-muted-foreground">{text.status}</dt>
-            <dd>
+            <dd className="min-w-0 max-w-full">
               <Badge variant="outline">{accountStatusLabel(account.status, locale)}</Badge>
             </dd>
           </div>
@@ -524,8 +562,21 @@ function ManageAccountSheet({
               value={reason}
               disabled={busy}
               onChange={(event) => setReason(event.target.value)}
+              aria-describedby="account-reason-hint"
             />
-            <p className="text-muted-foreground text-xs">{text.reasonHint}</p>
+            {/*
+             * Non-RHF reason: the hint is bound to the input via an
+             * explicit `aria-describedby` and a stable hint id so a
+             * screen reader announces the explanation alongside the
+             * field. The id is namespaced per field so future reason
+             * fields cannot collide.
+             */}
+            <p
+              id="account-reason-hint"
+              className="text-muted-foreground text-xs"
+            >
+              {text.reasonHint}
+            </p>
             {available.map((item) => (
               <Button
                 key={item.action}
@@ -567,7 +618,7 @@ function ManageAccountSheet({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </SheetContent>
+      </AccessSheetSurface>
     </Sheet>
   )
 }
@@ -596,7 +647,7 @@ function ActivationDialog({
 
   return (
     <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent>
+      <AccessDialogSurface>
         <DialogHeader>
           <DialogTitle>{text.activationIssued}</DialogTitle>
           <DialogDescription>{personName(account, locale)}</DialogDescription>
@@ -611,7 +662,7 @@ function ActivationDialog({
             {text.activationDismiss}
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </AccessDialogSurface>
     </Dialog>
   )
 }

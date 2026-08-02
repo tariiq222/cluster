@@ -18,6 +18,26 @@ export interface AccountCollection {
   next_cursor: string | null
 }
 
+/*
+ * People (organization) cursor-paginated list. Same bounded semantics as
+ * the rest of the access wrappers: never eager all-pages, never silent
+ * truncation. The picker that drives account creation consumes one page
+ * at a time with explicit load-more.
+ */
+export interface PersonCollection {
+  items: generated.Person[]
+  next_cursor: string | null
+}
+
+export async function listPeopleCursor(cursor?: string): Promise<PersonCollection> {
+  return unwrap<PersonCollection>(
+    await generated.listPeople(
+      { limit: 25, ...(cursor ? { cursor } : {}) },
+      requestInit(null),
+    ),
+  )
+}
+
 export async function listAccounts(cursor?: string): Promise<AccountCollection> {
   return unwrap<AccountCollection>(
     await generated.listUserAccounts({ limit: 25, ...(cursor ? { cursor } : {}) }, requestInit(null)),
@@ -157,20 +177,6 @@ export type NormalizedAssignmentRow = Record<string, unknown> & {
   allowed_actions: string[]
 }
 
-/*
- * Cosmetic local action list used only when the row carries no
- * `allowed_actions` property at all (collection projections never do).
- * When the server includes one — on the single-resource projection — it
- * stays authoritative. `activate` appears here for `pending` rows only
- * because the server's current action matrix does not advertise it.
- */
-const LOCAL_ASSIGNMENT_ACTIONS: Record<string, string[]> = {
-  pending: ['activate', 'revoke', 'expire'],
-  active: ['edit', 'revoke', 'expire'],
-  revoked: [],
-  expired: [],
-}
-
 export function normalizeCapabilityRow(row: ResourceRow): NormalizedCapabilityRow {
   const capability = row as Record<string, unknown>
   const code = typeof capability.code === 'string' ? capability.code : undefined
@@ -185,16 +191,20 @@ export function normalizeCapabilityRow(row: ResourceRow): NormalizedCapabilityRo
   }
 }
 
+/*
+ * Server is authoritative: only the wire's `allowed_actions` is exposed
+ * here, never a locally guessed list. When the row omits the property
+ * (collection projections do), the screen renders no transition controls.
+ */
 export function normalizeAssignmentRow(row: ResourceRow): NormalizedAssignmentRow {
   const assignment = row as Record<string, unknown>
   const subjectUserId = typeof assignment.subject_user_id === 'string'
     ? assignment.subject_user_id
     : (typeof assignment.user_id === 'string' ? assignment.user_id : undefined)
   const status = typeof assignment.status === 'string' ? assignment.status : undefined
-  const rawActions = Array.isArray(assignment.allowed_actions)
+  const allowedActions = Array.isArray(assignment.allowed_actions)
     ? (assignment.allowed_actions as unknown[]).filter((action): action is string => typeof action === 'string')
-    : undefined
-  const allowedActions = rawActions ?? (status ? (LOCAL_ASSIGNMENT_ACTIONS[status] ?? []) : [])
+    : []
   const effectiveStatus = typeof assignment.effective_status === 'string'
     ? assignment.effective_status
     : status
@@ -240,26 +250,28 @@ export type RoleWithCapabilities = Record<string, unknown> & {
   capability_codes: string[]
 }
 
-/*
- * Walks the already-scoped `role-capabilities` collection (limit 100 per
- * page) following cursors safely. Repeated, non-progressing, or
- * already-seen cursors and an absurd page count abort the walk so a
- * pathological backend cannot hang the UI.
- */
-async function collectRoleCapabilityRows(): Promise<Array<Record<string, unknown>>> {
-  const rows: Array<Record<string, unknown>> = []
-  const seenCursors = new Set<string>()
-  let cursor: string | undefined
-  for (let page = 0; page < 100; page += 1) {
-    const collection = await listAdminResources('role-capabilities', cursor)
-    rows.push(...(collection.items as Array<Record<string, unknown>>))
-    const next = collection.next_cursor
-    if (next === null || next === cursor || seenCursors.has(next)) break
-    seenCursors.add(next)
-    cursor = next
-  }
+/* ------------------------------------------------------------------ */
+/* Shared role-capability association walk (ACC-03 cache)              */
+/* ------------------------------------------------------------------ */
 
-  return rows
+export type RoleCapabilityWalk = {
+  rows: Array<Record<string, unknown>>
+  codesByRole: Map<string, string[]>
+}
+
+export type RoleCapabilityPageFetcher = (cursor?: string) => Promise<ResourceCollection>
+
+export interface RoleCapabilityCache {
+  get: () => Promise<RoleCapabilityWalk>
+  invalidate: () => void
+  getEpoch: () => number
+}
+
+class RoleCapabilityCacheInvalidatedError extends Error {
+  constructor() {
+    super('Role capability cache invalidated')
+    this.name = 'RoleCapabilityCacheInvalidatedError'
+  }
 }
 
 function roleCapabilityCodeOf(row: Record<string, unknown>): string | undefined {
@@ -270,36 +282,297 @@ function roleCapabilityCodeOf(row: Record<string, unknown>): string | undefined 
 }
 
 /*
+ * Factory for the scoped `role-capability` association walk cache.
+ *
+ * Properties:
+ *  - Concurrent callers within the same cache generation observe the
+ *    same in-flight walk and resolve together (one walk per
+ *    consumer × page, not per consumer).
+ *  - Successful walks are cached; subsequent calls in the same
+ *    generation return the cached `RoleCapabilityWalk`.
+ *  - Rejected walks are NEVER cached: the next caller triggers a fresh
+ *    walk from page 1.
+ *  - `invalidate()` bumps the generation; any walk in flight under the
+ *    previous generation aborts cleanly on the next epoch check so its
+ *    result cannot poison the new generation's cache.
+ *  - When `getContextKey` is provided, the cache additionally treats a
+ *    context-key mismatch as a cache miss — even if the in-cache epoch
+ *    matches — so a previous context's cached walk can never be served
+ *    to a new context (ACC-03-SCOPE-CORRECTION).
+ *  - The walk honours the existing 100-page safety cap and
+ *    repeated-cursor guard so a pathological backend cannot hang the UI.
+ *
+ * The factory takes a page fetcher so the cache can be unit-tested with
+ * a mock fetcher (see `apps/web/src/features/accounts/AccessScreen.test.tsx`)
+ * without having to stub the internal module-level `listAdminResources`
+ * reference inside `access.ts`.
+ */
+export function createRoleCapabilityCache(
+  fetcher: RoleCapabilityPageFetcher,
+  getContextKey?: () => string | null,
+): RoleCapabilityCache {
+  let cached: RoleCapabilityWalk | null = null
+  let cachedEpoch = -1
+  let cachedContextKey: string | null | undefined = undefined
+  let inflight: Promise<RoleCapabilityWalk> | null = null
+  let epoch = 0
+
+  async function performWalk(myEpoch: number): Promise<RoleCapabilityWalk> {
+    const rows: Array<Record<string, unknown>> = []
+    const seenCursors = new Set<string>()
+    let cursor: string | undefined
+    for (let page = 0; page < 100; page += 1) {
+      if (myEpoch !== epoch) {
+        throw new RoleCapabilityCacheInvalidatedError()
+      }
+      const collection = await fetcher(cursor)
+      if (myEpoch !== epoch) {
+        throw new RoleCapabilityCacheInvalidatedError()
+      }
+      rows.push(...(collection.items as Array<Record<string, unknown>>))
+      const next = collection.next_cursor
+      if (next === null || next === cursor || seenCursors.has(next)) break
+      seenCursors.add(next)
+      cursor = next
+    }
+
+    const codesByRole = new Map<string, string[]>()
+    for (const row of rows) {
+      if (row.effect !== 'allow') continue
+      const roleId = typeof row.role_id === 'string' ? row.role_id : undefined
+      if (roleId === undefined) continue
+      const code = roleCapabilityCodeOf(row)
+      if (code === undefined) continue
+      const codes = codesByRole.get(roleId)
+      if (codes === undefined) {
+        codesByRole.set(roleId, [code])
+      } else if (!codes.includes(code)) {
+        codes.push(code)
+      }
+    }
+
+    return { rows, codesByRole }
+  }
+
+  function isCacheHit(): boolean {
+    if (!cached || cachedEpoch !== epoch) return false
+    if (getContextKey === undefined) return true
+    return cachedContextKey === getContextKey()
+  }
+
+  return {
+    get: () => {
+      if (isCacheHit()) return Promise.resolve(cached as RoleCapabilityWalk)
+      if (!inflight) {
+        const myEpoch = epoch
+        const myContextKey = getContextKey?.() ?? null
+        const myPromise = performWalk(myEpoch)
+          .then((result) => {
+            if (myEpoch === epoch) {
+              cached = result
+              cachedEpoch = myEpoch
+              cachedContextKey = myContextKey
+            }
+            if (inflight === myPromise) {
+              inflight = null
+            }
+            return result
+          })
+          .catch((error) => {
+            if (inflight === myPromise) {
+              inflight = null
+            }
+            throw error
+          })
+        inflight = myPromise
+        return myPromise
+      }
+      return inflight
+    },
+    invalidate: () => {
+      epoch += 1
+      cached = null
+      cachedEpoch = -1
+      cachedContextKey = undefined
+      inflight = null
+    },
+    getEpoch: () => epoch,
+  }
+}
+
+/*
+ * Production singleton: every consumer in the access workspace shares
+ * this cache, so a single walk per scope/epoch generation services the
+ * RolesTab resource page, the labels query, the assignment sheet role
+ * picker, and the role edit sheet — exactly one walk instead of one per
+ * consumer × page.
+ *
+ * The cache is bound to the module-level `currentRoleCapabilityContextKey`
+ * via the optional `getContextKey` argument. The factory treats a
+ * context-key mismatch as a cache miss even if the in-cache epoch
+ * matches, so a previous identity or scope can never have its cached
+ * walk served to a new context — see ACC-03-SCOPE-CORRECTION.
+ */
+export const roleCapabilityCache: RoleCapabilityCache = createRoleCapabilityCache(
+  (cursor) => listAdminResources('role-capabilities', cursor),
+  () => currentRoleCapabilityContextKey,
+)
+
+/*
+ * Module-level facade so callers don't need to know about the singleton.
+ * `invalidateRoleCapabilityCache()` MUST be called whenever the
+ * principal's effective scope changes (different scope = a different
+ * scoped `role-capabilities` collection) or after any successful
+ * mutation that creates, updates, clones, or archives a role's
+ * capability set. The hook `useRoleCapabilityCacheScope()` in
+ * `apps/web/src/api/hooks.ts` performs the scope-driven invalidation
+ * for the whole workspace via `setRoleCapabilityContext`.
+ */
+export function invalidateRoleCapabilityCache(): void {
+  roleCapabilityCache.invalidate()
+}
+
+export function getRoleCapabilityEpoch(): number {
+  return roleCapabilityCache.getEpoch()
+}
+
+/* ------------------------------------------------------------------ */
+/* Cross-context isolation (ACC-03-SCOPE-CORRECTION)                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Stable cache-context key for the role-capability walk. The walk is
+ * authorization-scoped, so any change in the authenticated identity or
+ * the effective scope generation/identity MUST produce a different key;
+ * a same-key comparison is the only condition under which a previously
+ * cached walk may be served.
+ *
+ * Composition (deliberately conservative):
+ *
+ *   - `userId` and `csrfToken` from the authenticated session. A session
+ *     rotation (different `csrfToken` after a re-auth) or an outright
+ *     identity change (different `userId`) flips the key, so the next
+ *     consumer cannot read the previous identity's associations.
+ *
+ *   - `scopeEpoch` from the principal context. The epoch is bumped the
+ *     moment `selectScope` starts, before `effectiveScope` is refetched;
+ *     including it here means the key changes immediately on scope
+ *     selection rather than only after the refetch resolves.
+ *
+ *   - `effectiveScope.scopeType` and `effectiveScope.scopeId`. Defensive
+ *     duplicate of the scope identity in case a future code path flips
+ *     the scope without bumping `scopeEpoch` (the principal context does
+ *     not, but a third party could).
+ *
+ * The `\u0000` separator prevents two keys whose fields differ only by
+ * concatenation order from colliding.
+ */
+export function computeRoleCapabilityContextKey(args: {
+  userId: string | null
+  csrfToken: string | null
+  scopeEpoch: number
+  effectiveScope: { scopeType: string; scopeId: string } | null
+}): string {
+  const identity = `${args.userId ?? ''}\u0000${args.csrfToken ?? ''}`
+  const scope = args.effectiveScope
+    ? `${args.effectiveScope.scopeType}\u0000${args.effectiveScope.scopeId}\u0000${args.scopeEpoch}`
+    : `\u0000\u0000${args.scopeEpoch}`
+  return `${identity}|${scope}`
+}
+
+/*
+ * Module-level "current cache context" key. Set by `setRoleCapabilityContext`
+ * (idempotent, synchronous). The role-capability singleton reads this
+ * key on every `get()` and treats a mismatch as a cache miss even if
+ * `cachedEpoch` would otherwise match — belt-and-suspenders against any
+ * path that mutates `walkEpoch` without going through
+ * `setRoleCapabilityContext`.
+ */
+let currentRoleCapabilityContextKey: string | null = null
+
+export function getRoleCapabilityContextKey(): string | null {
+  return currentRoleCapabilityContextKey
+}
+
+/*
+ * Synchronize the module-level cache with the caller's current context.
+ *
+ *  - Idempotent: same key on repeated calls is a single string equality
+ *    check; the cache is left untouched.
+ *  - Synchronous: runs during the calling component's render, BEFORE any
+ *    consumer (the role-capability reads triggered by the same render
+ *    pass or its effects) can observe the cached walk. There is no
+ *    first-render no-op: the very first call already installs a context,
+ *    and every subsequent render either matches (no-op) or bumps the
+ *    cache (synchronous).
+ *  - Invalidate, never "merge": a context transition discards the
+ *    previous context's cached walk AND any in-flight walk for the
+ *    previous context. The in-flight rejection is enforced by the
+ *    `myEpoch !== epoch` check inside `performWalk` plus the
+ *    `cachedEpoch === epoch` check inside `get()`.
+ *
+ * This is the load-bearing primitive that prevents the ACC-03 unmount/
+ * change/remount defect: there is no component-local ref to seed, so an
+ * unmount/remount cannot silently observe a previous scope's cached
+ * walk.
+ */
+export function setRoleCapabilityContext(contextKey: string): void {
+  if (currentRoleCapabilityContextKey === contextKey) return
+  currentRoleCapabilityContextKey = contextKey
+  roleCapabilityCache.invalidate()
+}
+
+/*
+ * Test-only: resets the singleton's cached walk, its internal context key,
+ * and the module-level current context key. Tests should call this in
+ * `beforeEach` to avoid cross-test pollution — the singleton outlives a
+ * single `describe` block within a worker.
+ */
+export function __resetRoleCapabilityCacheForTests(): void {
+  currentRoleCapabilityContextKey = null
+  roleCapabilityCache.invalidate()
+}
+
+/*
+ * Internal cache binding: each cache created via `createRoleCapabilityCache`
+ * tracks its own `cachedContextKey` and treats a mismatch against the
+ * current context (read via the optional `getContextKey` argument) as a
+ * miss. No external mirror is needed because `setRoleCapabilityContext`
+ * invalidates the cache on every context change, so the in-cache
+ * `cachedContextKey` is always equal to the current key (or
+ * `undefined` after a context change before the next walk).
+ */
+
+/*
  * Enriches only the roles on the currently requested page with their
  * allow-set capability codes by listing the already-scoped
  * `role-capabilities` resource. Only `effect === 'allow'` rows count.
  * Callers must gate this on `authorization.assignment.read`; the
  * collection endpoint is itself guarded by that capability.
+ *
+ * The association walk is shared with `listRoleCapabilityCodes` and any
+ * other enriched consumer (resource page, labels query, picker) through
+ * `roleCapabilityCache` so concurrent and sequential consumers in the
+ * same scope/epoch generation observe a single walk instead of one walk
+ * per consumer × page.
  */
 export async function listRolesWithCapabilities(
   cursor?: string,
 ): Promise<{ items: RoleWithCapabilities[]; next_cursor: string | null }> {
-  const collection = await listAdminResources('roles', cursor)
-  const rows = await collectRoleCapabilityRows()
-  const codesByRole = new Map<string, string[]>()
-  for (const row of rows) {
-    if (row.effect !== 'allow') continue
-    const roleId = typeof row.role_id === 'string' ? row.role_id : undefined
-    if (roleId === undefined) continue
-    const code = roleCapabilityCodeOf(row)
-    if (code === undefined) continue
-    const codes = codesByRole.get(roleId)
-    if (codes === undefined) {
-      codesByRole.set(roleId, [code])
-    } else if (!codes.includes(code)) {
-      codes.push(code)
-    }
-  }
+  const [collection, walk] = await Promise.all([
+    listAdminResources('roles', cursor),
+    roleCapabilityCache.get(),
+  ])
 
   return {
     items: collection.items.map((row) => ({
       ...row,
-      capability_codes: (codesByRole.get(row.id) ?? []).sort(),
+      /*
+       * `slice()` keeps the cached array immutable — the cached
+       * `codesByRole` map is shared across consumers, so we must never
+       * mutate it through `Array.prototype.sort`.
+       */
+      capability_codes: (walk.codesByRole.get(row.id) ?? []).slice().sort(),
     })),
     next_cursor: collection.next_cursor,
   }
@@ -308,20 +581,13 @@ export async function listRolesWithCapabilities(
 /*
  * Resolves the allow-set capability codes for a single role. Used by the
  * role edit sheet when the incoming row did not carry `capability_codes`;
- * returns the known (possibly empty) allow set and never guesses.
+ * returns the known (possibly empty) allow set and never guesses. Reuses
+ * the shared walk so it costs nothing extra after any other enriched
+ * consumer has primed the cache.
  */
 export async function listRoleCapabilityCodes(roleId: string): Promise<string[]> {
-  const rows = await collectRoleCapabilityRows()
-  const codes: string[] = []
-  for (const row of rows) {
-    if (row.effect !== 'allow') continue
-    if (row.role_id !== roleId) continue
-    const code = roleCapabilityCodeOf(row)
-    if (code === undefined || codes.includes(code)) continue
-    codes.push(code)
-  }
-
-  return codes.sort()
+  const walk = await roleCapabilityCache.get()
+  return (walk.codesByRole.get(roleId) ?? []).slice().sort()
 }
 
 export async function getAdminResource(
@@ -422,6 +688,12 @@ export interface ScopeTargetSearch {
   parentScopeId?: string
   search?: string
   cursor?: string
+  /*
+   * Optional abort signal forwarded to the wrapper fetch. The generated
+   * client does not expose a signal parameter; this is purely advisory and
+   * the monotonic-generation guard in ScopeTargetCombobox is authoritative.
+   */
+  signal?: AbortSignal
 }
 
 export async function searchScopeTargets(params: ScopeTargetSearch): Promise<generated.AssignmentScopeTargetCollection> {
@@ -435,7 +707,9 @@ export async function searchScopeTargets(params: ScopeTargetSearch): Promise<gen
         ...(params.cursor ? { cursor: params.cursor } : {}),
         limit: 25,
       },
-      requestInit(null),
+      params.signal
+        ? { ...requestInit(null), signal: params.signal }
+        : requestInit(null),
     ),
   )
 }

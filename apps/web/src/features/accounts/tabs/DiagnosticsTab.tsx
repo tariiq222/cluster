@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { DeniedState, ErrorState, LoadingState } from '@/components/states'
-import { diagnosticsCopy } from '../accounts-copy'
+import { accountsCopy, diagnosticsCopy } from '../accounts-copy'
 
 /*
  * Technical diagnostic screen (the documented DESIGN-RULES §2.5 exception):
@@ -49,7 +49,7 @@ export function DiagnosticsTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       <h2 className="text-xl font-semibold tracking-tight">{text.inspector}</h2>
       <Alert>
         <Info aria-hidden="true" className="size-4" />
@@ -57,8 +57,13 @@ export function DiagnosticsTab() {
         <AlertDescription>{text.technicalNotice}</AlertDescription>
       </Alert>
 
+      {/*
+       * The input wrapper grows to fill the row while staying shrinkable
+       * (`min-w-0`) so a long decision identifier cannot push the form
+       * wider than the column. Submit stays reachable in every viewport.
+       */}
       <form className="flex flex-wrap items-end gap-2" onSubmit={submit}>
-        <div className="grid gap-2">
+        <div className="grid min-w-0 flex-1 gap-2">
           <Label htmlFor="decision-id">{text.decisionId}</Label>
           <Input
             id="decision-id"
@@ -75,7 +80,7 @@ export function DiagnosticsTab() {
       </form>
 
       {phase === 'idle' && <p className="text-muted-foreground text-sm">{text.idle}</p>}
-      {phase === 'loading' && <LoadingState rows={3} />}
+      {phase === 'loading' && <LoadingState rows={3} announce={accountsCopy[locale].loading} />}
       {phase === 'denied' && <DeniedState locale={locale} />}
       {phase === 'error' && (
         <ErrorState
@@ -101,35 +106,42 @@ export function DiagnosticsTab() {
           ) : null}
 
           <dl className="grid gap-2 text-sm">
-            <div className="flex justify-between gap-4">
+            {/*
+             * Each row wraps on narrow viewports and the value cell takes
+             * `min-w-0 max-w-full` so 36-char UUIDs break inside the cell
+             * rather than push the description list (and the page) wider.
+             * Technical identifiers stay `dir="ltr"` while the labels
+             * preserve their natural RTL/LTR flow.
+             */}
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">{text.action}</dt>
-              <dd>{decision.action}</dd>
+              <dd className="min-w-0 max-w-full break-words whitespace-normal">{decision.action}</dd>
             </div>
-            <div className="flex justify-between gap-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">{text.resourceType}</dt>
-              <dd>{decision.resource_type}</dd>
+              <dd className="min-w-0 max-w-full break-words whitespace-normal">{decision.resource_type}</dd>
             </div>
             {decision.resource_id ? (
-              <div className="flex justify-between gap-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <dt className="text-muted-foreground">{text.resourceId}</dt>
-                <dd className="font-mono text-xs" dir="ltr">{decision.resource_id}</dd>
+                <dd className="min-w-0 max-w-full break-all font-mono text-xs whitespace-normal" dir="ltr">{decision.resource_id}</dd>
               </div>
             ) : null}
-            <div className="flex justify-between gap-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">{text.decisionIdLabel}</dt>
-              <dd className="font-mono text-xs" dir="ltr">{decision.decision_id}</dd>
+              <dd className="min-w-0 max-w-full break-all font-mono text-xs whitespace-normal" dir="ltr">{decision.decision_id}</dd>
             </div>
-            <div className="flex justify-between gap-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">{text.policyVersion}</dt>
-              <dd>{decision.policy_version}</dd>
+              <dd className="min-w-0 max-w-full break-words whitespace-normal">{decision.policy_version}</dd>
             </div>
-            <div className="flex justify-between gap-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">{text.factsVersion}</dt>
-              <dd>{decision.facts_version}</dd>
+              <dd className="min-w-0 max-w-full break-words whitespace-normal">{decision.facts_version}</dd>
             </div>
-            <div className="flex justify-between gap-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">{text.evaluatedAt}</dt>
-              <dd>{formatDate(decision.evaluated_at, locale)}</dd>
+              <dd className="min-w-0 max-w-full break-words whitespace-normal">{formatDate(decision.evaluated_at, locale)}</dd>
             </div>
           </dl>
 
@@ -138,13 +150,13 @@ export function DiagnosticsTab() {
             <ol aria-label={text.justificationTimeline} className="space-y-3">
               <li className="flex gap-3">
                 <span className="text-muted-foreground" aria-hidden="true">1</span>
-                <div className="grid gap-1">
+                <div className="grid min-w-0 flex-1 gap-1">
                   <p className="text-sm font-medium">{text.reasonCodes}</p>
                   {decision.reason_codes.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {decision.reason_codes.map((code) => (
                         <Badge key={code} variant="outline">
-                          <span dir="ltr">{code}</span>
+                          <span className="break-all" dir="ltr">{code}</span>
                         </Badge>
                       ))}
                     </div>
@@ -155,13 +167,13 @@ export function DiagnosticsTab() {
               </li>
               <li className="flex gap-3">
                 <span className="text-muted-foreground" aria-hidden="true">2</span>
-                <div className="grid gap-1">
+                <div className="grid min-w-0 flex-1 gap-1">
                   <p className="text-sm font-medium">{text.assignments}</p>
                   {decision.assignment_summaries && decision.assignment_summaries.length > 0 ? (
                     <ul className="grid gap-1">
                       {decision.assignment_summaries.map((summary, index) => (
-                        <li key={`${summary.role_code}-${index}`} className="text-sm">
-                          <span className="font-mono text-xs" dir="ltr">{summary.role_code}</span>
+                        <li key={`${summary.role_code}-${index}`} className="text-sm break-words">
+                          <span className="break-all font-mono text-xs" dir="ltr">{summary.role_code}</span>
                           <span className="text-muted-foreground">
                             {' · '}{summary.effective_status}
                             {summary.scope_type ? ` · ${summary.scope_type}` : ''}
@@ -176,13 +188,13 @@ export function DiagnosticsTab() {
               </li>
               <li className="flex gap-3">
                 <span className="text-muted-foreground" aria-hidden="true">3</span>
-                <div className="grid gap-1">
+                <div className="grid min-w-0 flex-1 gap-1">
                   <p className="text-sm font-medium">{text.obligations}</p>
                   {decision.obligations && decision.obligations.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {decision.obligations.map((obligation) => (
                         <Badge key={obligation} variant="outline">
-                          <span dir="ltr">{obligation}</span>
+                          <span className="break-all" dir="ltr">{obligation}</span>
                         </Badge>
                       ))}
                     </div>
@@ -193,18 +205,18 @@ export function DiagnosticsTab() {
               </li>
               <li className="flex gap-3">
                 <span className="text-muted-foreground" aria-hidden="true">4</span>
-                <div className="grid gap-1">
+                <div className="grid min-w-0 flex-1 gap-1">
                   <p className="text-sm font-medium">{text.policies}</p>
                   {decision.policy_references && decision.policy_references.length > 0 ? (
                     <ul className="grid gap-1">
                       {decision.policy_references.map((reference, index) => (
-                        <li key={`${reference.policy_code}-${index}`} className="text-sm">
-                          <span className="font-mono text-xs" dir="ltr">{reference.policy_code}</span>
+                        <li key={`${reference.policy_code}-${index}`} className="text-sm break-words">
+                          <span className="break-all font-mono text-xs" dir="ltr">{reference.policy_code}</span>
                           <span className="text-muted-foreground">
-                            {' · '}<span dir="ltr">{reference.policy_version}</span>
+                            {' · '}<span className="break-all" dir="ltr">{reference.policy_version}</span>
                           </span>
                           {reference.excerpt ? (
-                            <p className="text-muted-foreground">{reference.excerpt}</p>
+                            <p className="text-muted-foreground break-words">{reference.excerpt}</p>
                           ) : null}
                         </li>
                       ))}

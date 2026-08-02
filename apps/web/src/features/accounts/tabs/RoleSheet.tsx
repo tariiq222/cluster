@@ -9,11 +9,12 @@ import * as access from '../../../api/access'
 import * as generated from '../../../api/generated/cluster'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { roleCopy, accountsCopy } from '../accounts-copy'
+import { AccessSheetSurface } from '../access-overlays'
 
 const ROLE_CODE_PATTERN = /^[a-z][a-z0-9_.-]{1,95}$/
 
@@ -148,6 +149,14 @@ export function RoleSheet({
       )
     },
     onSuccess: () => {
+      /*
+       * Both create and update change the role's allow-set, which is
+       * stored in the scoped `role-capabilities` collection. Drop the
+       * shared walk cache so the next enriched consumer (RolesTab,
+       * AssignmentSheet, listRoleCapabilityCodes) walks again from page 1
+       * instead of serving the previous scope's associations.
+       */
+      access.invalidateRoleCapabilityCache()
       void queryClient.invalidateQueries({ queryKey: ['access-admin'] })
       onSaved()
     },
@@ -160,7 +169,7 @@ export function RoleSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => { if (!next && !mutation.isPending) onClose() }}>
-      <SheetContent>
+      <AccessSheetSurface>
         <SheetHeader>
           <SheetTitle>{editing ? text.editRoleTitle : text.createRoleTitle}</SheetTitle>
           <SheetDescription>{text.roleSheetIntro}</SheetDescription>
@@ -189,7 +198,7 @@ export function RoleSheet({
                   <FormControl>
                     <Input id="role-code" dir="ltr" disabled={editing} {...field} />
                   </FormControl>
-                  <p className="text-muted-foreground text-xs">{text.codeHint}</p>
+                  <FormDescription>{text.codeHint}</FormDescription>
                   <FormMessage role="alert" />
                 </FormItem>
               )}
@@ -226,19 +235,19 @@ export function RoleSheet({
               {catalogState === 'ready' && catalog.length > 0 && (
                 <div className="grid gap-2">
                   {catalog.map((capability) => (
-                    <Label key={capability.id} className="flex items-center gap-2 font-normal">
+                    <Label key={capability.id} className="flex items-start gap-2 font-normal">
                       <Checkbox
                         checked={selectedCodes?.includes(capability.code) ?? false}
                         disabled={mutation.isPending || selectedCodes === null}
                         onCheckedChange={() => toggleCapability(capability.code)}
                       />
-                      <span className="font-mono text-sm" dir="ltr">{capability.code}</span>
+                      <span className="min-w-0 break-all font-mono text-sm whitespace-normal" dir="ltr">{capability.code}</span>
                     </Label>
                   ))}
                 </div>
               )}
             </fieldset>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button type="button" variant="outline" onClick={onClose} disabled={mutation.isPending}>
                 {text.cancel}
               </Button>
@@ -251,7 +260,7 @@ export function RoleSheet({
             </div>
           </form>
         </Form>
-      </SheetContent>
+      </AccessSheetSurface>
     </Sheet>
   )
 }

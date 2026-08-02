@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from '../../app/session-context'
 import { usePrincipal } from '../../app/principal-context'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader, PageLayout } from '@/components/page-layout'
+import { WorkspaceTabs, type WorkspaceTabItem } from '@/components/workspace-tabs'
 import { DeniedState, ErrorState, LoadingState } from '@/components/states'
 import { stateFromError } from '../../api/http'
 import * as access from '../../api/access'
@@ -13,6 +14,20 @@ import { DiagnosticsTab } from './tabs/DiagnosticsTab'
 import { BootstrapTab } from './tabs/BootstrapTab'
 
 type TabKey = 'accounts' | 'roles' | 'diagnostics' | 'bootstrap'
+
+/*
+ * The diagnostics panel additionally owns horizontal overflow: a Badge
+ * (primitive `w-fit shrink-0`) sizes to its flex base (max-content)
+ * inside the reason-code strip, so a long code cannot wrap and would
+ * otherwise extend the document past a narrow viewport. `overflow-x-auto`
+ * contains it at the panel edge (the DataTable pattern) while keeping
+ * the code reachable by horizontal scroll.
+ *
+ * Every other panel inherits the shared WorkspaceTabs focus-visible
+ * ring (and the `min-w-0 max-w-full` width clamps / `pt-6` rhythm) from
+ * the wrapper, so they need no panel-level class plumbing here.
+ */
+const DIAGNOSTICS_PANEL_CLASS = 'overflow-x-auto'
 
 export function AccessScreen() {
   const locale = useLocale()
@@ -64,17 +79,16 @@ export function AccessScreen() {
 
   /*
    * Only the bootstrap tab is possible while its state is still loading:
-   * render the shared loading state instead of guessing at tabs.
+   * render the shared loading state instead of guessing at tabs. The
+   * shared LoadingState announces the locale-resolved loading copy so a
+   * screen reader does not sit silent during the bootstrap fetch.
    */
   if (onlyBootstrapPossible && bootstrapQuery.isLoading) {
     return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{text.title}</h1>
-          <p className="text-muted-foreground text-sm">{text.intro}</p>
-        </div>
-        <LoadingState rows={2} />
-      </div>
+      <PageLayout>
+        <PageHeader title={text.title} description={text.intro} />
+        <LoadingState rows={2} announce={text.loading} />
+      </PageLayout>
     )
   }
 
@@ -86,11 +100,8 @@ export function AccessScreen() {
   if (onlyBootstrapPossible && bootstrapQuery.isError) {
     const derived = stateFromError(bootstrapQuery.error)
     return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{text.title}</h1>
-          <p className="text-muted-foreground text-sm">{text.intro}</p>
-        </div>
+      <PageLayout>
+        <PageHeader title={text.title} description={text.intro} />
         {derived === 'forbidden' || derived === 'not-found' ? (
           <DeniedState locale={locale} />
         ) : (
@@ -99,48 +110,60 @@ export function AccessScreen() {
             onRetry={() => void bootstrapQuery.refetch()}
           />
         )}
-      </div>
+      </PageLayout>
     )
   }
 
+  const items: WorkspaceTabItem[] = []
+  if (canAccounts) {
+    items.push({
+      value: 'accounts',
+      label: text.tabAccounts,
+      content: <AccountsTab />,
+    })
+  }
+  if (canRoles) {
+    items.push({
+      value: 'roles',
+      label: text.tabRoles,
+      content: <RolesTab />,
+    })
+  }
+  if (canDiagnostics) {
+    items.push({
+      value: 'diagnostics',
+      label: text.tabDiagnostics,
+      content: <DiagnosticsTab />,
+      contentClassName: DIAGNOSTICS_PANEL_CLASS,
+    })
+  }
+  if (bootstrapPending && bootstrapQuery.data) {
+    items.push({
+      value: 'bootstrap',
+      label: text.tabBootstrap,
+      content: (
+        <BootstrapTab
+          bootstrap={bootstrapQuery.data}
+          onRefresh={() => void bootstrapQuery.refetch()}
+        />
+      ),
+    })
+  }
+
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{text.title}</h1>
-        <p className="text-muted-foreground text-sm">{text.intro}</p>
-      </div>
+    <PageLayout>
+      <PageHeader title={text.title} description={text.intro} />
       {visible.length === 0 ? (
         <DeniedState locale={locale} />
       ) : (
-        <Tabs value={activeTab} onValueChange={(value) => setTab(value as TabKey)}>
-          <nav aria-label={text.tabsLabel}>
-            <TabsList>
-              {visible.map((entry) => (
-                <TabsTrigger key={entry.key} value={entry.key}>
-                  {entry.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </nav>
-          <TabsContent value="accounts">
-            {canAccounts ? <AccountsTab /> : null}
-          </TabsContent>
-          <TabsContent value="roles">
-            {canRoles ? <RolesTab /> : null}
-          </TabsContent>
-          <TabsContent value="diagnostics">
-            {canDiagnostics ? <DiagnosticsTab /> : null}
-          </TabsContent>
-          <TabsContent value="bootstrap">
-            {bootstrapPending && bootstrapQuery.data ? (
-              <BootstrapTab
-                bootstrap={bootstrapQuery.data}
-                onRefresh={() => void bootstrapQuery.refetch()}
-              />
-            ) : null}
-          </TabsContent>
-        </Tabs>
+        <WorkspaceTabs
+          label={text.tabsLabel}
+          value={activeTab}
+          onValueChange={(value) => setTab(value as TabKey)}
+          items={items}
+          navTestId="access-tab-nav"
+        />
       )}
-    </div>
+    </PageLayout>
   )
 }

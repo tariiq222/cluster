@@ -53,6 +53,21 @@ function deriveParent(
   return {}
 }
 
+/*
+ * Stale-safe scope search.
+ *
+ * Each input change (query text, scope type, or effective scope) bumps a
+ * monotonic request generation. Older in-flight promises are observed but
+ * their resolutions are discarded. This means a slower response from an
+ * earlier query/scope type cannot paint over the current view, and the
+ * submission guard in AssignmentSheet can rely on the selection matching
+ * the live form's `scopeType`.
+ *
+ * If AbortSignal is supported in the runtime without touching the generated
+ * client, we also forward one through the wrapper so the network call
+ * itself is cancelled — defence in depth. The generation check below stays
+ * authoritative in either case.
+ */
 export function ScopeTargetCombobox({
   scopeType,
   effectiveScope,
@@ -76,6 +91,25 @@ export function ScopeTargetCombobox({
   >('idle')
   const [searchError, setSearchError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const generationRef = useRef(0)
+  const controllerRef = useRef<AbortController | null>(null)
+
+  /*
+   * Clear any selection whose scope type no longer matches the live form
+   * value (or whose effective scope has changed). Selection must always
+   * belong to the active scope type, otherwise the submission guard in
+   * AssignmentSheet would have to reject it instead of disabling the
+   * affordance — clearing it here keeps the combobox truthful.
+   */
+  useEffect(() => {
+    if (selection && selection.scopeType !== scopeType) {
+      onSelect({
+        scopeType,
+        scopeId: '',
+        label: '',
+      })
+    }
+  }, [scopeType, selection, onSelect])
 
   /*
    * Progressive search: nothing on mount, nothing below two trimmed
@@ -90,6 +124,11 @@ export function ScopeTargetCombobox({
         clearTimeout(timerRef.current)
         timerRef.current = null
       }
+      if (controllerRef.current) {
+        controllerRef.current.abort()
+        controllerRef.current = null
+      }
+      generationRef.current += 1
       setItems([])
       setSearchState('idle')
       setSearchError(null)
@@ -98,6 +137,14 @@ export function ScopeTargetCombobox({
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       const parent = deriveParent(scopeType, effectiveScope)
+      const generation = generationRef.current + 1
+      generationRef.current = generation
+      const previousController = controllerRef.current
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+      controllerRef.current = controller
+      if (previousController) {
+        previousController.abort()
+      }
       setSearchState('loading')
       setSearchError(null)
       void access
@@ -105,12 +152,16 @@ export function ScopeTargetCombobox({
           scopeType,
           ...parent,
           search: trimmed,
-        })
+          ...(controller ? { signal: controller.signal } : {}),
+        } as access.ScopeTargetSearch)
         .then((collection) => {
+          if (generationRef.current !== generation) return
           setItems(collection.items)
           setSearchState('ready')
         })
         .catch((error) => {
+          if (generationRef.current !== generation) return
+          if (controller && controller.signal.aborted) return
           const derived = stateFromError(error)
           if (derived === 'forbidden' || derived === 'not-found') {
             setItems([])
@@ -135,6 +186,10 @@ export function ScopeTargetCombobox({
     })
     setOpen(false)
     setQuery('')
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (controllerRef.current) controllerRef.current.abort()
+    controllerRef.current = null
+    generationRef.current += 1
     setItems([])
     setSearchState('idle')
   }
@@ -148,7 +203,7 @@ export function ScopeTargetCombobox({
           aria-expanded={open}
           className="justify-between font-normal"
         >
-          {selection ? (
+          {selection && selection.scopeId ? (
             <span className="truncate">{selection.label}</span>
           ) : (
             <span className="text-muted-foreground">{text.scopeSelectPlaceholder}</span>

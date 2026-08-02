@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as generated from '../api/generated/cluster'
 import { requestInit, unwrap } from './http'
-import { listAccounts, type AccountCollection as AccessAccountCollection } from './access'
-import { useSessionToken } from '../app/session-context'
+import {
+  computeRoleCapabilityContextKey,
+  listAccounts,
+  listPeopleCursor,
+  setRoleCapabilityContext,
+  type AccountCollection as AccessAccountCollection,
+} from './access'
+import { useSession, useSessionToken } from '../app/session-context'
 import { usePrincipal } from '../app/principal-context'
 
 /* Shared patterns: csrf from session, scope epoch from principal for scoped reads. */
@@ -10,6 +16,46 @@ function useAuth() {
   const csrfToken = useSessionToken()
   const { scopeEpoch, effectiveScope } = usePrincipal()
   return { csrfToken, scopeEpoch, scopeId: effectiveScope?.scopeId ?? undefined }
+}
+
+/*
+ * Synchronize the shared `role-capability` association walk with the
+ * caller's cache context on EVERY render. The walk is scoped to the
+ * authenticated identity and the effective scope, so a different
+ * context must NEVER observe a previous context's cached associations.
+ *
+ * Design (ACC-03-SCOPE-CORRECTION):
+ *
+ *  - The hook computes a stable context key from the session token /
+ *    user id and the principal's effective scope epoch + identity.
+ *  - It then calls `setRoleCapabilityContext(key)` — a module-level,
+ *    idempotent, synchronous operation that invalidates the cache if and
+ *    only if the key changed.
+ *  - The call is made during render, BEFORE any consumer of the same
+ *    render pass can read the cache. There is no first-render no-op and
+ *    no component-local ref: an unmount/change/remount cycle that
+ *    mounts with a different context invalidates the previous context's
+ *    cached walk on the very first render of the new mount.
+ *  - A same-key re-render is a single string equality check; the cache
+ *    is never re-invalidated on every render.
+ *
+ * Multiple consumers calling this hook observe the same module-level
+ * cache; the cache itself additionally checks the context key on every
+ * `get()` so a previous context's cached walk can never leak even if
+ * `setRoleCapabilityContext` were bypassed.
+ */
+export function useRoleCapabilityCacheScope(): void {
+  const session = useSession()
+  const { scopeEpoch, effectiveScope } = usePrincipal()
+  const contextKey = computeRoleCapabilityContextKey({
+    userId: session.session.userId,
+    csrfToken: session.session.csrfToken,
+    scopeEpoch,
+    effectiveScope: effectiveScope
+      ? { scopeType: effectiveScope.scopeType, scopeId: effectiveScope.scopeId }
+      : null,
+  })
+  setRoleCapabilityContext(contextKey)
 }
 
 /* ============ Tasks ============ */
@@ -167,10 +213,18 @@ export function useJobTitles() {
   })
 }
 
-export function usePeople() {
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['people'] as const,
-    queryFn: async () => unwrap(await generated.listPeople({ limit: 100 }, requestInit(null))),
+/*
+ * People cursor page. The create-account picker uses an explicit load-more
+ * rather than a giant eager fetch, so it never silently stops at the first
+ * page when there are more selectable employees available.
+ */
+export function usePeople(cursor?: string) {
+  return useQuery<{
+    items: generated.Person[]
+    next_cursor: string | null
+  }>({
+    queryKey: ['people', cursor ?? null] as const,
+    queryFn: async () => listPeopleCursor(cursor),
   })
 }
 
@@ -216,8 +270,9 @@ export function usePlatformHealth() {
 /* ============ Reports / Audit / Search / Notifications ============ */
 
 export function useReportsList() {
+  const { scopeEpoch } = useAuth()
   return useQuery<generated.CollectionResponse>({
-    queryKey: ['reports'] as const,
+    queryKey: ['reports', scopeEpoch] as const,
     queryFn: async () => unwrap(await generated.listReports({ limit: 50 }, requestInit(null))),
   })
 }

@@ -30,6 +30,9 @@ export function DataTable<T>({
   toolbar,
   onRowClick,
   empty,
+  onRetry,
+  onRefresh,
+  correlationId,
 }: {
   columns: ColumnDef<T>[]
   data: T[]
@@ -42,6 +45,9 @@ export function DataTable<T>({
   toolbar?: React.ReactNode
   onRowClick?: (row: T) => void
   empty?: React.ReactNode
+  onRetry?: () => void
+  onRefresh?: () => void
+  correlationId?: string | null
 }) {
   const table = useReactTable({
     data,
@@ -50,53 +56,78 @@ export function DataTable<T>({
   })
 
   return (
-    <ResourceBoundary state={state} locale={locale} empty={empty}>
-      {toolbar}
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() ? 'selected' : undefined}
-                className={onRowClick ? 'cursor-pointer' : undefined}
-                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
+    /*
+     * The outermost flex column is clamped to the parent column width with
+     * `min-w-0 max-w-full` so a long identifier or a wide cell cannot push
+     * the page wider than the viewport: the inner `overflow-x-auto` owns
+     * horizontal scrolling, never the document.
+     */
+    <div className="flex min-w-0 max-w-full flex-col gap-3">
+      <div className="min-h-40 min-w-0">
+        <ResourceBoundary
+          state={state}
+          locale={locale}
+          empty={empty}
+          rows={5}
+          onRetry={onRetry}
+          onRefresh={onRefresh}
+          correlationId={correlationId}
+        >
+          {toolbar}
+          <div
+            data-testid="data-table-scroll"
+            className="min-w-0 overflow-x-auto rounded-lg border"
+          >
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center" />
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-      <div className="flex items-center justify-end gap-2 pt-2">
-        <Button variant="outline" size="sm" onClick={onPrev} disabled={!canPrev}>
-          <ChevronRight aria-hidden="true" className="ltr:rotate-180" />
-          {PREVIOUS[locale]}
-        </Button>
-        <Button variant="outline" size="sm" onClick={onNext} disabled={!nextCursor}>
-          {NEXT[locale]}
-          <ChevronLeft aria-hidden="true" className="ltr:rotate-180" />
-        </Button>
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() ? 'selected' : undefined}
+                      className={onRowClick ? 'cursor-pointer' : undefined}
+                      onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center" />
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </ResourceBoundary>
       </div>
-    </ResourceBoundary>
+      {state === 'ready' ? (
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onPrev} disabled={!canPrev}>
+            <ChevronRight aria-hidden="true" className="ltr:rotate-180" />
+            {PREVIOUS[locale]}
+          </Button>
+          <Button variant="outline" size="sm" onClick={onNext} disabled={!nextCursor}>
+            {NEXT[locale]}
+            <ChevronLeft aria-hidden="true" className="ltr:rotate-180" />
+          </Button>
+        </div>
+      ) : null}
+    </div>
   )
 }

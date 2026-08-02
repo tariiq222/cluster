@@ -9,7 +9,7 @@ import * as access from '../../../api/access'
 import { formatDate } from '../../../i18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Textarea } from '@/components/ui/textarea'
 import {
   AlertDialog,
@@ -95,13 +95,13 @@ export function BootstrapTab({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       <h2 className="text-xl font-semibold tracking-tight">{text.title}</h2>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline">{text.pendingStatus}</Badge>
         {bootstrap.expiresAt ? (
-          <span className="text-muted-foreground text-sm">
-            {text.expiresAt} <span dir="ltr">{formatDate(bootstrap.expiresAt, locale)}</span>
+          <span className="text-muted-foreground text-sm break-words">
+            {text.expiresAt} <span className="break-all" dir="ltr">{formatDate(bootstrap.expiresAt, locale)}</span>
           </span>
         ) : null}
       </div>
@@ -137,7 +137,7 @@ export function BootstrapTab({
                     {...field}
                   />
                 </FormControl>
-                <p className="text-muted-foreground text-xs">{text.reasonHint}</p>
+                <FormDescription>{text.reasonHint}</FormDescription>
                 <FormMessage role="alert" />
               </FormItem>
             )}

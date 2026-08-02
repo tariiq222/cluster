@@ -43,9 +43,38 @@ const REFRESH: Record<Locale, string> = {
   en: 'Refresh to see the latest version',
 }
 
-export function LoadingState({ rows = 4 }: { rows?: number }) {
+/*
+ * Shared loading label: matches the announcement RouteFallback uses, so
+ * callers that delegate to RouteFallback (e.g. via Suspense) never
+ * double-announce while direct LoadingState users do. Centralized so the
+ * ar/en strings stay in lockstep with shellCopy.
+ */
+const LOADING: Record<Locale, string> = {
+  ar: 'جارٍ التحميل…',
+  en: 'Loading…',
+}
+
+export function LoadingState({
+  rows = 4,
+  announce,
+}: {
+  rows?: number
+  /*
+   * Optional, caller-supplied localized announcement. When supplied,
+   * LoadingState renders an sr-only `role="status" aria-live="polite"`
+   * node carrying the string; when omitted (the legacy RouteFallback
+   * path), no announcement is emitted, so nesting LoadingState inside an
+   * already-announcing ancestor never duplicates the message.
+   */
+  announce?: string
+}) {
   return (
     <div className="space-y-3" data-testid="loading-state">
+      {announce ? (
+        <span role="status" aria-live="polite" className="sr-only">
+          {announce}
+        </span>
+      ) : null}
       {Array.from({ length: rows }, (_, i) => (
         <Skeleton key={i} className="h-10 w-full" />
       ))}
@@ -65,11 +94,18 @@ export function EmptyState({
   action?: ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 py-12 text-center">
-      {icon ? <div className="text-muted-foreground">{icon}</div> : null}
+    <div
+      data-testid="empty-state"
+      className="mx-auto flex max-w-sm flex-col items-center gap-2 py-10 text-center"
+    >
+      {icon ? (
+        <div className="text-muted-foreground mb-1 flex size-11 items-center justify-center rounded-full bg-muted [&>svg]:size-5" aria-hidden="true">
+          {icon}
+        </div>
+      ) : null}
       <p className="text-foreground font-medium">{title}</p>
       {body ? <p className="text-muted-foreground text-sm">{body}</p> : null}
-      {action}
+      {action ? <div className="mt-1">{action}</div> : null}
     </div>
   )
 }
@@ -78,30 +114,34 @@ export function DeniedState({ locale }: { locale: Locale }) {
   return <EmptyState title={DENIED[locale]} />
 }
 
-export function ConflictState({ onRetry, locale }: { onRetry: () => void; locale: Locale }) {
+export function ConflictState({ onRetry, locale }: { onRetry?: () => void; locale: Locale }) {
   return (
     <Alert variant="destructive">
       <CircleAlert className="size-4" aria-hidden="true" />
       <AlertTitle>{CONFLICT[locale]}</AlertTitle>
       <AlertDescription>
-        <Button variant="outline" size="sm" onClick={onRetry} className="mt-2">
-          <RefreshCw aria-hidden="true" />
-          {TRY_AGAIN[locale]}
-        </Button>
+        {onRetry ? (
+          <Button variant="outline" size="sm" onClick={onRetry} className="mt-2">
+            <RefreshCw aria-hidden="true" />
+            {TRY_AGAIN[locale]}
+          </Button>
+        ) : null}
       </AlertDescription>
     </Alert>
   )
 }
 
-export function StaleState({ onRefresh, locale }: { onRefresh: () => void; locale: Locale }) {
+export function StaleState({ onRefresh, locale }: { onRefresh?: () => void; locale: Locale }) {
   return (
     <Alert>
       <RefreshCw className="size-4" aria-hidden="true" />
       <AlertTitle>{STALE[locale]}</AlertTitle>
       <AlertDescription>
-        <Button variant="outline" size="sm" onClick={onRefresh} className="mt-2">
-          {REFRESH[locale]}
-        </Button>
+        {onRefresh ? (
+          <Button variant="outline" size="sm" onClick={onRefresh} className="mt-2">
+            {REFRESH[locale]}
+          </Button>
+        ) : null}
       </AlertDescription>
     </Alert>
   )
@@ -112,7 +152,7 @@ export function ErrorState({
   correlationId,
   locale,
 }: {
-  onRetry: () => void
+  onRetry?: () => void
   correlationId?: string | null
   locale: Locale
 }) {
@@ -126,10 +166,12 @@ export function ErrorState({
             {correlationId}
           </p>
         ) : null}
-        <Button variant="outline" size="sm" onClick={onRetry} className="mt-2">
-          <RotateCcw aria-hidden="true" />
-          {TRY_AGAIN[locale]}
-        </Button>
+        {onRetry ? (
+          <Button variant="outline" size="sm" onClick={onRetry} className="mt-2">
+            <RotateCcw aria-hidden="true" />
+            {TRY_AGAIN[locale]}
+          </Button>
+        ) : null}
       </AlertDescription>
     </Alert>
   )
@@ -156,7 +198,7 @@ export function ResourceBoundary({
 }) {
   switch (state) {
     case 'loading':
-      return <LoadingState rows={rows} />
+      return <LoadingState rows={rows} announce={LOADING[locale]} />
     case 'ready':
       return children
     case 'empty':
@@ -165,10 +207,10 @@ export function ResourceBoundary({
     case 'not-found':
       return <DeniedState locale={locale} />
     case 'conflict':
-      return <ConflictState onRetry={onRetry ?? (() => {})} locale={locale} />
+      return <ConflictState onRetry={onRetry} locale={locale} />
     case 'stale':
-      return <StaleState onRefresh={onRefresh ?? (() => {})} locale={locale} />
+      return <StaleState onRefresh={onRefresh} locale={locale} />
     case 'error':
-      return <ErrorState onRetry={onRetry ?? (() => {})} correlationId={correlationId} locale={locale} />
+      return <ErrorState onRetry={onRetry} correlationId={correlationId} locale={locale} />
   }
 }

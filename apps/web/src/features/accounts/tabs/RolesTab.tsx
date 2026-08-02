@@ -8,6 +8,7 @@ import { ApiError, stateFromError, type ResourceState } from '../../../api/http'
 import { statusLabel, formatDate, type Locale } from '../../../i18n'
 import * as access from '../../../api/access'
 import * as generated from '../../../api/generated/cluster'
+import { useRoleCapabilityCacheScope } from '../../../api/hooks'
 import { DataTable } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -98,6 +99,15 @@ export function RolesTab() {
   const text = roleCopy[locale]
   const queryClient = useQueryClient()
   const capabilities = principal.capabilities ?? []
+  /*
+   * The shared scoped `role-capability` association walk is invalidated
+   * here on every principal scope/epoch or session-token change. Any
+   * nested consumer in this tab — the resource page, the labels query,
+   * the role picker in AssignmentSheet, the edit sheet — observes the
+   * same module-level cache, so a single mount is sufficient to keep the
+   * whole workspace coherent.
+   */
+  useRoleCapabilityCacheScope()
   const canReadRoles = capabilities.includes('authorization.role.read')
   const canManageRoles = capabilities.includes('authorization.role.manage')
   const canReadCapabilities = capabilities.includes('authorization.capability.read')
@@ -195,6 +205,18 @@ export function RolesTab() {
     void queryClient.invalidateQueries({ queryKey: ['access-accounts-labels'] })
   }
 
+  /*
+   * Drop the shared `role-capabilities` association walk in addition to
+   * the React-Query cache. Used only after mutations that actually
+   * change the allow-set (role clone, role archive, role create/update
+   * through RoleSheet); assignment transitions operate on the separate
+   * `role-assignments` resource and intentionally leave the association
+   * walk intact.
+   */
+  const invalidateRoleAssociations = () => {
+    access.invalidateRoleCapabilityCache()
+  }
+
   const cloneMutation = useMutation({
     mutationFn: (role: generated.AuthorizationRole) =>
       access.transitionAdminResource(
@@ -206,7 +228,10 @@ export function RolesTab() {
         csrfToken,
         'authorization-role-clone',
       ),
-    onSuccess: () => invalidateActive(),
+    onSuccess: () => {
+      invalidateRoleAssociations()
+      invalidateActive()
+    },
     onError: (caught) =>
       setMutationError(caught instanceof ApiError ? caught.message : text.roleError),
   })
@@ -220,7 +245,10 @@ export function RolesTab() {
         role.lock_version,
         csrfToken,
       ),
-    onSuccess: () => invalidateActive(),
+    onSuccess: () => {
+      invalidateRoleAssociations()
+      invalidateActive()
+    },
     onError: (caught) =>
       setMutationError(caught instanceof ApiError ? caught.message : text.roleError),
   })
@@ -289,7 +317,7 @@ export function RolesTab() {
         header: text.name,
         cell: ({ row }) => {
           const role = row.original as unknown as RoleRow
-          return <span className="font-medium">{roleDisplayName(role, locale)}</span>
+          return <span className="font-medium break-words whitespace-normal">{roleDisplayName(role, locale)}</span>
         },
       },
       {
@@ -297,7 +325,7 @@ export function RolesTab() {
         header: text.code,
         cell: ({ row }) => {
           const role = row.original as unknown as RoleRow
-          return <span className="font-mono text-sm" dir="ltr">{role.code}</span>
+          return <span className="font-mono text-sm break-all whitespace-normal" dir="ltr">{role.code}</span>
         },
       },
       {
@@ -330,7 +358,7 @@ export function RolesTab() {
         cell: ({ row }) => {
           const role = row.original as unknown as RoleRow
           return (
-            <span className="text-sm">
+            <span className="text-sm whitespace-normal">
               {role.capability_codes?.length ?? 0}{' '}
               {text.countCapabilities}
             </span>
@@ -344,7 +372,7 @@ export function RolesTab() {
           const role = row.original as unknown as RoleRow
           if (!canManageRoles) return null
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {role.is_system_role ? (
                 <Button
                   size="sm"
@@ -400,7 +428,7 @@ export function RolesTab() {
         header: text.capabilityCode,
         cell: ({ row }) => {
           const capability = row.original as unknown as CapabilityCatalogItem
-          return <span className="font-mono text-sm" dir="ltr">{capability.code}</span>
+          return <span className="font-mono text-sm break-all whitespace-normal" dir="ltr">{capability.code}</span>
         },
       },
       {
@@ -408,7 +436,7 @@ export function RolesTab() {
         header: text.capabilityModule,
         cell: ({ row }) => {
           const capability = row.original as unknown as CapabilityCatalogItem
-          return <span className="font-mono text-sm" dir="ltr">{capability.module_code}</span>
+          return <span className="font-mono text-sm break-all whitespace-normal" dir="ltr">{capability.module_code}</span>
         },
       },
       {
@@ -416,7 +444,7 @@ export function RolesTab() {
         header: text.capabilityAction,
         cell: ({ row }) => {
           const capability = row.original as unknown as CapabilityCatalogItem
-          return <span className="text-sm">{capability.action}</span>
+          return <span className="text-sm whitespace-normal">{capability.action}</span>
         },
       },
       {
@@ -426,12 +454,12 @@ export function RolesTab() {
           const capability = row.original as unknown as CapabilityCatalogItem
           const sensitivity = capability.sensitivity
           return isSensitive(sensitivity) ? (
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex flex-wrap items-center gap-1.5">
               <ShieldAlert aria-hidden="true" className="size-4" />
               <span>{sensitivityLabel(sensitivity, text)}</span>
             </span>
           ) : (
-            <span className="text-sm">{sensitivityLabel(sensitivity, text)}</span>
+            <span className="text-sm whitespace-normal">{sensitivityLabel(sensitivity, text)}</span>
           )
         },
       },
@@ -440,7 +468,7 @@ export function RolesTab() {
         header: text.capabilityGroup,
         cell: ({ row }) => {
           const capability = row.original as unknown as CapabilityCatalogItem
-          return <span className="text-sm">{capability.group_label}</span>
+          return <span className="text-sm whitespace-normal">{capability.group_label}</span>
         },
       },
     )
@@ -453,7 +481,7 @@ export function RolesTab() {
           const assignment = row.original as unknown as AssignmentRow
           const account = accounts.find((item) => item.id === assignment.subject_user_id)
           return account ? (
-            <span className="font-medium">{accountLabel(account, locale)}</span>
+            <span className="font-medium break-words whitespace-normal">{accountLabel(account, locale)}</span>
           ) : (
             <span className="text-muted-foreground text-sm">{text.unavailable}</span>
           )
@@ -466,7 +494,7 @@ export function RolesTab() {
           const assignment = row.original as unknown as AssignmentRow
           const role = rolesForLabels.find((item) => item.id === assignment.role_id)
           return role ? (
-            <span className="text-sm">{roleDisplayName(role, locale)}</span>
+            <span className="text-sm whitespace-normal">{roleDisplayName(role, locale)}</span>
           ) : (
             <span className="text-muted-foreground text-sm">{text.unavailable}</span>
           )
@@ -478,7 +506,7 @@ export function RolesTab() {
         cell: ({ row }) => {
           const assignment = row.original as unknown as AssignmentRow
           return (
-            <span className="text-sm">
+            <span className="text-sm whitespace-normal">
               {scopeTypeLabel(assignment.scope_type, text)}
             </span>
           )
@@ -503,7 +531,7 @@ export function RolesTab() {
           const assignment = row.original as unknown as AssignmentRow
           const start = formatDate(assignment.start_at, locale)
           const end = formatDate(assignment.end_at, locale)
-          return <span className="text-sm" dir="ltr">{start} – {end || '—'}</span>
+          return <span className="text-sm break-all whitespace-normal" dir="ltr">{start} – {end || '—'}</span>
         },
       },
       {
@@ -518,7 +546,7 @@ export function RolesTab() {
           const showRevoke = allowed.includes('revoke')
           if (!showActivate && !showExpire && !showRevoke) return null
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {showActivate ? (
                 <Button
                   size="sm"
@@ -575,7 +603,7 @@ export function RolesTab() {
         : text.assignmentsEmpty
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       <h2 className="text-xl font-semibold tracking-tight">{text.roles}</h2>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
@@ -652,6 +680,12 @@ export function RolesTab() {
         onPrev={() => setHistory((current) => current.slice(0, -1))}
         canPrev={history.length > 0}
         locale={locale}
+        onRetry={() => void resourceQuery.refetch()}
+        correlationId={
+          resourceQuery.error instanceof ApiError
+            ? resourceQuery.error.correlationId
+            : null
+        }
         empty={
           <div className="py-12 text-center">
             <p className="text-foreground font-medium">{emptyCopy}</p>
@@ -668,8 +702,7 @@ export function RolesTab() {
 
       <AssignmentSheet
         open={assignmentSheetOpen}
-        accounts={accounts}
-        roles={rolesForLabels}
+        enrichRoles={canReadAssignments}
         effectiveScope={
           principal.effectiveScope
             ? {
