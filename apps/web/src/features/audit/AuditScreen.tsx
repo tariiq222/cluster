@@ -1,13 +1,41 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  CheckCircle2,
+  CircleAlert,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
+  ShieldX,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import * as generated from '../../api/generated/cluster'
 import type { AuditEvent, AuditExportDescriptor, AuditIntegrityResult } from '../../api/generated/cluster'
 import { ApiError, requestInit, unwrap } from '../../api/http'
 import { useAuditEvents } from '../../api/hooks'
+import { useNavigate } from '../../app/navigation-context'
 import { usePrincipal } from '../../app/principal-context'
-import { useLocale, useSessionToken } from '../../app/session-context'
+import { useLocale, useSession, useSessionToken } from '../../app/session-context'
 import { formatDate } from '../../i18n'
-import { Button, Drawer, EmptyState, Field, InlineError, Page, PageHeader, Panel, SkeletonList, StatusBadge } from '../../ui'
+import { registerExport } from '../reports/export-tracker'
+import { queryFromFilters, type FilterDraft } from './audit-utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DeniedState, EmptyState, ErrorState, LoadingState } from '@/components/states'
 
 const copy = {
   ar: {
@@ -35,24 +63,15 @@ const copy = {
     integrity: 'السلامة',
     inspect: 'فحص الحدث',
     loadMore: 'تحميل المزيد',
-    eventDetail: 'تفاصيل حدث التدقيق',
-    eventId: 'معرّف الحدث',
-    correlationId: 'معرّف الارتباط',
-    eventType: 'نوع الحدث',
-    recorded: 'وقت التسجيل',
-    retention: 'الاحتفاظ حتى',
-    accessDecision: 'قرار الوصول',
-    context: 'السياق المنقح',
-    redacted: 'يعرض الخادم سياقًا منقحًا فقط. لا تتضمن هذه الواجهة التجزئات أو المفاتيح أو بصمة الطلب.',
     exportTitle: 'تصدير لقطة',
     exportReason: 'سبب التصدير',
     exportReasonHelp: 'سبب مهني محدد؛ يُسجل مع طلب التصدير.',
     format: 'التنسيق',
     createExport: 'إنشاء التصدير',
-    exportReady: 'التصدير جاهز',
+    exportQueued: 'جارٍ تجهيز تصدير سجل التدقيق…',
+    exportFailed: 'تعذر إنشاء التصدير.',
     expires: 'ينتهي',
     events: 'حدث',
-    download: 'تنزيل الملف',
     verifyTitle: 'التحقق من سلامة سلسلة',
     streamKey: 'مفتاح السلسلة',
     firstSequence: 'أول تسلسل (اختياري)',
@@ -60,11 +79,11 @@ const copy = {
     rangeHelp: 'أدخل الحدين معًا، أو اتركهما فارغين للتحقق من السلسلة المتاحة.',
     verify: 'تحقق الآن',
     verified: 'تم التحقق',
+    range: 'النطاق',
     pairRequired: 'يجب إدخال أول وآخر تسلسل معًا.',
     operationFailed: 'تعذر إكمال العملية.',
     notAvailable: 'غير متاح',
     system: 'النظام',
-    denied: 'غير مصرح لك بالوصول إلى سجل التدقيق.',
   },
   en: {
     title: 'Audit ledger',
@@ -92,25 +111,15 @@ const copy = {
     integrity: 'Integrity',
     inspect: 'Inspect event',
     loadMore: 'Load more',
-    eventDetail: 'Audit event detail',
-    eventId: 'Event ID',
-    correlationId: 'Correlation ID',
-    eventType: 'Event type',
-    recorded: 'Recorded',
-    retention: 'Retained until',
-    accessDecision: 'Access decision',
-    context: 'Redacted context',
-    redacted:
-      'Only server-redacted context is shown. Hashes, keys, and request fingerprints never enter this interface.',
     exportTitle: 'Export snapshot',
     exportReason: 'Export reason',
     exportReasonHelp: 'State a specific business purpose; it is recorded with the export request.',
     format: 'Format',
     createExport: 'Create export',
-    exportReady: 'Export ready',
+    exportQueued: 'Preparing audit export…',
+    exportFailed: 'The export could not be created.',
     expires: 'Expires',
     events: 'events',
-    download: 'Download file',
     verifyTitle: 'Verify stream integrity',
     streamKey: 'Stream key',
     firstSequence: 'First sequence (optional)',
@@ -118,21 +127,13 @@ const copy = {
     rangeHelp: 'Enter both bounds, or leave both empty to verify the available stream.',
     verify: 'Verify now',
     verified: 'Verification complete',
+    range: 'Range',
     pairRequired: 'First and last sequence must be supplied together.',
     operationFailed: 'The operation could not be completed.',
     notAvailable: 'Not available',
     system: 'System',
-    denied: 'You are not authorized to view the audit ledger.',
   },
 } as const
-
-type FilterDraft = {
-  sourceModule: string
-  action: string
-  classification: '' | 'public' | 'internal' | 'confidential' | 'top_secret'
-  occurredFrom: string
-  occurredTo: string
-}
 
 const EMPTY_FILTERS: FilterDraft = {
   sourceModule: '',
@@ -146,37 +147,15 @@ function apiMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? (error.problem.detail ?? error.problem.title) : fallback
 }
 
-function statusVariant(value: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
-  if (value === 'verified' || value === 'succeeded') return 'success'
-  if (value === 'violated' || value === 'failed') return 'danger'
-  if (value === 'denied' || value === 'unverified') return 'warning'
-  if (value === 'confidential' || value === 'top_secret') return 'info'
-  return 'neutral'
-}
-
-function queryFromFilters(filters: FilterDraft): generated.ListAuditEventsParams {
-  return {
-    ...(filters.sourceModule ? { source_module: filters.sourceModule.trim() } : {}),
-    ...(filters.action ? { action: filters.action.trim() } : {}),
-    ...(filters.classification ? { classification: filters.classification } : {}),
-    ...(filters.occurredFrom ? { occurred_from: new Date(filters.occurredFrom).toISOString() } : {}),
-    ...(filters.occurredTo ? { occurred_to: new Date(filters.occurredTo).toISOString() } : {}),
-  }
-}
-
 export function AuditScreen() {
   const locale = useLocale()
   const principal = usePrincipal()
-  const t = copy[locale]
   const canRead = principal.capabilities?.includes('audit.event.read') ?? false
 
   if (!canRead) {
-    return (
-      <Page aria-labelledby="audit-title">
-        <PageHeader id="audit-title" title={t.title} description={t.description} />
-        <EmptyState title={t.denied} />
-      </Page>
-    )
+    // 403 and 404 collapse into the same shared, non-disclosing copy. The
+    // server is the only guard; this branch is defense in depth.
+    return <DeniedState locale={locale} />
   }
 
   return <AuditLedger locale={locale} />
@@ -184,7 +163,9 @@ export function AuditScreen() {
 
 function AuditLedger({ locale }: { locale: 'ar' | 'en' }) {
   const csrfToken = useSessionToken()
+  const { session } = useSession()
   const principal = usePrincipal()
+  const navigate = useNavigate()
   const t = copy[locale]
   const canExport = principal.capabilities?.includes('audit.event.export') ?? false
   const canVerify = principal.capabilities?.includes('audit.integrity.verify') ?? false
@@ -205,14 +186,29 @@ function AuditLedger({ locale }: { locale: 'ar' | 'en' }) {
   useEffect(() => {
     setAppended([])
     setNextCursor(ledgerData?.next_cursor ?? null)
-  }, [ledgerQuery.data])
+  }, [ledgerData])
 
   const items = useMemo(
     () => [...(ledgerData?.items ?? []), ...appended],
     [ledgerData, appended],
   )
   const loading = ledgerQuery.isLoading
-  const loadError = ledgerQuery.isError ? apiMessage(ledgerQuery.error, t.loadFailed) : loadMoreError
+  /*
+   * The previous implementation collapsed both flavors of failure into a
+   * single `loadError` and rendered it INSTEAD of the table — hiding an
+   * already-loaded ledger when load-more failed. We now distinguish:
+   *  - initial-load failure (no items rendered) → blocking ErrorState
+   *  - load-more failure (items already rendered) → inline notice below table
+   * The defensive `!loadingMore` guard prevents a brief initial-load error
+   * from being swamped by the inline notice while pagination is mid-flight.
+   */
+  const ledgerHasItems = items.length > 0
+  const initialLoadError =
+    ledgerQuery.isError && !ledgerHasItems && !loadingMore
+      ? apiMessage(ledgerQuery.error, t.loadFailed)
+      : null
+  const inlineLoadMoreError =
+    loadMoreError && ledgerHasItems ? loadMoreError : null
 
   const retryLedger = () => {
     setLoadMoreError(null)
@@ -239,27 +235,6 @@ function AuditLedger({ locale }: { locale: 'ar' | 'en' }) {
     }
   }, [appliedFilters, nextCursor, loadingMore, csrfToken, t.loadFailed])
 
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [detail, setDetail] = useState<AuditEvent | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [detailError, setDetailError] = useState<string | null>(null)
-
-  async function inspectEvent(event: AuditEvent): Promise<void> {
-    setDetail(event)
-    setDetailOpen(true)
-    setDetailLoading(true)
-    setDetailError(null)
-    try {
-      setDetail(
-        unwrap<AuditEvent>(await generated.getAuditEvent(event.event_id, requestInit(csrfToken))),
-      )
-    } catch (error) {
-      setDetailError(apiMessage(error, t.operationFailed))
-    } finally {
-      setDetailLoading(false)
-    }
-  }
-
   function submitFilters(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
     setFilters({ ...draft })
@@ -267,7 +242,6 @@ function AuditLedger({ locale }: { locale: 'ar' | 'en' }) {
 
   const [exportReason, setExportReason] = useState('')
   const [exportFormat, setExportFormat] = useState<'csv' | 'ndjson'>('csv')
-  const [createdExport, setCreatedExport] = useState<AuditExportDescriptor | null>(null)
 
   const createExportMutation = useMutation({
     mutationFn: async (input: generated.AuditExportCreate) =>
@@ -275,19 +249,28 @@ function AuditLedger({ locale }: { locale: 'ar' | 'en' }) {
         await generated.createAuditExport(input, requestInit(csrfToken, { command: true })),
       ),
     onSuccess: (descriptor) => {
-      setCreatedExport(descriptor)
+      // 201 Accepted: return control immediately. Register the export in the
+      // session-local tracker (owned by the current user) so the Exports tab
+      // can poll and download it; no blocking overlay and no polling here.
+      toast(t.exportQueued)
+      registerExport({
+        id: descriptor.id,
+        kind: 'audit',
+        name: `${descriptor.format.toUpperCase()} · ${formatDate(descriptor.created_at, locale)} · ${descriptor.id}`,
+        format: descriptor.format,
+        createdAt: descriptor.created_at,
+        ownerUserId: session.userId,
+      })
       setExportReason('')
       invalidateLedger()
     },
   })
-  const [downloading, setDownloading] = useState(false)
-  const [downloadNotice, setDownloadNotice] = useState<string | null>(null)
-  const exportBusy = createExportMutation.isPending || downloading
+  const exportBusy = createExportMutation.isPending
   const exportNotice = createExportMutation.isPending
     ? null
     : createExportMutation.isError
       ? apiMessage(createExportMutation.error, t.operationFailed)
-      : downloadNotice
+      : null
 
   function submitExport(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -302,57 +285,6 @@ function AuditLedger({ locale }: { locale: 'ar' | 'en' }) {
         ...(query.occurred_to ? { occurred_to: query.occurred_to } : {}),
       },
     })
-  }
-
-  async function saveExport(): Promise<void> {
-    if (!createdExport) return
-    setDownloading(true)
-    setDownloadNotice(null)
-    try {
-      const accept = createdExport.format === 'ndjson' ? 'application/x-ndjson' : 'text/csv'
-      const response = await fetch(
-        `/api/v1/audit/exports/${encodeURIComponent(createdExport.id)}/download`,
-        {
-          credentials: 'include',
-          headers: {
-            ...requestInit(csrfToken).headers,
-            Accept: accept,
-          },
-        },
-      )
-      if (!response.ok) {
-        let problem: { type?: string; title?: string; status?: number } | null = null
-        try {
-          problem = (await response.json()) as { type?: string; title?: string; status?: number }
-        } catch {
-          problem = null
-        }
-        throw new ApiError(response.status, {
-          type: typeof problem?.type === 'string' && problem.type !== '' ? problem.type : 'about:blank',
-          title:
-            typeof problem?.title === 'string' && problem.title !== ''
-              ? problem.title
-              : 'Audit export download failed',
-          status: response.status,
-        })
-      }
-      const disposition = response.headers.get('Content-Disposition') ?? ''
-      const match = /filename="?([^";]+)"?/.exec(disposition)
-      const filename = match?.[1] ?? `audit-export-${createdExport.id}.${createdExport.format}`
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = filename
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      setDownloadNotice(apiMessage(error, t.operationFailed))
-    } finally {
-      setDownloading(false)
-    }
   }
 
   const [streamKey, setStreamKey] = useState('')
@@ -399,171 +331,266 @@ function AuditLedger({ locale }: { locale: 'ar' | 'en' }) {
   const deniedEvents = items.filter((item) => item.outcome === 'denied').length
   const visibleModules = new Set(items.map((item) => item.source_module)).size
 
-  return (
-    <Page aria-labelledby="audit-title">
-      <PageHeader id="audit-title" title={t.title} description={t.description} />
+  const ledgerColumns = useMemo<ColumnDef<AuditEvent>[]>(
+    () => [
+      {
+        id: 'occurred',
+        header: t.occurred,
+        cell: ({ row }) => (
+          <time dateTime={row.original.occurred_at}>{formatDate(row.original.occurred_at, locale)}</time>
+        ),
+      },
+      {
+        id: 'action',
+        header: t.action,
+        cell: ({ row }) => (
+          <div className="grid gap-0.5">
+            <strong>{row.original.action}</strong>
+            <span className="text-muted-foreground text-xs">{row.original.source_module}</span>
+          </div>
+        ),
+      },
+      {
+        id: 'actor',
+        header: t.actor,
+        cell: ({ row }) => (
+          <div className="grid gap-0.5">
+            {row.original.actor_id ?? t.system}
+            <span className="text-muted-foreground text-xs">{row.original.actor_type}</span>
+          </div>
+        ),
+      },
+      {
+        id: 'subject',
+        header: t.subject,
+        cell: ({ row }) => (
+          <div className="grid gap-0.5">
+            {row.original.subject_id ?? t.notAvailable}
+            <span className="text-muted-foreground text-xs">{row.original.subject_type}</span>
+          </div>
+        ),
+      },
+      {
+        id: 'outcome',
+        header: t.outcome,
+        cell: ({ row }) => (
+          <Badge variant="outline">
+            <OutcomeIcon outcome={row.original.outcome} />
+            {row.original.outcome}
+          </Badge>
+        ),
+      },
+      {
+        id: 'integrity',
+        header: t.integrity,
+        cell: ({ row }) => (
+          <Badge variant="outline">
+            <IntegrityIcon status={row.original.integrity_status} />
+            {row.original.integrity_status}
+          </Badge>
+        ),
+      },
+      {
+        id: 'inspect',
+        header: t.inspect,
+        cell: ({ row }) => (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/reports/audit/events/${row.original.event_id}`)}
+          >
+            {t.inspect}
+          </Button>
+        ),
+      },
+    ],
+    [t, locale, navigate],
+  )
 
-      <div className="metric-grid" role="group" aria-label={t.title}>
-        <div className="metric-tile">
-          <span className="metric-tile__value">{items.length}</span>
-          <span className="metric-tile__label">{t.ledger}</span>
-        </div>
-        <div className={`metric-tile${integrityViolations > 0 ? ' metric-tile--danger' : ' metric-tile--success'}`}>
-          <span className="metric-tile__value">{integrityViolations}</span>
-          <span className="metric-tile__label">{t.integrity}</span>
-        </div>
-        <div className="metric-tile metric-tile--warning">
-          <span className="metric-tile__value">{deniedEvents}</span>
-          <span className="metric-tile__label">{t.outcome}</span>
-        </div>
-        <div className="metric-tile">
-          <span className="metric-tile__value">{visibleModules}</span>
-          <span className="metric-tile__label">{t.sourceModule}</span>
-        </div>
+  const table = useReactTable({
+    data: items,
+    columns: ledgerColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">{t.title}</h2>
+        <p className="text-muted-foreground text-sm">{t.description}</p>
       </div>
 
-      <Panel id="audit-filters" title={t.filters} level={2}>
-        <form className="inline-form" onSubmit={submitFilters}>
-          <Field id="audit-source-module" label={t.sourceModule}>
-            <input
-              id="audit-source-module"
-              value={draft.sourceModule}
-              onChange={(event) => setDraft({ ...draft, sourceModule: event.currentTarget.value })}
-            />
-          </Field>
-          <Field id="audit-action" label={t.action}>
-            <input
-              id="audit-action"
-              value={draft.action}
-              onChange={(event) => setDraft({ ...draft, action: event.currentTarget.value })}
-            />
-          </Field>
-          <Field id="audit-classification" label={t.classification}>
-            <select
-              id="audit-classification"
-              className="field__control"
-              value={draft.classification}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  classification: event.currentTarget.value as FilterDraft['classification'],
-                })
-              }
-            >
-              <option value="">{t.allClassifications}</option>
-              <option value="public">Public</option>
-              <option value="internal">Internal</option>
-              <option value="confidential">Confidential</option>
-              <option value="top_secret">Top secret</option>
-            </select>
-          </Field>
-          <Field id="audit-occurred-from" label={t.from}>
-            <input
-              id="audit-occurred-from"
-              type="datetime-local"
-              value={draft.occurredFrom}
-              onChange={(event) => setDraft({ ...draft, occurredFrom: event.currentTarget.value })}
-            />
-          </Field>
-          <Field id="audit-occurred-to" label={t.to}>
-            <input
-              id="audit-occurred-to"
-              type="datetime-local"
-              value={draft.occurredTo}
-              onChange={(event) => setDraft({ ...draft, occurredTo: event.currentTarget.value })}
-            />
-          </Field>
-          <div className="form-actions">
-            <Button type="submit">{t.apply}</Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setDraft(EMPTY_FILTERS)
-                setFilters(EMPTY_FILTERS)
-              }}
-            >
-              {t.clear}
-            </Button>
-          </div>
-        </form>
-      </Panel>
+      {/* Compact summary band — a definition list, never colored tiles. */}
+      <dl
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+        data-testid="audit-summary"
+        aria-label={t.ledger}
+      >
+        <SummaryItem label={t.ledger} value={items.length} />
+        <SummaryItem label={t.integrity} value={integrityViolations} />
+        <SummaryItem label={t.outcome} value={deniedEvents} />
+        <SummaryItem label={t.sourceModule} value={visibleModules} />
+      </dl>
 
-      <Panel id="audit-ledger" title={t.ledger} level={2}>
-        {loading ? <SkeletonList rows={6} /> : null}
-        {!loading && loadError ? (
-          <InlineError message={loadError} retryLabel={t.retry} onRetry={retryLedger} />
-        ) : null}
-        {!loading && !loadError && items.length === 0 ? (
-          <EmptyState title={t.empty} body={t.emptyBody} />
-        ) : null}
-        {!loading && !loadError && items.length > 0 ? (
-          <div className="table-scroll">
-            <table className="entity-table">
-              <caption className="sr-only">{t.ledger}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{t.occurred}</th>
-                  <th scope="col">{t.action}</th>
-                  <th scope="col">{t.actor}</th>
-                  <th scope="col">{t.subject}</th>
-                  <th scope="col">{t.outcome}</th>
-                  <th scope="col">{t.integrity}</th>
-                  <th scope="col">{t.inspect}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.event_id}>
-                    <td>
-                      <time dateTime={item.occurred_at}>{formatDate(item.occurred_at, locale)}</time>
-                    </td>
-                    <td>
-                      <strong>{item.action}</strong>
-                      <small>{item.source_module}</small>
-                    </td>
-                    <td>
-                      {item.actor_id ?? t.system}
-                      <small>{item.actor_type}</small>
-                    </td>
-                    <td>
-                      {item.subject_id ?? t.notAvailable}
-                      <small>{item.subject_type}</small>
-                    </td>
-                    <td>
-                      <StatusBadge variant={statusVariant(item.outcome)}>{item.outcome}</StatusBadge>
-                    </td>
-                    <td>
-                      <StatusBadge variant={statusVariant(item.integrity_status)}>
-                        {item.integrity_status}
-                      </StatusBadge>
-                    </td>
-                    <td>
-                      <Button variant="secondary" onClick={() => void inspectEvent(item)}>
-                        {t.inspect}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-        {nextCursor ? (
-          <div className="pagination-bar">
-            <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
-              {t.loadMore}
-            </Button>
-          </div>
-        ) : null}
-      </Panel>
+      <Card data-testid="audit-filters">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">{t.filters}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitFilters}>
+            <div className="grid gap-1.5">
+              <Label htmlFor="audit-source-module">{t.sourceModule}</Label>
+              <Input
+                id="audit-source-module"
+                value={draft.sourceModule}
+                onChange={(event) => setDraft({ ...draft, sourceModule: event.currentTarget.value })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="audit-action">{t.action}</Label>
+              <Input
+                id="audit-action"
+                value={draft.action}
+                onChange={(event) => setDraft({ ...draft, action: event.currentTarget.value })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="audit-classification">{t.classification}</Label>
+              {/*
+                * Radix Select reports the "__all" sentinel for the "All"
+                * option. Normalize it to an empty string so the sentinel
+                * never reaches the API as a filter — mirroring the
+                * search/type filter pattern.
+                */}
+              <Select
+                value={draft.classification || '__all'}
+                onValueChange={(value) =>
+                  setDraft({
+                    ...draft,
+                    classification: (value === '__all' ? '' : value) as FilterDraft['classification'],
+                  })
+                }
+              >
+                <SelectTrigger id="audit-classification" className="w-full">
+                  <SelectValue placeholder={t.allClassifications} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">{t.allClassifications}</SelectItem>
+                  <SelectItem value="public">Public</SelectItem>
+                  <SelectItem value="internal">Internal</SelectItem>
+                  <SelectItem value="confidential">Confidential</SelectItem>
+                  <SelectItem value="top_secret">Top secret</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="audit-occurred-from">{t.from}</Label>
+              <Input
+                id="audit-occurred-from"
+                type="datetime-local"
+                value={draft.occurredFrom}
+                onChange={(event) => setDraft({ ...draft, occurredFrom: event.currentTarget.value })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="audit-occurred-to">{t.to}</Label>
+              <Input
+                id="audit-occurred-to"
+                type="datetime-local"
+                value={draft.occurredTo}
+                onChange={(event) => setDraft({ ...draft, occurredTo: event.currentTarget.value })}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="submit">{t.apply}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDraft(EMPTY_FILTERS)
+                  setFilters(EMPTY_FILTERS)
+                }}
+              >
+                {t.clear}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-      <div className="panel-grid">
-        {canExport ? (
-          <Panel id="audit-export" title={t.exportTitle} level={2}>
-            <form className="inline-form" onSubmit={submitExport}>
-              <Field id="audit-export-reason" label={t.exportReason} required help={t.exportReasonHelp}>
-                <textarea
+      <Card data-testid="audit-ledger">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">{t.ledger}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loading ? <LoadingState rows={6} /> : null}
+          {!loading && initialLoadError ? (
+            <ErrorState locale={locale} onRetry={retryLedger} />
+          ) : null}
+          {!loading && !initialLoadError && items.length === 0 ? (
+            <EmptyState title={t.empty} body={t.emptyBody} />
+          ) : null}
+          {!loading && !initialLoadError && items.length > 0 ? (
+            <>
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows.map((row) => (
+                    <TableRow key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {nextCursor ? (
+                <div className="flex justify-center">
+                  <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
+                    {t.loadMore}
+                  </Button>
+                </div>
+              ) : null}
+              {/*
+                * Load-more failure: keep the already-loaded table visible and
+                * surface a compact inline alert below pagination. Only
+                * initial-load errors deserve a blocking ErrorState.
+                */}
+              {inlineLoadMoreError ? (
+                <p className="text-destructive text-sm" role="alert" data-testid="audit-load-more-error">
+                  {inlineLoadMoreError}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {canExport ? (
+        <Card data-testid="audit-export">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">{t.exportTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form className="grid gap-4" onSubmit={submitExport}>
+              <div className="grid gap-1.5">
+                <Label htmlFor="audit-export-reason">{t.exportReason}</Label>
+                <Textarea
                   id="audit-export-reason"
                   rows={3}
                   required
@@ -572,157 +599,148 @@ function AuditLedger({ locale }: { locale: 'ar' | 'en' }) {
                   value={exportReason}
                   onChange={(event) => setExportReason(event.currentTarget.value)}
                 />
-              </Field>
-              <Field id="audit-export-format" label={t.format}>
-                <select
-                  id="audit-export-format"
-                  className="field__control"
+                <p className="text-muted-foreground text-xs">{t.exportReasonHelp}</p>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="audit-export-format">{t.format}</Label>
+                <Select
                   value={exportFormat}
-                  onChange={(event) => setExportFormat(event.currentTarget.value as 'csv' | 'ndjson')}
+                  onValueChange={(value) => setExportFormat(value as 'csv' | 'ndjson')}
                 >
-                  <option value="csv">CSV</option>
-                  <option value="ndjson">NDJSON</option>
-                </select>
-              </Field>
-              <div className="form-actions">
+                  <SelectTrigger id="audit-export-format" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csv">CSV</SelectItem>
+                    <SelectItem value="ndjson">NDJSON</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Button type="submit" disabled={exportBusy || exportReason.trim() === ''}>
                   {t.createExport}
                 </Button>
               </div>
             </form>
             {exportNotice ? (
-              <p className="status-message status-message--error" role="alert">
-                {exportNotice}
-              </p>
+              <Alert variant="destructive">
+                <CircleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>{exportNotice}</AlertTitle>
+              </Alert>
             ) : null}
-            {createdExport ? (
-              <div className="status-message" role="status">
-                <p className="status-message status-message--success">{t.exportReady}</p>
-                <p>
-                  {createdExport.event_count} {t.events} · {t.expires}{' '}
-                  {formatDate(createdExport.expires_at, locale)}
-                </p>
-                <Button variant="secondary" disabled={exportBusy} onClick={() => void saveExport()}>
-                  {t.download}
-                </Button>
-              </div>
-            ) : null}
-          </Panel>
-        ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
-        {canVerify ? (
-          <Panel id="audit-integrity" title={t.verifyTitle} level={2}>
-            <form className="inline-form" onSubmit={submitVerification}>
-              <Field id="audit-stream-key" label={t.streamKey} required>
-                <input
+      {canVerify ? (
+        <Card data-testid="audit-integrity">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">{t.verifyTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form className="grid gap-4 sm:grid-cols-2" onSubmit={submitVerification}>
+              <div className="grid gap-1.5">
+                <Label htmlFor="audit-stream-key">{t.streamKey}</Label>
+                <Input
                   id="audit-stream-key"
                   required
                   maxLength={160}
                   value={streamKey}
                   onChange={(event) => setStreamKey(event.currentTarget.value)}
                 />
-              </Field>
-              <Field id="audit-first-sequence" label={t.firstSequence} help={t.rangeHelp}>
-                <input
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="audit-first-sequence">{t.firstSequence}</Label>
+                <Input
                   id="audit-first-sequence"
                   type="number"
                   min={1}
                   value={firstSequence}
                   onChange={(event) => setFirstSequence(event.currentTarget.value)}
                 />
-              </Field>
-              <Field id="audit-last-sequence" label={t.lastSequence}>
-                <input
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="audit-last-sequence">{t.lastSequence}</Label>
+                <Input
                   id="audit-last-sequence"
                   type="number"
                   min={1}
                   value={lastSequence}
                   onChange={(event) => setLastSequence(event.currentTarget.value)}
                 />
-              </Field>
-              <div className="form-actions">
+              </div>
+              <p className="text-muted-foreground text-xs sm:col-span-2">{t.rangeHelp}</p>
+              <div className="sm:col-span-2">
                 <Button type="submit" disabled={verifyBusy || streamKey.trim() === ''}>
                   {t.verify}
                 </Button>
               </div>
             </form>
             {displayedVerifyNotice ? (
-              <p className="status-message status-message--error" role="alert">
-                {displayedVerifyNotice}
-              </p>
+              <Alert variant="destructive">
+                <CircleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>{displayedVerifyNotice}</AlertTitle>
+              </Alert>
             ) : null}
-            {verification ? (
-              <div className="status-message" role="status">
-                <p className="status-message status-message--success">{t.verified}</p>
-                <p>
-                  <StatusBadge variant={statusVariant(verification.integrity_status)}>
-                    {verification.integrity_status}
-                  </StatusBadge>{' '}
-                  {verification.verified_event_count} {t.events} · {verification.first_sequence}–
-                  {verification.last_sequence}
-                </p>
-                <p>
-                  {t.ledger}: {verification.stream_key}
-                </p>
-              </div>
-            ) : null}
-          </Panel>
-        ) : null}
-      </div>
-
-      <Drawer open={detailOpen} onClose={() => setDetailOpen(false)} title={t.eventDetail}>
-        {detailLoading ? <SkeletonList rows={4} /> : null}
-        {detailError ? <InlineError message={detailError} /> : null}
-        {!detailLoading && detail ? <AuditEventDetail event={detail} locale={locale} /> : null}
-      </Drawer>
-    </Page>
-  )
-}
-
-function AuditEventDetail({ event, locale }: { event: AuditEvent; locale: 'ar' | 'en' }) {
-  const t = copy[locale]
-  const facts: Array<[string, string]> = [
-    [t.eventId, event.event_id],
-    [t.correlationId, event.correlation_id],
-    [t.eventType, event.event_type],
-    [t.occurred, formatDate(event.occurred_at, locale)],
-    [t.recorded, formatDate(event.recorded_at, locale)],
-    [t.retention, formatDate(event.retention_until, locale)],
-    [t.accessDecision, event.access_decision_id ?? t.notAvailable],
-    [t.actor, `${event.actor_type}${event.actor_id ? ` · ${event.actor_id}` : ` · ${t.system}`}`],
-    [t.subject, `${event.subject_type}${event.subject_id ? ` · ${event.subject_id}` : ` · ${t.notAvailable}`}`],
-  ]
-  return (
-    <div className="detail-list">
-      <p className="status-message">
-        <StatusBadge variant={statusVariant(event.outcome)}>{event.outcome}</StatusBadge>{' '}
-        <StatusBadge variant={statusVariant(event.integrity_status)}>{event.integrity_status}</StatusBadge>{' '}
-        <StatusBadge variant={statusVariant(event.classification)}>{event.classification}</StatusBadge>
-      </p>
-      <dl>
-        {facts.map(([label, value]) => (
-          <div key={label} className="detail-list__row">
-            <dt className="detail-list__key">{label}</dt>
-            <dd className="detail-list__value">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <section aria-labelledby="audit-context-title">
-        <h3 className="panel__heading" id="audit-context-title">
-          {t.context}
-        </h3>
-        <p className="status-message">{t.redacted}</p>
-        <dl>
-          {Object.entries(event.context).map(([key, value]) => (
-            <div key={key} className="detail-list__row">
-              <dt className="detail-list__key">{key}</dt>
-              <dd className="detail-list__value">
-                {typeof value === 'string' ? value : JSON.stringify(value)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+            {verification ? <VerificationResult result={verification} locale={locale} /> : null}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   )
 }
+
+function SummaryItem({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="grid gap-0.5 rounded-lg bg-muted/50 p-3">
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="text-xl font-semibold tabular-nums">{value}</dd>
+    </div>
+  )
+}
+
+function OutcomeIcon({ outcome }: { outcome: string }) {
+  if (outcome === 'succeeded')
+    return <CheckCircle2 className="size-3.5" aria-hidden="true" />
+  if (outcome === 'denied') return <ShieldX className="size-3.5" aria-hidden="true" />
+  return <CircleAlert className="size-3.5" aria-hidden="true" />
+}
+
+function IntegrityIcon({ status }: { status: string }) {
+  if (status === 'verified') return <ShieldCheck className="size-3.5" aria-hidden="true" />
+  if (status === 'violated') return <ShieldAlert className="size-3.5" aria-hidden="true" />
+  return <ShieldQuestion className="size-3.5" aria-hidden="true" />
+}
+
+/*
+ * Integrity results surface as a shadcn Alert with a plain textual status and
+ * the verified first–last sequence range. The status is deliberately NOT a
+ * persistent colored badge; positive states have no dedicated token by design.
+ */
+function VerificationResult({ result, locale }: { result: AuditIntegrityResult; locale: 'ar' | 'en' }) {
+  const t = copy[locale]
+  return (
+    <Alert data-testid="audit-verification-result">
+      <ShieldCheck className="size-4" aria-hidden="true" />
+      <AlertTitle>{t.verified}</AlertTitle>
+      <AlertDescription className="space-y-1">
+        <p>
+          <span dir="ltr">{result.integrity_status}</span> · {result.verified_event_count} {t.events}
+        </p>
+        <p>
+          {t.range}: <span dir="ltr">{result.first_sequence}–{result.last_sequence}</span>
+        </p>
+        <p className="break-all" dir="ltr">
+          {result.stream_key}
+        </p>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
+/*
+ * The detail content moved to the full-page AuditEventDetailScreen; it is
+ * re-exported here so existing consumers keep importing it from the ledger
+ * module.
+ */
+export { AuditEventDetail } from './AuditEventDetailScreen'

@@ -43,6 +43,7 @@ test-api:
 test-web:
 	npm --prefix apps/web run build
 	npm --prefix apps/web run lint
+	npm --prefix apps/web run check:sheets
 	npm --prefix apps/web run coverage
 
 test-web-unit:

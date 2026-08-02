@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import * as generated from '../api/generated/cluster'
 import { ApiError, customFetch, requestInit, unwrap, uuidV7 } from '../api/http'
 import { useSessionToken } from './session-context'
@@ -12,13 +21,22 @@ export interface PrincipalSnapshot {
   revision: number
   scopeEpoch: number
   scopeReady: boolean
+  errorCorrelationId: string | null
   refresh: () => void
   selectScope: (scopeType: string, scopeId: string) => Promise<void>
 }
 
 interface ScopesPayload {
-  available_scopes: Array<{ scope_type: string; scope_id: string; label: string }>
-  effective_scope: { scope_type: string; scope_id: string; label: string } | null
+  available_scopes: Array<{
+    scope_type: string
+    scope_id: string
+    label: string
+  }>
+  effective_scope: {
+    scope_type: string
+    scope_id: string
+    label: string
+  } | null
 }
 
 interface ScopeSelectPayload {
@@ -32,18 +50,27 @@ export function PrincipalProvider({ children }: { children: ReactNode }) {
   const csrfToken = useSessionToken()
   const [state, setState] = useState<PrincipalSnapshot['state']>('loading')
   const [capabilities, setCapabilities] = useState<string[] | null>(null)
-  const [features, setFeatures] = useState<PrincipalSnapshot['features'] | null>(null)
-  const [effectiveScope, setEffectiveScope] = useState<PrincipalSnapshot['effectiveScope']>(null)
-  const [availableScopes, setAvailableScopes] = useState<PrincipalSnapshot['availableScopes']>([])
+  const [features, setFeatures] = useState<
+    PrincipalSnapshot['features'] | null
+  >(null)
+  const [effectiveScope, setEffectiveScope] =
+    useState<PrincipalSnapshot['effectiveScope']>(null)
+  const [availableScopes, setAvailableScopes] = useState<
+    PrincipalSnapshot['availableScopes']
+  >([])
   const [revision, setRevision] = useState(0)
   const [scopeEpoch, setScopeEpoch] = useState(0)
   const [scopeReady, setScopeReady] = useState(false)
+  const [errorCorrelationId, setErrorCorrelationId] = useState<string | null>(
+    null,
+  )
   const inFlight = useRef(false)
 
   const load = useCallback(async () => {
     if (inFlight.current) return
     inFlight.current = true
     setState('loading')
+    setErrorCorrelationId(null)
     try {
       // GET /api/v1/me is the contracted PrincipalContext projection: it
       // carries the capability codes + feature flags the shell needs. The
@@ -55,12 +82,17 @@ export function PrincipalProvider({ children }: { children: ReactNode }) {
         unwrap<ScopesPayload>(
           await customFetch('/api/v1/me/scopes', {
             method: 'GET',
-            headers: { Accept: 'application/json', 'X-Correlation-ID': uuidV7() },
+            headers: {
+              Accept: 'application/json',
+              'X-Correlation-ID': uuidV7(),
+            },
           }),
         ),
       ])
       setCapabilities(principal.capabilities ?? [])
-      setFeatures(principal.features ?? { work_management: false, tasks: false })
+      setFeatures(
+        principal.features ?? { work_management: false, tasks: false },
+      )
       setAvailableScopes(
         (scopes.available_scopes ?? []).map((s) => ({
           scopeType: s.scope_type,
@@ -70,18 +102,27 @@ export function PrincipalProvider({ children }: { children: ReactNode }) {
       )
       setEffectiveScope(
         scopes.effective_scope
-          ? { scopeType: scopes.effective_scope.scope_type, scopeId: scopes.effective_scope.scope_id, label: scopes.effective_scope.label }
+          ? {
+              scopeType: scopes.effective_scope.scope_type,
+              scopeId: scopes.effective_scope.scope_id,
+              label: scopes.effective_scope.label,
+            }
           : null,
       )
       setScopeReady(true)
+      setErrorCorrelationId(null)
       setState('ready')
       setRevision((r) => r + 1)
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
         setCapabilities([])
         setFeatures({ work_management: false, tasks: false })
+        setErrorCorrelationId(null)
         setState('denied')
       } else {
+        setErrorCorrelationId(
+          error instanceof ApiError ? error.correlationId : null,
+        )
         setState('error')
       }
     } finally {
@@ -138,44 +179,82 @@ export function PrincipalProvider({ children }: { children: ReactNode }) {
       revision,
       scopeEpoch,
       scopeReady,
+      errorCorrelationId,
       refresh,
       selectScope,
     }),
-    [state, capabilities, features, effectiveScope, availableScopes, revision, scopeEpoch, scopeReady, refresh, selectScope],
+    [
+      state,
+      capabilities,
+      features,
+      effectiveScope,
+      availableScopes,
+      revision,
+      scopeEpoch,
+      scopeReady,
+      errorCorrelationId,
+      refresh,
+      selectScope,
+    ],
   )
 
-  return <PrincipalContext.Provider value={value}>{children}</PrincipalContext.Provider>
+  return (
+    <PrincipalContext.Provider value={value}>
+      {children}
+    </PrincipalContext.Provider>
+  )
 }
 
 export function usePrincipal(): PrincipalSnapshot {
   const context = useContext(PrincipalContext)
-  if (!context) throw new Error('usePrincipal must be used within PrincipalProvider')
+  if (!context)
+    throw new Error('usePrincipal must be used within PrincipalProvider')
   return context
 }
 
 export function PrincipalContextTestProvider({
   capabilities,
   features,
+  effectiveScope = null,
+  state = 'ready',
+  errorCorrelationId = null,
+  refresh = () => {},
   children,
 }: {
   capabilities: string[]
-  features: { work_management: boolean; tasks: boolean }
+  features: PrincipalSnapshot['features']
+  effectiveScope?: PrincipalSnapshot['effectiveScope']
+  state?: PrincipalSnapshot['state']
+  errorCorrelationId?: string | null
+  refresh?: () => void
   children: ReactNode
 }) {
   const value: PrincipalSnapshot = useMemo(
     () => ({
-      state: 'ready',
+      state,
       capabilities,
       features,
-      effectiveScope: null,
+      effectiveScope,
       availableScopes: [],
       revision: 0,
       scopeEpoch: 0,
       scopeReady: true,
-      refresh: () => {},
+      errorCorrelationId,
+      refresh,
       selectScope: async () => {},
     }),
-    [capabilities, features],
+    [
+      capabilities,
+      features,
+      effectiveScope,
+      state,
+      errorCorrelationId,
+      refresh,
+    ],
   )
-  return <PrincipalContext.Provider value={value}>{children}</PrincipalContext.Provider>
+  return (
+    <PrincipalContext.Provider value={value}>
+      {children}
+    </PrincipalContext.Provider>
+  )
 }

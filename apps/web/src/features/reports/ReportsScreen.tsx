@@ -4,67 +4,27 @@ import type { DomainResource, Entity } from '../../api/generated/cluster'
 import { ApiError, requestInit, unwrap } from '../../api/http'
 import { useReportsList } from '../../api/hooks'
 import { usePrincipal } from '../../app/principal-context'
-import { useLocale, useSessionToken } from '../../app/session-context'
+import { useLocale, useSession, useSessionToken } from '../../app/session-context'
 import { formatDate, formatNumber, statusLabel } from '../../i18n'
-import { Button, EmptyState, Field, InlineError, Page, PageHeader, Panel, PanelGrid, Select, SkeletonList } from '../../ui'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DeniedState, EmptyState, ErrorState, LoadingState } from '@/components/states'
+import { reportsCopy } from './reports-copy'
+import { registerExport } from './export-tracker'
 
-const copy = {
-  ar: {
-    title: 'التقارير',
-    description: 'التقارير المتاحة ضمن نطاقك. اختر تقريرًا لعرض نتيجته أو تصديرها.',
-    loading: 'جارٍ تحميل التقارير…',
-    failed: 'تعذر تحميل التقارير.',
-    empty: 'لا توجد تقارير متاحة ضمن نطاقك.',
-    selectReport: 'اختر تقريرًا',
-    reportDetail: 'تفاصيل التقرير',
-    values: 'القيم',
-    status: 'الحالة',
-    classification: 'التصنيف',
-    version: 'الإصدار',
-    updated: 'آخر تحديث',
-    export: 'تصدير',
-    exportFormat: 'التنسيق',
-    createExport: 'إنشاء التصدير',
-    exportQueued: 'جارٍ تجهيز التصدير…',
-    exportReady: 'التصدير جاهز للتنزيل',
-    download: 'تنزيل الملف',
-    exportFailed: 'تعذر إنشاء التصدير.',
-    exportExpired: 'انتهت صلاحية التصدير أو تعذر تحميله.',
-    denied: 'غير مصرح لك بالوصول إلى هذا التقرير.',
-    notFound: 'لم نعثر على هذا التقرير.',
-    retry: 'إعادة المحاولة',
-    notAvailable: 'غير متاح',
-  },
-  en: {
-    title: 'Reports',
-    description: 'Reports available in your scope. Select a report to view or export its result.',
-    loading: 'Loading reports…',
-    failed: 'Reports could not be loaded.',
-    empty: 'No reports are available in your scope.',
-    selectReport: 'Select a report',
-    reportDetail: 'Report details',
-    values: 'Values',
-    status: 'Status',
-    classification: 'Classification',
-    version: 'Version',
-    updated: 'Updated',
-    export: 'Export',
-    exportFormat: 'Format',
-    createExport: 'Create export',
-    exportQueued: 'Preparing export…',
-    exportReady: 'Export ready to download',
-    download: 'Download file',
-    exportFailed: 'The export could not be created.',
-    exportExpired: 'The export expired or could not be downloaded.',
-    denied: 'You are not authorized to view this report.',
-    notFound: 'We could not find this report.',
-    retry: 'Retry',
-    notAvailable: 'Not available',
-  },
-} as const
-
-const EXPORT_DONE = new Set(['ready', 'completed', 'available'])
-const EXPORT_FAILED = new Set(['failed', 'error', 'cancelled'])
+type DetailState = 'idle' | 'loading' | 'ready' | 'forbidden' | 'not-found' | 'error'
 
 function apiMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? (error.problem.detail ?? error.problem.title) : fallback
@@ -87,65 +47,35 @@ function pickStatus(entity: Entity): string {
   return String(entity.status ?? '')
 }
 
-function downloadCsvArtifact(
-  url: string,
-  fallbackName: string,
-  csrfToken: string,
-): Promise<string> {
-  return fetch(url, {
-    credentials: 'include',
-    headers: {
-      ...requestInit(csrfToken).headers,
-      Accept: 'text/csv',
-    },
-  }).then(async (response) => {
-    if (!response.ok) {
-      let problem: { type?: string; title?: string; status?: number } | null = null
-      try {
-        problem = (await response.json()) as { type?: string; title?: string; status?: number }
-      } catch {
-        problem = null
-      }
-      const type = typeof problem?.type === 'string' && problem.type !== '' ? problem.type : 'about:blank'
-      const title = typeof problem?.title === 'string' && problem.title !== '' ? problem.title : 'Export download failed'
-      throw new ApiError(response.status, { type, title, status: response.status })
-    }
-    const disposition = response.headers.get('Content-Disposition') ?? ''
-    const match = /filename="?([^";]+)"?/.exec(disposition)
-    const filename = match?.[1] ?? fallbackName
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = filename
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    URL.revokeObjectURL(url)
-    return filename
-  })
-}
-
 function isScalar(value: unknown): value is string | number | boolean {
   return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
 }
 
+/*
+ * Reports tab: a responsive two-region layout — the report list/selector on
+ * one side and the selected report detail on the other (stacked on mobile).
+ * Exporting is asynchronous (202): a format Dialog opens, then a sonner
+ * preparation toast fires, the export is handed to the session-local tracker
+ * (Exports tab), and control returns immediately. No polling happens here.
+ */
 export function ReportsScreen() {
   const locale = useLocale()
   const csrfToken = useSessionToken()
+  const { session } = useSession()
   const principal = usePrincipal()
-  const t = copy[locale]
+  const t = reportsCopy[locale]
   const scopeId = principal.effectiveScope?.scopeId
   const scopeEpoch = principal.scopeEpoch
+  const canExport = principal.capabilities?.includes('reporting.export') ?? false
 
   const [selectedId, setSelectedId] = useState('')
   const [detail, setDetail] = useState<DomainResource | null>(null)
-  const [detailState, setDetailState] = useState<'idle' | 'loading' | 'ready' | 'forbidden' | 'not-found' | 'error'>('idle')
+  const [detailState, setDetailState] = useState<DetailState>('idle')
   const requestRevision = useRef(0)
 
   const reportsQuery = useReportsList()
   const items = (reportsQuery.data as generated.CollectionResponse | undefined)?.items ?? []
-  const state: 'loading' | 'ready' | 'empty' | 'forbidden' | 'error' = reportsQuery.isLoading
+  const listState: 'loading' | 'ready' | 'empty' | 'forbidden' | 'error' = reportsQuery.isLoading
     ? 'loading'
     : reportsQuery.isError
       ? reportsQuery.error instanceof ApiError && reportsQuery.error.status === 403
@@ -154,14 +84,6 @@ export function ReportsScreen() {
       : items.length > 0
         ? 'ready'
         : 'empty'
-
-  const prevScopeEpoch = useRef(scopeEpoch)
-  useEffect(() => {
-    if (prevScopeEpoch.current !== scopeEpoch) {
-      prevScopeEpoch.current = scopeEpoch
-      void reportsQuery.refetch()
-    }
-  }, [scopeEpoch, reportsQuery])
 
   const loadDetail = useCallback(
     async (reportId: string) => {
@@ -199,104 +121,44 @@ export function ReportsScreen() {
     void loadDetail(selectedId)
   }, [loadDetail, selectedId, scopeEpoch])
 
+  const [formatOpen, setFormatOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv')
   const [exporting, setExporting] = useState(false)
-  const [exportItem, setExportItem] = useState<DomainResource | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
-  const [downloading, setDownloading] = useState(false)
 
   async function createExport(): Promise<void> {
-    if (!selectedId || exporting || detailState !== 'ready') return
+    if (!canExport || !selectedId || exporting || detailState !== 'ready') return
     setExporting(true)
     setExportError(null)
-    setExportItem(null)
     try {
       const entity = unwrap<Entity>(
         await generated.createReportExport(
           selectedId,
-          { format: 'csv' },
+          { format: exportFormat },
           requestInit(csrfToken, { command: true }),
         ),
       )
       if (!isDomainResource(entity) || !entity.id) {
         setExportError(t.exportFailed)
-        setExporting(false)
         return
       }
-      setExportItem(entity)
+      // 202 Accepted: return control immediately. Close the dialog, re-enable
+      // the trigger, notify preparation, and register the export (owned by
+      // the current session user) so the Exports tab can track and download it.
+      setFormatOpen(false)
+      toast(t.exportQueued)
+      registerExport({
+        id: entity.id,
+        kind: 'report',
+        name: detail ? entityTitle(detail) : selectedId,
+        format: exportFormat,
+        createdAt: entity.created_at ?? new Date().toISOString(),
+        ownerUserId: session.userId,
+      })
     } catch (error) {
       setExportError(apiMessage(error, t.exportFailed))
-      setExporting(false)
-    }
-  }
-
-  const exportId = exportItem?.id ?? null
-
-  useEffect(() => {
-    if (!exportId) return
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout> | undefined
-    let attempts = 0
-    const maxAttempts = 12
-    const poll = async (): Promise<void> => {
-      if (cancelled) return
-      try {
-        const entity = unwrap<Entity>(await generated.getExport(exportId, requestInit(csrfToken)))
-        if (cancelled) return
-        if (!isDomainResource(entity)) {
-          setExportError(t.exportFailed)
-          setExporting(false)
-          return
-        }
-        setExportItem(entity)
-        const status = pickStatus(entity)
-        if (EXPORT_DONE.has(status)) {
-          setExporting(false)
-          return
-        }
-        if (EXPORT_FAILED.has(status)) {
-          setExportError(t.exportFailed)
-          setExporting(false)
-          return
-        }
-        if (attempts >= maxAttempts) {
-          setExportError(t.exportFailed)
-          setExporting(false)
-          return
-        }
-        attempts += 1
-        timer = setTimeout(() => void poll(), 1000 * Math.min(attempts, 6))
-      } catch (error) {
-        if (cancelled) return
-        if (attempts >= maxAttempts) {
-          setExportError(apiMessage(error, t.exportFailed))
-          setExporting(false)
-          return
-        }
-        attempts += 1
-        timer = setTimeout(() => void poll(), 1000 * Math.min(attempts, 6))
-      }
-    }
-    void poll()
-    return () => {
-      cancelled = true
-      if (timer) clearTimeout(timer)
-    }
-  }, [exportId, csrfToken, t.exportFailed])
-
-  async function downloadExport(): Promise<void> {
-    if (!exportId || downloading) return
-    setDownloading(true)
-    setExportError(null)
-    try {
-      await downloadCsvArtifact(
-        `/api/v1/exports/${encodeURIComponent(exportId)}`,
-        `report-${exportId}.csv`,
-        csrfToken,
-      )
-    } catch (error) {
-      setExportError(apiMessage(error, t.exportExpired))
     } finally {
-      setDownloading(false)
+      setExporting(false)
     }
   }
 
@@ -308,130 +170,160 @@ export function ReportsScreen() {
     : []
 
   return (
-    <Page aria-labelledby="reports-title">
-      <PageHeader id="reports-title" title={t.title} description={t.description} />
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold tracking-tight">{t.reportsTitle}</h2>
+      <p className="text-muted-foreground text-sm">{t.reportsDescription}</p>
 
-      {state === 'loading' ? <SkeletonList rows={4} /> : null}
-      {state === 'forbidden' ? <EmptyState title={t.denied} /> : null}
-      {state === 'error' ? (
-        <InlineError message={t.failed} retryLabel={t.retry} onRetry={() => void reportsQuery.refetch()} />
+      {listState === 'loading' ? <LoadingState rows={4} /> : null}
+      {listState === 'forbidden' ? <DeniedState locale={locale} /> : null}
+      {listState === 'error' ? (
+        <ErrorState locale={locale} onRetry={() => void reportsQuery.refetch()} />
       ) : null}
-      {state === 'empty' ? <EmptyState title={t.empty} /> : null}
+      {listState === 'empty' ? <EmptyState title={t.empty} /> : null}
 
-      {state === 'ready' ? (
-        <Panel id="reports-list-panel" title={t.selectReport} level={2}>
-          <Field id="reports-select" label={t.selectReport}>
-            <Select
-              id="reports-select"
-              value={selectedId}
-              onChange={(value) => setSelectedId(value)}
-              options={items.map((item) => ({ value: item.id, label: entityTitle(item) }))}
-              placeholder={t.selectReport}
-            />
-          </Field>
-        </Panel>
-      ) : null}
+      {listState === 'ready' ? (
+        <div className="grid gap-6 lg:grid-cols-[minmax(14rem,18rem)_1fr] lg:items-start">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">{t.selectReport}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-1">
+              {items.map((item) => {
+                const id = item.id
+                const label = entityTitle(item)
+                const active = id === selectedId
+                return (
+                  <Button
+                    key={id}
+                    type="button"
+                    variant={active ? 'secondary' : 'ghost'}
+                    className="justify-start whitespace-normal text-start"
+                    onClick={() => setSelectedId(id)}
+                  >
+                    {label}
+                  </Button>
+                )
+              })}
+            </CardContent>
+          </Card>
 
-      {detailState === 'loading' ? <SkeletonList rows={3} /> : null}
-      {detailState === 'forbidden' ? <EmptyState title={t.denied} /> : null}
-      {detailState === 'not-found' ? <EmptyState title={t.notFound} /> : null}
-      {detailState === 'error' ? (
-        <InlineError message={t.failed} retryLabel={t.retry} onRetry={() => void loadDetail(selectedId)} />
-      ) : null}
-
-      {detailState === 'ready' && detail ? (
-        <PanelGrid>
-          <Panel id="report-detail-panel" title={t.reportDetail} level={2}>
-            <div className="metric-grid" role="group" aria-label={t.reportDetail}>
-              <div className="metric-tile">
-                <span className="metric-tile__value">{statusLabel(pickStatus(detail), locale)}</span>
-                <span className="metric-tile__label">{t.status}</span>
-              </div>
-              <div className="metric-tile">
-                <span className="metric-tile__value">{statusLabel(detail.classification, locale)}</span>
-                <span className="metric-tile__label">{t.classification}</span>
-              </div>
-              {typeof detail.version_number === 'number' ? (
-                <div className="metric-tile">
-                  <span className="metric-tile__value">{formatNumber(detail.version_number, locale)}</span>
-                  <span className="metric-tile__label">{t.version}</span>
-                </div>
-              ) : null}
-              <div className="metric-tile">
-                <span className="metric-tile__value">{formatDate(detail.updated_at, locale)}</span>
-                <span className="metric-tile__label">{t.updated}</span>
-              </div>
-            </div>
-            {numericValues.length > 0 ? (
-              <div className="metric-grid" role="group" aria-label={t.values}>
-                {numericValues.map(([key, value]) => (
-                  <div key={key} className="metric-tile metric-tile--success">
-                    <span className="metric-tile__value">{formatNumber(value, locale)}</span>
-                    <span className="metric-tile__label">{key}</span>
+          <div className="space-y-4">
+            {detailState === 'loading' ? <LoadingState rows={3} /> : null}
+            {detailState === 'forbidden' || detailState === 'not-found' ? (
+              <DeniedState locale={locale} />
+            ) : null}
+            {detailState === 'error' ? (
+              <ErrorState locale={locale} onRetry={() => void loadDetail(selectedId)} />
+            ) : null}
+            {detailState === 'ready' && detail ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{entityTitle(detail)}</CardTitle>
+                  <CardDescription>{t.reportDetail}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div className="grid gap-1">
+                      <span className="text-muted-foreground text-xs">{t.status}</span>
+                      <span className="font-medium">{statusLabel(pickStatus(detail), locale)}</span>
+                    </div>
+                    <div className="grid gap-1">
+                      <span className="text-muted-foreground text-xs">{t.classification}</span>
+                      <span className="font-medium">{statusLabel(detail.classification, locale)}</span>
+                    </div>
+                    {typeof detail.version_number === 'number' ? (
+                      <div className="grid gap-1">
+                        <span className="text-muted-foreground text-xs">{t.version}</span>
+                        <span className="font-medium">{formatNumber(detail.version_number, locale)}</span>
+                      </div>
+                    ) : null}
+                    <div className="grid gap-1">
+                      <span className="text-muted-foreground text-xs">{t.updated}</span>
+                      <span className="font-medium">{formatDate(detail.updated_at, locale)}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  {numericValues.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                      {numericValues.map(([key, value]) => (
+                        <div key={key} className="grid gap-1">
+                          <span className="text-muted-foreground text-xs">{key}</span>
+                          <span className="text-lg font-semibold">{formatNumber(value, locale)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {scalarValues.length > 0 ? (
+                    <section aria-labelledby="report-values-title">
+                      <h3 className="text-base font-semibold" id="report-values-title">
+                        {t.values}
+                      </h3>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t.values}</TableHead>
+                            <TableHead>{t.status}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {scalarValues.map(([key, value]) => (
+                            <TableRow key={key}>
+                              <TableCell>{key}</TableCell>
+                              <TableCell>{String(value)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </section>
+                  ) : null}
+                  <div>
+                    {canExport ? (
+                      <Button type="button" onClick={() => setFormatOpen(true)}>
+                        {t.export}
+                      </Button>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
             ) : null}
-            {scalarValues.length > 0 ? (
-              <section aria-labelledby="report-values-title">
-                <h3 className="panel__heading" id="report-values-title">
-                  {t.values}
-                </h3>
-                <table className="entity-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">{t.values}</th>
-                      <th scope="col">{t.status}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scalarValues.map(([key, value]) => (
-                      <tr key={key}>
-                        <td>{key}</td>
-                        <td>{String(value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
-            ) : null}
-          </Panel>
+          </div>
+        </div>
+      ) : null}
 
-          <Panel id="report-export-panel" title={t.export} level={2}>
-            <div className="inline-form">
-              <Field id="report-export-format" label={t.exportFormat}>
-                <Select
-                  id="report-export-format"
-                  value="csv"
-                  onChange={() => undefined}
-                  options={[{ value: 'csv', label: 'CSV' }]}
-                />
-              </Field>
-              <Button type="button" onClick={() => void createExport()} disabled={exporting}>
-                {t.createExport}
-              </Button>
+      {canExport ? (
+        <Dialog open={formatOpen} onOpenChange={(next) => { if (!next && !exporting) setFormatOpen(false) }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t.exportFormatTitle}</DialogTitle>
+              <DialogDescription>{t.exportFormatHelp}</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-1.5">
+              <Label htmlFor="report-export-format">{t.exportFormat}</Label>
+              <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as 'csv' | 'json')}>
+                <SelectTrigger id="report-export-format">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="json">JSON</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            {exporting ? (
-              <p className="status-message" role="status">
-                {t.exportQueued}
-              </p>
-            ) : null}
             {exportError ? (
-              <p className="status-message status-message--error" role="alert">
+              <p className="text-destructive text-sm" role="alert">
                 {exportError}
               </p>
             ) : null}
-            {exportItem && !exporting ? (
-              <div className="status-message" role="status">
-                <p className="status-message status-message--success">{t.exportReady}</p>
-                <Button variant="secondary" onClick={() => void downloadExport()} disabled={downloading}>
-                  {t.download}
-                </Button>
-              </div>
-            ) : null}
-          </Panel>
-        </PanelGrid>
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={exporting} onClick={() => setFormatOpen(false)}>
+                {t.cancel}
+              </Button>
+              <Button type="button" disabled={exporting} onClick={() => void createExport()}>
+                {t.createExport}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
-    </Page>
+    </div>
   )
 }

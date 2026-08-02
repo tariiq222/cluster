@@ -8,6 +8,7 @@ import { LoginScreen } from './LoginScreen'
 import { SessionProvider } from './session-context'
 import { PrincipalProvider } from './principal-context'
 import { AppRouter } from '../router'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export function App() {
   const [locale, setLocaleState] = useState<Locale>(initialLocale)
@@ -76,10 +77,22 @@ export function App() {
   }, [])
 
   if (!authChecked) {
+    // Session restore in flight: an accessible skeleton shaped like the login
+    // surface (no spinner), styled with current theme utilities only.
     return (
-      <div className="state-panel" role="status">
-        {shellCopy[locale].signingIn}
-      </div>
+      <main className="flex min-h-svh items-center justify-center bg-background p-4" data-testid="auth-restore">
+        <div className="w-full max-w-sm" role="status" aria-live="polite">
+          <div className="space-y-3">
+            <div className="flex justify-center">
+              <Skeleton className="h-6 w-40 rounded-full" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <p className="mt-3 text-center text-sm text-muted-foreground">{shellCopy[locale].signingIn}</p>
+        </div>
+      </main>
     )
   }
 

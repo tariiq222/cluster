@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useLocale } from '../../../app/session-context'
+import { useNavigate } from '../../../app/navigation-context'
 import { useJobTitles, useOrganizationUnits, usePositions } from '../../../api/hooks'
 import { stateFromError } from '../../../api/http'
 import * as generated from '../../../api/generated/cluster'
@@ -10,22 +11,18 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { organizationCopy } from '../organization-copy'
 import { useCapabilities } from '../organization-utils'
-import { PositionSheet } from './sheets'
 
 export function PositionsTab() {
   const locale = useLocale()
   const text = organizationCopy[locale]
+  const navigate = useNavigate()
   const capabilities = useCapabilities()
   const positionsQuery = usePositions()
   const unitsQuery = useOrganizationUnits()
   const jobTitlesQuery = useJobTitles()
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
 
   const canManage = capabilities.includes('organization.position.manage')
   const positions = (positionsQuery.data as generated.PositionCollection | undefined)?.items ?? []
-  const units = (unitsQuery.data as generated.OrganizationUnitCollection | undefined)?.items ?? []
-  const jobTitles = (jobTitlesQuery.data as generated.JobTitleCollection | undefined)?.items ?? []
 
   const state = positionsQuery.isError
     ? stateFromError(positionsQuery.error)
@@ -72,10 +69,9 @@ export function PositionsTab() {
 
   return (
     <div className="space-y-4">
-      {notice ? <p role="status">{notice}</p> : null}
       <div className="flex justify-end">
         {canManage ? (
-          <Button size="sm" onClick={() => setSheetOpen(true)}>
+          <Button size="sm" onClick={() => navigate('/organization/positions/new')}>
             <Plus aria-hidden="true" />
             {text.addPosition}
           </Button>
@@ -91,16 +87,6 @@ export function PositionsTab() {
         canPrev={false}
         locale={locale}
         empty={<p className="text-muted-foreground py-8 text-center text-sm">{text.noPositions}</p>}
-      />
-      <PositionSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        units={units}
-        jobTitles={jobTitles}
-        onSaved={() => {
-          setSheetOpen(false)
-          setNotice(text.positionSaved)
-        }}
       />
     </div>
   )

@@ -80,6 +80,7 @@ export const tasksCopy = {
     detailsTab: 'التفاصيل',
     commentsTab: 'التعليقات',
     participantsTab: 'المشاركون',
+    helpRecovery: 'راجع رسالة الخطأ، ثم أعد المحاولة بعد التحقق من حالة المهمة.',
   },
   en: {
     pageTitle: 'Tasks',
@@ -162,5 +163,6 @@ export const tasksCopy = {
     detailsTab: 'Details',
     commentsTab: 'Comments',
     participantsTab: 'Participants',
+    helpRecovery: 'Review the error, then retry after confirming the task state.',
   },
 } as const

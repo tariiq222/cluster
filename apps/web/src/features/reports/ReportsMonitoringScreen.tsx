@@ -1,82 +1,83 @@
-import { useState } from 'react'
 import { usePrincipal } from '../../app/principal-context'
 import { useLocale } from '../../app/session-context'
-import { EmptyState, Page, PageHeader, Tabs } from '../../ui'
+import { useWorkspaceTab } from '../../app/use-workspace-tab'
+import { PageHeader, PageLayout } from '@/components/page-layout'
+import { WorkspaceTabs, type WorkspaceTabItem } from '@/components/workspace-tabs'
+import { DeniedState } from '@/components/states'
+import { reportsCopy } from './reports-copy'
+import { useTrackedExports } from './export-tracker'
 import { ReportsScreen } from './ReportsScreen'
 import { DashboardsScreen } from './DashboardsScreen'
 import { AuditScreen } from '../audit/AuditScreen'
+import { ExportsTab } from './ExportsTab'
 
-const copy = {
-  ar: {
-    title: 'التقارير والمراقبة',
-    description: 'التقارير ولوحات المؤشرات وسجل التدقيق ضمن نطاقك.',
-    reportsTab: 'التقارير',
-    dashboardsTab: 'لوحات المؤشرات',
-    auditTab: 'سجل التدقيق',
-    tabsLabel: 'مساحة التقارير والمراقبة',
-    denied: 'غير مصرح لك بالوصول إلى هذه الصفحة.',
-  },
-  en: {
-    title: 'Reports & monitoring',
-    description: 'Reports, dashboards, and the audit ledger within your scope.',
-    reportsTab: 'Reports',
-    dashboardsTab: 'Dashboards',
-    auditTab: 'Audit ledger',
-    tabsLabel: 'Reports and monitoring workspace',
-    denied: 'You are not authorized to view this page.',
-  },
-} as const
+type WorkspaceTab = 'reports' | 'dashboards' | 'audit' | 'exports'
 
-type WorkspaceTab = 'reports' | 'dashboards' | 'audit'
-
+/*
+ * The Reports & monitoring workspace. Tabs are filtered by principal
+ * capability BEFORE render — a destination the principal cannot access is
+ * absent, never admitted-then-denied. The Exports tab appears when a
+ * report/audit export or download capability is present, or as soon as an
+ * export is tracked during this session. The page renders exactly one H1;
+ * every child tab renders H2 or lower.
+ */
 export function ReportsMonitoringScreen() {
   const locale = useLocale()
   const principal = usePrincipal()
-  const t = copy[locale]
+  const t = reportsCopy[locale]
+  const capabilities = principal.capabilities ?? []
+  const trackedExports = useTrackedExports()
 
-  const canReports = principal.capabilities?.includes('reporting.read') ?? false
-  const canDashboards = principal.capabilities?.includes('reporting.dashboard') ?? false
-  const canAudit = principal.capabilities?.includes('audit.event.read') ?? false
+  const canReports = capabilities.includes('reporting.read')
+  const canDashboards = capabilities.includes('reporting.dashboard')
+  const canAudit = capabilities.includes('audit.event.read')
+  const canCreateExports = [
+    'reporting.export',
+    'reporting.download',
+    'audit.event.export',
+  ].some((capability) => capabilities.includes(capability))
+  const canExports = canCreateExports || trackedExports.length > 0
 
-  const availableTabs: WorkspaceTab[] = [
-    ...(canReports ? (['reports'] as const) : []),
-    ...(canDashboards ? (['dashboards'] as const) : []),
-    ...(canAudit ? (['audit'] as const) : []),
+  const tabs: Array<{ key: WorkspaceTab; label: string; visible: boolean }> = [
+    { key: 'reports', label: t.tabReports, visible: canReports },
+    { key: 'dashboards', label: t.tabDashboards, visible: canDashboards },
+    { key: 'audit', label: t.tabAudit, visible: canAudit },
+    { key: 'exports', label: t.tabExports, visible: canExports },
   ]
+  const visible = tabs.filter((entry) => entry.visible)
 
-  const [activeTab, setActiveTab] = useState<WorkspaceTab | null>(null)
-  const currentTab = activeTab && availableTabs.includes(activeTab) ? activeTab : (availableTabs[0] ?? null)
+  const [tab, setTab] = useWorkspaceTab<WorkspaceTab>('tab', 'reports')
+  const activeTab = visible.some((entry) => entry.key === tab)
+    ? tab
+    : (visible[0]?.key ?? 'reports')
 
-  if (availableTabs.length === 0) {
-    return (
-      <Page aria-labelledby="reports-monitoring-title">
-        <PageHeader id="reports-monitoring-title" title={t.title} description={t.description} />
-        <EmptyState title={t.denied} />
-      </Page>
-    )
+  const items: WorkspaceTabItem[] = []
+  if (canReports) {
+    items.push({ value: 'reports', label: t.tabReports, content: <ReportsScreen /> })
+  }
+  if (canDashboards) {
+    items.push({ value: 'dashboards', label: t.tabDashboards, content: <DashboardsScreen /> })
+  }
+  if (canAudit) {
+    items.push({ value: 'audit', label: t.tabAudit, content: <AuditScreen /> })
+  }
+  if (canExports) {
+    items.push({ value: 'exports', label: t.tabExports, content: <ExportsTab /> })
   }
 
-  const tabDefs: Array<{ key: WorkspaceTab; label: string }> = [
-    ...(canReports ? [{ key: 'reports' as const, label: t.reportsTab }] : []),
-    ...(canDashboards ? [{ key: 'dashboards' as const, label: t.dashboardsTab }] : []),
-    ...(canAudit ? [{ key: 'audit' as const, label: t.auditTab }] : []),
-  ]
-
   return (
-    <Page aria-labelledby="reports-monitoring-title">
-      <PageHeader id="reports-monitoring-title" title={t.title} description={t.description} />
-      <Tabs
-        label={t.tabsLabel}
-        tabs={tabDefs.map((tab) => ({
-          key: tab.key,
-          label: tab.label,
-          active: tab.key === currentTab,
-          onClick: () => setActiveTab(tab.key),
-        }))}
-      />
-      {currentTab === 'reports' ? <ReportsScreen /> : null}
-      {currentTab === 'dashboards' ? <DashboardsScreen /> : null}
-      {currentTab === 'audit' ? <AuditScreen /> : null}
-    </Page>
+    <PageLayout>
+      <PageHeader title={t.title} description={t.description} />
+      {visible.length === 0 ? (
+        <DeniedState locale={locale} />
+      ) : (
+        <WorkspaceTabs
+          label={t.tabsLabel}
+          value={activeTab}
+          onValueChange={(value) => setTab(value as WorkspaceTab)}
+          items={items}
+        />
+      )}
+    </PageLayout>
   )
 }

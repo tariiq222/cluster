@@ -21,11 +21,17 @@ export function numberFormattingLocale(locale: Locale): string {
   return locale === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US'
 }
 
-export function formatDate(value: string | null | undefined, locale: Locale): string {
+export function formatDate(
+  value: string | null | undefined,
+  locale: Locale,
+): string {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat(formattingLocale(locale), { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+  return new Intl.DateTimeFormat(formattingLocale(locale), {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
 }
 
 export function formatNumber(value: number, locale: Locale): string {
@@ -59,6 +65,8 @@ export const shellCopy = {
     language: 'اللغة',
     menu: 'القائمة',
     closeMenu: 'إغلاق القائمة',
+    mobileSidebarTitle: 'القائمة الجانبية',
+    mobileSidebarDescription: 'التنقل في مساحة عمليات التجمع الصحي.',
     personalSecurity: 'الأمان الشخصي',
     accessContext: 'سياق الوصول',
     scope: 'النطاق',
@@ -78,6 +86,14 @@ export const shellCopy = {
     account: 'الحساب',
     sessionExpired: 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى.',
     signingIn: 'جارٍ التحقق…',
+    skipToContent: 'تخطَّ إلى المحتوى',
+    navOverview: 'نظرة عامة',
+    navWork: 'العمل',
+    navOrganization: 'المنظمة والوصول',
+    navSystem: 'المراقبة والنظام',
+    brandSubtitle: 'مساحة العمليات',
+    toggleSidebar: 'تبديل الشريط الجانبي',
+    pageHeader: 'شريط الأدوات',
     denied: 'غير مصرح لك بالوصول إلى هذه الصفحة.',
     notFound: 'الصفحة غير موجودة.',
     retry: 'إعادة المحاولة',
@@ -111,6 +127,9 @@ export const shellCopy = {
     language: 'Language',
     menu: 'Menu',
     closeMenu: 'Close menu',
+    mobileSidebarTitle: 'Sidebar navigation',
+    mobileSidebarDescription:
+      'Navigate the health cluster operations workspace.',
     personalSecurity: 'Personal security',
     accessContext: 'Access context',
     scope: 'Scope',
@@ -130,6 +149,14 @@ export const shellCopy = {
     account: 'Account',
     sessionExpired: 'Session expired. Please sign in again.',
     signingIn: 'Verifying…',
+    skipToContent: 'Skip to content',
+    navOverview: 'Overview',
+    navWork: 'Work',
+    navOrganization: 'Organization & Access',
+    navSystem: 'Monitoring & System',
+    brandSubtitle: 'Operations Workspace',
+    toggleSidebar: 'Toggle sidebar',
+    pageHeader: 'Toolbar',
     denied: 'You are not authorized to view this page.',
     notFound: 'Page not found.',
     retry: 'Retry',

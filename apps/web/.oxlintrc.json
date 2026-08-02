@@ -4,5 +4,19 @@
   "rules": {
     "react/rules-of-hooks": "error",
     "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/components/ui/**/*.tsx",
+        "src/app/principal-context.tsx",
+        "src/app/session-context.tsx",
+        "src/components/theme-provider.tsx",
+        "src/router.tsx"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
+  ]
 }

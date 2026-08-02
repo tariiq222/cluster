@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from '../../app/session-context'
 import { usePrincipal } from '../../app/principal-context'
+import { useWorkspaceTab } from '../../app/use-workspace-tab'
 import { PageHeader, PageLayout } from '@/components/page-layout'
 import { WorkspaceTabs, type WorkspaceTabItem } from '@/components/workspace-tabs'
 import { DeniedState, ErrorState, LoadingState } from '@/components/states'
@@ -66,7 +66,7 @@ export function AccessScreen() {
   ]
   const visible = tabs.filter((entry) => entry.visible)
 
-  const [tab, setTab] = useState<TabKey>('accounts')
+  const [tab, setTab] = useWorkspaceTab<TabKey>('tab', 'accounts')
   const activeTab = visible.some((entry) => entry.key === tab)
     ? tab
     : (visible[0]?.key ?? 'accounts')

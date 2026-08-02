@@ -136,13 +136,14 @@ async function navigate(page: Page, path: string): Promise<void> {
 
 /**
  * Opens the platform-management screen and activates the section tab with
- * the given accessible name (the rebuilt screen renders every section tab
- * regardless of capability; the section content itself is gated).
+ * the given accessible name. The rebuilt screen renders only the tabs the
+ * principal's capabilities admit; the deferred-logs and unauthorized
+ * personas see their tab set (or none) before any click.
  */
 async function openSection(page: Page, tabName: string): Promise<void> {
   await navigate(page, '/platform-management')
   await expect(page.getByRole('heading', { name: 'إدارة المنصة' }).first()).toBeVisible()
-  await page.getByRole('button', { name: tabName, exact: true }).click()
+  await page.getByRole('tab', { name: tabName, exact: true }).click()
 }
 
 test.describe('platform-settings live E2E', () => {
@@ -204,14 +205,16 @@ test.describe('platform-settings live E2E', () => {
     await loginThroughUi(page, FULL_OWNER)
     await context.route('**/api/v1/platform-operations/overview**', (route) => route.abort('failed'))
     await navigate(page, '/platform-management')
-    await expect(page.getByText(/could not be loaded|تعذر تحميل البيانات/).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/error occurred while loading|حدث خطأ أثناء تحميل البيانات/).first()).toBeVisible({ timeout: 15000 })
     await context.unroute('**/api/v1/platform-operations/overview**')
   })
 
   test('unauthorized user does not see the platform management link', async ({ page }) => {
     await loginThroughUi(page, UNAUTHORIZED)
     await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
-    expect(await page.getByRole('button', { name: 'إدارة المنصة' }).count()).toBe(0)
+    // The platform destination is a sidebar link, not a button; a principal
+    // without PlatformSettings caps must never see it rendered.
+    expect(await page.getByRole('navigation', { name: 'القائمة' }).getByRole('link', { name: 'إدارة المنصة', exact: true }).count()).toBe(0)
   })
 
   test('calendars section renders for the full owner', async ({ page }) => {
@@ -280,12 +283,12 @@ test.describe('platform-settings live E2E', () => {
     await loginThroughUi(page, FULL_OWNER)
     await navigate(page, '/platform-management')
     await expect(page.getByRole('heading', { name: 'إدارة المنصة' })).toBeVisible()
-    await expect(page.getByText(/could not be loaded|تعذر تحميل البيانات/).first()).toBeVisible()
+    await expect(page.getByText(/error occurred while loading|حدث خطأ أثناء تحميل البيانات/).first()).toBeVisible()
   })
 
   test('overview renders denied for the unauthorized persona without leaking data', async ({ page }) => {
     await loginThroughUi(page, UNAUTHORIZED)
     await navigate(page, '/platform-management')
-    await expect(page.getByText(/do not have access|لا تملك صلاحية/).first()).toBeVisible()
+    await expect(page.getByText(/cannot be accessed|لا يمكن الوصول/).first()).toBeVisible()
   })
 })

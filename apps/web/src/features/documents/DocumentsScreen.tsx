@@ -7,6 +7,7 @@ import { ApiError, requestInit, stateFromError, unwrap } from '../../api/http'
 import { useNavigate } from '../../app/navigation-context'
 import { useLocale } from '../../app/session-context'
 import { formatDate, statusLabel } from '../../i18n'
+import { PageHeader, PageLayout } from '@/components/page-layout'
 import { DataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +15,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DocumentCreateSheet } from './DocumentCreateSheet'
 import { documentsCopy } from './documents-copy'
 
 interface DocumentSummary {
@@ -42,7 +42,6 @@ export function DocumentsScreen() {
   const [classification, setClassification] = useState<ClassificationFilter>('all')
   const [search, setSearch] = useState('')
   const [pages, setPages] = useState<PageState[]>([])
-  const [createOpen, setCreateOpen] = useState(false)
 
   const filters = useMemo<generated.ListDocumentsParams>(() => {
     const params: generated.ListDocumentsParams = { limit: 50 }
@@ -122,17 +121,17 @@ export function DocumentsScreen() {
   )
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t.pageTitle}</h1>
-          <p className="text-muted-foreground text-sm">{t.pageDescription}</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus aria-hidden="true" />
-          {t.createTitle}
-        </Button>
-      </div>
+    <PageLayout>
+      <PageHeader
+        title={t.pageTitle}
+        description={t.pageDescription}
+        actions={
+          <Button onClick={() => navigate('/documents/new')}>
+            <Plus aria-hidden="true" />
+            {t.createTitle}
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}
@@ -150,7 +149,7 @@ export function DocumentsScreen() {
             title={t.emptyTitle}
             body={t.emptyBody}
             action={
-              <Button variant="outline" onClick={() => setCreateOpen(true)}>
+              <Button variant="outline" onClick={() => navigate('/documents/new')}>
                 {t.createTitle}
               </Button>
             }
@@ -186,15 +185,7 @@ export function DocumentsScreen() {
           </div>
         }
       />
-
-      <DocumentCreateSheet
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={() => {
-          void query.refetch()
-        }}
-      />
-    </div>
+    </PageLayout>
   )
 }
 

@@ -1,68 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { stateFromError, type ResourceState } from '../../api/http'
 
-export type SectionState = 'loading' | 'ready' | 'empty' | 'forbidden' | 'error'
+/**
+ * Shared platform-section state derivation.
+ *
+ * Every section computes a single `ResourceState` from its react-query
+ * result and renders it through `@/components/states` `ResourceBoundary`,
+ * so the seven shared resource states (loading / ready / empty /
+ * forbidden / not-found / conflict / stale / error) are used uniformly and
+ * 403/404 share one non-disclosing copy. No section reclassifies errors
+ * itself.
+ */
 
-export interface SectionLoad<T> {
-  state: SectionState
-  data: T | null
-  reload: () => void
+export interface QueryLike<T> {
+  isPending: boolean
+  error: unknown
+  data: T | undefined | null
+}
+
+/** Action availability is server-driven through `allowed_actions`. */
+export function actionAllowed(allowedActions: readonly string[] | undefined, action: string): boolean {
+  return allowedActions?.includes(action) === true
 }
 
 export function isEmptyCollection(items: readonly unknown[] | null | undefined): boolean {
   return items === undefined || items === null || items.length === 0
 }
 
-/**
- * Loads a section payload, mapping transport errors onto the section state
- * machine. Re-runs whenever the fetcher identity, the `scopeEpoch`, or the
- * manual reload revision changes so a principal scope switch refreshes every
- * section and failed loads can be retried.
- */
-export function useSectionLoad<T>(
-  fetcher: () => Promise<T>,
-  isEmpty: (value: T) => boolean,
-  scopeEpoch: number,
-): SectionLoad<T> {
-  const [state, setState] = useState<SectionState>('loading')
-  const [data, setData] = useState<T | null>(null)
-  const [revision, setRevision] = useState(0)
-  const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
-  const isEmptyRef = useRef(isEmpty)
-  isEmptyRef.current = isEmpty
-
-  useEffect(() => {
-    let cancelled = false
-    setState('loading')
-    fetcherRef.current()
-      .then((value) => {
-        if (cancelled) return
-        setData(value)
-        setState(isEmptyRef.current(value) ? 'empty' : 'ready')
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return
-        setState(stateFromSectionError(error))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [revision, scopeEpoch])
-
-  const reload = useCallback(() => {
-    setRevision((value) => value + 1)
-  }, [])
-
-  return { state, data, reload }
-}
-
-export function stateFromSectionError(error: unknown): SectionState {
-  const status = (error as { status?: number } | null)?.status
-  if (status === 403) return 'forbidden'
-  return 'error'
-}
-
-/** Action availability is server-driven through `allowed_actions`. */
-export function actionAllowed(allowedActions: readonly string[] | undefined, action: string): boolean {
-  return allowedActions?.includes(action) === true
+/** Derives the shared resource state for a react-query result. */
+export function queryResourceState<T>(query: QueryLike<T>, isEmpty: (data: T) => boolean): ResourceState {
+  if (query.isPending) return 'loading'
+  if (query.error !== null && query.error !== undefined) return stateFromError(query.error)
+  if (query.data === undefined || query.data === null || isEmpty(query.data)) return 'empty'
+  return 'ready'
 }

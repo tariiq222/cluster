@@ -1,13 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError, stateFromError, parseStrongEtag, uuidV7 } from './api/http'
+import {
+  ApiError,
+  stateFromError,
+  parseStrongEtag,
+  unwrap,
+  uuidV7,
+} from './api/http'
 import { statusLabel } from './i18n'
 
 describe('http', () => {
   it('maps error statuses to resource states', () => {
-    expect(stateFromError(new ApiError(403, { type: 'x', title: 'x', status: 403 }))).toBe('forbidden')
-    expect(stateFromError(new ApiError(404, { type: 'x', title: 'x', status: 404 }))).toBe('not-found')
-    expect(stateFromError(new ApiError(409, { type: 'x', title: 'x', status: 409 }))).toBe('conflict')
-    expect(stateFromError(new ApiError(412, { type: 'x', title: 'x', status: 412 }))).toBe('stale')
+    expect(
+      stateFromError(new ApiError(403, { type: 'x', title: 'x', status: 403 })),
+    ).toBe('forbidden')
+    expect(
+      stateFromError(new ApiError(404, { type: 'x', title: 'x', status: 404 })),
+    ).toBe('not-found')
+    expect(
+      stateFromError(new ApiError(409, { type: 'x', title: 'x', status: 409 })),
+    ).toBe('conflict')
+    expect(
+      stateFromError(new ApiError(412, { type: 'x', title: 'x', status: 412 })),
+    ).toBe('stale')
     expect(stateFromError(new Error('boom'))).toBe('error')
   })
 
@@ -20,7 +34,42 @@ describe('http', () => {
 
   it('generates UUIDv7-shaped ids', () => {
     const value = uuidV7()
-    expect(value).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+    expect(value).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    )
+  })
+
+  it('retains the response correlation id on API errors', () => {
+    const response = {
+      status: 500,
+      data: {
+        type: 'about:blank',
+        title: 'Failed',
+        status: 500,
+        correlation_id: 'body-correlation',
+      },
+      headers: new Headers({ 'X-Correlation-ID': 'header-correlation' }),
+    }
+
+    expect(() => unwrap(response)).toThrow(ApiError)
+    try {
+      unwrap(response)
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError)
+      expect((error as ApiError).correlationId).toBe('body-correlation')
+    }
+  })
+
+  it('uses the response header when the problem body omits correlation id', () => {
+    try {
+      unwrap({
+        status: 500,
+        data: { type: 'about:blank', title: 'Failed', status: 500 },
+        headers: new Headers({ 'X-Correlation-ID': 'header-correlation' }),
+      })
+    } catch (error) {
+      expect((error as ApiError).correlationId).toBe('header-correlation')
+    }
   })
 })
 

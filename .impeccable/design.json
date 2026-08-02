@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-01T18:42:59Z",
+  "title": "Design System: Cluster",
+  "extensions": {
+    "colorMeta": {
+      "command-ink": {
+        "role": "primary",
+        "displayName": "Command Ink",
+        "canonical": "oklch(0.208 0.042 265.755)",
+        "tonalRamp": ["oklch(0.15 0.042 265.755)", "oklch(0.27 0.042 265.755)", "oklch(0.39 0.042 265.755)", "oklch(0.51 0.042 265.755)", "oklch(0.63 0.042 265.755)", "oklch(0.75 0.042 265.755)", "oklch(0.87 0.042 265.755)", "oklch(0.95 0.042 265.755)"]
+      },
+      "body-ink": {
+        "role": "neutral",
+        "displayName": "Body Ink",
+        "canonical": "oklch(0.129 0.042 264.695)",
+        "tonalRamp": ["oklch(0.15 0.042 264.695)", "oklch(0.27 0.042 264.695)", "oklch(0.39 0.042 264.695)", "oklch(0.51 0.042 264.695)", "oklch(0.63 0.042 264.695)", "oklch(0.75 0.042 264.695)", "oklch(0.87 0.042 264.695)", "oklch(0.95 0.042 264.695)"]
+      },
+      "calibrated-white": {
+        "role": "neutral",
+        "displayName": "Calibrated White",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.27 0 0)", "oklch(0.39 0 0)", "oklch(0.51 0 0)", "oklch(0.63 0 0)", "oklch(0.75 0 0)", "oklch(0.87 0 0)", "oklch(0.95 0 0)"]
+      },
+      "contrast-white": {
+        "role": "neutral",
+        "displayName": "Contrast White",
+        "canonical": "oklch(0.984 0.003 247.858)",
+        "tonalRamp": ["oklch(0.15 0.003 247.858)", "oklch(0.27 0.003 247.858)", "oklch(0.39 0.003 247.858)", "oklch(0.51 0.003 247.858)", "oklch(0.63 0.003 247.858)", "oklch(0.75 0.003 247.858)", "oklch(0.87 0.003 247.858)", "oklch(0.95 0.003 247.858)"]
+      },
+      "quiet-surface": {
+        "role": "neutral",
+        "displayName": "Quiet Surface",
+        "canonical": "oklch(0.968 0.007 247.896)",
+        "tonalRamp": ["oklch(0.15 0.007 247.896)", "oklch(0.27 0.007 247.896)", "oklch(0.39 0.007 247.896)", "oklch(0.51 0.007 247.896)", "oklch(0.63 0.007 247.896)", "oklch(0.75 0.007 247.896)", "oklch(0.87 0.007 247.896)", "oklch(0.95 0.007 247.896)"]
+      },
+      "quiet-ink": {
+        "role": "neutral",
+        "displayName": "Quiet Ink",
+        "canonical": "oklch(0.554 0.046 257.417)",
+        "tonalRamp": ["oklch(0.15 0.046 257.417)", "oklch(0.27 0.046 257.417)", "oklch(0.39 0.046 257.417)", "oklch(0.51 0.046 257.417)", "oklch(0.63 0.046 257.417)", "oklch(0.75 0.046 257.417)", "oklch(0.87 0.046 257.417)", "oklch(0.95 0.046 257.417)"]
+      },
+      "structural-line": {
+        "role": "neutral",
+        "displayName": "Structural Line",
+        "canonical": "oklch(0.929 0.013 255.508)",
+        "tonalRamp": ["oklch(0.15 0.013 255.508)", "oklch(0.27 0.013 255.508)", "oklch(0.39 0.013 255.508)", "oklch(0.51 0.013 255.508)", "oklch(0.63 0.013 255.508)", "oklch(0.75 0.013 255.508)", "oklch(0.87 0.013 255.508)", "oklch(0.95 0.013 255.508)"]
+      },
+      "focus-ring": {
+        "role": "neutral",
+        "displayName": "Focus Ring",
+        "canonical": "oklch(0.704 0.04 256.788)",
+        "tonalRamp": ["oklch(0.15 0.04 256.788)", "oklch(0.27 0.04 256.788)", "oklch(0.39 0.04 256.788)", "oklch(0.51 0.04 256.788)", "oklch(0.63 0.04 256.788)", "oklch(0.75 0.04 256.788)", "oklch(0.87 0.04 256.788)", "oklch(0.95 0.04 256.788)"]
+      },
+      "controlled-red": {
+        "role": "semantic",
+        "displayName": "Controlled Red",
+        "canonical": "oklch(0.577 0.245 27.325)",
+        "tonalRamp": ["oklch(0.15 0.245 27.325)", "oklch(0.27 0.245 27.325)", "oklch(0.39 0.245 27.325)", "oklch(0.51 0.245 27.325)", "oklch(0.63 0.245 27.325)", "oklch(0.75 0.245 27.325)", "oklch(0.87 0.245 27.325)", "oklch(0.95 0.245 27.325)"]
+      },
+      "signal-orange": {
+        "role": "data-viz",
+        "displayName": "Signal Orange",
+        "canonical": "oklch(0.646 0.222 41.116)",
+        "tonalRamp": ["oklch(0.15 0.222 41.116)", "oklch(0.27 0.222 41.116)", "oklch(0.39 0.222 41.116)", "oklch(0.51 0.222 41.116)", "oklch(0.63 0.222 41.116)", "oklch(0.75 0.222 41.116)", "oklch(0.87 0.222 41.116)", "oklch(0.95 0.222 41.116)"]
+      },
+      "signal-teal": {
+        "role": "data-viz",
+        "displayName": "Signal Teal",
+        "canonical": "oklch(0.6 0.118 184.704)",
+        "tonalRamp": ["oklch(0.15 0.118 184.704)", "oklch(0.27 0.118 184.704)", "oklch(0.39 0.118 184.704)", "oklch(0.51 0.118 184.704)", "oklch(0.63 0.118 184.704)", "oklch(0.75 0.118 184.704)", "oklch(0.87 0.118 184.704)", "oklch(0.95 0.118 184.704)"]
+      },
+      "signal-steel": {
+        "role": "data-viz",
+        "displayName": "Signal Steel",
+        "canonical": "oklch(0.398 0.07 227.392)",
+        "tonalRamp": ["oklch(0.15 0.07 227.392)", "oklch(0.27 0.07 227.392)", "oklch(0.39 0.07 227.392)", "oklch(0.51 0.07 227.392)", "oklch(0.63 0.07 227.392)", "oklch(0.75 0.07 227.392)", "oklch(0.87 0.07 227.392)", "oklch(0.95 0.07 227.392)"]
+      },
+      "signal-yellow": {
+        "role": "data-viz",
+        "displayName": "Signal Yellow",
+        "canonical": "oklch(0.828 0.189 84.429)",
+        "tonalRamp": ["oklch(0.15 0.189 84.429)", "oklch(0.27 0.189 84.429)", "oklch(0.39 0.189 84.429)", "oklch(0.51 0.189 84.429)", "oklch(0.63 0.189 84.429)", "oklch(0.75 0.189 84.429)", "oklch(0.87 0.189 84.429)", "oklch(0.95 0.189 84.429)"]
+      },
+      "signal-amber": {
+        "role": "data-viz",
+        "displayName": "Signal Amber",
+        "canonical": "oklch(0.769 0.188 70.08)",
+        "tonalRamp": ["oklch(0.15 0.188 70.08)", "oklch(0.27 0.188 70.08)", "oklch(0.39 0.188 70.08)", "oklch(0.51 0.188 70.08)", "oklch(0.63 0.188 70.08)", "oklch(0.75 0.188 70.08)", "oklch(0.87 0.188 70.08)", "oklch(0.95 0.188 70.08)"]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page and section headings; the loudest voice in the system and still quiet."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, list-item titles, and section-level names."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The default product size for tables, forms, buttons, and content; prose capped at 65-75ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Captions, metadata, badges, sidebar group labels, and table captions."
+      },
+      "mono": {
+        "displayName": "Mono Data",
+        "purpose": "Machine identifiers only: IDs, codes, usernames, policy/capability codes, log sources, employee numbers, and correlation IDs; technical strings render LTR in either page direction."
+      }
+    },
+    "shadows": [
+      {
+        "name": "structural-ring",
+        "value": "0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent)",
+        "purpose": "Default one-pixel separation for cards, dialogs, and containers; a line, not a shadow."
+      },
+      {
+        "name": "rare-floating-sm",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Rare lift (Tailwind shadow-sm) reserved for truly floating or inset navigation and the active tab."
+      }
+    ],
+    "motion": [
+      {
+        "name": "overlay-100ms",
+        "value": "100ms",
+        "purpose": "Dialog and sheet overlays and content transitions (fade + 95% zoom)."
+      },
+      {
+        "name": "state-feedback-150ms",
+        "value": "150ms",
+        "purpose": "Default state feedback for buttons, inputs, badges, and rows."
+      },
+      {
+        "name": "sidebar-structure-200ms",
+        "value": "200ms",
+        "purpose": "Sidebar width, height, and padding structure transitions."
+      },
+      {
+        "name": "reduced-motion-override",
+        "value": "0.01ms",
+        "purpose": "Global override under prefers-reduced-motion: reduce - all animation and transition durations forced to 0.01ms."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The decisive action on the screen; one per view where possible.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; height: 2rem; padding-inline: 0.625rem; border: 1px solid transparent; border-radius: var(--radius-lg, 0.625rem); font-family: inherit; font-size: 0.875rem; font-weight: 500; line-height: 1.25rem; white-space: nowrap; cursor: pointer; transition: background-color 150ms, color 150ms, opacity 150ms, transform 150ms; } .ds-btn-primary { background: var(--primary); color: var(--primary-foreground); } .ds-btn-primary:hover { background: color-mix(in oklch, var(--primary) 80%, transparent); } .ds-btn-primary:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn:disabled { pointer-events: none; opacity: 0.5; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "The standard secondary action; quiet until hovered.",
+      "html": "<button class=\"ds-btn ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; height: 2rem; padding-inline: 0.625rem; border: 1px solid transparent; border-radius: var(--radius-lg, 0.625rem); font-family: inherit; font-size: 0.875rem; font-weight: 500; line-height: 1.25rem; white-space: nowrap; cursor: pointer; transition: background-color 150ms, color 150ms, opacity 150ms, transform 150ms; } .ds-btn-outline { background: var(--background); border-color: var(--border); color: var(--foreground); } .ds-btn-outline:hover { background: var(--muted); color: var(--foreground); } .ds-btn-outline:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent); } .ds-btn-outline:active { transform: translateY(1px); } .ds-btn:disabled { pointer-events: none; opacity: 0.5; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Borderless toolbar and dialog-close action; fills only on hover.",
+      "html": "<button class=\"ds-btn ds-btn-ghost\">Dismiss</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; height: 2rem; padding-inline: 0.625rem; border: 1px solid transparent; border-radius: var(--radius-lg, 0.625rem); font-family: inherit; font-size: 0.875rem; font-weight: 500; line-height: 1.25rem; white-space: nowrap; cursor: pointer; transition: background-color 150ms, color 150ms, opacity 150ms, transform 150ms; } .ds-btn-ghost { background: transparent; color: var(--foreground); } .ds-btn-ghost:hover { background: var(--muted); color: var(--foreground); } .ds-btn-ghost:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent); } .ds-btn-ghost:active { transform: translateY(1px); } .ds-btn:disabled { pointer-events: none; opacity: 0.5; }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Irreversible actions only; tinted red, never a full red surface.",
+      "html": "<button class=\"ds-btn ds-btn-destructive\">Delete record</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; height: 2rem; padding-inline: 0.625rem; border: 1px solid transparent; border-radius: var(--radius-lg, 0.625rem); font-family: inherit; font-size: 0.875rem; font-weight: 500; line-height: 1.25rem; white-space: nowrap; cursor: pointer; transition: background-color 150ms, color 150ms, opacity 150ms, transform 150ms; } .ds-btn-destructive { background: color-mix(in oklch, var(--destructive) 10%, transparent); color: var(--destructive); } .ds-btn-destructive:hover { background: color-mix(in oklch, var(--destructive) 20%, transparent); } .ds-btn-destructive:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 20%, transparent); } .ds-btn-destructive:active { transform: translateY(1px); } .ds-btn:disabled { pointer-events: none; opacity: 0.5; }"
+    },
+    {
+      "name": "Default Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "The standard field: transparent fill, structural stroke, ring focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search records\" aria-invalid=\"false\">",
+      "css": ".ds-input { height: 2rem; width: 100%; min-width: 0; padding-inline: 0.625rem; border: 1px solid var(--input); border-radius: var(--radius-lg, 0.625rem); background: transparent; font-family: inherit; font-size: 0.875rem; line-height: 1.25rem; color: var(--foreground); outline: none; transition: border-color 150ms, box-shadow 150ms, background-color 150ms, opacity 150ms; } .ds-input::placeholder { color: var(--muted-foreground); } .ds-input:focus-visible { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent); } .ds-input[aria-invalid=\"true\"] { border-color: var(--destructive); box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 20%, transparent); } .ds-input:disabled { pointer-events: none; cursor: not-allowed; background: color-mix(in oklch, var(--input) 50%, transparent); opacity: 0.5; }"
+    },
+    {
+      "name": "Outline Badge",
+      "kind": "chip",
+      "refersTo": "badge-outline",
+      "description": "Status chip for positive and cautionary states; pairs with a lucide icon.",
+      "html": "<span class=\"ds-badge\">Under review</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; height: 1.25rem; padding-inline: 0.5rem; border: 1px solid var(--border); border-radius: 2rem; background: transparent; color: var(--foreground); font-size: 0.75rem; font-weight: 500; line-height: 1rem; white-space: nowrap; }"
+    },
+    {
+      "name": "Default Card",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Resting container: flat, one-pixel structural ring, xl radius, 1rem padding.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Facility overview</h3><p class=\"ds-card-text\">Current status and key figures for the selected facility.</p></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 1rem; padding: 1rem; border-radius: var(--radius-xl, 0.875rem); background: var(--card); color: var(--card-foreground); box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent); } .ds-card-title { margin: 0; font-size: 1rem; font-weight: 500; line-height: 1.375rem; } .ds-card-text { margin: 0; font-size: 0.875rem; line-height: 1.25rem; color: var(--muted-foreground); }"
+    },
+    {
+      "name": "Active Navigation Row",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Sidebar row: 2rem tall, md radius; the active row fills with the accent and turns medium weight.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><a class=\"ds-nav-link ds-nav-link-active\" aria-current=\"page\" href=\"#\">Facilities</a><a class=\"ds-nav-link\" href=\"#\">Staff</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 0.125rem; } .ds-nav-link { display: flex; align-items: center; gap: 0.5rem; height: 2rem; padding-inline: 0.5rem; border-radius: var(--radius-md, 0.5rem); font-size: 0.875rem; font-weight: 400; line-height: 1.25rem; color: var(--foreground); text-decoration: none; transition: background-color 150ms, color 150ms; } .ds-nav-link:hover { background: var(--accent); } .ds-nav-link:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring); } .ds-nav-link-active { background: var(--accent); font-weight: 500; }"
+    },
+    {
+      "name": "Table Row",
+      "kind": "custom",
+      "refersTo": "table-row",
+      "description": "Data row: body type, one-pixel structural separator, hover and selected fills.",
+      "html": "<table class=\"ds-table\"><tbody><tr class=\"ds-table-row\"><td>Al-Noor Facility</td><td>Active</td></tr><tr class=\"ds-table-row\" aria-selected=\"true\"><td>Mercy Clinic</td><td>Review</td></tr></tbody></table>",
+      "css": ".ds-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; line-height: 1.25rem; color: var(--foreground); } .ds-table-row { border-bottom: 1px solid var(--border); transition: background-color 150ms; } .ds-table-row:hover { background: color-mix(in oklch, var(--muted) 50%, transparent); } .ds-table-row[aria-selected=\"true\"] { background: var(--muted); } .ds-table td { padding: 0.5rem; white-space: nowrap; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Operations Briefing",
+    "overview": "Every Cluster screen is an operations briefing: it opens with the current state, states the effective scope, and names the permitted next action. The system carries itself with quiet institutional confidence — calm, authoritative, and precise, direct and exact without stiffness, dense without noise. Users review state, confirm scope, and complete the next action with certainty; ambiguity about state, ownership, or the next step is treated as a design failure.\n\nThe density is deliberately restrained. Predictable tables, disciplined hierarchy, compact controls, and fast navigation carry complex administration without decoration or novelty. Work is reviewed, scoped, and completed in that order, and governance — permissions, approvals, versions, auditability — explains what can happen next instead of hiding in friction. Every surface earns its place in the briefing.\n\nThe experience is Arabic-first RTL with an equivalent English LTR: one interface family for human-readable copy — with a narrow mono exception for machine identifiers — one layout grammar, full parity in meaning, capability, and interaction quality. What this system rejects is generic-template assembly — it must never read as a recognizable shadcn demo assembled without Cluster-specific hierarchy, workflow judgment, or operational context.",
+    "keyCharacteristics": [
+      "**Quiet institutional confidence.** Calm, authoritative, precise; focused without visual noise.",
+      "**State, scope, next action.** Every screen makes the current state, effective scope, and permitted next action understandable before asking the user to act.",
+      "**Restrained product density.** Dense, predictable information architecture with fast navigation instead of decoration.",
+      "**Structural rings, rare lift.** Flat surfaces separated by one-pixel rings; shadows only for floating navigation and overlays.",
+      "**One interface family, one data exception.** IBM Plex Sans Arabic for all UI copy; the default mono stack only for technical identifiers, rendered LTR in either page direction.",
+      "**Arabic-first, bilingual by design.** RTL and LTR experiences stay equivalent in meaning, capability, and interaction quality.",
+      "**No generic-template assembly.** Rejects any recognizable shadcn demo without Cluster-specific hierarchy, workflow judgment, or operational context."
+    ],
+    "rules": [
+      { "name": "The Semantic Token Rule", "body": "No literal color value appears anywhere in application source except theme.css. Every fill, text, and border is a semantic token, so the entire system recolors in one place.", "section": "colors" },
+      { "name": "The Restrained Accent Rule", "body": "Command Ink is confined to filled primary actions and the selected/active-state foreground — never default body text, which is Body Ink; signal hues never leave charts. Its rarity is the point: one decisive accent on a calm field.", "section": "colors" },
+      { "name": "The Automatic Remap Rule", "body": "Never write manual `dark:` color overrides. The `.dark` block in theme.css remaps the same semantic roles, so screens declare tokens once and inherit both themes.", "section": "colors" },
+      { "name": "The One Interface Family Rule", "body": "IBM Plex Sans Arabic is the only family for human-readable UI copy. The default mono stack is permitted only for machine identifiers and must not be used for headings, buttons, prose, or personality.", "section": "typography" },
+      { "name": "The Fixed Scale Rule", "body": "The product scale is fixed — headline, title, body, label — with no clamp() fluid type and no display sizes. Mono Data inherits body and label sizes and does not create a fifth scale step. Density and predictability are features.", "section": "typography" },
+      { "name": "The Structural Ring Rule", "body": "Depth is carried by one-pixel rings and tonal contrast, never by default shadows. A card without a ring is a mistake; a card with a drop shadow is a bigger one.", "section": "elevation" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. A shadow is a state, not a style: it appears only when something genuinely floats above the work — floating or inset navigation, overlays. Decorative glassmorphism is prohibited.", "section": "elevation" },
+      { "name": "The No-Modal-Reflex Rule", "body": "A modal is never the first thought. Prefer inline editing, sheets, or navigation; use a dialog only when focus is genuinely required.", "section": "components" },
+      { "name": "The Generated-Primitives Rule", "body": "`src/components/ui/` is generated by shadcn and is never hand-edited. Customization happens by wrapping primitives in `src/components/`.", "section": "components" }
+    ],
+    "dos": [
+      "**Do** use semantic tokens exclusively (bg-primary, text-muted-foreground, border-border); literal colors live only in theme.css.",
+      "**Do** use logical RTL properties (ms-, me-, ps-, pe-, start-, end-) so the interface flips cleanly between Arabic and English.",
+      "**Do** keep Arabic-first RTL and English LTR in full parity: same meaning, same capability, same interaction quality on every screen.",
+      "**Do** render all seven resource states on every data screen, with loading as skeletons shaped like the incoming content.",
+      "**Do** keep cards flat with a one-pixel structural ring and 1rem padding; never a resting shadow.",
+      "**Do** keep state transitions compact (100–200ms) and honor the global reduced-motion override.",
+      "**Do** express positive and cautionary statuses with an outline badge plus a lucide icon — there are no success or warning tokens.",
+      "**Do** make meaning color-independent: any color signal carries an icon or text alongside it.",
+      "**Do** customize generated primitives by wrapping them in src/components/ — never by editing the source."
+    ],
+    "donts": [
+      "**Don't** resemble a generic template UI: a recognizable shadcn demo assembled without Cluster-specific hierarchy, workflow judgment, or operational context.",
+      "**Don't** nest cards — one card layer per surface; a card inside a card is always wrong.",
+      "**Don't** use colored side-stripe accents: no border-left or border-right greater than 1px as decoration.",
+      "**Don't** use gradient text (background-clip: text); emphasis comes from weight, size, and solid color.",
+      "**Don't** use decorative glassmorphism; blur appears only as the functional scrim behind dialogs and sheets.",
+      "**Don't** write raw literal colors (#hex, rgb(), hsl(), oklch()) anywhere outside theme.css.",
+      "**Don't** write manual `dark:` color overrides — the `.dark` remap in theme.css does that work automatically.",
+      "**Don't** edit generated UI primitives directly (src/components/ui/, src/api/generated/) — regenerate or wrap."
+    ]
+  }
+}

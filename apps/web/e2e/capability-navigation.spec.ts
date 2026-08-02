@@ -7,7 +7,7 @@ type Persona = 'employee' | 'manager' | 'platform'
 const caps: Record<Persona, string[]> = {
   employee: ['workflow.read', 'workflow.list', 'tasks.read', 'tasks.list', 'work_definition.read', 'work_definition.list', 'documents.read', 'documents.list'],
   manager: ['workflow.read', 'workflow.list', 'workflow.decide', 'tasks.read', 'tasks.list', 'work_definition.read', 'documents.read', 'reporting.dashboard'],
-  platform: ['workflow.read', 'workflow.list', 'workflow.decide', 'tasks.read', 'tasks.list', 'work_definition.read', 'documents.read', 'organization.cluster.read', 'organization.unit.read', 'organization.person.read', 'identity.account.read', 'authorization.role.read', 'authorization.capability.read', 'authorization.assignment.read', 'authorization.audit.read', 'authorization.decision.read', 'reporting.read', 'platform_settings.read'],
+  platform: ['workflow.read', 'workflow.list', 'workflow.decide', 'tasks.read', 'tasks.list', 'work_definition.read', 'documents.read', 'documents.list', 'organization.cluster.read', 'organization.unit.read', 'organization.person.read', 'identity.account.read', 'authorization.role.read', 'authorization.capability.read', 'authorization.assignment.read', 'authorization.audit.read', 'authorization.decision.read', 'reporting.read', 'platform_settings.read'],
 }
 
 async function mockPersona(page: Page, persona: Persona, twoScopes = false) {
@@ -32,9 +32,9 @@ async function mockPersona(page: Page, persona: Persona, twoScopes = false) {
       }),
     })
   })
-  // The rebuilt PrincipalProvider reads the principal snapshot from
-  // /api/v1/identity/me and expects capabilities/features on the envelope's
-  // data object; the same route also answers the session-restore probe.
+  // /api/v1/identity/me is only the cookie-session restore probe; the
+  // principal snapshot (capabilities/features) comes from the separate
+  // GET /api/v1/me route registered below.
   await page.route('**/api/v1/identity/me', (route) => route.fulfill(authenticated
     ? {
         status: 200,
@@ -82,8 +82,12 @@ async function login(page: Page, path = '/') { await page.goto(path); await page
 
 test('employee navigation contains only personal work and a direct admin URL has no privileged navigation', async ({ page }) => {
   await mockPersona(page, 'employee'); await login(page, '/accounts-permissions')
-  await expect(page.getByText('لا تملك الصلاحية المطلوبة لعرض هذا القسم.')).toBeVisible()
-  const primaryLinks = page.locator('.shell__nav .shell__nav-item')
+  // `/accounts-permissions` is a retired path that redirects to `/access`;
+  // a capability-less principal sees the shared non-disclosing denied copy,
+  // never an admin surface.
+  await expect(page.getByText('لا يمكن الوصول إلى هذا المحتوى.')).toBeVisible()
+  const navigation = page.getByRole('navigation', { name: 'القائمة' })
+  const primaryLinks = navigation.getByRole('link')
   await expect(primaryLinks).toHaveCount(3)
   await expect(primaryLinks).toHaveText(['الرئيسية', 'المهام', 'المستندات'])
   for (let index = 0; index < 3; index += 1) await expect(primaryLinks.nth(index)).toBeVisible()
@@ -93,6 +97,9 @@ test('platform owner sees seven direct primary links and supports LTR', async ({
   await page.setViewportSize({ width: 1280, height: 800 })
   await mockPersona(page, 'platform'); await login(page)
   await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
+  // Sidebar destinations are links inside the labelled `القائمة` navigation;
+  // the count and order mirror the capability-filtered nav groups exactly.
+  const navigation = page.getByRole('navigation', { name: 'القائمة' })
   const primaryLinks = [
     'الرئيسية',
     'المهام',
@@ -102,9 +109,9 @@ test('platform owner sees seven direct primary links and supports LTR', async ({
     'التقارير والمراقبة',
     'إدارة المنصة',
   ]
-  for (const label of primaryLinks) {
-    await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible()
-  }
+  const links = navigation.getByRole('link')
+  await expect(links).toHaveCount(primaryLinks.length)
+  await expect(links).toHaveText(primaryLinks)
   for (const retired of [
     'الطلبات والإجراءات',
     'التكليفات المؤقتة',
@@ -112,21 +119,28 @@ test('platform owner sees seven direct primary links and supports LTR', async ({
     'الأدوات الداخلية',
     'تغطية العمليات',
   ]) {
-    await expect(page.getByRole('button', { name: retired, exact: true })).toHaveCount(0)
+    await expect(navigation.getByRole('link', { name: retired, exact: true })).toHaveCount(0)
   }
-  await page.getByRole('button', { name: 'الحسابات والصلاحيات', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'الحسابات', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'الأدوار', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'مفتش القرارات', exact: true })).toBeVisible()
+  await navigation.getByRole('link', { name: 'الحسابات والصلاحيات', exact: true }).click()
+  // In-workspace surface tabs remain tabs (shadcn `TabsTrigger`), not links.
+  await expect(page.getByRole('tab', { name: 'الحسابات', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'الأدوار', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'تشخيص الوصول', exact: true })).toBeVisible()
   await page.screenshot({ path: path.join(artifactsDir, 'sidebar-primary-desktop.png'), fullPage: true })
   await page.getByRole('button', { name: 'English' }).click()
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
   await page.getByRole('button', { name: 'العربية' }).click()
   await page.setViewportSize({ width: 320, height: 720 })
-  await page.getByRole('button', { name: '☰' }).click()
-  const primaryLinksMobile = page.locator('.shell__nav .shell__nav-item')
+  // On mobile the sidebar lives behind the accessible `تبديل الشريط الجانبي`
+  // trigger (the legacy hamburger glyph is gone); the name follows the
+  // active locale like every other shell control.
+  await page.getByRole('button', { name: 'تبديل الشريط الجانبي' }).click()
+  const navigationMobile = page.getByRole('navigation', { name: 'القائمة' })
+  await expect(navigationMobile).toBeVisible()
+  const primaryLinksMobile = navigationMobile.getByRole('link')
   await expect(primaryLinksMobile).toHaveCount(primaryLinks.length)
   for (let index = 0; index < primaryLinks.length; index += 1) {
+    await primaryLinksMobile.nth(index).scrollIntoViewIfNeeded()
     await expect(primaryLinksMobile.nth(index)).toBeInViewport()
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)

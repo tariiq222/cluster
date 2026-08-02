@@ -1,200 +1,170 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
+import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query'
+import { Bell, Inbox } from 'lucide-react'
 import * as generated from '../../api/generated/cluster'
-import { requestInit, stateFromError, unwrap, type ResourceState } from '../../api/http'
-import { useNotificationsList } from '../../api/hooks'
+import { requestInit, stateFromError, unwrap } from '../../api/http'
 import { useLocale, useSessionToken } from '../../app/session-context'
 import { usePrincipal } from '../../app/principal-context'
-import { formatDate, shellCopy, statusLabel } from '../../i18n'
-import { Button, EmptyState, InlineError, Page, PageHeader, SkeletonList, StatusBadge } from '../../ui'
+import { useNavigate } from '../../app/navigation-context'
+import { formatDate } from '../../i18n'
+import { PageHeader, PageLayout } from '@/components/page-layout'
+import { Button } from '@/components/ui/button'
+import { EmptyState, ResourceBoundary } from '@/components/states'
+import { notificationsCopy } from './notifications-copy'
 
-const copy = {
-  ar: {
-    title: 'الإشعارات',
-    description: 'آخر الإشعارات الموجهة إليك في المنصة.',
-    noNotifications: 'لا توجد إشعارات',
-    markRead: 'تحديد كمقروء',
-    marking: 'جارٍ التحديث…',
-    loadMore: 'عرض المزيد',
-    loadingMore: 'جارٍ التحميل…',
-    empty: 'لا توجد بيانات.',
-    error: 'حدث خطأ غير متوقع.',
-    retry: 'إعادة المحاولة',
-    loadMoreFailed: 'تعذر تحميل المزيد من الإشعارات.',
-    markFailed: 'تعذر تحديث الإشعار.',
-    from: 'من',
-    count: 'إشعار',
-  },
-  en: {
-    title: 'Notifications',
-    description: 'Latest notifications addressed to you on the platform.',
-    noNotifications: 'No notifications',
-    markRead: 'Mark as read',
-    marking: 'Updating…',
-    loadMore: 'Load more',
-    loadingMore: 'Loading…',
-    empty: 'No data.',
-    error: 'Something went wrong.',
-    retry: 'Retry',
-    loadMoreFailed: 'Could not load more notifications.',
-    markFailed: 'Could not update the notification.',
-    from: 'From',
-    count: 'notifications',
-  },
-} as const
+const PAGE_SIZE = 20
 
-type CopyKey = keyof (typeof copy)['ar']
-
-function t(locale: 'ar' | 'en', key: CopyKey): string {
-  return copy[locale][key]
+function notificationPath(notification: generated.Notification): string | null {
+  const { record_type: recordType, record_id: recordId } = notification.source
+  switch (recordType) {
+    case 'task':
+      return `/tasks/${recordId}`
+    case 'document':
+      return `/documents/${recordId}`
+    case 'work_record':
+      return `/work-records/${recordId}`
+    default:
+      return null
+  }
 }
 
 export function NotificationsScreen() {
   const locale = useLocale()
   const csrfToken = useSessionToken()
   const { capabilities } = usePrincipal()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
-
-  const [items, setItems] = useState<generated.Notification[]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false)
-  const [marking, setMarking] = useState<Set<string>>(() => new Set())
-  const [markFailed, setMarkFailed] = useState(false)
+  const text = notificationsCopy[locale]
 
   const canRead = capabilities?.includes('notifications.read') === true
 
-  const notificationsQuery = useNotificationsList(20)
-  const data = notificationsQuery.data as generated.NotificationCollection | undefined
+  const notificationsQuery = useInfiniteQuery({
+    queryKey: ['notifications'] as const,
+    queryFn: async ({ pageParam }) => {
+      const page = unwrap<generated.NotificationCollection>(
+        await generated.listMyNotifications(
+          { limit: PAGE_SIZE, ...(pageParam ? { cursor: pageParam } : {}) },
+          requestInit(csrfToken),
+        ),
+      )
+      return page
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    enabled: canRead,
+  })
 
-  const appliedData = useRef<generated.NotificationCollection | null>(null)
-  useEffect(() => {
-    if (data === undefined) return
-    if (appliedData.current === data) return
-    appliedData.current = data
-    setNextCursor(data.next_cursor ?? null)
-    setLoadMoreFailed(false)
-    setItems((current) => {
-      if (current.length === 0) return data.items
-      const byId = new Map(data.items.map((notification) => [notification.id, notification]))
-      return current.map((notification) => byId.get(notification.id) ?? notification)
-    })
-  }, [data])
+  const items = notificationsQuery.data?.pages.flatMap((page) => page.items) ?? []
 
-  let state: ResourceState = 'loading'
-  if (!notificationsQuery.isFetching || data !== undefined) {
-    if (notificationsQuery.error !== null) {
-      state = stateFromError(notificationsQuery.error)
-    } else if (data === undefined || data.items.length === 0) {
-      state = 'empty'
-    } else {
-      state = 'ready'
-    }
-  }
-
-  const loadMore = useCallback(async () => {
-    if (nextCursor === null) return
-    setLoadingMore(true)
-    setLoadMoreFailed(false)
-    try {
-      const response = await generated.listMyNotifications({ limit: 20, cursor: nextCursor }, requestInit(csrfToken))
-      const collection = unwrap<generated.NotificationCollection>(response)
-      setItems((current) => [...current, ...collection.items])
-      setNextCursor(collection.next_cursor)
-    } catch {
-      setLoadMoreFailed(true)
-    } finally {
-      setLoadingMore(false)
-    }
-  }, [csrfToken, nextCursor])
-
-  const markReadMutation = useMutation({
+  const markRead = useMutation({
     mutationFn: async (id: string) =>
       unwrap(await generated.markNotificationRead(id, requestInit(csrfToken, { command: true }))),
     onSuccess: (_result, id) => {
-      setItems((current) => current.map((notification) => (notification.id === id ? { ...notification, is_read: true } : notification)))
+      /*
+       * The cached value is TanStack InfiniteData (pages + pageParams), not an
+       * array of pages. Patch pages in place and keep pageParams untouched so
+       * the optimistic read-mark survives until the refetch replaces the page.
+       */
+      queryClient.setQueryData<InfiniteData<generated.NotificationCollection, string | undefined>>(
+        ['notifications'],
+        (infinite) =>
+          infinite && {
+            ...infinite,
+            pages: infinite.pages.map((page) => ({
+              ...page,
+              items: page.items.map((notification) =>
+                notification.id === id ? { ...notification, is_read: true } : notification,
+              ),
+            })),
+          },
+      )
       void queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
-    onError: () => setMarkFailed(true),
   })
 
-  const markRead = useCallback((id: string) => {
-    setMarkFailed(false)
-    setMarking((current) => {
-      const next = new Set(current)
-      next.add(id)
-      return next
-    })
-    markReadMutation.mutate(id, {
-      onSettled: () => {
-        setMarking((current) => {
-          const next = new Set(current)
-          next.delete(id)
-          return next
-        })
-      },
-    })
-  }, [markReadMutation])
+  const openNotification = useCallback(
+    (notification: generated.Notification) => {
+      if (!notification.is_read) {
+        markRead.mutate(notification.id)
+      }
+      const path = notificationPath(notification)
+      if (path) navigate(path)
+    },
+    [markRead, navigate],
+  )
 
+  let state: 'loading' | 'ready' | 'empty' | 'forbidden' | 'not-found' | 'conflict' | 'stale' | 'error' = 'loading'
   if (!canRead) {
-    return <EmptyState title={shellCopy[locale].denied} />
+    state = 'forbidden'
+  } else if (notificationsQuery.isPending) {
+    state = 'loading'
+  } else if (notificationsQuery.isError) {
+    state = stateFromError(notificationsQuery.error)
+  } else if (items.length === 0) {
+    state = 'empty'
+  } else {
+    state = 'ready'
   }
 
   return (
-    <Page>
-      <PageHeader id="notifications-title" title={t(locale, 'title')} description={t(locale, 'description')} />
-      {state === 'loading' && <SkeletonList rows={4} />}
-      {state === 'forbidden' && <EmptyState title={shellCopy[locale].denied} />}
-      {(state === 'error' || state === 'stale' || state === 'conflict') && (
-        <InlineError message={t(locale, 'error')} retryLabel={t(locale, 'retry')} onRetry={() => void notificationsQuery.refetch()} />
-      )}
-      {state === 'empty' && <EmptyState title={t(locale, 'noNotifications')} />}
-      {state === 'ready' && (
-        <>
-          {markFailed && <InlineError message={t(locale, 'markFailed')} />}
-          <ul className="screen-list">
+    <PageLayout>
+      <PageHeader title={text.title} description={text.description} />
+
+      <ResourceBoundary
+        state={state}
+        locale={locale}
+        onRetry={() => void notificationsQuery.refetch()}
+        empty={<EmptyState icon={<Inbox aria-hidden="true" />} title={text.noNotifications} body={text.noNotificationsBody} />}
+      >
+        <div className="space-y-3">
+          <ul className="divide-y rounded-lg border">
             {items.map((notification) => {
-              const isMarking = marking.has(notification.id)
+              const unread = !notification.is_read
+              const path = notificationPath(notification)
               return (
-                <li key={notification.id} className="screen-list__row">
-                  <div>
-                    <div className="screen-list__row-title">{notification.title}</div>
-                    <div className="screen-list__row-meta">
-                      {t(locale, 'from')} {notification.source.source_module} / {notification.source.record_type} ·{' '}
-                      {formatDate(notification.created_at, locale)}
-                    </div>
-                  </div>
-                  <div className="screen-list__row-actions">
-                    <StatusBadge variant={notification.is_read ? 'neutral' : 'info'}>
-                      {statusLabel(notification.is_read ? 'read' : 'unread', locale)}
-                    </StatusBadge>
-                    {!notification.is_read && (
-                      <Button
-                        variant="secondary"
-                        disabled={isMarking}
-                        onClick={() => void markRead(notification.id)}
-                      >
-                        {isMarking ? t(locale, 'marking') : t(locale, 'markRead')}
-                      </Button>
+                <li key={notification.id}>
+                  <button
+                    type="button"
+                    onClick={() => openNotification(notification)}
+                    className="flex w-full items-start gap-3 p-3 text-start hover:bg-accent/50 focus-visible:bg-accent/50"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`mt-1.5 size-2 shrink-0 rounded-full ${unread ? 'bg-primary' : 'bg-transparent'}`}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate ${unread ? 'font-medium' : 'text-muted-foreground'}`}>
+                        {notification.title}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {notification.source.source_module} / {notification.source.record_type} ·{' '}
+                        {formatDate(notification.created_at, locale)}
+                      </span>
+                    </span>
+                    {path && (
+                      <span className="text-muted-foreground text-xs" aria-hidden="true">
+                        <Bell className="size-4" />
+                      </span>
                     )}
-                  </div>
+                  </button>
                 </li>
               )
             })}
           </ul>
-          {loadMoreFailed && <InlineError message={t(locale, 'loadMoreFailed')} onRetry={() => void loadMore()} retryLabel={t(locale, 'retry')} />}
-          {nextCursor && (
-            <div className="pagination-bar">
-              <p className="pagination-bar__info">
-                {items.length} {t(locale, 'count')}
-              </p>
-              <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
-                {loadingMore ? t(locale, 'loadingMore') : t(locale, 'loadMore')}
+          {notificationsQuery.hasNextPage && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={notificationsQuery.isFetchingNextPage}
+                onClick={() => void notificationsQuery.fetchNextPage()}
+              >
+                {notificationsQuery.isFetchingNextPage ? text.loadingMore : text.loadMore}
               </Button>
             </div>
           )}
-        </>
-      )}
-    </Page>
+        </div>
+      </ResourceBoundary>
+    </PageLayout>
   )
 }

@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { ShieldAlert } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useLocale, useSessionToken } from '../../../app/session-context'
 import { usePrincipal } from '../../../app/principal-context'
+import { useNavigate } from '../../../app/navigation-context'
 import { ApiError, stateFromError, type ResourceState } from '../../../api/http'
 import { statusLabel, formatDate, type Locale } from '../../../i18n'
 import * as access from '../../../api/access'
@@ -22,9 +24,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { roleCopy } from '../accounts-copy'
-import { RoleSheet } from './RoleSheet'
-import { AssignmentSheet } from './AssignmentSheet'
+import {
+  roleCopy,
+  CAPABILITY_ACTION_LABELS,
+  CAPABILITY_MODULE_LABELS,
+} from '../accounts-copy'
 
 /* ------------------------------------------------------------------ */
 /* Roles / capabilities / assignments workspace                       */
@@ -64,6 +68,12 @@ function isSensitive(sensitivity: string | undefined): boolean {
 
 function sensitivityLabel(sensitivity: string | undefined, text: RoleCopy): string {
   switch (sensitivity) {
+    case 'normal':
+      return text.sensitivityNormal
+    case 'sensitive':
+      return text.sensitivitySensitive
+    case 'critical':
+      return text.sensitivityCritical
     case 'public':
       return text.sensitivityPublic
     case 'internal':
@@ -75,6 +85,27 @@ function sensitivityLabel(sensitivity: string | undefined, text: RoleCopy): stri
     default:
       return sensitivity ?? text.unavailable
   }
+}
+
+/*
+ * Localized action verb for the capability catalog. The wire's
+ * `action` is the last dotted segment of a capability code; an unknown
+ * action falls back to the raw value so the operator still sees what
+ * the backend reported.
+ */
+function capabilityActionLabel(action: string | undefined, locale: Locale): string {
+  if (!action) return ''
+  return CAPABILITY_ACTION_LABELS[action]?.[locale] ?? action
+}
+
+/*
+ * Localized area name for the capability catalog. The wire's
+ * `module_code` is the first dotted segment; an unknown module falls
+ * back to the raw value for the same reason as the action label.
+ */
+function capabilityModuleLabel(moduleCode: string | undefined, locale: Locale): string {
+  if (!moduleCode) return ''
+  return CAPABILITY_MODULE_LABELS[moduleCode]?.[locale] ?? moduleCode
 }
 
 function effectiveStatusLabel(status: string | undefined, text: RoleCopy): string {
@@ -96,8 +127,10 @@ export function RolesTab() {
   const locale = useLocale()
   const csrfToken = useSessionToken()
   const principal = usePrincipal()
+  const navigate = useNavigate()
   const text = roleCopy[locale]
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const capabilities = principal.capabilities ?? []
   /*
    * The shared scoped `role-capability` association walk is invalidated
@@ -121,15 +154,23 @@ export function RolesTab() {
    */
   const canReconstructRole = canReadCapabilities && canReadAssignments
 
-  const [resource, setResource] = useState<ResourceKey>(
-    canReadRoles ? 'roles' : canReadCapabilities ? 'capabilities' : 'role-assignments',
-  )
+  /*
+   * The resource switcher is seeded from the URL (`?resource=...`) so the
+   * assignment-create page can return the operator to the exact resource
+   * it came from. Switching resources resets pagination.
+   */
+  const [resource, setResource] = useState<ResourceKey>(() => {
+    const param = searchParams.get('resource')
+    if (
+      param === 'roles' ||
+      param === 'capabilities' ||
+      param === 'role-assignments'
+    ) {
+      return param
+    }
+    return canReadRoles ? 'roles' : canReadCapabilities ? 'capabilities' : 'role-assignments'
+  })
   const [history, setHistory] = useState<string[]>([])
-  const [roleSheet, setRoleSheet] = useState<{
-    open: boolean
-    role: generated.AuthorizationRole | null
-  }>({ open: false, role: null })
-  const [assignmentSheetOpen, setAssignmentSheetOpen] = useState(false)
   const [confirming, setConfirming] = useState<ConfirmAction>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
 
@@ -159,12 +200,13 @@ export function RolesTab() {
     },
   })
 
-  /* Supporting labels for assignments: fetched only while assignments are
-   * active or its creation sheet is open — never preloaded. */
+  /* Supporting labels for assignments: fetched only while the
+   * role-assignments resource is active — never preloaded. The
+   * assignment-create page owns its own picker loads. */
   const accountsQuery = useQuery({
     queryKey: ['access-accounts-labels'] as const,
     queryFn: () => access.listAccounts(),
-    enabled: resource === 'role-assignments' || assignmentSheetOpen,
+    enabled: resource === 'role-assignments',
   })
   const rolesLabelsQuery = useQuery({
     queryKey: canReadAssignments
@@ -174,7 +216,7 @@ export function RolesTab() {
       canReadAssignments
         ? access.listRolesWithCapabilities()
         : access.listAdminResources('roles'),
-    enabled: resource === 'role-assignments' || assignmentSheetOpen,
+    enabled: resource === 'role-assignments',
   })
 
   const accounts = (accountsQuery.data?.items ?? []) as unknown as generated.UserAccount[]
@@ -396,7 +438,7 @@ export function RolesTab() {
                       disabled={busy}
                       onClick={() => {
                         setMutationError(null)
-                        setRoleSheet({ open: true, role })
+                        navigate(`/access/roles/${role.id}/edit`)
                       }}
                     >
                       {text.edit}
@@ -422,53 +464,91 @@ export function RolesTab() {
       },
     )
   } else if (resource === 'capabilities') {
+    /*
+     * Three-column capability catalog: a translated action verb with the
+     * canonical capability code underneath, a translated area name with
+     * the module_code underneath (and the distinct group_label as a
+     * tertiary inline line), and a sensitivity badge. The capability
+     * code and module_code are still rendered — as small mono secondary
+     * lines, never as wide first-class columns — so the operator keeps
+     * the canonical identifier in view without the table needing to
+     * accommodate a five-column row.
+     */
     columns.push(
       {
         accessorKey: 'code',
-        header: text.capabilityCode,
+        header: text.capabilityColumnPermission,
         cell: ({ row }) => {
           const capability = row.original as unknown as CapabilityCatalogItem
-          return <span className="font-mono text-sm break-all whitespace-normal" dir="ltr">{capability.code}</span>
-        },
-      },
-      {
-        accessorKey: 'module_code',
-        header: text.capabilityModule,
-        cell: ({ row }) => {
-          const capability = row.original as unknown as CapabilityCatalogItem
-          return <span className="font-mono text-sm break-all whitespace-normal" dir="ltr">{capability.module_code}</span>
-        },
-      },
-      {
-        accessorKey: 'action',
-        header: text.capabilityAction,
-        cell: ({ row }) => {
-          const capability = row.original as unknown as CapabilityCatalogItem
-          return <span className="text-sm whitespace-normal">{capability.action}</span>
-        },
-      },
-      {
-        accessorKey: 'sensitivity',
-        header: text.capabilitySensitivity,
-        cell: ({ row }) => {
-          const capability = row.original as unknown as CapabilityCatalogItem
-          const sensitivity = capability.sensitivity
-          return isSensitive(sensitivity) ? (
-            <span className="inline-flex flex-wrap items-center gap-1.5">
-              <ShieldAlert aria-hidden="true" className="size-4" />
-              <span>{sensitivityLabel(sensitivity, text)}</span>
-            </span>
-          ) : (
-            <span className="text-sm whitespace-normal">{sensitivityLabel(sensitivity, text)}</span>
+          const actionLabel = capabilityActionLabel(capability.action, locale)
+          return (
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="font-medium text-sm break-words whitespace-normal">
+                {actionLabel || text.unavailable}
+              </span>
+              <span
+                className="font-mono text-xs text-muted-foreground break-all whitespace-normal"
+                dir="ltr"
+                title={text.capabilityCodeHint}
+              >
+                {capability.code ?? text.unavailable}
+              </span>
+            </div>
           )
         },
       },
       {
-        accessorKey: 'group_label',
-        header: text.capabilityGroup,
+        accessorKey: 'module_code',
+        header: text.capabilityColumnArea,
         cell: ({ row }) => {
           const capability = row.original as unknown as CapabilityCatalogItem
-          return <span className="text-sm whitespace-normal">{capability.group_label}</span>
+          const moduleLabel = capabilityModuleLabel(capability.module_code, locale)
+          const groupLabel = capability.group_label
+          const groupIsDistinct = typeof groupLabel === 'string'
+            && groupLabel.length > 0
+            && groupLabel !== capability.module_code
+          return (
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="font-medium text-sm break-words whitespace-normal">
+                {moduleLabel || text.unavailable}
+              </span>
+              <span
+                className="font-mono text-xs text-muted-foreground break-all whitespace-normal"
+                dir="ltr"
+                title={text.capabilityCodeHint}
+              >
+                {capability.module_code ?? text.unavailable}
+              </span>
+              {groupIsDistinct ? (
+                <span
+                  className="text-muted-foreground text-xs break-words whitespace-normal"
+                  title={text.capabilityGroupHint}
+                >
+                  {groupLabel}
+                </span>
+              ) : null}
+            </div>
+          )
+        },
+      },
+      {
+        accessorKey: 'sensitivity',
+        header: text.capabilityColumnSensitivity,
+        cell: ({ row }) => {
+          const capability = row.original as unknown as CapabilityCatalogItem
+          const sensitivity = capability.sensitivity
+          const label = sensitivityLabel(sensitivity, text)
+          return (
+            <Badge
+              variant="outline"
+              className="inline-flex items-center gap-1.5 font-normal"
+            >
+              {isSensitive(sensitivity) ? (
+                <ShieldAlert aria-hidden="true" className="size-3.5" />
+              ) : null}
+              <span>{label}</span>
+            </Badge>
+          )
         },
       },
     )
@@ -645,20 +725,20 @@ export function RolesTab() {
             </Button>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {resource === 'roles' && canManageRoles && canReconstructRole ? (
             <Button
               size="sm"
               onClick={() => {
                 setMutationError(null)
-                setRoleSheet({ open: true, role: null })
+                navigate('/access/roles/new')
               }}
             >
               {text.create}
             </Button>
           ) : null}
           {resource === 'role-assignments' && canManageAssignments ? (
-            <Button size="sm" onClick={() => setAssignmentSheetOpen(true)}>
+            <Button size="sm" onClick={() => navigate('/access/role-assignments/new')}>
               {text.addAssignment}
             </Button>
           ) : null}
@@ -691,29 +771,6 @@ export function RolesTab() {
             <p className="text-foreground font-medium">{emptyCopy}</p>
           </div>
         }
-      />
-
-      <RoleSheet
-        open={roleSheet.open}
-        role={roleSheet.role}
-        onClose={() => setRoleSheet({ open: false, role: null })}
-        onSaved={() => setRoleSheet({ open: false, role: null })}
-      />
-
-      <AssignmentSheet
-        open={assignmentSheetOpen}
-        enrichRoles={canReadAssignments}
-        effectiveScope={
-          principal.effectiveScope
-            ? {
-                scopeType: principal.effectiveScope.scopeType,
-                scopeId: principal.effectiveScope.scopeId,
-                label: principal.effectiveScope.label,
-              }
-            : null
-        }
-        onClose={() => setAssignmentSheetOpen(false)}
-        onSaved={() => setAssignmentSheetOpen(false)}
       />
 
       <AlertDialog

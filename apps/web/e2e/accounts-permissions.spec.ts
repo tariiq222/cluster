@@ -44,13 +44,13 @@ const fullCapabilities = [
 const systemRole = {
   id: ids.systemRole, code: 'finance.system', name_en: 'Finance reviewer', name_ar: 'مراجع مالي',
   is_system_role: true, role_type: 'system' as const, status: 'active' as const,
-  lock_version: 1, capability_codes: ['records.read'], allowed_actions: ['clone'],
+  lock_version: 1, capability_codes: ['work_record.read'], allowed_actions: ['clone'],
 }
 
 const customRole = {
   id: ids.customRole, code: 'finance.custom', name_en: 'Finance reviewer (custom)', name_ar: 'مراجع مالي مخصص',
   is_system_role: false, role_type: 'custom' as const, status: 'active' as const,
-  lock_version: 2, capability_codes: ['records.read'], allowed_actions: ['edit', 'archive'],
+  lock_version: 2, capability_codes: ['work_record.read'], allowed_actions: ['edit', 'archive'],
 }
 
 const customRoleAfterEdit = {
@@ -129,7 +129,7 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
   await page.route('**/api/v1/work-records?limit=**', (route) => json(route, { items: [], next_cursor: null }))
   await page.route('**/api/v1/identity/accounts?**', (route) => json(route, { items: [{ id: ids.account, username: 'finance', display_name_en: 'Finance officer', display_name_ar: 'مسؤول المالية', status: 'active', must_change_password: false }], next_cursor: null }))
   await page.route('**/api/v1/organization/people?**', (route) => json(route, { items: [], next_cursor: null }))
-  await page.route('**/api/v1/authorization/capabilities?**', (route) => json(route, { data: { items: [{ id: '01980f50-5f0d-7000-8000-000000000810', code: 'records.read', name_en: 'Read records' }], next_cursor: null } }))
+  await page.route('**/api/v1/authorization/capabilities?**', (route) => json(route, { data: { items: [{ id: '01980f50-5f0d-7000-8000-000000000810', code: 'work_record.read', capability_code: 'work_record.read', module_code: 'work_record', action: 'read', sensitivity: 'normal', group_label: 'work_record', name_en: 'Read work records' }], next_cursor: null } }))
 
   await page.route('**/api/v1/authorization/roles?**', (route) => {
     const items = seenRoles()
@@ -140,13 +140,13 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
   // each role page. The live projection serializes `id` as
   // `role_id:capability_id` plus the capability code and effect; only
   // `allow` rows contribute to a role's capability_codes. The two fixture
-  // roles both carry `records.read`, so two allow rows keep the enriched
-  // shape consistent with the role fixtures.
+  // roles both carry `work_record.read`, so two allow rows keep the
+  // enriched shape consistent with the role fixtures.
   await page.route('**/api/v1/authorization/role-capabilities?**', (route) => json(route, {
     data: {
       items: [
-        { id: `${ids.systemRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.systemRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'records.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
-        { id: `${ids.customRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.customRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'records.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
+        { id: `${ids.systemRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.systemRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'work_record.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
+        { id: `${ids.customRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.customRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'work_record.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
       ],
       next_cursor: null,
     },
@@ -299,8 +299,8 @@ test('system roles must be cloned before custom-role editing; direct system PATC
 
   await expect(page.getByText('مراجع مالي مخصص')).toBeVisible()
 
-  // Edit: PATCH with If-Match "2" (system role is at 1, cloned custom role at 2),
-  // Content-Type merge-patch+json, advances lock_version to 3.
+  // Edit + save — the edit action opens the full-page role editor, which
+  // fetches the role by id (GET) and then PATCHes with If-Match "2".
   const editRequest = waitForRequest(page, (req) => req.url.endsWith(`/api/v1/authorization/roles/${ids.customRole}`) && req.method === 'PATCH')
   await page.getByRole('button', { name: 'تعديل', exact: true }).click()
   await page.getByLabel('اسم الدور').fill('Finance approver')
@@ -386,8 +386,13 @@ test('mutation feedback proves the 412 path through the alert region', async ({ 
   await signIn(page)
   await openRolesTab(page)
 
-  // Stage a 412 on the edit endpoint; the custom role still has to exist.
+  // Stage a 412 on the edit endpoint; the full-page editor also reads the
+  // role by id (GET) to seed the form, so both methods are served here.
   await page.route(`**/api/v1/authorization/roles/${ids.customRole}`, async (route) => {
+    if (route.request().method() === 'GET') {
+      await json(route, { data: customRole }, 200, { ETag: `"${customRole.lock_version}"` })
+      return
+    }
     if (route.request().method() === 'PATCH') {
       await json(route, { type: 'about:blank', title: 'Precondition failed', status: 412, detail: 'This role changed; reload before saving.' }, 412)
       return
@@ -410,8 +415,45 @@ test('mutation feedback proves the 412 path through the alert region', async ({ 
   expect(patch.headers['x-csrf-token']).toBeTruthy()
 
   // The runtime surfaces the conflict through the alert region with the
-  // problem title; no recovery buttons exist on the rebuilt form.
+  // problem title; the page keeps the entered values for recovery.
   await expect(page.getByRole('alert')).toContainText('Precondition failed')
+})
+
+test('creates a role through the full-page role editor with grouped capability selection', async ({ page }) => {
+  await enforceLocalApiOnly(page)
+  await mockWorkspace(page)
+  await signIn(page)
+  await openRolesTab(page)
+
+  // The create page POSTs the new role with the selected allow-set.
+  await page.route('**/api/v1/authorization/roles', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    const body = route.request().postDataJSON()
+    expect(body.resource_type).toBe('role')
+    expect(body.code).toBe('ops.reviewer')
+    expect(body.name).toBe('مراجع عمليات')
+    expect(body.capability_codes).toEqual(['work_record.read'])
+    await json(route, { data: { ...customRole, id: ids.customRole }, lock_version: 1 }, 201, { ETag: '"1"' })
+  })
+
+  await page.getByRole('button', { name: 'إنشاء دور' }).click()
+  await expect(page).toHaveURL(/\/access\/roles\/new$/)
+
+  // The catalog renders grouped by module with localized group headings.
+  await expect(page.getByText('سجلات العمل')).toBeVisible()
+
+  // Select the work_record.read capability by its Arabic label, then create the role.
+  await page.getByRole('checkbox', { name: 'قراءة سجل عمل' }).check()
+  await page.getByLabel('رمز الدور').fill('ops.reviewer')
+  await page.getByLabel('اسم الدور').fill('مراجع عمليات')
+  await page.getByRole('button', { name: 'أنشئ الدور' }).click()
+
+  // Success returns to the roles resource.
+  await expect(page).toHaveURL(/\/access$/)
+  await expect(page.getByRole('heading', { name: 'الأدوار والصلاحيات' })).toBeVisible()
 })
 
 type CapturedRequest = { method: string; url: string; headers: Record<string, string> }

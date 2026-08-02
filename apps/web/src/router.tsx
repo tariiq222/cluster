@@ -1,22 +1,198 @@
-import { useMemo } from 'react'
-import { createBrowserRouter, Navigate, RouterProvider, useParams } from 'react-router-dom'
+import { lazy, Suspense, useMemo, type ReactNode } from 'react'
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+  useParams,
+} from 'react-router-dom'
+import { FileQuestion } from 'lucide-react'
 import { AppShell } from './app/AppShell'
 import { usePrincipal } from './app/principal-context'
+import { useLocale } from './app/session-context'
+import { shellCopy } from './i18n'
+import { EmptyState, ErrorState, LoadingState } from '@/components/states'
+import { Skeleton } from '@/components/ui/skeleton'
 
-import { HomeDashboard } from './features/dashboard/HomeDashboard'
-import { TasksScreen } from './features/tasks/TasksScreen'
-import { TaskDetailScreen } from './features/tasks/TaskDetailScreen'
-import { TaskCreateScreen } from './features/tasks/TaskCreateScreen'
-import { DocumentsScreen } from './features/documents/DocumentsScreen'
-import { DocumentDetailScreen } from './features/documents/DocumentDetailScreen'
-import { OrganizationScreen } from './features/organization/OrganizationScreen'
-import { AccessScreen } from './features/accounts/AccessScreen'
-import { ReportsMonitoringScreen } from './features/reports/ReportsMonitoringScreen'
-import { PlatformManagementScreen } from './features/platform/PlatformManagementScreen'
-import { NotificationsScreen } from './features/notifications/NotificationsScreen'
-import { SearchScreen } from './features/search/SearchScreen'
-import { PersonalSecurityScreen } from './features/identity/PersonalSecurityScreen'
-import { ImportWizard } from './features/imports/ImportWizard'
+/*
+ * Route-level code splitting (Task 14 Step 1): each screen is fetched only
+ * when its route is first visited. The modules use named exports, so every
+ * named export is mapped to the default the lazy() loader expects.
+ */
+const HomeDashboard = lazy(() =>
+  import('./features/dashboard/HomeDashboard').then((m) => ({
+    default: m.HomeDashboard,
+  })),
+)
+const TasksScreen = lazy(() =>
+  import('./features/tasks/TasksScreen').then((m) => ({
+    default: m.TasksScreen,
+  })),
+)
+const TaskDetailScreen = lazy(() =>
+  import('./features/tasks/TaskDetailScreen').then((m) => ({
+    default: m.TaskDetailScreen,
+  })),
+)
+const TaskCreateScreen = lazy(() =>
+  import('./features/tasks/TaskCreateScreen').then((m) => ({
+    default: m.TaskCreateScreen,
+  })),
+)
+const DocumentsScreen = lazy(() =>
+  import('./features/documents/DocumentsScreen').then((m) => ({
+    default: m.DocumentsScreen,
+  })),
+)
+const DocumentCreateScreen = lazy(() =>
+  import('./features/documents/DocumentCreateScreen').then((m) => ({
+    default: m.DocumentCreateScreen,
+  })),
+)
+const DocumentDetailScreen = lazy(() =>
+  import('./features/documents/DocumentDetailScreen').then((m) => ({
+    default: m.DocumentDetailScreen,
+  })),
+)
+const OrganizationScreen = lazy(() =>
+  import('./features/organization/OrganizationScreen').then((m) => ({
+    default: m.OrganizationScreen,
+  })),
+)
+const AccessScreen = lazy(() =>
+  import('./features/accounts/AccessScreen').then((m) => ({
+    default: m.AccessScreen,
+  })),
+)
+const OrganizationClusterFormScreen = lazy(() =>
+  import('./features/organization/ClusterFormScreen').then((m) => ({
+    default: m.ClusterFormScreen,
+  })),
+)
+const OrganizationFacilityFormScreen = lazy(() =>
+  import('./features/organization/FacilityFormScreen').then((m) => ({
+    default: m.FacilityFormScreen,
+  })),
+)
+const OrganizationUnitCreateScreen = lazy(() =>
+  import('./features/organization/UnitCreateScreen').then((m) => ({
+    default: m.UnitCreateScreen,
+  })),
+)
+const OrganizationPositionCreateScreen = lazy(() =>
+  import('./features/organization/PositionCreateScreen').then((m) => ({
+    default: m.PositionCreateScreen,
+  })),
+)
+const OrganizationJobTitleCreateScreen = lazy(() =>
+  import('./features/organization/JobTitleCreateScreen').then((m) => ({
+    default: m.JobTitleCreateScreen,
+  })),
+)
+const OrganizationPersonFormScreen = lazy(() =>
+  import('./features/organization/PersonFormScreen').then((m) => ({
+    default: m.PersonFormScreen,
+  })),
+)
+const OrganizationAssignmentCreateScreen = lazy(() =>
+  import('./features/organization/OrganizationAssignmentCreateScreen').then((m) => ({
+    default: m.OrganizationAssignmentCreateScreen,
+  })),
+)
+const SecuritySettingEditScreen = lazy(() =>
+  import('./features/platform/SecuritySettingEditScreen').then((m) => ({
+    default: m.SecuritySettingEditScreen,
+  })),
+)
+const CalendarCreateScreen = lazy(() =>
+  import('./features/platform/CalendarCreateScreen').then((m) => ({
+    default: m.CalendarCreateScreen,
+  })),
+)
+const CalendarWeekdayEditScreen = lazy(() =>
+  import('./features/platform/CalendarWeekdayEditScreen').then((m) => ({
+    default: m.CalendarWeekdayEditScreen,
+  })),
+)
+const CalendarExceptionCreateScreen = lazy(() =>
+  import('./features/platform/CalendarExceptionCreateScreen').then((m) => ({
+    default: m.CalendarExceptionCreateScreen,
+  })),
+)
+const MaintenanceCreateScreen = lazy(() =>
+  import('./features/platform/MaintenanceCreateScreen').then((m) => ({
+    default: m.MaintenanceCreateScreen,
+  })),
+)
+const LogsRestoreScreen = lazy(() =>
+  import('./features/platform/LogsRestoreScreen').then((m) => ({
+    default: m.LogsRestoreScreen,
+  })),
+)
+const AlertPolicyEditScreen = lazy(() =>
+  import('./features/platform/AlertPolicyEditScreen').then((m) => ({
+    default: m.AlertPolicyEditScreen,
+  })),
+)
+const UploadVersionScreen = lazy(() =>
+  import('./features/documents/UploadVersionScreen').then((m) => ({
+    default: m.UploadVersionScreen,
+  })),
+)
+const AuditEventDetailScreen = lazy(() =>
+  import('./features/audit/AuditEventDetailScreen').then((m) => ({
+    default: m.AuditEventDetailScreen,
+  })),
+)
+const AccountCreateScreen = lazy(() =>
+  import('./features/accounts/AccountCreateScreen').then((m) => ({
+    default: m.AccountCreateScreen,
+  })),
+)
+const AccountDetailScreen = lazy(() =>
+  import('./features/accounts/AccountDetailScreen').then((m) => ({
+    default: m.AccountDetailScreen,
+  })),
+)
+const RoleFormScreen = lazy(() =>
+  import('./features/accounts/RoleFormScreen').then((m) => ({
+    default: m.RoleFormScreen,
+  })),
+)
+const AssignmentCreateScreen = lazy(() =>
+  import('./features/accounts/AssignmentCreateScreen').then((m) => ({
+    default: m.AssignmentCreateScreen,
+  })),
+)
+const ReportsMonitoringScreen = lazy(() =>
+  import('./features/reports/ReportsMonitoringScreen').then((m) => ({
+    default: m.ReportsMonitoringScreen,
+  })),
+)
+const PlatformManagementScreen = lazy(() =>
+  import('./features/platform/PlatformManagementScreen').then((m) => ({
+    default: m.PlatformManagementScreen,
+  })),
+)
+const NotificationsScreen = lazy(() =>
+  import('./features/notifications/NotificationsScreen').then((m) => ({
+    default: m.NotificationsScreen,
+  })),
+)
+const SearchScreen = lazy(() =>
+  import('./features/search/SearchScreen').then((m) => ({
+    default: m.SearchScreen,
+  })),
+)
+const MeScreen = lazy(() =>
+  import('./features/identity/MeScreen').then((m) => ({
+    default: m.MeScreen,
+  })),
+)
+const ImportWizard = lazy(() =>
+  import('./features/imports/ImportWizard').then((m) => ({
+    default: m.ImportWizard,
+  })),
+)
 
 function TaskDetailRoute() {
   const { taskId } = useParams()
@@ -28,20 +204,107 @@ function DocumentDetailRoute() {
   return documentId ? <DocumentDetailScreen documentId={documentId} /> : null
 }
 
+function DocumentVersionUploadRoute() {
+  const { documentId } = useParams()
+  return documentId ? <UploadVersionScreen documentId={documentId} /> : null
+}
+
+function AuditEventDetailRoute() {
+  const { eventId } = useParams()
+  return eventId ? <AuditEventDetailScreen eventId={eventId} /> : null
+}
+
+function OrganizationFacilityFormRoute() {
+  const { facilityId } = useParams()
+  return <OrganizationFacilityFormScreen facilityId={facilityId} />
+}
+
+function OrganizationPersonFormRoute() {
+  const { personId } = useParams()
+  return <OrganizationPersonFormScreen personId={personId} />
+}
+
+function SecuritySettingEditRoute() {
+  const { versionId, settingKey } = useParams()
+  return versionId && settingKey ? (
+    <SecuritySettingEditScreen versionId={versionId} settingKey={settingKey} />
+  ) : null
+}
+
+function CalendarWeekdayEditRoute() {
+  const { calendarId, weekday } = useParams()
+  const parsed = weekday !== undefined ? Number(weekday) : Number.NaN
+  return calendarId && Number.isInteger(parsed) ? (
+    <CalendarWeekdayEditScreen calendarId={calendarId} weekday={parsed} />
+  ) : null
+}
+
+function CalendarExceptionCreateRoute() {
+  const { calendarId } = useParams()
+  return calendarId ? <CalendarExceptionCreateScreen calendarId={calendarId} /> : null
+}
+
+function AlertPolicyEditRoute() {
+  const { policyId } = useParams()
+  return policyId ? <AlertPolicyEditScreen policyId={policyId} /> : null
+}
+
+function AccountDetailRoute() {
+  const { accountId } = useParams()
+  return accountId ? <AccountDetailScreen accountId={accountId} /> : null
+}
+
+function RoleFormRoute() {
+  const { roleId } = useParams()
+  return <RoleFormScreen roleId={roleId} />
+}
+
 function ImportReviewRoute() {
   const { jobId } = useParams()
   return <ImportWizard jobId={jobId} />
 }
 
 function NotFoundScreen() {
-  return <div className="state-panel">404</div>
+  const locale = useLocale()
+  return (
+    <EmptyState
+      icon={<FileQuestion aria-hidden="true" />}
+      title={shellCopy[locale].notFound}
+    />
+  )
+}
+
+/*
+ * Shared route-loading fallback: the shared LoadingState skeleton behind an
+ * accessible status announcement. No raw spinners. It renders inside the
+ * session/locale context, so the announcement is localized.
+ */
+export function RouteFallback() {
+  const locale = useLocale()
+  return (
+    <div role="status" aria-live="polite" className="space-y-3 p-4 sm:p-6">
+      <span className="sr-only">{shellCopy[locale].loading}</span>
+      <LoadingState rows={4} />
+    </div>
+  )
+}
+
+/*
+ * Every lazy route screen element renders through this single shared
+ * Suspense boundary, so one fallback covers all route chunks. The shell and
+ * route definitions stay eager.
+ */
+function RouteBoundary({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>
 }
 
 function WorkspacePlaceholder({ title }: { title: string }) {
   return (
     <div className="flex flex-col items-center gap-2 py-16 text-center">
       <p className="text-foreground font-medium">{title}</p>
-      <p className="text-muted-foreground text-sm">قيد التطوير · Under construction</p>
+      <p className="text-muted-foreground text-sm">
+        قيد التطوير · Under construction
+      </p>
     </div>
   )
 }
@@ -53,30 +316,352 @@ function WorkspacePlaceholder({ title }: { title: string }) {
  */
 function workManagementRoutes() {
   return [
-    { path: '/work-records', element: <WorkspacePlaceholder title="سجلات العمل · Work Records" /> },
-    { path: '/work-records/:recordId', element: <WorkspacePlaceholder title="سجل العمل · Work Record" /> },
-    { path: '/inbox', element: <WorkspacePlaceholder title="صندوق الموافقات · Approvals Inbox" /> },
-    { path: '/workflow', element: <WorkspacePlaceholder title="سير العمل · Workflow" /> },
-    { path: '/work-definitions', element: <WorkspacePlaceholder title="نماذج العمل · Work Definitions" /> },
+    {
+      path: '/work-records',
+      element: <WorkspacePlaceholder title="سجلات العمل · Work Records" />,
+    },
+    {
+      path: '/work-records/:recordId',
+      element: <WorkspacePlaceholder title="سجل العمل · Work Record" />,
+    },
+    {
+      path: '/inbox',
+      element: (
+        <WorkspacePlaceholder title="صندوق الموافقات · Approvals Inbox" />
+      ),
+    },
+    {
+      path: '/workflow',
+      element: <WorkspacePlaceholder title="سير العمل · Workflow" />,
+    },
+    {
+      path: '/work-definitions',
+      element: <WorkspacePlaceholder title="نماذج العمل · Work Definitions" />,
+    },
   ]
 }
 
 const ROUTES = [
-  { path: '/', element: <HomeDashboard /> },
-  { path: '/tasks', element: <TasksScreen /> },
-  { path: '/tasks/new', element: <TaskCreateScreen /> },
-  { path: '/tasks/:taskId', element: <TaskDetailRoute /> },
-  { path: '/documents', element: <DocumentsScreen /> },
-  { path: '/documents/:documentId', element: <DocumentDetailRoute /> },
-  { path: '/organization', element: <OrganizationScreen /> },
-  { path: '/organization/import', element: <ImportReviewRoute /> },
-  { path: '/organization/import/:jobId', element: <ImportReviewRoute /> },
-  { path: '/access', element: <AccessScreen /> },
-  { path: '/reports', element: <ReportsMonitoringScreen /> },
-  { path: '/platform', element: <PlatformManagementScreen /> },
-  { path: '/notifications', element: <NotificationsScreen /> },
-  { path: '/search', element: <SearchScreen /> },
-  { path: '/me', element: <PersonalSecurityScreen /> },
+  {
+    path: '/',
+    element: (
+      <RouteBoundary>
+        <HomeDashboard />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/tasks',
+    element: (
+      <RouteBoundary>
+        <TasksScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/tasks/new',
+    element: (
+      <RouteBoundary>
+        <TaskCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/tasks/:taskId',
+    element: (
+      <RouteBoundary>
+        <TaskDetailRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/documents',
+    element: (
+      <RouteBoundary>
+        <DocumentsScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/documents/new',
+    element: (
+      <RouteBoundary>
+        <DocumentCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/documents/:documentId',
+    element: (
+      <RouteBoundary>
+        <DocumentDetailRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/documents/:documentId/versions/new',
+    element: (
+      <RouteBoundary>
+        <DocumentVersionUploadRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization',
+    element: (
+      <RouteBoundary>
+        <OrganizationScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/import',
+    element: (
+      <RouteBoundary>
+        <ImportReviewRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/import/:jobId',
+    element: (
+      <RouteBoundary>
+        <ImportReviewRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/cluster/new',
+    element: (
+      <RouteBoundary>
+        <OrganizationClusterFormScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/cluster/edit',
+    element: (
+      <RouteBoundary>
+        <OrganizationClusterFormScreen mode="edit" />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/facilities/new',
+    element: (
+      <RouteBoundary>
+        <OrganizationFacilityFormScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/facilities/:facilityId/edit',
+    element: (
+      <RouteBoundary>
+        <OrganizationFacilityFormRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/units/new',
+    element: (
+      <RouteBoundary>
+        <OrganizationUnitCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/positions/new',
+    element: (
+      <RouteBoundary>
+        <OrganizationPositionCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/job-titles/new',
+    element: (
+      <RouteBoundary>
+        <OrganizationJobTitleCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/people/new',
+    element: (
+      <RouteBoundary>
+        <OrganizationPersonFormScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/people/:personId/edit',
+    element: (
+      <RouteBoundary>
+        <OrganizationPersonFormRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/organization/assignments/new',
+    element: (
+      <RouteBoundary>
+        <OrganizationAssignmentCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/access',
+    element: (
+      <RouteBoundary>
+        <AccessScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/access/accounts/new',
+    element: (
+      <RouteBoundary>
+        <AccountCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/access/accounts/:accountId',
+    element: (
+      <RouteBoundary>
+        <AccountDetailRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/access/roles/new',
+    element: (
+      <RouteBoundary>
+        <RoleFormScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/access/roles/:roleId/edit',
+    element: (
+      <RouteBoundary>
+        <RoleFormRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/access/role-assignments/new',
+    element: (
+      <RouteBoundary>
+        <AssignmentCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/reports',
+    element: (
+      <RouteBoundary>
+        <ReportsMonitoringScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/reports/audit/events/:eventId',
+    element: (
+      <RouteBoundary>
+        <AuditEventDetailRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/platform',
+    element: (
+      <RouteBoundary>
+        <PlatformManagementScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/platform/settings/:versionId/security/:settingKey/edit',
+    element: (
+      <RouteBoundary>
+        <SecuritySettingEditRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/platform/calendars/new',
+    element: (
+      <RouteBoundary>
+        <CalendarCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/platform/calendars/:calendarId/weekdays/:weekday/edit',
+    element: (
+      <RouteBoundary>
+        <CalendarWeekdayEditRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/platform/calendars/:calendarId/exceptions/new',
+    element: (
+      <RouteBoundary>
+        <CalendarExceptionCreateRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/platform/maintenance/new',
+    element: (
+      <RouteBoundary>
+        <MaintenanceCreateScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/platform/logs/restore',
+    element: (
+      <RouteBoundary>
+        <LogsRestoreScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/platform/alerts/:policyId/edit',
+    element: (
+      <RouteBoundary>
+        <AlertPolicyEditRoute />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/notifications',
+    element: (
+      <RouteBoundary>
+        <NotificationsScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/search',
+    element: (
+      <RouteBoundary>
+        <SearchScreen />
+      </RouteBoundary>
+    ),
+  },
+  {
+    path: '/me',
+    element: (
+      <RouteBoundary>
+        <MeScreen />
+      </RouteBoundary>
+    ),
+  },
   { path: '/login', element: <Navigate to="/" replace /> },
 ]
 
@@ -88,11 +673,17 @@ const REDIRECTS = [
   { path: '/api-docs', element: <Navigate to="/" replace /> },
   { path: '/accounts-permissions', element: <Navigate to="/access" replace /> },
   { path: '/reports-monitoring', element: <Navigate to="/reports" replace /> },
-  { path: '/platform-management', element: <Navigate to="/platform" replace /> },
+  {
+    path: '/platform-management',
+    element: <Navigate to="/platform" replace />,
+  },
   { path: '/audit', element: <Navigate to="/reports" replace /> },
   { path: '/dashboards', element: <Navigate to="/reports" replace /> },
   { path: '/imports', element: <Navigate to="/organization/import" replace /> },
-  { path: '/imports/:jobId', element: <Navigate to="/organization/import/:jobId" replace /> },
+  {
+    path: '/imports/:jobId',
+    element: <Navigate to="/organization/import/:jobId" replace />,
+  },
   { path: '/me/security', element: <Navigate to="/me" replace /> },
   { path: '/me/access', element: <Navigate to="/me" replace /> },
 ]
@@ -121,19 +712,71 @@ export function router({ features, onLogout }: RouterConfig) {
   ])
 }
 
+function PrincipalLoadingState() {
+  const locale = useLocale()
+  return (
+    <main
+      className="grid min-h-svh gap-4 bg-background p-4 md:grid-cols-[16rem_1fr] sm:p-6"
+      data-testid="principal-loading"
+    >
+      <div
+        role="status"
+        aria-live="polite"
+        className="space-y-3 border-e border-border pe-4"
+      >
+        <span className="sr-only">{shellCopy[locale].loading}</span>
+        <Skeleton className="h-11 w-full" />
+        <Skeleton className="h-8 w-3/4" />
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-5/6" />
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-28 w-full" />
+      </div>
+    </main>
+  )
+}
+
+function ResolvedRouter({
+  features,
+  onLogout,
+}: {
+  features: RouterConfig['features']
+  onLogout: () => void
+}) {
+  const instance = useMemo(
+    () => router({ features, onLogout }),
+    [features, onLogout],
+  )
+  return <RouterProvider router={instance} />
+}
+
 /*
  * The router is built only after the principal resolves: features come from
  * /me, and feature-gated routes must be absent — not disabled — while the
  * flag is off. Returning null until then leaks no skeleton.
  */
 export function AppRouter({ onLogout }: { onLogout: () => void }) {
-  const { features } = usePrincipal()
-  const workManagement = features?.work_management ?? false
-  const tasks = features?.tasks ?? false
-  const instance = useMemo(
-    () => router({ features: { work_management: workManagement, tasks }, onLogout }),
-    [workManagement, tasks, onLogout],
-  )
-  if (!features) return null
-  return <RouterProvider router={instance} />
+  const principal = usePrincipal()
+  const locale = useLocale()
+  if (!principal.features) {
+    if (principal.state === 'error') {
+      return (
+        <main className="min-h-svh bg-background p-4 sm:p-6">
+          <div className="mx-auto max-w-2xl pt-12">
+            <ErrorState
+              locale={locale}
+              correlationId={principal.errorCorrelationId}
+              onRetry={principal.refresh}
+            />
+          </div>
+        </main>
+      )
+    }
+    return <PrincipalLoadingState />
+  }
+  return <ResolvedRouter features={principal.features} onLogout={onLogout} />
 }

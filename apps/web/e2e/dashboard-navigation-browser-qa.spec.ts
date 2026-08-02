@@ -103,7 +103,7 @@ test('dashboard shell passes desktop, 200 percent, mobile, RTL and LTR visual ch
   await signIn(page)
 
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-  await expect(page.locator('.metric-tile')).toHaveCount(2)
+  await expect(page.getByTestId('dashboard-kpis').locator(':scope > div')).toHaveCount(2)
   await expect(page.getByRole('group', { name: 'مؤشرات الأداء' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'مهامي', exact: true })).toBeVisible()
   await expectNoHorizontalOverflow(page)
@@ -127,7 +127,7 @@ test('dashboard shell passes desktop, 200 percent, mobile, RTL and LTR visual ch
   await page.setViewportSize({ width: 320, height: 720 })
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await expectNoHorizontalOverflow(page)
-  const menu = page.getByRole('button', { name: 'Toggle Sidebar' })
+  const menu = page.getByRole('button', { name: 'تبديل الشريط الجانبي' })
   await menu.click()
   const navigation = page.getByRole('navigation', { name: 'القائمة' })
   await expect(navigation).toBeVisible()

@@ -3,8 +3,10 @@ import { useLocale, useSessionToken } from '../../app/session-context'
 import { ApiError, requestInit, unwrap, unwrapWithEtag } from '../../api/http'
 import { formatNumber } from '../../i18n'
 import * as generated from '../../api/generated/cluster'
+import { PageHeader, PageLayout } from '@/components/page-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DeniedState, ErrorState, LoadingState } from '@/components/states'
 import { importsCopy } from './imports-copy'
 import { UploadStep } from './steps/UploadStep'
 import { ValidateStep } from './steps/ValidateStep'
@@ -118,107 +120,110 @@ export function ImportWizard({ jobId }: { jobId?: string }) {
     job === null ? 'upload' : job.status === 'received' ? 'validate' : job.status === 'validated' ? 'review' : job.status === 'approved' ? 'commit' : 'review'
   const stepIndex = STEP_ORDER.indexOf(currentStep)
 
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
-        <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
-      </div>
-    )
-  }
-
-  if (state === 'forbidden' || state === 'not-found' || state === 'error') {
-    return (
-      <div className="space-y-2">
-        <p className="text-destructive text-sm" role="alert">{text.error}</p>
-        <Button variant="outline" size="sm" onClick={() => void load()}>
-          {text.retry}
-        </Button>
-      </div>
-    )
-  }
-
+  /*
+   * Every wizard branch — loading, denied, error, and ready — renders inside
+   * the shared PageLayout shell so the wizard is visually anchored to the
+   * same outer column the rest of the workspace uses.
+   */
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        {STEP_ORDER.map((step, index) => (
-          <div key={step} className="flex items-center gap-2">
-            <Badge variant={index <= stepIndex ? 'default' : 'outline'}>
-              {index + 1}
-            </Badge>
-            <span className={index <= stepIndex ? 'text-sm font-medium' : 'text-muted-foreground text-sm'}>
-              {text[STEP_LABELS[step]]}
-            </span>
-            {index < STEP_ORDER.length - 1 ? <span className="text-muted-foreground">—</span> : null}
+    <PageLayout>
+      <PageHeader title={text.title} description={text.intro} />
+
+      {loading ? (
+        <LoadingState rows={4} announce={text.loading} />
+      ) : state === 'forbidden' || state === 'not-found' ? (
+        // DESIGN-RULES §4.3: 403 and 404 render the exact same non-disclosing
+        // surface so a forbidden resource and a missing resource are
+        // indistinguishable — the difference would be a resource-existence leak.
+        <DeniedState locale={locale} />
+      ) : state === 'error' ? (
+        <ErrorState
+          locale={locale}
+          onRetry={() => void load()}
+        />
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            {STEP_ORDER.map((step, index) => (
+              <div key={step} className="flex items-center gap-2">
+                <Badge variant={index <= stepIndex ? 'default' : 'outline'}>
+                  {index + 1}
+                </Badge>
+                <span className={index <= stepIndex ? 'text-sm font-medium' : 'text-muted-foreground text-sm'}>
+                  {text[STEP_LABELS[step]]}
+                </span>
+                {index < STEP_ORDER.length - 1 ? <span className="text-muted-foreground">—</span> : null}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {staleMessage ? (
-        <p className="text-destructive text-sm" role="status">{staleMessage}</p>
-      ) : null}
+          {staleMessage ? (
+            <p className="text-destructive text-sm" role="status">{staleMessage}</p>
+          ) : null}
 
-      {job === null ? (
-        <UploadStep onUploaded={setQuarantineId} />
-      ) : null}
+          {job === null ? (
+            <UploadStep onUploaded={setQuarantineId} />
+          ) : null}
 
-      {job === null ? (
-        <ValidateStep
-          quarantineId={quarantineId}
-          onQuarantineIdChange={(value) => {
-            setQuarantineId(value)
-            setSubmitError(null)
-          }}
-          onSubmitted={async (created) => {
-            setActiveJobId(created.id)
-            await load(created.id)
-          }}
-          submitting={false}
-          error={submitError}
-        />
-      ) : null}
+          {job === null ? (
+            <ValidateStep
+              quarantineId={quarantineId}
+              onQuarantineIdChange={(value) => {
+                setQuarantineId(value)
+                setSubmitError(null)
+              }}
+              onSubmitted={async (created) => {
+                setActiveJobId(created.id)
+                await load(created.id)
+              }}
+              submitting={false}
+              error={submitError}
+            />
+          ) : null}
 
-      {job !== null && job.status === 'received' ? (
-        <div className="space-y-2">
-          <p role="status" className="text-sm">{text.received}</p>
-          <Button size="sm" onClick={() => void handleTransition('validate')} disabled={transitioning}>
-            {transitioning ? text.executing : text.validate}
-          </Button>
+          {job !== null && job.status === 'received' ? (
+            <div className="space-y-2">
+              <p role="status" className="text-sm">{text.received}</p>
+              <Button size="sm" onClick={() => void handleTransition('validate')} disabled={transitioning}>
+                {transitioning ? text.executing : text.validate}
+              </Button>
+            </div>
+          ) : null}
+
+          {job !== null && (job.status === 'validated' || job.status === 'approved') ? (
+            <ReviewStep
+              rows={rows.map((row) => ({
+                id: row.id,
+                row_number: row.row_number,
+                proposed_action: row.proposed_action ?? undefined,
+                decision: row.decision,
+                validation_errors: row.validation_errors,
+              }))}
+              status={job.status}
+              busy={transitioning}
+              onTransition={(action, reason) => void handleTransition(action, reason)}
+            />
+          ) : null}
+
+          {job !== null && job.status === 'approved' ? (
+            <CommitStep
+              totalRows={job.total_rows}
+              validRows={job.valid_rows}
+              errorRows={job.error_rows}
+              status={job.status}
+              busy={transitioning}
+              onApply={() => void handleTransition('apply')}
+              onCancelImport={() => void handleTransition('cancel', text.cancelled)}
+            />
+          ) : null}
+
+          {job !== null && job.status === 'applied' ? (
+            <p role="status" className="text-sm">
+              {text.applied} · {formatNumber(job.total_rows, locale)}
+            </p>
+          ) : null}
         </div>
-      ) : null}
-
-      {job !== null && (job.status === 'validated' || job.status === 'approved') ? (
-        <ReviewStep
-          rows={rows.map((row) => ({
-            id: row.id,
-            row_number: row.row_number,
-            proposed_action: row.proposed_action ?? undefined,
-            decision: row.decision,
-            validation_errors: row.validation_errors,
-          }))}
-          status={job.status}
-          busy={transitioning}
-          onTransition={(action, reason) => void handleTransition(action, reason)}
-        />
-      ) : null}
-
-      {job !== null && job.status === 'approved' ? (
-        <CommitStep
-          totalRows={job.total_rows}
-          validRows={job.valid_rows}
-          errorRows={job.error_rows}
-          status={job.status}
-          busy={transitioning}
-          onApply={() => void handleTransition('apply')}
-          onCancelImport={() => void handleTransition('cancel', text.cancelled)}
-        />
-      ) : null}
-
-      {job !== null && job.status === 'applied' ? (
-        <p role="status" className="text-sm">
-          {text.applied} · {formatNumber(job.total_rows, locale)}
-        </p>
-      ) : null}
-    </div>
+      )}
+    </PageLayout>
   )
 }

@@ -89,21 +89,23 @@ export function DiagnosticsTab() {
         />
       )}
       {phase === 'ready' && decision && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            {decision.decision === 'allow' ? (
-              <ShieldCheck aria-hidden="true" className="size-5" />
-            ) : (
-              <ShieldX aria-hidden="true" className="size-5" />
-            )}
-            <Badge variant="outline">
-              {decision.decision === 'allow' ? text.allow : text.deny}
-            </Badge>
-          </div>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              {decision.decision === 'allow' ? (
+                <ShieldCheck aria-hidden="true" className="size-5" />
+              ) : (
+                <ShieldX aria-hidden="true" className="size-5" />
+              )}
+              <Badge variant="outline">
+                {decision.decision === 'allow' ? text.allow : text.deny}
+              </Badge>
+            </div>
 
-          {decision.applies_in_plain_language ? (
-            <p className="text-sm">{decision.applies_in_plain_language}</p>
-          ) : null}
+            {decision.applies_in_plain_language ? (
+              <p className="text-sm">{decision.applies_in_plain_language}</p>
+            ) : null}
+          </div>
 
           <dl className="grid gap-2 text-sm">
             {/*
@@ -145,8 +147,8 @@ export function DiagnosticsTab() {
             </div>
           </dl>
 
-          <div>
-            <h3 className="mb-2 text-sm font-medium">{text.justificationTimeline}</h3>
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">{text.justificationTimeline}</h3>
             <ol aria-label={text.justificationTimeline} className="space-y-3">
               <li className="flex gap-3">
                 <span className="text-muted-foreground" aria-hidden="true">1</span>

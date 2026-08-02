@@ -11,6 +11,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { documentsCopy } from './documents-copy'
 
@@ -108,16 +115,15 @@ export function DocumentDialogs({
         <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="document-link-relation">{t.linkRelationLabel}</Label>
-            <select
-              id="document-link-relation"
-              className="flex h-9 w-full rounded-md border bg-transparent px-3 text-sm outline-none"
-              value={relation}
-              onChange={(event) => setRelation(event.target.value)}
-              disabled={busy}
-            >
-              <option value="attachment">{t.linkRelationAttachment}</option>
-              <option value="evidence">{t.linkRelationEvidence}</option>
-            </select>
+            <Select value={relation} onValueChange={setRelation} disabled={busy}>
+              <SelectTrigger id="document-link-relation" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="attachment">{t.linkRelationAttachment}</SelectItem>
+                <SelectItem value="evidence">{t.linkRelationEvidence}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">

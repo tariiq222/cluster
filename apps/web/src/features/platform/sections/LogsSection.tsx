@@ -1,21 +1,33 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
+import { ArchiveRestore, ListFilter } from 'lucide-react'
+import { usePrincipal } from '../../../app/principal-context'
 import { useLocale, useSessionToken } from '../../../app/session-context'
-import { Button, Drawer, Field, Panel, Select, StatusBadge } from '../../../ui'
+import { useNavigate } from '../../../app/navigation-context'
 import { formatDate } from '../../../i18n'
 import { ApiError } from '../../../api/http'
-import { listPlatformTechnicalLogs, requestPlatformTechnicalLogsRestore } from '../platform-api'
-import { logsCopy, platformCopy, t } from '../platform-copy'
-import { actionAllowed, isEmptyCollection, stateFromSectionError, type SectionState } from '../section-support'
-import { ActionError, ActionNotice, SectionStateView } from '../section-state'
+import { listPlatformTechnicalLogs } from '../platform-api'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { EmptyState } from '@/components/states'
+import { actionAllowed, isEmptyCollection, queryResourceState } from '../section-support'
+import { SectionBoundary } from '../section-state'
+import { logsCopy, t } from '../platform-copy'
 import type { PlatformTechnicalLogEntry, PlatformTechnicalLogList } from '../platform-types'
-
-function severityVariant(severity: string): 'danger' | 'warning' | 'info' | 'neutral' {
-  if (severity === 'critical' || severity === 'error') return 'danger'
-  if (severity === 'warning') return 'warning'
-  if (severity === 'info') return 'info'
-  return 'neutral'
-}
 
 function severityLabel(severity: string, locale: 'ar' | 'en'): string {
   const labels = logsCopy.severities as Record<string, { ar: string; en: string }>
@@ -23,15 +35,16 @@ function severityLabel(severity: string, locale: 'ar' | 'en'): string {
   return entry !== undefined ? t(entry, locale) : severity
 }
 
+function isLogsEmpty(payload: PlatformTechnicalLogList): boolean {
+  return isEmptyCollection(payload.items)
+}
+
 export function LogsSection() {
   const locale = useLocale()
   const csrfToken = useSessionToken()
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [actionNotice, setActionNotice] = useState<string | null>(null)
-  const [severityFilter, setSeverityFilter] = useState('')
-  const [restoreOpen, setRestoreOpen] = useState(false)
-  const [manifestId, setManifestId] = useState('')
-  const [reason, setReason] = useState('')
+  const principal = usePrincipal()
+  const navigate = useNavigate()
+  const [severityFilter, setSeverityFilter] = useState<string>('all')
 
   const logsQuery = useQuery({
     queryKey: ['platform-logs'],
@@ -40,12 +53,19 @@ export function LogsSection() {
 
   const data: PlatformTechnicalLogList | null = logsQuery.data ?? null
 
-  let state: SectionState = 'loading'
-  if (!logsQuery.isPending) {
-    const error = logsQuery.error
-    if (error !== null) state = stateFromSectionError(error)
-    else state = isEmptyCollection(data?.items) ? 'empty' : 'ready'
-  }
+  /*
+   * A 503 problem+json response means the logs are deferred in this
+   * environment — render an explanatory Alert with a restore-request action,
+   * NOT the generic error state. This is the behaviour asserted by
+   * platform-settings-live.spec.ts and the unit suite.
+   */
+  const deferred =
+    logsQuery.error instanceof ApiError && logsQuery.error.status === 503
+
+  const state = queryResourceState(
+    { isPending: logsQuery.isPending, error: deferred ? null : logsQuery.error, data },
+    isLogsEmpty,
+  )
 
   const reload = useCallback(() => {
     void logsQuery.refetch()
@@ -53,127 +73,118 @@ export function LogsSection() {
 
   const canRestore = actionAllowed(data?.allowed_actions, 'platform_operations.logs.restore')
 
+  /*
+   * A 503 deferred response carries no `data`, so the server-provided
+   * `allowed_actions` are unavailable. The restore action is gated on the
+   * principal capability read from `/me` instead — never exposed to a
+   * logs.read-only principal.
+   */
+  const canRestoreByPrincipal =
+    (principal.capabilities ?? []).includes('platform_operations.logs.restore')
+
   const severityOptions = useMemo(() => {
     const seen = new Set<string>()
     for (const entry of data?.items ?? []) seen.add(entry.severity)
-    return Array.from(seen).map((severity) => ({ value: severity, label: severityLabel(severity, locale) }))
-  }, [data, locale])
+    return Array.from(seen)
+  }, [data])
 
   const filtered = useMemo(() => {
-    if (severityFilter === '') return data?.items ?? []
+    if (severityFilter === 'all') return data?.items ?? []
     return (data?.items ?? []).filter((entry) => entry.severity === severityFilter)
   }, [data, severityFilter])
 
-  const fail = useCallback((error: unknown) => {
-    setActionError(error instanceof ApiError ? error.problem.title : t(platformCopy.error, locale))
-  }, [locale])
-
-  const submitRestoreMutation = useMutation({
-    mutationFn: () => requestPlatformTechnicalLogsRestore(csrfToken, { manifest_id: manifestId.trim(), reason: reason.trim() }),
-    onMutate: () => {
-      setActionError(null)
-      setActionNotice(null)
-    },
-    onSuccess: () => {
-      setRestoreOpen(false)
-      setManifestId('')
-      setReason('')
-      setActionNotice(t(logsCopy.restored, locale))
-    },
-    onError: fail,
-  })
-
-  const submitRestore = useCallback(() => {
-    submitRestoreMutation.mutate()
-  }, [submitRestoreMutation])
+  if (deferred) {
+    return (
+      <section aria-labelledby="platform-logs-title" className="space-y-4">
+        <h2 id="platform-logs-title" className="text-xl font-semibold tracking-tight">
+          {t(logsCopy.title, locale)}
+        </h2>
+        <Alert>
+          <ArchiveRestore className="size-4" aria-hidden="true" />
+          <AlertTitle>{t(logsCopy.deferredTitle, locale)}</AlertTitle>
+          <AlertDescription>{t(logsCopy.deferredBody, locale)}</AlertDescription>
+          {canRestoreByPrincipal && (
+            <AlertAction>
+              <Button variant="outline" size="sm" onClick={() => navigate('/platform/logs/restore')}>
+                <ArchiveRestore className="size-4" aria-hidden="true" />
+                {t(logsCopy.deferredRestore, locale)}
+              </Button>
+            </AlertAction>
+          )}
+        </Alert>
+      </section>
+    )
+  }
 
   if (state !== 'ready' || data === null) {
-    return <SectionStateView state={state} emptyTitle={t(logsCopy.empty, locale)} onRetry={reload} />
+    return (
+      <SectionBoundary
+        state={state}
+        locale={locale}
+        onRetry={reload}
+        empty={<EmptyState title={t(logsCopy.empty, locale)} />}
+      />
+    )
   }
 
   return (
-    <>
-      <Panel
-        id="platform-logs"
-        title={t(logsCopy.title, locale)}
-        actions={canRestore ? (
-          <Button variant="secondary" disabled={submitRestoreMutation.isPending} onClick={() => setRestoreOpen(true)}>
+    <section aria-labelledby="platform-logs-title" className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="platform-logs-title" className="text-xl font-semibold tracking-tight">
+          {t(logsCopy.title, locale)}
+        </h2>
+        {canRestore && (
+          <Button variant="outline" size="sm" onClick={() => navigate('/platform/logs/restore')}>
+            <ArchiveRestore className="size-4" aria-hidden="true" />
             {t(logsCopy.restore, locale)}
           </Button>
-        ) : undefined}
-      >
-        <div className="filter-bar">
-          <Field id="platform-logs-severity" label={t(logsCopy.severity, locale)}>
-            <Select
-              id="platform-logs-severity"
-              value={severityFilter}
-              onChange={setSeverityFilter}
-              options={severityOptions}
-              placeholder={t(logsCopy.allSeverities, locale)}
-            />
-          </Field>
-        </div>
-        {filtered.length === 0 ? (
-          <p className="screen-list__row-meta">{t(logsCopy.empty, locale)}</p>
-        ) : (
-          <table className="entity-table">
-            <thead>
-              <tr>
-                <th scope="col">{t(logsCopy.severity, locale)}</th>
-                <th scope="col">{t(logsCopy.source, locale)}</th>
-                <th scope="col">{t(logsCopy.category, locale)}</th>
-                <th scope="col">{t(logsCopy.message, locale)}</th>
-                <th scope="col">{t(logsCopy.occurredAt, locale)}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((entry: PlatformTechnicalLogEntry) => (
-                <tr key={entry.id}>
-                  <td>
-                    <StatusBadge variant={severityVariant(entry.severity)}>{severityLabel(entry.severity, locale)}</StatusBadge>
-                  </td>
-                  <td>{entry.source}</td>
-                  <td>{entry.category ?? '—'}</td>
-                  <td>{locale === 'ar' ? entry.message_ar : entry.message_en}</td>
-                  <td>{formatDate(entry.occurred_at, locale)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
-        {actionNotice && <ActionNotice message={actionNotice} />}
-        {actionError && <ActionError message={actionError} />}
-      </Panel>
+      </div>
 
-      <Drawer open={restoreOpen} onClose={() => setRestoreOpen(false)} title={t(logsCopy.restore, locale)}>
-        <Field id="platform-logs-restore-manifest" label={t(logsCopy.manifestId, locale)} required>
-          <input
-            id="platform-logs-restore-manifest"
-            className="field__control"
-            value={manifestId}
-            onChange={(event) => setManifestId(event.currentTarget.value)}
-          />
-        </Field>
-        <Field id="platform-logs-restore-reason" label={t(logsCopy.reason, locale)} required>
-          <textarea
-            id="platform-logs-restore-reason"
-            className="field__control"
-            rows={4}
-            value={reason}
-            onChange={(event) => setReason(event.currentTarget.value)}
-          />
-        </Field>
-        <div className="form-actions">
-          <Button variant="quiet" onClick={() => setRestoreOpen(false)}>{t(platformCopy.cancel, locale)}</Button>
-          <Button
-            variant="primary"
-            disabled={submitRestoreMutation.isPending || manifestId.trim() === '' || reason.trim() === ''}
-            onClick={() => void submitRestore()}
-          >
-            {t(logsCopy.restore, locale)}
-          </Button>
-        </div>
-      </Drawer>
-    </>
+      <div className="flex items-center gap-2">
+        <ListFilter className="size-4 text-muted-foreground" aria-hidden="true" />
+        <Select value={severityFilter} onValueChange={setSeverityFilter}>
+          <SelectTrigger className="w-44" aria-label={t(logsCopy.severity, locale)}>
+            <SelectValue placeholder={t(logsCopy.allSeverities, locale)} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t(logsCopy.allSeverities, locale)}</SelectItem>
+            {severityOptions.map((severity) => (
+              <SelectItem key={severity} value={severity}>
+                {severityLabel(severity, locale)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">{t(logsCopy.title, locale)}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t(logsCopy.empty, locale)}</p>
+          ) : (
+            <ul className="divide-y">
+              {filtered.map((entry: PlatformTechnicalLogEntry) => (
+                <li key={entry.id} className="flex items-start gap-3 py-2 text-sm">
+                  <Badge variant="outline" className="shrink-0 gap-1">
+                    {severityLabel(entry.severity, locale)}
+                  </Badge>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mono text-xs">{entry.source}{entry.category ? ` · ${entry.category}` : ''}</p>
+                    <p className="truncate">{locale === 'ar' ? entry.message_ar : entry.message_en}</p>
+                  </div>
+                  <span className="shrink-0 text-muted-foreground text-xs" dir="ltr">
+                    {formatDate(entry.occurred_at, locale)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   )
 }

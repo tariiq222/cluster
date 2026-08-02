@@ -4,6 +4,28 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Native controls (scrollbars, checkboxes, selects) must follow the active
+ * theme. The `.dark` class on <html> flips the resolved scheme; tokens in
+ * theme.css do the color switching, so only the keyword belongs here.
+ */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/* NO-SCROLLBAR-01: the shadcn `no-scrollbar` utility the generated
+ * `CommandList` references is only defined inside the shadcn stylesheet,
+ * which the project does not import. Reproduce the exact shadcn
+ * definition here so generated primitives compile cleanly without
+ * pulling in the rest of the shadcn stylesheet. */
+@utility no-scrollbar {
+  @apply [scrollbar-width:none] [&::-webkit-scrollbar]:hidden;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -13,5 +35,25 @@
   }
   body {
     @apply bg-background text-foreground;
+    min-height: 100dvh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  #root {
+    min-height: 100dvh;
+  }
+}
+
+/* Reduced-motion-safe global behavior: honor the OS preference for
+ * animation and transition, matching the template's motion vocabulary. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

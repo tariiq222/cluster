@@ -1,83 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useLocale, useSessionToken } from '../../../app/session-context'
+import { useLocale } from '../../../app/session-context'
 import { usePrincipal } from '../../../app/principal-context'
+import { useNavigate } from '../../../app/navigation-context'
 import { useUserAccounts } from '../../../api/hooks'
 import { ApiError, stateFromError, type ResourceState } from '../../../api/http'
 import * as generated from '../../../api/generated/cluster'
-import * as access from '../../../api/access'
-import { formatDate } from '../../../i18n'
 import { DataTable } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Sheet, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { accountCopy, accountsCopy } from '../accounts-copy'
-import { PeoplePickerCombobox } from './PeoplePickerCombobox'
-import { AccessSheetSurface, AccessDialogSurface } from '../access-overlays'
+import { accountCopy } from '../accounts-copy'
 
 /* ------------------------------------------------------------------ */
 /* Accounts tab                                                        */
 /* ------------------------------------------------------------------ */
-
-const USERNAME_PATTERN = /^[a-zA-Z0-9._-]{3,128}$/
-
-type AccountAction =
-  | 'activate'
-  | 'unlock'
-  | 'disable'
-  | 'archive'
-  | 'revoke-sessions'
-  | 'force-password-change'
-
-const ACTIONS_BY_STATUS: Record<
-  string,
-  Array<{
-    action: AccountAction
-    label: keyof typeof accountCopy.ar
-    hint: keyof typeof accountCopy.ar
-  }>
-> = {
-  pending: [{ action: 'archive', label: 'archive', hint: 'archiveHint' }],
-  active: [
-    { action: 'revoke-sessions', label: 'revokeSessions', hint: 'revokeSessionsHint' },
-    { action: 'force-password-change', label: 'forcePasswordChange', hint: 'forcePasswordChangeHint' },
-    { action: 'disable', label: 'disable', hint: 'disableHint' },
-    { action: 'archive', label: 'archive', hint: 'archiveHint' },
-  ],
-  locked: [
-    { action: 'unlock', label: 'unlock', hint: 'unlockHint' },
-    { action: 'disable', label: 'disable', hint: 'disableHint' },
-    { action: 'archive', label: 'archive', hint: 'archiveHint' },
-  ],
-  disabled: [
-    { action: 'activate', label: 'activate', hint: 'activateHint' },
-    { action: 'archive', label: 'archive', hint: 'archiveHint' },
-  ],
-  archived: [],
-}
 
 function accountStatusLabel(status: string, locale: 'ar' | 'en'): string {
   const key = status as keyof typeof accountCopy.ar
@@ -90,20 +26,18 @@ function personName(account: generated.UserAccount, locale: 'ar' | 'en'): string
     : account.display_name_ar
 }
 
+/*
+ * The account list tab. Creation and management live on full pages
+ * (`/access/accounts/new` and `/access/accounts/:accountId`); this tab
+ * keeps the cursor-paginated DataTable and the capability-filtered
+ * navigation actions.
+ */
 export function AccountsTab() {
   const locale = useLocale()
-  const csrfToken = useSessionToken()
   const principal = usePrincipal()
+  const navigate = useNavigate()
   const text = accountCopy[locale]
-  const queryClient = useQueryClient()
   const [history, setHistory] = useState<string[]>([])
-  const [addOpen, setAddOpen] = useState(false)
-  const [managedId, setManagedId] = useState<string | null>(null)
-  const [activation, setActivation] = useState<{
-    account: generated.UserAccount
-    issued: access.ActivationIssued
-  } | null>(null)
-  const [activationError, setActivationError] = useState<string | null>(null)
 
   const canManage = (principal.capabilities ?? []).includes('identity.account.manage')
   const cursor = history.length > 0 ? history[history.length - 1] : undefined
@@ -112,7 +46,6 @@ export function AccountsTab() {
     (accountsQuery.data as generated.UserAccountCollection | undefined)?.items ?? []
   const nextCursor =
     (accountsQuery.data as generated.UserAccountCollection | undefined)?.next_cursor ?? null
-  const managed = accounts.find((account) => account.id === managedId) ?? null
 
   const state: ResourceState = accountsQuery.isLoading
     ? 'loading'
@@ -122,105 +55,74 @@ export function AccountsTab() {
         ? 'empty'
         : 'ready'
 
-  const activateMutation = useMutation({
-    mutationFn: async (account: generated.UserAccount) => {
-      const issued = await access.issueAccountActivation(account.id, csrfToken)
-      return { account, issued }
-    },
-    onSuccess: (result) => {
-      setActivationError(null)
-      setActivation(result)
-    },
-    onError: (caught) => {
-      setActivationError(
-        caught instanceof ApiError && caught.problem.title
-          ? caught.problem.title
-          : text.activationFailed,
-      )
-    },
-  })
-
-  const columns: ColumnDef<generated.UserAccount>[] = [
-    {
-      accessorKey: 'display_name_ar',
-      header: text.employee,
-      cell: ({ row }) => (
-        <span className="font-medium break-words whitespace-normal">{personName(row.original, locale)}</span>
-      ),
-    },
-    {
-      accessorKey: 'username',
-      header: text.username,
-      cell: ({ row }) => (
-        /*
-         * The TableCell primitive applies `whitespace-nowrap`; the inner
-         * span re-enables wrapping and forces long technical identifiers
-         * (up to 128 chars) to break inside the cell rather than expand
-         * the table. `dir="ltr"` is preserved for the technical string.
-         */
-        <span className="font-mono text-sm break-all whitespace-normal" dir="ltr">{row.original.username}</span>
-      ),
-    },
-    {
-      accessorKey: 'status',
-      header: text.status,
-      cell: ({ row }) => (
-        <Badge variant="outline">{accountStatusLabel(row.original.status, locale)}</Badge>
-      ),
-    },
-    {
-      accessorKey: 'id',
-      header: text.actions,
-      cell: ({ row }) => {
-        const account = row.original
-        return (
-          <div className="flex flex-wrap items-center gap-2">
-            {canManage && account.status === 'pending' ? (
-              <Button
-                size="sm"
-                variant="outline"
-                type="button"
-                disabled={activateMutation.isPending}
-                onClick={() => {
-                  setActivationError(null)
-                  activateMutation.mutate(account)
-                }}
-              >
-                {text.activate}
-              </Button>
-            ) : null}
-            {canManage ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                type="button"
-                onClick={() => setManagedId(account.id)}
-              >
-                {text.manage}
-              </Button>
-            ) : null}
-          </div>
-        )
+  const columns: ColumnDef<generated.UserAccount>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'display_name_ar',
+        header: text.employee,
+        cell: ({ row }) => (
+          <span className="font-medium break-words whitespace-normal">{personName(row.original, locale)}</span>
+        ),
       },
-    },
-  ]
+      {
+        accessorKey: 'username',
+        header: text.username,
+        cell: ({ row }) => (
+          <span className="font-mono text-sm break-all whitespace-normal" dir="ltr">{row.original.username}</span>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: text.status,
+        cell: ({ row }) => (
+          <Badge variant="outline">{accountStatusLabel(row.original.status, locale)}</Badge>
+        ),
+      },
+      {
+        accessorKey: 'id',
+        header: text.actions,
+        cell: ({ row }) => {
+          const account = row.original
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              {canManage && account.status === 'pending' ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => navigate(`/access/accounts/${account.id}`)}
+                >
+                  {text.activate}
+                </Button>
+              ) : null}
+              {canManage ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => navigate(`/access/accounts/${account.id}`)}
+                >
+                  {text.manage}
+                </Button>
+              ) : null}
+            </div>
+          )
+        },
+      },
+    ],
+    [text, locale, canManage, navigate],
+  )
 
   return (
     <div className="space-y-4 min-w-0">
       <h2 className="text-xl font-semibold tracking-tight">{text.accounts}</h2>
       <div className="flex justify-end">
         {canManage ? (
-          <Button size="sm" onClick={() => setAddOpen(true)}>
+          <Button size="sm" onClick={() => navigate('/access/accounts/new')}>
             {text.addAccount}
           </Button>
         ) : null}
       </div>
-
-      {activationError ? (
-        <p className="text-destructive text-sm" role="alert">
-          {activationError}
-        </p>
-      ) : null}
 
       <DataTable
         columns={columns}
@@ -246,423 +148,6 @@ export function AccountsTab() {
           </div>
         }
       />
-
-      <CreateAccountSheet
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onCreated={() => {
-          setAddOpen(false)
-          void queryClient.invalidateQueries({ queryKey: ['user-accounts'] })
-        }}
-      />
-
-      <ManageAccountSheet
-        account={managed}
-        onClose={() => setManagedId(null)}
-        onChanged={() => {
-          void queryClient.invalidateQueries({ queryKey: ['user-accounts'] })
-        }}
-        onConflict={() => accountsQuery.refetch().then(() => undefined)}
-      />
-
-      <ActivationDialog
-        activation={activation}
-        onClose={() => setActivation(null)}
-      />
     </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Create account (Sheet + react-hook-form + zod)                     */
-/* ------------------------------------------------------------------ */
-
-function CreateAccountSheet({
-  open,
-  onClose,
-  onCreated,
-}: {
-  open: boolean
-  onClose: () => void
-  onCreated: () => void
-}) {
-  const locale = useLocale()
-  const csrfToken = useSessionToken()
-  const text = accountCopy[locale]
-  /*
-   * The picker is the sole owner of cursor loading, error/denied/empty
-   * state, and the refetch affordance. The sheet only needs to keep the
-   * full selected Person (with its `person_version`) so submit can carry
-   * the right version regardless of which page the row came from.
-   */
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  /*
-   * The full selected Person (with `person_version`) is cached here so
-   * the submit handler can read the right version regardless of which
-   * page the row came from. Reading from a hypothetical people-query
-   * cache here would only see the first cursor page and silently drop
-   * later-page selections — that P1 gap is exactly what this ref closes.
-   */
-  const selectedPersonRef = useRef<generated.Person | null>(null)
-
-  const schema = useMemo(
-    () =>
-      z.object({
-        personId: z.string().min(1, text.validation),
-        username: z.string().regex(USERNAME_PATTERN, text.validation),
-      }),
-    [text],
-  )
-
-  const form = useForm<{ personId: string; username: string }>({
-    resolver: zodResolver(schema),
-    defaultValues: { personId: '', username: '' },
-  })
-
-  /*
-   * Reset the cached Person whenever the sheet closes, so an old
-   * (potentially stale-version) row can never be submitted against a new
-   * personId. The picker manages its own open-state and refetches the
-   * first page on demand — the sheet does not pre-load or refetch.
-   */
-  useEffect(() => {
-    if (!open) {
-      selectedPersonRef.current = null
-    }
-  }, [open])
-
-  if (!open) return null
-
-  return (
-    <Sheet open onOpenChange={(next) => { if (!next && !submitting) onClose() }}>
-      <AccessSheetSurface>
-        <SheetHeader>
-          <SheetTitle>{text.addAccountTitle}</SheetTitle>
-          <SheetDescription>{text.addAccountIntro}</SheetDescription>
-        </SheetHeader>
-        <Form {...form}>
-          <form
-            className="grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setSaveError(null)
-              void form.handleSubmit(async (values) => {
-                /*
-                 * Read the cached Person instead of re-querying: the row
-                 * may live on a later page that the picker has not yet
-                 * loaded into local state.
-                 */
-                const cached = selectedPersonRef.current
-                if (!cached || cached.id !== values.personId) {
-                  /*
-                   * RHF validation has already ensured personId is set;
-                   * this branch means the cached person drifted from
-                   * the form (e.g. sheet re-opened) and must be re-picked.
-                   */
-                  setSaveError(text.validation)
-                  return
-                }
-                setSubmitting(true)
-                try {
-                  await access.createAccount(
-                    {
-                      person_id: cached.id,
-                      person_version: cached.person_version,
-                      username: values.username.trim(),
-                    },
-                    csrfToken,
-                  )
-                  form.reset()
-                  selectedPersonRef.current = null
-                  onCreated()
-                } catch (cause) {
-                  setSaveError(
-                    cause instanceof ApiError && cause.status === 412
-                      ? accountsCopy[locale].stale
-                      : text.saveError,
-                  )
-                } finally {
-                  setSubmitting(false)
-                }
-              })()
-            }}
-            noValidate
-          >
-            <FormField
-              control={form.control}
-              name="personId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="account-person">{text.employee}</FormLabel>
-                  <FormControl>
-                    <PeoplePickerCombobox
-                      triggerId="account-person"
-                      selectedId={field.value}
-                      onSelect={(person) => {
-                        selectedPersonRef.current = person
-                        field.onChange(person.id)
-                      }}
-                      invalid={!field.value}
-                    />
-                  </FormControl>
-                  <FormMessage role="alert" />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="account-username">{text.username}</FormLabel>
-                  <FormControl>
-                    <Input id="account-username" dir="ltr" {...field} />
-                  </FormControl>
-                  <FormDescription>{text.usernameHint}</FormDescription>
-                  <FormMessage role="alert" />
-                </FormItem>
-              )}
-            />
-            {saveError ? (
-              <p className="text-destructive text-sm" role="alert">{saveError}</p>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-                {accountsCopy[locale].cancel}
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? text.saving : text.create}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </AccessSheetSurface>
-    </Sheet>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Manage account (Sheet + AlertDialog-confirmed transitions)         */
-/* ------------------------------------------------------------------ */
-
-function ManageAccountSheet({
-  account,
-  onClose,
-  onChanged,
-  onConflict,
-}: {
-  account: generated.UserAccount | null
-  onClose: () => void
-  onChanged: () => void
-  onConflict: () => Promise<void>
-}) {
-  const locale = useLocale()
-  const csrfToken = useSessionToken()
-  const text = accountCopy[locale]
-  const [reason, setReason] = useState('')
-  const [confirming, setConfirming] = useState<AccountAction | null>(null)
-  const [error, setError] = useState<'save' | 'stale' | null>(null)
-  const [done, setDone] = useState(false)
-
-  const mutation = useMutation({
-    mutationFn: async ({
-      action,
-      nextReason,
-    }: {
-      action: AccountAction
-      nextReason?: string
-    }) => {
-      if (!account) throw new Error('Account is not available')
-      const fresh = await access.getAccount(account.id)
-      return access.transitionAccount(
-        account.id,
-        action,
-        nextReason || undefined,
-        fresh.lock_version ?? 0,
-        csrfToken,
-      )
-    },
-    onSuccess: () => {
-      setConfirming(null)
-      setReason('')
-      setError(null)
-      setDone(true)
-      onChanged()
-    },
-    onError: async (caught) => {
-      setConfirming(null)
-      if (caught instanceof ApiError && caught.status === 412) {
-        setError('stale')
-        await onConflict()
-      } else {
-        setError('save')
-      }
-    },
-  })
-
-  if (!account) return null
-
-  const available = ACTIONS_BY_STATUS[account.status] ?? []
-  const busy = mutation.isPending
-  const confirmedAction =
-    confirming !== null
-      ? available.find((item) => item.action === confirming) ?? null
-      : null
-
-  return (
-    <Sheet open onOpenChange={(next) => { if (!next && !busy) onClose() }}>
-      <AccessSheetSurface>
-        <SheetHeader>
-          <SheetTitle>{text.manageAccount}</SheetTitle>
-          <SheetDescription>{personName(account, locale)}</SheetDescription>
-        </SheetHeader>
-        <dl className="grid gap-2 text-sm">
-          {/*
-           * `min-w-0` on the value cell lets the username (up to 128
-           * chars) break inside the description list rather than push the
-           * sheet wider than the viewport. The label keeps its own width
-           * for readability.
-           */}
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <dt className="text-muted-foreground">{text.username}</dt>
-            <dd className="min-w-0 max-w-full break-all font-mono" dir="ltr">{account.username}</dd>
-          </div>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <dt className="text-muted-foreground">{text.status}</dt>
-            <dd className="min-w-0 max-w-full">
-              <Badge variant="outline">{accountStatusLabel(account.status, locale)}</Badge>
-            </dd>
-          </div>
-        </dl>
-        {account.must_change_password ? (
-          <p className="text-muted-foreground text-sm" role="status">
-            {text.mustChangePassword}
-          </p>
-        ) : null}
-        {error ? (
-          <p className="text-destructive text-sm" role="alert">
-            {error === 'stale' ? accountsCopy[locale].stale : text.saveError}
-          </p>
-        ) : null}
-        {done ? (
-          <p className="text-muted-foreground text-sm" role="status">
-            {accountsCopy[locale].done}
-          </p>
-        ) : null}
-        {available.length === 0 ? (
-          <p className="text-muted-foreground text-sm" role="status">{text.noActions}</p>
-        ) : (
-          <div className="grid gap-2">
-            <label htmlFor="account-reason" className="text-sm font-medium">
-              {text.reason}
-            </label>
-            <Input
-              id="account-reason"
-              value={reason}
-              disabled={busy}
-              onChange={(event) => setReason(event.target.value)}
-              aria-describedby="account-reason-hint"
-            />
-            {/*
-             * Non-RHF reason: the hint is bound to the input via an
-             * explicit `aria-describedby` and a stable hint id so a
-             * screen reader announces the explanation alongside the
-             * field. The id is namespaced per field so future reason
-             * fields cannot collide.
-             */}
-            <p
-              id="account-reason-hint"
-              className="text-muted-foreground text-xs"
-            >
-              {text.reasonHint}
-            </p>
-            {available.map((item) => (
-              <Button
-                key={item.action}
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => setConfirming(item.action)}
-              >
-                {text[item.label]}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        <AlertDialog
-          open={confirming !== null}
-          onOpenChange={(next) => { if (!next && !busy) setConfirming(null) }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {confirmedAction ? text[confirmedAction.label] : ''}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {confirmedAction ? text[confirmedAction.hint] : ''}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={busy}>{accountsCopy[locale].cancel}</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={busy}
-                onClick={() => {
-                  if (!confirming) return
-                  mutation.mutate({ action: confirming, nextReason: reason })
-                }}
-              >
-                {busy ? text.saving : confirmedAction ? text[confirmedAction.label] : ''}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </AccessSheetSurface>
-    </Sheet>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Activation confirmation (no-secret)                                */
-/* ------------------------------------------------------------------ */
-
-/*
- * The activation secret is delivered through the controlled channel and is
- * never exposed by this UI. Only the narrow `ActivationIssued` confirmation
- * (account label, controlled delivery, expiry) is rendered — an unexpected
- * `token` property is structurally inaccessible and ignored.
- */
-function ActivationDialog({
-  activation,
-  onClose,
-}: {
-  activation: { account: generated.UserAccount; issued: access.ActivationIssued } | null
-  onClose: () => void
-}) {
-  const locale = useLocale()
-  const text = accountCopy[locale]
-  if (!activation) return null
-  const { account, issued } = activation
-
-  return (
-    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
-      <AccessDialogSurface>
-        <DialogHeader>
-          <DialogTitle>{text.activationIssued}</DialogTitle>
-          <DialogDescription>{personName(account, locale)}</DialogDescription>
-        </DialogHeader>
-        <p className="text-sm">{text.activationControlledDelivery}</p>
-        <p className="text-sm">
-          {text.activationExpiryLabel}{' '}
-          <span dir="ltr">{formatDate(issued.expires_at, locale)}</span>
-        </p>
-        <DialogFooter>
-          <Button type="button" onClick={onClose}>
-            {text.activationDismiss}
-          </Button>
-        </DialogFooter>
-      </AccessDialogSurface>
-    </Dialog>
   )
 }

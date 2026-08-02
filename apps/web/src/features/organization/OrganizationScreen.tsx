@@ -1,7 +1,8 @@
-import { useState } from 'react'
 import { useLocale } from '../../app/session-context'
 import { usePrincipal } from '../../app/principal-context'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useWorkspaceTab } from '../../app/use-workspace-tab'
+import { PageHeader, PageLayout } from '@/components/page-layout'
+import { WorkspaceTabs, type WorkspaceTabItem } from '@/components/workspace-tabs'
 import { organizationCopy } from './organization-copy'
 import { ClusterTab } from './tabs/ClusterTab'
 import { FacilitiesTab } from './tabs/FacilitiesTab'
@@ -13,8 +14,19 @@ import { AssignmentsTab } from './tabs/AssignmentsTab'
 import { TemporaryAssignmentsTab } from './tabs/TemporaryAssignmentsTab'
 import { SupervisoryTab } from './tabs/SupervisoryTab'
 
+type TabKey =
+  | 'structure'
+  | 'facilities'
+  | 'positions'
+  | 'job-titles'
+  | 'people'
+  | 'assignments'
+  | 'temporary'
+  | 'supervisory'
+  | 'cluster'
+
 interface TabDef {
-  key: string
+  key: TabKey
   labelKey: 'structureTab' | 'facilitiesTab' | 'positionsTab' | 'jobTitlesTab' | 'peopleTab' | 'assignmentsTab' | 'temporaryTab' | 'supervisoryTab' | 'clusterTab'
   capability: string
   render: () => React.ReactNode
@@ -39,33 +51,33 @@ export function OrganizationScreen() {
     { key: 'cluster', labelKey: 'clusterTab', capability: 'organization.cluster.read', render: () => <ClusterTab /> },
   ]
   const visible = tabs.filter((tab) => can(tab.capability))
-  const [active, setActive] = useState(visible[0]?.key ?? 'structure')
+  const fallback: TabKey = visible[0]?.key ?? 'structure'
+  const [requested, setActive] = useWorkspaceTab<TabKey>('tab', fallback)
+  // The URL may name a tab the principal cannot read — fall back to the
+  // first visible tab instead of rendering a non-disclosing empty pane.
+  const active = visible.some((tab) => tab.key === requested) ? requested : fallback
+
+  const items: WorkspaceTabItem[] = visible.map((tab) => ({
+    value: tab.key,
+    label: text[tab.labelKey],
+    content: tab.render(),
+  }))
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{text.title}</h1>
-        <p className="text-muted-foreground text-sm">{text.intro}</p>
-      </div>
+    <PageLayout>
+      <PageHeader title={text.title} description={text.intro} />
 
       {visible.length === 0 ? (
         <p className="text-muted-foreground text-sm">{text.unavailable}</p>
       ) : (
-        <Tabs value={active} onValueChange={setActive}>
-          <TabsList className="flex-wrap">
-            {visible.map((tab) => (
-              <TabsTrigger key={tab.key} value={tab.key}>
-                {text[tab.labelKey]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {visible.map((tab) => (
-            <TabsContent key={tab.key} value={tab.key}>
-              {tab.render()}
-            </TabsContent>
-          ))}
-        </Tabs>
+        <WorkspaceTabs
+          label={text.tabsLabel}
+          value={active}
+          onValueChange={(next) => setActive(next as TabKey)}
+          items={items}
+          testId="organization-tabs"
+        />
       )}
-    </div>
+    </PageLayout>
   )
 }

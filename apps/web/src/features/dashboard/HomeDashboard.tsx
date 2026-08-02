@@ -9,6 +9,7 @@ import { usePrincipal } from '../../app/principal-context'
 import { useNavigate } from '../../app/navigation-context'
 import { useLocale, useSessionToken } from '../../app/session-context'
 import { formatDate, formatNumber, statusLabel } from '../../i18n'
+import { PageHeader, PageLayout } from '@/components/page-layout'
 import { EmptyState, ResourceBoundary } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -182,29 +183,43 @@ export function HomeDashboard() {
     ? stateFromError(notificationsQuery.error)
     : notificationsQuery.isLoading ? 'loading' : notifications.length === 0 ? 'empty' : 'ready'
 
+  /*
+   * The KPI group stays a semantic <dl> for screen-reader output, but each
+   * term/value pair now renders through the shared Card surface so the
+   * visual hierarchy matches every other surface. Children use the same
+   * `data-slot="card"` so the test fixture keeps finding them.
+   */
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
-        <p className="text-muted-foreground text-sm">{t.description}</p>
-      </div>
+    <PageLayout>
+      <PageHeader title={t.title} description={t.description} />
 
-      <div className="metric-grid grid grid-cols-3 gap-4" role="group" aria-label={t.kpis}>
-        <div className="metric-tile flex flex-col gap-1 rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-          <span className="text-2xl font-semibold">{formatNumber(activeRecordCount, locale)}</span>
-          <span className="text-muted-foreground text-sm">{t.activeRecords}</span>
-        </div>
-        <div className="metric-tile flex flex-col gap-1 rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-          <span className="text-2xl font-semibold">{formatNumber(dueTodayCount, locale)}</span>
-          <span className="text-muted-foreground text-sm">{t.dueToday}</span>
-        </div>
+      <dl
+        data-testid="dashboard-kpis"
+        role="group"
+        aria-label={t.kpis}
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        <Card>
+          <CardContent className="flex flex-col-reverse gap-1">
+            <dt className="text-muted-foreground text-sm">{t.activeRecords}</dt>
+            <dd className="text-2xl font-semibold">{formatNumber(activeRecordCount, locale)}</dd>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex flex-col-reverse gap-1">
+            <dt className="text-muted-foreground text-sm">{t.dueToday}</dt>
+            <dd className="text-2xl font-semibold">{formatNumber(dueTodayCount, locale)}</dd>
+          </CardContent>
+        </Card>
         {canDecide ? (
-          <div className="metric-tile flex flex-col gap-1 rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-            <span className="text-2xl font-semibold">{formatNumber(pendingApprovalCount, locale)}</span>
-            <span className="text-muted-foreground text-sm">{t.pendingApprovals}</span>
-          </div>
+          <Card>
+            <CardContent className="flex flex-col-reverse gap-1">
+              <dt className="text-muted-foreground text-sm">{t.pendingApprovals}</dt>
+              <dd className="text-2xl font-semibold">{formatNumber(pendingApprovalCount, locale)}</dd>
+            </CardContent>
+          </Card>
         ) : null}
-      </div>
+      </dl>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tasksEnabled ? (
@@ -285,6 +300,6 @@ export function HomeDashboard() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageLayout>
   )
 }

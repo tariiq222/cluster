@@ -7,12 +7,12 @@ import { ApiError, requestInit, stateFromError, unwrap, type ResourceState } fro
 import { useNavigate } from '../../app/navigation-context'
 import { useLocale, useSessionToken } from '../../app/session-context'
 import { statusLabel } from '../../i18n'
+import { PageHeader, PageLayout } from '@/components/page-layout'
+import { WorkspaceTabs, type WorkspaceTabItem } from '@/components/workspace-tabs'
 import { ResourceBoundary } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DocumentDialogs, type DocumentAction, type DocumentDialog } from './DocumentDialogs'
-import { UploadVersionSheet } from './UploadVersionSheet'
 import { documentsCopy } from './documents-copy'
 import { DocumentPreviewTab, type DocumentRecord } from './tabs/DocumentPreviewTab'
 import { DocumentVersionsTab, type DocumentVersion } from './tabs/DocumentVersionsTab'
@@ -27,9 +27,9 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
   const queryClient = useQueryClient()
 
   const [dialog, setDialog] = useState<DocumentDialog | null>(null)
-  const [uploadOpen, setUploadOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [activeTab, setActiveTab] = useState('preview')
 
   const documentQuery = useDocument(documentId)
   const versionsQuery = useDocumentVersions(documentId)
@@ -123,7 +123,7 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
   const canUpload = can('add-version') || can('initiate-upload')
 
   return (
-    <div className="space-y-4">
+    <PageLayout>
       <div>
         <Button variant="ghost" size="sm" onClick={() => navigate('/documents')} className="-ms-2">
           <ArrowRight aria-hidden="true" />
@@ -134,76 +134,85 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
       <ResourceBoundary state={screenState} locale={locale} rows={5}>
         {document ? (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  {document.title ?? document.name ?? document.id}
-                </h1>
-                <Badge variant="outline">{statusLabel(document.lifecycle_state ?? document.status, locale)}</Badge>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {can('archive') ? (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'archive' })}>
-                    <Archive aria-hidden="true" />
-                    {t.actionArchive}
-                  </Button>
-                ) : null}
-                {can('unarchive') ? (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'unarchive' })}>
-                    <Unlock aria-hidden="true" />
-                    {t.actionUnarchive}
-                  </Button>
-                ) : null}
-                {can('place-hold') ? (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'place-hold' })}>
-                    <Lock aria-hidden="true" />
-                    {t.actionPlaceHold}
-                  </Button>
-                ) : null}
-                {can('release-hold') ? (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'release-hold' })}>
-                    <ShieldCheck aria-hidden="true" />
-                    {t.actionReleaseHold}
-                  </Button>
-                ) : null}
-                {can('link') ? (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'link' })}>
-                    <Link2 aria-hidden="true" />
-                    {t.actionLink}
-                  </Button>
-                ) : null}
-                {canUpload ? (
-                  <Button size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
-                    {t.actionUpload}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
+            <PageHeader
+              title={document.title ?? document.name ?? document.id}
+              meta={<Badge variant="outline">{statusLabel(document.lifecycle_state ?? document.status, locale)}</Badge>}
+              actions={
+                <div className="flex flex-wrap gap-2">
+                  {can('archive') ? (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'archive' })}>
+                      <Archive aria-hidden="true" />
+                      {t.actionArchive}
+                    </Button>
+                  ) : null}
+                  {can('unarchive') ? (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'unarchive' })}>
+                      <Unlock aria-hidden="true" />
+                      {t.actionUnarchive}
+                    </Button>
+                  ) : null}
+                  {can('place-hold') ? (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'place-hold' })}>
+                      <Lock aria-hidden="true" />
+                      {t.actionPlaceHold}
+                    </Button>
+                  ) : null}
+                  {can('release-hold') ? (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'transition', action: 'release-hold' })}>
+                      <ShieldCheck aria-hidden="true" />
+                      {t.actionReleaseHold}
+                    </Button>
+                  ) : null}
+                  {can('link') ? (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => setDialog({ kind: 'link' })}>
+                      <Link2 aria-hidden="true" />
+                      {t.actionLink}
+                    </Button>
+                  ) : null}
+                  {canUpload ? (
+                    <Button size="sm" disabled={busy} onClick={() => navigate(`/documents/${documentId}/versions/new`)}>
+                      {t.actionUpload}
+                    </Button>
+                  ) : null}
+                </div>
+              }
+            />
 
             {actionError ? (
               <p className="text-destructive text-sm" role="alert">{actionError}</p>
             ) : null}
 
-            <Tabs defaultValue="preview">
-              <TabsList>
-                <TabsTrigger value="preview">{t.previewTab}</TabsTrigger>
-                <TabsTrigger value="versions">{t.versionsTab}</TabsTrigger>
-                <TabsTrigger value="links">{t.linksTab}</TabsTrigger>
-                <TabsTrigger value="access">{t.accessTab}</TabsTrigger>
-              </TabsList>
-              <TabsContent value="preview">
-                <DocumentPreviewTab document={document} />
-              </TabsContent>
-              <TabsContent value="versions">
-                <DocumentVersionsTab versions={versions} />
-              </TabsContent>
-              <TabsContent value="links">
-                <DocumentLinksTab links={links} canLink={can('link')} onLink={() => setDialog({ kind: 'link' })} />
-              </TabsContent>
-              <TabsContent value="access">
-                <DocumentAccessTab documentId={document.id} versions={versions} canGrant={can('grant-access') || can('grant-preview') || can('grant-download')} />
-              </TabsContent>
-            </Tabs>
+            <WorkspaceTabs
+              label={t.pageTitle}
+              value={activeTab}
+              onValueChange={setActiveTab}
+              items={[
+                { value: 'preview', label: t.previewTab, content: <DocumentPreviewTab document={document} /> },
+                { value: 'versions', label: t.versionsTab, content: <DocumentVersionsTab versions={versions} /> },
+                {
+                  value: 'links',
+                  label: t.linksTab,
+                  content: (
+                    <DocumentLinksTab
+                      links={links}
+                      canLink={can('link')}
+                      onLink={() => setDialog({ kind: 'link' })}
+                    />
+                  ),
+                },
+                {
+                  value: 'access',
+                  label: t.accessTab,
+                  content: (
+                    <DocumentAccessTab
+                      documentId={document.id}
+                      versions={versions}
+                      canGrant={can('grant-access') || can('grant-preview') || can('grant-download')}
+                    />
+                  ),
+                },
+              ] satisfies WorkspaceTabItem[]}
+            />
           </>
         ) : null}
       </ResourceBoundary>
@@ -233,15 +242,7 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
           setActionError(null)
         }}
       />
-
-      {document && canUpload ? (
-        <UploadVersionSheet
-          document={{ id: document.id, classification: document.classification }}
-          open={uploadOpen}
-          onOpenChange={setUploadOpen}
-        />
-      ) : null}
-    </div>
+    </PageLayout>
   )
 }
 

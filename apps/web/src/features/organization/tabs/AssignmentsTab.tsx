@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useLocale, useSessionToken } from '../../../app/session-context'
+import { useNavigate } from '../../../app/navigation-context'
 import { useAssignments, usePeople, usePositions } from '../../../api/hooks'
 import { requestInit, stateFromError, unwrap } from '../../../api/http'
 import { formatDate } from '../../../i18n'
@@ -22,26 +23,22 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { organizationCopy } from '../organization-copy'
 import { localDateTimeInput, toUtcIso, useCapabilities } from '../organization-utils'
 
 export function AssignmentsTab() {
   const locale = useLocale()
   const text = organizationCopy[locale]
+  const navigate = useNavigate()
   const capabilities = useCapabilities()
   const assignmentsQuery = useAssignments()
   const peopleQuery = usePeople()
   const positionsQuery = usePositions()
-  const [sheetOpen, setSheetOpen] = useState(false)
   const [ending, setEnding] = useState<generated.Assignment | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   const canManage = capabilities.includes('organization.assignment.manage')
   const assignments = (assignmentsQuery.data as generated.AssignmentCollection | undefined)?.items ?? []
-  const people = (peopleQuery.data as generated.PersonCollection | undefined)?.items ?? []
-  const positions = (positionsQuery.data as generated.PositionCollection | undefined)?.items ?? []
 
   const state = assignmentsQuery.isError
     ? stateFromError(assignmentsQuery.error)
@@ -96,7 +93,7 @@ export function AssignmentsTab() {
       {notice ? <p role="status">{notice}</p> : null}
       <div className="flex justify-end">
         {canManage ? (
-          <Button size="sm" onClick={() => setSheetOpen(true)}>
+          <Button size="sm" onClick={() => navigate('/organization/assignments/new')}>
             <Plus aria-hidden="true" />
             {text.createAssignment}
           </Button>
@@ -119,17 +116,6 @@ export function AssignmentsTab() {
             : undefined
         }
         empty={<p className="text-muted-foreground py-8 text-center text-sm">{text.noAssignments}</p>}
-      />
-
-      <AssignmentSheet
-        open={sheetOpen}
-        people={people}
-        positions={positions}
-        onClose={() => setSheetOpen(false)}
-        onSaved={() => {
-          setSheetOpen(false)
-          setNotice(text.assignmentSaved)
-        }}
       />
 
       <EndAssignmentDialog
@@ -155,139 +141,6 @@ function assignmentStatusLabel(status: generated.AssignmentStatus, text: (typeof
     default:
       return status
   }
-}
-
-function AssignmentSheet({
-  open,
-  people,
-  positions,
-  onClose,
-  onSaved,
-}: {
-  open: boolean
-  people: generated.Person[]
-  positions: generated.Position[]
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const locale = useLocale()
-  const token = useSessionToken()
-  const text = organizationCopy[locale]
-  const queryClient = useQueryClient()
-  const [personId, setPersonId] = useState('')
-  const [positionId, setPositionId] = useState('')
-  const [startAt, setStartAt] = useState('')
-  const [failure, setFailure] = useState<'validation' | 'save' | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setPersonId('')
-    setPositionId('')
-    setStartAt('')
-    setFailure(null)
-  }, [open])
-
-  const mutation = useMutation({
-    mutationFn: async ({ nextPersonId, nextPositionId, nextStartAt }: { nextPersonId: string; nextPositionId: string; nextStartAt: string }) =>
-      unwrap<generated.Assignment>(
-        await generated.createAssignment(
-          { person_id: nextPersonId, position_id: nextPositionId, start_at: nextStartAt },
-          requestInit(token, { command: true, idempotency: 'assignment' }),
-        ),
-      ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['assignments'] })
-      onSaved()
-    },
-    onError: () => setFailure('save'),
-  })
-  const submitting = mutation.isPending
-
-  const activePeople = people.filter((person) => person.status === 'active')
-  const activePositions = positions.filter((position) => position.is_active)
-
-  return (
-    <Sheet open={open} onOpenChange={(next) => { if (!next && !submitting) onClose() }}>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>{text.createAssignmentTitle}</SheetTitle>
-          <SheetDescription>{text.assignments}</SheetDescription>
-        </SheetHeader>
-        {activePeople.length === 0 || activePositions.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {activePeople.length === 0 ? text.noActivePeople : text.noActivePositions}
-          </p>
-        ) : (
-          <form
-            className="grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (!personId || !positionId || !startAt) {
-                setFailure('validation')
-                return
-              }
-              setFailure(null)
-              mutation.mutate({ nextPersonId: personId, nextPositionId: positionId, nextStartAt: toUtcIso(startAt) ?? startAt })
-            }}
-            noValidate
-          >
-            {failure === 'validation' ? (
-              <p className="text-destructive text-sm" role="alert">{text.validation}</p>
-            ) : failure === 'save' ? (
-              <p className="text-destructive text-sm" role="alert">{text.saveError}</p>
-            ) : null}
-            <div className="grid gap-2">
-              <Label htmlFor="org-assignment-person">{text.person}</Label>
-              <Select value={personId} onValueChange={setPersonId}>
-                <SelectTrigger id="org-assignment-person">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {activePeople.map((person) => (
-                    <SelectItem key={person.id} value={person.id}>
-                      {person.display_name_ar}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="org-assignment-position">{text.position}</Label>
-              <Select value={positionId} onValueChange={setPositionId}>
-                <SelectTrigger id="org-assignment-position">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {activePositions.map((position) => (
-                    <SelectItem key={position.id} value={position.id}>
-                      {position.title_ar}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="org-assignment-start-at">{text.startAt}</Label>
-              <Input
-                id="org-assignment-start-at"
-                type="datetime-local"
-                value={startAt}
-                onChange={(event) => setStartAt(event.target.value)}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-                {text.cancel}
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? text.saving : text.save}
-              </Button>
-            </div>
-          </form>
-        )}
-      </SheetContent>
-    </Sheet>
-  )
 }
 
 function EndAssignmentDialog({

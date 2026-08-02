@@ -8,18 +8,33 @@ export function t(copy: Copy, locale: Locale): string {
 
 export const platformCopy = {
   title: { ar: 'إدارة المنصة', en: 'Platform Management' },
+  formSection: { ar: 'تفاصيل', en: 'Details' },
+  formSectionSchedule: { ar: 'تفاصيل النافذة', en: 'Window details' },
+  formSectionPolicy: { ar: 'تفاصيل السياسة', en: 'Policy details' },
+  formSectionRestore: { ar: 'تفاصيل الطلب', en: 'Request details' },
+  formSectionSecurity: { ar: 'قيمة الإعداد', en: 'Setting value' },
+  formSectionScope: { ar: 'نطاق التقويم', en: 'Calendar scope' },
+  formSectionWeekday: { ar: 'تفاصيل اليوم', en: 'Day details' },
+  formSectionException: { ar: 'تفاصيل الاستثناء', en: 'Exception details' },
+  formReviewHeading: { ar: 'مراجعة', en: 'Review' },
+  formReviewEmptyFallback: { ar: '—', en: '—' },
   description: {
     ar: 'مراقبة تشغيل المنصة وإعداداتها وصيانتها',
     en: 'Monitor platform operations, settings, and maintenance',
   },
   tabs: {
-    overview: { ar: 'نظرة عامة', en: 'Overview' },
+    overview: { ar: 'ملخص التشغيل', en: 'Operations summary' },
+    settings: { ar: 'إعدادات المنصة', en: 'Platform settings' },
+    monitoring: { ar: 'المراقبة والتشخيص', en: 'Monitoring & diagnostics' },
+    continuity: { ar: 'استمرارية البيانات', en: 'Data continuity' },
+    maintenance: { ar: 'نوافذ الصيانة', en: 'Maintenance windows' },
     security: { ar: 'إعدادات الأمان', en: 'Security settings' },
     calendars: { ar: 'التقويمات', en: 'Business calendars' },
     backups: { ar: 'النسخ الاحتياطي', en: 'Backups' },
+    restore: { ar: 'طلبات الاستعادة', en: 'Restore requests' },
     logs: { ar: 'السجلات الفنية', en: 'Technical logs' },
     health: { ar: 'الصحة', en: 'Health' },
-    maintenance: { ar: 'الصيانة', en: 'Maintenance' },
+    alerts: { ar: 'سياسات التنبيهات', en: 'Alert policies' },
   },
   unavailable: { ar: 'غير متاح', en: 'Unavailable' },
   unavailableBody: {
@@ -38,7 +53,12 @@ export const platformCopy = {
   submit: { ar: 'إرسال', en: 'Submit' },
   confirm: { ar: 'تأكيد', en: 'Confirm' },
   refreshed: { ar: 'تم تحديث البيانات.', en: 'Data refreshed.' },
-}
+  backToSecurity: { ar: 'عودة إلى الإعدادات', en: 'Back to security settings' },
+  backToCalendars: { ar: 'عودة إلى التقويم', en: 'Back to business calendars' },
+  backToMaintenance: { ar: 'عودة إلى الصيانة', en: 'Back to maintenance' },
+  backToLogs: { ar: 'عودة إلى السجلات التقنية', en: 'Back to technical logs' },
+  backToAlerts: { ar: 'عودة إلى التنبيهات', en: 'Back to alert policies' },
+} as const satisfies Record<string, Copy | Record<string, Copy>>
 
 export const overviewCopy = {
   status: { ar: 'حالة المنصة', en: 'Platform status' },
@@ -91,6 +111,14 @@ export const securityCopy = {
     en: 'Version conflict: the settings changed elsewhere. Reloaded.',
   },
   editing: { ar: 'تعديل: ', en: 'Editing: ' },
+  editSettingIntro: {
+    ar: 'عدّل قيمة المفتاح في نسخة الإعدادات.',
+    en: 'Edit the setting value on the settings version.',
+  },
+  publishDisabled: {
+    ar: 'النشر غير متاح حتى تنجح عملية التحقق من الصلاحية.',
+    en: 'Publishing is unavailable until validation succeeds.',
+  },
 } as const satisfies Record<string, Copy>
 
 export const calendarsCopy = {
@@ -111,6 +139,16 @@ export const calendarsCopy = {
   editWeekday: { ar: 'تعديل يوم عمل', en: 'Edit weekday' },
   editException: { ar: 'تعديل استثناء', en: 'Edit exception' },
   addException: { ar: 'إضافة استثناء', en: 'Add exception' },
+  createIntro: { ar: 'حدّد نطاق التقويم الجديد.', en: 'Choose the scope for the new calendar.' },
+  editWeekdayIntro: {
+    ar: 'حدّد ما إذا كان اليوم يوم عمل واضبط ساعاته.',
+    en: 'Set whether the day is a working day and its hours.',
+  },
+  editExceptionIntro: {
+    ar: 'أضف استثناءً لتقويم الأعمال.',
+    en: 'Add an exception to the business calendar.',
+  },
+  exceptionDateRequired: { ar: 'أدخل تاريخ الاستثناء.', en: 'Enter the exception date.' },
   isWorkingDay: { ar: 'يوم عمل', en: 'Working day' },
   startsAt: { ar: 'بداية', en: 'Starts at' },
   endsAt: { ar: 'نهاية', en: 'Ends at' },
@@ -119,6 +157,35 @@ export const calendarsCopy = {
   type: { ar: 'النوع', en: 'Type' },
   reason: { ar: 'السبب', en: 'Reason' },
   publish: { ar: 'نشر', en: 'Publish' },
+  created: { ar: 'تم إنشاء التقويم.', en: 'Calendar created.' },
+  saved: { ar: 'تم حفظ التغييرات.', en: 'Changes saved.' },
+  published: { ar: 'تم نشر التقويم.', en: 'Calendar published.' },
+  stale: {
+    ar: 'تعارض في النسخة: تم تعديل التقويم من جهة أخرى. أعيد التحميل.',
+    en: 'Version conflict: the calendar changed elsewhere. Reloaded.',
+  },
+  scopeIdRequired: {
+    ar: 'أدخل معرّف النطاق.',
+    en: 'Enter the scope identifier.',
+  },
+  timeRangeInvalid: {
+    ar: 'يجب أن يكون وقت النهاية بعد وقت البداية.',
+    en: 'End time must be later than start time.',
+  },
+  dateRangeInvalid: {
+    ar: 'يجب ألا يسبق تاريخ النهاية تاريخ البداية.',
+    en: 'End date must not precede the start date.',
+  },
+  reasonTooLong: {
+    ar: 'لا يتجاوز السبب 2000 حرف.',
+    en: 'Reason must be 2000 characters or fewer.',
+  },
+  publishConfirmTitle: { ar: 'تأكيد نشر التقويم', en: 'Confirm publish calendar' },
+  publishConfirmBody: {
+    ar: 'سيتم نشر التقويم وتفعيله للنطاقات المرتبطة. لا يمكن التراجع عن هذا الإجراء.',
+    en: 'The calendar will be published and activated for the linked scopes. This cannot be undone.',
+  },
+  publishConfirm: { ar: 'نشر', en: 'Publish' },
   days: [
     { ar: 'الأحد', en: 'Sunday' },
     { ar: 'الاثنين', en: 'Monday' },
@@ -158,6 +225,40 @@ export const backupsCopy = {
   empty: { ar: 'لا توجد بيانات نسخ احتياطي.', en: 'No backup data.' },
 } as const satisfies Record<string, Copy>
 
+export const restoreCopy = {
+  title: { ar: 'طلبات الاستعادة', en: 'Restore requests' },
+  description: {
+    ar: 'اطلب استعادة من نسخة احتياطية وأكّدها بخطوة ثانية.',
+    en: 'Request a restore from a backup and confirm it in a second step.',
+  },
+  backupName: { ar: 'معرّف النسخة', en: 'Backup identifier' },
+  backupNameHelp: {
+    ar: 'أدخل معرّف النسخة التي تريد الاستعادة منها كما يظهر في نظام النسخ الاحتياطي.',
+    en: 'Enter the backup identifier to restore from, as shown by the backup system.',
+  },
+  reason: { ar: 'السبب', en: 'Reason' },
+  reasonHelp: { ar: 'اكتب سببًا واضحًا (10 أحرف على الأقل)', en: 'Provide a clear reason (at least 10 characters)' },
+  request: { ar: 'طلب استعادة', en: 'Request restore' },
+  requested: { ar: 'تم إرسال طلب الاستعادة.', en: 'Restore request submitted.' },
+  confirmTitle: { ar: 'تأكيد الاستعادة', en: 'Confirm restore' },
+  confirmDescription: {
+    ar: 'سيتم استبدال البيانات الحالية بنسخة الاحتياط. هذا الإجراء لا يمكن التراجع عنه.',
+    en: 'Current data will be replaced by the backup. This action cannot be undone.',
+  },
+  confirmName: { ar: 'اكتب اسم النسخة', en: 'Type the backup name' },
+  confirmNameHelp: {
+    ar: 'اكتب معرّف النسخة بالضبط لتأكيد الاستعادة.',
+    en: 'Type the exact backup identifier to confirm the restore.',
+  },
+  confirm: { ar: 'تأكيد الاستعادة', en: 'Confirm restore' },
+  confirmed: { ar: 'تم تأكيد طلب الاستعادة.', en: 'Restore confirmed.' },
+  twoActor: {
+    ar: 'يتطلب التأكيد مستخدمًا مختلفًا عن مقدم الطلب (مبدأ الفاعل الثاني).',
+    en: 'Confirmation requires a different user than the requester (two-actor rule).',
+  },
+  cancel: { ar: 'إلغاء', en: 'Cancel' },
+} as const satisfies Record<string, Copy>
+
 export const logsCopy = {
   title: { ar: 'السجلات الفنية', en: 'Technical logs' },
   source: { ar: 'المصدر', en: 'Source' },
@@ -171,7 +272,17 @@ export const logsCopy = {
   manifestId: { ar: 'معرّف الحزمة (Manifest)', en: 'Manifest ID' },
   reason: { ar: 'السبب', en: 'Reason' },
   restored: { ar: 'تم إرسال طلب استعادة السجلات.', en: 'Logs restore requested.' },
+  restoreIntro: {
+    ar: 'اطلب استعادة السجلات الفنية المؤرشفة.',
+    en: 'Request the archived technical logs to be restored.',
+  },
   empty: { ar: 'لا توجد سجلات.', en: 'No log entries.' },
+  deferredTitle: { ar: 'السجلات مؤجلة', en: 'Technical logs are deferred' },
+  deferredBody: {
+    ar: 'السجلات الفنية غير متاحة مؤقتًا في هذه البيئة. يمكنك طلب استعادة السجلات المؤرشفة.',
+    en: 'Technical logs are temporarily unavailable in this environment. You can request the archived logs to be restored.',
+  },
+  deferredRestore: { ar: 'اطلب استعادة', en: 'Request restore' },
   severities: {
     critical: { ar: 'حرج', en: 'Critical' },
     error: { ar: 'خطأ', en: 'Error' },
@@ -193,6 +304,31 @@ export const healthCopy = {
   empty: { ar: 'لا توجد سياسات تنبيه.', en: 'No alert policies.' },
 } as const satisfies Record<string, Copy>
 
+export const alertsCopy = {
+  title: { ar: 'سياسات التنبيهات', en: 'Alert policies' },
+  description: {
+    ar: 'اضبط عتبات التنبيه وقنواتها.',
+    en: 'Configure alert thresholds and channels.',
+  },
+  code: { ar: 'السياسة', en: 'Policy' },
+  status: { ar: 'الحالة', en: 'Status' },
+  severity: { ar: 'الخطورة', en: 'Severity' },
+  channel: { ar: 'القناة', en: 'Channel' },
+  enabled: { ar: 'مفعّل', en: 'Enabled' },
+  disabled: { ar: 'معطّل', en: 'Disabled' },
+  edit: { ar: 'تعديل', en: 'Edit' },
+  empty: { ar: 'لا توجد سياسات تنبيه مهيأة.', en: 'No alert policies are configured.' },
+  emptyBody: {
+    ar: 'لا توجد سياسات تنبيه مهيأة للبيئة الحالية. ستظهر السياسات هنا عند توفيرها بواسطة فريق عمليات المنصة.',
+    en: 'No alert policies are configured for the current environment. Policies appear here when provisioned by platform operations.',
+  },
+  editIntro: { ar: 'عدّل سياسة التنبيه.', en: 'Edit the alert policy.' },
+  stale: {
+    ar: 'تعارض في النسخة: تم تعديل السياسة من جهة أخرى. أعيد التحميل.',
+    en: 'Version conflict: the policy changed elsewhere. Reloaded.',
+  },
+} as const satisfies Record<string, Copy>
+
 export const maintenanceCopy = {
   title: { ar: 'نوافذ الصيانة', en: 'Maintenance windows' },
   empty: { ar: 'لا توجد نوافذ صيانة.', en: 'No maintenance windows.' },
@@ -201,10 +337,16 @@ export const maintenanceCopy = {
   endsAt: { ar: 'النهاية (اختياري)', en: 'Ends at (optional)' },
   messageAr: { ar: 'الرسالة (عربي)', en: 'Message (Arabic)' },
   messageEn: { ar: 'الرسالة (إنجليزي)', en: 'Message (English)' },
+  scheduleIntro: { ar: 'جدولة نافذة صيانة جديدة.', en: 'Schedule a new maintenance window.' },
   cancel: { ar: 'إلغاء', en: 'Cancel' },
   cancelled: { ar: 'ملغاة', en: 'Cancelled' },
   scheduled: { ar: 'مجدولة', en: 'Scheduled' },
   active: { ar: 'نشطة', en: 'Active' },
   ended: { ar: 'منتهية', en: 'Ended' },
   window: { ar: 'نافذة صيانة', en: 'Maintenance window' },
+  cancelConfirmTitle: { ar: 'إلغاء نافذة الصيانة', en: 'Cancel maintenance window' },
+  cancelConfirmBody: {
+    ar: 'سيتم إلغاء نافذة الصيانة المحددة. لا يمكن التراجع عن هذا الإجراء.',
+    en: 'The selected maintenance window will be cancelled. This cannot be undone.',
+  },
 } as const satisfies Record<string, Copy>

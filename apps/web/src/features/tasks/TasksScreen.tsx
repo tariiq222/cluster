@@ -7,6 +7,7 @@ import { ApiError, requestInit, stateFromError, unwrap } from '../../api/http'
 import { useNavigate } from '../../app/navigation-context'
 import { useLocale } from '../../app/session-context'
 import { formatDate, statusLabel } from '../../i18n'
+import { PageHeader, PageLayout } from '@/components/page-layout'
 import { DataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
@@ -184,17 +185,17 @@ export function TasksScreen() {
   )
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t.pageTitle}</h1>
-          <p className="text-muted-foreground text-sm">{t.pageDescription}</p>
-        </div>
-        <Button onClick={() => navigate('/tasks/new')}>
-          <Plus aria-hidden="true" />
-          {t.createTask}
-        </Button>
-      </div>
+    <PageLayout>
+      <PageHeader
+        title={t.pageTitle}
+        description={t.pageDescription}
+        actions={
+          <Button onClick={() => navigate('/tasks/new')}>
+            <Plus aria-hidden="true" />
+            {t.createTask}
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}
@@ -278,7 +279,7 @@ export function TasksScreen() {
           </div>
         }
       />
-    </div>
+    </PageLayout>
   )
 }
 

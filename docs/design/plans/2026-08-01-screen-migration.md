@@ -876,7 +876,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ## Task 14: Final verification
 
-- [ ] **Step 1: Route-level code splitting (React.lazy + Suspense)**
+- [x] **Step 1: Route-level code splitting (React.lazy + Suspense)**
 
 Convert the route screens in `apps/web/src/router.tsx` to route-level `React.lazy` + `Suspense` boundaries before the final gates:
 
@@ -903,7 +903,7 @@ W1_1_API_ORIGIN=http://127.0.0.1:8000 npm --prefix apps/web run test:e2e:local
 
 Expected: every command exits 0. Record the results in `docs/design/plans/baseline.md` under `## final`.
 
-- [ ] **Step 3: Confirm no legacy remains**
+- [x] **Step 3: Confirm no legacy remains**
 
 ```bash
 rg -n "from '.*\/ui'" apps/web/src | wc -l

@@ -275,23 +275,23 @@ test('Organization surfaces a save error to the 409 loser when two owners create
 
     await pageA.getByRole('button', { name: 'إضافة منشأة' }).click()
     await pageB.getByRole('button', { name: 'إضافة منشأة' }).click()
-    const dialogA = pageA.getByRole('dialog', { name: 'إضافة منشأة' })
-    const dialogB = pageB.getByRole('dialog', { name: 'إضافة منشأة' })
-    await dialogA.getByLabel('الرقم التعريفي').fill(code)
-    await dialogA.getByLabel('اسم المنشأة بالعربية').fill('منشأة الفائز')
-    await dialogB.getByLabel('الرقم التعريفي').fill(code)
-    await dialogB.getByLabel('اسم المنشأة بالعربية').fill('منشأة الخاسر')
+    await expect(pageA).toHaveURL(/\/organization\/facilities\/new$/)
+    await expect(pageB).toHaveURL(/\/organization\/facilities\/new$/)
+    await pageA.getByLabel('الرقم التعريفي').fill(code)
+    await pageA.getByLabel('اسم المنشأة بالعربية').fill('منشأة الفائز')
+    await pageB.getByLabel('الرقم التعريفي').fill(code)
+    await pageB.getByLabel('اسم المنشأة بالعربية').fill('منشأة الخاسر')
 
-    await dialogA.getByRole('button', { name: 'حفظ' }).click()
-    await expect(pageA.getByText('تم حفظ بيانات المنشأة.')).toBeVisible()
+    await pageA.getByRole('button', { name: 'حفظ' }).click()
+    await expect(pageA.getByText('منشأة الفائز')).toBeVisible()
 
     const conflictResponse = pageB.waitForResponse((response) => (
       new URL(response.url()).pathname === '/api/v1/organization/facilities'
       && response.request().method() === 'POST'
     ))
-    await dialogB.getByRole('button', { name: 'حفظ' }).click()
+    await pageB.getByRole('button', { name: 'حفظ' }).click()
     expect((await conflictResponse).status()).toBe(409)
-    await expect(dialogB.getByRole('alert')).toContainText('تعذر حفظ البيانات. أعد المحاولة.')
+    await expect(pageB.getByRole('alert')).toContainText('تعذر حفظ البيانات. أعد المحاولة.')
   } finally {
     await pageA.close()
     await pageB.close()
@@ -342,26 +342,28 @@ test('Organization stale-write loser sees 412 feedback and refreshes to the winn
 
     await pageA.getByRole('button', { name: 'تعديل بيانات التجمع' }).click()
     await pageB.getByRole('button', { name: 'تعديل بيانات التجمع' }).click()
-    const dialogA = pageA.getByRole('dialog', { name: 'تعديل بيانات التجمع' })
-    const dialogB = pageB.getByRole('dialog', { name: 'تعديل بيانات التجمع' })
-    await dialogA.getByLabel('اسم التجمع بالعربية').fill(winnerName)
-    await dialogB.getByLabel('اسم التجمع بالعربية').fill(loserName)
+    await expect(pageA).toHaveURL(/\/organization\/cluster\/edit$/)
+    await expect(pageB).toHaveURL(/\/organization\/cluster\/edit$/)
+    await expect(pageA.getByLabel('الاسم بالعربية')).toBeVisible()
+    await expect(pageB.getByLabel('الاسم بالعربية')).toBeVisible()
+    await pageA.getByLabel('الاسم بالعربية').fill(winnerName)
+    await pageB.getByLabel('الاسم بالعربية').fill(loserName)
 
     const winnerResponse = pageA.waitForResponse((response) => (
       new URL(response.url()).pathname === '/api/v1/organization/cluster'
       && response.request().method() === 'PATCH'
     ))
-    await dialogA.getByRole('button', { name: 'حفظ' }).click()
+    await pageA.getByRole('button', { name: 'حفظ' }).click()
     expect((await winnerResponse).status()).toBe(200)
-    await expect(pageA.getByText('تم حفظ بيانات التجمع.')).toBeVisible()
+    await expect(pageA.getByText(winnerName, { exact: true })).toBeVisible()
 
     const loserResponse = pageB.waitForResponse((response) => (
       new URL(response.url()).pathname === '/api/v1/organization/cluster'
       && response.request().method() === 'PATCH'
     ))
-    await dialogB.getByRole('button', { name: 'حفظ' }).click()
+    await pageB.getByRole('button', { name: 'حفظ' }).click()
     expect((await loserResponse).status()).toBe(412)
-    await expect(dialogB.getByRole('alert')).toContainText('تغيّرت البيانات في مكان آخر. حدّث الصفحة ثم أعد المحاولة.')
+    await expect(pageB.getByRole('alert')).toContainText('تغيّرت البيانات في مكان آخر. حدّث الصفحة ثم أعد المحاولة.')
 
     await pageB.reload()
     await expect(pageB.getByRole('heading', { name: 'المنظمة' })).toBeVisible()

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { shellCopy, type Locale } from '../i18n'
+import { developmentLoginCopy, developmentLoginPersonas } from './development-login-personas'
 
 export function LoginScreen({
   locale,
@@ -111,6 +112,50 @@ export function LoginScreen({
               </Button>
             </form>
           </Form>
+          {import.meta.env.DEV ? (
+            <section
+              aria-labelledby="development-login-chooser-heading"
+              data-testid="development-login-chooser"
+              className="mt-4 border-t pt-4"
+            >
+              <h2
+                id="development-login-chooser-heading"
+                className="text-sm font-medium leading-snug"
+              >
+                {developmentLoginCopy[locale].heading}
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {developmentLoginCopy[locale].instruction}
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                {developmentLoginPersonas.map((persona) => (
+                  <Button
+                    key={persona.id}
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full justify-between gap-2 px-3 font-normal"
+                    onClick={() => {
+                      form.reset({ username: persona.username, password: persona.password })
+                      setShowPassword(false)
+                    }}
+                    data-persona-username={persona.username}
+                  >
+                    <span className="truncate text-start">{persona.roleLabel[locale]}</span>
+                    <span
+                      dir="ltr"
+                      lang="en"
+                      className="shrink-0 font-mono text-xs tracking-tight"
+                    >
+                      {persona.username}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs leading-snug text-muted-foreground">
+                {developmentLoginCopy[locale].seededNote}
+              </p>
+            </section>
+          ) : null}
         </CardContent>
         <div className="flex justify-center pb-4">
           <Button type="button" variant="ghost" size="sm" onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}>

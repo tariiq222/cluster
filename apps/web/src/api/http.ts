@@ -3,17 +3,24 @@ export interface ProblemDetails {
   title: string
   status: number
   detail?: string
+  correlation_id?: string
   errors?: Array<{ pointer?: string; code?: string; message?: string }>
 }
 
 export class ApiError extends Error {
   readonly status: number
   readonly problem: ProblemDetails
+  readonly correlationId: string | null
 
-  constructor(status: number, problem: ProblemDetails) {
+  constructor(
+    status: number,
+    problem: ProblemDetails,
+    correlationId: string | null = problem.correlation_id ?? null,
+  ) {
     super(problem.title ?? `Request failed (${status})`)
     this.status = status
     this.problem = problem
+    this.correlationId = correlationId
   }
 }
 
@@ -52,7 +59,9 @@ export function isRetryable(state: ResourceState): boolean {
 type SessionExpiredHandler = () => void
 let sessionExpiredHandler: SessionExpiredHandler | null = null
 
-export function registerSessionExpiredHandler(handler: SessionExpiredHandler): void {
+export function registerSessionExpiredHandler(
+  handler: SessionExpiredHandler,
+): void {
   sessionExpiredHandler = handler
 }
 
@@ -90,7 +99,10 @@ export interface RequestOptions {
   redirect?: RequestRedirect
 }
 
-export function requestInit(csrfToken: string | null, options: RequestOptions = {}): RequestInit {
+export function requestInit(
+  csrfToken: string | null,
+  options: RequestOptions = {},
+): RequestInit {
   const correlationId = uuidV7()
   const headers: Record<string, string> = {
     Accept: 'application/json, application/problem+json',
@@ -98,7 +110,9 @@ export function requestInit(csrfToken: string | null, options: RequestOptions = 
     ...options.headers,
   }
   if (options.command) {
-    headers['Idempotency-Key'] = options.idempotency ? `${options.idempotency}-${correlationId}` : correlationId
+    headers['Idempotency-Key'] = options.idempotency
+      ? `${options.idempotency}-${correlationId}`
+      : correlationId
   }
   if (csrfToken && (options.command || options.mutation)) {
     headers['X-CSRF-Token'] = csrfToken
@@ -118,13 +132,22 @@ export function requestInit(csrfToken: string | null, options: RequestOptions = 
 
 /* ---- Transport ---- */
 
-export type GeneratedResponse = { status: number; data: unknown; headers: Headers }
+export type GeneratedResponse = {
+  status: number
+  data: unknown
+  headers: Headers
+}
 
 const EMPTY_BODY_STATUSES = new Set([204, 205, 304])
 
-export async function customFetch(url: string, options: RequestInit): Promise<GeneratedResponse> {
+export async function customFetch(
+  url: string,
+  options: RequestInit,
+): Promise<GeneratedResponse> {
   const response = await fetch(url, { credentials: 'include', ...options })
-  const body = EMPTY_BODY_STATUSES.has(response.status) ? null : await response.text()
+  const body = EMPTY_BODY_STATUSES.has(response.status)
+    ? null
+    : await response.text()
   let data: unknown = {}
   if (body) {
     try {
@@ -143,17 +166,30 @@ export function parseStrongEtag(value: string | null): number | null {
 
 /* ---- Unwrap ---- */
 
+function errorFromResponse(response: GeneratedResponse): ApiError {
+  const problem = (response.data as ProblemDetails) ?? {
+    type: 'about:blank',
+    title: 'Request failed',
+    status: response.status,
+  }
+  return new ApiError(
+    response.status,
+    problem,
+    problem.correlation_id ?? response.headers.get('X-Correlation-ID'),
+  )
+}
+
 export function unwrap<T>(response: GeneratedResponse): T {
   if (response.status >= 400) {
     if (response.status === 401) notifySessionExpired()
-    throw new ApiError(response.status, (response.data as ProblemDetails) ?? {
-      type: 'about:blank',
-      title: 'Request failed',
-      status: response.status,
-    })
+    throw errorFromResponse(response)
   }
   const data = response.data as { data?: T } | T
-  const payload = (data && typeof data === 'object' && 'data' in data ? (data as { data: T }).data : data) as T
+  const payload = (
+    data && typeof data === 'object' && 'data' in data
+      ? (data as { data: T }).data
+      : data
+  ) as T
   const etag = parseStrongEtag(response.headers.get('ETag'))
   if (etag !== null && payload && typeof payload === 'object') {
     ;(payload as { lock_version?: number }).lock_version = etag
@@ -161,7 +197,10 @@ export function unwrap<T>(response: GeneratedResponse): T {
   return payload
 }
 
-export function unwrapWithEtag<T>(response: GeneratedResponse): { value: T; etag: number | null } {
+export function unwrapWithEtag<T>(response: GeneratedResponse): {
+  value: T
+  etag: number | null
+} {
   const value = unwrap<T>(response)
   return { value, etag: parseStrongEtag(response.headers.get('ETag')) }
 }
@@ -169,10 +208,6 @@ export function unwrapWithEtag<T>(response: GeneratedResponse): { value: T; etag
 export function unwrapEmpty(response: GeneratedResponse): void {
   if (response.status >= 400) {
     if (response.status === 401) notifySessionExpired()
-    throw new ApiError(response.status, (response.data as ProblemDetails) ?? {
-      type: 'about:blank',
-      title: 'Request failed',
-      status: response.status,
-    })
+    throw errorFromResponse(response)
   }
 }

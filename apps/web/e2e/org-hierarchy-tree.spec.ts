@@ -19,7 +19,7 @@ async function signIn(page: Page) {
 }
 
 async function openStructureTab(page: Page) {
-  await page.getByRole('button', { name: 'المنظمة', exact: true }).click()
+  await page.getByRole('navigation', { name: 'القائمة' }).getByRole('link', { name: 'المنظمة', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'المنظمة' })).toBeVisible()
   await page.getByRole('button', { name: 'الهيكل التنظيمي', exact: true }).click()
 }
@@ -57,7 +57,10 @@ test('Organization tree surfaces every seeded position for the follow-up unit', 
   // The L1 sector root must be present alongside the L2 departments.
   await expect(page.getByText('المكتب التنفيذي للتجمع الصحي')).toBeVisible()
 
-  const followUpRow = page.locator('li.screen-list__row', { hasText: 'وحدة المتابعة' })
+  // The Follow-up Unit renders as a shadcn Collapsible; its node is the
+  // deepest `[data-slot="collapsible"]` carrying the unit name, and both
+  // seeded position labels live inside that same node.
+  const followUpRow = page.locator('[data-slot="collapsible"]', { hasText: 'وحدة المتابعة' }).last()
   await expect(followUpRow).toBeVisible()
   await expect(followUpRow.getByText('مدير وحدة المتابعة')).toBeVisible()
   await expect(followUpRow.getByText('محلل بيانات المتابعة')).toBeVisible()

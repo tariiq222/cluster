@@ -228,6 +228,26 @@ export async function listCapabilities(
   }
 }
 
+/*
+ * Walks every cursor page of the capability catalog so a full-page
+ * capability picker can group and search the complete set instead of
+ * silently truncating to the first bounded page. The catalog is a
+ * curated reference list (not a user-generated collection), so the walk
+ * stays bounded in practice; failures reject the whole load so the
+ * screen can never offer a silently incomplete catalog.
+ */
+export async function listAllCapabilities(): Promise<NormalizedCapabilityRow[]> {
+  const items: NormalizedCapabilityRow[] = []
+  let cursor: string | undefined
+  for (;;) {
+    const page = await listCapabilities(cursor)
+    items.push(...page.items)
+    if (!page.next_cursor) break
+    cursor = page.next_cursor
+  }
+  return items
+}
+
 export async function listAssignments(
   cursor?: string,
 ): Promise<{ items: NormalizedAssignmentRow[]; next_cursor: string | null }> {

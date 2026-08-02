@@ -62,6 +62,21 @@ describe('organization workspace', () => {
     expect(screen.queryByRole('tab', { name: 'إعداد المجمّع' })).toBeNull()
   })
 
+  it('labels the tab list accessibly', () => {
+    mount(['organization.unit.read', 'organization.facility.read'])
+    expect(screen.getByRole('tablist', { name: 'أقسام المنظمة' })).toBeInTheDocument()
+  })
+
+  it('stacks the tab navigation above the active content in one vertical flow', () => {
+    mount(['organization.unit.read'])
+    const tabs = screen.getByTestId('organization-tabs')
+    expect(tabs).toHaveClass('flex-col')
+    const tablist = screen.getByRole('tablist', { name: 'أقسام المنظمة' })
+    const content = tabs.querySelector('[data-slot="tabs-content"]')
+    expect(content).not.toBeNull()
+    expect(tablist.compareDocumentPosition(content as Element) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+  })
+
   it('renders the cluster tab empty state rather than an error when no cluster exists', () => {
     mount(['organization.cluster.read', 'organization.cluster.manage'])
     screen.getByRole('tab', { name: 'إعداد المجمّع' }).click()

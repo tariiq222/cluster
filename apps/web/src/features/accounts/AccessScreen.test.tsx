@@ -3,10 +3,13 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { SessionProvider } from '../../app/session-context'
 import { AccountsTab } from './tabs/AccountsTab'
 import { RolesTab } from './tabs/RolesTab'
-import { AssignmentSheet } from './tabs/AssignmentSheet'
+import { AccountCreateScreen } from './AccountCreateScreen'
+import { AccountDetailScreen } from './AccountDetailScreen'
+import { AssignmentCreateScreen } from './AssignmentCreateScreen'
 import { AccessScreen } from './AccessScreen'
 import { useUserAccounts } from '../../api/hooks'
 import {
@@ -14,6 +17,9 @@ import {
   searchScopeTargets,
   listPeopleCursor,
   createAccount,
+  getAccount,
+  getAdminResource,
+  listAllCapabilities,
   listAdminResources,
   listAccounts,
   listCapabilities,
@@ -31,6 +37,11 @@ import {
   explainDecision,
 } from '../../api/access'
 import { ApiError } from '../../api/http'
+
+const navigateMock = vi.hoisted(() => vi.fn())
+vi.mock('../../app/navigation-context', () => ({
+  useNavigate: () => navigateMock,
+}))
 
 /*
  * Task 8 — two behavior rules that are intentionally tested before the
@@ -131,6 +142,9 @@ vi.mock('../../api/access', () => ({
   searchScopeTargets: vi.fn(),
   listPeopleCursor: vi.fn(async () => ({ items: [], next_cursor: null })),
   createAccount: vi.fn(),
+  getAccount: vi.fn(async () => ({ id: 'missing', lock_version: 1 })),
+  getAdminResource: vi.fn(async () => ({ id: 'missing', lock_version: 1 })),
+  listAllCapabilities: vi.fn(async () => []),
   listAdminResources: vi.fn(async () => ({ items: [], next_cursor: null })),
   listAccounts: vi.fn(async () => ({ items: [accountFixture], next_cursor: null })),
   listCapabilities: vi.fn(async () => ({ items: [], next_cursor: null })),
@@ -244,18 +258,25 @@ function mount(node: ReactNode) {
   return render(
     <QueryClientProvider client={client}>
       <SessionProvider session={session} locale="ar" setLocale={() => {}}>
-        {node}
+        <MemoryRouter>{node}</MemoryRouter>
       </SessionProvider>
     </QueryClientProvider>,
   )
 }
 
 beforeEach(() => {
+  navigateMock.mockReset()
   vi.mocked(issueAccountActivation).mockReset()
   vi.mocked(searchScopeTargets).mockReset()
   vi.mocked(listPeopleCursor).mockReset()
   vi.mocked(listPeopleCursor).mockResolvedValue({ items: [], next_cursor: null })
   vi.mocked(createAccount).mockReset()
+  vi.mocked(getAccount).mockReset()
+  vi.mocked(getAccount).mockResolvedValue({ ...accountFixture, lock_version: 1 })
+  vi.mocked(getAdminResource).mockReset()
+  vi.mocked(getAdminResource).mockResolvedValue({ ...customRole })
+  vi.mocked(listAllCapabilities).mockReset()
+  vi.mocked(listAllCapabilities).mockResolvedValue([])
   // Restore the default success-shape return for useUserAccounts after a
   // previous test overrides it (see "hardened accounts table retry").
   // The mock factory installs `vi.fn()` so its `.mockReturnValue` is
@@ -315,6 +336,7 @@ beforeEach(() => {
 describe('accounts activation security', () => {
   it('confirms controlled delivery and expiry in a dialog and never exposes the activation secret', async () => {
     principalState.capabilities = ['identity.account.read', 'identity.account.manage']
+    vi.mocked(getAccount).mockResolvedValue({ ...pendingAccount, lock_version: 1 })
     vi.mocked(issueAccountActivation).mockResolvedValue({
       account_id: pendingAccount.id,
       status: 'activation_issued',
@@ -323,10 +345,10 @@ describe('accounts activation security', () => {
       token: SENTINEL,
     })
 
-    mount(<AccountsTab />)
+    mount(<AccountDetailScreen accountId={pendingAccount.id} />)
 
-    // Pending accounts expose the activation action.
-    fireEvent.click(screen.getByRole('button', { name: 'تفعيل الحساب' }))
+    // Pending accounts expose the activation action on the detail page.
+    fireEvent.click(await screen.findByRole('button', { name: 'تفعيل الحساب' }))
 
     // The success surface is a dialog that confirms controlled delivery and
     // the expiry only.
@@ -335,7 +357,7 @@ describe('accounts activation security', () => {
     expect(within(dialog).getByText(/تنتهي صلاحية|expires at/i)).toBeInTheDocument()
 
     // The over-broad mock carried an activation secret; it must never appear
-    // anywhere in the rendered table or dialog.
+    // anywhere in the rendered page or dialog.
     expect(vi.mocked(issueAccountActivation)).toHaveBeenCalledWith(pendingAccount.id, 'x')
     expect(screen.queryByText(SENTINEL, { exact: false })).not.toBeInTheDocument()
     expect(document.body.textContent).not.toContain(SENTINEL)
@@ -356,13 +378,9 @@ describe('assignment scope target search', () => {
       label: 'المجموعة',
     }
 
-    mount(<RolesTab />)
+    mount(<AssignmentCreateScreen />)
 
-    // Open the assignments resource, then the creation sheet.
-    fireEvent.click(screen.getByRole('button', { name: 'التعيينات' }))
-    fireEvent.click(screen.getByRole('button', { name: 'إضافة تعيين' }))
-
-    // No scope-target query on mount (sheet open alone must not query).
+    // No scope-target query on mount (the page alone must not query).
     expect(searchScopeTargets).not.toHaveBeenCalled()
 
     // Open the scope combobox. The trigger is labelled by the visible
@@ -460,12 +478,10 @@ describe('assignment creation window validation', () => {
       label: 'المجموعة',
     }
 
-    mount(<RolesTab />)
-
-    fireEvent.click(await screen.findByRole('button', { name: 'إضافة تعيين' }))
+    mount(<AssignmentCreateScreen />)
 
     // Fill the account, role, and scope type so the window alone is in
-    // question (the sheet renders once the supporting labels resolve).
+    // question (the page renders once the supporting labels resolve).
     fireEvent.click(await screen.findByRole('button', { name: 'قائمة الحسابات' }))
     const accountInput = await screen.findByRole('combobox', { name: 'قائمة الحسابات' })
     fireEvent.change(accountInput, { target: { value: 'مسؤول' } })
@@ -650,8 +666,7 @@ describe('cursor-paginated creation pickers', () => {
       ? { items: [laterPerson], next_cursor: null }
       : { items: [firstPerson], next_cursor: 'people-page-2' })
 
-    mount(<AccountsTab />)
-    fireEvent.click(screen.getByRole('button', { name: 'إضافة حساب' }))
+    mount(<AccountCreateScreen />)
 
     // The cursor API remains idle until the operator opens the picker.
     expect(listPeopleCursor).not.toHaveBeenCalled()
@@ -693,7 +708,7 @@ describe('cursor-paginated creation pickers', () => {
       ? { items: [laterAccount], next_cursor: null }
       : { items: [accountFixture], next_cursor: 'accounts-page-2' })
 
-    mount(<AssignmentSheet open effectiveScope={null} onClose={() => {}} onSaved={() => {}} />)
+    mount(<AssignmentCreateScreen />)
 
     // The account catalog stays untouched while the picker is closed.
     expect(listAccounts).not.toHaveBeenCalled()
@@ -722,7 +737,7 @@ describe('cursor-paginated creation pickers', () => {
       ? { items: [laterRole], next_cursor: null }
       : { items: [systemRole], next_cursor: 'roles-page-2' })
 
-    mount(<AssignmentSheet open effectiveScope={null} enrichRoles onClose={() => {}} onSaved={() => {}} />)
+    mount(<AssignmentCreateScreen />)
 
     // The role catalog stays untouched while the picker is closed.
     expect(listRolesWithCapabilities).not.toHaveBeenCalled()
@@ -827,9 +842,7 @@ describe('hardened scope target search races', () => {
       return Promise.resolve({ items: [], next_cursor: null })
     })
 
-    mount(<RolesTab />)
-    fireEvent.click(screen.getByRole('button', { name: 'التعيينات' }))
-    fireEvent.click(screen.getByRole('button', { name: 'إضافة تعيين' }))
+    mount(<AssignmentCreateScreen />)
     fireEvent.click(await screen.findByRole('button', { name: 'النطاق' }))
     const input = await screen.findByRole('combobox', { name: 'ابحث عن النطاق' })
 
@@ -902,6 +915,337 @@ describe('hardened allowed_actions are server-authoritative', () => {
     })
     expect(screen.queryByRole('button', { name: 'إنهاء' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'إزالة' })).not.toBeInTheDocument()
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* UI-CAP-01 capability catalog column layout regressions             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The capability catalog inside the roles & permissions workspace used to
+ * render five raw wire columns (code, module_code, action, sensitivity,
+ * group_label) which forced the first column off-screen on narrow
+ * viewports. The refined layout collapses to three user-facing columns
+ * (permission, area, sensitivity) and demotes the technical codes to
+ * small mono secondary lines so the canonical identifiers stay visible
+ * without dominating the row.
+ *
+ * These tests pin the contract:
+ *
+ *  1. Exactly three column headers render in the active locale.
+ *  2. The translated action verb is the primary line, the canonical
+ *     capability code is a secondary mono line.
+ *  3. The translated module name is the primary line, the canonical
+ *     module_code is a secondary mono line; a distinct `group_label`
+ *     renders as a tertiary inline line and is not lost.
+ *  4. Sensitivity renders as an outline badge with the localized
+ *     label, and the ShieldAlert icon is present for sensitive /
+ *     critical rows only — never for normal rows, so the cue never
+ *     depends on color alone.
+ */
+describe('UI-CAP-01 capability catalog column layout', () => {
+  const normalCapability = {
+    id: '01980f50-5f0d-7000-8000-00000000c001',
+    code: 'work_record.create',
+    capability_code: 'work_record.create',
+    module_code: 'work_record',
+    action: 'create',
+    sensitivity: 'normal',
+    group_label: 'work_record',
+    lock_version: 1,
+  } as const
+
+  const sensitiveCapability = {
+    id: '01980f50-5f0d-7000-8000-00000000c002',
+    code: 'identity.account.manage',
+    capability_code: 'identity.account.manage',
+    module_code: 'identity',
+    action: 'manage',
+    sensitivity: 'sensitive',
+    group_label: 'identity',
+    lock_version: 1,
+  } as const
+
+  const criticalCapability = {
+    id: '01980f50-5f0d-7000-8000-00000000c003',
+    code: 'audit.integrity.verify',
+    capability_code: 'audit.integrity.verify',
+    module_code: 'audit',
+    action: 'verify',
+    sensitivity: 'critical',
+    group_label: 'audit',
+    lock_version: 1,
+  } as const
+
+  /*
+   * A capability whose `group_label` is genuinely different from its
+   * `module_code` — the live wire projection's `normalizeCapabilityRow`
+   * falls back to module_code when group_label is absent, so this row
+   * is the only way the table can lose a group_label. The contract
+   * demands it stays visible; the test asserts the tertiary line.
+   */
+  const distinctGroupCapability = {
+    id: '01980f50-5f0d-7000-8000-00000000c004',
+    code: 'work_record.read',
+    capability_code: 'work_record.read',
+    module_code: 'work_record',
+    action: 'read',
+    sensitivity: 'normal',
+    group_label: 'Work Records — Custom Group',
+    lock_version: 1,
+  } as const
+
+  beforeEach(() => {
+    vi.mocked(listCapabilities).mockResolvedValue({
+      items: [
+        normalCapability,
+        sensitiveCapability,
+        criticalCapability,
+        distinctGroupCapability,
+      ],
+      next_cursor: null,
+    })
+  })
+
+  it('renders exactly three column headers — permission, area, sensitivity — in the active locale', async () => {
+    principalState.capabilities = ['authorization.capability.read']
+
+    mount(<RolesTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
+
+    const headers = await screen.findAllByRole('columnheader')
+    expect(headers).toHaveLength(3)
+    expect(headers[0]).toHaveTextContent('الصلاحية')
+    expect(headers[1]).toHaveTextContent('المجال')
+    expect(headers[2]).toHaveTextContent('الحساسية')
+  })
+
+  it('renders the translated action verb as the primary line and the capability code as a mono LTR secondary line', async () => {
+    principalState.capabilities = ['authorization.capability.read']
+
+    mount(<RolesTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
+
+    // Locate each row by its unique capability code so the per-row
+    // assertions stay deterministic when multiple capabilities share
+    // a module_code or a sensitivity bucket.
+    await screen.findByText('work_record.create')
+
+    const createRow = screen.getByText('work_record.create').closest('tr')
+    const manageRow = screen.getByText('identity.account.manage').closest('tr')
+    const verifyRow = screen.getByText('audit.integrity.verify').closest('tr')
+    const readRow = screen.getByText('work_record.read').closest('tr')
+
+    // Translated action verb — present and visible in the primary line.
+    expect(within(createRow!).getByText('إنشاء')).toBeInTheDocument()
+    expect(within(manageRow!).getByText('إدارة')).toBeInTheDocument()
+    expect(within(verifyRow!).getByText('تحقق')).toBeInTheDocument()
+    expect(within(readRow!).getByText('قراءة')).toBeInTheDocument()
+
+    // Canonical capability code is still rendered as a secondary line.
+    const codeText = within(createRow!).getByText('work_record.create')
+    expect(codeText.tagName).toBe('SPAN')
+    expect(codeText.className).toMatch(/\bfont-mono\b/)
+    expect(codeText).toHaveAttribute('dir', 'ltr')
+  })
+
+  it('renders the translated module name as the primary line and the module_code as a mono LTR secondary line', async () => {
+    principalState.capabilities = ['authorization.capability.read']
+
+    mount(<RolesTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
+
+    await screen.findByText('work_record.create')
+
+    const createRow = screen.getByText('work_record.create').closest('tr')
+    const manageRow = screen.getByText('identity.account.manage').closest('tr')
+    const verifyRow = screen.getByText('audit.integrity.verify').closest('tr')
+
+    // Translated module name — primary line of the area column.
+    expect(within(createRow!).getByText('سجلات العمل')).toBeInTheDocument()
+    expect(within(manageRow!).getByText('الهوية والحسابات')).toBeInTheDocument()
+    expect(within(verifyRow!).getByText('التدقيق')).toBeInTheDocument()
+
+    // The canonical module_code renders as a secondary mono LTR line.
+    const moduleText = within(createRow!).getByText('work_record')
+    expect(moduleText.tagName).toBe('SPAN')
+    expect(moduleText.className).toMatch(/\bfont-mono\b/)
+    expect(moduleText).toHaveAttribute('dir', 'ltr')
+  })
+
+  it('preserves a group_label that genuinely differs from module_code as a tertiary inline line', async () => {
+    principalState.capabilities = ['authorization.capability.read']
+
+    mount(<RolesTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
+
+    // The distinct group_label survives the table collapse: it is shown
+    // as a muted tertiary line, not as a fifth column and not lost.
+    const readRow = await screen.findByText('work_record.read').then((el) => el.closest('tr'))
+    expect(within(readRow!).getByText('Work Records — Custom Group')).toBeInTheDocument()
+  })
+
+  it('renders the sensitivity as an outline badge with the localized label for every sensitivity bucket', async () => {
+    principalState.capabilities = ['authorization.capability.read']
+
+    mount(<RolesTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
+
+    await screen.findByText('work_record.create')
+
+    // Per-row assertions: the localized sensitivity label is in the
+    // third cell of the row that owns the matching capability code.
+    const createRow = screen.getByText('work_record.create').closest('tr')
+    const manageRow = screen.getByText('identity.account.manage').closest('tr')
+    const verifyRow = screen.getByText('audit.integrity.verify').closest('tr')
+
+    expect(within(createRow!).getByText('عادية')).toBeInTheDocument()
+    expect(within(manageRow!).getByText('حساسة')).toBeInTheDocument()
+    expect(within(verifyRow!).getByText('حرجة')).toBeInTheDocument()
+
+    // The badge uses the outline variant — confirmed by the absence of
+    // a filled `bg-primary` class on the badge element.
+    const badge = within(createRow!).getByText('عادية').closest('[data-slot="badge"]')
+    expect(badge).not.toBeNull()
+    expect(badge!.className).toMatch(/\bborder\b/)
+    expect(badge!.className).not.toMatch(/\bbg-primary\b/)
+  })
+
+  it('shows the ShieldAlert icon for sensitive and critical rows only — never for normal rows', async () => {
+    principalState.capabilities = ['authorization.capability.read']
+
+    const { container } = mount(<RolesTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
+
+    await screen.findByText('work_record.create')
+
+    const createRow = screen.getByText('work_record.create').closest('tr')
+    const manageRow = screen.getByText('identity.account.manage').closest('tr')
+    const verifyRow = screen.getByText('audit.integrity.verify').closest('tr')
+
+    /*
+     * lucide-react renders each ShieldAlert as an inline <svg> carrying
+     * the `lucide-shield-alert` class. The color-independent signal is
+     * the icon, not a color token, so the test asserts the icon is
+     * present on the sensitive + critical badges and absent from the
+     * normal badge.
+     */
+    expect(createRow!.querySelectorAll('svg.lucide-shield-alert')).toHaveLength(0)
+    expect(manageRow!.querySelectorAll('svg.lucide-shield-alert')).toHaveLength(1)
+    expect(verifyRow!.querySelectorAll('svg.lucide-shield-alert')).toHaveLength(1)
+
+    // Whole-table invariant: two icons total (sensitive + critical),
+    // never more — the normal rows must not pick up the icon.
+    const allShields = container.querySelectorAll('svg.lucide-shield-alert')
+    expect(allShields).toHaveLength(2)
+  })
+
+  it('does not introduce a fifth column for group_label when it equals module_code', async () => {
+    principalState.capabilities = ['authorization.capability.read']
+
+    mount(<RolesTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
+
+    // Header count is still 3 — the row count does not influence it.
+    const headers = await screen.findAllByRole('columnheader')
+    expect(headers).toHaveLength(3)
+
+    await screen.findByText('work_record.create')
+
+    /*
+     * The redundant `work_record` group_label on the normal row must
+     * NOT appear as a free tertiary line. The canonical module_code
+     * still renders as a mono line, but a second muted-text-muted-
+     * foreground line carrying the same string is a leak. The matcher
+     * identifies the tertiary line by class composition alone.
+     */
+    const redundantGroupLine = screen.queryByText((_content, element) => {
+      if (!element) return false
+      return element.tagName === 'SPAN'
+        && element.textContent === 'work_record'
+        && element.className.includes('text-muted-foreground')
+        && element.className.includes('text-xs')
+        && !element.className.includes('font-mono')
+    })
+    expect(redundantGroupLine).toBeNull()
+  })
+
+  /*
+   * UI-CAP-01-C1: post-review coverage for the three catalog actions
+   * that were missing from CAPABILITY_ACTION_LABELS on the initial
+   * pass. A standalone combined test keeps the scope tight: one
+   * fixture set, one assertion block, no new mock for the
+   * other UI-CAP-01 cases (which already share their own data).
+   */
+  it('UI-CAP-01-C1: translates the catalog actions query, request, and confirm so they never appear as raw English verbs in Arabic', async () => {
+    const queryCapability = {
+      id: '01980f50-5f0d-7000-8000-00000000c005',
+      code: 'search.query',
+      capability_code: 'search.query',
+      module_code: 'search',
+      action: 'query',
+      sensitivity: 'normal',
+      group_label: 'search',
+      lock_version: 1,
+    } as const
+    const restoreRequestCapability = {
+      id: '01980f50-5f0d-7000-8000-00000000c006',
+      code: 'platform_operations.restore.request',
+      capability_code: 'platform_operations.restore.request',
+      module_code: 'platform_operations',
+      action: 'request',
+      sensitivity: 'sensitive',
+      group_label: 'platform_operations',
+      lock_version: 1,
+    } as const
+    const restoreConfirmCapability = {
+      id: '01980f50-5f0d-7000-8000-00000000c007',
+      code: 'platform_operations.restore.confirm',
+      capability_code: 'platform_operations.restore.confirm',
+      module_code: 'platform_operations',
+      action: 'confirm',
+      sensitivity: 'critical',
+      group_label: 'platform_operations',
+      lock_version: 1,
+    } as const
+    vi.mocked(listCapabilities).mockResolvedValueOnce({
+      items: [queryCapability, restoreRequestCapability, restoreConfirmCapability],
+      next_cursor: null,
+    })
+
+    principalState.capabilities = ['authorization.capability.read']
+
+    mount(<RolesTab />)
+    fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
+
+    /*
+     * The action verb is the localized primary line; the canonical
+     * capability code is the secondary technical line. No raw English
+     * verb may leak into the Arabic rendering — the contract requires
+     * Arabic/English parity for every action defined in
+     * CapabilityCatalog.php.
+     */
+    const queryRow = await screen
+      .findByText('search.query')
+      .then((el) => el.closest('tr'))
+    expect(queryRow).not.toBeNull()
+    expect(within(queryRow!).getByText('بحث')).toBeInTheDocument()
+    expect(within(queryRow!).getByText('search.query')).toBeInTheDocument()
+
+    const requestRow = screen
+      .getByText('platform_operations.restore.request')
+      .closest('tr')
+    expect(requestRow).not.toBeNull()
+    expect(within(requestRow!).getByText('طلب')).toBeInTheDocument()
+    expect(within(requestRow!).getByText('platform_operations.restore.request')).toBeInTheDocument()
+
+    const confirmRow = screen
+      .getByText('platform_operations.restore.confirm')
+      .closest('tr')
+    expect(confirmRow).not.toBeNull()
+    expect(within(confirmRow!).getByText('تأكيد')).toBeInTheDocument()
+    expect(within(confirmRow!).getByText('platform_operations.restore.confirm')).toBeInTheDocument()
   })
 })
 
@@ -1179,28 +1523,26 @@ describe('access workspace responsive containment', () => {
  */
 
 describe('ACC-03 people request waterfall', () => {
-  it('issues zero people requests while the create-account sheet is closed', () => {
+  it('issues zero people requests while the create-account page is mounted with a closed picker', () => {
     principalState.capabilities = ['identity.account.read', 'identity.account.manage']
 
-    mount(<AccountsTab />)
+    mount(<AccountCreateScreen />)
 
     /*
-     * The picker is the only cursor-loading owner. Mounting the tab must
-     * never trigger `listPeopleCursor`, even though the CreateAccountSheet
-     * component would otherwise be alive in the tree.
+     * The picker is the only cursor-loading owner. Mounting the page must
+     * never trigger `listPeopleCursor` — the picker stays lazy until it is
+     * opened.
      */
     expect(listPeopleCursor).not.toHaveBeenCalled()
   })
 
-  it('issues zero people requests while the sheet is open but the picker is closed', async () => {
+  it('issues zero people requests while the page is ready but the picker is closed', async () => {
     principalState.capabilities = ['identity.account.read', 'identity.account.manage']
     vi.mocked(listPeopleCursor).mockImplementation(async () => ({ items: [], next_cursor: null }))
 
-    mount(<AccountsTab />)
-    fireEvent.click(screen.getByRole('button', { name: 'إضافة حساب' }))
+    mount(<AccountCreateScreen />)
 
-    // Wait for the sheet to render the picker trigger without firing a
-    // request.
+    // The picker trigger renders without firing a request.
     expect(await screen.findByRole('button', { name: 'الموظف' })).toBeInTheDocument()
     expect(listPeopleCursor).not.toHaveBeenCalled()
   })
@@ -1220,8 +1562,7 @@ describe('ACC-03 people request waterfall', () => {
       next_cursor: 'people-next',
     })
 
-    mount(<AccountsTab />)
-    fireEvent.click(screen.getByRole('button', { name: 'إضافة حساب' }))
+    mount(<AccountCreateScreen />)
     fireEvent.click(await screen.findByRole('button', { name: 'الموظف' }))
 
     expect(await screen.findByRole('option', { name: firstPerson.display_name_ar })).toBeInTheDocument()

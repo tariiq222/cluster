@@ -66,7 +66,23 @@ describe('home dashboard', () => {
 
   it('keeps the KPIs group as an accessible group', () => {
     mount()
-    expect(screen.getByRole('group', { name: 'مؤشرات الأداء' })).toBeInTheDocument()
+    const group = screen.getByRole('group', { name: 'مؤشرات الأداء' })
+    expect(group).toBeInTheDocument()
+    // The shared PageLayout shell is the centered max-width wrapper.
+    expect(group.closest('.mx-auto.w-full.max-w-6xl.min-w-0.space-y-6')).not.toBeNull()
+  })
+
+  it('renders the KPI tiles through the shared Card surfaces, never bespoke divs', () => {
+    mount()
+    const group = screen.getByRole('group', { name: 'مؤشرات الأداء' })
+    const cards = group.querySelectorAll('[data-slot="card"]')
+    // The principal in this test cannot decide, so the two always-on KPIs are
+    // rendered as shared Card surfaces inside the <dl> group.
+    expect(cards.length).toBe(2)
+    // The <dl> remains the accessible group: the Card surfaces are children,
+    // not a replacement for the description-list semantics.
+    expect(group.querySelectorAll('dt')).toHaveLength(2)
+    expect(group.querySelectorAll('dd')).toHaveLength(2)
   })
 
   it('renders the effective-scope card with the scope label', () => {

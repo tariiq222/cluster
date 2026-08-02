@@ -1,20 +1,30 @@
 import { useCallback, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { FileLock2, Pencil, Rocket, ShieldCheck } from 'lucide-react'
 import { useLocale, useSessionToken } from '../../../app/session-context'
+import { useNavigate } from '../../../app/navigation-context'
 import { usePlatformSettingsVersions } from '../../../api/hooks'
-import { Button, Drawer, Field, Panel, PanelGrid, StatusBadge } from '../../../ui'
 import { ApiError } from '../../../api/http'
 import {
   createPlatformSettingsDraft,
   getCurrentPlatformSettings,
   publishPlatformSettingsVersion,
-  setPlatformSetting,
   validatePlatformSettingsVersion,
 } from '../platform-api'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { EmptyState } from '@/components/states'
+import { actionAllowed, queryResourceState, type QueryLike } from '../section-support'
+import { SectionBoundary, ActionNotice, ActionError } from '../section-state'
 import { platformCopy, securityCopy, t } from '../platform-copy'
-import { actionAllowed, stateFromSectionError, type SectionState } from '../section-support'
-import { ActionError, ActionNotice, SectionStateView } from '../section-state'
-import type { PlatformSettingsVersion, PlatformSettingsVersionsList, PlatformSecurityPolicy } from '../platform-types'
+import type { PlatformSecurityPolicy, PlatformSettingsVersion, PlatformSettingsVersionsList } from '../platform-types'
 
 interface SecurityPayload {
   current: PlatformSettingsVersion
@@ -43,12 +53,22 @@ function editableVersion(versions: readonly PlatformSettingsVersion[]): Platform
   return versions.find((version) => version.status === 'draft' || version.status === 'validated') ?? null
 }
 
-function statusVariant(status: string | undefined): 'neutral' | 'success' | 'warning' | 'info' {
+function statusLabelText(status: string | undefined, locale: 'ar' | 'en'): string {
   switch (status) {
-    case 'published': return 'success'
-    case 'validated': return 'info'
-    case 'draft': return 'warning'
-    default: return 'neutral'
+    case 'published': return t(securityCopy.published, locale)
+    case 'draft': return t(securityCopy.draft, locale)
+    case 'validated': return t(securityCopy.validated, locale)
+    case 'retired': return t(securityCopy.retired, locale)
+    default: return status ?? '—'
+  }
+}
+
+function statusVariant(status: string | undefined): 'outline' | 'secondary' | 'default' | 'destructive' {
+  switch (status) {
+    case 'published': return 'default'
+    case 'validated': return 'secondary'
+    case 'draft': return 'outline'
+    default: return 'outline'
   }
 }
 
@@ -69,10 +89,9 @@ export function SecuritySettingsSection() {
   const locale = useLocale()
   const csrfToken = useSessionToken()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionNotice, setActionNotice] = useState<string | null>(null)
-  const [editKey, setEditKey] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
 
   const versionsQuery = usePlatformSettingsVersions()
   const currentQuery = useQuery({
@@ -81,20 +100,19 @@ export function SecuritySettingsSection() {
   })
 
   const versions = versionsQuery.data as unknown as PlatformSettingsVersionsList | undefined
-  const current = currentQuery.data
+  const current = currentQuery.data as PlatformSettingsVersion | undefined
 
   const data: SecurityPayload | null =
     versions !== undefined && current !== undefined
       ? { current, versions: versions.items }
       : null
 
-  let state: SectionState = 'loading'
-  if (!versionsQuery.isPending && !currentQuery.isPending) {
-    const error = versionsQuery.error ?? currentQuery.error
-    if (error !== null) state = stateFromSectionError(error)
-    else if (data === null) state = 'empty'
-    else state = isSecurityPayloadEmpty(data) ? 'empty' : 'ready'
+  const combinedQuery: QueryLike<SecurityPayload> = {
+    isPending: versionsQuery.isPending || currentQuery.isPending,
+    error: versionsQuery.error ?? currentQuery.error,
+    data,
   }
+  const state = queryResourceState(combinedQuery, isSecurityPayloadEmpty)
 
   const reload = useCallback(() => {
     void versionsQuery.refetch()
@@ -134,45 +152,6 @@ export function SecuritySettingsSection() {
     onError: fail,
   })
 
-  const createDraft = useCallback(() => {
-    createDraftMutation.mutate()
-  }, [createDraftMutation])
-
-  const openEdit = useCallback((key: string, value: number | undefined) => {
-    setEditKey(key)
-    setEditValue(value === undefined ? '' : String(value))
-  }, [])
-
-  const saveEditMutation = useMutation({
-    mutationFn: () => {
-      if (editKey === null || editable === null || editable.id === undefined || editable.lock_version === undefined) {
-        throw new Error('No editable settings version')
-      }
-      return setPlatformSetting(
-        csrfToken,
-        editable.id,
-        `security.${editKey}`,
-        { value_type: 'integer', value: Number(editValue) },
-        editable.lock_version,
-      )
-    },
-    onMutate: () => {
-      setActionError(null)
-      setActionNotice(null)
-    },
-    onSuccess: () => {
-      setEditKey(null)
-      setActionNotice(t(platformCopy.refreshed, locale))
-      invalidateSettings()
-    },
-    onError: fail,
-  })
-
-  const saveEdit = useCallback(() => {
-    if (editKey === null || editable === null || editable.id === undefined || editable.lock_version === undefined) return
-    saveEditMutation.mutate()
-  }, [editKey, editable, saveEditMutation])
-
   const validateMutation = useMutation({
     mutationFn: () => {
       if (editable === null || editable.id === undefined || editable.lock_version === undefined) {
@@ -190,11 +169,6 @@ export function SecuritySettingsSection() {
     },
     onError: fail,
   })
-
-  const validate = useCallback(() => {
-    if (editable === null || editable.id === undefined || editable.lock_version === undefined) return
-    validateMutation.mutate()
-  }, [editable, validateMutation])
 
   const publishMutation = useMutation({
     mutationFn: () => {
@@ -214,138 +188,152 @@ export function SecuritySettingsSection() {
     onError: fail,
   })
 
-  const publish = useCallback(() => {
-    if (editable === null || editable.id === undefined || editable.lock_version === undefined) return
-    publishMutation.mutate()
-  }, [editable, publishMutation])
-
   const actionBusy =
-    createDraftMutation.isPending || saveEditMutation.isPending || validateMutation.isPending || publishMutation.isPending
+    createDraftMutation.isPending || validateMutation.isPending || publishMutation.isPending
 
   if (state !== 'ready' || data === null) {
-    return <SectionStateView state={state} onRetry={reload} />
+    return (
+      <SectionBoundary
+        state={state}
+        locale={locale}
+        onRetry={reload}
+        empty={<EmptyState title={t(securityCopy.policy, locale)} body={t(platformCopy.empty, locale)} />}
+      />
+    )
   }
 
   const { current: currentData, versions: versionsData } = data
   const policy = securityPolicyOf(editable ?? currentData)
+  const validated = editable?.status === 'validated'
 
   return (
-    <PanelGrid>
-      <Panel
-        id="platform-security-policy"
-        title={t(securityCopy.policy, locale)}
-        actions={editable !== null && canManage ? (
-          <Button variant="secondary" disabled={actionBusy} onClick={() => void validate()}>
-            {t(securityCopy.validate, locale)}
-          </Button>
-        ) : undefined}
-      >
-        <dl className="detail-list">
-          <div className="detail-list__row">
-            <dt className="detail-list__key">{t(securityCopy.version, locale)}</dt>
-            <dd className="detail-list__value">
-              {(editable ?? currentData)?.id ?? t(securityCopy.noPublished, locale)}{' '}
-              {editable && <StatusBadge variant={statusVariant(editable.status)}>{statusLabelText(editable.status, locale)}</StatusBadge>}
-            </dd>
-          </div>
-          <div className="detail-list__row">
-            <dt className="detail-list__key">{t(securityCopy.defaultLocale, locale)}</dt>
-            <dd className="detail-list__value">{(editable ?? currentData)?.default_locale ?? '—'}</dd>
-          </div>
-          <div className="detail-list__row">
-            <dt className="detail-list__key">{t(securityCopy.timezone, locale)}</dt>
-            <dd className="detail-list__value">{(editable ?? currentData)?.timezone ?? '—'}</dd>
-          </div>
-          <div className="detail-list__row">
-            <dt className="detail-list__key">{t(securityCopy.activeLogMonths, locale)}</dt>
-            <dd className="detail-list__value">{(editable ?? currentData)?.active_log_months ?? '—'}</dd>
-          </div>
-          {SECURITY_KEYS.map((key) => (
-            <div className="detail-list__row" key={key}>
-              <dt className="detail-list__key">{securityLabel(key, locale)}</dt>
-              <dd className="detail-list__value">
-                {policy[key] ?? '—'}
-                {editable !== null && canManage && (
-                  <Button variant="quiet" disabled={actionBusy} onClick={() => openEdit(key, policy[key])}>
-                    {t(securityCopy.edit, locale)}
-                  </Button>
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        {editable === null && canManage && (
-          <Button variant="secondary" disabled={actionBusy} onClick={() => void createDraft()}>
-            {t(securityCopy.createDraft, locale)}
-          </Button>
-        )}
-        {editable !== null && canPublish && editable.status === 'validated' && (
-          <Button variant="primary" disabled={actionBusy} onClick={() => void publish()}>
-            {t(securityCopy.publish, locale)}
-          </Button>
-        )}
-        {actionNotice && <ActionNotice message={actionNotice} />}
-        {actionError && <ActionError message={actionError} />}
-      </Panel>
-
-      <Panel id="platform-security-versions" title={t(securityCopy.versions, locale)}>
-        {versionsData.length === 0 ? (
-          <p className="screen-list__row-meta">{t(platformCopy.empty, locale)}</p>
-        ) : (
-          <table className="entity-table">
-            <thead>
-              <tr>
-                <th scope="col">{t(securityCopy.version, locale)}</th>
-                <th scope="col">{t(securityCopy.policy, locale)}</th>
-                <th scope="col">{t(securityCopy.versions, locale)}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {versionsData.map((version) => (
-                <tr key={version.id ?? version.version_id}>
-                  <td>{version.id ?? '—'}</td>
-                  <td><StatusBadge variant={statusVariant(version.status)}>{statusLabelText(version.status, locale)}</StatusBadge></td>
-                  <td>{version.lock_version ?? '—'}</td>
-                </tr>
+    <section aria-labelledby="platform-security-policy" className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <h2 id="platform-security-policy" className="flex items-center gap-2 text-base leading-snug font-medium">
+              <FileLock2 className="size-4 text-muted-foreground" aria-hidden="true" />
+              {t(securityCopy.policy, locale)}
+            </h2>
+            {editable !== null && canManage && (
+              <Button variant="outline" size="sm" disabled={actionBusy} onClick={() => validateMutation.mutate()}>
+                <ShieldCheck className="size-4" aria-hidden="true" />
+                {t(securityCopy.validate, locale)}
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="grid gap-2 text-sm">
+            <dl className="grid gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-muted-foreground">{t(securityCopy.version, locale)}</dt>
+                <dd className="flex items-center gap-2">
+                  {(editable ?? currentData)?.id ?? t(securityCopy.noPublished, locale)}
+                  {editable && (
+                    <Badge variant={statusVariant(editable.status)}>{statusLabelText(editable.status, locale)}</Badge>
+                  )}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-muted-foreground">{t(securityCopy.defaultLocale, locale)}</dt>
+                <dd>{(editable ?? currentData)?.default_locale ?? '—'}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-muted-foreground">{t(securityCopy.timezone, locale)}</dt>
+                <dd>{(editable ?? currentData)?.timezone ?? '—'}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-muted-foreground">{t(securityCopy.activeLogMonths, locale)}</dt>
+                <dd>{(editable ?? currentData)?.active_log_months ?? '—'}</dd>
+              </div>
+              {SECURITY_KEYS.map((key) => (
+                <div className="flex items-center justify-between gap-2" key={key}>
+                  <dt className="text-muted-foreground">{securityLabel(key, locale)}</dt>
+                  <dd className="flex items-center gap-2">
+                    {policy[key] ?? '—'}
+                    {editable !== null && canManage && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={actionBusy}
+                        onClick={() => {
+                          void navigate(`/platform/settings/${editable.id ?? editable.version_id}/security/${key}/edit`)
+                        }}
+                        aria-label={`${t(securityCopy.edit, locale)} ${securityLabel(key, locale)}`}
+                      >
+                        <Pencil className="size-3.5" aria-hidden="true" />
+                      </Button>
+                    )}
+                  </dd>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </dl>
+            <CardDescription>
+              {editable === null && canManage && (
+                <Button variant="outline" size="sm" disabled={actionBusy} onClick={() => createDraftMutation.mutate()}>
+                  {t(securityCopy.createDraft, locale)}
+                </Button>
+              )}
+            </CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h2 id="platform-security-versions" className="flex items-center gap-2 text-base leading-snug font-medium">
+              <Rocket className="size-4 text-muted-foreground" aria-hidden="true" />
+              {t(securityCopy.versions, locale)}
+            </h2>
+          </CardHeader>
+          <CardContent>
+            {versionsData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t(platformCopy.empty, locale)}</p>
+            ) : (
+              <ul className="divide-y">
+                {versionsData.map((version) => (
+                  <li key={version.id ?? version.version_id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <span className="font-mono text-xs" dir="ltr">{version.id ?? '—'}</span>
+                    <span className="flex items-center gap-2">
+                      <Badge variant={statusVariant(version.status)}>{statusLabelText(version.status, locale)}</Badge>
+                      <span className="text-muted-foreground text-xs">{version.lock_version ?? '—'}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {actionNotice && <ActionNotice message={actionNotice} />}
+      {actionError && <ActionError message={actionError} />}
+
+      {/* Publishing requires a successful validation first. The button stays
+       * disabled until the draft is validated, with an accessible tooltip
+       * explaining why (PAGES.md § settings). */}
+      <div className="flex justify-end">
+        {editable !== null && canPublish && (
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0} className="inline-flex">
+                  <Button
+                    type="button"
+                    variant="default"
+                    disabled={!validated || actionBusy}
+                    onClick={() => publishMutation.mutate()}
+                  >
+                    <Rocket className="size-4" aria-hidden="true" />
+                    {t(securityCopy.publish, locale)}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!validated && (
+                <TooltipContent>{t(securityCopy.publishDisabled, locale)}</TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         )}
-      </Panel>
-
-      <Drawer
-        open={editKey !== null}
-        onClose={() => setEditKey(null)}
-        title={`${t(securityCopy.editing, locale)} ${editKey !== null ? securityLabel(editKey, locale) : ''}`}
-      >
-        <Field id="platform-security-edit-value" label={editKey !== null ? securityLabel(editKey, locale) : ''}>
-          <input
-            id="platform-security-edit-value"
-            className="field__control"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={editValue}
-            onChange={(event) => setEditValue(event.currentTarget.value)}
-          />
-        </Field>
-        <div className="form-actions">
-          <Button variant="quiet" onClick={() => setEditKey(null)}>{t(platformCopy.cancel, locale)}</Button>
-          <Button variant="primary" disabled={actionBusy || editValue === ''} onClick={() => void saveEdit()}>
-            {t(platformCopy.save, locale)}
-          </Button>
-        </div>
-      </Drawer>
-    </PanelGrid>
+      </div>
+    </section>
   )
-}
-
-function statusLabelText(status: string | undefined, locale: 'ar' | 'en'): string {
-  switch (status) {
-    case 'published': return t(securityCopy.published, locale)
-    case 'draft': return t(securityCopy.draft, locale)
-    case 'validated': return t(securityCopy.validated, locale)
-    case 'retired': return t(securityCopy.retired, locale)
-    default: return status ?? '—'
-  }
 }

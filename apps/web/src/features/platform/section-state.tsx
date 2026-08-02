@@ -1,58 +1,63 @@
-import { useLocale } from '../../app/session-context'
-import { EmptyState, InlineError, SkeletonList } from '../../ui'
-import { platformCopy, t } from './platform-copy'
-import type { SectionState } from './section-support'
+import type { ReactNode } from 'react'
+import { CircleAlert } from 'lucide-react'
+import type { Locale } from '../../i18n'
+import type { ResourceState } from '../../api/http'
+import { ResourceBoundary } from '@/components/states'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 
 /**
- * Shared loading / forbidden / error / empty rendering for a platform
- * management section. `ready` renders nothing; the section renders its data.
+ * Renders the shared seven resource states for a platform section payload.
+ * `state === 'ready'` renders `children`; every other state renders the
+ * shared boundary (loading skeleton, non-disclosing denied, conflict/stale
+ * alerts, or the retryable error state).
  */
-export function SectionStateView({
+export function SectionBoundary({
   state,
-  emptyTitle,
+  empty,
   onRetry,
+  onRefresh,
+  locale,
+  children,
+  rows = 4,
 }: {
-  state: SectionState
-  emptyTitle?: string
+  state: ResourceState
+  empty?: ReactNode
   onRetry?: () => void
+  onRefresh?: () => void
+  locale: Locale
+  children?: ReactNode
+  rows?: number
 }) {
-  const locale = useLocale()
-  if (state === 'loading') return <SkeletonList rows={4} />
-  if (state === 'forbidden') {
-    return (
-      <EmptyState
-        title={t(platformCopy.unavailable, locale)}
-        body={t(platformCopy.unavailableBody, locale)}
-      />
-    )
-  }
-  if (state === 'empty') {
-    return <EmptyState title={emptyTitle ?? t(platformCopy.empty, locale)} />
-  }
   return (
-    <InlineError
-      message={t(platformCopy.error, locale)}
-      retryLabel={t(platformCopy.retry, locale)}
+    <ResourceBoundary
+      state={state}
+      locale={locale}
       onRetry={onRetry}
-    />
+      onRefresh={onRefresh}
+      empty={empty}
+      rows={rows}
+    >
+      {children ?? null}
+    </ResourceBoundary>
   )
 }
 
+/** Success / informational feedback after a completed action. */
 export function ActionNotice({ message }: { message: string }) {
   return (
-    <p className="status-message status-message--success" role="status">
-      {message}
-    </p>
+    <Alert role="status">
+      <CircleAlert className="size-4" aria-hidden="true" />
+      <AlertTitle>{message}</AlertTitle>
+    </Alert>
   )
 }
 
-export function ActionError({ message, onRetry }: { message: string; onRetry?: () => void }) {
-  const locale = useLocale()
+/** Mutation-level error feedback. */
+export function ActionError({ message }: { message: string }) {
   return (
-    <InlineError
-      message={message}
-      retryLabel={onRetry ? t(platformCopy.retry, locale) : undefined}
-      onRetry={onRetry}
-    />
+    <Alert variant="destructive" role="alert">
+      <CircleAlert className="size-4" aria-hidden="true" />
+      <AlertTitle>{message}</AlertTitle>
+    </Alert>
   )
 }

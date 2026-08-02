@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import * as generated from '../../api/generated/cluster'
 import { getListDashboardsUrl } from '../../api/generated/cluster'
 import type { CollectionResponse, DomainResource, Entity } from '../../api/generated/cluster'
@@ -7,46 +7,38 @@ import { useApiQuery } from '../../api/query'
 import { usePrincipal } from '../../app/principal-context'
 import { useLocale, useSessionToken } from '../../app/session-context'
 import { formatDate, formatNumber, statusLabel } from '../../i18n'
-import { EmptyState, Field, InlineError, Page, PageHeader, Panel, PanelGrid, Select, SkeletonList, StatusBadge } from '../../ui'
+import { DeniedState, EmptyState, ErrorState, LoadingState } from '@/components/states'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { reportsCopy } from './reports-copy'
 
-const copy = {
-  ar: {
-    title: 'لوحات المؤشرات',
-    description: 'اللوحات المنشورة والمصرح بها ضمن نطاقك.',
-    loading: 'جارٍ تحميل لوحات المؤشرات…',
-    failed: 'تعذر تحميل لوحات المؤشرات.',
-    empty: 'لا توجد لوحات منشورة ضمن نطاقك.',
-    selectDashboard: 'اختر لوحة',
-    dashboardDetail: 'تفاصيل اللوحة',
-    values: 'القيم',
-    status: 'الحالة',
-    classification: 'التصنيف',
-    version: 'الإصدار',
-    updated: 'آخر تحديث',
-    denied: 'غير مصرح لك بالوصول إلى هذه اللوحة.',
-    notFound: 'لم نعثر على هذه اللوحة.',
-    retry: 'إعادة المحاولة',
-    notAvailable: 'غير متاح',
-  },
-  en: {
-    title: 'Dashboards',
-    description: 'Published dashboards authorized within your scope.',
-    loading: 'Loading dashboards…',
-    failed: 'Dashboards could not be loaded.',
-    empty: 'No published dashboards are available in your scope.',
-    selectDashboard: 'Select a dashboard',
-    dashboardDetail: 'Dashboard details',
-    values: 'Values',
-    status: 'Status',
-    classification: 'Classification',
-    version: 'Version',
-    updated: 'Updated',
-    denied: 'You are not authorized to view this dashboard.',
-    notFound: 'We could not find this dashboard.',
-    retry: 'Retry',
-    notAvailable: 'Not available',
-  },
-} as const
+type DetailState = 'idle' | 'loading' | 'ready' | 'forbidden' | 'not-found' | 'error'
+
+/*
+ * Chart series colors come exclusively from the theme's chart tokens
+ * (DESIGN-RULES §1.2): `var(--chart-1)` … `var(--chart-5)`. No literal
+ * colors and no hand-written `dark:` overrides — both modes resolve through
+ * the CSS variables in `src/styles/theme.css`.
+ */
+const CHART_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+] as const
+
+const TOOLTIP_CONTENT_STYLE: CSSProperties = {
+  backgroundColor: 'var(--color-popover)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-md)',
+  color: 'var(--color-popover-foreground)',
+  fontFamily: 'var(--font-sans)',
+}
 
 function isDomainResource(entity: Entity): entity is DomainResource {
   return 'resource_type' in entity
@@ -61,24 +53,27 @@ function dashboardTitle(entity: Entity): string {
   return entity.id
 }
 
-function isScalar(value: unknown): value is string | number | boolean {
-  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-}
-
+/*
+ * Dashboards tab: a dashboard selector in an accessible toolbar above the
+ * selected dashboard's read-only detail Card (stacked vertically, responsive
+ * on small screens). Numeric values render as a recharts bar chart colored
+ * from the chart tokens; non-numeric scalars stay in a shadcn Table. 403 and
+ * 404 collapse into the shared non-disclosing DeniedState.
+ */
 export function DashboardsScreen() {
   const locale = useLocale()
   const csrfToken = useSessionToken()
   const principal = usePrincipal()
-  const t = copy[locale]
+  const t = reportsCopy[locale]
   const scopeId = principal.effectiveScope?.scopeId
   const scopeEpoch = principal.scopeEpoch
 
   const [selectedId, setSelectedId] = useState('')
   const [detail, setDetail] = useState<DomainResource | null>(null)
-  const [detailState, setDetailState] = useState<'idle' | 'loading' | 'ready' | 'forbidden' | 'not-found' | 'error'>('idle')
+  const [detailState, setDetailState] = useState<DetailState>('idle')
   const requestRevision = useRef(0)
 
-  const dashboardsQuery = useApiQuery<CollectionResponse>(['dashboards'], getListDashboardsUrl({ limit: 50 }))
+  const dashboardsQuery = useApiQuery<CollectionResponse>(['dashboards', scopeEpoch], getListDashboardsUrl({ limit: 50 }))
   const items = dashboardsQuery.data?.items ?? []
   const state: 'loading' | 'ready' | 'empty' | 'forbidden' | 'error' = dashboardsQuery.isLoading
     ? 'loading'
@@ -89,14 +84,6 @@ export function DashboardsScreen() {
       : items.length > 0
         ? 'ready'
         : 'empty'
-
-  const prevScopeEpoch = useRef(scopeEpoch)
-  useEffect(() => {
-    if (prevScopeEpoch.current !== scopeEpoch) {
-      prevScopeEpoch.current = scopeEpoch
-      void dashboardsQuery.refetch()
-    }
-  }, [scopeEpoch, dashboardsQuery])
 
   const loadDetail = useCallback(
     async (dashboardId: string) => {
@@ -137,107 +124,166 @@ export function DashboardsScreen() {
   const numericValues = detail
     ? Object.entries(detail.values ?? {}).filter((entry): entry is [string, number] => typeof entry[1] === 'number')
     : []
+  // Numeric values render only in the chart; the scalar table keeps the
+  // non-numeric scalars (strings/booleans) so nothing is duplicated.
   const scalarValues = detail
-    ? Object.entries(detail.values ?? {}).filter((entry): entry is [string, string | number | boolean] => isScalar(entry[1]))
+    ? Object.entries(detail.values ?? {}).filter(
+        (entry): entry is [string, string | boolean] =>
+          typeof entry[1] === 'string' || typeof entry[1] === 'boolean',
+      )
     : []
+  const chartData = numericValues.map(([name, value], index) => ({
+    name,
+    value,
+    fill: CHART_COLORS[index % CHART_COLORS.length] ?? CHART_COLORS[0],
+  }))
 
   return (
-    <Page aria-labelledby="dashboards-title">
-      <PageHeader id="dashboards-title" title={t.title} description={t.description} />
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold tracking-tight">{t.dashboardsTitle}</h2>
+      <p className="text-muted-foreground text-sm">{t.dashboardsDescription}</p>
 
-      {state === 'loading' ? <SkeletonList rows={4} /> : null}
-      {state === 'forbidden' ? <EmptyState title={t.denied} /> : null}
+      {state === 'loading' ? <LoadingState rows={4} /> : null}
+      {state === 'forbidden' ? <DeniedState locale={locale} /> : null}
       {state === 'error' ? (
-        <InlineError message={t.failed} retryLabel={t.retry} onRetry={() => void dashboardsQuery.refetch()} />
+        <ErrorState locale={locale} onRetry={() => void dashboardsQuery.refetch()} />
       ) : null}
-      {state === 'empty' ? <EmptyState title={t.empty} /> : null}
+      {state === 'empty' ? <EmptyState title={t.dashboardsEmpty} /> : null}
 
       {state === 'ready' ? (
-        <Panel id="dashboards-list-panel" title={t.selectDashboard} level={2}>
-          <Field id="dashboards-select" label={t.selectDashboard}>
-            <Select
-              id="dashboards-select"
-              value={selectedId}
-              onChange={(value) => setSelectedId(value)}
-              options={items.map((item) => ({ value: item.id, label: dashboardTitle(item) }))}
-              placeholder={t.selectDashboard}
-            />
-          </Field>
-        </Panel>
+        <div
+          role="toolbar"
+          aria-label={t.selectDashboard}
+          className="flex flex-wrap items-center gap-3"
+        >
+          <Label htmlFor="dashboard-select">{t.selectDashboard}</Label>
+          <Select value={selectedId} onValueChange={(value) => setSelectedId(value)}>
+            <SelectTrigger id="dashboard-select" className="w-fit">
+              <SelectValue placeholder={t.selectDashboard} />
+            </SelectTrigger>
+            <SelectContent>
+              {items.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {dashboardTitle(item)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       ) : null}
 
-      {detailState === 'loading' ? <SkeletonList rows={3} /> : null}
-      {detailState === 'forbidden' ? <EmptyState title={t.denied} /> : null}
-      {detailState === 'not-found' ? <EmptyState title={t.notFound} /> : null}
+      {detailState === 'loading' ? <LoadingState rows={3} /> : null}
+      {detailState === 'forbidden' || detailState === 'not-found' ? (
+        <DeniedState locale={locale} />
+      ) : null}
       {detailState === 'error' ? (
-        <InlineError message={t.failed} retryLabel={t.retry} onRetry={() => void loadDetail(selectedId)} />
+        <ErrorState locale={locale} onRetry={() => void loadDetail(selectedId)} />
       ) : null}
 
       {detailState === 'ready' && detail ? (
-        <PanelGrid>
-          <Panel id="dashboard-detail-panel" title={t.dashboardDetail} level={2}>
-            <div className="metric-grid" role="group" aria-label={t.dashboardDetail}>
-              <div className="metric-tile">
-                <span className="metric-tile__value">{statusLabel(String(detail.status ?? ''), locale)}</span>
-                <span className="metric-tile__label">{t.status}</span>
+        <Card>
+          <CardHeader>
+            <CardTitle>{dashboardTitle(detail)}</CardTitle>
+            <CardDescription>{t.dashboardDetail}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="grid gap-1">
+                <span className="text-muted-foreground text-xs">{t.status}</span>
+                <span className="font-medium">{statusLabel(String(detail.status ?? ''), locale)}</span>
               </div>
-              <div className="metric-tile">
-                <span className="metric-tile__value">{statusLabel(detail.classification, locale)}</span>
-                <span className="metric-tile__label">{t.classification}</span>
+              <div className="grid gap-1">
+                <span className="text-muted-foreground text-xs">{t.classification}</span>
+                <span className="font-medium">{statusLabel(detail.classification, locale)}</span>
               </div>
               {typeof detail.version_number === 'number' ? (
-                <div className="metric-tile">
-                  <span className="metric-tile__value">{formatNumber(detail.version_number, locale)}</span>
-                  <span className="metric-tile__label">{t.version}</span>
+                <div className="grid gap-1">
+                  <span className="text-muted-foreground text-xs">{t.version}</span>
+                  <span className="font-medium">{formatNumber(detail.version_number, locale)}</span>
                 </div>
               ) : null}
-              <div className="metric-tile">
-                <span className="metric-tile__value">{formatDate(detail.updated_at, locale)}</span>
-                <span className="metric-tile__label">{t.updated}</span>
+              <div className="grid gap-1">
+                <span className="text-muted-foreground text-xs">{t.updated}</span>
+                <span className="font-medium">{formatDate(detail.updated_at, locale)}</span>
               </div>
             </div>
+
             {numericValues.length > 0 ? (
-              <div className="metric-grid" role="group" aria-label={t.values}>
-                {numericValues.map(([key, value]) => (
-                  <div key={key} className="metric-tile metric-tile--success">
-                    <span className="metric-tile__value">{formatNumber(value, locale)}</span>
-                    <span className="metric-tile__label">{key}</span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {scalarValues.length > 0 ? (
-              <section aria-labelledby="dashboard-values-title">
-                <h3 className="panel__heading" id="dashboard-values-title">
-                  {t.values}
+              <section aria-labelledby="dashboard-chart-title">
+                <h3 className="text-base font-semibold" id="dashboard-chart-title">
+                  {t.dashboardChart}
                 </h3>
-                <div className="table-scroll">
-                  <table className="entity-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">{t.values}</th>
-                        <th scope="col">{t.status}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scalarValues.map(([key, value]) => (
-                        <tr key={key}>
-                          <td>{key}</td>
-                          <td>{String(value)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div
+                  className="h-60 rounded-lg bg-muted/50 p-4"
+                  role="img"
+                  aria-label={t.dashboardChart}
+                >
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    initialDimension={{ width: 480, height: 216 }}
+                  >
+                    <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                      <CartesianGrid vertical={false} stroke="var(--color-border)" />
+                      <XAxis
+                        dataKey="name"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: 'var(--color-muted-foreground)', fontSize: 12 }}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: 'var(--color-muted-foreground)', fontSize: 12 }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: 'var(--color-muted)' }}
+                        contentStyle={TOOLTIP_CONTENT_STYLE}
+                        labelStyle={{ color: 'var(--color-muted-foreground)' }}
+                        formatter={(value) => formatNumber(Number(value), locale)}
+                      />
+                      <Bar dataKey="value" radius={4} isAnimationActive={false}>
+                        {chartData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </section>
             ) : null}
-            <p className="status-message">
-              <StatusBadge>{statusLabel(String(detail.status ?? ''), locale)}</StatusBadge>{' '}
-              {detail.description ?? t.notAvailable}
-            </p>
-          </Panel>
-        </PanelGrid>
+
+            {scalarValues.length > 0 ? (
+              <section aria-labelledby="dashboard-values-title">
+                <h3 className="text-base font-semibold" id="dashboard-values-title">
+                  {t.values}
+                </h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.values}</TableHead>
+                      <TableHead>{t.status}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {scalarValues.map(([key, value]) => (
+                      <TableRow key={key}>
+                        <TableCell>{key}</TableCell>
+                        <TableCell>{String(value)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </section>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{statusLabel(String(detail.status ?? ''), locale)}</Badge>
+              <p className="text-muted-foreground text-sm">{detail.description ?? t.notAvailable}</p>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
-    </Page>
+    </div>
   )
 }

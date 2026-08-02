@@ -1,70 +1,46 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { ClipboardList, FileText, FolderSearch, ListTodo, type LucideIcon } from 'lucide-react'
 import * as generated from '../../api/generated/cluster'
 import type { Entity } from '../../api/generated/cluster'
 import { ApiError, requestInit, unwrap } from '../../api/http'
 import { usePrincipal } from '../../app/principal-context'
 import { useLocale, useSessionToken } from '../../app/session-context'
 import { statusLabel } from '../../i18n'
-import { Button, EmptyState, Field, InlineError, Page, PageHeader, Panel, Select, SkeletonList, StatusBadge } from '../../ui'
-
-const copy = {
-  ar: {
-    title: 'بحث',
-    description: 'ابحث في المحتوى المصرح لك به فقط.',
-    query: 'نص البحث',
-    queryPlaceholder: 'ابحث في المنصة…',
-    type: 'النوع',
-    status: 'الحالة',
-    all: 'الكل',
-    submit: 'بحث',
-    searching: 'جارٍ البحث…',
-    invalidQuery: 'أدخل استعلام بحث صالحًا (من 1 إلى 256 حرفًا).',
-    failed: 'تعذر إكمال البحث.',
-    noResults: 'لا توجد نتائج',
-    noResultsBody: 'جرّب استعلامًا آخر أو وسّع المرشحات.',
-    resultsFor: 'نتائج',
-    loadMore: 'عرض المزيد',
-    retry: 'إعادة المحاولة',
-    denied: 'غير مصرح لك باستخدام البحث.',
-    sourceType: 'النوع',
-    sourceId: 'المعرّف',
-    excerpt: 'ملخص',
-    notAvailable: 'غير متاح',
-  },
-  en: {
-    title: 'Search',
-    description: 'Search only content you are authorized to see.',
-    query: 'Search text',
-    queryPlaceholder: 'Search the platform…',
-    type: 'Type',
-    status: 'Status',
-    all: 'All',
-    submit: 'Search',
-    searching: 'Searching…',
-    invalidQuery: 'Enter a valid search query (1 to 256 characters).',
-    failed: 'The search could not be completed.',
-    noResults: 'No results',
-    noResultsBody: 'Try a different query or widen the filters.',
-    resultsFor: 'Results',
-    loadMore: 'Load more',
-    retry: 'Retry',
-    denied: 'You are not authorized to use search.',
-    sourceType: 'Type',
-    sourceId: 'ID',
-    excerpt: 'Summary',
-    notAvailable: 'Not available',
-  },
-} as const
+import { PageHeader, PageLayout } from '@/components/page-layout'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { EmptyState, ResourceBoundary } from '@/components/states'
+import { searchCopy } from './search-copy'
 
 const TYPE_VALUES = ['work_record', 'task', 'document'] as const
+const STATUS_VALUES = ['draft', 'submitted', 'in_review', 'approved', 'completed'] as const
 
-const TYPE_LABELS: Record<string, { ar: string; en: string }> = {
-  work_record: { ar: 'سجل عمل', en: 'Work record' },
-  task: { ar: 'مهمة', en: 'Task' },
-  document: { ar: 'مستند', en: 'Document' },
+function iconForType(type: string): LucideIcon {
+  switch (type) {
+    case 'task':
+      return ListTodo
+    case 'document':
+      return FileText
+    case 'work_record':
+      return ClipboardList
+    default:
+      return FolderSearch
+  }
 }
 
-const STATUS_VALUES = ['draft', 'submitted', 'in_review', 'approved', 'completed'] as const
+function resultType(entity: Entity): string {
+  return 'resource_type' in entity ? String(entity.resource_type) : 'work_record'
+}
 
 function resultTitle(entity: Entity): string {
   if ('resource_type' in entity) {
@@ -75,8 +51,14 @@ function resultTitle(entity: Entity): string {
   return entity.id
 }
 
-function resultSourceType(entity: Entity): string {
-  return 'resource_type' in entity ? String(entity.resource_type) : 'work_record'
+/** Known result kinds link to their destination route; unknown kinds stay plain text. */
+function resultPath(entity: Entity): string | null {
+  if ('resource_type' in entity) {
+    if (entity.resource_type === 'task') return `/tasks/${entity.id}`
+    if (entity.resource_type === 'document') return `/documents/${entity.id}`
+    return null
+  }
+  return `/work-records/${entity.id}`
 }
 
 function resultExcerpt(entity: Entity): string {
@@ -84,37 +66,69 @@ function resultExcerpt(entity: Entity): string {
   return ''
 }
 
-function resultSourceId(entity: Entity): string | null {
-  return 'source' in entity && entity.source ? entity.source.record_id : null
+function typeLabel(type: string, locale: 'ar' | 'en'): string {
+  const t = searchCopy[locale]
+  switch (type) {
+    case 'work_record':
+      return t.workRecord
+    case 'task':
+      return t.task
+    case 'document':
+      return t.document
+    default:
+      return type
+  }
+}
+
+interface SearchResults {
+  items: Entity[]
+  nextCursor: string | null
 }
 
 export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
   const locale = useLocale()
   const csrfToken = useSessionToken()
-  const principal = usePrincipal()
-  const t = copy[locale]
-  const canSearch = principal.capabilities?.includes('search.query') ?? false
+  const { capabilities, scopeEpoch } = usePrincipal()
+  const text = searchCopy[locale]
+  const canSearch = capabilities?.includes('search.query') === true
 
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [items, setItems] = useState<Entity[]>([])
+  const [results, setResults] = useState<SearchResults | null>(null)
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'empty' | 'invalid' | 'error'>('idle')
   const [submitting, setSubmitting] = useState(false)
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [lastSearch, setLastSearch] = useState<{ query: string; type: string; status: string } | null>(null)
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false)
+  const [lastParams, setLastParams] = useState<{ q: string; type: string; status: string } | null>(null)
+
+  /*
+   * The epoch only changes on a REAL scope switch (it is stable across mount
+   * and refreshes). When it does, local results and pagination state fetched
+   * under the old scope must not survive into the new scope.
+   */
+  const previousEpoch = useRef(scopeEpoch)
+
+  useEffect(() => {
+    if (previousEpoch.current === scopeEpoch) return
+    previousEpoch.current = scopeEpoch
+    setResults(null)
+    setState('idle')
+    setSubmitting(false)
+    setLoadingMore(false)
+    setLoadMoreFailed(false)
+    setLastParams(null)
+  }, [scopeEpoch])
+
+  /*
+   * Radix Select reports the "__all" sentinel for the "All" option. Normalize
+   * it to an empty string so the sentinel never reaches the API as a filter.
+   */
+  const onTypeFilterChange = (value: string) => setTypeFilter(value === '__all' ? '' : value)
+  const onStatusFilterChange = (value: string) => setStatusFilter(value === '__all' ? '' : value)
 
   const runSearch = useCallback(
     async (q: string, type = '', status = '', cursor: string | null = null) => {
-      if (!cursor) {
-        setLastSearch({ query: q, type, status })
-        setSubmitting(true)
-        setItems([])
-        setNextCursor(null)
-      } else {
-        setLoadingMore(true)
-      }
       try {
         const page = unwrap<generated.CollectionResponse>(
           await generated.search(
@@ -129,21 +143,25 @@ export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
           ),
         )
         const pageItems = page.items ?? []
-        setItems((current) => (cursor ? [...current, ...pageItems] : pageItems))
-        setNextCursor(page.next_cursor)
-        if (!cursor) {
+        if (cursor) {
+          setResults((current) =>
+            current
+              ? { items: [...current.items, ...pageItems], nextCursor: page.next_cursor }
+              : { items: pageItems, nextCursor: page.next_cursor },
+          )
+        } else {
+          setLastParams({ q, type, status })
+          setResults({ items: pageItems, nextCursor: page.next_cursor })
           setState(pageItems.length > 0 ? 'ready' : 'empty')
         }
       } catch (error) {
         if (!cursor) {
-          setItems([])
-          setNextCursor(null)
+          setResults(null)
           if (error instanceof ApiError && error.status === 400) setState('invalid')
           else setState('error')
+        } else {
+          setLoadMoreFailed(true)
         }
-      } finally {
-        if (!cursor) setSubmitting(false)
-        else setLoadingMore(false)
       }
     },
     [csrfToken],
@@ -153,6 +171,7 @@ export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
     const normalized = initialQuery.trim()
     if (!normalized) return
     setQuery(normalized)
+    setState('loading')
     void runSearch(normalized)
   }, [initialQuery, runSearch])
 
@@ -160,96 +179,177 @@ export function SearchScreen({ initialQuery = '' }: { initialQuery?: string }) {
     event.preventDefault()
     const normalized = query.trim()
     if (!normalized || submitting) return
-    await runSearch(normalized, typeFilter, statusFilter)
+    setSubmitting(true)
+    setState('loading')
+    setResults(null)
+    setLoadMoreFailed(false)
+    try {
+      await runSearch(normalized, typeFilter, statusFilter)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  if (!canSearch) {
-    return (
-      <Page aria-labelledby="search-title">
-        <PageHeader id="search-title" title={t.title} description={t.description} />
-        <EmptyState title={t.denied} />
-      </Page>
-    )
-  }
+  const grouped = useMemo(() => {
+    if (!results) return []
+    const byType = new Map<string, Entity[]>()
+    for (const item of results.items) {
+      const type = resultType(item)
+      const list = byType.get(type) ?? []
+      list.push(item)
+      byType.set(type, list)
+    }
+    return Array.from(byType.entries())
+  }, [results])
 
-  const allOptions: Array<{ value: string; label: string }> = [
-    { value: '', label: t.all },
-    ...TYPE_VALUES.map((value) => ({ value, label: TYPE_LABELS[value]?.[locale] ?? value })),
-  ]
-  const allStatuses: Array<{ value: string; label: string }> = [
-    { value: '', label: t.all },
-    ...STATUS_VALUES.map((value) => ({ value, label: statusLabel(value, locale) })),
-  ]
+  const derivedState: 'loading' | 'ready' | 'empty' | 'forbidden' | 'not-found' | 'conflict' | 'stale' | 'error' =
+    !canSearch
+      ? 'forbidden'
+      : state === 'ready'
+        ? 'ready'
+        : state === 'loading'
+          ? 'loading'
+          : state === 'error'
+            ? 'error'
+            : 'empty'
 
   return (
-    <Page aria-labelledby="search-title">
-      <PageHeader id="search-title" title={t.title} description={t.description} />
-      <form className="inline-form" onSubmit={(event) => void submit(event)}>
-        <Field id="search-query" label={t.query} required>
-          <input
+    <PageLayout>
+      <PageHeader title={text.title} description={text.description} />
+
+      <form onSubmit={(event) => void submit(event)} className="grid max-w-3xl gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+        <div className="grid gap-1">
+          <Label htmlFor="search-query">{text.query}</Label>
+          <Input
             id="search-query"
-            required
             maxLength={256}
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder={t.queryPlaceholder}
+            placeholder={text.queryPlaceholder}
+            disabled={!canSearch}
           />
-        </Field>
-        <Field id="search-type" label={t.type}>
-          <Select id="search-type" value={typeFilter} onChange={setTypeFilter} options={allOptions} />
-        </Field>
-        <Field id="search-status" label={t.status}>
-          <Select id="search-status" value={statusFilter} onChange={setStatusFilter} options={allStatuses} />
-        </Field>
-        <div className="form-actions">
-          <Button type="submit" disabled={submitting || query.trim() === ''}>
-            {submitting ? t.searching : t.submit}
-          </Button>
         </div>
+        <div className="grid gap-1">
+          <Label htmlFor="search-type">{text.type}</Label>
+          <Select value={typeFilter || '__all'} onValueChange={onTypeFilterChange} disabled={!canSearch}>
+            <SelectTrigger id="search-type" className="w-36">
+              <SelectValue placeholder={text.all} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">{text.all}</SelectItem>
+              {TYPE_VALUES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {typeLabel(value, locale)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor="search-status">{text.status}</Label>
+          <Select value={statusFilter || '__all'} onValueChange={onStatusFilterChange} disabled={!canSearch}>
+            <SelectTrigger id="search-status" className="w-36">
+              <SelectValue placeholder={text.all} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">{text.all}</SelectItem>
+              {STATUS_VALUES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {statusLabel(value, locale)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button type="submit" disabled={submitting || query.trim() === '' || !canSearch}>
+          {submitting ? text.searching : text.submit}
+        </Button>
       </form>
 
-      {state === 'loading' ? <SkeletonList rows={5} /> : null}
-      {state === 'invalid' ? (
-        <p className="status-message status-message--error" role="alert">
-          {t.invalidQuery}
-        </p>
-      ) : null}
-      {state === 'error' ? (
-        <InlineError
-          message={t.failed}
-          retryLabel={t.retry}
-          onRetry={() => {
-            if (lastSearch) void runSearch(lastSearch.query, lastSearch.type, lastSearch.status)
-          }}
-        />
-      ) : null}
-      {state === 'empty' ? <EmptyState title={t.noResults} body={t.noResultsBody} /> : null}
-
-      {state === 'ready' && lastSearch ? (
-        <Panel id="search-results-panel" title={t.resultsFor} level={2}>
-          <ul className="screen-list">
-            {items.map((item) => (
-              <li key={item.id} className="screen-list__row">
-                <div>
-                  <span className="screen-list__row-title">{resultTitle(item)}</span>
-                  <span className="screen-list__row-meta">
-                    {resultSourceType(item)} · {resultSourceId(item) ?? t.notAvailable}
-                  </span>
-                  {resultExcerpt(item) ? <p>{resultExcerpt(item)}</p> : null}
-                </div>
-                <StatusBadge>{statusLabel(String(item.status ?? ''), locale)}</StatusBadge>
-              </li>
-            ))}
-          </ul>
-          {nextCursor ? (
-            <div className="pagination-bar">
-              <Button variant="secondary" disabled={loadingMore} onClick={() => void runSearch(lastSearch.query, lastSearch.type, lastSearch.status, nextCursor)}>
-                {t.loadMore}
-              </Button>
-            </div>
-          ) : null}
-        </Panel>
-      ) : null}
-    </Page>
+      <ResourceBoundary
+        state={derivedState}
+        locale={locale}
+        onRetry={() => {
+          if (lastParams) {
+            setState('loading')
+            void runSearch(lastParams.q, lastParams.type, lastParams.status)
+          }
+        }}
+        empty={
+          <EmptyState
+            icon={<FolderSearch aria-hidden="true" />}
+            title={state === 'invalid' ? text.invalidQuery : text.noResults}
+            body={state === 'invalid' ? undefined : text.noResultsBody}
+          />
+        }
+      >
+        {state === 'ready' && results && (
+          <div className="space-y-5">
+            {grouped.map(([type, items]) => {
+              const Icon = iconForType(type)
+              return (
+                <section key={type} aria-label={typeLabel(type, locale)}>
+                  <h2 className="flex items-center gap-2 text-base font-semibold">
+                    <Icon aria-hidden="true" className="size-4 text-muted-foreground" />
+                    {typeLabel(type, locale)}
+                    <span className="text-muted-foreground text-xs font-normal">
+                      {items.length}
+                    </span>
+                  </h2>
+                  <ul className="mt-2 divide-y rounded-lg border">
+                    {items.map((item) => {
+                      const path = resultPath(item)
+                      return (
+                        <li key={item.id} className="flex items-start justify-between gap-3 p-3">
+                          <div className="min-w-0">
+                            {path ? (
+                              <Link to={path} className="block truncate font-medium hover:underline">
+                                {resultTitle(item)}
+                              </Link>
+                            ) : (
+                              <p className="truncate font-medium">{resultTitle(item)}</p>
+                            )}
+                            {resultExcerpt(item) ? (
+                              <p className="text-muted-foreground mt-0.5 line-clamp-2 text-sm">{resultExcerpt(item)}</p>
+                            ) : null}
+                          </div>
+                          <Badge variant="outline" className="shrink-0">
+                            {statusLabel(String(item.status ?? ''), locale)}
+                          </Badge>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              )
+            })}
+            {results.nextCursor && (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingMore}
+                  onClick={() => {
+                    if (!lastParams || !results.nextCursor) return
+                    setLoadingMore(true)
+                    setLoadMoreFailed(false)
+                    void runSearch(lastParams.q, lastParams.type, lastParams.status, results.nextCursor).finally(() =>
+                      setLoadingMore(false),
+                    )
+                  }}
+                >
+                  {loadingMore ? text.loadingMore : text.loadMore}
+                </Button>
+              </div>
+            )}
+            {loadMoreFailed && (
+              <p className="text-destructive text-sm" role="alert">
+                {text.failed}
+              </p>
+            )}
+          </div>
+        )}
+      </ResourceBoundary>
+    </PageLayout>
   )
 }
