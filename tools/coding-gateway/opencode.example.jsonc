@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "cluster-gateway": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Cluster Local Coding Gateway",
+      "options": {
+        "baseURL": "http://127.0.0.1:9000/v1"
+      },
+      "models": {
+        "YOUR_UPSTREAM_MODEL_ID": {
+          "name": "Cluster Gateway Model"
+        }
+      }
+    }
+  }
+}
