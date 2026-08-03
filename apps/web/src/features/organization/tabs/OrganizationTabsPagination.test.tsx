@@ -118,7 +118,7 @@ const queries = vi.hoisted(() => {
   return { calls, state, empty }
 })
 
-function track<T>(key: string, cursor?: string): QueryState {
+function track(key: string, cursor?: string): QueryState {
   queries.calls[key].push(cursor ?? 'null')
   return queries.state[key]
 }
