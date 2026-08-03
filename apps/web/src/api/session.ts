@@ -24,11 +24,23 @@ interface IdentitySessionPayload {
 }
 
 interface CurrentIdentityPayload {
-  user_id: string
+  principal: {
+    user_id: string
+  }
+  account: unknown
+  session: {
+    restricted: boolean
+  }
+}
+
+interface CsrfPayload {
   csrf_token: string
 }
 
-export async function login(username: string, password: string): Promise<Session> {
+export async function login(
+  username: string,
+  password: string,
+): Promise<Session> {
   const response = await customFetch('/api/v1/identity/login', {
     method: 'POST',
     headers: {
@@ -52,10 +64,23 @@ export async function login(username: string, password: string): Promise<Session
 
 function normalizeLogin(result: IdentitySessionPayload): Session {
   const { csrf_token, user_id, expires_at, restricted } = result
-  if (!isUuidV7(user_id) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(expires_at) || !csrf_token) {
-    throw new ApiError(502, { type: 'about:blank', title: 'Invalid login response', status: 502 })
+  if (
+    !isUuidV7(user_id) ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(expires_at) ||
+    !csrf_token
+  ) {
+    throw new ApiError(502, {
+      type: 'about:blank',
+      title: 'Invalid login response',
+      status: 502,
+    })
   }
-  return { csrfToken: csrf_token, userId: user_id, expiresAt: expires_at, restricted: Boolean(restricted) }
+  return {
+    csrfToken: csrf_token,
+    userId: user_id,
+    expiresAt: expires_at,
+    restricted: Boolean(restricted),
+  }
 }
 
 export async function restoreSession(): Promise<Session | null> {
@@ -66,26 +91,36 @@ export async function restoreSession(): Promise<Session | null> {
         headers: { Accept: 'application/json', 'X-Correlation-ID': uuidV7() },
       }),
     )
-    const csrf = unwrap<{ csrf_token: string }>(
+    if (!isCurrentIdentityPayload(identity)) {
+      throw invalidRestoreResponse()
+    }
+
+    const csrf = unwrap<CsrfPayload>(
       await customFetch('/api/v1/identity/csrf', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
           'X-Correlation-ID': uuidV7(),
-          'X-CSRF-Token': identity.csrf_token,
-          'Idempotency-Key': uuidV7(),
         },
       }),
     )
+    if (!isCsrfPayload(csrf)) {
+      throw invalidRestoreResponse()
+    }
+
     return {
       csrfToken: csrf.csrf_token,
-      userId: identity.user_id,
+      userId: identity.principal.user_id,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-      restricted: false,
+      restricted: identity.session.restricted,
     }
   } catch (error) {
-    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return null
+    if (
+      error instanceof ApiError &&
+      (error.status === 401 || error.status === 403)
+    )
+      return null
     throw error
   }
 }
@@ -128,6 +163,47 @@ export function clearStoredSession(): void {
   sessionStorage.removeItem(SESSION_METADATA_KEY)
 }
 
-function isUuidV7(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)
+function invalidRestoreResponse(): ApiError {
+  return new ApiError(502, {
+    type: 'about:blank',
+    title: 'Invalid session restore response',
+    status: 502,
+  })
+}
+
+function isCurrentIdentityPayload(
+  value: unknown,
+): value is CurrentIdentityPayload {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.principal) ||
+    !isRecord(value.account) ||
+    !isRecord(value.session)
+  )
+    return false
+  return (
+    isUuidV7(value.principal.user_id) &&
+    typeof value.session.restricted === 'boolean'
+  )
+}
+
+function isCsrfPayload(value: unknown): value is CsrfPayload {
+  return (
+    isRecord(value) &&
+    typeof value.csrf_token === 'string' &&
+    value.csrf_token.length > 0
+  )
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isUuidV7(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      value,
+    )
+  )
 }

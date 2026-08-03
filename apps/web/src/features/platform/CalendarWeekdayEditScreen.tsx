@@ -24,10 +24,10 @@ import { PlatformBackButton } from './platform-page-back'
  *
  * The calendar is loaded by id (list + find) so the page works after a
  * direct navigation or refresh; a missing calendar renders the shared
- * non-disclosing alert with a back link. The working-day checkbox seeds
- * from the calendar's `working_days`; starts/ends are cleared exactly like
- * the Sheet's openWeekday did. A 412 conflict keeps the inputs, shows the
- * stale alert, and reloads the calendar list.
+ * non-disclosing alert with a back link. The working-day checkbox and hours
+ * seed from the persisted weekday projection, with safe defaults when the
+ * projection is absent. A 412 conflict keeps the inputs until the fresh
+ * calendar projection arrives, then reseeds the winner.
  *
  * The form is a short focused intake (DESIGN-RULES §2.7), so the page uses
  * `SingleRegionFormLayout` with a `max-w-3xl` bounded surface and an
@@ -61,7 +61,8 @@ export function CalendarWeekdayEditScreen({ calendarId, weekday }: CalendarWeekd
   const [endsAt, setEndsAt] = useState('')
   const [staleNotice, setStaleNotice] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const seededRef = useRef(false)
+  const seededProjectionRef = useRef<string | null>(null)
+  const awaitingConflictReloadRef = useRef(false)
 
   const canManage = (principal.capabilities ?? []).includes('platform_settings.calendar.manage')
 
@@ -75,10 +76,25 @@ export function CalendarWeekdayEditScreen({ calendarId, weekday }: CalendarWeekd
   const calendar = data?.items.find((item) => item.id === calendarId)
 
   useEffect(() => {
-    if (calendar === undefined || seededRef.current) return
-    seededRef.current = true
-    const working = calendar.values?.working_days ?? []
-    setIsWorkingDay(working.includes(weekday))
+    if (calendar === undefined) return
+    const projection = calendar.values?.weekdays?.find((entry) => entry.weekday === weekday)
+    const projectionKey = JSON.stringify([
+      calendar.lock_version,
+      projection?.weekday ?? weekday,
+      projection?.is_working_day ?? false,
+      projection?.starts_at ?? null,
+      projection?.ends_at ?? null,
+    ])
+    const shouldReseed =
+      seededProjectionRef.current === null ||
+      (awaitingConflictReloadRef.current && seededProjectionRef.current !== projectionKey)
+    if (!shouldReseed) return
+
+    seededProjectionRef.current = projectionKey
+    awaitingConflictReloadRef.current = false
+    setIsWorkingDay(projection?.is_working_day ?? false)
+    setStartsAt(projection?.is_working_day ? (projection.starts_at ?? '') : '')
+    setEndsAt(projection?.is_working_day ? (projection.ends_at ?? '') : '')
   }, [calendar, weekday])
 
   const reload = useCallback(() => {
@@ -92,7 +108,8 @@ export function CalendarWeekdayEditScreen({ calendarId, weekday }: CalendarWeekd
   const fail = useCallback((error: unknown) => {
     if (error instanceof ApiError && error.status === 412) {
       setStaleNotice(t(calendarsCopy.stale, locale))
-      reload()
+      awaitingConflictReloadRef.current = true
+      void reload()
       return
     }
     setActionError(
@@ -111,7 +128,11 @@ export function CalendarWeekdayEditScreen({ calendarId, weekday }: CalendarWeekd
         csrfToken,
         calendarId,
         weekday,
-        { is_working_day: isWorkingDay, starts_at: startsAt || null, ends_at: endsAt || null },
+        {
+          is_working_day: isWorkingDay,
+          starts_at: isWorkingDay ? startsAt || null : null,
+          ends_at: isWorkingDay ? endsAt || null : null,
+        },
         calendar.lock_version,
       )
     },
@@ -127,12 +148,18 @@ export function CalendarWeekdayEditScreen({ calendarId, weekday }: CalendarWeekd
   })
 
   const handleSave = useCallback(() => {
-    if (startsAt !== '' && endsAt !== '' && endsAt <= startsAt) {
-      setActionError(t(calendarsCopy.timeRangeInvalid, locale))
-      return
+    if (isWorkingDay) {
+      if (startsAt === '' || endsAt === '') {
+        setActionError(t(calendarsCopy.timeRangeRequired, locale))
+        return
+      }
+      if (endsAt <= startsAt) {
+        setActionError(t(calendarsCopy.timeRangeInvalid, locale))
+        return
+      }
     }
     saveMutation.mutate()
-  }, [startsAt, endsAt, saveMutation, locale])
+  }, [isWorkingDay, startsAt, endsAt, saveMutation, locale])
 
   if (!canManage) {
     return (

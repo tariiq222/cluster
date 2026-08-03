@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useLocale } from '../../../app/session-context'
+import { usePrincipal } from '../../../app/principal-context'
 import { useNavigate } from '../../../app/navigation-context'
 import { useCluster, useFacilities } from '../../../api/hooks'
 import { ApiError, stateFromError } from '../../../api/http'
@@ -17,13 +18,22 @@ export function FacilitiesTab() {
   const text = organizationCopy[locale]
   const navigate = useNavigate()
   const capabilities = useCapabilities()
+  const { scopeEpoch } = usePrincipal()
   const clusterQuery = useCluster()
-  const facilitiesQuery = useFacilities()
+  const [pagination, setPagination] = useState({ scopeEpoch, history: [] as string[] })
+  const history = pagination.scopeEpoch === scopeEpoch ? pagination.history : []
+  const cursor = history.at(-1)
+  const facilitiesQuery = useFacilities(cursor)
+
+  useEffect(() => {
+    setPagination({ scopeEpoch, history: [] })
+  }, [scopeEpoch])
 
   const canManage = capabilities.includes('organization.facility.manage')
   const clusterMissing = clusterQuery.error instanceof ApiError && clusterQuery.error.status === 404
   const cluster = clusterMissing ? null : ((clusterQuery.data as generated.Cluster | null) ?? null)
   const facilities = (facilitiesQuery.data as generated.FacilityCollection | undefined)?.items ?? []
+  const nextCursor = facilitiesQuery.data?.next_cursor ?? null
 
   const state = facilitiesQuery.isError
     ? stateFromError(facilitiesQuery.error)
@@ -73,10 +83,19 @@ export function FacilitiesTab() {
         columns={columns}
         data={facilities}
         state={state}
-        nextCursor={null}
-        onNext={() => {}}
-        onPrev={() => {}}
-        canPrev={false}
+        nextCursor={nextCursor}
+        onNext={() => {
+          if (!nextCursor) return
+          setPagination((current) => ({
+            scopeEpoch,
+            history: [...(current.scopeEpoch === scopeEpoch ? current.history : []), nextCursor],
+          }))
+        }}
+        onPrev={() => setPagination((current) => ({
+          scopeEpoch,
+          history: (current.scopeEpoch === scopeEpoch ? current.history : []).slice(0, -1),
+        }))}
+        canPrev={history.length > 0}
         locale={locale}
         onRowClick={
           canManage

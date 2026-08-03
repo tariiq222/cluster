@@ -8,19 +8,45 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { importsCopy } from '../imports-copy'
 
-const templateOptions: Array<[string, keyof typeof importsCopy.ar]> = [
+const templateOptions: Array<[generated.ImportFileUploadTemplateCode, keyof typeof importsCopy.ar]> = [
   ['people_assignments', 'peopleAssignments'],
   ['facilities', 'facilities'],
   ['organization_units', 'organizationUnits'],
   ['positions', 'positions'],
 ]
 
-export function UploadStep({ onUploaded }: { onUploaded: (quarantineId: string) => void }) {
+export interface UploadSelection {
+  file: File | null
+  templateCode: generated.ImportFileUploadTemplateCode
+}
+
+export interface UploadedImportFile {
+  quarantineId: string
+  templateCode: generated.ImportFileUploadTemplateCode
+  file: File
+  generation?: number
+}
+
+interface UploadStepProps {
+  generation?: number
+  onUploaded: (upload: UploadedImportFile) => void
+  onSelectionChange?: (selection: UploadSelection) => void
+  onUploadStarted?: () => number | void
+  onUploadFailed?: () => void
+}
+
+export function UploadStep({
+  generation = 0,
+  onUploaded,
+  onSelectionChange,
+  onUploadStarted,
+  onUploadFailed,
+}: UploadStepProps) {
   const locale = useLocale()
   const token = useSessionToken()
   const text = importsCopy[locale]
   const [file, setFile] = useState<File | null>(null)
-  const [templateCode, setTemplateCode] = useState('people_assignments')
+  const [templateCode, setTemplateCode] = useState<generated.ImportFileUploadTemplateCode>('people_assignments')
   const [phase, setPhase] = useState<'ready' | 'uploading' | 'complete'>('ready')
   const [error, setError] = useState<'file' | 'invalid' | 'size' | 'upload' | null>(null)
 
@@ -44,21 +70,28 @@ export function UploadStep({ onUploaded }: { onUploaded: (quarantineId: string) 
       return
     }
     setError(null)
+    const uploadGeneration = onUploadStarted?.() ?? generation
     try {
       setPhase('uploading')
       const reference = unwrap<generated.ImportFileReference>(
         await generated.uploadOrganizationImportFile(
           {
             file,
-            template_code: templateCode as generated.ImportFileUploadTemplateCode,
+            template_code: templateCode,
             import_type: 'csv',
           },
           requestInit(token, { command: true, idempotency: 'import-file' }),
         ),
       )
-      onUploaded(reference.quarantine_object_id)
+      onUploaded({
+        quarantineId: reference.quarantine_object_id,
+        templateCode,
+        file,
+        generation: uploadGeneration,
+      })
       setPhase('complete')
     } catch {
+      onUploadFailed?.()
       setPhase('ready')
       setError('upload')
     }
@@ -80,15 +113,28 @@ export function UploadStep({ onUploaded }: { onUploaded: (quarantineId: string) 
             aria-invalid={Boolean(error)}
             disabled={busy}
             onChange={(event) => {
-              setFile(event.target.files?.[0] ?? null)
+              const nextFile = event.target.files?.[0] ?? null
+              setFile(nextFile)
               setError(null)
               setPhase('ready')
+              onSelectionChange?.({ file: nextFile, templateCode })
             }}
           />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="import-upload-template">{text.template}</Label>
-          <Select value={templateCode} onValueChange={setTemplateCode}>
+          <Select
+            value={templateCode}
+            onValueChange={(value) => {
+              const nextTemplateCode = value as generated.ImportFileUploadTemplateCode
+              if (nextTemplateCode === templateCode) return
+              setTemplateCode(nextTemplateCode)
+              setError(null)
+              setPhase('ready')
+              onSelectionChange?.({ file, templateCode: nextTemplateCode })
+            }}
+            disabled={busy}
+          >
             <SelectTrigger id="import-upload-template">
               <SelectValue />
             </SelectTrigger>

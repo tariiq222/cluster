@@ -18,20 +18,28 @@ export function formattingLocale(locale: Locale): string {
 }
 
 export function numberFormattingLocale(locale: Locale): string {
-  return locale === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US'
+  // DESIGN-RULES 3.3: Latin digits (0-9) in both locales; `ar-SA` without the
+  // `-u-nu-latn` extension renders Arabic-Indic digits (٠-٩).
+  return locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US'
 }
 
 export function formatDate(
   value: string | null | undefined,
   locale: Locale,
 ): string {
+  // DESIGN-RULES 3.3: Gregorian `YYYY-MM-DD HH:mm` with Latin digits, so the
+  // rendering is identical and deterministic in both locales.
+  void locale
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat(formattingLocale(locale), {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  const hour = pad(date.getHours())
+  const minute = pad(date.getMinutes())
+  return `${year}-${month}-${day} ${hour}:${minute}`
 }
 
 export function formatNumber(value: number, locale: Locale): string {

@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useLocale } from '../../../app/session-context'
+import { usePrincipal } from '../../../app/principal-context'
 import { useNavigate } from '../../../app/navigation-context'
 import { usePeople } from '../../../api/hooks'
 import { stateFromError } from '../../../api/http'
@@ -17,10 +18,19 @@ export function PeopleTab() {
   const text = organizationCopy[locale]
   const navigate = useNavigate()
   const capabilities = useCapabilities()
-  const peopleQuery = usePeople()
+  const { scopeEpoch } = usePrincipal()
+  const [pagination, setPagination] = useState({ scopeEpoch, history: [] as string[] })
+  const history = pagination.scopeEpoch === scopeEpoch ? pagination.history : []
+  const cursor = history.at(-1)
+  const peopleQuery = usePeople(cursor)
+
+  useEffect(() => {
+    setPagination({ scopeEpoch, history: [] })
+  }, [scopeEpoch])
 
   const canManage = capabilities.includes('organization.person.manage')
   const people = peopleQuery.data?.items ?? []
+  const nextCursor = peopleQuery.data?.next_cursor ?? null
 
   const state = peopleQuery.isError
     ? stateFromError(peopleQuery.error)
@@ -62,10 +72,19 @@ export function PeopleTab() {
         columns={columns}
         data={people}
         state={state}
-        nextCursor={null}
-        onNext={() => {}}
-        onPrev={() => {}}
-        canPrev={false}
+        nextCursor={nextCursor}
+        onNext={() => {
+          if (!nextCursor) return
+          setPagination((current) => ({
+            scopeEpoch,
+            history: [...(current.scopeEpoch === scopeEpoch ? current.history : []), nextCursor],
+          }))
+        }}
+        onPrev={() => setPagination((current) => ({
+          scopeEpoch,
+          history: (current.scopeEpoch === scopeEpoch ? current.history : []).slice(0, -1),
+        }))}
+        canPrev={history.length > 0}
         locale={locale}
         onRowClick={
           canManage

@@ -36,6 +36,10 @@ vi.mock('../../api/hooks', () => ({
   useAssignments: () => emptyQuery,
   useTemporaryAssignments: () => emptyQuery,
   useSupervisoryRelationships: () => emptyQuery,
+  useAllOrganizationUnits: () => emptyQuery,
+  useAllPositions: () => emptyQuery,
+  useAllJobTitles: () => emptyQuery,
+  useAllPeople: () => emptyQuery,
 }))
 
 function mount(capabilities: string[]) {

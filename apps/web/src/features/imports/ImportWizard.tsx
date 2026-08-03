@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale, useSessionToken } from '../../app/session-context'
-import { ApiError, requestInit, unwrap, unwrapWithEtag } from '../../api/http'
+import { ApiError, requestInit, unwrap, unwrapWithEtag, uuidV7 } from '../../api/http'
 import { formatNumber } from '../../i18n'
 import * as generated from '../../api/generated/cluster'
 import { PageHeader, PageLayout } from '@/components/page-layout'
@@ -8,12 +8,22 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DeniedState, ErrorState, LoadingState } from '@/components/states'
 import { importsCopy } from './imports-copy'
-import { UploadStep } from './steps/UploadStep'
+import { UploadStep, type UploadSelection, type UploadedImportFile } from './steps/UploadStep'
 import { ValidateStep } from './steps/ValidateStep'
 import { ReviewStep } from './steps/ReviewStep'
 import { CommitStep } from './steps/CommitStep'
 
 type JobAction = 'validate' | 'approve' | 'reject' | 'apply' | 'cancel'
+
+const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+const DEFAULT_TEMPLATE_CODE: generated.ImportJobCreateTemplateCode = 'people_assignments'
+
+type UploadedArtifact = {
+  quarantineId: string
+  templateCode: generated.ImportJobCreateTemplateCode
+  generation: number
+  idempotencyKey: string
+}
 
 const STEP_ORDER = ['upload', 'validate', 'review', 'commit'] as const
 const STEP_LABELS: Record<(typeof STEP_ORDER)[number], 'stepUpload' | 'stepValidate' | 'stepReview' | 'stepCommit'> = {
@@ -33,10 +43,24 @@ export function ImportWizard({ jobId }: { jobId?: string }) {
   const [loading, setLoading] = useState(Boolean(jobId))
   const [state, setState] = useState<'ready' | 'forbidden' | 'not-found' | 'error'>('ready')
   const [staleMessage, setStaleMessage] = useState<string | null>(null)
+  const [selection, setSelection] = useState<UploadSelection>({
+    file: null,
+    templateCode: DEFAULT_TEMPLATE_CODE,
+  })
+  const [artifact, setArtifact] = useState<UploadedArtifact | null>(null)
   const [quarantineId, setQuarantineId] = useState('')
+  const [generation, setGeneration] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<'validation' | 'save' | null>(null)
   const [transitioning, setTransitioning] = useState(false)
   const loadRequestRef = useRef(0)
+  const generationRef = useRef(0)
+  const selectionRef = useRef<UploadSelection>({
+    file: null,
+    templateCode: DEFAULT_TEMPLATE_CODE,
+  })
+  const artifactRef = useRef<UploadedArtifact | null>(null)
+  const submitInFlightRef = useRef<string | null>(null)
 
   const load = useCallback(
     async (jobIdToLoad: string | undefined = activeJobId) => {
@@ -82,6 +106,129 @@ export function ImportWizard({ jobId }: { jobId?: string }) {
     void load(jobId)
   }, [jobId, load])
 
+  const advanceGeneration = useCallback(() => {
+    const next = generationRef.current + 1
+    generationRef.current = next
+    setGeneration(next)
+    return next
+  }, [])
+
+  const invalidateArtifact = useCallback(
+    (clearReference = true) => {
+      const next = advanceGeneration()
+      artifactRef.current = null
+      setArtifact(null)
+      setSubmitError(null)
+      if (clearReference) setQuarantineId('')
+      if (submitInFlightRef.current !== null) {
+        submitInFlightRef.current = null
+        setSubmitting(false)
+      }
+      return next
+    },
+    [advanceGeneration],
+  )
+
+  const artifactMatchesSelection = useCallback((candidate: UploadedArtifact | null) => {
+    const currentSelection = selectionRef.current
+    return candidate !== null
+      && candidate.generation === generationRef.current
+      && currentSelection.file !== null
+      && candidate.templateCode === currentSelection.templateCode
+  }, [])
+
+  const handleSelectionChange = useCallback(
+    (nextSelection: UploadSelection) => {
+      selectionRef.current = nextSelection
+      setSelection(nextSelection)
+      invalidateArtifact()
+    },
+    [invalidateArtifact],
+  )
+
+  const handleUploadStarted = useCallback(() => invalidateArtifact(), [invalidateArtifact])
+
+  const handleUploadFailed = useCallback(() => {
+    invalidateArtifact()
+  }, [invalidateArtifact])
+
+  const handleUploaded = useCallback((upload: UploadedImportFile) => {
+    const currentSelection = selectionRef.current
+    const uploadGeneration = upload.generation ?? generationRef.current
+    if (
+      uploadGeneration !== generationRef.current
+      || upload.file !== currentSelection.file
+      || upload.templateCode !== currentSelection.templateCode
+    ) {
+      return
+    }
+
+    const nextArtifact: UploadedArtifact = {
+      quarantineId: upload.quarantineId,
+      templateCode: upload.templateCode as generated.ImportJobCreateTemplateCode,
+      generation: uploadGeneration,
+      idempotencyKey: `import-submit-${uuidV7()}`,
+    }
+    artifactRef.current = nextArtifact
+    setArtifact(nextArtifact)
+    setQuarantineId(upload.quarantineId)
+    setSubmitError(null)
+  }, [])
+
+  const handleQuarantineIdChange = useCallback(
+    (value: string) => {
+      setQuarantineId(value)
+      const currentArtifact = artifactRef.current
+      if (currentArtifact !== null && value !== currentArtifact.quarantineId) {
+        invalidateArtifact(false)
+      }
+      setSubmitError(null)
+    },
+    [invalidateArtifact],
+  )
+
+  const handleSubmit = useCallback(async () => {
+    const currentArtifact = artifactRef.current
+    if (!currentArtifact || !artifactMatchesSelection(currentArtifact) || !UUID_V7.test(currentArtifact.quarantineId)) {
+      setSubmitError('validation')
+      return
+    }
+
+    const idempotencyKey = currentArtifact.idempotencyKey
+    if (submitInFlightRef.current === idempotencyKey) return
+
+    submitInFlightRef.current = idempotencyKey
+    setSubmitting(true)
+    setSubmitError(null)
+    let accepted = false
+    try {
+      const created = unwrap<generated.ImportJob>(
+        await generated.submitOrganizationImport(
+          {
+            quarantine_object_id: currentArtifact.quarantineId,
+            template_code: currentArtifact.templateCode,
+            import_type: 'csv',
+          },
+          requestInit(token, { command: true, idempotencyKey }),
+        ),
+      )
+      if (!artifactMatchesSelection(currentArtifact)) return
+      accepted = true
+      invalidateArtifact()
+      setActiveJobId(created.id)
+      await load(created.id)
+    } catch {
+      if (!accepted && artifactMatchesSelection(currentArtifact)) {
+        setSubmitError('save')
+      }
+    } finally {
+      if (submitInFlightRef.current === idempotencyKey) {
+        submitInFlightRef.current = null
+        setSubmitting(false)
+      }
+    }
+  }, [artifactMatchesSelection, invalidateArtifact, load, token])
+
   const handleTransition = useCallback(
     async (action: JobAction, reason?: string) => {
       if (!job) return
@@ -119,6 +266,14 @@ export function ImportWizard({ jobId }: { jobId?: string }) {
   const currentStep =
     job === null ? 'upload' : job.status === 'received' ? 'validate' : job.status === 'validated' ? 'review' : job.status === 'approved' ? 'commit' : 'review'
   const stepIndex = STEP_ORDER.indexOf(currentStep)
+  // The submit button is strictly gated on the latest upload succeeding AND the
+  // visible file/template selection still matching the artifact. Any drift
+  // (file changed, template changed, stale manual reference) must invalidate
+  // the artifact and force a re-upload; there is no manual bypass.
+  const validateEnabled = artifact !== null
+    && artifact.generation === generation
+    && selection.file !== null
+    && artifact.templateCode === selection.templateCode
 
   /*
    * Every wizard branch — loading, denied, error, and ready — renders inside
@@ -162,24 +317,27 @@ export function ImportWizard({ jobId }: { jobId?: string }) {
           ) : null}
 
           {job === null ? (
-            <UploadStep onUploaded={setQuarantineId} />
+            <UploadStep
+              generation={generation}
+              onSelectionChange={handleSelectionChange}
+              onUploadStarted={handleUploadStarted}
+              onUploadFailed={handleUploadFailed}
+              onUploaded={handleUploaded}
+            />
           ) : null}
 
           {job === null ? (
             <ValidateStep
               quarantineId={quarantineId}
-              onQuarantineIdChange={(value) => {
-                setQuarantineId(value)
-                setSubmitError(null)
-              }}
-              onSubmitted={async (created) => {
-                setActiveJobId(created.id)
-                await load(created.id)
-              }}
-              submitting={false}
+              onQuarantineIdChange={handleQuarantineIdChange}
+              onSubmit={handleSubmit}
+              submitting={submitting}
+              disabled={!validateEnabled}
               error={submitError}
             />
           ) : null}
+
+
 
           {job !== null && job.status === 'received' ? (
             <div className="space-y-2">

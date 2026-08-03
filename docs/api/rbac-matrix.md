@@ -4,7 +4,7 @@ title: RBAC Matrix
 type: engineering
 status: accepted
 version: 1.0.0
-date: 2026-07-31
+date: 2026-08-03
 owner: مكتب هندسة البرمجيات
 reviewers:
   - مكتب هندسة المنصة
@@ -27,15 +27,15 @@ references:
 
 - **Actual runtime catalog count:** `132`
 - **Historical F067 expectation:** `110` — **mismatch; the runtime catalog is authoritative.**
-- **Classifications:** `89` used, `12` intentional UI-only, `31` deprecated.
+- **Classifications:** `89` used, `43` intentional UI-only, `0` deprecated.
 - Generation fails if any catalog entry is duplicated or left unclassified.
 
 | Capability | Classification | Evidence |
 | --- | --- | --- |
-| `work_record.create` | `intentional-ui-only` | `apps/web/src/app/WorkspaceContent.tsx`<br>`apps/web/src/shell/routes.ts` |
+| `work_record.create` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
 | `work_record.read` | `used` | `apps/api/Modules/Documents/Application/DocumentDownloadService.php`<br>`apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Notifications/Features/ListMyNotifications/Http/ListMyNotificationsController.php`<br>`apps/api/Modules/Reporting/Features/RunAuthorizedReport/Handler/RunAuthorizedReportHandler.php`<br>`apps/api/Modules/WorkRecords/Features/DocumentLink/Http/WorkRecordDocumentLinkController.php`<br>`apps/api/Modules/WorkRecords/Features/GetAuthorizedWorkRecord/Handler/GetAuthorizedWorkRecordHandler.php`<br>`apps/api/Modules/WorkRecords/Features/SubmitWorkRecord/Http/SubmitWorkRecordController.php` |
 | `work_record.list` | `used` | `apps/api/Modules/WorkRecords/Features/ListAuthorizedWorkRecords/Handler/ListAuthorizedWorkRecordsHandler.php` |
-| `work_record.update` | `deprecated` | `no production API or web callsite reference` |
+| `work_record.update` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
 | `work_record.submit` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php`<br>`apps/api/Modules/WorkRecords/Features/SubmitWorkRecord/Http/SubmitWorkRecordController.php` |
 | `work_record.return` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php` |
 | `work_record.complete` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php` |
@@ -43,12 +43,12 @@ references:
 | `work_record.archive` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php` |
 | `work_definition.create` | `used` | `apps/api/Modules/WorkDefinitions/Features/Definition/Handler/WorkDefinitionMutator.php`<br>`apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php` |
 | `work_definition.read` | `used` | `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php` |
-| `work_definition.list` | `intentional-ui-only` | `apps/web/src/app/WorkspaceContent.tsx`<br>`apps/web/src/shell/routes.ts` |
+| `work_definition.list` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
 | `work_definition.update` | `used` | `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php` |
 | `work_definition.publish` | `used` | `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php` |
-| `work_definition.retire` | `deprecated` | `no production API or web callsite reference` |
+| `work_definition.retire` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
 | `workflow.read` | `used` | `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
-| `workflow.list` | `intentional-ui-only` | `apps/web/src/shell/routes.ts` |
+| `workflow.list` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
 | `workflow.manage` | `used` | `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
 | `workflow.author` | `used` | `apps/api/Modules/Authorization/Features/OperationsOffice/OperationsOfficeRoleCatalog.php` |
 | `workflow.approve` | `used` | `apps/api/Modules/Authorization/Contracts/CountOperationsOfficeMembers.php`<br>`apps/api/Modules/Authorization/Features/OperationsOffice/OperationsOfficeRoleCatalog.php`<br>`apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
@@ -59,7 +59,7 @@ references:
 | `work_management.history.read` | `used` | `apps/api/app/Http/Middleware/EnforceWorkManagementFeature.php` |
 | `tasks.create` | `used` | `apps/api/Modules/Tasks/Features/CreateTask/Handler/CreateTaskHandler.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php` |
 | `tasks.read` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php` |
-| `tasks.list` | `intentional-ui-only` | `apps/web/src/app/WorkspaceContent.tsx`<br>`apps/web/src/features/dashboard/WorkDashboard.tsx`<br>`apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
+| `tasks.list` | `intentional-ui-only` | `apps/web/src/app/AppShell.tsx`<br>`apps/web/src/features/accounts/accounts-copy.ts` |
 | `tasks.update` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/DocumentLink/Http/TaskDocumentController.php` |
 | `tasks.assign` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/CreateTask/Handler/CreateTaskHandler.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php`<br>`apps/api/Modules/Workflow/Infrastructure/Persistence/Migrations/W14AddWorkflowStepAssignee.php` |
 | `tasks.start` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php` |
@@ -70,7 +70,7 @@ references:
 | `documents.create` | `used` | `apps/api/Modules/Documents/Application/DocumentMutationHandler.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/CreateDocumentController.php`<br>`apps/api/Modules/Documents/Features/Spreadsheet/CleanSpreadsheetReferenceService.php` |
 | `documents.update` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/UpdateDocumentController.php` |
 | `documents.read` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/GetDocumentController.php`<br>`apps/api/Modules/Documents/Features/DocumentLink/Http/ListDocumentLinksController.php`<br>`apps/api/Modules/Documents/Features/DocumentVersion/Http/ListDocumentVersionsController.php` |
-| `documents.list` | `intentional-ui-only` | `apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
+| `documents.list` | `intentional-ui-only` | `apps/web/src/app/AppShell.tsx`<br>`apps/web/src/features/accounts/accounts-copy.ts` |
 | `documents.initiate-upload` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php` |
 | `documents.complete-upload` | `used` | `apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php` |
 | `documents.get-upload-status` | `used` | `apps/api/Modules/Documents/Contracts/DocumentUploadStatusReader.php` |
@@ -82,14 +82,14 @@ references:
 | `documents.hold` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/TransitionDocumentController.php` |
 | `documents.grant` | `used` | `apps/api/Modules/Documents/Application/DocumentMutationHandler.php`<br>`apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentGrant/Http/CreateDocumentGrantController.php` |
 | `search.query` | `used` | `apps/api/Modules/Search/Features/SearchAccessibleRecords/Handler/SearchAccessibleRecordsHandler.php` |
-| `reporting.read` | `deprecated` | `no production API or web callsite reference` |
+| `reporting.read` | `intentional-ui-only` | `apps/web/src/app/AppShell.tsx`<br>`apps/web/src/features/accounts/accounts-copy.ts`<br>`apps/web/src/features/reports/ReportsMonitoringScreen.tsx` |
 | `reporting.list` | `used` | `apps/api/Modules/Reporting/Features/ListReports/Http/ListReportsController.php` |
 | `reporting.run` | `used` | `apps/api/Modules/Reporting/Features/RunAuthorizedReport/Handler/RunAuthorizedReportHandler.php` |
 | `reporting.export` | `used` | `apps/api/Modules/Reporting/Features/ExportAuthorizedReport/Handler/ExportAuthorizedReportHandler.php` |
 | `reporting.download` | `used` | `apps/api/Modules/Reporting/Features/DownloadExportArtifact/Handler/DownloadExportArtifactHandler.php` |
 | `reporting.dashboard` | `used` | `apps/api/Modules/Reporting/Features/GetAuthorizedDashboard/Handler/GetAuthorizedDashboardHandler.php`<br>`apps/api/Modules/Reporting/Features/ListDashboards/Http/ListDashboardsController.php` |
-| `notifications.read` | `deprecated` | `no production API or web callsite reference` |
-| `notifications.manage` | `deprecated` | `no production API or web callsite reference` |
+| `notifications.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts`<br>`apps/web/src/features/notifications/NotificationsScreen.tsx` |
+| `notifications.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
 | `identity.account.read` | `used` | `apps/api/Modules/Authorization/Adapter/AuthorizeIdentityManagementAdapter.php` |
 | `identity.account.manage` | `used` | `apps/api/Modules/Authorization/Adapter/AuthorizeIdentityManagementAdapter.php` |
 | `organization.cluster.manage` | `used` | `apps/api/Modules/Organization/Features/CreateCluster/Http/CreateClusterController.php`<br>`apps/api/Modules/Organization/Features/UpdateCluster/Http/UpdateClusterController.php` |
@@ -110,44 +110,44 @@ references:
 | `organization.import.read` | `used` | `apps/api/Modules/Authorization/Infrastructure/FixtureFacilityDecision.php`<br>`apps/api/Modules/Organization/Features/ImportJob/Http/GetImportJobController.php`<br>`apps/api/Modules/Organization/Features/ImportJob/Http/ListImportJobRowsController.php` |
 | `organization.temporary-assignment.manage` | `used` | `apps/api/Modules/Organization/Features/TemporaryAssignment/Http/CreateTemporaryAssignmentController.php`<br>`apps/api/Modules/Organization/Features/TemporaryAssignment/Http/RevokeTemporaryAssignmentController.php` |
 | `organization.temporary-assignment.read` | `used` | `apps/api/Modules/Organization/Features/TemporaryAssignment/Http/GetTemporaryAssignmentController.php`<br>`apps/api/Modules/Organization/Features/TemporaryAssignment/Http/ListTemporaryAssignmentsController.php` |
-| `authorization.role.read` | `intentional-ui-only` | `apps/web/src/features/accounts-permissions/canMutateAdminResource.ts`<br>`apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
-| `authorization.role.manage` | `intentional-ui-only` | `apps/web/src/features/accounts-permissions/canMutateAdminResource.ts` |
-| `authorization.capability.read` | `intentional-ui-only` | `apps/web/src/features/accounts-permissions/RolesPermissionsTab.tsx`<br>`apps/web/src/features/accounts-permissions/canMutateAdminResource.ts`<br>`apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
-| `authorization.capability.manage` | `deprecated` | `no production API or web callsite reference` |
-| `authorization.assignment.read` | `intentional-ui-only` | `apps/web/src/features/accounts-permissions/canMutateAdminResource.ts`<br>`apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
+| `authorization.role.read` | `intentional-ui-only` | `apps/web/src/app/AppShell.tsx`<br>`apps/web/src/features/accounts/AccessScreen.tsx`<br>`apps/web/src/features/accounts/accounts-copy.ts`<br>`apps/web/src/features/accounts/tabs/RolesTab.tsx` |
+| `authorization.role.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/RoleFormScreen.tsx`<br>`apps/web/src/features/accounts/accounts-copy.ts`<br>`apps/web/src/features/accounts/tabs/RolesTab.tsx` |
+| `authorization.capability.read` | `intentional-ui-only` | `apps/web/src/features/accounts/AccessScreen.tsx`<br>`apps/web/src/features/accounts/RoleFormScreen.tsx`<br>`apps/web/src/features/accounts/accounts-copy.ts`<br>`apps/web/src/features/accounts/tabs/RolesTab.tsx` |
+| `authorization.capability.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `authorization.assignment.read` | `intentional-ui-only` | `apps/web/src/api/access.ts`<br>`apps/web/src/features/accounts/AccessScreen.tsx`<br>`apps/web/src/features/accounts/AssignmentCreateScreen.tsx`<br>`apps/web/src/features/accounts/RoleFormScreen.tsx`<br>`apps/web/src/features/accounts/accounts-copy.ts`<br>`apps/web/src/features/accounts/tabs/RolesTab.tsx` |
 | `authorization.assignment.manage` | `used` | `apps/api/Modules/Authorization/Features/Administration/Contracts/ListAssignmentScopeTargets.php`<br>`apps/api/Modules/Authorization/Features/Administration/Http/ListAssignmentScopeTargetsController.php`<br>`apps/api/Modules/Authorization/Infrastructure/Persistence/DatabaseListAssignmentScopeTargets.php`<br>`apps/api/Modules/Authorization/Infrastructure/Persistence/ValidateGrantAuthority.php` |
-| `authorization.delegation.read` | `deprecated` | `no production API or web callsite reference` |
-| `authorization.delegation.manage` | `deprecated` | `no production API or web callsite reference` |
-| `authorization.deny.read` | `deprecated` | `no production API or web callsite reference` |
-| `authorization.deny.manage` | `deprecated` | `no production API or web callsite reference` |
-| `authorization.policy.read` | `intentional-ui-only` | `apps/web/src/features/accounts-permissions/canMutateAdminResource.ts`<br>`apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
-| `authorization.policy.manage` | `intentional-ui-only` | `apps/web/src/features/accounts-permissions/canMutateAdminResource.ts` |
-| `authorization.audit.read` | `intentional-ui-only` | `apps/web/src/app/workspace-routes.tsx`<br>`apps/web/src/features/platform-settings/PlatformSettingsLayout.tsx`<br>`apps/web/src/shell/navigation.tsx`<br>`apps/web/src/shell/routes.ts` |
+| `authorization.delegation.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `authorization.delegation.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `authorization.deny.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `authorization.deny.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `authorization.policy.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `authorization.policy.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `authorization.audit.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
 | `authorization.decision.read` | `used` | `apps/api/Modules/Authorization/Features/DecideAccess/Http/DecideAccessController.php`<br>`apps/api/Modules/Authorization/Features/ExplainAccessDecision/Http/ExplainAccessDecisionController.php` |
 | `audit.event.read` | `used` | `apps/api/Modules/Audit/Http/AuditApi.php`<br>`apps/api/Modules/Audit/Infrastructure/Persistence/DatabaseQueryAuditActivity.php` |
 | `audit.event.export` | `used` | `apps/api/Modules/Audit/Features/CreateAuditExport/Http/CreateAuditExportController.php`<br>`apps/api/Modules/Audit/Features/DownloadAuditExport/Handler/DownloadAuditExportHandler.php`<br>`apps/api/Modules/Audit/Features/GetAuditExport/Http/GetAuditExportController.php`<br>`apps/api/Modules/Audit/Infrastructure/Persistence/AuditExportReadStore.php` |
 | `audit.integrity.verify` | `used` | `apps/api/Modules/Audit/Features/VerifyAuditIntegrity/Handler/VerifyAuditIntegrityHandler.php`<br>`apps/api/Modules/Audit/Features/VerifyAuditIntegrity/Http/VerifyAuditIntegrityController.php` |
-| `strategy.plan.read` | `deprecated` | `no production API or web callsite reference` |
-| `strategy.plan.manage` | `deprecated` | `no production API or web callsite reference` |
-| `strategy.indicator.read` | `deprecated` | `no production API or web callsite reference` |
-| `strategy.indicator.manage` | `deprecated` | `no production API or web callsite reference` |
-| `strategy.measurement.submit` | `deprecated` | `no production API or web callsite reference` |
-| `strategy.measurement.approve` | `deprecated` | `no production API or web callsite reference` |
-| `strategy.impact.read` | `deprecated` | `no production API or web callsite reference` |
-| `portfolio_projects.portfolio.read` | `deprecated` | `no production API or web callsite reference` |
-| `portfolio_projects.portfolio.manage` | `deprecated` | `no production API or web callsite reference` |
-| `portfolio_projects.project.read` | `deprecated` | `no production API or web callsite reference` |
-| `portfolio_projects.project.manage` | `deprecated` | `no production API or web callsite reference` |
-| `portfolio_projects.milestone.approve` | `deprecated` | `no production API or web callsite reference` |
-| `portfolio_projects.impact.submit` | `deprecated` | `no production API or web callsite reference` |
-| `portfolio_projects.budget.read` | `deprecated` | `no production API or web callsite reference` |
-| `risk.risk.read` | `deprecated` | `no production API or web callsite reference` |
-| `risk.risk.manage` | `deprecated` | `no production API or web callsite reference` |
-| `risk.assess` | `deprecated` | `no production API or web callsite reference` |
-| `risk.control.manage` | `deprecated` | `no production API or web callsite reference` |
-| `risk.treatment.manage` | `deprecated` | `no production API or web callsite reference` |
-| `risk.accept` | `deprecated` | `no production API or web callsite reference` |
-| `risk.kri.manage` | `deprecated` | `no production API or web callsite reference` |
+| `strategy.plan.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `strategy.plan.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `strategy.indicator.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `strategy.indicator.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `strategy.measurement.submit` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `strategy.measurement.approve` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `strategy.impact.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `portfolio_projects.portfolio.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `portfolio_projects.portfolio.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `portfolio_projects.project.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `portfolio_projects.project.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `portfolio_projects.milestone.approve` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `portfolio_projects.impact.submit` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `portfolio_projects.budget.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `risk.risk.read` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `risk.risk.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `risk.assess` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `risk.control.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `risk.treatment.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `risk.accept` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
+| `risk.kri.manage` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
 | `platform_settings.read` | `used` | `apps/api/Modules/PlatformSettings/Features/Settings/Http/GetCurrentPlatformSettingsController.php`<br>`apps/api/Modules/PlatformSettings/Features/Settings/Http/ListSettingsVersionsController.php` |
 | `platform_settings.manage` | `used` | `apps/api/Modules/PlatformSettings/Features/Settings/Http/CreateSettingsVersionController.php`<br>`apps/api/Modules/PlatformSettings/Features/Settings/Http/PublishSettingsVersionController.php`<br>`apps/api/Modules/PlatformSettings/Features/Settings/Http/UpdateSettingsValueController.php`<br>`apps/api/Modules/PlatformSettings/Features/Settings/Http/ValidateSettingsVersionController.php` |
 | `platform_settings.publish` | `used` | `apps/api/Modules/PlatformSettings/Features/Settings/Http/PublishSettingsVersionController.php` |

@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useLocale } from '../../../app/session-context'
-import { usePeople, useTemporaryAssignments } from '../../../api/hooks'
+import { usePrincipal } from '../../../app/principal-context'
+import { useAllPeople, useTemporaryAssignments } from '../../../api/hooks'
 import { stateFromError } from '../../../api/http'
 import { formatDate, formatNumber, type Locale } from '../../../i18n'
 import * as generated from '../../../api/generated/cluster'
@@ -14,11 +15,20 @@ export function TemporaryAssignmentsTab() {
   const locale = useLocale()
   const text = organizationCopy[locale]
   const capabilities = useCapabilities()
-  const temporaryQuery = useTemporaryAssignments()
-  const peopleQuery = usePeople()
+  const { scopeEpoch } = usePrincipal()
+  const [pagination, setPagination] = useState({ scopeEpoch, history: [] as string[] })
+  const history = pagination.scopeEpoch === scopeEpoch ? pagination.history : []
+  const cursor = history.at(-1)
+  const temporaryQuery = useTemporaryAssignments(cursor)
+  const peopleQuery = useAllPeople()
+
+  useEffect(() => {
+    setPagination({ scopeEpoch, history: [] })
+  }, [scopeEpoch])
 
   const canRead = capabilities.includes('organization.temporary_assignment.read')
   const items = (temporaryQuery.data as generated.TemporaryAssignmentCollection | undefined)?.items ?? []
+  const nextCursor = temporaryQuery.data?.next_cursor ?? null
 
   const state = temporaryQuery.isError
     ? stateFromError(temporaryQuery.error)
@@ -32,7 +42,13 @@ export function TemporaryAssignmentsTab() {
         accessorKey: 'person_id',
         header: text.person,
         cell: ({ row }) => (
-          <span className="font-medium">{people.find((person) => person.id === row.original.person_id)?.display_name_ar ?? row.original.person_id}</span>
+          <span className="font-medium">
+            {peopleQuery.isLoading
+              ? text.loading
+              : peopleQuery.isError
+                ? text.unavailable
+                : people.find((person) => person.id === row.original.person_id)?.display_name_ar ?? text.unavailable}
+          </span>
         ),
       },
       {
@@ -55,18 +71,32 @@ export function TemporaryAssignmentsTab() {
         ),
       },
     ]
-  }, [locale, text, peopleQuery.data])
+  }, [locale, text, peopleQuery.data, peopleQuery.isLoading, peopleQuery.isError])
 
   return (
     <div className="space-y-4">
+      {canRead && peopleQuery.isLoading ? (
+        <p role="status" className="text-muted-foreground text-sm">{text.loading}</p>
+      ) : canRead && peopleQuery.isError ? (
+        <p role="alert" className="text-destructive text-sm">{text.error}</p>
+      ) : null}
       <DataTable
         columns={columns}
         data={canRead ? items : []}
         state={canRead ? state : 'forbidden'}
-        nextCursor={null}
-        onNext={() => {}}
-        onPrev={() => {}}
-        canPrev={false}
+        nextCursor={canRead ? nextCursor : null}
+        onNext={() => {
+          if (!canRead || !nextCursor) return
+          setPagination((current) => ({
+            scopeEpoch,
+            history: [...(current.scopeEpoch === scopeEpoch ? current.history : []), nextCursor],
+          }))
+        }}
+        onPrev={() => setPagination((current) => ({
+          scopeEpoch,
+          history: (current.scopeEpoch === scopeEpoch ? current.history : []).slice(0, -1),
+        }))}
+        canPrev={canRead && history.length > 0}
         locale={locale}
         empty={<p className="text-muted-foreground py-8 text-center text-sm">{text.noAssignments}</p>}
       />

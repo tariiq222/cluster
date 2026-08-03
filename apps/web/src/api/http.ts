@@ -93,6 +93,7 @@ export interface RequestOptions {
   command?: boolean
   mutation?: boolean
   idempotency?: string
+  idempotencyKey?: string
   lockVersion?: number
   ifMatch?: string
   headers?: Record<string, string>
@@ -110,9 +111,10 @@ export function requestInit(
     ...options.headers,
   }
   if (options.command) {
-    headers['Idempotency-Key'] = options.idempotency
-      ? `${options.idempotency}-${correlationId}`
-      : correlationId
+    headers['Idempotency-Key'] = options.idempotencyKey
+      ?? (options.idempotency
+        ? `${options.idempotency}-${correlationId}`
+        : correlationId)
   }
   if (csrfToken && (options.command || options.mutation)) {
     headers['X-CSRF-Token'] = csrfToken

@@ -4,7 +4,7 @@ title: Backend Endpoint Inventory
 type: engineering
 status: accepted
 version: 1.0.0
-date: 2026-07-31
+date: 2026-08-03
 owner: مكتب هندسة البرمجيات
 reviewers:
   - مكتب هندسة المنصة
