@@ -101,7 +101,12 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
         $access = $this->documentAccess();
         $authorizationFacts = new DatabaseDocumentAuthorizationFactsReader;
         $this->initiate = new InitiateDocumentUploadController($principals, $access, $handler);
-        $this->addVersion = new AddDocumentVersionController($principals, $access, $handler);
+        $this->addVersion = new AddDocumentVersionController(
+            $principals,
+            $access,
+            $handler,
+            $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class),
+        );
         $this->complete = new CompleteDocumentUploadController($principals, $access, $authorizationFacts, $handler);
     }
 

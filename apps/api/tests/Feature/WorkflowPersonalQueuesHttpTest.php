@@ -375,8 +375,23 @@ final class WorkflowPersonalQueuesHttpTest extends TestCase
 
     private function seedWorkRecord(string $facilityId): string
     {
+        $this->seedFixtureOrganization();
         $id = (string) Str::uuid7();
         $now = Carbon::now();
+        $clusterId = (string) DB::table('clusters')->value('id');
+        $facilityTypeId = (string) DB::table('facility_types')->where('code', 'hospital')->value('id');
+        DB::table('facilities')->insertOrIgnore([
+            'id' => $facilityId,
+            'cluster_id' => $clusterId,
+            'facility_type_id' => $facilityTypeId,
+            'code' => 'workflow-'.substr(str_replace('-', '', $facilityId), -12),
+            'name_ar' => 'منشأة اختبار سير العمل',
+            'name_en' => 'Workflow test facility',
+            'status' => 'active',
+            'lock_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
         DB::table('work_records')->insert([
             'id' => $id,
             'record_number' => 'WR-'.Str::uuid7(),

@@ -286,7 +286,9 @@ export function HomeDashboard() {
                     {principal.availableScopes.map((scope) => (
                       <DropdownMenuItem
                         key={`${scope.scopeType}:${scope.scopeId}`}
-                        onClick={() => void principal.selectScope(scope.scopeType, scope.scopeId)}
+                        onClick={() => {
+                          void principal.selectScope(scope.scopeType, scope.scopeId).catch(() => undefined)
+                        }}
                       >
                         {scope.label}
                       </DropdownMenuItem>

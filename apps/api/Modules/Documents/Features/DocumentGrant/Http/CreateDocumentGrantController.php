@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder;
 use Modules\Documents\Application\DocumentMutationHandler;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Http\DocumentsApi;
@@ -26,6 +27,7 @@ final class CreateDocumentGrantController
         private readonly DecideAccess $access,
         private readonly DocumentDownloadGrantIssuer $grants,
         private readonly DocumentMutationHandler $mutations,
+        private readonly DocumentAuthorizationRecordFactsBuilder $documentFacts,
     ) {}
 
     public function __invoke(Request $request, string $documentId, string $documentGrantType): JsonResponse

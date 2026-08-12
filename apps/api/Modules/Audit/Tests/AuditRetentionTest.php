@@ -75,7 +75,7 @@ final class AuditRetentionTest extends TestCase
     {
         $this->recordExpiredAndUnexpiredEvents();
 
-        $cutoff = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
+        $cutoff = now('UTC')->toDateTimeImmutable()
             ->modify('-100 days');
 
         $caught = null;
@@ -608,7 +608,7 @@ final class AuditRetentionTest extends TestCase
 
     private function legalCutoff(): DateTimeImmutable
     {
-        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $now = now('UTC')->toDateTimeImmutable();
 
         return $now->modify('-'.(string) (AuditRetentionPolicy::MINIMUM_RETENTION_DAYS + 10).' days');
     }

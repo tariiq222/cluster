@@ -10,6 +10,7 @@ use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
 use Modules\Organization\Contracts\GetActiveSupervisoryRelationships;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class RbacAbacDecideAccessTest extends TestCase
@@ -53,6 +54,10 @@ class RbacAbacDecideAccessTest extends TestCase
     private const RECORD_ID = '018f6f7d-0c00-7000-8000-000000000921';
 
     private const OTHER_RECORD_ID = '018f6f7d-0c00-7000-8000-000000000922';
+
+    private const OTHER_CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000925';
+
+    private const OTHER_FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000926';
 
     private const SECOND_ASSIGNMENT_ID = '018f6f7d-0c00-7000-8000-000000000923';
 
@@ -688,6 +693,147 @@ class RbacAbacDecideAccessTest extends TestCase
         $this->assertTrue($matching->isAllowed());
         $this->assertSame('deny', $other->decision);
         $this->assertSame(['organization_unit_scope_mismatch'], $other->reasonCodes);
+    }
+
+    #[DataProvider('scopeMatrixCases')]
+    public function test_scope_matrix_matches_only_the_corresponding_record_fact(
+        string $scopeType,
+        string $scopeId,
+        array $facts,
+        string $expectedDecision,
+    ): void {
+        $this->seedAllowingRole(scopeId: $scopeId, scopeType: $scopeType);
+
+        $decision = $this->decider()->decide(
+            ['user_id' => self::USER_ID],
+            'work_record.read',
+            new RecordFacts(
+                ownerFacilityId: $facts['owner_facility_id'],
+                resourceType: 'work_record',
+                classification: 'internal',
+                factsVersion: 'rbac-abac-test-scope-matrix-v1',
+                organizationUnitId: $facts['organization_unit_id'],
+                recordId: $facts['record_id'],
+                clusterId: $facts['cluster_id'],
+            ),
+        );
+
+        $this->assertSame($expectedDecision, $decision->decision);
+    }
+
+    /**
+     * @return array<string, array{
+     *     0: 'cluster'|'facility'|'unit'|'record_set',
+     *     1: string,
+     *     2: array{
+     *         owner_facility_id: string,
+     *         organization_unit_id: string,
+     *         record_id: string,
+     *         cluster_id: string,
+     *     },
+     *     3: 'allow'|'deny',
+     * }>
+     */
+    public static function scopeMatrixCases(): array
+    {
+        return array_map(
+            static fn (array $case): array => [
+                $case['scope_type'],
+                $case['scope_id'],
+                $case['facts'],
+                $case['expected_decision'],
+            ],
+            [
+                'cluster matching id' => [
+                    'scope_type' => 'cluster',
+                    'scope_id' => self::CLUSTER_ID,
+                    'facts' => [
+                        'owner_facility_id' => self::FACILITY_ID,
+                        'organization_unit_id' => self::ORGANIZATION_UNIT_A,
+                        'record_id' => self::RECORD_ID,
+                        'cluster_id' => self::CLUSTER_ID,
+                    ],
+                    'expected_decision' => 'allow',
+                ],
+                'cluster mismatching id' => [
+                    'scope_type' => 'cluster',
+                    'scope_id' => self::CLUSTER_ID,
+                    'facts' => [
+                        'owner_facility_id' => self::FACILITY_ID,
+                        'organization_unit_id' => self::ORGANIZATION_UNIT_A,
+                        'record_id' => self::RECORD_ID,
+                        'cluster_id' => self::OTHER_CLUSTER_ID,
+                    ],
+                    'expected_decision' => 'deny',
+                ],
+                'facility matching id' => [
+                    'scope_type' => 'facility',
+                    'scope_id' => self::FACILITY_ID,
+                    'facts' => [
+                        'owner_facility_id' => self::FACILITY_ID,
+                        'organization_unit_id' => self::ORGANIZATION_UNIT_A,
+                        'record_id' => self::RECORD_ID,
+                        'cluster_id' => self::CLUSTER_ID,
+                    ],
+                    'expected_decision' => 'allow',
+                ],
+                'facility mismatching id' => [
+                    'scope_type' => 'facility',
+                    'scope_id' => self::FACILITY_ID,
+                    'facts' => [
+                        'owner_facility_id' => self::OTHER_FACILITY_ID,
+                        'organization_unit_id' => self::ORGANIZATION_UNIT_A,
+                        'record_id' => self::RECORD_ID,
+                        'cluster_id' => self::CLUSTER_ID,
+                    ],
+                    'expected_decision' => 'deny',
+                ],
+                'unit matching id' => [
+                    'scope_type' => 'unit',
+                    'scope_id' => self::ORGANIZATION_UNIT_A,
+                    'facts' => [
+                        'owner_facility_id' => self::FACILITY_ID,
+                        'organization_unit_id' => self::ORGANIZATION_UNIT_A,
+                        'record_id' => self::RECORD_ID,
+                        'cluster_id' => self::CLUSTER_ID,
+                    ],
+                    'expected_decision' => 'allow',
+                ],
+                'unit mismatching id' => [
+                    'scope_type' => 'unit',
+                    'scope_id' => self::ORGANIZATION_UNIT_A,
+                    'facts' => [
+                        'owner_facility_id' => self::FACILITY_ID,
+                        'organization_unit_id' => self::ORGANIZATION_UNIT_B,
+                        'record_id' => self::RECORD_ID,
+                        'cluster_id' => self::CLUSTER_ID,
+                    ],
+                    'expected_decision' => 'deny',
+                ],
+                'record set matching id' => [
+                    'scope_type' => 'record_set',
+                    'scope_id' => self::RECORD_ID,
+                    'facts' => [
+                        'owner_facility_id' => self::FACILITY_ID,
+                        'organization_unit_id' => self::ORGANIZATION_UNIT_A,
+                        'record_id' => self::RECORD_ID,
+                        'cluster_id' => self::CLUSTER_ID,
+                    ],
+                    'expected_decision' => 'allow',
+                ],
+                'record set mismatching id' => [
+                    'scope_type' => 'record_set',
+                    'scope_id' => self::RECORD_ID,
+                    'facts' => [
+                        'owner_facility_id' => self::FACILITY_ID,
+                        'organization_unit_id' => self::ORGANIZATION_UNIT_A,
+                        'record_id' => self::OTHER_RECORD_ID,
+                        'cluster_id' => self::CLUSTER_ID,
+                    ],
+                    'expected_decision' => 'deny',
+                ],
+            ],
+        );
     }
 
     public function test_legacy_null_scope_assignment_no_longer_grants_global_access(): void

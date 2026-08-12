@@ -1,15 +1,21 @@
 import { lazy, Suspense, useMemo, type ReactNode } from 'react'
 import {
   createBrowserRouter,
+  createMemoryRouter,
+  Link,
   Navigate,
   RouterProvider,
+  useNavigate,
   useParams,
+  useRouteError,
+  type RouteObject,
 } from 'react-router-dom'
-import { FileQuestion } from 'lucide-react'
+import { FileQuestion, RotateCcw } from 'lucide-react'
 import { AppShell } from './app/AppShell'
 import { usePrincipal } from './app/principal-context'
 import { useLocale } from './app/session-context'
 import { shellCopy } from './i18n'
+import { Button } from '@/components/ui/button'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -194,73 +200,99 @@ const ImportWizard = lazy(() =>
   })),
 )
 
-function TaskDetailRoute() {
+/*
+ * Localized recovery surface for the case where the URL matched a
+ * parameterized route but a required param was missing or unparseable
+ * (e.g. `/platform/calendars/cal-1/weekdays/abc/edit` — `abc` is not a
+ * valid weekday). It deliberately reuses the shared not-found copy: from
+ * the user's perspective there is no resource to point at, so the
+ * same string the catch-all shows is the right answer. The 403/404
+ * non-disclosure rule is preserved — a missing param must not reveal
+ * which resources exist.
+ */
+export function ParamRecoverySurface() {
+  const locale = useLocale()
+  return (
+    <EmptyState
+      icon={<FileQuestion aria-hidden="true" />}
+      title={shellCopy[locale].notFound}
+    />
+  )
+}
+
+export function TaskDetailRoute() {
   const { taskId } = useParams()
-  return taskId ? <TaskDetailScreen taskId={taskId} /> : null
+  if (!taskId) return <ParamRecoverySurface />
+  return <TaskDetailScreen taskId={taskId} />
 }
 
-function DocumentDetailRoute() {
+export function DocumentDetailRoute() {
   const { documentId } = useParams()
-  return documentId ? <DocumentDetailScreen documentId={documentId} /> : null
+  if (!documentId) return <ParamRecoverySurface />
+  return <DocumentDetailScreen documentId={documentId} />
 }
 
-function DocumentVersionUploadRoute() {
+export function DocumentVersionUploadRoute() {
   const { documentId } = useParams()
-  return documentId ? <UploadVersionScreen documentId={documentId} /> : null
+  if (!documentId) return <ParamRecoverySurface />
+  return <UploadVersionScreen documentId={documentId} />
 }
 
-function AuditEventDetailRoute() {
+export function AuditEventDetailRoute() {
   const { eventId } = useParams()
-  return eventId ? <AuditEventDetailScreen eventId={eventId} /> : null
+  if (!eventId) return <ParamRecoverySurface />
+  return <AuditEventDetailScreen eventId={eventId} />
 }
 
-function OrganizationFacilityFormRoute() {
+export function OrganizationFacilityFormRoute() {
   const { facilityId } = useParams()
   return <OrganizationFacilityFormScreen facilityId={facilityId} />
 }
 
-function OrganizationPersonFormRoute() {
+export function OrganizationPersonFormRoute() {
   const { personId } = useParams()
   return <OrganizationPersonFormScreen personId={personId} />
 }
 
-function SecuritySettingEditRoute() {
+export function SecuritySettingEditRoute() {
   const { versionId, settingKey } = useParams()
-  return versionId && settingKey ? (
-    <SecuritySettingEditScreen versionId={versionId} settingKey={settingKey} />
-  ) : null
+  if (!versionId || !settingKey) return <ParamRecoverySurface />
+  return <SecuritySettingEditScreen versionId={versionId} settingKey={settingKey} />
 }
 
-function CalendarWeekdayEditRoute() {
+export function CalendarWeekdayEditRoute() {
   const { calendarId, weekday } = useParams()
   const parsed = weekday !== undefined ? Number(weekday) : Number.NaN
-  return calendarId && Number.isInteger(parsed) ? (
-    <CalendarWeekdayEditScreen calendarId={calendarId} weekday={parsed} />
-  ) : null
+  if (!calendarId || !Number.isInteger(parsed)) return <ParamRecoverySurface />
+  return <CalendarWeekdayEditScreen calendarId={calendarId} weekday={parsed} />
 }
 
-function CalendarExceptionCreateRoute() {
+export function CalendarExceptionCreateRoute() {
   const { calendarId } = useParams()
-  return calendarId ? <CalendarExceptionCreateScreen calendarId={calendarId} /> : null
+  if (!calendarId) return <ParamRecoverySurface />
+  return <CalendarExceptionCreateScreen calendarId={calendarId} />
 }
 
-function AlertPolicyEditRoute() {
+export function AlertPolicyEditRoute() {
   const { policyId } = useParams()
-  return policyId ? <AlertPolicyEditScreen policyId={policyId} /> : null
+  if (!policyId) return <ParamRecoverySurface />
+  return <AlertPolicyEditScreen policyId={policyId} />
 }
 
-function AccountDetailRoute() {
+export function AccountDetailRoute() {
   const { accountId } = useParams()
-  return accountId ? <AccountDetailScreen accountId={accountId} /> : null
+  if (!accountId) return <ParamRecoverySurface />
+  return <AccountDetailScreen accountId={accountId} />
 }
 
-function RoleFormRoute() {
+export function RoleFormRoute() {
   const { roleId } = useParams()
   return <RoleFormScreen roleId={roleId} />
 }
 
-function ImportReviewRoute() {
+export function ImportReviewRoute() {
   const { jobId } = useParams()
+  if (!jobId) return <ParamRecoverySurface />
   return <ImportWizard jobId={jobId} />
 }
 
@@ -270,6 +302,50 @@ function NotFoundScreen() {
     <EmptyState
       icon={<FileQuestion aria-hidden="true" />}
       title={shellCopy[locale].notFound}
+    />
+  )
+}
+
+/*
+ * Route-level error boundary: catches render failures and lazy-chunk
+ * rejections. We log the raw error for debugging but the rendered surface
+ * is the localized "something went wrong" copy with retry + home actions
+ * — the technical message, stack, or any thrown payload is never rendered
+ * to the user. 403/404 resource non-disclosure is preserved (the copy is
+ * generic), and the retry re-resolves the current route so a transient
+ * chunk load can succeed on the second try.
+ */
+function RouteErrorElement() {
+  const locale = useLocale()
+  const navigate = useNavigate()
+  const routeError = useRouteError()
+  // The error is intentionally not rendered: it is logged for operator
+  // diagnostics only and never leaks into the visible surface.
+  if (typeof console !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.error('Route error boundary caught', routeError)
+  }
+  const retry = () => {
+    void navigate(
+      window.location.pathname + window.location.search + window.location.hash,
+      { replace: true },
+    )
+  }
+  return (
+    <EmptyState
+      icon={<FileQuestion aria-hidden="true" />}
+      title={shellCopy[locale].error}
+      action={
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={retry}>
+            <RotateCcw aria-hidden="true" />
+            {shellCopy[locale].retry}
+          </Button>
+          <Button asChild variant="default" size="sm">
+            <Link to="/">{shellCopy[locale].home}</Link>
+          </Button>
+        </div>
+      }
     />
   )
 }
@@ -668,6 +744,13 @@ const ROUTES = [
 /*
  * Retired paths redirect so bookmarks and existing journeys keep working.
  * They are compatibility shims, not destinations — routePaths() omits them.
+ *
+ * `/me/security` and `/me/access` keep the user's tab intent by carrying
+ * it in the query string that MeScreen's URL-backed tab hook reads back.
+ * The earlier direct redirect to `/me` lost the tab the user had open
+ * and re-opened the screen on the default tab; preserving `?tab=`
+ * removes the stale-URL smell without making the redirect destination
+ * a registered route.
  */
 const REDIRECTS = [
   { path: '/api-docs', element: <Navigate to="/" replace /> },
@@ -682,11 +765,25 @@ const REDIRECTS = [
   { path: '/imports', element: <Navigate to="/organization/import" replace /> },
   {
     path: '/imports/:jobId',
-    element: <Navigate to="/organization/import/:jobId" replace />,
+    element: <ImportsCompatRedirect />,
   },
-  { path: '/me/security', element: <Navigate to="/me" replace /> },
-  { path: '/me/access', element: <Navigate to="/me" replace /> },
+  { path: '/me/security', element: <Navigate to="/me?tab=security" replace /> },
+  { path: '/me/access', element: <Navigate to="/me?tab=access" replace /> },
 ]
+
+/*
+ * The retired `/imports/:jobId` redirect must interpolate the actual job
+ * id, not the literal template `:jobId`. Reading the param from the route
+ * and composing the destination string at render time is the only way the
+ * browser-issued `<a href="/imports/abc-123">` link lands on the correct
+ * review screen instead of breaking the deep link into a literal segment
+ * that no route matches.
+ */
+function ImportsCompatRedirect() {
+  const { jobId } = useParams()
+  if (!jobId) return <Navigate to="/organization/import" replace />
+  return <Navigate to={`/organization/import/${jobId}`} replace />
+}
 
 export function routePaths(): string[] {
   return ROUTES.map((route) => route.path)
@@ -697,19 +794,65 @@ interface RouterConfig {
   onLogout: () => void
 }
 
-export function router({ features, onLogout }: RouterConfig) {
-  const children = [
-    ...ROUTES,
-    ...REDIRECTS,
-    ...(features.work_management ? workManagementRoutes() : []),
+/*
+ * The same route tree is needed in two forms: a real browser router for
+ * production, and a memory router for tests so we can drive the route
+ * resolver from `initialEntries` without touching `window.history`. The
+ * production factory accepts the test routes only when the caller opts
+ * in (the test-only factory below); the public `router` never carries
+ * them in production.
+ */
+interface BuildRoutesConfig {
+  features: RouterConfig['features']
+  additionalRoutes?: RouteObject[]
+}
+
+function buildRouteConfigs({ features, additionalRoutes = [] }: BuildRoutesConfig): RouteObject[] {
+  return [
+    ...(ROUTES as RouteObject[]),
+    ...(REDIRECTS as RouteObject[]),
+    ...(features.work_management ? (workManagementRoutes() as RouteObject[]) : []),
+    ...additionalRoutes,
     { path: '*', element: <NotFoundScreen /> },
   ]
+}
+
+export function router({ features, onLogout }: RouterConfig) {
   return createBrowserRouter([
     {
       element: <AppShell onLogout={onLogout} />,
-      children,
+      errorElement: <RouteErrorElement />,
+      children: buildRouteConfigs({ features }),
     },
   ])
+}
+
+/*
+ * Test-only factory: builds a memory router with the production route
+ * tree so a test can mount the AppRouter against a chosen `initialEntries`
+ * path. The `additionalRoutes` slot lets a test inject a probe route
+ * (e.g. one that throws to exercise the error boundary) without
+ * polluting the production route table.
+ */
+export function createTestRouter({
+  features,
+  onLogout,
+  initialEntries,
+  additionalRoutes,
+}: RouterConfig & {
+  initialEntries: string[]
+  additionalRoutes?: RouteObject[]
+}) {
+  return createMemoryRouter(
+    [
+      {
+        element: <AppShell onLogout={onLogout} />,
+        errorElement: <RouteErrorElement />,
+        children: buildRouteConfigs({ features, additionalRoutes }),
+      },
+    ],
+    { initialEntries },
+  )
 }
 
 function PrincipalLoadingState() {

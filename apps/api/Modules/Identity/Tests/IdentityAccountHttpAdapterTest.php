@@ -330,12 +330,15 @@ class IdentityAccountHttpAdapterTest extends TestCase
         string $employeeNumber = 'EMP-IDENTITY-001',
         string $key = 'identity-person',
     ): string {
-        return (string) $this->withToken($token)->postJson('/api/v1/organization/people', [
+        $personId = (string) $this->withToken($token)->postJson('/api/v1/organization/people', [
             'employee_number' => $employeeNumber,
             'display_name_ar' => 'موظف الهوية',
             'display_name_en' => 'Identity Employee',
             'status' => 'active',
         ], $this->writeHeaders($key))->assertCreated()->json('data.id');
+        $this->assignPersonToFixtureOrganization($personId);
+
+        return $personId;
     }
 
     public function test_identity_cloud_events_do_not_grant_bootstrap_admin_by_default(): void

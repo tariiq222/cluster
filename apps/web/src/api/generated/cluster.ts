@@ -2728,6 +2728,25 @@ export interface BusinessCalendarException {
   reason?: string | null
 }
 
+export interface BusinessCalendarWeekdayView {
+  /**
+   * @minimum 1
+   * @maximum 7
+   */
+  weekday: number
+  is_working_day: boolean
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  starts_at: string | null
+  /**
+   * @nullable
+   * @pattern ^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$
+   */
+  ends_at: string | null
+}
+
 export type BusinessCalendarResourceScopeType =
   (typeof BusinessCalendarResourceScopeType)[keyof typeof BusinessCalendarResourceScopeType]
 
@@ -2766,6 +2785,8 @@ export type BusinessCalendarResourceValuesHolidaysItem = {
 }
 
 export type BusinessCalendarResourceValues = {
+  /** ISO-8601 weekday read projection sourced from the persisted calendar. Each entry exposes the saved `is_working_day` flag together with the stored `starts_at` / `ends_at` values so callers can reseed edit screens without losing the existing schedule. Non-working days are included with `starts_at` and `ends_at` set to `null`. */
+  weekdays?: BusinessCalendarWeekdayView[]
   /**
    * @items.minimum 1
    * @items.maximum 7

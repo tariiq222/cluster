@@ -4,9 +4,8 @@ namespace Modules\Organization\Features\Person\Http;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Person\Authorization\PersonAuthorizationFacts;
 use Modules\Organization\Features\Person\Handler\PersonHandler;
 use Modules\Organization\Http\OrganizationApi;
 
@@ -14,7 +13,7 @@ final class GetPersonController
 {
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
-        private readonly DecideAccess $access,
+        private readonly PersonAuthorizationFacts $personAuthorization,
         private readonly PersonHandler $handler,
     ) {}
 
@@ -31,16 +30,11 @@ final class GetPersonController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.person.read', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_person',
-            classification: 'confidential',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
-        }
-
         $person = $this->handler->find($personId);
         if ($person === null) {
+            return OrganizationApi::problem(404, 'person-not-found', 'Not Found', 'The Person is not available.', $correlationId);
+        }
+        if (! $this->personAuthorization->allows($principal, 'organization.person.read', $personId, 'organization_person')) {
             return OrganizationApi::problem(404, 'person-not-found', 'Not Found', 'The Person is not available.', $correlationId);
         }
 

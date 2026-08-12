@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Organization\Domain\Person;
+use Modules\Organization\Features\Person\Authorization\PersonAuthorizationFacts;
 use Modules\Organization\Infrastructure\Outbox\OrganizationOutbox;
 use Modules\Organization\Infrastructure\Persistence\EncryptedCursor;
 use Modules\Organization\Infrastructure\Persistence\OrganizationIdempotencyStore;
@@ -17,10 +18,13 @@ use UnexpectedValueException;
 
 final class PersonHandler
 {
+    private const MAX_RAW_ROWS_PER_REQUEST = 100;
+
     public function __construct(
         private readonly OrganizationOutbox $outbox,
         private readonly OrganizationIdempotencyStore $idempotency,
         private readonly EncryptedCursor $cursor,
+        private readonly PersonAuthorizationFacts $personAuthorization,
     ) {}
 
     /**
@@ -111,20 +115,47 @@ final class PersonHandler
     public function list(array $principal, ?string $cursor, int $limit): array
     {
         $afterId = $cursor === null ? null : $this->decodeCursor($cursor, $principal, $limit);
-        $query = $this->personQuery()->orderBy('id');
-        if ($afterId !== null) {
-            $query->where('id', '>', $afterId);
+        $items = [];
+        $lastScannedId = $afterId;
+        $query = $this->personQuery()->orderBy('id')->limit(self::MAX_RAW_ROWS_PER_REQUEST + 1);
+        if ($lastScannedId !== null) {
+            $query->where('id', '>', $lastScannedId);
         }
-        $items = $query->limit($limit + 1)->get()->map(fn (stdClass $row): array => $this->serialize($row))->all();
-        $hasNextPage = count($items) > $limit;
-        if ($hasNextPage) {
+        $rawRows = $query->get();
+        $hasMoreRawRows = $rawRows->count() > self::MAX_RAW_ROWS_PER_REQUEST;
+        $rows = $hasMoreRawRows ? $rawRows->take(self::MAX_RAW_ROWS_PER_REQUEST) : $rawRows;
+
+        if (! $rows->isEmpty()) {
+            $allowed = $this->personAuthorization->allowsMany(
+                $principal,
+                'organization.person.read',
+                $rows->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all(),
+                'organization_person',
+            );
+            foreach ($rows as $row) {
+                $lastScannedId = (string) $row->id;
+                if (($allowed[(string) $row->id] ?? false) !== true) {
+                    continue;
+                }
+                $items[] = $this->serialize($row);
+                if (count($items) > $limit) {
+                    break;
+                }
+            }
+        }
+
+        $hasMoreVisibleRows = count($items) > $limit;
+        if ($hasMoreVisibleRows) {
             array_pop($items);
         }
+        $nextAfterId = $hasMoreVisibleRows
+            ? $items[array_key_last($items)]['id']
+            : ($hasMoreRawRows ? $lastScannedId : null);
 
         return [
             'items' => $items,
-            'next_cursor' => $hasNextPage
-                ? $this->encodeCursor($items[array_key_last($items)]['id'], $principal, $limit)
+            'next_cursor' => $nextAfterId !== null
+                ? $this->encodeCursor($nextAfterId, $principal, $limit)
                 : null,
         ];
     }

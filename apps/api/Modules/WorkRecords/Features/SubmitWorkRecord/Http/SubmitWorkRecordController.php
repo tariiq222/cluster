@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\WorkDefinitions\Contracts\ResolvePublishedWorkDefinition;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use Modules\WorkRecords\Domain\WorkRecord;
 use Modules\WorkRecords\Features\SubmitWorkRecord\Handler\SubmitWorkRecordHandler;
 use UnexpectedValueException;
@@ -26,6 +26,7 @@ final class SubmitWorkRecordController
         private readonly ResolvePublishedWorkDefinition $workDefinitions,
         private readonly DecideAccess $access,
         private readonly SubmitWorkRecordHandler $handler,
+        private readonly WorkRecordResourceFacts $factsBuilder,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -87,10 +88,14 @@ final class SubmitWorkRecordController
         if (array_diff(['title', 'description'], $definition['fields']) !== []) {
             return $this->problem(422, 'invalid-work-record', 'Unprocessable Content', 'The requested work definition does not accept this payload.', $correlationId);
         }
-        $facts = new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'work_record',
+        $facts = $this->factsBuilder->forFacility(
+            facilityId: $principal['facility_id'],
             classification: $definition['classification'],
+            createdByUserId: $principal['user_id'],
+            lifecycleState: 'submitted',
+            fieldPolicyKey: $definition['field_policy_key'] ?? null,
+            workTypeVersionId: $definition['version_id'],
+            lockVersion: 1,
         );
         $decision = $this->access->decide($this->actor($principal), 'work_record.submit', $facts);
         if (! $decision->isAllowed()) {
@@ -145,11 +150,7 @@ final class SubmitWorkRecordController
     private function replay(array $result, array $principal, string $correlationId): JsonResponse
     {
         $record = $result['record'];
-        $facts = new RecordFacts(
-            ownerFacilityId: $record['owner']['facility_id'],
-            resourceType: 'work_record',
-            classification: $record['classification'],
-        );
+        $facts = $this->factsBuilder->forRecord($record);
         $decision = $this->access->decide($this->actor($principal), 'work_record.read', $facts);
         if (! $decision->isAllowed()) {
             return $this->problem(404, 'work-record-unavailable', 'Not Found', 'لا يمكنك فتح هذا الطلب أو لم يعد متاحاً.', $correlationId);

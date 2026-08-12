@@ -22,6 +22,40 @@ class WorkRecordHttpAdapterTest extends TestCase
 
     private const CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000201';
 
+    private const FIXTURE_CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000010';
+
+    private const FIXTURE_FACILITY_ID = '018f6f7d-0c00-7000-8000-000000000011';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $now = now();
+        DB::table('clusters')->insert([
+            'id' => self::FIXTURE_CLUSTER_ID,
+            'singleton_key' => 1,
+            'code' => 'WORK-RECORD-FIXTURE-CLUSTER',
+            'name_ar' => 'تجمع اختبار سجلات العمل',
+            'name_en' => 'Work record fixture cluster',
+            'status' => 'active',
+            'lock_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('facilities')->insert([
+            'id' => self::FIXTURE_FACILITY_ID,
+            'cluster_id' => self::FIXTURE_CLUSTER_ID,
+            'facility_type_id' => DB::table('facility_types')->where('code', 'center')->value('id'),
+            'code' => 'WORK-RECORD-FIXTURE-FACILITY',
+            'name_ar' => 'منشأة اختبار سجلات العمل',
+            'name_en' => 'Work record fixture facility',
+            'status' => 'active',
+            'lock_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
     public function test_work_record_http_slices_are_present(): void
     {
         $this->assertTrue(
@@ -282,6 +316,44 @@ class WorkRecordHttpAdapterTest extends TestCase
         $this->assertDatabaseCount('outbox_events', 1);
     }
 
+    public function test_submit_and_replay_pass_complete_resource_facts_to_authorization(): void
+    {
+        $access = new RecordingSubmitAccess;
+        $this->app->instance(DecideAccess::class, $access);
+        $this->app->forgetInstance(SubmitWorkRecordController::class);
+        $token = $this->loginToken();
+        $body = $this->validBody('حقائق الإرسال');
+        $headers = $this->writeHeaders('facts-submit-replay');
+
+        $created = $this->withToken($token)->postJson('/api/v1/work-records', $body, $headers)->assertCreated();
+        $createdId = $created->json('data.id');
+        $this->withToken($token)->postJson('/api/v1/work-records', $body, $headers)->assertCreated();
+
+        $this->assertArrayHasKey('work_record.submit', $access->factsByCapability);
+        $this->assertArrayHasKey('work_record.read', $access->factsByCapability);
+        $submitFacts = $access->factsByCapability['work_record.submit'];
+        $this->assertSame(self::FIXTURE_FACILITY_ID, $submitFacts->ownerFacilityId);
+        $this->assertSame(self::FIXTURE_CLUSTER_ID, $submitFacts->clusterId);
+        $this->assertNull($submitFacts->recordId);
+        $this->assertSame('018f6f7d-0c00-7000-8000-000000000021', $submitFacts->createdByUserId);
+        $this->assertSame('submitted', $submitFacts->lifecycleState);
+        $this->assertSame('internal', $submitFacts->classification);
+        $this->assertSame('0197f0e0-0000-7000-8000-000000000001', $submitFacts->workTypeVersionId);
+        $this->assertNull($submitFacts->fieldPolicyKey);
+        $this->assertSame(1, $submitFacts->lockVersion);
+
+        $replayFacts = $access->factsByCapability['work_record.read'];
+        $this->assertSame(self::FIXTURE_FACILITY_ID, $replayFacts->ownerFacilityId);
+        $this->assertSame(self::FIXTURE_CLUSTER_ID, $replayFacts->clusterId);
+        $this->assertSame($createdId, $replayFacts->recordId);
+        $this->assertSame('018f6f7d-0c00-7000-8000-000000000021', $replayFacts->createdByUserId);
+        $this->assertSame('submitted', $replayFacts->lifecycleState);
+        $this->assertSame('internal', $replayFacts->classification);
+        $this->assertSame('0197f0e0-0000-7000-8000-000000000001', $replayFacts->workTypeVersionId);
+        $this->assertNull($replayFacts->fieldPolicyKey);
+        $this->assertSame(1, $replayFacts->lockVersion);
+    }
+
     public function test_malformed_persisted_idempotency_state_fails_closed_without_a_second_write(): void
     {
         $token = $this->loginToken();
@@ -411,5 +483,37 @@ class WorkRecordHttpAdapterTest extends TestCase
             'title' => $title,
             'description' => 'وصف صالح',
         ];
+    }
+}
+
+final class RecordingSubmitAccess implements DecideAccess
+{
+    /** @var array<string, RecordFacts> */
+    public array $factsByCapability = [];
+
+    public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        if ($facts !== null) {
+            $this->factsByCapability[$capability] = $facts;
+        }
+
+        $resourceType = $facts === null ? 'work_record' : $facts->resourceType;
+        $factsVersion = $facts === null ? 'test' : $facts->factsVersion;
+        $classification = $facts === null ? 'internal' : $facts->classification;
+
+        return new AccessDecision(
+            decision: 'allow',
+            action: $capability,
+            resourceType: $resourceType,
+            reasonCodes: ['path-facts-test'],
+            policyVersion: 'path-facts-test-v1',
+            factsVersion: $factsVersion,
+            classification: $classification,
+        );
+    }
+
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
     }
 }

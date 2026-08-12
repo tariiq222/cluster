@@ -172,6 +172,10 @@ export const calendarsCopy = {
     ar: 'يجب أن يكون وقت النهاية بعد وقت البداية.',
     en: 'End time must be later than start time.',
   },
+  timeRangeRequired: {
+    ar: 'حدد وقت البداية والنهاية ليوم العمل.',
+    en: 'Enter both start and end times for the working day.',
+  },
   dateRangeInvalid: {
     ar: 'يجب ألا يسبق تاريخ النهاية تاريخ البداية.',
     en: 'End date must not precede the start date.',

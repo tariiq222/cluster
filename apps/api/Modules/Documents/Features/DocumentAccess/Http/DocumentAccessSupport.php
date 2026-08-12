@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder;
 use Modules\Documents\Http\DocumentsApi;
 use stdClass;
 
@@ -17,6 +17,8 @@ use stdClass;
  * Shared lookup + decision plumbing for the contracted document endpoints.
  * Facts are built from the Documents-owned row only; the central engine
  * decides, and denied resources never leak metadata.
+ *
+ * @property-read DocumentAuthorizationRecordFactsBuilder $documentFacts
  */
 trait DocumentAccessSupport
 {
@@ -52,16 +54,7 @@ trait DocumentAccessSupport
                 'correlation_id' => $correlationId,
             ],
             $capability,
-            new RecordFacts(
-                ownerFacilityId: (string) $document->owner_organization_unit_id,
-                resourceType: 'document',
-                classification: (string) $document->classification,
-                organizationUnitId: (string) $document->owner_organization_unit_id,
-                recordId: (string) $document->id,
-                lifecycleState: (string) $document->status,
-                legalHold: (bool) $document->legal_hold,
-                lockVersion: (int) $document->lock_version,
-            ),
+            $this->documentFacts->forDocument($document),
         );
     }
 

@@ -6,8 +6,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
-use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Features\Person\Handler\PersonHandler;
 use Modules\Organization\Http\OrganizationApi;
@@ -16,7 +14,6 @@ final class ListPeopleController
 {
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
-        private readonly DecideAccess $access,
         private readonly PersonHandler $handler,
     ) {}
 
@@ -30,15 +27,6 @@ final class ListPeopleController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.person.read', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_person',
-            classification: 'confidential',
-            clusterId: OrganizationApi::clusterId(),
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
-        }
-
         $query = $request->query();
         $validator = Validator::make($query, [
             'cursor' => ['sometimes', 'string', 'min:1', 'max:2048'],

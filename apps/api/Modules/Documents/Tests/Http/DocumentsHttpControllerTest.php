@@ -132,7 +132,7 @@ final class DocumentsHttpControllerTest extends TestCase
         $reader = new DatabaseDocumentUploadStatusReader;
         $this->initiate = new InitiateDocumentUploadController($this->principals, $this->access, $handler);
         $this->complete = new CompleteDocumentUploadController($this->principals, $this->access, $authorizationFacts, $handler);
-        $this->addVersion = new AddDocumentVersionController($this->principals, $this->access, $handler);
+        $this->addVersion = new AddDocumentVersionController($this->principals, $this->access, $handler, $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $this->status = new GetDocumentUploadStatusController($this->principals, $this->access, $authorizationFacts, $reader);
         $this->scan = new ScanDocumentVersionController($this->principals, $this->access, $authorizationFacts, $handler);
         $this->reconcile = new ReconcileDocumentPromotionController($this->principals, $this->access, $authorizationFacts, $handler);
@@ -142,7 +142,7 @@ final class DocumentsHttpControllerTest extends TestCase
             {
                 return new DocumentDownloadGrant($documentId, $versionId, 'https://download.invalid/'.$versionId, new DateTimeImmutable('+5 minutes'), 'test-correlation');
             }
-        }, $this->app->make(DocumentMutationHandler::class));
+        }, $this->app->make(DocumentMutationHandler::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
     }
 
     public function test_grants_only_available_versions_belonging_to_the_document(): void

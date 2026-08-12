@@ -166,6 +166,53 @@ class OrganizationTreeHttpAdapterTest extends TestCase
         $this->assertEventContext($movedEvent, $clusterId);
     }
 
+    public function test_unit_move_rejects_cross_facility_owner_root_moves(): void
+    {
+        $token = $this->loginToken();
+        $clusterId = $this->createCluster($token);
+        $facilityAId = $this->createFacility($token, $clusterId, 'HOSPITAL-A');
+        $facilityBId = $this->createFacility($token, $clusterId, 'HOSPITAL-B');
+        $sourceId = $this->createUnit($token, $clusterId, $facilityAId, 'sector', 'SOURCE', 'مصدر');
+        $targetId = $this->createUnit($token, $clusterId, $facilityBId, 'sector', 'TARGET', 'هدف');
+        $sourcePath = "/{$clusterId}/{$facilityAId}/{$sourceId}";
+
+        $this->withToken($token)
+            ->patchJson("/api/v1/organization/units/{$sourceId}", ['parent_id' => $targetId], $this->patchHeaders('"1"'))
+            ->assertConflict()
+            ->assertJsonPath('type', 'https://cluster.example/problems/organization-unit-owner-root-mismatch');
+
+        $this->assertDatabaseHas('organization_units', [
+            'id' => $sourceId,
+            'parent_id' => $facilityAId,
+            'parent_type' => 'facility',
+            'path_cache' => $sourcePath,
+            'lock_version' => 1,
+        ]);
+    }
+
+    public function test_owner_root_rejects_facility_rooted_unit_below_cluster_rooted_unit(): void
+    {
+        $token = $this->loginToken();
+        $clusterId = $this->createCluster($token);
+        $facilityId = $this->createFacility($token, $clusterId, 'HOSPITAL-ROOT');
+        $facilityRootedId = $this->createUnit($token, $clusterId, $facilityId, 'sector', 'FACILITY-ROOTED', 'جذر المنشأة');
+        $clusterRootedId = $this->createUnit($token, $clusterId, null, 'sector', 'CLUSTER-ROOTED', 'جذر التجمع');
+        $sourcePath = "/{$clusterId}/{$facilityId}/{$facilityRootedId}";
+
+        $this->withToken($token)
+            ->patchJson("/api/v1/organization/units/{$facilityRootedId}", ['parent_id' => $clusterRootedId], $this->patchHeaders('"1"'))
+            ->assertConflict()
+            ->assertJsonPath('type', 'https://cluster.example/problems/organization-unit-owner-root-mismatch');
+
+        $this->assertDatabaseHas('organization_units', [
+            'id' => $facilityRootedId,
+            'parent_id' => $facilityId,
+            'parent_type' => 'facility',
+            'path_cache' => $sourcePath,
+            'lock_version' => 1,
+        ]);
+    }
+
     public function test_unit_lifecycle_is_guarded_and_archived_is_terminal(): void
     {
         $token = $this->loginToken();

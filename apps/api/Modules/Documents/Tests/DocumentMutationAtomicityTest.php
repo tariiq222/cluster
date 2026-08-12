@@ -116,6 +116,7 @@ final class DocumentMutationAtomicityTest extends TestCase
             $this->principals(),
             $this->access(),
             $this->mutations($this->failingOutbox()),
+            $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class),
         );
 
         $this->assertOutboxFailure(fn () => $controller($this->request('POST', [
@@ -144,6 +145,7 @@ final class DocumentMutationAtomicityTest extends TestCase
                 }
             },
             $this->mutations($this->failingOutbox()),
+            $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class),
         );
 
         $this->assertOutboxFailure(fn () => $controller(
@@ -219,6 +221,7 @@ final class DocumentMutationAtomicityTest extends TestCase
                 }
             },
             $this->mutations($this->app->make(TransactionalOutbox::class), null, $spy),
+            $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class),
         );
 
         $first = $controller(
@@ -255,6 +258,7 @@ final class DocumentMutationAtomicityTest extends TestCase
                 }
             },
             $this->mutations($this->app->make(TransactionalOutbox::class), null, $this->failingAudit()),
+            $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class),
         );
 
         try {
@@ -275,7 +279,7 @@ final class DocumentMutationAtomicityTest extends TestCase
 
     public function test_metadata_update_rolls_back_state_and_audit_when_outbox_append_fails(): void
     {
-        $controller = new UpdateDocumentController($this->principals(), $this->access(), $this->mutations($this->failingOutbox()));
+        $controller = new UpdateDocumentController($this->principals(), $this->access(), $this->mutations($this->failingOutbox()), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
 
         $this->assertOutboxFailure(fn () => $controller(
             $this->request('PATCH', ['title' => 'Must roll back'], [
@@ -303,6 +307,7 @@ final class DocumentMutationAtomicityTest extends TestCase
             $this->principals(),
             $this->access(),
             $this->mutations($this->failingOutbox(), $facts),
+            $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class),
         );
 
         $this->assertOutboxFailure(fn () => $controller(
@@ -324,7 +329,7 @@ final class DocumentMutationAtomicityTest extends TestCase
 
     public function test_transition_rolls_back_state_idempotency_and_audit_when_outbox_append_fails(): void
     {
-        $controller = new TransitionDocumentController($this->principals(), $this->access(), $this->mutations($this->failingOutbox()));
+        $controller = new TransitionDocumentController($this->principals(), $this->access(), $this->mutations($this->failingOutbox()), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
 
         $this->assertOutboxFailure(fn () => $controller(
             $this->request('POST', ['reason' => 'Retention complete'], [
@@ -355,7 +360,7 @@ final class DocumentMutationAtomicityTest extends TestCase
         };
 
         return new DocumentMutationHandler(
-            new DocumentLinkService($this->access(), $facts),
+            new DocumentLinkService($this->access(), $facts, $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class)),
             $outbox,
             $audit ?? $this->passingAudit(),
         );

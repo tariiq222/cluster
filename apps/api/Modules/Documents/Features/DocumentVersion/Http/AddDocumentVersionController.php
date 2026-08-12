@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use JsonException;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Documents\Application\DocumentAuthorizationFacts;
+use Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder;
 use Modules\Documents\Application\DocumentMetadata;
 use Modules\Documents\Application\IdempotencyContext;
 use Modules\Documents\Application\InitiateDocumentUpload;
@@ -28,6 +29,7 @@ final class AddDocumentVersionController
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
         private readonly DocumentUploadHandler $handler,
+        private readonly DocumentAuthorizationRecordFactsBuilder $documentFacts,
     ) {}
 
     public function __invoke(Request $request, string $documentId): JsonResponse

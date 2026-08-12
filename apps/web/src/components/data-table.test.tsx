@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { render, fireEvent, screen } from '@testing-library/react'
+import { render, fireEvent, screen, createEvent } from '@testing-library/react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from './data-table'
 
@@ -163,5 +163,372 @@ describe('data table', () => {
     expect(scrollContainer).not.toBeNull()
     expect(scrollContainer!.className).toMatch(/\boverflow-x-auto\b/)
     expect(scrollContainer!.className).toMatch(/\bmin-w-0\b/)
+  })
+})
+
+/*
+ * WAVE4-DATATABLE: keyboard accessibility for clickable rows.
+ *
+ * A `<tr>` is not natively focusable and Enter/Space do nothing on it;
+ * the original implementation only attached `onClick`, which left keyboard
+ * users without a way to activate the row. The fix gives the row
+ * `tabindex="0"` and `role="button"` when `onRowClick` is supplied, so
+ * the row joins the tab order and is announced as interactive. The
+ * row's visible cell text becomes the accessible name (no `aria-label`
+ * needed); activation is gated on Enter and Space, isolated from any
+ * interactive descendant so a button inside a cell keeps its own
+ * semantics.
+ */
+describe('data table row keyboard accessibility', () => {
+  it('makes rows focusable and announces them as buttons when onRowClick is supplied', () => {
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        onRowClick={() => {}}
+      />,
+    )
+    const row = container.querySelector('tbody tr')
+    expect(row).not.toBeNull()
+    expect(row!.tagName).toBe('TR')
+    expect(row).toHaveAttribute('tabindex', '0')
+    expect(row).toHaveAttribute('role', 'button')
+  })
+
+  it('does not add interactive semantics to rows when onRowClick is absent', () => {
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+      />,
+    )
+    const rows = container.querySelectorAll('tbody tr')
+    rows.forEach((row) => {
+      expect(row.getAttribute('role')).toBeNull()
+      expect(row.getAttribute('tabindex')).toBeNull()
+    })
+  })
+
+  it('fires onRowClick once when the row receives Enter', () => {
+    const onRowClick = vi.fn()
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        onRowClick={onRowClick}
+      />,
+    )
+    const row = container.querySelector('tbody tr')!
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(onRowClick).toHaveBeenCalledOnce()
+    expect(onRowClick).toHaveBeenCalledWith({ id: '1', name: 'a' })
+  })
+
+  it('fires onRowClick once when the row receives Space (and prevents page scroll)', () => {
+    const onRowClick = vi.fn()
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        onRowClick={onRowClick}
+      />,
+    )
+    const row = container.querySelector('tbody tr')!
+    /*
+     * Build the event explicitly so the test can read `defaultPrevented`
+     * synchronously. `fireEvent.keyDown` discards the underlying event
+     * object before it can be inspected.
+     */
+    const event = createEvent.keyDown(row, { key: ' ' })
+    fireEvent(row, event)
+    expect(onRowClick).toHaveBeenCalledOnce()
+    /*
+     * Space is the page-scroll trigger in browsers; the row handler must
+     * call preventDefault so activating the row does not also scroll the
+     * page.
+     */
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('still fires onRowClick when the row body is clicked with a pointer', () => {
+    const onRowClick = vi.fn()
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        onRowClick={onRowClick}
+      />,
+    )
+    const row = container.querySelector('tbody tr')!
+    fireEvent.click(row)
+    expect(onRowClick).toHaveBeenCalledOnce()
+    expect(onRowClick).toHaveBeenCalledWith({ id: '1', name: 'a' })
+  })
+
+  it('does not fire onRowClick when keyboard activation originates from a descendant button', () => {
+    const onRowClick = vi.fn()
+    const actionColumns: ColumnDef<Row>[] = [
+      { accessorKey: 'name', header: 'Name' },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: () => (
+          <button type="button">Open</button>
+        ),
+      },
+    ]
+    const { container } = render(
+      <DataTable
+        columns={actionColumns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        onRowClick={onRowClick}
+      />,
+    )
+    const innerButton = container.querySelector('tbody tr button')!
+    fireEvent.keyDown(innerButton, { key: 'Enter' })
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onRowClick when a descendant button is clicked with a pointer', () => {
+    const onRowClick = vi.fn()
+    const actionColumns: ColumnDef<Row>[] = [
+      { accessorKey: 'name', header: 'Name' },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: () => (
+          <button type="button">Open</button>
+        ),
+      },
+    ]
+    const { container } = render(
+      <DataTable
+        columns={actionColumns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        onRowClick={onRowClick}
+      />,
+    )
+    const innerButton = container.querySelector('tbody tr button')!
+    fireEvent.click(innerButton)
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onRowClick when keyboard activation originates from a descendant link', () => {
+    const onRowClick = vi.fn()
+    const linkColumns: ColumnDef<Row>[] = [
+      { accessorKey: 'name', header: 'Name' },
+      {
+        id: 'docs',
+        header: 'Docs',
+        cell: () => (
+          <a href="/x">Open docs</a>
+        ),
+      },
+    ]
+    const { container } = render(
+      <DataTable
+        columns={linkColumns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        onRowClick={onRowClick}
+      />,
+    )
+    const link = container.querySelector('tbody tr a')!
+    fireEvent.keyDown(link, { key: 'Enter' })
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('does not add a keyDown handler when onRowClick is absent (Enter does not throw)', () => {
+    /*
+     * Without `onRowClick` the row has no keyDown handler; pressing
+     * Enter must not throw, and the row must remain non-interactive
+     * (no role, no tabindex) so the contract is held.
+     */
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+      />,
+    )
+    const row = container.querySelector('tbody tr')!
+    expect(() => fireEvent.keyDown(row, { key: 'Enter' })).not.toThrow()
+    expect(row.getAttribute('role')).toBeNull()
+    expect(row.getAttribute('tabindex')).toBeNull()
+  })
+})
+
+/*
+ * WAVE4-DATATABLE: toolbar survives the empty state.
+ *
+ * The shared `ResourceBoundary` swallowed the toolbar in the empty
+ * branch — a filtered list with zero rows lost its filters, so the user
+ * had no recovery affordance. The toolbar now sits beside the boundary
+ * and renders whenever filters / recovery controls are useful
+ * (loading / ready / empty). It is still hidden for forbidden,
+ * not-found, conflict, stale, and error, where re-rendering mutating
+ * controls would either leak resource existence or duplicate the
+ * boundary's own affordance.
+ */
+describe('data table toolbar visibility', () => {
+  const toolbar = <div data-testid="custom-toolbar">filter row</div>
+  const empty = <p data-testid="custom-empty">no rows</p>
+
+  it('renders the toolbar alongside empty guidance for the empty state', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={[]}
+        state="empty"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        toolbar={toolbar}
+        empty={empty}
+      />,
+    )
+    expect(screen.getByTestId('custom-toolbar')).toBeInTheDocument()
+    expect(screen.getByTestId('custom-empty')).toBeInTheDocument()
+  })
+
+  it('renders the toolbar alongside the loading skeleton', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={[]}
+        state="loading"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        toolbar={toolbar}
+      />,
+    )
+    expect(screen.getByTestId('custom-toolbar')).toBeInTheDocument()
+    expect(screen.getByTestId('loading-state')).toBeInTheDocument()
+  })
+
+  it('renders the toolbar for the ready state', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={[{ id: '1', name: 'a' }]}
+        state="ready"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        toolbar={toolbar}
+      />,
+    )
+    expect(screen.getByTestId('custom-toolbar')).toBeInTheDocument()
+  })
+
+  it('hides the toolbar for forbidden state so mutating controls never leak', () => {
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[]}
+        state="forbidden"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        toolbar={toolbar}
+      />,
+    )
+    expect(container.querySelector('[data-testid="custom-toolbar"]')).toBeNull()
+  })
+
+  it('hides the toolbar for not-found state so mutating controls never leak', () => {
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[]}
+        state="not-found"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        toolbar={toolbar}
+      />,
+    )
+    expect(container.querySelector('[data-testid="custom-toolbar"]')).toBeNull()
+  })
+
+  it('hides the toolbar for error state — boundary retry button is the sole affordance', () => {
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={[]}
+        state="error"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+        toolbar={toolbar}
+        onRetry={vi.fn()}
+      />,
+    )
+    expect(container.querySelector('[data-testid="custom-toolbar"]')).toBeNull()
   })
 })

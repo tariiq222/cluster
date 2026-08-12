@@ -80,5 +80,97 @@ export default defineConfig(({ command, mode }) => {
           }
         : undefined,
     },
+    /*
+     * Deterministic vendor chunk split (POSTCOMMIT-WEB-WARNINGS). The
+     * default Vite/Rollup output put the React core, all Radix UI
+     * primitives, TanStack Query, the shared icon set, Sonner, and
+     * the app shell into a single 595.97 kB entry chunk — which trips
+     * the 500 kB warning on every build. Grouping node_modules by
+     * package family keeps the entry chunk under the limit and lets
+     * lazy screens (e.g. ReportsMonitoringScreen, which alone pulls
+     * in ~250 kB of recharts) avoid paying for charts they don't use.
+     *
+     * The function-based form is deterministic and avoids the chunk-
+     * graph cycles the static `manualChunks` object form can produce
+     * when a package's path collides with a substring of another
+     * package's path (for example `@radix-ui/react-direction` and the
+     * bare `react/` package — every rule below is anchored to either
+     * a `/node_modules/<scope>/` segment or a specific package path
+     * to keep the assignments unambiguous).
+     */
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined
+
+            // Recharts is a leaf visualization library used only by
+            // DashboardsScreen. Isolating it drops ReportsMonitoringScreen
+            // below the threshold and keeps charts out of the entry chunk.
+            if (id.includes('/recharts/')) return 'vendor-recharts'
+
+            // Radix UI primitives — both the unified `radix-ui` package
+            // and the legacy `@radix-ui/*` namespaced packages. The regex
+            // form is required because `radix-ui` (no scope) is a
+            // different package from `@radix-ui/*`; the leading `@` is
+            // the only signal that distinguishes them on disk.
+            if (
+              id.includes('@radix-ui/')
+              || /[/\\]node_modules[/\\]radix-ui[/\\]/.test(id)
+            ) {
+              return 'vendor-radix'
+            }
+
+            // TanStack Query (data fetching) and TanStack Table (headless
+            // table logic) share the same `@tanstack/` scope; grouping
+            // them avoids splitting the React Query internals across
+            // chunks while a table screen uses them.
+            if (id.includes('@tanstack/')) return 'vendor-tanstack'
+
+            // Icons already split per file under Vite's default. Grouping
+            // them under one named chunk keeps the cache key stable and
+            // signals intent to readers.
+            if (id.includes('/lucide-react/')) return 'vendor-icons'
+
+            // Sonner (toast) is used by the global Toaster and LoginScreen;
+            // it is a self-contained runtime, so it is a clean chunk.
+            if (id.includes('/sonner/')) return 'vendor-sonner'
+
+            // React core: `react`, `react-dom`, `react-router`,
+            // `react-router-dom`, plus the React-owned helpers
+            // (`scheduler`, `react-is`). The paths are anchored so
+            // `@radix-ui/react-*` is never picked up here — those belong
+            // to the Radix chunk above.
+            if (
+              /[/\\]node_modules[/\\]react[/\\]/.test(id)
+              || id.includes('/react-dom/')
+              || id.includes('/react-router-dom/')
+              || id.includes('/react-router/')
+              || id.includes('/scheduler/')
+              || id.includes('/react-is/')
+            ) {
+              return 'vendor-react'
+            }
+
+            // Form state: `react-hook-form` and `@hookform/resolvers`.
+            // LoginScreen (eager) and a handful of lazy screens share
+            // these, so one chunk avoids per-route duplication.
+            if (
+              id.includes('/react-hook-form/')
+              || id.includes('/@hookform/')
+            ) {
+              return 'vendor-forms'
+            }
+
+            // Catch-all for the remaining small packages (zod, clsx,
+            // tailwind-merge, cmdk, class-variance-authority,
+            // next-themes, tw-animate-css, …). One shared chunk avoids
+            // fragmenting tiny modules into many HTTP requests without
+            // pushing any of them into the hot entry chunk.
+            return 'vendor-misc'
+          },
+        },
+      },
+    },
   }
 })

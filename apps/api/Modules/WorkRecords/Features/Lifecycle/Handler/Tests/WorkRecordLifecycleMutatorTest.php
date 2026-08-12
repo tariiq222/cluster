@@ -8,6 +8,7 @@ use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use Modules\WorkRecords\Features\Lifecycle\Handler\WorkRecordLifecycleMutator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Shared\Contracts\TransactionalOutbox;
@@ -23,6 +24,23 @@ final class RecordingTransactionalOutbox implements TransactionalOutbox
     }
 }
 
+final class RecordingLifecycleAccess implements DecideAccess
+{
+    public ?RecordFacts $facts = null;
+
+    public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        $this->facts = $facts;
+
+        return new AccessDecision('allow', $capability, 'work_record', [], 'test', 'test', 'internal');
+    }
+
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
+    }
+}
+
 final class WorkRecordLifecycleMutatorTest extends TestCase
 {
     use RefreshDatabase;
@@ -31,9 +49,13 @@ final class WorkRecordLifecycleMutatorTest extends TestCase
 
     private const FACILITY_ID = '019a0000-0000-7000-8000-000000000102';
 
+    private const CLUSTER_ID = '019a0000-0000-7000-8000-000000000107';
+
     private const USER_ID = '019a0000-0000-7000-8000-000000000103';
 
     private const SUBMITTED_AT = '2026-07-01 10:20:30';
+
+    private ?RecordingLifecycleAccess $lastAccess = null;
 
     #[DataProvider('invalidTransitionProvider')]
     public function test_invalid_transitions_are_rejected_without_mutating_the_record(string $status, string $action): void
@@ -92,6 +114,14 @@ final class WorkRecordLifecycleMutatorTest extends TestCase
             'submitted_at' => self::SUBMITTED_AT,
         ]);
         $this->assertCount(1, $outbox->events);
+        $this->assertNotNull($this->lastAccess?->facts);
+        $this->assertSame(self::FACILITY_ID, $this->lastAccess->facts->ownerFacilityId);
+        $this->assertSame(self::CLUSTER_ID, $this->lastAccess->facts->clusterId);
+        $this->assertSame(self::RECORD_ID, $this->lastAccess->facts->recordId);
+        $this->assertSame(self::USER_ID, $this->lastAccess->facts->createdByUserId);
+        $this->assertSame($status, $this->lastAccess->facts->lifecycleState);
+        $this->assertSame('request', $this->lastAccess->facts->fieldPolicyKey);
+        $this->assertSame(1, $this->lastAccess->facts->lockVersion);
     }
 
     public static function validTransitionProvider(): array
@@ -129,23 +159,13 @@ final class WorkRecordLifecycleMutatorTest extends TestCase
 
     private function mutator(TransactionalOutbox $outbox): WorkRecordLifecycleMutator
     {
-        $access = new class implements DecideAccess
-        {
-            public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
-            {
-                return new AccessDecision('allow', $capability, 'work_record', [], 'test', 'test', 'internal');
-            }
-
-            public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
-            {
-                return $this->decide($actor, $capability, $facts);
-            }
-        };
+        $access = new RecordingLifecycleAccess;
+        $this->lastAccess = $access;
         $ancestry = new class implements ResolveOrganizationScopeAncestry
         {
             public function ancestry(string $scopeType, string $scopeId): array
             {
-                return ['cluster_id' => null, 'facility_id' => $scopeId, 'unit_id' => null];
+                return ['cluster_id' => '019a0000-0000-7000-8000-000000000107', 'facility_id' => $scopeId, 'unit_id' => null];
             }
 
             public function facilityClusterIds(array $facilityIds): array
@@ -154,7 +174,7 @@ final class WorkRecordLifecycleMutatorTest extends TestCase
             }
         };
 
-        return new WorkRecordLifecycleMutator($outbox, $access, $ancestry);
+        return new WorkRecordLifecycleMutator($outbox, $access, new WorkRecordResourceFacts($ancestry));
     }
 
     private function recordingOutbox(): RecordingTransactionalOutbox

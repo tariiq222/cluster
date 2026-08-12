@@ -9,6 +9,93 @@ use stdClass;
 
 final class DatabaseResolvePersonOrganizationScope implements ResolvePersonOrganizationScope
 {
+    /**
+     * @param  list<string>  $personIds
+     * @return array<string, list<array{cluster_id: ?string, facility_id: ?string, organization_unit_id: string}>>
+     */
+    public function forPeople(array $personIds): array
+    {
+        $ids = [];
+        foreach ($personIds as $personId) {
+            if (trim($personId) !== '') {
+                $ids[$personId] = true;
+            }
+        }
+        $ids = array_keys($ids);
+        $relationshipsByPerson = array_fill_keys($ids, []);
+        if ($ids === []) {
+            return $relationshipsByPerson;
+        }
+
+        $activePersonIds = DB::table('people')
+            ->whereIn('id', $ids)
+            ->where('status', '!=', 'left')
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => (string) $id)
+            ->all();
+        if ($activePersonIds === []) {
+            return $relationshipsByPerson;
+        }
+
+        $at = CarbonImmutable::now('UTC')->floorMillisecond()->format('Y-m-d H:i:s.v');
+        /** @var array<string, array<string, true>> $unitIdsByPerson */
+        $unitIdsByPerson = array_fill_keys($activePersonIds, []);
+
+        $assignments = DB::table('assignments as assignment')
+            ->join('positions as position', 'position.id', '=', 'assignment.position_id')
+            ->whereIn('assignment.person_id', $activePersonIds)
+            ->where('assignment.start_at', '<=', $at)
+            ->where(function ($query) use ($at): void {
+                $query->whereNull('assignment.end_at')->orWhere('assignment.end_at', '>', $at);
+            })
+            ->orderBy('assignment.id')
+            ->get(['assignment.person_id', 'position.organization_unit_id']);
+        foreach ($assignments as $assignment) {
+            $personId = (string) $assignment->person_id;
+            $unitId = (string) $assignment->organization_unit_id;
+            $unitIdsByPerson[$personId][$unitId] = true;
+        }
+
+        $temporaries = DB::table('temporary_assignments')
+            ->whereIn('person_id', $activePersonIds)
+            ->where('state', '!=', 'revoked')
+            ->where('start_at', '<=', $at)
+            ->where('end_at', '>', $at)
+            ->orderBy('id')
+            ->get(['person_id', 'organization_unit_id']);
+        foreach ($temporaries as $temporary) {
+            $personId = (string) $temporary->person_id;
+            $unitId = (string) $temporary->organization_unit_id;
+            $unitIdsByPerson[$personId][$unitId] = true;
+        }
+
+        $allUnitIds = [];
+        foreach ($unitIdsByPerson as $unitIds) {
+            foreach (array_keys($unitIds) as $unitId) {
+                $allUnitIds[$unitId] = true;
+            }
+        }
+        $units = $this->loadUnitChain(array_keys($allUnitIds));
+        $facilityIds = [];
+        foreach ($units as $unit) {
+            if ($unit->parent_type === 'facility' && is_string($unit->parent_id) && trim($unit->parent_id) !== '') {
+                $facilityIds[$unit->parent_id] = true;
+            }
+        }
+        $facilities = $this->loadFacilities(array_keys($facilityIds));
+
+        foreach ($unitIdsByPerson as $personId => $unitIds) {
+            foreach (array_keys($unitIds) as $unitId) {
+                $relationship = $this->relationshipForUnit($unitId, $units, $facilities);
+                if ($relationship !== null) {
+                    $relationshipsByPerson[$personId][] = $relationship;
+                }
+            }
+        }
+
+        return $relationshipsByPerson;
+    }
+
     public function forPerson(string $personId): array
     {
         $person = DB::table('people')->where('id', $personId)->first(['status']);
@@ -97,6 +184,54 @@ final class DatabaseResolvePersonOrganizationScope implements ResolvePersonOrgan
         ];
     }
 
+    /**
+     * @param  array<string, stdClass>  $units
+     * @param  array<string, stdClass>  $facilities
+     * @return array{cluster_id: ?string, facility_id: ?string, organization_unit_id: string}|null
+     */
+    private function relationshipForUnit(string $unitId, array $units, array $facilities): ?array
+    {
+        $unit = $units[$unitId] ?? null;
+        if (! $unit instanceof stdClass || ! is_string($unit->cluster_id) || trim($unit->cluster_id) === '') {
+            return null;
+        }
+
+        $current = $unit;
+        $facilityId = null;
+        $seen = [];
+        $guard = count($units) + 1;
+        while ($current->parent_type === 'unit' && $guard-- > 0) {
+            $currentId = (string) $current->id;
+            if (isset($seen[$currentId])) {
+                return null;
+            }
+            $seen[$currentId] = true;
+            $parent = $units[(string) $current->parent_id] ?? null;
+            if (! $parent instanceof stdClass) {
+                return null;
+            }
+            $current = $parent;
+        }
+
+        if ($current->parent_type === 'facility') {
+            $facilityId = is_string($current->parent_id) ? $current->parent_id : null;
+            $facility = $facilityId === null ? null : ($facilities[$facilityId] ?? null);
+            if (! $facility instanceof stdClass
+                || ! is_string($facility->cluster_id)
+                || $facility->cluster_id !== $unit->cluster_id) {
+                return null;
+            }
+        } elseif ($current->parent_type !== 'cluster') {
+            return null;
+        }
+
+        return [
+            'cluster_id' => $unit->cluster_id,
+            'facility_id' => $facilityId,
+            'organization_unit_id' => $unitId,
+        ];
+    }
+
     /** @return array{cluster_ids: list<string>, facility_ids: list<string>, organization_unit_ids: list<string>, primary_organization_unit_id: null} */
     private function emptyScope(): array
     {
@@ -146,6 +281,25 @@ final class DatabaseResolvePersonOrganizationScope implements ResolvePersonOrgan
         }
 
         return $units;
+    }
+
+    /**
+     * @param  list<string>  $facilityIds
+     * @return array<string, stdClass>
+     */
+    private function loadFacilities(array $facilityIds): array
+    {
+        if ($facilityIds === []) {
+            return [];
+        }
+
+        /** @var array<string, stdClass> $facilities */
+        $facilities = [];
+        foreach (DB::table('facilities')->whereIn('id', $facilityIds)->get(['id', 'cluster_id']) as $facility) {
+            $facilities[(string) $facility->id] = $facility;
+        }
+
+        return $facilities;
     }
 
     /**

@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useLocale } from '../../../app/session-context'
+import { usePrincipal } from '../../../app/principal-context'
 import { useNavigate } from '../../../app/navigation-context'
-import { useJobTitles, useOrganizationUnits, usePositions } from '../../../api/hooks'
+import { useAllJobTitles, useAllOrganizationUnits, usePositions } from '../../../api/hooks'
 import { stateFromError } from '../../../api/http'
 import * as generated from '../../../api/generated/cluster'
 import { DataTable } from '@/components/data-table'
@@ -17,12 +18,23 @@ export function PositionsTab() {
   const text = organizationCopy[locale]
   const navigate = useNavigate()
   const capabilities = useCapabilities()
-  const positionsQuery = usePositions()
-  const unitsQuery = useOrganizationUnits()
-  const jobTitlesQuery = useJobTitles()
+  const { scopeEpoch } = usePrincipal()
+  const [pagination, setPagination] = useState({ scopeEpoch, history: [] as string[] })
+  const history = pagination.scopeEpoch === scopeEpoch ? pagination.history : []
+  const cursor = history.at(-1)
+  const positionsQuery = usePositions(cursor)
+  const unitsQuery = useAllOrganizationUnits()
+  const jobTitlesQuery = useAllJobTitles()
+
+  useEffect(() => {
+    setPagination({ scopeEpoch, history: [] })
+  }, [scopeEpoch])
 
   const canManage = capabilities.includes('organization.position.manage')
   const positions = (positionsQuery.data as generated.PositionCollection | undefined)?.items ?? []
+  const nextCursor = positionsQuery.data?.next_cursor ?? null
+  const supportingLabelsLoading = unitsQuery.isLoading || jobTitlesQuery.isLoading
+  const supportingLabelsError = unitsQuery.isError || jobTitlesQuery.isError
 
   const state = positionsQuery.isError
     ? stateFromError(positionsQuery.error)
@@ -47,14 +59,28 @@ export function PositionsTab() {
         accessorKey: 'organization_unit_id',
         header: text.parent,
         cell: ({ row }) => (
-          <span>{units.find((unit) => unit.id === row.original.organization_unit_id)?.name_ar ?? '—'}</span>
+          <span>
+            {unitsQuery.isLoading
+              ? text.loading
+              : unitsQuery.isError
+                ? text.unavailable
+                : units.find((unit) => unit.id === row.original.organization_unit_id)?.name_ar ?? text.unavailable}
+          </span>
         ),
       },
       {
         accessorKey: 'job_title_id',
         header: text.jobTitle,
         cell: ({ row }) => (
-          <span>{jobTitles.find((title) => title.id === row.original.job_title_id)?.title_ar ?? '—'}</span>
+          <span>
+            {!row.original.job_title_id
+              ? '—'
+              : jobTitlesQuery.isLoading
+                ? text.loading
+                : jobTitlesQuery.isError
+                  ? text.unavailable
+                  : jobTitles.find((title) => title.id === row.original.job_title_id)?.title_ar ?? text.unavailable}
+          </span>
         ),
       },
       {
@@ -65,7 +91,7 @@ export function PositionsTab() {
         ),
       },
     ]
-  }, [text, unitsQuery.data, jobTitlesQuery.data])
+  }, [text, unitsQuery.data, unitsQuery.isLoading, unitsQuery.isError, jobTitlesQuery.data, jobTitlesQuery.isLoading, jobTitlesQuery.isError])
 
   return (
     <div className="space-y-4">
@@ -77,14 +103,28 @@ export function PositionsTab() {
           </Button>
         ) : null}
       </div>
+      {supportingLabelsLoading ? (
+        <p role="status" className="text-muted-foreground text-sm">{text.loading}</p>
+      ) : supportingLabelsError ? (
+        <p role="alert" className="text-destructive text-sm">{text.error}</p>
+      ) : null}
       <DataTable
         columns={columns}
         data={positions}
         state={state}
-        nextCursor={null}
-        onNext={() => {}}
-        onPrev={() => {}}
-        canPrev={false}
+        nextCursor={nextCursor}
+        onNext={() => {
+          if (!nextCursor) return
+          setPagination((current) => ({
+            scopeEpoch,
+            history: [...(current.scopeEpoch === scopeEpoch ? current.history : []), nextCursor],
+          }))
+        }}
+        onPrev={() => setPagination((current) => ({
+          scopeEpoch,
+          history: (current.scopeEpoch === scopeEpoch ? current.history : []).slice(0, -1),
+        }))}
+        canPrev={history.length > 0}
         locale={locale}
         empty={<p className="text-muted-foreground py-8 text-center text-sm">{text.noPositions}</p>}
       />

@@ -6,8 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
-use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use Shared\Contracts\TransactionalOutbox;
 
 /**
@@ -33,7 +32,7 @@ final class WorkRecordLifecycleMutator
     public function __construct(
         private readonly TransactionalOutbox $outbox,
         private readonly DecideAccess $access,
-        private readonly ResolveOrganizationScopeAncestry $ancestry,
+        private readonly WorkRecordResourceFacts $factsBuilder,
     ) {}
 
     /**
@@ -52,7 +51,6 @@ final class WorkRecordLifecycleMutator
         }
         $capability = $transition['capability'];
 
-        $ancestry = $this->ancestry->ancestry('facility', (string) $row->owner_facility_id);
         $decision = $this->access->decide(
             [
                 'user_id' => $principal['user_id'],
@@ -61,18 +59,7 @@ final class WorkRecordLifecycleMutator
                 'correlation_id' => $correlationId,
             ],
             $capability,
-            new RecordFacts(
-                ownerFacilityId: $row->owner_facility_id,
-                resourceType: 'work_record',
-                classification: $row->classification,
-                clusterId: $ancestry['cluster_id'] ?? null,
-                recordId: (string) $row->id,
-                createdByUserId: (string) $row->creator_user_id,
-                lifecycleState: (string) $row->status,
-                fieldPolicyKey: $row->field_policy_key ?? null,
-                workTypeVersionId: (string) $row->work_type_version_id,
-                lockVersion: (int) $row->lock_version,
-            ),
+            $this->factsBuilder->forRecord($row),
         );
         if (! $decision->isAllowed()) {
             return ['ok' => false, 'problem' => ['status' => 403, 'type' => 'access-denied', 'detail' => 'Access denied.']];

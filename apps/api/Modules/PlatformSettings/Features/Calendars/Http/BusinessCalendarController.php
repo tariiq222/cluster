@@ -187,12 +187,22 @@ final class BusinessCalendarController
 
         $workingDays = [];
         $weekends = [];
+        $weekdayViews = [];
         foreach ($weekdays as $row) {
-            if ((bool) $row->is_working_day) {
+            $isWorking = (bool) $row->is_working_day;
+            $startsAt = $row->starts_at === null ? null : (string) $row->starts_at;
+            $endsAt = $row->ends_at === null ? null : (string) $row->ends_at;
+            if ($isWorking) {
                 $workingDays[] = (int) $row->weekday;
             } else {
                 $weekends[] = (int) $row->weekday;
             }
+            $weekdayViews[] = [
+                'weekday' => (int) $row->weekday,
+                'is_working_day' => $isWorking,
+                'starts_at' => $startsAt,
+                'ends_at' => $endsAt,
+            ];
         }
 
         $holidays = [];
@@ -219,6 +229,7 @@ final class BusinessCalendarController
             'timezone' => $calendar->timezone,
             'lock_version' => (int) $calendar->lock_version,
             'values' => [
+                'weekdays' => $weekdayViews,
                 'working_days' => $workingDays,
                 'weekends' => $weekends,
                 'holidays' => $holidays,

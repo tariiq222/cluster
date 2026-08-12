@@ -3,8 +3,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useLocale, useSessionToken } from '../../../app/session-context'
+import { usePrincipal } from '../../../app/principal-context'
 import { useNavigate } from '../../../app/navigation-context'
-import { useAssignments, usePeople, usePositions } from '../../../api/hooks'
+import { useAllPeople, useAllPositions, useAssignments } from '../../../api/hooks'
 import { requestInit, stateFromError, unwrap } from '../../../api/http'
 import { formatDate } from '../../../i18n'
 import * as generated from '../../../api/generated/cluster'
@@ -31,14 +32,25 @@ export function AssignmentsTab() {
   const text = organizationCopy[locale]
   const navigate = useNavigate()
   const capabilities = useCapabilities()
-  const assignmentsQuery = useAssignments()
-  const peopleQuery = usePeople()
-  const positionsQuery = usePositions()
+  const { scopeEpoch } = usePrincipal()
+  const [pagination, setPagination] = useState({ scopeEpoch, history: [] as string[] })
+  const history = pagination.scopeEpoch === scopeEpoch ? pagination.history : []
+  const cursor = history.at(-1)
+  const assignmentsQuery = useAssignments(cursor)
+  const peopleQuery = useAllPeople()
+  const positionsQuery = useAllPositions()
   const [ending, setEnding] = useState<generated.Assignment | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  useEffect(() => {
+    setPagination({ scopeEpoch, history: [] })
+  }, [scopeEpoch])
+
   const canManage = capabilities.includes('organization.assignment.manage')
   const assignments = (assignmentsQuery.data as generated.AssignmentCollection | undefined)?.items ?? []
+  const nextCursor = assignmentsQuery.data?.next_cursor ?? null
+  const supportingLabelsLoading = peopleQuery.isLoading || positionsQuery.isLoading
+  const supportingLabelsError = peopleQuery.isError || positionsQuery.isError
 
   const state = assignmentsQuery.isError
     ? stateFromError(assignmentsQuery.error)
@@ -53,14 +65,26 @@ export function AssignmentsTab() {
         accessorKey: 'person_id',
         header: text.person,
         cell: ({ row }) => (
-          <span className="font-medium">{people.find((person) => person.id === row.original.person_id)?.display_name_ar ?? row.original.person_id}</span>
+          <span className="font-medium">
+            {peopleQuery.isLoading
+              ? text.loading
+              : peopleQuery.isError
+                ? text.unavailable
+                : people.find((person) => person.id === row.original.person_id)?.display_name_ar ?? text.unavailable}
+          </span>
         ),
       },
       {
         accessorKey: 'position_id',
         header: text.position,
         cell: ({ row }) => (
-          <span>{positions.find((position) => position.id === row.original.position_id)?.title_ar ?? '—'}</span>
+          <span>
+            {positionsQuery.isLoading
+              ? text.loading
+              : positionsQuery.isError
+                ? text.unavailable
+                : positions.find((position) => position.id === row.original.position_id)?.title_ar ?? text.unavailable}
+          </span>
         ),
       },
       {
@@ -86,7 +110,7 @@ export function AssignmentsTab() {
         cell: ({ row }) => <Badge variant="outline">{assignmentStatusLabel(row.original.status, text)}</Badge>,
       },
     ]
-  }, [locale, text, peopleQuery.data, positionsQuery.data])
+  }, [locale, text, peopleQuery.data, peopleQuery.isLoading, peopleQuery.isError, positionsQuery.data, positionsQuery.isLoading, positionsQuery.isError])
 
   return (
     <div className="space-y-4">
@@ -99,14 +123,28 @@ export function AssignmentsTab() {
           </Button>
         ) : null}
       </div>
+      {supportingLabelsLoading ? (
+        <p role="status" className="text-muted-foreground text-sm">{text.loading}</p>
+      ) : supportingLabelsError ? (
+        <p role="alert" className="text-destructive text-sm">{text.error}</p>
+      ) : null}
       <DataTable
         columns={columns}
         data={assignments}
         state={state}
-        nextCursor={null}
-        onNext={() => {}}
-        onPrev={() => {}}
-        canPrev={false}
+        nextCursor={nextCursor}
+        onNext={() => {
+          if (!nextCursor) return
+          setPagination((current) => ({
+            scopeEpoch,
+            history: [...(current.scopeEpoch === scopeEpoch ? current.history : []), nextCursor],
+          }))
+        }}
+        onPrev={() => setPagination((current) => ({
+          scopeEpoch,
+          history: (current.scopeEpoch === scopeEpoch ? current.history : []).slice(0, -1),
+        }))}
+        canPrev={history.length > 0}
         locale={locale}
         onRowClick={
           canManage

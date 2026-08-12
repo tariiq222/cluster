@@ -17,6 +17,8 @@ class OrganizationScopeFactsTest extends TestCase
 
     private const CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000901';
 
+    private const CORRUPT_CLUSTER_ID = '018f6f7d-0c00-7000-8000-000000000936';
+
     private const FACILITY_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000902';
 
     private const UNIT_TYPE_ID = '018f6f7d-0c00-7000-8000-000000000903';
@@ -116,6 +118,67 @@ class OrganizationScopeFactsTest extends TestCase
             $scope['organization_unit_ids'],
         );
         $this->assertSame(self::UNIT_A_ID, $scope['primary_organization_unit_id']);
+    }
+
+    public function test_batch_scope_returns_authoritative_per_person_unit_facility_and_cluster_relationships(): void
+    {
+        $facilityQueries = 0;
+        DB::listen(static function (object $query) use (&$facilityQueries): void {
+            if (str_contains(strtolower($query->sql), 'facilities')) {
+                $facilityQueries++;
+            }
+        });
+
+        $relationships = (new DatabaseResolvePersonOrganizationScope)->forPeople([
+            self::PERSON_ID,
+            self::SECOND_PERSON_ID,
+        ]);
+
+        $this->assertSame([
+            self::PERSON_ID => [
+                ['cluster_id' => self::CLUSTER_ID, 'facility_id' => self::FACILITY_ID, 'organization_unit_id' => self::UNIT_A_ID],
+                ['cluster_id' => self::CLUSTER_ID, 'facility_id' => self::FACILITY_ID, 'organization_unit_id' => self::UNIT_B_ID],
+                ['cluster_id' => self::CLUSTER_ID, 'facility_id' => null, 'organization_unit_id' => self::UNIT_C_ID],
+            ],
+            self::SECOND_PERSON_ID => [
+                ['cluster_id' => self::CLUSTER_ID, 'facility_id' => self::FACILITY_ID, 'organization_unit_id' => self::UNIT_D_ID],
+            ],
+        ], $relationships);
+        $this->assertSame(1, $facilityQueries, 'facility provenance must be resolved in one batch query.');
+    }
+
+    public function test_batch_scope_fails_closed_when_the_facility_row_is_missing(): void
+    {
+        DB::table('temporary_assignments')->where('id', self::TEMP_ACTIVE_ID)->delete();
+        DB::table('facilities')->where('id', self::FACILITY_ID)->delete();
+
+        $this->assertSame(
+            [self::PERSON_ID => []],
+            (new DatabaseResolvePersonOrganizationScope)->forPeople([self::PERSON_ID]),
+        );
+    }
+
+    public function test_batch_scope_fails_closed_when_facility_cluster_provenance_is_corrupt(): void
+    {
+        DB::table('temporary_assignments')->where('id', self::TEMP_ACTIVE_ID)->delete();
+        DB::table('clusters')->insert([
+            'id' => self::CORRUPT_CLUSTER_ID,
+            'singleton_key' => 2,
+            'code' => 'SCOPE-CORRUPT-CLUSTER',
+            'name_ar' => 'تجمع فاسد للاختبار',
+            'name_en' => 'Corrupt test cluster',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('facilities')->where('id', self::FACILITY_ID)->update([
+            'cluster_id' => self::CORRUPT_CLUSTER_ID,
+        ]);
+
+        $this->assertSame(
+            [self::PERSON_ID => []],
+            (new DatabaseResolvePersonOrganizationScope)->forPeople([self::PERSON_ID]),
+        );
     }
 
     public function test_scope_excludes_ended_assignments_and_expired_or_revoked_temporaries(): void

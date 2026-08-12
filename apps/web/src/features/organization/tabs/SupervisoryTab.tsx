@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useLocale } from '../../../app/session-context'
+import { usePrincipal } from '../../../app/principal-context'
 import { useSupervisoryRelationships } from '../../../api/hooks'
 import { stateFromError } from '../../../api/http'
 import * as generated from '../../../api/generated/cluster'
@@ -20,9 +21,19 @@ export function SupervisoryTab() {
   const locale = useLocale()
   const text = organizationCopy[locale]
   const capabilities = useCapabilities()
-  const supervisoryQuery = useSupervisoryRelationships()
+  const { scopeEpoch } = usePrincipal()
+  const [pagination, setPagination] = useState({ scopeEpoch, history: [] as string[] })
+  const history = pagination.scopeEpoch === scopeEpoch ? pagination.history : []
+  const cursor = history.at(-1)
+  const supervisoryQuery = useSupervisoryRelationships(cursor)
 
-  const canRead = capabilities.includes('organization.supervisory.read')
+  useEffect(() => {
+    setPagination({ scopeEpoch, history: [] })
+  }, [scopeEpoch])
+
+  const canRead = capabilities.includes('organization.unit.read')
+  const nextCursor =
+    (supervisoryQuery.data as generated.EntityCollection | undefined)?.next_cursor ?? null
 
   const rows: SupervisoryRow[] = useMemo(
     () =>
@@ -67,10 +78,19 @@ export function SupervisoryTab() {
         columns={columns}
         data={canRead ? rows : []}
         state={canRead ? state : 'forbidden'}
-        nextCursor={null}
-        onNext={() => {}}
-        onPrev={() => {}}
-        canPrev={false}
+        nextCursor={canRead ? nextCursor : null}
+        onNext={() => {
+          if (!canRead || !nextCursor) return
+          setPagination((current) => ({
+            scopeEpoch,
+            history: [...(current.scopeEpoch === scopeEpoch ? current.history : []), nextCursor],
+          }))
+        }}
+        onPrev={() => setPagination((current) => ({
+          scopeEpoch,
+          history: (current.scopeEpoch === scopeEpoch ? current.history : []).slice(0, -1),
+        }))}
+        canPrev={canRead && history.length > 0}
         locale={locale}
         empty={<p className="text-muted-foreground py-8 text-center text-sm">{text.noSupervisory}</p>}
       />

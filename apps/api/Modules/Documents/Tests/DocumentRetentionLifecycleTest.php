@@ -84,7 +84,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
 
     public function test_metadata_create_serializes_restriction_and_retention_without_conflation(): void
     {
-        $controller = new CreateDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+        $controller = new CreateDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $response = ($controller)($this->jsonRequest('POST', [
             'title' => 'Governed record',
             'description' => 'Metadata-only document',
@@ -120,7 +120,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
     public function test_get_serializes_retention_fields_and_advertises_coherent_actions(): void
     {
         $documentId = $this->seedDocument(['status' => 'active', 'legal_hold' => false, 'retention_until' => '2031-01-01 00:00:00.000000', 'retention_policy_key' => 'administrative_7_years', 'restriction_policy_key' => 'restriction_v1']);
-        $controller = new GetDocumentController($this->principals(), $this->access);
+        $controller = new GetDocumentController($this->principals(), $this->access, $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $response = ($controller)($this->jsonRequest('GET'), $documentId);
 
         $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
@@ -136,7 +136,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
     public function test_archive_is_refused_while_a_legal_hold_is_active(): void
     {
         $documentId = $this->seedDocument(['status' => 'held', 'legal_hold' => true, 'legal_hold_reason' => 'litigation']);
-        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
 
         $response = ($controller)($this->jsonRequest('POST', ['reason' => 'close it'], 'archive-held', self::CORRELATION_ID, '1'), $documentId, 'archive');
         $this->assertSame(Response::HTTP_CONFLICT, $response->getStatusCode());
@@ -147,13 +147,13 @@ final class DocumentRetentionLifecycleTest extends TestCase
     public function test_held_document_does_not_advertise_archive_and_can_release_hold(): void
     {
         $documentId = $this->seedDocument(['status' => 'held', 'legal_hold' => true, 'legal_hold_reason' => 'litigation']);
-        $controller = new GetDocumentController($this->principals(), $this->access);
+        $controller = new GetDocumentController($this->principals(), $this->access, $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $data = (($controller)($this->jsonRequest('GET'), $documentId))->getData(true)['data'];
 
         $this->assertNotContains('archive', $data['allowed_actions']);
         $this->assertContains('release-hold', $data['allowed_actions']);
 
-        $transition = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+        $transition = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $released = ($transition)($this->jsonRequest('POST', ['reason' => 'matter closed'], 'release-held', self::CORRELATION_ID, '1'), $documentId, 'release-hold');
         $this->assertSame(Response::HTTP_OK, $released->getStatusCode());
         $this->assertFalse($released->getData(true)['data']['legal_hold']);
@@ -162,7 +162,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
     public function test_hold_actions_are_refused_on_archived_documents_and_unarchive_restores(): void
     {
         $documentId = $this->seedDocument(['status' => 'archived']);
-        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
 
         $placeHold = ($controller)($this->jsonRequest('POST', ['reason' => 'late hold'], 'place-on-archived', self::CORRELATION_ID, '1'), $documentId, 'place-hold');
         $this->assertSame(Response::HTTP_CONFLICT, $placeHold->getStatusCode());
@@ -182,7 +182,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
     {
         $documentId = $this->seedDocument(['status' => 'archived']);
         $this->seedVersion($documentId);
-        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
 
         $unarchive = ($controller)($this->jsonRequest('POST', ['reason' => 'reopen'], 'unarchive-versioned', self::CORRELATION_ID, '1'), $documentId, 'unarchive');
         $this->assertSame(Response::HTTP_OK, $unarchive->getStatusCode());
@@ -197,7 +197,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
             'retention_until' => '2020-01-01 00:00:00.000000',
             'retention_policy_key' => 'administrative_7_years',
         ]);
-        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+        $controller = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $unarchive = ($controller)($this->jsonRequest('POST', ['reason' => 'reopen'], 'unarchive-expired', self::CORRELATION_ID, '1'), $documentId, 'unarchive');
         $this->assertSame(Response::HTTP_OK, $unarchive->getStatusCode());
         $this->assertSame('draft', $unarchive->getData(true)['data']['status']);
@@ -210,14 +210,14 @@ final class DocumentRetentionLifecycleTest extends TestCase
     public function test_archived_document_advertises_unarchive_and_archive_is_idempotent_conflict(): void
     {
         $documentId = $this->seedDocument(['status' => 'archived']);
-        $controller = new GetDocumentController($this->principals(), $this->access);
+        $controller = new GetDocumentController($this->principals(), $this->access, $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $data = (($controller)($this->jsonRequest('GET'), $documentId))->getData(true)['data'];
 
         $this->assertContains('unarchive', $data['allowed_actions']);
         $this->assertNotContains('archive', $data['allowed_actions']);
         $this->assertNotContains('place-hold', $data['allowed_actions']);
 
-        $transition = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class));
+        $transition = new TransitionDocumentController($this->principals(), $this->access, $this->app->make(DocumentMutationHandler::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $response = ($transition)($this->jsonRequest('POST', ['reason' => 'again'], 'archive-archived', self::CORRELATION_ID, '1'), $documentId, 'archive');
         $this->assertSame(Response::HTTP_CONFLICT, $response->getStatusCode());
     }
@@ -323,6 +323,7 @@ final class DocumentRetentionLifecycleTest extends TestCase
                     return new RecordFacts('018f6f7d-0c00-7000-8000-000000000801', $reference->sourceType, 'confidential');
                 }
             },
+            $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class),
             new class implements DocumentDownloadGrantIssuer
             {
                 public function issue(string $documentId, string $versionId, string $principalId): DocumentDownloadGrant

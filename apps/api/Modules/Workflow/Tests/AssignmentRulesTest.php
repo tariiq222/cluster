@@ -72,6 +72,15 @@ final class AssignmentRulesTest extends TestCase
                     'primary_organization_unit_id' => 'unit-x',
                 ];
             }
+
+            public function forPeople(array $personIds): array
+            {
+                return array_fill_keys($personIds, [[
+                    'cluster_id' => 'cluster-x',
+                    'facility_id' => 'facility-x',
+                    'organization_unit_id' => 'unit-x',
+                ]]);
+            }
         };
         $users = new class($supervisorPerson, $supervisorUser) implements ResolveUserForPerson
         {
@@ -187,6 +196,15 @@ final class AssignmentRulesTest extends TestCase
                     'organization_unit_ids' => [$this->unitId],
                     'primary_organization_unit_id' => $this->unitId,
                 ];
+            }
+
+            public function forPeople(array $personIds): array
+            {
+                return array_fill_keys($personIds, [[
+                    'cluster_id' => 'cluster-x',
+                    'facility_id' => 'facility-x',
+                    'organization_unit_id' => $this->unitId,
+                ]]);
             }
         };
     }

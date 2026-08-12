@@ -97,7 +97,21 @@ export interface PlatformHolidayEntry {
   reason?: string | null
 }
 
+/**
+ * Read projection sourced from the persisted `business_calendar_weekdays` rows.
+ * `starts_at` and `ends_at` are null when `is_working_day` is false; working
+ * days carry the stored times exactly as saved so edit screens can reseed
+ * without losing the existing schedule.
+ */
+export interface BusinessCalendarWeekdayView {
+  weekday: number
+  is_working_day: boolean
+  starts_at: string | null
+  ends_at: string | null
+}
+
 export interface BusinessCalendarValues {
+  weekdays?: BusinessCalendarWeekdayView[]
   working_days?: number[]
   weekends?: number[]
   holidays?: PlatformHolidayEntry[]

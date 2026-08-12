@@ -43,11 +43,11 @@ export function OrganizationScreen() {
     { key: 'structure', labelKey: 'structureTab', capability: 'organization.unit.read', render: () => <StructureTab /> },
     { key: 'facilities', labelKey: 'facilitiesTab', capability: 'organization.facility.read', render: () => <FacilitiesTab /> },
     { key: 'positions', labelKey: 'positionsTab', capability: 'organization.position.read', render: () => <PositionsTab /> },
-    { key: 'job-titles', labelKey: 'jobTitlesTab', capability: 'organization.job_title.read', render: () => <JobTitlesTab /> },
+    { key: 'job-titles', labelKey: 'jobTitlesTab', capability: 'organization.position.read', render: () => <JobTitlesTab /> },
     { key: 'people', labelKey: 'peopleTab', capability: 'organization.person.read', render: () => <PeopleTab /> },
     { key: 'assignments', labelKey: 'assignmentsTab', capability: 'organization.assignment.read', render: () => <AssignmentsTab /> },
-    { key: 'temporary', labelKey: 'temporaryTab', capability: 'organization.temporary_assignment.read', render: () => <TemporaryAssignmentsTab /> },
-    { key: 'supervisory', labelKey: 'supervisoryTab', capability: 'organization.supervisory.read', render: () => <SupervisoryTab /> },
+    { key: 'temporary', labelKey: 'temporaryTab', capability: 'organization.temporary-assignment.read', render: () => <TemporaryAssignmentsTab /> },
+    { key: 'supervisory', labelKey: 'supervisoryTab', capability: 'organization.unit.read', render: () => <SupervisoryTab /> },
     { key: 'cluster', labelKey: 'clusterTab', capability: 'organization.cluster.read', render: () => <ClusterTab /> },
   ]
   const visible = tabs.filter((tab) => can(tab.capability))

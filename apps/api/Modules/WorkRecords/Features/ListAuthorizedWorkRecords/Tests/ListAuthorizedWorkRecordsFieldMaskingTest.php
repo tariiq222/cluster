@@ -10,6 +10,7 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler;
 use Tests\TestCase;
 
@@ -97,7 +98,7 @@ final class ListAuthorizedWorkRecordsFieldMaskingTest extends TestCase
                 return [];
             }
         };
-        $handler = new ListAuthorizedWorkRecordsHandler($decider, $ancestry, $facilityScopes);
+        $handler = new ListAuthorizedWorkRecordsHandler($decider, $ancestry, $facilityScopes, new WorkRecordResourceFacts($ancestry));
 
         $page = $handler->handle(['user_id' => self::PRINCIPAL_ID, 'facility_id' => self::FACILITY_ID], null, 10, 'confidential');
 
@@ -108,11 +109,21 @@ final class ListAuthorizedWorkRecordsFieldMaskingTest extends TestCase
             $this->assertArrayNotHasKey('internal_memo', $item['payload']);
             $this->assertSame('***', $item['payload']['description']);
         }
+        $this->assertNotNull($decider->lastFacts);
+        $this->assertSame(self::FACILITY_ID, $decider->lastFacts->ownerFacilityId);
+        $this->assertSame(self::CLUSTER_ID, $decider->lastFacts->clusterId);
+        $this->assertSame('confidential', $decider->lastFacts->classification);
+        $this->assertSame('submitted', $decider->lastFacts->lifecycleState);
+        $this->assertSame(self::FIELD_POLICY_KEY, $decider->lastFacts->fieldPolicyKey);
+        $this->assertSame('0197f0e0-0000-7000-8000-000000000001', $decider->lastFacts->workTypeVersionId);
+        $this->assertSame(1, $decider->lastFacts->lockVersion);
     }
 }
 
 final class ListFieldPolicyDecider implements DecideAccess
 {
+    public ?RecordFacts $lastFacts = null;
+
     /**
      * Test doubles persist nothing, so the read-side evaluation IS decide().
      */
@@ -123,6 +134,8 @@ final class ListFieldPolicyDecider implements DecideAccess
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
+        $this->lastFacts = $facts;
+
         return new AccessDecision(
             decision: 'allow',
             action: $capability,

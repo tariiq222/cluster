@@ -256,6 +256,65 @@ final class PlatformSettingsHttpAdapterTest extends TestCase
         $this->assertSame('08:00', DB::table('business_calendar_weekdays')->where('business_calendar_id', $calendarId)->value('starts_at'));
     }
 
+    public function test_calendar_listing_exposes_weekday_hours_for_seeded_schedules(): void
+    {
+        $calendarId = '0197f0e0-0000-7000-8000-000000000901';
+        DB::table('business_calendars')->insert([
+            'id' => $calendarId, 'scope_type' => 'platform', 'scope_id' => 'platform',
+            'parent_calendar_id' => null, 'status' => 'draft', 'timezone' => 'Asia/Riyadh',
+            'lock_version' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('business_calendar_weekdays')->insert([
+            'id' => '0197f0e0-0000-7000-8000-000000000902',
+            'business_calendar_id' => $calendarId, 'weekday' => 1,
+            'is_working_day' => true, 'starts_at' => '08:00', 'ends_at' => '16:00',
+            'lock_version' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('business_calendar_weekdays')->insert([
+            'id' => '0197f0e0-0000-7000-8000-000000000903',
+            'business_calendar_id' => $calendarId, 'weekday' => 6,
+            'is_working_day' => false, 'starts_at' => null, 'ends_at' => null,
+            'lock_version' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $controller = new BusinessCalendarController($this->api(), new BusinessCalendarHandler(new DatabaseBusinessCalendars(static fn (): ?array => null)));
+        $response = $controller->index($this->request('GET', '/platform-settings/calendars'));
+
+        $this->assertSame(200, $response->getStatusCode());
+        $items = $response->getData(true)['items'];
+        $this->assertCount(1, $items);
+        $weekdays = $items[0]['values']['weekdays'];
+        $this->assertCount(2, $weekdays);
+
+        $byWeekday = [];
+        foreach ($weekdays as $entry) {
+            $byWeekday[$entry['weekday']] = $entry;
+        }
+        $this->assertSame(['weekday' => 1, 'is_working_day' => true, 'starts_at' => '08:00', 'ends_at' => '16:00'], $byWeekday[1]);
+        $this->assertSame(['weekday' => 6, 'is_working_day' => false, 'starts_at' => null, 'ends_at' => null], $byWeekday[6]);
+    }
+
+    public function test_calendar_weekday_set_then_list_preserves_existing_hours_in_projection(): void
+    {
+        $calendarId = '0197f0e0-0000-7000-8000-000000000904';
+        DB::table('business_calendars')->insert([
+            'id' => $calendarId, 'scope_type' => 'platform', 'scope_id' => 'platform',
+            'parent_calendar_id' => null, 'status' => 'draft', 'timezone' => 'Asia/Riyadh',
+            'lock_version' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $controller = new BusinessCalendarController($this->api(), new BusinessCalendarHandler(new DatabaseBusinessCalendars(static fn (): ?array => null)));
+        $put = $this->request('PUT', "/platform-settings/calendars/{$calendarId}/weekdays/1");
+        $put->headers->set('If-Match', '"1"');
+        $put->merge(['is_working_day' => true, 'starts_at' => '08:00', 'ends_at' => '16:00']);
+        $this->assertSame(200, $controller->setWeekday($put, $calendarId, 1)->getStatusCode());
+
+        $response = $controller->index($this->request('GET', '/platform-settings/calendars'));
+        $weekdays = $response->getData(true)['items'][0]['values']['weekdays'];
+
+        $this->assertCount(1, $weekdays);
+        $this->assertSame(['weekday' => 1, 'is_working_day' => true, 'starts_at' => '08:00', 'ends_at' => '16:00'], $weekdays[0]);
+    }
+
     public function test_calendar_mutation_is_denied_when_the_target_facility_scope_is_not_authorized(): void
     {
         $calendarId = '0197f0e0-0000-7000-8000-000000000892';

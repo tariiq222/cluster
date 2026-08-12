@@ -25,7 +25,7 @@ export function JobTitleCreateScreen() {
   const text = organizationCopy[locale]
   const capabilities = useCapabilities()
 
-  const canManage = capabilities.includes('organization.job_title.manage')
+  const canManage = capabilities.includes('organization.position.manage')
 
   const [code, setCode] = useState('')
   const [title, setTitle] = useState('')

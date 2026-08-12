@@ -51,7 +51,7 @@ function shell(
 describe('app shell navigation', () => {
   it('omits work-management destinations entirely when the flag is off', () => {
     const { container } = shell(
-      ['work_management.record.read', 'workflow.step.read'],
+      ['work_record.list', 'workflow.read'],
       { work_management: false, tasks: true },
     )
     // Absent, not disabled, and with no explanatory text — the API answers 404
@@ -64,10 +64,20 @@ describe('app shell navigation', () => {
 
   it('shows work-management destinations when the flag is on and capability is held', () => {
     const { container } = shell(
-      ['work_management.record.read', 'workflow.step.read'],
+      ['work_record.list', 'workflow.read'],
       { work_management: true, tasks: true },
     )
     expect(container.textContent).toContain('سجلات العمل')
+    expect(container.textContent).toContain('صندوق الموافقات')
+  })
+
+  it('omits the inbox destination when workflow.read is missing even with the flag on', () => {
+    const { container } = shell(
+      ['work_record.list'],
+      { work_management: true, tasks: true },
+    )
+    expect(container.textContent).toContain('سجلات العمل')
+    expect(container.textContent).not.toContain('صندوق الموافقات')
   })
 
   it('omits a destination when the capability is missing even with the flag on', () => {

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder;
 use Modules\Documents\Application\DocumentMutationHandler;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
@@ -27,6 +28,7 @@ final class CreateDocumentController
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
         private readonly DocumentMutationHandler $mutations,
+        private readonly DocumentAuthorizationRecordFactsBuilder $documentFacts,
     ) {}
 
     public function __invoke(Request $request): JsonResponse

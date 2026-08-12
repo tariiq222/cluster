@@ -2,6 +2,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { SessionProvider } from '../../app/session-context'
 import { MeScreen } from './MeScreen'
 
@@ -54,14 +55,28 @@ beforeEach(() => {
   principalState.selectScope = defaultSelectScope
 })
 
-function mount(client: QueryClient) {
+function mount(client: QueryClient, initialEntries: string[] = ['/me']) {
   return render(
     <QueryClientProvider client={client}>
       <SessionProvider session={session} locale="ar" setLocale={() => {}}>
-        <MeScreen />
+        <MemoryRouter initialEntries={initialEntries}>
+          <MeScreen />
+          <LocationProbe />
+        </MemoryRouter>
       </SessionProvider>
     </QueryClientProvider>,
   )
+}
+
+/*
+ * The hook writes through `setSearchParams` which is internal to the
+ * memory router; `window.location` is not affected. A child probe reads
+ * the live `useLocation` and exposes the search string so the test can
+ * assert the URL-backed tab contract from the visible surface.
+ */
+function LocationProbe() {
+  const location = useLocation()
+  return <span data-testid="location-search">{location.search}</span>
 }
 
 describe('MeScreen workspace', () => {
@@ -122,5 +137,116 @@ describe('MeScreen workspace', () => {
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
+  })
+})
+
+/*
+ * URL-backed tab contract for MeScreen: the active tab is part of the
+ * route so a deep link, a refresh, a back/forward navigation, and a
+ * legacy `/me/security` / `/me/access` redirect all open the right tab
+ * without losing intent. An invalid `?tab=` value must fall back to
+ * the default instead of pinning a tab that no panel exists for.
+ */
+describe('MeScreen URL-backed tab', () => {
+  it('opens the security tab by default when the query is absent', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    mount(client, ['/me'])
+    expect(
+      await screen.findByRole('tab', { name: 'أماني', selected: true }),
+    ).toBeInTheDocument()
+  })
+
+  it('opens the access tab when ?tab=access is present in the URL', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    mount(client, ['/me?tab=access'])
+    expect(
+      await screen.findByRole('tab', { name: 'صلاحياتي ونطاقاتي', selected: true }),
+    ).toBeInTheDocument()
+  })
+
+  it('opens the security tab when ?tab=security is present in the URL', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    mount(client, ['/me?tab=security'])
+    expect(
+      await screen.findByRole('tab', { name: 'أماني', selected: true }),
+    ).toBeInTheDocument()
+  })
+
+  it('normalizes an invalid ?tab= value to the default security tab', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    mount(client, ['/me?tab=foo'])
+    expect(
+      await screen.findByRole('tab', { name: 'أماني', selected: true }),
+    ).toBeInTheDocument()
+  })
+
+  it('writes ?tab=access to the URL when the access tab is activated', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    mount(client, ['/me'])
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'صلاحياتي ونطاقاتي' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'صلاحياتي ونطاقاتي' }))
+    await waitFor(() => {
+      expect(screen.getByTestId('location-search')).toHaveTextContent(
+        '?tab=access',
+      )
+    })
+  })
+
+  it('applies external URL changes so back/forward navigates the tab', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { unmount } = render(
+      <QueryClientProvider client={client}>
+        <SessionProvider session={session} locale="ar" setLocale={() => {}}>
+          <MemoryRouter initialEntries={['/me?tab=security']}>
+            <MeScreen />
+          </MemoryRouter>
+        </SessionProvider>
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByRole('tab', { name: 'أماني', selected: true }),
+    ).toBeInTheDocument()
+    unmount()
+    render(
+      <QueryClientProvider client={client}>
+        <SessionProvider session={session} locale="ar" setLocale={() => {}}>
+          <MemoryRouter initialEntries={['/me?tab=access']}>
+            <MeScreen />
+          </MemoryRouter>
+        </SessionProvider>
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByRole('tab', { name: 'صلاحياتي ونطاقاتي', selected: true }),
+    ).toBeInTheDocument()
+  })
+
+  it('falls back to the default when the query is stripped externally', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { unmount } = render(
+      <QueryClientProvider client={client}>
+        <SessionProvider session={session} locale="ar" setLocale={() => {}}>
+          <MemoryRouter initialEntries={['/me?tab=access']}>
+            <MeScreen />
+          </MemoryRouter>
+        </SessionProvider>
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByRole('tab', { name: 'صلاحياتي ونطاقاتي', selected: true }),
+    ).toBeInTheDocument()
+    unmount()
+    render(
+      <QueryClientProvider client={client}>
+        <SessionProvider session={session} locale="ar" setLocale={() => {}}>
+          <MemoryRouter initialEntries={['/me']}>
+            <MeScreen />
+          </MemoryRouter>
+        </SessionProvider>
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByRole('tab', { name: 'أماني', selected: true }),
+    ).toBeInTheDocument()
   })
 })

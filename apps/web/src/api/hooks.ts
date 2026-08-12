@@ -185,31 +185,35 @@ export function useCluster() {
   })
 }
 
-export function useFacilities() {
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['facilities'] as const,
-    queryFn: async () => unwrap(await generated.listFacilities({ limit: 100 }, requestInit(null))),
+export function useFacilities(cursor?: string) {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.FacilityCollection>({
+    queryKey: ['facilities', cursor ?? null, scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listFacilities({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
   })
 }
 
-export function useOrganizationUnits() {
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['organization-units'] as const,
-    queryFn: async () => unwrap(await generated.listOrganizationUnits({ limit: 100 }, requestInit(null))),
+export function useOrganizationUnits(cursor?: string) {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.OrganizationUnitCollection>({
+    queryKey: ['organization-units', cursor ?? null, scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listOrganizationUnits({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
   })
 }
 
-export function usePositions() {
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['positions'] as const,
-    queryFn: async () => unwrap(await generated.listPositions({ limit: 100 }, requestInit(null))),
+export function usePositions(cursor?: string) {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.PositionCollection>({
+    queryKey: ['positions', cursor ?? null, scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listPositions({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
   })
 }
 
-export function useJobTitles() {
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['job-titles'] as const,
-    queryFn: async () => unwrap(await generated.listJobTitles({ limit: 100 }, requestInit(null))),
+export function useJobTitles(cursor?: string) {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.JobTitleCollection>({
+    queryKey: ['job-titles', cursor ?? null, scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listJobTitles({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
   })
 }
 
@@ -219,19 +223,95 @@ export function useJobTitles() {
  * page when there are more selectable employees available.
  */
 export function usePeople(cursor?: string) {
+  const { scopeEpoch } = useAuth()
   return useQuery<{
     items: generated.Person[]
     next_cursor: string | null
   }>({
-    queryKey: ['people', cursor ?? null] as const,
+    queryKey: ['people', cursor ?? null, scopeEpoch] as const,
     queryFn: async () => listPeopleCursor(cursor),
   })
 }
 
-export function useAssignments() {
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['assignments'] as const,
-    queryFn: async () => unwrap(await generated.listAssignments({ limit: 100 }, requestInit(null))),
+export function useAssignments(cursor?: string) {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.AssignmentCollection>({
+    queryKey: ['assignments', cursor ?? null, scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listAssignments({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
+  })
+}
+
+/*
+ * Relationship labels can live beyond the first API page. These bounded
+ * lookup queries deliberately walk every cursor page so a valid relation is
+ * never rendered as a dash or UUID merely because its label was truncated.
+ * Repeated cursors and an upper page bound convert a malformed cursor chain
+ * into an explicit query error rather than an infinite request loop.
+ */
+type CursorCollection<T> = { items: T[]; next_cursor: string | null }
+
+export const ORGANIZATION_LOOKUP_MAX_PAGES = 100
+
+export async function listAllOrganizationPages<T>(
+  fetchPage: (cursor?: string) => Promise<CursorCollection<T>>,
+): Promise<CursorCollection<T>> {
+  const items: T[] = []
+  const seenCursors = new Set<string>()
+  let cursor: string | undefined
+
+  for (let pageNumber = 0; pageNumber < ORGANIZATION_LOOKUP_MAX_PAGES; pageNumber += 1) {
+    const page = await fetchPage(cursor)
+    items.push(...page.items)
+
+    if (!page.next_cursor) return { items, next_cursor: null }
+    if (seenCursors.has(page.next_cursor)) {
+      throw new Error('Organization label lookup returned a repeated cursor')
+    }
+
+    seenCursors.add(page.next_cursor)
+    cursor = page.next_cursor
+  }
+
+  throw new Error('Organization label lookup exceeded the page safety limit')
+}
+
+export function useAllOrganizationUnits() {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.OrganizationUnitCollection>({
+    queryKey: ['organization-units', 'all', scopeEpoch] as const,
+    queryFn: () => listAllOrganizationPages(async (cursor) =>
+      unwrap(await generated.listOrganizationUnits({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
+    ),
+  })
+}
+
+export function useAllPositions() {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.PositionCollection>({
+    queryKey: ['positions', 'all', scopeEpoch] as const,
+    queryFn: () => listAllOrganizationPages(async (cursor) =>
+      unwrap(await generated.listPositions({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
+    ),
+  })
+}
+
+export function useAllJobTitles() {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.JobTitleCollection>({
+    queryKey: ['job-titles', 'all', scopeEpoch] as const,
+    queryFn: () => listAllOrganizationPages(async (cursor) =>
+      unwrap(await generated.listJobTitles({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
+    ),
+  })
+}
+
+export function useAllPeople() {
+  const { scopeEpoch } = useAuth()
+  return useQuery<generated.PersonCollection>({
+    queryKey: ['people', 'all', scopeEpoch] as const,
+    queryFn: () => listAllOrganizationPages(async (cursor) =>
+      unwrap(await generated.listPeople({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
+    ),
   })
 }
 
@@ -321,20 +401,24 @@ export function useSearch(query: string, enabled: boolean) {
 
 /* ============ Organization: temporary assignments ============ */
 
-export function useTemporaryAssignments() {
+export function useTemporaryAssignments(cursor?: string) {
   const { scopeEpoch } = useAuth()
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['temporary-assignments', scopeEpoch] as const,
-    queryFn: async () => unwrap(await generated.listTemporaryAssignments({ limit: 100, organization_unit_id: '*' }, requestInit(null))),
+  return useQuery<generated.TemporaryAssignmentCollection>({
+    queryKey: ['temporary-assignments', '*', cursor ?? null, scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listTemporaryAssignments({
+      limit: 100,
+      organization_unit_id: '*',
+      ...(cursor ? { cursor } : {}),
+    }, requestInit(null))),
   })
 }
 
 /* ============ Organization: supervisory relationships ============ */
 
-export function useSupervisoryRelationships() {
+export function useSupervisoryRelationships(cursor?: string) {
   const { scopeEpoch } = useAuth()
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['supervisory-relationships', scopeEpoch] as const,
-    queryFn: async () => unwrap(await generated.listSupervisoryRelationships({ limit: 100 }, requestInit(null))),
+  return useQuery<generated.EntityCollection>({
+    queryKey: ['supervisory-relationships', cursor ?? null, scopeEpoch] as const,
+    queryFn: async () => unwrap(await generated.listSupervisoryRelationships({ limit: 100, ...(cursor ? { cursor } : {}) }, requestInit(null))),
   })
 }

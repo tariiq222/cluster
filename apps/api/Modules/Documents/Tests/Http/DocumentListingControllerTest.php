@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder;
 use Modules\Documents\Features\DocumentLifecycle\Http\ListDocumentsController;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Tests\TestCase;
@@ -78,6 +79,7 @@ final class DocumentListingControllerTest extends TestCase
                     return new AccessDecision($allowed ? 'allow' : 'deny', $capability, 'document', [], 'test-policy', 'test-facts', (string) $facts?->classification);
                 }
             },
+            $this->app->make(DocumentAuthorizationRecordFactsBuilder::class),
         );
 
         $first = $controller($this->request(['limit' => 1]));
