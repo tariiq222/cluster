@@ -29,6 +29,10 @@ final class WorkRecordDocumentLinkControllerTest extends TestCase
 
     private const FACILITY_ID = '019a0000-0000-7000-8000-000000000206';
 
+    private const CLUSTER_ID = '019a0000-0000-7000-8000-00000000020a';
+
+    private const FACILITY_TYPE_ID = '019a0000-0000-7000-8000-00000000020b';
+
     private const USER_ID = '019a0000-0000-7000-8000-000000000207';
 
     private const CORRELATION_ID = '019a0000-0000-7000-8000-000000000208';
@@ -36,6 +40,38 @@ final class WorkRecordDocumentLinkControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $now = now();
+        DB::table('clusters')->insert([
+            'id' => self::CLUSTER_ID,
+            'singleton_key' => 1,
+            'code' => 'WR-DOCUMENT-LINK-CLUSTER',
+            'name_ar' => 'تجمع ربط السجلات',
+            'name_en' => 'Work record document-link cluster',
+            'status' => 'active',
+            'lock_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('facility_types')->insert([
+            'id' => self::FACILITY_TYPE_ID,
+            'code' => 'work_record_document_link_facility',
+            'name_ar' => 'منشأة ربط السجلات',
+            'is_active' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('facilities')->insert([
+            'id' => self::FACILITY_ID,
+            'cluster_id' => self::CLUSTER_ID,
+            'facility_type_id' => self::FACILITY_TYPE_ID,
+            'code' => 'WR-DOCUMENT-LINK-FACILITY',
+            'name_ar' => 'منشأة ربط السجلات',
+            'name_en' => 'Work record document-link facility',
+            'status' => 'active',
+            'lock_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
         $this->seedDocument();
         $this->app->instance(ResolveDevelopmentFixturePrincipal::class, $this->principals());
         $this->app->instance(DecideAccess::class, $this->allowingAccess());
@@ -89,6 +125,16 @@ final class WorkRecordDocumentLinkControllerTest extends TestCase
             'status' => 'active',
         ]);
         $this->assertDatabaseCount('work_record_idempotency_keys', 1);
+        $access = $this->app->make(DecideAccess::class);
+        $this->assertInstanceOf(RecordingDocumentLinkAccess::class, $access);
+        $this->assertNotNull($access->facts);
+        $this->assertSame(self::FACILITY_ID, $access->facts->ownerFacilityId);
+        $this->assertSame(self::CLUSTER_ID, $access->facts->clusterId);
+        $this->assertSame(self::RECORD_ID, $access->facts->recordId);
+        $this->assertSame(self::USER_ID, $access->facts->createdByUserId);
+        $this->assertSame('submitted', $access->facts->lifecycleState);
+        $this->assertSame('request', $access->facts->fieldPolicyKey);
+        $this->assertSame(1, $access->facts->lockVersion);
     }
 
     private function controller(): WorkRecordDocumentLinkController
@@ -209,17 +255,23 @@ final class WorkRecordDocumentLinkControllerTest extends TestCase
 
     private function allowingAccess(): DecideAccess
     {
-        return new class implements DecideAccess
-        {
-            public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
-            {
-                return new AccessDecision('allow', $capability, 'work_record', [], 'test', 'test', 'internal');
-            }
+        return new RecordingDocumentLinkAccess;
+    }
+}
 
-            public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
-            {
-                return $this->decide($actor, $capability, $facts);
-            }
-        };
+final class RecordingDocumentLinkAccess implements DecideAccess
+{
+    public ?RecordFacts $facts = null;
+
+    public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        $this->facts = $facts;
+
+        return new AccessDecision('allow', $capability, 'work_record', [], 'test', 'test', 'internal');
+    }
+
+    public function evaluateOnly(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
+    {
+        return $this->decide($actor, $capability, $facts);
     }
 }

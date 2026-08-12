@@ -4,7 +4,7 @@ title: Backend Endpoint Inventory
 type: engineering
 status: accepted
 version: 1.0.0
-date: 2026-08-03
+date: 2026-08-13
 owner: مكتب هندسة البرمجيات
 reviewers:
   - مكتب هندسة المنصة
@@ -1189,7 +1189,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-organization-people:get:listpeoplecontroller`](rbac-matrix.md#row-197); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_organization_people_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_organization_people_response` (schema placeholder).
-- **Status codes:** `400, 401, 403`.
+- **Status codes:** `400, 401`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Organization\Features\Person\Http\ListPeopleController`.
 - **Controller source:** `apps/api/Modules/Organization/Features/Person/Http/ListPeopleController.php`.
@@ -1221,7 +1221,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-organization-people-personId-reference:get:getpersonreferencecontroller`](rbac-matrix.md#row-199); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_organization_people_personId_reference_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_organization_people_personId_reference_response` (schema placeholder).
-- **Status codes:** `400, 401, 403, 404`.
+- **Status codes:** `400, 401, 404`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Organization\Features\Person\Http\GetPersonReferenceController`.
 - **Controller source:** `apps/api/Modules/Organization/Features/Person/Http/GetPersonReferenceController.php`.
@@ -1237,7 +1237,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-organization-people-personId:get:getpersoncontroller`](rbac-matrix.md#row-200); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/get_api_v1_organization_people_personId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/get_api_v1_organization_people_personId_response` (schema placeholder).
-- **Status codes:** `400, 401, 403, 404`.
+- **Status codes:** `400, 401, 404`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Organization\Features\Person\Http\GetPersonController`.
 - **Controller source:** `apps/api/Modules/Organization/Features/Person/Http/GetPersonController.php`.
@@ -1253,7 +1253,7 @@ Arabic summaries remain as inline placeholders for the dedicated translation sli
 - **RBAC row:** [`api-v1-organization-people-personId:patch:updatepersoncontroller`](rbac-matrix.md#row-201); principal required: `yes`.
 - **Request `$ref`:** `#/components/schemas/patch_api_v1_organization_people_personId_request` (schema placeholder).
 - **Response `$ref`:** `#/components/schemas/patch_api_v1_organization_people_personId_response` (schema placeholder).
-- **Status codes:** `400, 401, 403, 404, 409, 412, 500`.
+- **Status codes:** `400, 401, 404, 409, 412, 500`.
 - **Throttle:** `default / none declared`.
 - **Controller FQCN:** `Modules\Organization\Features\Person\Http\UpdatePersonController`.
 - **Controller source:** `apps/api/Modules/Organization/Features/Person/Http/UpdatePersonController.php`.

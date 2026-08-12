@@ -365,7 +365,7 @@ describe('PositionsTab pagination', () => {
 
 describe('JobTitlesTab pagination', () => {
   beforeEach(() => {
-    principal.capabilities = ['organization.job_title.read']
+    principal.capabilities = ['organization.position.read']
   })
 
   it('forwards the cursor to the hook on each navigation', async () => {
@@ -381,6 +381,17 @@ describe('JobTitlesTab pagination', () => {
     await clickAndDrain('prev', 'p2')
     expect(collapseInitialDouble(queries.calls.jobTitles)).toEqual(['null', 'p2', 'p3', 'p2', 'null'])
     expect(captured[captured.length - 1].canPrev).toBe(false)
+  })
+
+  it('shows the add action only when the manage capability is held', () => {
+    setPage('jobTitles', [], null)
+    principal.capabilities = ['organization.position.read']
+    mountTab(<JobTitlesTab />)
+    expect(screen.queryByRole('button', { name: 'إضافة مسمى وظيفي' })).toBeNull()
+
+    principal.capabilities = ['organization.position.read', 'organization.position.manage']
+    mountTab(<JobTitlesTab />)
+    expect(screen.getByRole('button', { name: 'إضافة مسمى وظيفي' })).toBeInTheDocument()
   })
 })
 
@@ -460,7 +471,7 @@ describe('TemporaryAssignmentsTab pagination', () => {
   })
 
   it('paginated 3-page pattern forwards the cursor at every step', async () => {
-    principal.capabilities = ['organization.temporary_assignment.read']
+    principal.capabilities = ['organization.temporary-assignment.read']
     setPage('temporaryAssignments', [{ id: 't1' }], 'p2')
     mountTab(<TemporaryAssignmentsTab />)
     setPage('temporaryAssignments', [{ id: 't2' }], 'p3')
@@ -476,7 +487,7 @@ describe('TemporaryAssignmentsTab pagination', () => {
 
 describe('SupervisoryTab pagination', () => {
   beforeEach(() => {
-    principal.capabilities = ['organization.supervisory.read']
+    principal.capabilities = ['organization.unit.read']
   })
 
   it('forwards the cursor to the hook on each navigation', async () => {

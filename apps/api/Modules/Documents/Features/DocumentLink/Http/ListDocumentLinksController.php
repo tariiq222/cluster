@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder;
 use Modules\Documents\Http\DocumentsApi;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 
@@ -17,6 +18,7 @@ final class ListDocumentLinksController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principals,
         private readonly DecideAccess $access,
+        private readonly DocumentAuthorizationRecordFactsBuilder $documentFacts,
     ) {}
 
     public function __invoke(Request $request, string $documentId): JsonResponse

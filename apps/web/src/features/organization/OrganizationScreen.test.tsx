@@ -63,7 +63,21 @@ describe('organization workspace', () => {
     expect(screen.getByRole('tab', { name: 'المنشآت' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'الموظفون' })).toBeNull()
     expect(screen.queryByRole('tab', { name: 'الوظائف' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'المسميات الوظيفية' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'التكليفات المؤقتة' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'العلاقات الإشرافية' })).toBeNull()
     expect(screen.queryByRole('tab', { name: 'إعداد المجمّع' })).toBeNull()
+  })
+
+  it('shows job-title, temporary, and supervisory tabs under their real catalog capabilities', () => {
+    mount([
+      'organization.position.read',
+      'organization.temporary-assignment.read',
+      'organization.unit.read',
+    ])
+    expect(screen.getByRole('tab', { name: 'المسميات الوظيفية' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'التكليفات المؤقتة' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'العلاقات الإشرافية' })).toBeInTheDocument()
   })
 
   it('labels the tab list accessibly', () => {

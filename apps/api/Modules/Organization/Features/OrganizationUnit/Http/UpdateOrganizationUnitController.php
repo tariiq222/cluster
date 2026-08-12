@@ -97,6 +97,8 @@ final class UpdateOrganizationUnitController
                 'organization_unit_not_found' => OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit is not available.', $correlationId),
                 'precondition_failed' => OrganizationApi::problem(412, 'precondition-failed', 'Precondition Failed', 'If-Match does not match the current organization unit version.', $correlationId),
                 'organization_unit_cycle' => OrganizationApi::problem(409, 'organization-unit-cycle', 'Conflict', 'An organization unit cannot move below itself or its descendant.', $correlationId),
+                'organization_unit_owner_root_mismatch' => OrganizationApi::problem(409, 'organization-unit-owner-root-mismatch', 'Conflict', 'The organization unit cannot be moved across ownership roots.', $correlationId),
+                'organization_unit_owner_root_unresolved' => OrganizationApi::problem(409, 'organization-unit-conflict', 'Conflict', 'The organization unit cannot be updated.', $correlationId),
                 'invalid_organization_unit_transition' => OrganizationApi::problem(409, 'invalid-organization-unit-transition', 'Conflict', 'The organization unit status transition is not allowed.', $correlationId),
                 default => OrganizationApi::problem(409, 'organization-unit-conflict', 'Conflict', 'The organization unit cannot be updated.', $correlationId),
             };

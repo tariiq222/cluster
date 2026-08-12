@@ -227,12 +227,15 @@ class IdentityProvisioningConsumerTest extends TestCase
 
     private function createPerson(string $token): string
     {
-        return (string) $this->withToken($token)->postJson('/api/v1/organization/people', [
+        $personId = (string) $this->withToken($token)->postJson('/api/v1/organization/people', [
             'employee_number' => 'EMP-CONSUMER-001',
             'display_name_ar' => 'موظف المستهلك',
             'display_name_en' => 'Consumer Employee',
             'status' => 'active',
         ], $this->writeHeaders('consumer-person'))->assertCreated()->json('data.id');
+        $this->assignPersonToFixtureOrganization($personId);
+
+        return $personId;
     }
 
     private function createAccount(string $token, string $personId): string

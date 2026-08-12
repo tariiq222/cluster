@@ -26,7 +26,7 @@ export function TemporaryAssignmentsTab() {
     setPagination({ scopeEpoch, history: [] })
   }, [scopeEpoch])
 
-  const canRead = capabilities.includes('organization.temporary_assignment.read')
+  const canRead = capabilities.includes('organization.temporary-assignment.read')
   const items = (temporaryQuery.data as generated.TemporaryAssignmentCollection | undefined)?.items ?? []
   const nextCursor = temporaryQuery.data?.next_cursor ?? null
 

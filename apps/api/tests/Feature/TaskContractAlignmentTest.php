@@ -16,6 +16,7 @@ final class TaskContractAlignmentTest extends TestCase
 
     public function test_task_create_and_patch_match_the_openapi_contract(): void
     {
+        $this->seedFixtureOrganization();
         $headers = ['X-Correlation-ID' => self::C];
         $login = $this->postJson('/api/v1/auth/login', [
             'username' => 'fixture-account-a',

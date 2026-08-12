@@ -189,7 +189,7 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
       ...(features.tasks && can('tasks.list')
         ? [{ path: '/tasks', label: copy.tasks, icon: ListTodo }]
         : []),
-      ...(features.work_management && can('work_management.record.read')
+      ...(features.work_management && can('work_record.list')
         ? [
             {
               path: '/work-records',
@@ -198,7 +198,7 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
             },
           ]
         : []),
-      ...(features.work_management && can('workflow.step.read')
+      ...(features.work_management && can('workflow.read')
         ? [{ path: '/inbox', label: copy.inbox, icon: Inbox }]
         : []),
       ...(can('documents.list')

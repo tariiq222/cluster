@@ -31,7 +31,7 @@ export function SupervisoryTab() {
     setPagination({ scopeEpoch, history: [] })
   }, [scopeEpoch])
 
-  const canRead = capabilities.includes('organization.supervisory.read')
+  const canRead = capabilities.includes('organization.unit.read')
   const nextCursor =
     (supervisoryQuery.data as generated.EntityCollection | undefined)?.next_cursor ?? null
 

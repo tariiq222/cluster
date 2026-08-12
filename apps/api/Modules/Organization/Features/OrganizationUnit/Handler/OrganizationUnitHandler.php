@@ -191,6 +191,19 @@ final class OrganizationUnitHandler
                 && ($parent['id'] === $unitId || str_starts_with($parent['path'].'/', (string) $row->path_cache.'/'))) {
                 throw new DomainException('organization_unit_cycle');
             }
+            $currentOwnerRoot = $this->resolveOwnerRoot(
+                (string) $row->cluster_id,
+                (string) $row->parent_type,
+                (string) $row->parent_id,
+            );
+            $proposedOwnerRoot = $this->resolveOwnerRoot(
+                (string) $row->cluster_id,
+                $parent['type'],
+                $parent['id'],
+            );
+            if ($currentOwnerRoot !== $proposedOwnerRoot) {
+                throw new DomainException('organization_unit_owner_root_mismatch');
+            }
 
             $name = $changes['name'] ?? $row->name_ar;
             $status = $changes['status'] ?? $row->status;
@@ -447,6 +460,48 @@ final class OrganizationUnitHandler
         }
 
         throw new InvalidArgumentException('Organization unit parent is invalid.');
+    }
+
+    /** @return array{type: 'cluster'|'facility', id: string} */
+    private function resolveOwnerRoot(string $clusterId, string $parentType, string $parentId): array
+    {
+        $seen = [];
+        $ancestorCount = 0;
+
+        while (true) {
+            if ($parentType === 'cluster') {
+                if ($parentId !== $clusterId) {
+                    throw new DomainException('organization_unit_owner_root_unresolved');
+                }
+
+                return ['type' => 'cluster', 'id' => $clusterId];
+            }
+
+            if ($parentType === 'facility') {
+                $facility = DB::table('facilities')->where('id', $parentId)->first();
+                if (! $facility instanceof stdClass || (string) $facility->cluster_id !== $clusterId) {
+                    throw new DomainException('organization_unit_owner_root_unresolved');
+                }
+
+                return ['type' => 'facility', 'id' => $parentId];
+            }
+
+            if ($parentType !== 'unit'
+                || $ancestorCount >= 32
+                || isset($seen[$parentId])) {
+                throw new DomainException('organization_unit_owner_root_unresolved');
+            }
+            $seen[$parentId] = true;
+            $ancestorCount++;
+
+            $unit = DB::table('organization_units')->where('id', $parentId)->first();
+            if (! $unit instanceof stdClass || (string) $unit->cluster_id !== $clusterId) {
+                throw new DomainException('organization_unit_owner_root_unresolved');
+            }
+
+            $parentType = (string) $unit->parent_type;
+            $parentId = (string) $unit->parent_id;
+        }
     }
 
     private function allowsTransition(string $from, string $to): bool

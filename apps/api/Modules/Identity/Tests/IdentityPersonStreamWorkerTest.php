@@ -27,6 +27,7 @@ class IdentityPersonStreamWorkerTest extends TestCase
             'status' => 'active',
         ], [...$this->headers(), 'Idempotency-Key' => 'stream-person'])->assertCreated();
         $personId = (string) $personResponse->json('data.id');
+        $this->assignPersonToFixtureOrganization($personId);
 
         $transport = new InMemoryRedisStreamTransport;
         $this->app->instance(RedisStreamTransport::class, $transport);

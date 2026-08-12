@@ -14,6 +14,7 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use stdClass;
 
 final class ListAuthorizedWorkRecordsHandler
@@ -22,6 +23,7 @@ final class ListAuthorizedWorkRecordsHandler
         private readonly DecideAccess $access,
         private readonly ResolveOrganizationScopeAncestry $ancestry,
         private readonly ResolveActiveFacilityScopesForUser $facilityScopes,
+        private readonly WorkRecordResourceFacts $factsBuilder,
     ) {}
 
     /**
@@ -151,22 +153,8 @@ final class ListAuthorizedWorkRecordsHandler
     private function factsFor(stdClass $row, array $clusterIdsByFacility): RecordFacts
     {
         $facilityId = (string) $row->owner_facility_id;
-        $clusterId = array_key_exists($facilityId, $clusterIdsByFacility)
-            ? $clusterIdsByFacility[$facilityId]
-            : ($this->ancestry->ancestry('facility', $facilityId)['cluster_id'] ?? null);
 
-        return new RecordFacts(
-            ownerFacilityId: $row->owner_facility_id,
-            resourceType: 'work_record',
-            classification: $row->classification,
-            clusterId: is_string($clusterId) ? $clusterId : null,
-            recordId: (string) $row->id,
-            createdByUserId: (string) $row->creator_user_id,
-            lifecycleState: (string) $row->status,
-            fieldPolicyKey: $row->field_policy_key ?? null,
-            workTypeVersionId: (string) $row->work_type_version_id,
-            lockVersion: (int) $row->lock_version,
-        );
+        return $this->factsBuilder->forRecord($row, $clusterIdsByFacility);
     }
 
     private function timestamp(?string $value): ?string

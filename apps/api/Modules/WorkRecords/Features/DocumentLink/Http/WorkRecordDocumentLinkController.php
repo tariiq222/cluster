@@ -8,10 +8,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Documents\Contracts\DocumentSourceReference;
 use Modules\Documents\Contracts\LinkDocument;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use Modules\WorkRecords\Domain\WorkRecordIdempotencyConflict;
 use Modules\WorkRecords\Infrastructure\Persistence\WorkRecordDocumentLinkIdempotency;
 
@@ -26,6 +26,7 @@ final class WorkRecordDocumentLinkController
         private readonly LinkDocument $links,
         private readonly WorkRecordDocumentLinkIdempotency $idempotency,
         private readonly DecideAccess $access,
+        private readonly WorkRecordResourceFacts $factsBuilder,
     ) {}
 
     public function __invoke(Request $request, string $recordId): JsonResponse
@@ -78,14 +79,7 @@ final class WorkRecordDocumentLinkController
         $decision = $this->access->decide(
             $this->actor($principal, $correlationId),
             'work_record.read',
-            new RecordFacts(
-                ownerFacilityId: (string) $record->owner_facility_id,
-                resourceType: 'work_record',
-                classification: (string) $record->classification,
-                fieldPolicyKey: isset($record->field_policy_key) && is_string($record->field_policy_key)
-                    ? $record->field_policy_key
-                    : null,
-            ),
+            $this->factsBuilder->forRecord($record),
         );
         if (! $decision->isAllowed()) {
             return $this->problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);

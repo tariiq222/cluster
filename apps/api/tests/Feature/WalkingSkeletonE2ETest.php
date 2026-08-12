@@ -22,6 +22,12 @@ class WalkingSkeletonE2ETest extends TestCase
 
     private const ACCOUNT_B_CORRELATION_ID = '018f6f7d-0c00-7000-8000-000000000002';
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seedFixtureOrganization();
+    }
+
     public function test_accounts_create_list_and_read_only_their_own_requests(): void
     {
         $this->requireHttpSlices();

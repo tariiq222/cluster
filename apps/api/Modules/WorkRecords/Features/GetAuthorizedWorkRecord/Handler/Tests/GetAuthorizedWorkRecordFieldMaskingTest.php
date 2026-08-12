@@ -8,6 +8,7 @@ use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler;
 use Tests\TestCase;
 
@@ -85,7 +86,7 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
     {
         $decider = new FieldPolicyDecider;
         $ancestry = new SingleAncestry(self::CLUSTER_ID, self::FACILITY_ID);
-        $handler = new GetAuthorizedWorkRecordHandler($decider, $ancestry);
+        $handler = new GetAuthorizedWorkRecordHandler($decider, new WorkRecordResourceFacts($ancestry));
 
         $result = $handler->handle(
             ['user_id' => self::PRINCIPAL_ID, 'facility_id' => self::FACILITY_ID],
@@ -101,6 +102,14 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
         $this->assertArrayNotHasKey('budget_amount', $result['payload'], 'mask field should be visible as masked');
         $this->assertArrayNotHasKey('internal_memo', $result['payload'], 'hide field should be hidden');
         $this->assertArrayNotHasKey('unmapped', $result['payload'], 'unmapped field should follow wildcard (hidden)');
+        $this->assertNotNull($decider->lastFacts);
+        $this->assertSame(self::FACILITY_ID, $decider->lastFacts->ownerFacilityId);
+        $this->assertSame(self::CLUSTER_ID, $decider->lastFacts->clusterId);
+        $this->assertSame(self::RECORD_ID, $decider->lastFacts->recordId);
+        $this->assertSame(self::PRINCIPAL_ID, $decider->lastFacts->createdByUserId);
+        $this->assertSame('submitted', $decider->lastFacts->lifecycleState);
+        $this->assertSame(self::FIELD_POLICY_KEY, $decider->lastFacts->fieldPolicyKey);
+        $this->assertSame(1, $decider->lastFacts->lockVersion);
     }
 
     public function test_handler_preserves_raw_value_only_for_unmasked_unhidden_fields(): void
@@ -110,7 +119,7 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
             'payload.budget_amount' => 'masked',
         ]);
         $ancestry = new SingleAncestry(self::CLUSTER_ID, self::FACILITY_ID);
-        $handler = new GetAuthorizedWorkRecordHandler($decider, $ancestry);
+        $handler = new GetAuthorizedWorkRecordHandler($decider, new WorkRecordResourceFacts($ancestry));
 
         $result = $handler->handle(
             ['user_id' => self::PRINCIPAL_ID, 'facility_id' => self::FACILITY_ID],
@@ -120,11 +129,16 @@ final class GetAuthorizedWorkRecordFieldMaskingTest extends TestCase
         $this->assertNotNull($result);
         $this->assertSame('public summary', $result['payload']['summary']);
         $this->assertSame('***', $result['payload']['budget_amount']);
+        $this->assertNotNull($decider->lastFacts);
+        $this->assertSame(self::FACILITY_ID, $decider->lastFacts->ownerFacilityId);
+        $this->assertSame(self::CLUSTER_ID, $decider->lastFacts->clusterId);
     }
 }
 
 final class FieldPolicyDecider implements DecideAccess
 {
+    public ?RecordFacts $lastFacts = null;
+
     /** @param array<string, string>|null $overrideAccess */
     public function __construct(private ?array $overrideAccess = null) {}
 
@@ -138,6 +152,8 @@ final class FieldPolicyDecider implements DecideAccess
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
+        $this->lastFacts = $facts;
+
         $defaultAccess = [
             'payload.summary' => 'readonly',
             'payload.budget_amount' => 'masked',

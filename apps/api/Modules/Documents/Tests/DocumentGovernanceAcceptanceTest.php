@@ -63,7 +63,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
         [$started, $storage, $handler] = $this->availableDocument('internal', 'clean-available');
         $access = new AcceptanceDecideAccess;
         $facts = new AcceptanceLinkedFacts;
-        $link = new DocumentLinkService($access, $facts);
+        $link = new DocumentLinkService($access, $facts, $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
 
         $linkId = $link->link(
             $started->documentId,
@@ -91,7 +91,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
     public function test_duplicate_link_returns_the_persisted_id_and_different_policy_conflicts(): void
     {
         [$started] = $this->availableDocument('internal', 'duplicate-link');
-        $service = new DocumentLinkService(new AcceptanceDecideAccess, new AcceptanceLinkedFacts);
+        $service = new DocumentLinkService(new AcceptanceDecideAccess, new AcceptanceLinkedFacts, $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
         $reference = new DocumentSourceReference('work_records', 'work_record', self::RECORD_ID);
 
         $first = $service->link($started->documentId, $reference, 'attachment', self::CREATOR_ID, self::OWNER_ID, 'policy-a');
@@ -240,6 +240,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
         return new DocumentDownloadService(
             $access,
             $facts,
+            $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class),
             new class implements DocumentDownloadGrantIssuer
             {
                 public function issue(string $documentId, string $versionId, string $principalId): DocumentDownloadGrant

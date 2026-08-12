@@ -287,4 +287,13 @@ final class FakePersonOrganizationScope implements ResolvePersonOrganizationScop
 
         return $this->scope;
     }
+
+    public function forPeople(array $personIds): array
+    {
+        return array_fill_keys($personIds, [[
+            'cluster_id' => $this->scope['cluster_ids'][0] ?? null,
+            'facility_id' => $this->scope['facility_ids'][0] ?? null,
+            'organization_unit_id' => $this->scope['organization_unit_ids'][0] ?? 'unit-unknown',
+        ]]);
+    }
 }

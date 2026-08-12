@@ -6,6 +6,7 @@ namespace Modules\Tasks\Application;
 
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
 use stdClass;
 
@@ -26,6 +27,7 @@ final class TaskAccessPolicy
     public function __construct(
         private readonly DecideAccess $access,
         private readonly TaskHttpStore $store,
+        private readonly ResolveOrganizationScopeAncestry $ancestry,
     ) {}
 
     /**
@@ -67,18 +69,34 @@ final class TaskAccessPolicy
      */
     public function factsFor(stdClass $task, array $participants): RecordFacts
     {
+        $ancestry = $this->resolveOwnerAncestry($task);
+
         return new RecordFacts(
-            ownerFacilityId: $task->owner_organization_unit_id !== null ? (string) $task->owner_organization_unit_id : null,
+            ownerFacilityId: $ancestry['facility_id'] ?? null,
             resourceType: 'task',
             classification: (string) ($task->classification ?? 'internal'),
-            organizationUnitId: $task->owner_organization_unit_id !== null ? (string) $task->owner_organization_unit_id : null,
+            organizationUnitId: $ancestry['unit_id'] ?? null,
             recordId: (string) $task->id,
+            clusterId: $ancestry['cluster_id'] ?? null,
             createdByUserId: (string) $task->created_by_user_id,
             responsibleUserId: (string) $task->assignee_user_id,
             participantIds: array_values(array_filter($participants, 'is_string')),
             lifecycleState: (string) $task->status,
             lockVersion: (int) $task->lock_version,
         );
+    }
+
+    /** @return array{cluster_id: ?string, facility_id: ?string, unit_id: ?string}|null */
+    private function resolveOwnerAncestry(stdClass $task): ?array
+    {
+        if ($task->owner_organization_unit_id === null) {
+            return null;
+        }
+
+        $ownerId = (string) $task->owner_organization_unit_id;
+
+        return $this->ancestry->ancestry('unit', $ownerId)
+            ?? $this->ancestry->ancestry('facility', $ownerId);
     }
 
     private function supportsAction(string $state, string $action, bool $isCreator, bool $isAssignee, bool $isParticipant): bool

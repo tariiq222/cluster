@@ -28,7 +28,7 @@ export function JobTitlesTab() {
     setPagination({ scopeEpoch, history: [] })
   }, [scopeEpoch])
 
-  const canManage = capabilities.includes('organization.job_title.manage')
+  const canManage = capabilities.includes('organization.position.manage')
   const jobTitles = (jobTitlesQuery.data as generated.JobTitleCollection | undefined)?.items ?? []
   const nextCursor = jobTitlesQuery.data?.next_cursor ?? null
 

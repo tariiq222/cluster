@@ -4,7 +4,7 @@ title: RBAC Matrix
 type: engineering
 status: accepted
 version: 1.0.0
-date: 2026-08-03
+date: 2026-08-13
 owner: مكتب هندسة البرمجيات
 reviewers:
   - مكتب هندسة المنصة
@@ -101,7 +101,7 @@ references:
 | `organization.position.manage` | `used` | `apps/api/Modules/Organization/Features/JobTitle/Http/CreateJobTitleController.php`<br>`apps/api/Modules/Organization/Features/Position/Http/CreatePositionController.php`<br>`apps/api/Modules/Organization/Features/Position/Http/UpdatePositionController.php` |
 | `organization.position.read` | `used` | `apps/api/Modules/Organization/Features/JobTitle/Http/ListJobTitlesController.php`<br>`apps/api/Modules/Organization/Features/Position/Http/GetPositionController.php`<br>`apps/api/Modules/Organization/Features/Position/Http/ListPositionsController.php` |
 | `organization.person.manage` | `used` | `apps/api/Modules/Organization/Features/Person/Http/CreatePersonController.php`<br>`apps/api/Modules/Organization/Features/Person/Http/UpdatePersonController.php` |
-| `organization.person.read` | `used` | `apps/api/Modules/Organization/Features/Person/Http/GetPersonController.php`<br>`apps/api/Modules/Organization/Features/Person/Http/ListPeopleController.php` |
+| `organization.person.read` | `used` | `apps/api/Modules/Organization/Features/Person/Handler/PersonHandler.php`<br>`apps/api/Modules/Organization/Features/Person/Http/GetPersonController.php` |
 | `organization.person.reference` | `used` | `apps/api/Modules/Organization/Features/Person/Http/GetPersonReferenceController.php` |
 | `organization.assignment.manage` | `used` | `apps/api/Modules/Organization/Features/Assignment/Http/CreateAssignmentController.php`<br>`apps/api/Modules/Organization/Features/Assignment/Http/EndAssignmentController.php` |
 | `organization.assignment.read` | `used` | `apps/api/Modules/Organization/Features/Assignment/Http/ListAssignmentsController.php` |
@@ -196,6 +196,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - `ListAuthorizedWorkRecordsController`
 - `ListDocumentsController`
 - `ListMyScopesController`
+- `ListPeopleController`
 - `ListUserAccountsController`
 - `MarkNotificationReadController`
 - `ReconcileDocumentPromotionController`
@@ -905,8 +906,8 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **Endpoint tag:** `api-v1-organization-people:get:listpeoplecontroller`
 - **Controller:** `ListPeopleController`
 - **Controller source:** `apps/api/Modules/Organization/Features/Person/Http/ListPeopleController.php`
-- **Capability:** `organization.person.read`
-- **Capability check:** `controller-local`
+- **Capability:** `UNVERIFIED — no controller-local capability check`
+- **Capability check:** `missing-controller-local-check`
 - **Middleware:** `identity_session → require_identity_session_principal`
 - **Session:** `yes`
 - **Principal:** `yes`

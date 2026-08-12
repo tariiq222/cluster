@@ -19,6 +19,7 @@ final class DocumentLinkService implements LinkDocument
     public function __construct(
         private readonly DecideAccess $access,
         private readonly LinkedResourceAuthorizationFacts $resourceFacts,
+        private readonly DocumentAuthorizationRecordFactsBuilder $documentFacts,
     ) {}
 
     public function link(
@@ -45,7 +46,7 @@ final class DocumentLinkService implements LinkDocument
         $this->assertAllowed(
             ['user_id' => $principalId, 'facility_id' => $facilityId],
             'documents.link',
-            new RecordFacts((string) $document->owner_organization_unit_id, 'document', (string) $document->classification),
+            $this->documentFacts->forDocument($document),
         );
         $facts = $this->resourceFacts->resolve($reference);
         if ($facts === null) {

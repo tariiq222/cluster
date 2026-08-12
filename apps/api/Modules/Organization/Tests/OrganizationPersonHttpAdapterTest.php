@@ -30,6 +30,7 @@ class OrganizationPersonHttpAdapterTest extends TestCase
             ->assertJsonPath('data.person_version', 1);
         $personId = $person->json('data.id');
         $this->assertIsString($personId);
+        $this->assignPersonToFixtureOrganization($personId);
 
         $this->assertTrue(Schema::hasColumns('people', [
             'national_id_ciphertext',
@@ -96,6 +97,7 @@ class OrganizationPersonHttpAdapterTest extends TestCase
             ->postJson('/api/v1/organization/people', $body, $this->writeHeaders('stable-person'))
             ->assertCreated();
         $personId = (string) $first->json('data.id');
+        $this->assignPersonToFixtureOrganization($personId);
         $storedReplay = DB::table('organization_idempotency_keys')->value('response_payload');
         $this->assertIsString($storedReplay);
         $this->assertSame($first->json('data'), json_decode($storedReplay, true, 32, JSON_THROW_ON_ERROR));
@@ -224,11 +226,12 @@ class OrganizationPersonHttpAdapterTest extends TestCase
     {
         $token = $this->loginToken();
         foreach (range(1, 3) as $number) {
-            $this->withToken($token)->postJson('/api/v1/organization/people', [
+            $personId = (string) $this->withToken($token)->postJson('/api/v1/organization/people', [
                 'employee_number' => "EMP-00{$number}",
                 'display_name_ar' => "موظف {$number}",
                 'status' => 'active',
-            ], $this->writeHeaders("person-page-{$number}"))->assertCreated();
+            ], $this->writeHeaders("person-page-{$number}"))->assertCreated()->json('data.id');
+            $this->assignPersonToFixtureOrganization($personId);
         }
 
         $first = $this->withToken($token)
@@ -295,10 +298,13 @@ class OrganizationPersonHttpAdapterTest extends TestCase
 
     private function createPerson(string $token): string
     {
-        return (string) $this->withToken($token)
+        $personId = (string) $this->withToken($token)
             ->postJson('/api/v1/organization/people', $this->personBody(), $this->writeHeaders('person-for-update'))
             ->assertCreated()
             ->json('data.id');
+        $this->assignPersonToFixtureOrganization($personId);
+
+        return $personId;
     }
 
     private function loginToken(

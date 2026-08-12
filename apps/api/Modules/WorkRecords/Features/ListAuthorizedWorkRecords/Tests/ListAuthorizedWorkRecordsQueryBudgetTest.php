@@ -10,6 +10,7 @@ use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler;
 use Tests\TestCase;
 
@@ -111,7 +112,7 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
             }
         };
         $facilityScopes = $this->app->make(ResolveActiveFacilityScopesForUser::class);
-        $handler = new ListAuthorizedWorkRecordsHandler($access, $ancestry, $facilityScopes);
+        $handler = new ListAuthorizedWorkRecordsHandler($access, $ancestry, $facilityScopes, new WorkRecordResourceFacts($ancestry));
 
         DB::flushQueryLog();
         DB::enableQueryLog();
@@ -168,7 +169,7 @@ final class ListAuthorizedWorkRecordsQueryBudgetTest extends TestCase
         };
 
         $facilityScopes = $this->app->make(ResolveActiveFacilityScopesForUser::class);
-        $handler = new ListAuthorizedWorkRecordsHandler($access, $ancestry, $facilityScopes);
+        $handler = new ListAuthorizedWorkRecordsHandler($access, $ancestry, $facilityScopes, new WorkRecordResourceFacts($ancestry));
 
         for ($i = 0; $i < 12; $i++) {
             DB::table('work_records')->insert([

@@ -8,14 +8,14 @@ use Illuminate\Support\Facades\DB;
 use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
-use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\WorkRecords\Application\WorkRecordResourceFacts;
 use stdClass;
 
 final class GetAuthorizedWorkRecordHandler
 {
     public function __construct(
         private readonly DecideAccess $access,
-        private readonly ResolveOrganizationScopeAncestry $ancestry,
+        private readonly WorkRecordResourceFacts $factsBuilder,
     ) {}
 
     /**
@@ -81,20 +81,7 @@ final class GetAuthorizedWorkRecordHandler
 
     private function factsFor(stdClass $row): RecordFacts
     {
-        $ancestry = $this->ancestry->ancestry('facility', (string) $row->owner_facility_id);
-
-        return new RecordFacts(
-            ownerFacilityId: $row->owner_facility_id,
-            resourceType: 'work_record',
-            classification: $row->classification,
-            clusterId: $ancestry['cluster_id'] ?? null,
-            recordId: (string) $row->id,
-            createdByUserId: (string) $row->creator_user_id,
-            lifecycleState: (string) $row->status,
-            fieldPolicyKey: $row->field_policy_key ?? null,
-            workTypeVersionId: (string) $row->work_type_version_id,
-            lockVersion: (int) $row->lock_version,
-        );
+        return $this->factsBuilder->forRecord($row);
     }
 
     private function timestamp(string $value): string

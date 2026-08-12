@@ -6,7 +6,6 @@ namespace Modules\Audit\Tests;
 
 use Closure;
 use DateTimeImmutable;
-use DateTimeZone;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -1134,7 +1133,7 @@ final class AuditIntegrityTest extends TestCase
 
     private function legalCutoff(): DateTimeImmutable
     {
-        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $now = now('UTC')->toDateTimeImmutable();
 
         return $now->modify('-'.(string) (\Modules\Audit\Domain\AuditRetentionPolicy::MINIMUM_RETENTION_DAYS + 10).' days');
     }

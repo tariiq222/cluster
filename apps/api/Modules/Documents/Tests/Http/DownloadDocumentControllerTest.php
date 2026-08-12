@@ -30,7 +30,7 @@ final class DownloadDocumentControllerTest extends TestCase
                     : ['user_id' => '018f6f7d-0c00-7000-8000-000000000805', 'facility_id' => '018f6f7d-0c00-7000-8000-000000000806'];
             }
         };
-        $service = new DocumentDownloadService($this->createMock(DecideAccess::class), $this->createMock(LinkedResourceAuthorizationFacts::class), $this->createMock(DocumentDownloadGrantIssuer::class), $this->createMock(SensitiveAccessEventRecorder::class));
+        $service = new DocumentDownloadService($this->createMock(DecideAccess::class), $this->createMock(LinkedResourceAuthorizationFacts::class), $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class), $this->createMock(DocumentDownloadGrantIssuer::class), $this->createMock(SensitiveAccessEventRecorder::class));
         $response = (new DownloadDocumentController($principals, $service))(Request::create('/', 'GET'), '018f6f7d-0c00-7000-8000-000000000801');
         $this->assertSame(400, $response->getStatusCode());
     }

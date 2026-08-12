@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Documents\Contracts\DocumentDownloadGrantIssuer;
 use Modules\Documents\Contracts\DocumentSourceReference;
 use Modules\Documents\Contracts\LinkedResourceAuthorizationFacts;
@@ -23,6 +22,7 @@ final class DocumentDownloadService
     public function __construct(
         private readonly DecideAccess $access,
         private readonly LinkedResourceAuthorizationFacts $resourceFacts,
+        private readonly DocumentAuthorizationRecordFactsBuilder $documentFacts,
         private readonly DocumentDownloadGrantIssuer $grantIssuer,
         private readonly SensitiveAccessEventRecorder $sensitiveAccess,
     ) {}
@@ -39,7 +39,7 @@ final class DocumentDownloadService
             ->where('d.public_id', $documentId)
             ->where('v.public_id', $versionId)
             ->select([
-                'd.id as document_id', 'd.public_id as document_public_id', 'd.owner_organization_unit_id', 'd.classification',
+                'd.id as document_id', 'd.public_id as document_public_id', 'd.owner_organization_unit_id', 'd.created_by_user_id', 'd.classification', 'd.status', 'd.legal_hold', 'd.lock_version',
                 'v.id as version_id', 'v.public_id as version_public_id', 'v.scan_status', 'v.availability_status',
             ])->first();
         if (! $row instanceof stdClass) {
@@ -54,7 +54,15 @@ final class DocumentDownloadService
         $documentDecision = $this->access->decide(
             $actor,
             'documents.download',
-            new RecordFacts((string) $row->owner_organization_unit_id, 'document', (string) $row->classification),
+            $this->documentFacts->forDocument((object) [
+                'id' => $row->document_id,
+                'owner_organization_unit_id' => $row->owner_organization_unit_id,
+                'created_by_user_id' => $row->created_by_user_id,
+                'classification' => $row->classification,
+                'status' => $row->status,
+                'legal_hold' => $row->legal_hold,
+                'lock_version' => $row->lock_version,
+            ]),
         );
         if (! $documentDecision->isAllowed()) {
             $this->recordAccess($row, $request, $documentDecision, 'denied');
