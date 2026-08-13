@@ -119,7 +119,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_A),
         );
 
@@ -140,7 +140,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::DELEGATE_USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_A),
         );
 
@@ -163,7 +163,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_A),
         );
 
@@ -181,7 +181,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::DELEGATE_USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -202,7 +202,7 @@ class RbacAbacDecideAccessTest extends TestCase
                 'user_id' => self::NON_DELEGATE_USER_ID,
                 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A],
             ],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -221,7 +221,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -238,7 +238,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -247,7 +247,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
     public function test_missing_user_id_fails_closed(): void
     {
-        $decision = $this->decider()->decide([], 'work_record.read', $this->facts());
+        $decision = $this->decider()->decide([], 'tasks.read', $this->facts());
 
         $this->assertSame('deny', $decision->decision);
         $this->assertSame(['actor_user_id_missing'], $decision->reasonCodes);
@@ -256,7 +256,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
     public function test_missing_facts_fails_closed(): void
     {
-        $decision = $this->decider()->decide(['user_id' => self::USER_ID], 'work_record.read', null);
+        $decision = $this->decider()->decide(['user_id' => self::USER_ID], 'tasks.read', null);
 
         $this->assertSame('deny', $decision->decision);
         $this->assertSame(['record_facts_unavailable'], $decision->reasonCodes);
@@ -267,7 +267,7 @@ class RbacAbacDecideAccessTest extends TestCase
     {
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.destroy',
+            'tasks.destroy',
             $this->facts(),
         );
 
@@ -277,7 +277,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
     public function test_absent_active_role_assignment_fails_closed(): void
     {
-        $decision = $this->decider()->decide(['user_id' => self::USER_ID], 'work_record.read', $this->facts());
+        $decision = $this->decider()->decide(['user_id' => self::USER_ID], 'tasks.read', $this->facts());
 
         $this->assertSame('deny', $decision->decision);
         $this->assertSame(['active_role_assignment_not_found'], $decision->reasonCodes);
@@ -287,7 +287,7 @@ class RbacAbacDecideAccessTest extends TestCase
     {
         $this->seedAllowingRole(endAt: now()->subMinute());
 
-        $decision = $this->decider()->decide(['user_id' => self::USER_ID], 'work_record.read', $this->facts());
+        $decision = $this->decider()->decide(['user_id' => self::USER_ID], 'tasks.read', $this->facts());
 
         $this->assertSame('deny', $decision->decision);
         $this->assertSame(['role_assignment_expired'], $decision->reasonCodes);
@@ -299,7 +299,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::DELEGATE_USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts(),
         );
 
@@ -313,7 +313,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -327,7 +327,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::DELEGATE_USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -341,7 +341,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::NON_DELEGATE_USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts(),
         );
 
@@ -351,7 +351,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
     public function test_out_of_scope_role_grant_does_not_cancel_a_matching_delegation_grant(): void
     {
-        // The user holds a role grant for work_record.read on unit A while
+        // The user holds a role grant for tasks.read on unit A while
         // the record sits in unit B, AND a delegation grant for the same
         // capability that covers unit B. The delegation must win: the
         // non-matching role grant is a no-op, not a cancellation.
@@ -362,7 +362,7 @@ class RbacAbacDecideAccessTest extends TestCase
             'id' => self::DELEGATION_ID,
             'delegator_user_id' => self::USER_ID,
             'delegate_user_id' => self::DELEGATE_USER_ID,
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'scope_id' => self::ORGANIZATION_UNIT_B,
             'scope_type' => 'unit',
             'start_at' => now()->subMinute(),
@@ -373,12 +373,12 @@ class RbacAbacDecideAccessTest extends TestCase
         ]);
         DB::table('delegation_capabilities')->insert([
             'delegation_id' => self::DELEGATION_ID,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
         ]);
 
         $decision = $this->decider()->decide(
             ['user_id' => self::DELEGATE_USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -396,7 +396,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID, 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A]],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -408,7 +408,7 @@ class RbacAbacDecideAccessTest extends TestCase
     {
         // The classification policy governs every grant source: a
         // relationship grant must not bypass an export deny.
-        $this->seedClassificationPolicy('confidential', 'work_record.read', exportPolicy: 'deny');
+        $this->seedClassificationPolicy('confidential', 'tasks.read', exportPolicy: 'deny');
         $this->seedSupervisoryRelationship(capability: 'reporting.export');
         $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'reporting.export');
 
@@ -428,14 +428,14 @@ class RbacAbacDecideAccessTest extends TestCase
         // floor: the supervisor's clearance comes from the decided
         // capability's sensitivity, so a low-sensitivity capability cannot
         // read a record whose policy floor requires a higher clearance.
-        $this->seedCapabilityRow(self::CAPABILITY_ID, 'work_record.read', 'normal');
-        $this->seedCapabilityRow(self::CRITICAL_CAPABILITY_ID, 'work_record.archive', 'critical');
-        $this->seedClassificationPolicy('confidential', 'work_record.archive');
+        $this->seedCapabilityRow(self::CAPABILITY_ID, 'tasks.read', 'normal');
+        $this->seedCapabilityRow(self::CRITICAL_CAPABILITY_ID, 'tasks.cancel', 'critical');
+        $this->seedClassificationPolicy('confidential', 'tasks.cancel');
         $this->seedSupervisoryRelationship();
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID, 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A]],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_B),
         );
 
@@ -448,12 +448,12 @@ class RbacAbacDecideAccessTest extends TestCase
         // The same relationship grants access when the record's required
         // clearance (internal, no policy floor) is met by the capability's
         // sensitivity-derived clearance.
-        $this->seedCapabilityRow(self::CAPABILITY_ID, 'work_record.read', 'normal');
+        $this->seedCapabilityRow(self::CAPABILITY_ID, 'tasks.read', 'normal');
         $this->seedSupervisoryRelationship();
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID, 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A]],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -471,7 +471,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_A),
         );
 
@@ -481,7 +481,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
     public function test_active_supervisory_relationship_with_matching_capability_and_scopes_allows_access(): void
     {
-        $this->seedCapabilityRow(self::CAPABILITY_ID, 'work_record.read');
+        $this->seedCapabilityRow(self::CAPABILITY_ID, 'tasks.read');
         $this->seedSupervisoryRelationship();
 
         $decision = $this->decider()->decide(
@@ -489,7 +489,7 @@ class RbacAbacDecideAccessTest extends TestCase
                 'user_id' => self::NON_DELEGATE_USER_ID,
                 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A],
             ],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -510,7 +510,7 @@ class RbacAbacDecideAccessTest extends TestCase
                 'user_id' => self::NON_DELEGATE_USER_ID,
                 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A],
             ],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -527,7 +527,7 @@ class RbacAbacDecideAccessTest extends TestCase
                 'user_id' => self::NON_DELEGATE_USER_ID,
                 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A],
             ],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -537,14 +537,14 @@ class RbacAbacDecideAccessTest extends TestCase
 
     public function test_supervisory_relationship_capability_mismatch_fails_closed(): void
     {
-        $this->seedSupervisoryRelationship(capability: 'work_record.list');
+        $this->seedSupervisoryRelationship(capability: 'tasks.list');
 
         $decision = $this->decider()->decide(
             [
                 'user_id' => self::NON_DELEGATE_USER_ID,
                 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A],
             ],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -555,7 +555,7 @@ class RbacAbacDecideAccessTest extends TestCase
     public function test_read_only_supervisory_relationship_cannot_grant_a_mutating_capability(): void
     {
         $this->seedSupervisoryRelationship(
-            capability: 'work_record.submit',
+            capability: 'tasks.create',
             relationshipType: 'read_only',
         );
 
@@ -564,7 +564,7 @@ class RbacAbacDecideAccessTest extends TestCase
                 'user_id' => self::NON_DELEGATE_USER_ID,
                 'organization_unit_ids' => [self::ORGANIZATION_UNIT_A],
             ],
-            'work_record.submit',
+            'tasks.create',
             $this->facts('internal', self::ORGANIZATION_UNIT_B),
         );
 
@@ -579,7 +579,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -594,7 +594,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -612,7 +612,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts(
                 'confidential',
                 self::ORGANIZATION_UNIT_A,
@@ -625,7 +625,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $otherCluster = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts(
                 'confidential',
                 self::ORGANIZATION_UNIT_A,
@@ -644,7 +644,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts(
                 'confidential',
                 self::ORGANIZATION_UNIT_B,
@@ -662,7 +662,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts(
                 'internal',
                 self::ORGANIZATION_UNIT_B,
@@ -681,12 +681,12 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $matching = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_B, recordId: self::RECORD_ID),
         );
         $other = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_B, recordId: self::OTHER_RECORD_ID),
         );
 
@@ -706,10 +706,10 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             new RecordFacts(
                 ownerFacilityId: $facts['owner_facility_id'],
-                resourceType: 'work_record',
+                resourceType: 'task',
                 classification: 'internal',
                 factsVersion: 'rbac-abac-test-scope-matrix-v1',
                 organizationUnitId: $facts['organization_unit_id'],
@@ -842,7 +842,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -853,12 +853,12 @@ class RbacAbacDecideAccessTest extends TestCase
     public function test_classification_policy_raising_required_clearance_denies_a_lower_clearance_grant(): void
     {
         $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit', sensitivity: 'sensitive');
-        $this->seedCapabilityRow(self::CRITICAL_CAPABILITY_ID, 'work_record.archive', 'critical');
-        $this->seedClassificationPolicy('confidential', 'work_record.archive');
+        $this->seedCapabilityRow(self::CRITICAL_CAPABILITY_ID, 'tasks.cancel', 'critical');
+        $this->seedClassificationPolicy('confidential', 'tasks.cancel');
 
         $denied = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_A),
         );
 
@@ -869,7 +869,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $allowed = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_A),
         );
 
@@ -908,7 +908,7 @@ class RbacAbacDecideAccessTest extends TestCase
     public function test_field_access_template_projects_hidden_masked_readonly_and_editable_fields(): void
     {
         $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit', sensitivity: 'sensitive');
-        $this->seedFieldAccessTemplate('work_record.default', [
+        $this->seedFieldAccessTemplate('tasks.default', [
             'payload.summary' => 'read',
             'payload.budget_amount' => 'mask',
             'payload.reviewer_note' => 'edit',
@@ -917,8 +917,8 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
-            $this->facts('confidential', self::ORGANIZATION_UNIT_A, fieldPolicyKey: 'work_record.default'),
+            'tasks.read',
+            $this->facts('confidential', self::ORGANIZATION_UNIT_A, fieldPolicyKey: 'tasks.default'),
         );
 
         $this->assertTrue($decision->isAllowed());
@@ -936,8 +936,8 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
-            $this->facts('confidential', self::ORGANIZATION_UNIT_A, fieldPolicyKey: 'work_record.missing'),
+            'tasks.read',
+            $this->facts('confidential', self::ORGANIZATION_UNIT_A, fieldPolicyKey: 'tasks.missing'),
         );
 
         $this->assertTrue($decision->isAllowed());
@@ -950,7 +950,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID, 'correlation_id' => self::CORRELATION_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_A, recordId: self::RECORD_ID),
         );
 
@@ -959,8 +959,8 @@ class RbacAbacDecideAccessTest extends TestCase
         $this->assertDatabaseHas('access_decisions', [
             'id' => $decision->decisionId,
             'decision' => 'allow',
-            'action' => 'work_record.read',
-            'resource_type' => 'work_record',
+            'action' => 'tasks.read',
+            'resource_type' => 'task',
             'resource_id' => self::RECORD_ID,
             'policy_version' => 'rbac-abac-v2',
             'classification' => 'confidential',
@@ -971,7 +971,7 @@ class RbacAbacDecideAccessTest extends TestCase
             'access_decision_id' => $decision->decisionId,
             'actor_user_id' => self::USER_ID,
             'original_actor_user_id' => self::USER_ID,
-            'resource_type' => 'work_record',
+            'resource_type' => 'task',
             'resource_id' => self::RECORD_ID,
             'classification_code' => 'confidential',
             'correlation_id' => self::CORRELATION_ID,
@@ -983,7 +983,7 @@ class RbacAbacDecideAccessTest extends TestCase
     {
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -992,7 +992,7 @@ class RbacAbacDecideAccessTest extends TestCase
         $this->assertDatabaseHas('access_decisions', [
             'id' => $decision->decisionId,
             'decision' => 'deny',
-            'action' => 'work_record.read',
+            'action' => 'tasks.read',
             'reason_codes' => json_encode(['active_role_assignment_not_found']),
             'actor_user_id' => self::USER_ID,
         ]);
@@ -1004,7 +1004,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->evaluateOnly(
             ['user_id' => self::USER_ID, 'correlation_id' => self::CORRELATION_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('confidential', self::ORGANIZATION_UNIT_A, recordId: self::RECORD_ID),
         );
 
@@ -1018,7 +1018,7 @@ class RbacAbacDecideAccessTest extends TestCase
     {
         $decision = $this->decider()->evaluateOnly(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -1042,7 +1042,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $decider->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -1054,33 +1054,33 @@ class RbacAbacDecideAccessTest extends TestCase
     public function test_allowed_actions_projects_same_module_scope_matched_grants(): void
     {
         $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit');
-        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'work_record.submit');
+        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'tasks.create');
         $this->seedRoleCapabilityRow(self::ROLE_ID, self::SUBMIT_CAPABILITY_ID, 'allow');
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
         $this->assertTrue($decision->isAllowed());
-        $this->assertSame(['read', 'submit'], $decision->allowedActions);
+        $this->assertSame(['create', 'read'], $decision->allowedActions);
     }
 
     public function test_allowed_actions_excludes_a_capability_with_an_active_explicit_deny(): void
     {
         $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit');
-        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'work_record.submit');
+        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'tasks.create');
         $this->seedRoleCapabilityRow(self::ROLE_ID, self::SUBMIT_CAPABILITY_ID, 'allow');
         $this->seedExplicitDeny(
             userId: self::USER_ID,
             organizationUnitId: self::ORGANIZATION_UNIT_A,
-            capabilityCode: 'work_record.submit',
+            capabilityCode: 'tasks.create',
         );
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -1091,7 +1091,7 @@ class RbacAbacDecideAccessTest extends TestCase
     public function test_allowed_actions_excludes_a_capability_with_an_active_role_deny(): void
     {
         $this->seedAllowingRole(scopeId: self::ORGANIZATION_UNIT_A, scopeType: 'unit');
-        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'work_record.submit');
+        $this->seedCapabilityRow(self::SUBMIT_CAPABILITY_ID, 'tasks.create');
         $this->seedRoleCapabilityRow(self::ROLE_ID, self::SUBMIT_CAPABILITY_ID, 'allow');
 
         $this->seedRoleRow(self::DENY_ROLE_ID, 'rbac_abac_submit_denier');
@@ -1100,7 +1100,7 @@ class RbacAbacDecideAccessTest extends TestCase
 
         $decision = $this->decider()->decide(
             ['user_id' => self::USER_ID],
-            'work_record.read',
+            'tasks.read',
             $this->facts('internal', self::ORGANIZATION_UNIT_A),
         );
 
@@ -1120,7 +1120,7 @@ class RbacAbacDecideAccessTest extends TestCase
         ?string $clusterId = null,
         ?string $ownerFacilityId = null,
         ?string $fieldPolicyKey = null,
-        string $resourceType = 'work_record',
+        string $resourceType = 'task',
     ): RecordFacts {
         return new RecordFacts(
             ownerFacilityId: $ownerFacilityId,
@@ -1141,7 +1141,7 @@ class RbacAbacDecideAccessTest extends TestCase
         ?string $scopeType = null,
     ): void {
         $this->seedRoleRow(self::ROLE_ID);
-        $this->seedCapabilityRow(self::CAPABILITY_ID, 'work_record.read', $sensitivity);
+        $this->seedCapabilityRow(self::CAPABILITY_ID, 'tasks.read', $sensitivity);
         $this->seedRoleCapabilityRow(self::ROLE_ID, self::CAPABILITY_ID, 'allow');
         DB::table('role_assignments')->insert([
             'id' => '018f6f7d-0c00-7000-8000-000000000907',
@@ -1228,12 +1228,12 @@ class RbacAbacDecideAccessTest extends TestCase
         ?Carbon $endAt = null,
         ?string $scopeType = null,
     ): void {
-        $this->seedCapabilityRow(self::CAPABILITY_ID, 'work_record.read', $sensitivity);
+        $this->seedCapabilityRow(self::CAPABILITY_ID, 'tasks.read', $sensitivity);
         DB::table('delegations')->insert([
             'id' => self::DELEGATION_ID,
             'delegator_user_id' => self::USER_ID,
             'delegate_user_id' => self::DELEGATE_USER_ID,
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'scope_id' => $scopeId,
             'scope_type' => $scopeType,
             'start_at' => $endAt?->copy()->subMinute() ?? now()->subMinute(),
@@ -1244,7 +1244,7 @@ class RbacAbacDecideAccessTest extends TestCase
         ]);
         DB::table('delegation_capabilities')->insert([
             'delegation_id' => self::DELEGATION_ID,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
         ]);
     }
 
@@ -1253,7 +1253,7 @@ class RbacAbacDecideAccessTest extends TestCase
         ?string $organizationUnitId,
         ?Carbon $expiresAt = null,
         ?string $classification = null,
-        string $capabilityCode = 'work_record.read',
+        string $capabilityCode = 'tasks.read',
     ): void {
         DB::table('explicit_denies')->insert([
             'id' => self::EXPLICIT_DENY_ID,
@@ -1261,7 +1261,7 @@ class RbacAbacDecideAccessTest extends TestCase
             'capability_code' => $capabilityCode,
             'classification' => $classification,
             'organization_unit_id' => $organizationUnitId,
-            'resource_pattern' => 'work_*',
+            'resource_pattern' => 'task*',
             'reason' => 'Restricted test access.',
             'issued_by_user_id' => self::GRANTED_BY_USER_ID,
             'issued_at' => $expiresAt?->copy()->subMinute() ?? now()->subMinute(),
@@ -1295,7 +1295,7 @@ class RbacAbacDecideAccessTest extends TestCase
     {
         DB::table('field_access_templates')->insert([
             'field_policy_key' => $fieldPolicyKey,
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'policy_definition' => json_encode(['fields' => $fields], JSON_THROW_ON_ERROR),
             'policy_version' => 'v1',
             'is_active' => true,
@@ -1305,7 +1305,7 @@ class RbacAbacDecideAccessTest extends TestCase
     }
 
     private function seedSupervisoryRelationship(
-        string $capability = 'work_record.read',
+        string $capability = 'tasks.read',
         ?Carbon $validUntil = null,
         string $relationshipType = 'direct',
     ): void {

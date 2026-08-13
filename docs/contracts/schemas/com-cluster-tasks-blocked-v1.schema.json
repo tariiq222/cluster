@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cluster.example/schemas/com-cluster-tasks-blocked-v1.schema.json",
+  "title": "Outbox event: com.cluster.tasks.blocked.v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["data"],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "actor_user_id", "from_state", "to_state"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "actor_user_id": {"type": "string", "minLength": 1},
+        "from_state": {"const": "in_progress"},
+        "to_state": {"const": "blocked"}
+      }
+    }
+  }
+}

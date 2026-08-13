@@ -116,7 +116,7 @@ class DevelopmentFixtureLoginTest extends TestCase
         ], now()->addMinute());
 
         $this->withToken($token)
-            ->getJson('/api/v1/work-records', $this->headers())
+            ->getJson('/api/v1/tasks', $this->headers())
             ->assertUnauthorized()
             ->assertHeader('Content-Type', 'application/problem+json');
         $this->assertFalse(Cache::store('file')->has($cacheKey));
@@ -135,24 +135,24 @@ class DevelopmentFixtureLoginTest extends TestCase
         foreach ($malformedStates as $state) {
             Cache::store('file')->put($cacheKey, $state, now()->addMinute());
             $this->withToken($token)
-                ->getJson('/api/v1/work-records', $this->headers())
+                ->getJson('/api/v1/tasks', $this->headers())
                 ->assertUnauthorized();
             $this->assertFalse(Cache::store('file')->has($cacheKey));
         }
     }
 
-    public function test_fixture_bearer_cannot_cross_the_session_only_work_record_path(): void
+    public function test_fixture_bearer_cannot_cross_the_session_only_tasks_path(): void
     {
         // The production binding must reject unknown fixture bearers; the
         // testing runtime allows the valid one only as a developer fallback.
         $unknownToken = str_repeat('a', 64);
 
         $this->withToken($unknownToken)
-            ->getJson('/api/v1/work-records', $this->headers())
+            ->getJson('/api/v1/tasks', $this->headers())
             ->assertUnauthorized();
     }
 
-    public function test_identity_cookie_can_access_the_session_only_work_record_path(): void
+    public function test_identity_cookie_can_access_the_session_only_tasks_path(): void
     {
         Artisan::call('e2e:w1-2:seed');
         $fixture = json_decode(trim(Artisan::output()), true, 16, JSON_THROW_ON_ERROR);
@@ -165,7 +165,7 @@ class DevelopmentFixtureLoginTest extends TestCase
         $this->assertCount(1, $login->headers->getCookies());
         $cookie = $login->headers->getCookies()[0]->getValue();
         $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
-            ->getJson('/api/v1/work-records', $this->headers())
+            ->getJson('/api/v1/tasks', $this->headers())
             ->assertOk();
     }
 
@@ -192,14 +192,11 @@ class DevelopmentFixtureLoginTest extends TestCase
 
         foreach ([
             '/api/v1/notifications',
-            '/api/v1/search?query=journey',
             '/api/v1/reports',
             '/api/v1/dashboards',
             '/api/v1/organization/cluster',
             '/api/v1/identity/accounts',
             '/api/v1/tasks',
-            '/api/v1/work-definitions',
-            '/api/v1/workflow/definitions',
             '/api/v1/documents',
         ] as $uri) {
             $response = $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
@@ -208,6 +205,10 @@ class DevelopmentFixtureLoginTest extends TestCase
             $this->assertNotSame(401, $response->status(), $uri.' must use the Identity session path.');
             $this->assertNotSame(403, $response->status(), $uri.' must use the Identity session path.');
         }
+        $search = $this->withUnencryptedCookie('cluster_identity_session', $cookie)->withCredentials()
+            ->postJson('/api/v1/search', ['q' => 'journey'], $headers);
+        $this->assertNotSame(401, $search->status());
+        $this->assertNotSame(403, $search->status());
     }
 
     public function test_cookie_mutation_requires_csrf_and_accepts_valid_csrf_proof(): void
@@ -234,20 +235,20 @@ class DevelopmentFixtureLoginTest extends TestCase
 
         foreach ([
             '/api/v1/notifications',
-            '/api/v1/search?query=journey',
             '/api/v1/reports',
             '/api/v1/dashboards',
             '/api/v1/organization/cluster',
             '/api/v1/identity/accounts',
             '/api/v1/tasks',
-            '/api/v1/work-definitions',
-            '/api/v1/workflow/definitions',
             '/api/v1/documents',
         ] as $uri) {
             $this->withToken($unknownToken)
                 ->getJson($uri, $this->headers())
                 ->assertUnauthorized();
         }
+        $this->withToken($unknownToken)
+            ->postJson('/api/v1/search', ['q' => 'journey'], $this->headers())
+            ->assertUnauthorized();
     }
 
     public function test_cookie_session_and_csrf_cover_final_r1_route_groups(): void
@@ -256,9 +257,6 @@ class DevelopmentFixtureLoginTest extends TestCase
         $headers = [...$this->headers(), 'X-CSRF-Token' => $csrf];
 
         foreach ([
-            '/api/v1/work-definitions',
-            '/api/v1/workflow/definitions',
-            '/api/v1/workflow/instances',
             '/api/v1/tasks',
             '/api/v1/documents',
             '/api/v1/reports',
@@ -270,9 +268,6 @@ class DevelopmentFixtureLoginTest extends TestCase
         }
 
         foreach ([
-            '/api/v1/work-definitions',
-            '/api/v1/workflow/definitions',
-            '/api/v1/workflow/instances',
             '/api/v1/tasks',
             '/api/v1/documents',
         ] as $uri) {
@@ -292,9 +287,6 @@ class DevelopmentFixtureLoginTest extends TestCase
         // cookie is cleared so the bearer path is the only identity source.
         $unknownToken = str_repeat('b', 64);
         foreach ([
-            '/api/v1/work-definitions',
-            '/api/v1/workflow/definitions',
-            '/api/v1/workflow/instances',
             '/api/v1/tasks',
             '/api/v1/documents',
             '/api/v1/reports',

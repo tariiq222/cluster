@@ -79,7 +79,7 @@ final class AuthorizationAccountPermissionsHttpAdapterTest extends TestCase
             'code' => 'account_permissions_operator',
             'name' => 'مشغل الحسابات والصلاحيات',
             'role_type' => 'custom',
-            'capability_codes' => ['work_record.read', 'work_record.list'],
+            'capability_codes' => ['tasks.read', 'tasks.list'],
         ];
 
         $created = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles', $payload, $this->writeHeaders('account-permissions-role-create', $csrf))

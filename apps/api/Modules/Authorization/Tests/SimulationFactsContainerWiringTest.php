@@ -34,7 +34,7 @@ final class SimulationFactsContainerWiringTest extends TestCase
     public function test_tagged_provider_is_resolved_by_the_bound_resolver(): void
     {
         $referenceId = '018f6f7d-0c00-7000-8000-00000000af01';
-        $reference = new AuthorizationResourceReference('work_record', $referenceId);
+        $reference = new AuthorizationResourceReference('task', $referenceId);
 
         $this->app->bind(TaggedFactsProvider::class, fn () => new TaggedFactsProvider);
         $this->app->tag(TaggedFactsProvider::class, 'authorization.simulation_facts');
@@ -49,16 +49,16 @@ final class SimulationFactsContainerWiringTest extends TestCase
         $facts = $resolver->resolve($reference);
 
         $this->assertNotNull($facts, 'Tagged provider must be reached by the wired resolver.');
-        $this->assertSame('work_record', $facts->resourceType);
+        $this->assertSame('task', $facts->resourceType);
         $this->assertSame($referenceId, $facts->recordId);
         $this->assertSame('tagged-classification', $facts->classification);
-        $this->assertSame('work_record', TaggedFactsProvider::$lastReferenceType, 'Tagged provider resolve() must have been called with the reference.');
+        $this->assertSame('task', TaggedFactsProvider::$lastReferenceType, 'Tagged provider resolve() must have been called with the reference.');
     }
 
     public function test_untagged_provider_is_not_resolved_by_the_bound_resolver(): void
     {
         $referenceId = '018f6f7d-0c00-7000-8000-00000000af02';
-        $reference = new AuthorizationResourceReference('work_record', $referenceId);
+        $reference = new AuthorizationResourceReference('task', $referenceId);
 
         $this->app->bind(UntaggedFactsProvider::class, fn () => new UntaggedFactsProvider);
 
@@ -78,7 +78,7 @@ final class SimulationFactsContainerWiringTest extends TestCase
         (new AuthorizationServiceProvider($this->app))->register();
         $this->app->forgetInstance(ResolveAuthorizationSimulationFacts::class);
 
-        $reference = new AuthorizationResourceReference('work_record', '018f6f7d-0c00-7000-8000-00000000af03');
+        $reference = new AuthorizationResourceReference('task', '018f6f7d-0c00-7000-8000-00000000af03');
 
         /** @var ResolveAuthorizationSimulationFacts $resolver */
         $resolver = $this->app->make(ResolveAuthorizationSimulationFacts::class);
@@ -97,7 +97,7 @@ final class TaggedFactsProvider implements AuthorizationSimulationFactsProvider
 
     public function supports(AuthorizationResourceReference $reference): bool
     {
-        return $reference->type === 'work_record';
+        return $reference->type === 'task';
     }
 
     public function resolve(AuthorizationResourceReference $reference): RecordFacts
@@ -119,7 +119,7 @@ final class UntaggedFactsProvider implements AuthorizationSimulationFactsProvide
 
     public function supports(AuthorizationResourceReference $reference): bool
     {
-        return $reference->type === 'work_record';
+        return $reference->type === 'task';
     }
 
     public function resolve(AuthorizationResourceReference $reference): RecordFacts

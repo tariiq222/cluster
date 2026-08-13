@@ -8,6 +8,7 @@ use Database\Seeders\DevelopmentJourneyAuthorizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -167,6 +168,33 @@ final class TasksLifecycleTest extends TestCase
         $resp->assertNotFound();
     }
 
+    #[DataProvider('deniedTransitionProvider')]
+    public function test_relationship_cannot_bypass_exact_transition_capability_denial(
+        string $action,
+        string $capability,
+        string $state,
+        array $body,
+    ): void {
+        $taskId = $this->seedTask(self::USER_A, $state);
+        $this->bindRealAccessDecision();
+        $this->denyJourneyCapability($capability);
+
+        $response = $this->postTaskAction($taskId, $action, 1, $body);
+
+        $response->assertForbidden();
+        $this->assertSame($state, DB::table('tasks')->where('id', $taskId)->value('status'));
+    }
+
+    public static function deniedTransitionProvider(): array
+    {
+        return [
+            'start requires tasks.start' => ['start', 'tasks.start', 'open', []],
+            'block requires tasks.update' => ['block', 'tasks.update', 'in_progress', ['reason' => 'Denied']],
+            'complete requires tasks.complete' => ['complete', 'tasks.complete', 'in_progress', ['note' => 'Denied']],
+            'cancel requires tasks.cancel' => ['cancel', 'tasks.cancel', 'open', ['reason' => 'Denied']],
+        ];
+    }
+
     public function test_stale_if_match_returns_412(): void
     {
         $taskId = $this->seedTask(self::USER_A, 'open', 2);
@@ -176,7 +204,7 @@ final class TasksLifecycleTest extends TestCase
             ->assertJsonPath('type', 'https://cluster.example/problems/precondition-failed');
 
         $this->assertSame('open', DB::table('tasks')->where('id', $taskId)->value('status'));
-        $this->assertSame(0, DB::table('outbox_events')->where('event_type', 'task.start.v1')->count());
+        $this->assertSame(0, DB::table('outbox_events')->where('event_type', 'com.cluster.tasks.started.v1')->count());
     }
 
     public function test_idempotent_replay_returns_the_same_response_and_does_not_reapply(): void
@@ -196,7 +224,7 @@ final class TasksLifecycleTest extends TestCase
         $replay->assertOk()->assertHeader('ETag', '"2"');
         $this->assertSame($first->json(), $replay->json());
 
-        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'task.start.v1')->count());
+        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'com.cluster.tasks.started.v1')->count());
         $this->assertSame(1, DB::table('task_idempotency_keys')->count());
     }
 
@@ -235,5 +263,24 @@ final class TasksLifecycleTest extends TestCase
         $this->assertContains('attach-document', $allowed);
 
         $this->assertSame(1, (int) $resp->json('data.comments_summary.count'));
+    }
+
+    private function denyJourneyCapability(string $capability): void
+    {
+        DB::table('explicit_denies')->insert([
+            'id' => Str::uuid7()->toString(),
+            'user_id' => self::USER_A,
+            'capability_code' => $capability,
+            'classification' => null,
+            'organization_unit_id' => null,
+            'resource_pattern' => 'task*',
+            'reason' => 'Task regression test deny.',
+            'issued_by_user_id' => self::USER_A,
+            'issued_at' => now()->subMinute(),
+            'expires_at' => null,
+            'revocable' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

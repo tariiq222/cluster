@@ -8,15 +8,11 @@ const {
   loginMock,
   restoreSessionMock,
   identityLogoutMock,
-  storedSessionMock,
-  clearStoredSessionMock,
   registerExpiredMock,
 } = vi.hoisted(() => ({
   loginMock: vi.fn(),
   restoreSessionMock: vi.fn(),
   identityLogoutMock: vi.fn(),
-  storedSessionMock: vi.fn(),
-  clearStoredSessionMock: vi.fn(),
   registerExpiredMock: vi.fn(),
 }))
 
@@ -24,8 +20,6 @@ vi.mock('../api/session', () => ({
   login: loginMock,
   restoreSession: restoreSessionMock,
   identityLogout: identityLogoutMock,
-  storedSession: storedSessionMock,
-  clearStoredSession: clearStoredSessionMock,
 }))
 vi.mock('../api/http', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/http')>()
@@ -106,16 +100,13 @@ beforeEach(() => {
     }),
     new Promise(() => {}),
   ]
-  storedSessionMock.mockImplementation(() => currentSession)
-  clearStoredSessionMock.mockImplementation(() => {
-    currentSession = null
-  })
   identityLogoutMock.mockResolvedValue(undefined)
   loginMock.mockImplementation(async () => {
     currentSession = SESSION_B
     return SESSION_B
   })
   restoreSessionMock.mockReset()
+  restoreSessionMock.mockImplementation(async () => currentSession)
   registerExpiredMock.mockReset()
   registerExpiredMock.mockImplementation((handler: () => void) => {
     expiredHandler = handler

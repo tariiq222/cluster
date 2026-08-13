@@ -303,7 +303,7 @@ final class PlatformOperationsHttpBackupGateway implements BackupOperationsGatew
             throw new \RuntimeException('backup source unavailable');
         }
 
-        return new BackupStatus('healthy', new DateTimeImmutable('2026-07-23T00:00:00Z'), null, new DateTimeImmutable('2026-07-23T00:00:00Z'));
+        return new BackupStatus('available', new DateTimeImmutable('2026-07-23T00:00:00Z'), null, new DateTimeImmutable('2026-07-23T00:00:00Z'));
     }
 
     public function requestBackup(string $operationId): void {}

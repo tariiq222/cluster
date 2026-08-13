@@ -1,9 +1,7 @@
 <?php
 
-use App\Http\Middleware\EnforceWorkManagementFeature;
 use App\Http\Middleware\IdentityCsrfMiddleware;
 use App\Http\Middleware\IdentitySessionMiddleware;
-use App\Http\Middleware\ProjectWorkRecordReadModels;
 use App\Http\Middleware\RequireIdentitySessionPrincipal;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
@@ -50,7 +48,6 @@ use Modules\Identity\Features\UserAccount\Http\CreateUserAccountController;
 use Modules\Identity\Features\UserAccount\Http\GetUserAccountController;
 use Modules\Identity\Features\UserAccount\Http\ListUserAccountsController;
 use Modules\Identity\Features\UserAccount\Http\TransitionUserAccountController;
-use Modules\Notifications\Features\Http\ConsumeSubmittedNotification;
 use Modules\Notifications\Features\ListMyNotifications\Http\ListMyNotificationsController;
 use Modules\Notifications\Features\ListMyNotifications\Http\MarkNotificationReadController;
 use Modules\Organization\Features\Assignment\Http\CreateAssignmentController;
@@ -112,13 +109,6 @@ use Modules\Search\Features\Search\Http\SearchController;
 use Modules\Tasks\Features\DocumentLink\Http\TaskDocumentController;
 use Modules\Tasks\Features\Http\TaskController;
 use Modules\Tasks\Features\Http\TaskEngagementController;
-use Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController;
-use Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController;
-use Modules\WorkRecords\Features\DocumentLink\Http\WorkRecordDocumentLinkController;
-use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController;
-use Modules\WorkRecords\Features\Lifecycle\Http\WorkRecordLifecycleController;
-use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController;
-use Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController;
 
 Route::prefix('api/v1')->group(function (): void {
     Route::post('auth/login', DevelopmentFixtureLoginController::class)
@@ -161,7 +151,7 @@ Route::prefix('api/v1')->group(function (): void {
     Route::middleware([IdentitySessionMiddleware::class, RequireIdentitySessionPrincipal::class])->group(function (): void {
         Route::get('notifications', ListMyNotificationsController::class);
         Route::post('notifications/{notificationId}/read', MarkNotificationReadController::class)->middleware(IdentityCsrfMiddleware::class);
-        Route::get('search', SearchController::class);
+        Route::post('search', SearchController::class);
     });
     Route::middleware([IdentitySessionMiddleware::class, RequireIdentitySessionPrincipal::class])->group(function (): void {
         Route::get('reports/{reportId}', GetReportController::class);
@@ -228,8 +218,6 @@ Route::prefix('api/v1')->group(function (): void {
         Route::get('platform-operations/overview', GetPlatformOverviewController::class);
         Route::get('platform-operations/health', [PlatformOperationsController::class, 'health']);
         Route::get('platform-operations/backups', [PlatformOperationsController::class, 'backups']);
-        Route::get('work-records', ListAuthorizedWorkRecordsController::class)->middleware(EnforceWorkManagementFeature::class);
-        Route::get('work-records/{recordId}', GetAuthorizedWorkRecordController::class)->middleware(EnforceWorkManagementFeature::class);
         Route::get('authorization/access-decisions/{decisionId}/explanation', ExplainAccessDecisionController::class);
         Route::get('authorization/bootstrap', GetAuthorizationBootstrapController::class);
         Route::get('authorization/assignment-scope-targets', ListAssignmentScopeTargetsController::class);
@@ -258,15 +246,6 @@ Route::prefix('api/v1')->group(function (): void {
         Route::post('platform-operations/maintenance-windows/{windowId}/cancel', [MaintenanceWindowsController::class, 'cancel'])->where('windowId', '[0-9a-fA-F-]+');
         Route::patch('platform-operations/alert-policies/{policyId}', [AlertPoliciesController::class, 'update'])->where('policyId', '[0-9a-fA-F-]+');
         Route::post('platform-operations/technical-logs/restore', [TechnicalLogsController::class, 'restore']);
-        Route::post('work-records', SubmitWorkRecordController::class)->middleware([
-            EnforceWorkManagementFeature::class,
-            ProjectWorkRecordReadModels::class,
-            ConsumeSubmittedNotification::class,
-        ]);
-        Route::post('work-records/{recordId}/{recordAction}', [WorkRecordLifecycleController::class, 'transition'])
-            ->middleware([EnforceWorkManagementFeature::class, ProjectWorkRecordReadModels::class])
-            ->whereIn('recordAction', ['submit', 'return', 'complete', 'complete-submission', 'cancel', 'archive']);
-        Route::post('work-records/{recordId}/documents', WorkRecordDocumentLinkController::class)->middleware(EnforceWorkManagementFeature::class);
         Route::post('authorization/access-decisions', DecideAccessController::class);
         Route::post('authorization/bootstrap/complete', CompleteAuthorizationBootstrapController::class);
         Route::post('authorization/{adminResource}', AuthorizationAdminController::class);
@@ -274,16 +253,6 @@ Route::prefix('api/v1')->group(function (): void {
         Route::post('authorization/{adminResource}/{resourceId}/{authorizationAction}', AuthorizationAdminController::class);
     });
     Route::middleware([IdentitySessionMiddleware::class, RequireIdentitySessionPrincipal::class])->group(function (): void {
-        Route::get('work-definitions', [WorkDefinitionController::class, 'index'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('work-definitions/{definitionId}', [WorkDefinitionController::class, 'show'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('work-definitions/{definitionId}/versions', [WorkDefinitionController::class, 'versions'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('work-definition-versions/{versionId}', [WorkDefinitionController::class, 'showVersionRoute'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('workflow/definitions', [WorkflowController::class, 'definitions'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('workflow/definitions/{definitionId}/versions', [WorkflowController::class, 'versions'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('workflow/instances', [WorkflowController::class, 'instances'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('workflow/instances/{instanceId}', [WorkflowController::class, 'showInstance'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('workflow/steps', [WorkflowController::class, 'listInbox'])->middleware(EnforceWorkManagementFeature::class);
-        Route::get('workflow/steps/{stepId}', [WorkflowController::class, 'showStep'])->middleware(EnforceWorkManagementFeature::class);
         Route::get('tasks', [TaskController::class, 'index']);
         Route::get('tasks/{taskId}/comments', [TaskEngagementController::class, 'listComments']);
         Route::get('tasks/{taskId}', [TaskController::class, 'show']);
@@ -299,23 +268,12 @@ Route::prefix('api/v1')->group(function (): void {
         RequireIdentitySessionPrincipal::class,
         IdentityCsrfMiddleware::class,
     ])->group(function (): void {
-        Route::post('work-definitions', [WorkDefinitionController::class, 'store'])->middleware(EnforceWorkManagementFeature::class);
-        Route::post('work-definitions/{definitionId}/versions', [WorkDefinitionController::class, 'versions'])->middleware(EnforceWorkManagementFeature::class);
-        Route::post('work-definition-versions/{versionId}/{versionAction}', [WorkDefinitionController::class, 'transition'])->middleware(EnforceWorkManagementFeature::class)->whereIn('versionAction', ['test', 'approve', 'sign', 'publish']);
-        Route::post('workflow/definitions', [WorkflowController::class, 'definitions'])->middleware(EnforceWorkManagementFeature::class);
-        Route::post('workflow/definitions/{definitionId}/versions', [WorkflowController::class, 'versions'])->middleware(EnforceWorkManagementFeature::class);
-        Route::post('workflow/versions/{versionId}/{workflowLifecycleAction}', [WorkflowController::class, 'publish'])->middleware(EnforceWorkManagementFeature::class)->whereIn('workflowLifecycleAction', ['publish', 'test', 'approve', 'sign']);
-        Route::post('workflow/instances', [WorkflowController::class, 'instances'])->middleware(EnforceWorkManagementFeature::class);
         Route::post('tasks', [TaskController::class, 'store']);
         Route::patch('tasks/{taskId}', [TaskController::class, 'update']);
-        // removed: POST /tasks/from-step/{stepId}
         Route::post('tasks/{taskId}/participants', [TaskEngagementController::class, 'addParticipant']);
         Route::post('tasks/{taskId}/comments', [TaskEngagementController::class, 'addComment']);
         Route::post('tasks/{taskId}/documents', [TaskDocumentController::class, 'attach']);
         Route::post('tasks/{taskId}/{taskAction}', [TaskController::class, 'transition'])->whereIn('taskAction', ['start', 'block', 'unblock', 'complete', 'cancel']);
-        Route::post('workflow/steps/{stepId}/decisions', [WorkflowController::class, 'decideStep'])->middleware(EnforceWorkManagementFeature::class);
-        Route::post('workflow/steps/{stepId}/{stepAction}', [WorkflowController::class, 'actOnStep'])->middleware(EnforceWorkManagementFeature::class)->whereIn('stepAction', ['reassign', 'escalate']);
-        Route::post('workflow/instances/{instanceId}/cancel', [WorkflowController::class, 'cancelInstance'])->middleware(EnforceWorkManagementFeature::class);
         Route::post('documents', CreateDocumentController::class);
         Route::patch('documents/{documentId}', UpdateDocumentController::class);
         Route::post('documents/{documentId}/versions', AddDocumentVersionController::class);

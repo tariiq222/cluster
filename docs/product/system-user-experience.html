@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="جولة مستخدم تشرح نظام المهام والمنشآت والصلاحيات في منصة Cluster." />
+  <title>كيف يعمل النظام — منصة التجمع الصحي</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg:#f7f8fa; --card:#fff; --ink:#17202a; --muted:#667085;
+      --line:#e4e7ec; --brand:#175c53; --brand-soft:#e9f5f2;
+      --blue:#2457a7; --blue-soft:#edf4ff; --red:#b42318; --red-soft:#fff0ee;
+      --amber:#9a6700; --amber-soft:#fff7df; --radius:16px;
+      font-family:"IBM Plex Sans Arabic","Noto Sans Arabic",Tahoma,Arial,sans-serif;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--bg);color:var(--ink);line-height:1.75}
+    button,select{font:inherit} button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #84adff;outline-offset:2px}
+    .shell{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}
+    aside{position:sticky;top:0;height:100vh;padding:24px 18px;background:#102f2b;color:#fff;overflow:auto}
+    .brand{display:flex;gap:12px;align-items:center;padding:4px 8px 22px;border-bottom:1px solid #ffffff24}
+    .mark{display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:#fff;color:var(--brand);font-weight:900}
+    .brand small{display:block;color:#c7d7d4}.nav-title{margin:24px 10px 8px;color:#9bb6b1;font-size:.76rem}
+    nav{display:grid;gap:5px}nav a{padding:9px 12px;border-radius:10px;color:#dbe8e5;text-decoration:none}
+    nav a:hover{background:#ffffff12;color:#fff}.aside-note{margin-top:24px;padding:14px;border-radius:12px;background:#ffffff0d;color:#c7d7d4;font-size:.82rem}
+    main{min-width:0}.topbar{position:sticky;top:0;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px clamp(20px,5vw,64px);background:#ffffffed;border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}
+    .context small,.user small{display:block;color:var(--muted)}.context strong{color:var(--brand)}
+    .content{max-width:1120px;margin:auto;padding:52px clamp(20px,5vw,64px) 90px}.eyebrow{color:var(--brand);font-size:.82rem;font-weight:800}
+    h1{max-width:850px;margin:8px 0 14px;font-size:clamp(2rem,4.5vw,3.6rem);line-height:1.25;letter-spacing:-.03em}h2{margin:0 0 8px;font-size:clamp(1.45rem,3vw,2rem)}h3{margin:0 0 6px;font-size:1.05rem}p{margin:0;color:var(--muted)}
+    .hero{padding-bottom:48px}.hero-lead{max-width:800px;font-size:1.08rem}.hero-note{margin-top:22px;padding:14px 18px;border-inline-start:4px solid var(--brand);background:var(--brand-soft);border-radius:10px;color:#24423e}
+    section{scroll-margin-top:90px;margin-top:42px}.section-head{margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .card{padding:20px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 25px #1018280b}.card p{font-size:.92rem}.num{display:grid;place-items:center;width:34px;height:34px;margin-bottom:14px;border-radius:11px;background:var(--brand-soft);color:var(--brand);font-weight:900}
+    .tree{padding:22px;background:#fff;border:1px solid var(--line);border-radius:var(--radius)}.tree ul{list-style:none;margin:8px 0 0;padding-inline-start:28px;border-inline-start:1px solid var(--line)}.tree li{margin:10px 0}.pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:.75rem;font-weight:700}.cluster{background:var(--brand-soft);color:var(--brand)}.facility{background:var(--blue-soft);color:var(--blue)}.unit{background:#f2f4f7;color:#475467}
+    .sim{display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px}.controls{padding:18px;background:#fff;border:1px solid var(--line);border-radius:var(--radius)}label{display:block;margin-bottom:6px;font-size:.85rem;font-weight:700}select{width:100%;margin-bottom:16px;padding:10px;border:1px solid #cfd4dc;border-radius:10px;background:#fff;color:var(--ink)}
+    .decision{padding:22px;border:1px solid var(--line);border-radius:var(--radius);background:#fff}.decision h3{display:flex;align-items:center;gap:8px}.dot{width:10px;height:10px;border-radius:50%}.allow .dot{background:var(--brand)}.deny .dot{background:var(--red)}.allow{background:var(--brand-soft);border-color:#b9ddd6}.deny{background:var(--red-soft);border-color:#f3c4bd}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px}.fact{padding:9px 11px;background:#ffffffa8;border:1px solid #ffffff;border-radius:9px;font-size:.84rem}.fact b{display:block;color:var(--muted);font-size:.72rem}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}th,td{padding:13px;text-align:start;border-bottom:1px solid var(--line);vertical-align:top}th{background:#f2f4f7;color:#475467;font-size:.78rem}tr:last-child td{border-bottom:0}.yes{color:var(--brand);font-weight:800}.no{color:var(--red);font-weight:800}
+    .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.flow .card{position:relative}.flow .card:not(:last-child)::after{content:"←";position:absolute;inset-inline-end:-15px;top:42%;z-index:1;color:#98a2b3;font-weight:900}
+    .audit{padding:18px;background:#101828;color:#fff;border-radius:var(--radius)}.audit code{display:block;margin-top:12px;padding:14px;background:#ffffff0c;border:1px solid #ffffff18;border-radius:10px;color:#d0f0e9;direction:ltr;text-align:left;white-space:pre-wrap}.warning{padding:18px;background:var(--amber-soft);border:1px solid #f1d58a;border-radius:var(--radius);color:#624500}
+    footer{margin-top:54px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+    @media(max-width:900px){.shell{display:block}aside{position:relative;height:auto}.grid,.grid.two,.flow{grid-template-columns:1fr 1fr}.sim{grid-template-columns:1fr}.flow .card::after{display:none}}
+    @media(max-width:600px){.topbar{align-items:flex-start}.user{display:none}.content{padding-top:34px}.grid,.grid.two,.flow,.facts{grid-template-columns:1fr}th:nth-child(3),td:nth-child(3){display:none}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand"><div class="mark">ت</div><div><strong>منصة التجمع الصحي</strong><small>المهام والوصول المؤسسي</small></div></div>
+      <div class="nav-title">جولة المستخدم</div>
+      <nav aria-label="أقسام الشرح">
+        <a href="#overview">ما هو النظام؟</a><a href="#organization">التجمع والمنشآت</a><a href="#identity">الهوية</a><a href="#tasks">المهام</a><a href="#permissions">الصلاحيات</a><a href="#simulation">جرّب قرار الوصول</a><a href="#audit">التدقيق</a><a href="#removed">ما الذي حُذف؟</a>
+      </nav>
+      <div class="aside-note">هذه الصفحة تشرح المنتج بعد إزالة السجلات العامة ونظام الموافقات وسير العمل.</div>
+    </aside>
+    <main>
+      <header class="topbar"><div class="context"><small>نطاقك الحالي</small><strong id="top-context">منشأة إرادة</strong></div><div class="user"><strong>طارق — مدير منشأة</strong><small>جلسة موثوقة ومحددة النطاق</small></div></header>
+      <div class="content">
+        <header class="hero" id="overview"><span class="eyebrow">أنت الآن مستخدم داخل النظام</span><h1>نظام مهام مؤسسي يعرف من أنت، وأين تعمل، وما الذي يحق لك فعله.</h1><p class="hero-lead">المنصة ليست نظام اعتمادات ولا نظام سجلات عامة. مركز العمل هو <strong>المهمة</strong>، وتأتي المنشآت والصلاحيات والهوية والتدقيق لحماية تنفيذها.</p><div class="hero-note"><strong>باختصار:</strong> تسجل الدخول، تختار نطاق عملك، ترى المهام المسموح لك بها، تنفذ الإجراء، ويسجل النظام الأثر الأمني والإداري.</div></header>
+
+        <section><div class="section-head"><h2>ماذا ستجد داخل النظام؟</h2><p>واجهات قليلة ومباشرة، وكل واحدة لها وظيفة واضحة.</p></div><div class="grid">
+          <article class="card"><div class="num">1</div><h3>الرئيسية</h3><p>ملخص مهامك النشطة والمستحقة والإشعارات، حسب المنشأة التي تعمل ضمنها الآن.</p></article>
+          <article class="card"><div class="num">2</div><h3>المهام</h3><p>إنشاء مهمة، إسنادها، إضافة مشاركين وتعليقات ومستندات، ثم بدء المهمة أو إكمالها أو إلغاؤها.</p></article>
+          <article class="card"><div class="num">3</div><h3>المنظمة والوصول</h3><p>إدارة التجمع والمنشآت والوحدات والأشخاص والحسابات والأدوار والصلاحيات.</p></article>
+          <article class="card"><div class="num">4</div><h3>المستندات</h3><p>ملفات مستقلة وآمنة، ويمكن ربطها بالمهمة بعد فحص صلاحية الوصول للطرفين.</p></article>
+          <article class="card"><div class="num">5</div><h3>الإشعارات</h3><p>تنبيه عند إسناد مهمة أو تغيير حالتها أو إضافة تعليق، بدون كشف مهمة لم تعد تملك حق رؤيتها.</p></article>
+          <article class="card"><div class="num">6</div><h3>التدقيق</h3><p>أثر موثوق للأحداث الأمنية والإدارية المهمة: من فعل ماذا، ومتى، وضمن أي نطاق.</p></article>
+        </div></section>
+
+        <section id="organization"><div class="section-head"><h2>كيف تُنظّم المنشآت؟</h2><p>التجمع هو الجذر، وكل منشأة تملك شجرتها الداخلية المستقلة.</p></div><div class="grid two">
+          <div class="tree"><strong><span class="pill cluster">التجمع الصحي</span> تجمع الرياض الثالث</strong><ul><li><span class="pill unit">إدارة تجمع</span> مكتب الرئيس التنفيذي</li><li><span class="pill facility">منشأة</span> مجمع إرادة<ul><li><span class="pill unit">وحدة</span> إدارة المشاريع</li><li><span class="pill unit">وحدة</span> تقنية المعلومات</li></ul></li><li><span class="pill facility">منشأة</span> مستشفى الأمل<ul><li><span class="pill unit">وحدة</span> إدارة المشاريع</li></ul></li></ul></div>
+          <div class="card"><h3>قاعدة لا تتغير</h3><p>وحدة تابعة لمجمع إرادة لا يمكن نقلها تحت مستشفى الأمل أو تحت إدارة تجمع بواسطة علاقة الأب `parent_id`.</p><div class="warning" style="margin-top:16px"><strong>العلاقة بين الإدارات النظيرة</strong><br/>تكون إشرافًا أو صلاحية على النطاق، وليست خلطًا بين الأشجار التنظيمية.</div></div>
+        </div></section>
+
+        <section id="identity"><div class="section-head"><h2>ما المقصود بالهوية؟</h2><p>الهوية هي إثبات أن المستخدم هو الشخص الصحيح قبل احتساب أي صلاحية.</p></div><div class="flow">
+          <article class="card"><h3>الشخص</h3><p>سجل الشخص وارتباطه التنظيمي.</p></article><article class="card"><h3>الحساب</h3><p>اسم الدخول وحالة الحساب.</p></article><article class="card"><h3>المصادقة</h3><p>كلمة المرور وMFA عند الحاجة.</p></article><article class="card"><h3>الجلسة</h3><p>جلسة آمنة مرتبطة بالمستخدم.</p></article><article class="card"><h3>النطاق الحالي</h3><p>المنشأة التي يعمل منها الآن.</p></article>
+        </div><div class="hero-note"><strong>الهوية لا تعطي الصلاحية وحدها.</strong> معرفة أنك «طارق» لا تعني أنك تستطيع قراءة كل مهمة؛ بعدها يبدأ فحص الدور والنطاق وحقائق المهمة.</div></section>
+
+        <section id="tasks"><div class="section-head"><h2>ما هي المهمة الآن؟</h2><p>كيان مستقل أنشأه مستخدم لإنجاز عمل واضح؛ ليست نسخة من سجل، وليست خطوة في مسار موافقات.</p></div><table><thead><tr><th>داخل المهمة</th><th>مثال يراه المستخدم</th><th>الفائدة</th></tr></thead><tbody>
+          <tr><td>العنوان والوصف</td><td>مراجعة خطة الصيانة</td><td>تحديد المطلوب بوضوح</td></tr><tr><td>المكلّف والمشاركون</td><td>أحمد مكلّف، وسارة مشاركة</td><td>معرفة المسؤولية</td></tr><tr><td>الوحدة المالكة</td><td>مجمع إرادة ← إدارة المشاريع</td><td>تحديد نطاق الوصول</td></tr><tr><td>الحالة</td><td>مفتوحة ← قيد التنفيذ ← مكتملة</td><td>متابعة الإنجاز</td></tr><tr><td>التعليقات والمرفقات</td><td>ملاحظة تنفيذ + مستند</td><td>حفظ سياق العمل</td></tr>
+        </tbody></table></section>
+
+        <section id="permissions"><div class="section-head"><h2>كيف تعمل الصلاحيات؟</h2><p>الدور يحدد <strong>ماذا</strong> تستطيع أن تفعل، والنطاق يحدد <strong>أين</strong> تستطيع فعله.</p></div><table><thead><tr><th>التعيين</th><th>ما يسمح به</th><th>ما لا يسمح به</th></tr></thead><tbody>
+          <tr><td>قارئ مهام — التجمع A</td><td class="yes">مهام التجمع وكل منشآته ووحداته</td><td class="no">أي مورد في تجمع B</td></tr><tr><td>مدير مهام — منشأة إرادة</td><td class="yes">مهام المنشأة ووحداتها</td><td class="no">مهام مستشفى الأمل</td></tr><tr><td>مشرف وحدة — إدارة المشاريع</td><td class="yes">مهام الوحدة ضمن الصلاحيات الممنوحة</td><td class="no">الوحدات الشقيقة</td></tr><tr><td>عدة منشآت</td><td class="yes">تعيين منفصل لكل منشأة</td><td>لا توجد قائمة مخفية اسمها selected_entities</td></tr>
+        </tbody></table></section>
+
+        <section id="simulation"><div class="section-head"><h2>جرّب قرار الوصول</h2><p>غيّر دور المستخدم ومكان المهمة لترى ما يقرره الخادم.</p></div><div class="sim">
+          <div class="controls"><label for="role">دور المستخدم ونطاقه</label><select id="role"><option value="cluster">قارئ مهام — كل التجمع</option><option value="erada" selected>مدير مهام — منشأة إرادة</option><option value="unit">مشرف — إدارة مشاريع إرادة</option></select><label for="resource">المهمة موجودة في</label><select id="resource"><option value="erada-pmo" selected>إرادة — إدارة المشاريع</option><option value="erada-it">إرادة — تقنية المعلومات</option><option value="amal-pmo">مستشفى الأمل — إدارة المشاريع</option><option value="other-cluster">تجمع صحي آخر</option></select><label for="action">الإجراء المطلوب</label><select id="action"><option value="read">قراءة المهمة</option><option value="manage">تعديل أو إسناد المهمة</option></select></div>
+          <div class="decision allow" id="decision"><h3><span class="dot"></span><span id="decision-title">مسموح</span></h3><p id="decision-text">الدور يملك الإجراء، والمهمة داخل نطاق المنشأة.</p><div class="facts"><div class="fact"><b>الهوية</b><span>جلسة مستخدم موثوقة</span></div><div class="fact"><b>القدرة</b><span id="fact-capability">tasks.update</span></div><div class="fact"><b>نطاق التعيين</b><span id="fact-scope">منشأة إرادة</span></div><div class="fact"><b>حقائق المورد</b><span id="fact-resource">إرادة / إدارة المشاريع</span></div></div></div>
+        </div></section>
+
+        <section id="audit"><div class="section-head"><h2>ما المقصود بالتدقيق؟</h2><p>التدقيق ليس صلاحية إضافية، بل دليل محفوظ على العمليات الحساسة والإدارية.</p></div><div class="grid two"><div class="card"><h3>أمثلة لما يُسجل</h3><p>تسجيل الدخول، تغيير حساب أو دور، منح صلاحية أو سحبها، تغيير تنظيمي، وعمليات الوصول الحساسة. أحداث المهمة التشغيلية تستخدم سجلها وتاريخها، بينما التدقيق يحفظ الدليل الأمني والإداري المهم.</p></div><div class="audit"><strong>مثال مبسط لحدث تدقيق</strong><code>{
+  "actor": "tariq-user-id",
+  "action": "authorization.role.updated",
+  "scope": "facility:erada",
+  "outcome": "succeeded",
+  "occurred_at": "2026-08-13T09:20:00Z"
+}</code></div></div></section>
+
+        <section id="removed"><div class="section-head"><h2>ما الذي لم يعد جزءًا من النظام؟</h2><p>هذه المكونات أزيلت لأنها وسّعت المنتج إلى نظام عمل لم يكن مطلوبًا.</p></div><div class="grid"><article class="card"><h3>سجلات العمل العامة</h3><p>لا يوجد موديول WorkRecords ولا صفحات «السجلات».</p></article><article class="card"><h3>نماذج العمل</h3><p>لا يوجد WorkDefinitions لإنشاء نماذج عامة.</p></article><article class="card"><h3>سير العمل والموافقات</h3><p>لا يوجد Workflow ولا صندوق موافقات ولا خطوات اعتماد.</p></article></div><div class="warning" style="margin-top:16px"><strong>إذا احتاجت مهمة إلى موافقة مستقبلًا:</strong> لا نعيد النظام القديم تلقائيًا. تُصمم الحاجة الجديدة بوضوح وبحدود مستقلة بعد اعتمادها.</div></section>
+
+        <footer>الحد الحالي للمنتج: الهوية + المنظمة + الصلاحيات + المهام + المستندات + الإشعارات + التدقيق + الإعدادات، مع البحث والتقارير للموارد المحتفظ بها فقط.</footer>
+      </div>
+    </main>
+  </div>
+  <script>
+    const role = document.querySelector('#role');
+    const resource = document.querySelector('#resource');
+    const action = document.querySelector('#action');
+    const decision = document.querySelector('#decision');
+    const roleLabels = {cluster:'كل التجمع',erada:'منشأة إرادة',unit:'إدارة مشاريع إرادة'};
+    const resourceLabels = {'erada-pmo':'إرادة / إدارة المشاريع','erada-it':'إرادة / تقنية المعلومات','amal-pmo':'مستشفى الأمل / إدارة المشاريع','other-cluster':'تجمع صحي آخر'};
+    function evaluate(){
+      const inScope = role.value === 'cluster' ? resource.value !== 'other-cluster' : role.value === 'erada' ? resource.value.startsWith('erada-') : resource.value === 'erada-pmo';
+      const canManage = role.value !== 'cluster';
+      const allowed = inScope && (action.value === 'read' || canManage);
+      decision.className = 'decision ' + (allowed ? 'allow' : 'deny');
+      document.querySelector('#decision-title').textContent = allowed ? 'مسموح' : 'مرفوض';
+      document.querySelector('#decision-text').textContent = !inScope ? 'المهمة خارج نطاق تعيين المستخدم.' : !canManage && action.value === 'manage' ? 'الدور يملك القراءة فقط ولا يملك التعديل أو الإسناد.' : 'الدور يملك الإجراء، والمهمة داخل نطاق التعيين.';
+      document.querySelector('#fact-capability').textContent = action.value === 'read' ? 'tasks.read' : 'tasks.update / tasks.assign';
+      document.querySelector('#fact-scope').textContent = roleLabels[role.value];
+      document.querySelector('#fact-resource').textContent = resourceLabels[resource.value];
+      document.querySelector('#top-context').textContent = roleLabels[role.value];
+    }
+    role.addEventListener('change',evaluate);resource.addEventListener('change',evaluate);action.addEventListener('change',evaluate);evaluate();
+  </script>
+</body>
+</html>

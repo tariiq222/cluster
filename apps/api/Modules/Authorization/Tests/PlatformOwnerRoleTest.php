@@ -60,13 +60,13 @@ final class PlatformOwnerRoleTest extends TestCase
             clusterId: self::CLUSTER,
         );
 
-        $allowed = $engine->decide($this->actor(), 'workflow.approve', $facts);
+        $allowed = $engine->decide($this->actor(), 'tasks.complete', $facts);
         $this->assertTrue($allowed->isAllowed());
 
         DB::table('explicit_denies')->insert([
             'id' => Str::uuid7()->toString(),
             'user_id' => self::OWNER,
-            'capability_code' => 'workflow.approve',
+            'capability_code' => 'tasks.complete',
             'classification' => null,
             'organization_unit_id' => null,
             'resource_pattern' => 'workflow_version',
@@ -79,12 +79,12 @@ final class PlatformOwnerRoleTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $override = $engine->decide($this->actor(), 'workflow.approve', $facts);
+        $override = $engine->decide($this->actor(), 'tasks.complete', $facts);
         $this->assertTrue($override->isAllowed());
         $this->assertContains('platform_owner_super_admin_override', $override->reasonCodes);
         $this->assertDatabaseHas('access_decisions', [
             'actor_user_id' => self::OWNER,
-            'action' => 'workflow.approve',
+            'action' => 'tasks.complete',
             'decision' => 'allow',
         ]);
     }
@@ -95,7 +95,7 @@ final class PlatformOwnerRoleTest extends TestCase
 
         $decision = $this->app->make(RbacAbacDecideAccess::class)->decide(
             $this->actor(),
-            'work_record.unknown',
+            'tasks.unknown',
             null,
         );
 

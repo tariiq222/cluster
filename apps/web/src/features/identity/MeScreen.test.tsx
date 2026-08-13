@@ -29,7 +29,7 @@ vi.mock('../../app/principal-context', () => ({
   usePrincipal: () => ({
     state: 'ready',
     capabilities: ['tasks.list', 'documents.read', 'search.query'],
-    features: { work_management: false, tasks: true },
+    features: { tasks: true },
     effectiveScope: principalState.effectiveScope,
     availableScopes: principalState.availableScopes,
     revision: 0,

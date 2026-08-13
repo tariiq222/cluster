@@ -14,9 +14,6 @@ use Modules\Organization\Infrastructure\Fixtures\DevelopmentFacilityFixtures;
 use Modules\Reporting\Features\GetAuthorizedDashboard\Handler\GetAuthorizedDashboardHandler;
 use Modules\Reporting\Features\RunAuthorizedReport\Handler\RunAuthorizedReportHandler;
 use Modules\Search\Features\SearchAccessibleRecords\Handler\SearchAccessibleRecordsHandler;
-use Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Handler\GetAuthorizedWorkRecordHandler;
-use Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Handler\ListAuthorizedWorkRecordsHandler;
-use Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -32,11 +29,6 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         $this->app->bind(DecideAccess::class, FixtureFacilityDecision::class);
-        // Feature-gate default in production is CLUSTER_WORK_MANAGEMENT_ENABLED=false.
-        // Legacy and security tests exercise the full work-management surface
-        // (workflow/requests/approvals); opt in here. Gate-edge tests
-        // (WorkManagementFeatureGateTest) flip this back to false explicitly.
-        config()->set('features.work_management', true);
     }
 
     protected function bindRealAccessDecision(): void
@@ -47,16 +39,11 @@ abstract class TestCase extends BaseTestCase
         );
         $this->app->bind(DecideAccess::class, $factory);
         $this->app->when([
-            GetAuthorizedWorkRecordHandler::class,
-            ListAuthorizedWorkRecordsHandler::class,
-            SubmitWorkRecordController::class,
             SearchAccessibleRecordsHandler::class,
             RunAuthorizedReportHandler::class,
             GetAuthorizedDashboardHandler::class,
         ])->needs(DecideAccess::class)->give($factory);
         $this->app->forgetInstance(DecideAccess::class);
-        $this->app->forgetInstance(GetAuthorizedWorkRecordHandler::class);
-        $this->app->forgetInstance(ListAuthorizedWorkRecordsHandler::class);
     }
 
     protected function assignPersonToFixtureOrganization(

@@ -40,6 +40,7 @@ final class PlatformOperationsHandler
     /** @return array{http_status: 202, operation_id: string, status: string} */
     public function requestBackup(string $requestedBy, string $idempotencyKey): array
     {
+        $this->assertOperationsAvailable();
         if (trim($idempotencyKey) === '') {
             throw new DomainException('idempotency_key_required');
         }
@@ -96,6 +97,7 @@ final class PlatformOperationsHandler
         if (trim($backupId) === '') {
             throw new DomainException('backup_id_required');
         }
+        $this->assertOperationsAvailable();
 
         $operationId = (string) Str::uuid7();
         DB::transaction(function () use ($operationId, $requestedBy, $reason, $backupId): void {
@@ -134,6 +136,7 @@ final class PlatformOperationsHandler
     public function confirmRestore(string $operationId, string $confirmedBy, array $grantedCapabilities): array
     {
         $this->requireCapability($grantedCapabilities, 'platform_operations.restore.confirm');
+        $this->assertOperationsAvailable();
         $backupId = DB::transaction(function () use ($operationId, $confirmedBy): string {
             $operation = DB::table('platform_operation_requests')->where('id', $operationId)->lockForUpdate()->first();
             if ($operation === null || (string) $operation->operation_type !== 'restore_validation') {
@@ -229,6 +232,13 @@ final class PlatformOperationsHandler
         });
 
         return ['operation_id' => $operationId, 'status' => 'cancelled'];
+    }
+
+    private function assertOperationsAvailable(): void
+    {
+        if ($this->backups->status()->status !== 'available') {
+            throw new DomainException('platform_operations_unavailable');
+        }
     }
 
     /** @param list<string> $grantedCapabilities @return array{operation_id: string, status: string} */

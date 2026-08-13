@@ -94,10 +94,10 @@ class NotificationsHttpAdapterTest extends TestCase
         $responseA->assertOk()->assertHeader('X-Correlation-ID', self::CORRELATION_ID)->assertExactJson([
             'items' => [[
                 'id' => '018f6f7d-0c00-7000-8000-000000000601',
-                'title' => 'تم تقديم سجل عمل',
+                'title' => 'تم إنشاء مهمة',
                 'source' => [
-                    'source_module' => 'work_records',
-                    'record_type' => 'work_record',
+                    'source_module' => 'tasks',
+                    'record_type' => 'task',
                     'record_id' => '018f6f7d-0c00-7000-8000-000000000401',
                 ],
                 'is_read' => false,
@@ -168,6 +168,24 @@ class NotificationsHttpAdapterTest extends TestCase
         $this->assertTrue((bool) DB::table('notifications')->where('id', $notificationId)->value('is_read'));
     }
 
+    public function test_task_notification_without_authoritative_source_facts_is_masked(): void
+    {
+        $token = $this->login('fixture-account-a', 'fixture-password-a')->json('data.access_token');
+        $this->insertNotification(
+            '018f6f7d-0c00-7000-8000-000000000612',
+            '018f6f7d-0c00-7000-8000-000000000712',
+            self::USER_A_ID,
+            '018f6f7d-0c00-7000-8000-000000000412',
+            '2026-07-16 09:00:00',
+            false,
+        );
+
+        $this->withToken($token)->getJson('/api/v1/notifications', $this->correlationHeaders())
+            ->assertOk()
+            ->assertJsonPath('items.0.title', 'إشعار غير متاح حالياً')
+            ->assertJsonPath('items.0.source.record_id', '');
+    }
+
     private function requireAdapter(): void
     {
         if (! class_exists(ListMyNotificationsController::class)) {
@@ -195,13 +213,20 @@ class NotificationsHttpAdapterTest extends TestCase
         string $recipientUserId,
         string $sourceRecordId,
         string $createdAt,
+        bool $withSourceFacts = true,
     ): void {
+        $sourceFacilityId = $recipientUserId === self::USER_B_ID
+            ? '018f6f7d-0c00-7000-8000-000000000012'
+            : '018f6f7d-0c00-7000-8000-000000000011';
         DB::table('notifications')->insert([
             'id' => $id,
             'event_id' => $eventId,
             'recipient_user_id' => $recipientUserId,
-            'title' => 'تم تقديم سجل عمل',
+            'type' => 'task.created',
+            'title' => 'تم إنشاء مهمة',
             'source_record_id' => $sourceRecordId,
+            'source_owner_facility_id' => $withSourceFacts ? $sourceFacilityId : null,
+            'source_classification' => $withSourceFacts ? 'internal' : null,
             'is_read' => false,
             'created_at' => $createdAt,
             'updated_at' => $createdAt,

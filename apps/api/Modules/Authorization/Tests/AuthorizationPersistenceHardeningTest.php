@@ -206,8 +206,8 @@ class AuthorizationPersistenceHardeningTest extends TestCase
         return [
             'id' => '018f6f7d-0c00-7000-8000-000000000829',
             'decision' => 'allow',
-            'action' => 'work_record.read',
-            'resource_type' => 'work_record',
+            'action' => 'tasks.read',
+            'resource_type' => 'task',
             'resource_id' => '018f6f7d-0c00-7000-8000-000000000827',
             'reason_codes' => json_encode(['capability_granted'], JSON_THROW_ON_ERROR),
             'policy_version' => 'test-v1',

@@ -1,12 +1,11 @@
 #!/bin/sh
 # Cluster production worker loop.
 #
-# Runs five independent worker lanes once per iteration:
+# Runs four independent worker lanes once per iteration:
 #   1. organization:relay-person-events
 #   2. identity:consume-person-events
-#   3. work-records:relay-pending
-#   4. documents:relay-events
-#   5. notifications:consume-work-record-submitted
+#   3. documents:relay-events
+#   4. tasks:relay-events
 #
 # Lane persistence: a failure in one lane does not abort the
 # others. Atomic readiness marker: write-temp + mv -f replaces
@@ -21,7 +20,7 @@
 
 set -eu
 
-readonly consumer="${NOTIFICATIONS_CONSUMER_NAME:-production-worker}"
+readonly worker_consumer="${WORKER_CONSUMER_NAME:-production-worker}"
 readonly poll_seconds="${WORKER_POLL_SECONDS:-2}"
 readonly max_backoff="${WORKER_MAX_BACKOFF_SECONDS:-60}"
 readonly readiness_marker="${WORKER_READINESS_MARKER:-/tmp/worker.ready}"
@@ -120,10 +119,9 @@ while :; do
     iteration_failures=0
 
     run_lane organization:relay-person-events organization:relay-person-events --once
-    run_lane identity:consume-person-events identity:consume-person-events --once --consumer="$consumer"
-    run_lane work-records:relay-pending work-records:relay-pending --once
+    run_lane identity:consume-person-events identity:consume-person-events --once --consumer="$worker_consumer"
     run_lane documents:relay-events documents:relay-events --once
-    run_lane notifications:consume-work-record-submitted notifications:consume-work-record-submitted --once --consumer="$consumer"
+    run_lane tasks:relay-events tasks:relay-events --once
 
     if [ "$iteration_failures" -eq 0 ]; then
         write_marker || printf 'WARN: readiness marker write failed.\n' >&2

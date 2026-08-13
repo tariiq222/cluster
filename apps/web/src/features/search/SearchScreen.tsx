@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ClipboardList, FileText, FolderSearch, ListTodo, type LucideIcon } from 'lucide-react'
+import { FileText, FolderSearch, ListTodo, type LucideIcon } from 'lucide-react'
 import * as generated from '../../api/generated/cluster'
 import type { Entity } from '../../api/generated/cluster'
 import { ApiError, requestInit, unwrap } from '../../api/http'
@@ -22,7 +22,7 @@ import {
 import { EmptyState, ResourceBoundary } from '@/components/states'
 import { searchCopy } from './search-copy'
 
-const TYPE_VALUES = ['work_record', 'task', 'document'] as const
+const TYPE_VALUES = ['task', 'document'] as const
 const STATUS_VALUES = ['draft', 'submitted', 'in_review', 'approved', 'completed'] as const
 
 function iconForType(type: string): LucideIcon {
@@ -31,15 +31,13 @@ function iconForType(type: string): LucideIcon {
       return ListTodo
     case 'document':
       return FileText
-    case 'work_record':
-      return ClipboardList
     default:
       return FolderSearch
   }
 }
 
 function resultType(entity: Entity): string {
-  return 'resource_type' in entity ? String(entity.resource_type) : 'work_record'
+  return String(entity.resource_type)
 }
 
 function resultTitle(entity: Entity): string {
@@ -47,18 +45,14 @@ function resultTitle(entity: Entity): string {
     const title = entity.title ?? entity.name ?? entity.code
     if (title) return String(title)
   }
-  if ('record_number' in entity) return entity.record_number
   return entity.id
 }
 
 /** Known result kinds link to their destination route; unknown kinds stay plain text. */
 function resultPath(entity: Entity): string | null {
-  if ('resource_type' in entity) {
-    if (entity.resource_type === 'task') return `/tasks/${entity.id}`
-    if (entity.resource_type === 'document') return `/documents/${entity.id}`
-    return null
-  }
-  return `/work-records/${entity.id}`
+  if (entity.resource_type === 'task') return `/tasks/${entity.id}`
+  if (entity.resource_type === 'document') return `/documents/${entity.id}`
+  return null
 }
 
 function resultExcerpt(entity: Entity): string {
@@ -69,8 +63,6 @@ function resultExcerpt(entity: Entity): string {
 function typeLabel(type: string, locale: 'ar' | 'en'): string {
   const t = searchCopy[locale]
   switch (type) {
-    case 'work_record':
-      return t.workRecord
     case 'task':
       return t.task
     case 'document':

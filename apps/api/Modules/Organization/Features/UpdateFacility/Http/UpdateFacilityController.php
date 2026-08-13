@@ -9,8 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\UpdateFacility\Handler\UpdateFacilityHandler;
 use Modules\Organization\Http\OrganizationApi;
 use UnexpectedValueException;
@@ -20,6 +20,7 @@ final class UpdateFacilityController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly UpdateFacilityHandler $handler,
     ) {}
 
@@ -43,12 +44,9 @@ final class UpdateFacilityController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.facility.manage', new RecordFacts(
-            ownerFacilityId: $facilityId,
-            resourceType: 'organization_facility',
-            classification: 'internal',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
+        $facts = $this->resourceFacts->factsForFacility($facilityId);
+        if ($facts === null || ! $this->access->decide($principal, 'organization.facility.manage', $facts)->isAllowed()) {
+            return OrganizationApi::problem(404, 'facility-not-found', 'Not Found', 'The facility is not available.', $correlationId);
         }
 
         $input = $request->json()->all();

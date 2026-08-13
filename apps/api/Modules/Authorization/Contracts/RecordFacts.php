@@ -25,9 +25,7 @@ final readonly class RecordFacts
         public array $sharedUserIds = [],
         public array $participantIds = [],
         public ?string $lifecycleState = null,
-        public ?string $workflowState = null,
         public ?string $fieldPolicyKey = null,
-        public ?string $workTypeVersionId = null,
         public bool $legalHold = false,
         public ?int $lockVersion = null,
     ) {}

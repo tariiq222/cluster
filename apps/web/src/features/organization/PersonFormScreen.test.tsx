@@ -16,7 +16,7 @@ vi.mock('../../app/principal-context', () => ({
   usePrincipal: () => ({
     state: 'ready',
     capabilities: principalState.capabilities,
-    features: { work_management: false, tasks: true },
+    features: { tasks: true },
     effectiveScope: null,
     availableScopes: [],
     revision: 0,
@@ -135,7 +135,7 @@ describe('person form page — edit', () => {
         }),
       )
     })
-    expect(getPersonMock).toHaveBeenCalledTimes(2)
+    expect(getPersonMock).toHaveBeenCalledTimes(1)
     expect(navigateMock).toHaveBeenCalledWith('/organization?tab=people')
   })
 })

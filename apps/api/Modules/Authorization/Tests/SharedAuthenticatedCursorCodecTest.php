@@ -55,7 +55,7 @@ final class SharedAuthenticatedCursorCodecTest extends TestCase
 
     public function test_decoded_sort_tuple_preserves_nested_list_order_exactly(): void
     {
-        $resource = 'work_record_feed';
+        $resource = 'task_feed';
         $binding = ['principal' => 'u-1', 'scope' => 'facility:f-1', 'filter' => ['type' => 'a'], 'limit' => 20];
         $sortTuple = [
             ['c' => 'a', 'd' => 'asc', 'v' => 1],

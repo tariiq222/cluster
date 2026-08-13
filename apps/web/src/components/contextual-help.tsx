@@ -48,14 +48,6 @@ const helpCopy = {
           'حدّث الحالة وأضف تعليقًا يوضح القرار التالي.',
         ],
       },
-      work: {
-        title: 'مساعدة سير العمل',
-        description: 'تابع السجل والخطوة المطلوبة ضمن نطاق العمل الفعّال.',
-        steps: [
-          'راجع حالة السجل والمسؤول عن الخطوة الحالية.',
-          'تحقق من النطاق قبل الموافقة أو الانتقال إلى الخطوة التالية.',
-        ],
-      },
       documents: {
         title: 'مساعدة المستندات',
         description: 'تحقق من الإصدار والوصول قبل مشاركة مستند أو تحديثه.',
@@ -158,15 +150,6 @@ const helpCopy = {
           'Update status and leave a comment that explains the next decision.',
         ],
       },
-      work: {
-        title: 'Workflow help',
-        description:
-          'Track the record and required step within your effective work scope.',
-        steps: [
-          'Review the record status and owner of the current step.',
-          'Confirm scope before approving or moving to the next step.',
-        ],
-      },
       documents: {
         title: 'Documents help',
         description:
@@ -246,13 +229,6 @@ type TopicKey = keyof (typeof helpCopy)['en']['topics']
 
 function topicForPath(pathname: string): TopicKey {
   if (pathname.startsWith('/tasks')) return 'tasks'
-  if (
-    pathname.startsWith('/work-records') ||
-    pathname.startsWith('/inbox') ||
-    pathname.startsWith('/workflow') ||
-    pathname.startsWith('/work-definitions')
-  )
-    return 'work'
   if (pathname.startsWith('/documents')) return 'documents'
   if (pathname.startsWith('/organization')) return 'organization'
   if (pathname.startsWith('/access')) return 'access'

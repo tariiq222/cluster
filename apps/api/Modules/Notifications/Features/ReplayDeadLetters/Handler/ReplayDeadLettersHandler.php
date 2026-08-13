@@ -6,13 +6,12 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use JsonException;
 use Modules\Notifications\Features\ConsumeTechnicalAlert\Handler\ConsumeTechnicalAlertHandler;
-use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Handler\ConsumeWorkRecordSubmittedHandler;
 use Throwable;
 
 /**
  * Bounded DLQ replay: re-feeds durable dead-letter envelopes into the
- * notification aggregation pipeline through the owning handlers (both are
- * inbox-idempotent), then stamps `replayed_at`. Envelopes that no longer
+ * technical-alert notification pipeline through its inbox-idempotent handler,
+ * then stamps `replayed_at`. Envelopes that no longer
  * validate (malformed raw payloads, invalid events) stay dead and are
  * counted as skipped.
  */
@@ -21,7 +20,6 @@ final class ReplayDeadLettersHandler
     private const MAX_BATCH_SIZE = 100;
 
     public function __construct(
-        private readonly ConsumeWorkRecordSubmittedHandler $workRecords,
         private readonly ConsumeTechnicalAlertHandler $technicalAlerts,
     ) {}
 
@@ -103,7 +101,6 @@ final class ReplayDeadLettersHandler
     private function handlerFor(?array $event): ?object
     {
         return match ($event['type'] ?? null) {
-            'com.cluster.workrecord.submitted.v1' => $this->workRecords,
             'com.cluster.platform.technical-alert.v1' => $this->technicalAlerts,
             default => null,
         };

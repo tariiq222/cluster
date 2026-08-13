@@ -4,10 +4,8 @@
 # Tests for apps/api/docker/worker-loop.sh
 #
 # Behaviour under test:
-#   1. Each iteration runs all five worker lanes: organization:relay
-#      person-events, identity:consume-person-events, work-records:
-#      relay-pending, documents:relay-events, notifications:consume
-#      -work-record-submitted.
+#   1. Each iteration runs the four retained worker lanes: organization,
+#      identity, documents, and tasks.
 #   2. A failure in one lane does NOT abort the other lanes (lane
 #      persistence).
 #   3. The readiness marker /tmp/worker.ready is replaced atomically
@@ -32,17 +30,16 @@ teardown() {
 }
 
 # Each lane runs once per iteration.
-@test "worker-loop runs all five lanes once per iteration" {
+@test "worker-loop runs all four retained lanes once per iteration" {
     WORKER_POLL_SECONDS=1 WORKER_MAX_BACKOFF_SECONDS=1 \
         start_loop "$DOCKER_DIR/worker-loop.sh"
-    wait_for_iterations "notifications:consume-work-record-submitted" 1
+    wait_for_iterations "documents:relay-events" 1
     stop_loop
 
     [ "$(grep -c 'organization:relay-person-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
     [ "$(grep -c 'identity:consume-person-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
-    [ "$(grep -c 'work-records:relay-pending' "$PHP_INVOCATION_LOG")" -ge 1 ]
     [ "$(grep -c 'documents:relay-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
-    [ "$(grep -c 'notifications:consume-work-record-submitted' "$PHP_INVOCATION_LOG")" -ge 1 ]
+    [ "$(grep -c 'tasks:relay-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
 }
 
 # On full-lane success, the readiness marker exists and has a recent
@@ -50,7 +47,7 @@ teardown() {
 @test "worker-loop writes the readiness marker on success" {
     WORKER_POLL_SECONDS=1 WORKER_MAX_BACKOFF_SECONDS=1 \
         start_loop "$DOCKER_DIR/worker-loop.sh"
-    wait_for_iterations "notifications:consume-work-record-submitted" 1
+    wait_for_iterations "documents:relay-events" 1
     stop_loop
 
     [ -f "$WORKER_READINESS_MARKER" ]
@@ -61,7 +58,7 @@ teardown() {
 @test "worker-loop does not leave a partial .tmp marker" {
     WORKER_POLL_SECONDS=1 WORKER_MAX_BACKOFF_SECONDS=1 \
         start_loop "$DOCKER_DIR/worker-loop.sh"
-    wait_for_iterations "notifications:consume-work-record-submitted" 1
+    wait_for_iterations "documents:relay-events" 1
     stop_loop
 
     run ls "$WORKER_READINESS_MARKER.tmp."* 2>/dev/null
@@ -73,14 +70,27 @@ teardown() {
     CLUSTER_LOOP_FAIL_ORGANIZATION=1 \
         WORKER_POLL_SECONDS=1 WORKER_MAX_BACKOFF_SECONDS=1 \
         start_loop "$DOCKER_DIR/worker-loop.sh"
-    wait_for_iterations "notifications:consume-work-record-submitted" 1
+    wait_for_iterations "documents:relay-events" 1
     stop_loop
 
     [ "$(grep -c 'organization:relay-person-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
     [ "$(grep -c 'identity:consume-person-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
-    [ "$(grep -c 'work-records:relay-pending' "$PHP_INVOCATION_LOG")" -ge 1 ]
     [ "$(grep -c 'documents:relay-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
-    [ "$(grep -c 'notifications:consume-work-record-submitted' "$PHP_INVOCATION_LOG")" -ge 1 ]
+    [ "$(grep -c 'tasks:relay-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
+}
+
+@test "worker-loop continues later lanes and clears readiness when task relay fails" {
+    CLUSTER_LOOP_FAIL_TASKS=1 \
+        WORKER_POLL_SECONDS=1 WORKER_MAX_BACKOFF_SECONDS=1 \
+        start_loop "$DOCKER_DIR/worker-loop.sh"
+    wait_for_iterations "tasks:relay-events" 1
+    stop_loop
+
+    [ "$(grep -c 'organization:relay-person-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
+    [ "$(grep -c 'identity:consume-person-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
+    [ "$(grep -c 'documents:relay-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
+    [ "$(grep -c 'tasks:relay-events' "$PHP_INVOCATION_LOG")" -ge 1 ]
+    [ ! -f "$WORKER_READINESS_MARKER" ]
 }
 
 # Don't hide failure: when at least one lane fails, the readiness
@@ -89,7 +99,7 @@ teardown() {
     CLUSTER_LOOP_FAIL_ORGANIZATION=1 \
         WORKER_POLL_SECONDS=1 WORKER_MAX_BACKOFF_SECONDS=1 \
         start_loop "$DOCKER_DIR/worker-loop.sh"
-    wait_for_iterations "notifications:consume-work-record-submitted" 1
+    wait_for_iterations "documents:relay-events" 1
     stop_loop
 
     [ ! -f "$WORKER_READINESS_MARKER" ]
@@ -135,18 +145,16 @@ teardown() {
 @test "worker-loop applies bounded backoff after consecutive failures" {
     CLUSTER_LOOP_FAIL_ORGANIZATION=1 \
         CLUSTER_LOOP_FAIL_IDENTITY=1 \
-        CLUSTER_LOOP_FAIL_WORK_RECORDS=1 \
         CLUSTER_LOOP_FAIL_DOCUMENTS=1 \
-        CLUSTER_LOOP_FAIL_NOTIFICATIONS=1 \
+        CLUSTER_LOOP_FAIL_TASKS=1 \
         WORKER_POLL_SECONDS=1 WORKER_MAX_BACKOFF_SECONDS=2 \
         start_loop "$DOCKER_DIR/worker-loop.sh"
     wait_for_iterations "relay-person-events" 2
 
-    # Gap between the first two work-records:relay-pending invocations
-    # should be at least the base poll + extra backoff sleep.
+    # The gap between iterations should include the bounded backoff.
     sleep 1
     stop_loop
 
-    # Verify five lanes were invoked at least twice.
+    # Verify the loop reached at least two iterations.
     [ "$(grep -c 'relay-person-events' "$PHP_INVOCATION_LOG")" -ge 2 ]
 }

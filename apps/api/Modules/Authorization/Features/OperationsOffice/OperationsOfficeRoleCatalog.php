@@ -10,14 +10,6 @@ final class OperationsOfficeRoleCatalog
 {
     public const PLATFORM_OWNER_ROLE = 'platform_owner';
 
-    public const OFFICE_MEMBER_ROLE = 'operations_office_member';
-
-    /** @var list<string> */
-    public const OFFICE_CAPABILITIES = [
-        'workflow.author',
-        'workflow.approve',
-    ];
-
     public function sync(): void
     {
         $this->syncCapabilities();
@@ -26,12 +18,6 @@ final class OperationsOfficeRoleCatalog
             'مالك المنصة',
             'Platform owner',
             CapabilityCatalog::all(),
-        );
-        $this->syncRole(
-            self::OFFICE_MEMBER_ROLE,
-            'عضو مكتب إدارة العمليات',
-            'Operations office member',
-            self::OFFICE_CAPABILITIES,
         );
     }
 

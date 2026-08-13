@@ -95,7 +95,7 @@ beforeEach(() => {
   getCurrentPrincipalMock.mockResolvedValue(
     jsonResponse({
       capabilities: ['documents.manage'],
-      features: { work_management: true, tasks: true },
+      features: { tasks: true },
     }),
   )
 })

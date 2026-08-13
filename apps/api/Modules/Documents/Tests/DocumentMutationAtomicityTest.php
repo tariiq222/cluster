@@ -312,7 +312,7 @@ final class DocumentMutationAtomicityTest extends TestCase
 
         $this->assertOutboxFailure(fn () => $controller(
             $this->request('POST', [
-                'source' => ['source_module' => 'work_records', 'record_type' => 'work_record', 'record_id' => self::SOURCE_ID],
+                'source' => ['source_module' => 'tasks', 'record_type' => 'task', 'record_id' => self::SOURCE_ID],
                 'relation_type' => 'attachment',
             ], [
                 'HTTP_IF_MATCH' => '"1"',

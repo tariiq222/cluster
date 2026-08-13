@@ -6,11 +6,9 @@
 >
     <testsuites>
         <testsuite name="MySQL integration">
-            <file>tests/Feature/WalkingSkeletonMySqlE2ETest.php</file>
+            <file>tests/Feature/WorkManagementRetirementMySqlUpgradeTest.php</file>
             <file>Modules/Organization/Tests/TemporaryAssignmentMySqlConcurrencyTest.php</file>
             <file>tests/Feature/BusinessCalendarMySqlConcurrencyTest.php</file>
-            <file>Modules/WorkDefinitions/Tests/WorkDefinitionMySqlConcurrencyTest.php</file>
-            <file>Modules/Workflow/Tests/WorkflowVersionMySqlConcurrencyTest.php</file>
             <file>Modules/Audit/Tests/AuditMySqlConcurrencyTest.php</file>
         </testsuite>
     </testsuites>

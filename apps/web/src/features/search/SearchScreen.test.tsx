@@ -18,7 +18,7 @@ vi.mock('../../app/principal-context', () => ({
   usePrincipal: () => ({
     state: 'ready',
     capabilities: ['search.query'],
-    features: { work_management: false, tasks: true },
+    features: { tasks: true },
     effectiveScope: { scopeType: 'facility', scopeId: 'f1', label: 'منشأة أ' },
     availableScopes: [],
     revision: 0,

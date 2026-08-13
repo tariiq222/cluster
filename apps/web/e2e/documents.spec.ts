@@ -76,7 +76,7 @@ async function login(page: Page) {
             user_id: TEST_USER_ID,
             csrf_token: 'e2e-csrf-token',
             capabilities: ['documents.read', 'documents.manage'],
-            features: { work_management: false, tasks: false },
+            features: { tasks: false },
           },
         }),
       }
@@ -101,7 +101,7 @@ async function login(page: Page) {
       clearance: 'internal',
       break_glass: false,
       correlation_id: TEST_USER_ID,
-      features: { work_management: false, tasks: false },
+      features: { tasks: false },
     }),
   }))
   await page.route('**/api/v1/identity/csrf', (route) => route.fulfill({
@@ -446,7 +446,7 @@ test('documents workspace list/filter/create/version/link flow works with mocked
         lock_version: 1,
         current_version_id: '01980f50-5f0d-7000-8000-000000000301',
         versions: [{ id: '01980f50-5f0d-7000-8000-000000000301', version_number: 1, file_name: 'protocol.docx', availability_status: 'available' }],
-        links: [{ id: '01980f50-5f0d-7000-8000-000000000401', relation_type: 'related', source: { source_module: 'work-record', record_type: 'record', record_id: '01980f50-5f0d-7000-8000-000000000099' } }],
+        links: [{ id: '01980f50-5f0d-7000-8000-000000000401', relation_type: 'related', source: { source_module: 'tasks', record_type: 'task', record_id: '01980f50-5f0d-7000-8000-000000000099' } }],
       } as DocumentRecord],
       ['01980f50-5f0d-7000-8000-000000000102', {
         id: '01980f50-5f0d-7000-8000-000000000102',

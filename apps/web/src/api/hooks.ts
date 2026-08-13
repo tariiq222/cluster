@@ -60,11 +60,12 @@ export function useRoleCapabilityCacheScope(): void {
 
 /* ============ Tasks ============ */
 
-export function useTasksList(filters: generated.ListTasksParams) {
+export function useTasksList(filters: generated.ListTasksParams, enabled = true) {
   const { scopeEpoch } = useAuth()
-  return useQuery<generated.CollectionResponse>({
+  return useQuery<generated.TaskCollection>({
     queryKey: ['tasks', filters, scopeEpoch] as const,
-    queryFn: async () => unwrap(await generated.listTasks(filters, requestInit(null))),
+    queryFn: async () => unwrap<generated.TaskCollection>(await generated.listTasks(filters, requestInit(null))),
+    enabled,
   })
 }
 
@@ -156,16 +157,6 @@ export function useDocumentLinks(documentId: string) {
   return useQuery<generated.CollectionResponse>({
     queryKey: ['document-links', documentId] as const,
     queryFn: async () => unwrap(await generated.listDocumentLinks(documentId, { limit: 50 }, requestInit(null))),
-  })
-}
-
-/* ============ Work records ============ */
-
-export function useWorkRecordsList(filters: generated.ListWorkRecordsParams) {
-  const { scopeEpoch } = useAuth()
-  return useQuery<generated.CollectionResponse>({
-    queryKey: ['work-records', filters, scopeEpoch] as const,
-    queryFn: async () => unwrap(await generated.listWorkRecords(filters, requestInit(null))),
   })
 }
 

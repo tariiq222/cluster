@@ -64,7 +64,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
             {
                 public function resolve(AuthorizationResourceReference $reference): ?RecordFacts
                 {
-                    if ($reference->type !== 'work_record') {
+                    if ($reference->type !== 'task') {
                         return null;
                     }
 
@@ -158,9 +158,9 @@ final class AuthorizationHttpAdapterTest extends TestCase
         );
         $recordId = '018f6f7d-0c00-7000-8000-000000000902';
         $payload = [
-            'action' => 'work_record.read',
+            'action' => 'tasks.read',
             'resource_reference' => [
-                'type' => 'work_record',
+                'type' => 'task',
                 'id' => $recordId,
             ],
             'access_context' => [
@@ -172,7 +172,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
             ],
             'record_facts' => [
                 'facts_version' => 'browser-forged-v1',
-                'record_type' => 'work_record',
+                'record_type' => 'task',
                 'record_id' => $recordId,
                 'owner_facility_id' => DevelopmentJourneyAuthorizationSeeder::FACILITY_B_ID,
                 'classification' => 'top_secret',
@@ -181,7 +181,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
         $decision = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/access-decisions', $payload, [
             'X-Correlation-ID' => self::CORRELATION_ID,
             'X-CSRF-Token' => $csrf,
-        ])->assertOk()->assertJsonPath('action', 'work_record.read');
+        ])->assertOk()->assertJsonPath('action', 'tasks.read');
         $id = (string) $decision->json('decision_id');
         $this->assertDatabaseHas('access_decisions', [
             'id' => $id,
@@ -204,7 +204,7 @@ final class AuthorizationHttpAdapterTest extends TestCase
 
         $beforeDecisionCount = DB::table('access_decisions')->count();
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/access-decisions', [
-            'action' => 'work_record.read',
+            'action' => 'tasks.read',
             'resource_reference' => [
                 'type' => 'unknown_resource',
                 'id' => '018f6f7d-0c00-7000-8000-000000000903',
@@ -224,9 +224,9 @@ final class AuthorizationHttpAdapterTest extends TestCase
             DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_PASSWORD,
         );
         $decision = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/access-decisions', [
-            'action' => 'work_record.read',
+            'action' => 'tasks.read',
             'resource_reference' => [
-                'type' => 'work_record',
+                'type' => 'task',
                 'id' => '018f6f7d-0c00-7000-8000-000000000904',
             ],
         ], [

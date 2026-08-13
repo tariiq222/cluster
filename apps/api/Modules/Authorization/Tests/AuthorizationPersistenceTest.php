@@ -280,7 +280,7 @@ class AuthorizationPersistenceTest extends TestCase
     {
         DB::table('explicit_denies')->insert([
             ...$deny,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
             'classification' => null,
             'resource_pattern' => null,
             'reason' => 'Restricted test access.',

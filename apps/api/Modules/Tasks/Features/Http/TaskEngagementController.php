@@ -66,6 +66,9 @@ final class TaskEngagementController
             return $this->problem(422, 'invalid-task-participant', 'The request body is invalid.', $c);
         }
         $role = is_string($v['role'] ?? null) && mb_strlen($v['role']) <= 64 ? $v['role'] : 'participant';
+        if (! $this->policy->participantIsWithinOwnerFacility($task, $v['user_id'])) {
+            return $this->problem(422, 'invalid-task-participant', "The participant is outside the task's facility scope.", $c);
+        }
 
         $replay = $this->replay($request, $p['user_id'], self::PARTICIPANT_OPERATION, $c, ['user_id' => $v['user_id'], 'role' => $role]);
         if ($replay !== null) {
@@ -117,6 +120,7 @@ final class TaskEngagementController
                 'participant_user_id' => $v['user_id'],
                 'role' => $role,
             ],
+            $this->policy->factsFor($task, $this->store->participantIds($taskId)),
         );
 
         return $this->response($response, 200, $c, $expected + 1);
@@ -211,6 +215,7 @@ final class TaskEngagementController
             $this->recipientsExcludingActor($task, $p['user_id']),
             'task.commented',
             $payload,
+            $this->policy->factsFor($task, $this->store->participantIds($taskId)),
         );
         foreach (array_values(array_unique(array_filter($mentioned, 'is_string'))) as $mentionedUserId) {
             if ($mentionedUserId === $p['user_id']) {
@@ -228,6 +233,7 @@ final class TaskEngagementController
                 [$mentionedUserId],
                 'task.mentioned',
                 $payload + ['mentioned_user_id' => $mentionedUserId],
+                $this->policy->factsFor($task, $this->store->participantIds($taskId)),
             );
         }
 

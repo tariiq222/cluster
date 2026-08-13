@@ -4,10 +4,8 @@ import {
   BarChart3,
   Bell,
   Building2,
-  ClipboardList,
   FileText,
   Home,
-  Inbox,
   Languages,
   ListTodo,
   LogOut,
@@ -82,6 +80,16 @@ const accountMenuCopy = {
   ar: { myAccount: 'حسابي', notifications: 'الإشعارات' },
   en: { myAccount: 'My Account', notifications: 'Notifications' },
 } as const
+
+const organizationReadCapabilities = [
+  'organization.cluster.read',
+  'organization.facility.read',
+  'organization.unit.read',
+  'organization.position.read',
+  'organization.person.read',
+  'organization.assignment.read',
+  'organization.temporary-assignment.read',
+] as const
 
 /* Icon-mode tooltips open on the physical side facing the page content:
  * the right-side Arabic sidebar pops left, the left-side English sidebar
@@ -179,7 +187,7 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
     [principal.capabilities],
   )
   const features = useMemo(
-    () => principal.features ?? { work_management: false, tasks: false },
+    () => principal.features ?? { tasks: false },
     [principal.features],
   )
 
@@ -189,24 +197,12 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
       ...(features.tasks && can('tasks.list')
         ? [{ path: '/tasks', label: copy.tasks, icon: ListTodo }]
         : []),
-      ...(features.work_management && can('work_record.list')
-        ? [
-            {
-              path: '/work-records',
-              label: copy.workRecords,
-              icon: ClipboardList,
-            },
-          ]
-        : []),
-      ...(features.work_management && can('workflow.read')
-        ? [{ path: '/inbox', label: copy.inbox, icon: Inbox }]
-        : []),
       ...(can('documents.list')
         ? [{ path: '/documents', label: copy.documents, icon: FileText }]
         : []),
     ]
     const organization: NavEntry[] = [
-      ...(can('organization.cluster.read') || can('organization.facility.read')
+      ...(organizationReadCapabilities.some(can)
         ? [{ path: '/organization', label: copy.organization, icon: Building2 }]
         : []),
       ...(can('identity.account.read') || can('authorization.role.read')

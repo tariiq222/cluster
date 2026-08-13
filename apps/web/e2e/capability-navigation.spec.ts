@@ -5,9 +5,9 @@ const artifactsDir = path.resolve(process.cwd(), '../../artifacts')
 const ids = { user: '01980f50-5f0d-7000-8000-000000000101', cluster: '01980f50-5f0d-7000-8000-000000000102', unit: '01980f50-5f0d-7000-8000-000000000103', a: '01980f50-5f0d-7000-8000-000000000104', b: '01980f50-5f0d-7000-8000-000000000105' }
 type Persona = 'employee' | 'manager' | 'platform'
 const caps: Record<Persona, string[]> = {
-  employee: ['workflow.read', 'workflow.list', 'tasks.read', 'tasks.list', 'work_definition.read', 'work_definition.list', 'documents.read', 'documents.list'],
-  manager: ['workflow.read', 'workflow.list', 'workflow.decide', 'tasks.read', 'tasks.list', 'work_definition.read', 'documents.read', 'reporting.dashboard'],
-  platform: ['workflow.read', 'workflow.list', 'workflow.decide', 'tasks.read', 'tasks.list', 'work_definition.read', 'documents.read', 'documents.list', 'organization.cluster.read', 'organization.unit.read', 'organization.person.read', 'identity.account.read', 'authorization.role.read', 'authorization.capability.read', 'authorization.assignment.read', 'authorization.audit.read', 'authorization.decision.read', 'reporting.read', 'platform_settings.read'],
+  employee: ['tasks.read', 'tasks.list', 'documents.read', 'documents.list'],
+  manager: ['tasks.read', 'tasks.list', 'documents.read', 'reporting.dashboard'],
+  platform: ['tasks.read', 'tasks.list', 'documents.read', 'documents.list', 'organization.cluster.read', 'organization.unit.read', 'organization.person.read', 'identity.account.read', 'authorization.role.read', 'authorization.capability.read', 'authorization.assignment.read', 'authorization.audit.read', 'authorization.decision.read', 'reporting.read', 'platform_settings.read'],
 }
 
 async function mockPersona(page: Page, persona: Persona, twoScopes = false) {
@@ -44,7 +44,7 @@ async function mockPersona(page: Page, persona: Persona, twoScopes = false) {
             user_id: ids.user,
             csrf_token: 'persona-csrf',
             capabilities: caps[persona],
-            features: { work_management: false, tasks: true },
+            features: { tasks: true },
           },
         }),
       }
@@ -59,20 +59,10 @@ async function mockPersona(page: Page, persona: Persona, twoScopes = false) {
   }))
   await page.route('**/api/v1/identity/accounts?**', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [], next_cursor: null }) }))
   await page.route('**/api/v1/organization/people?**', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [], next_cursor: null }) }))
-  await page.route('**/api/v1/me', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ subject_id: ids.user, tenant_id: ids.cluster, organization_unit_ids: [ids.unit], roles: [persona], capabilities: caps[persona], clearance: 'internal', break_glass: false, correlation_id: ids.user, features: { work_management: false, tasks: true } }) }))
+  await page.route('**/api/v1/me', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ subject_id: ids.user, tenant_id: ids.cluster, organization_unit_ids: [ids.unit], roles: [persona], capabilities: caps[persona], clearance: 'internal', break_glass: false, correlation_id: ids.user, features: { tasks: true } }) }))
   await page.route('**/api/v1/me/scopes', route => route.fulfill({ contentType: 'application/json', headers: { ETag: selected === ids.a ? '"1"' : '"2"' }, body: JSON.stringify({ available_scopes: [{ scope_type: 'facility', scope_id: ids.a, label: 'نطاق أ' }, ...(twoScopes ? [{ scope_type: 'facility', scope_id: ids.b, label: 'نطاق ب' }] : [])], effective_scope: { scope_type: 'facility', scope_id: selected, label: selected === ids.a ? 'نطاق أ' : 'نطاق ب' } }) }))
   await page.route('**/api/v1/me/scope', async route => { selected = JSON.parse(route.request().postData() ?? '{}').scope_id; await route.fulfill({ contentType: 'application/json', headers: { ETag: '"2"' }, body: JSON.stringify({ available_scopes: [{ scope_type: 'facility', scope_id: ids.a, label: 'نطاق أ' }, { scope_type: 'facility', scope_id: ids.b, label: 'نطاق ب' }], effective_scope: { scope_type: 'facility', scope_id: selected, label: 'نطاق ب' } }) }) })
-  await page.route('**/api/v1/workflow/steps?**', async route => {
-    const state = new URL(route.request().url()).searchParams.get('state')
-    if (state === 'active') {
-      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [], next_cursor: null }) })
-      return
-    }
-    if (selected === ids.b) await new Promise(resolve => setTimeout(resolve, 250))
-    const scopeLabel = selected === ids.a ? 'اعتماد نطاق أ' : 'اعتماد نطاق ب'
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [{ step_id: ids.a, workflow_instance_id: ids.b, source_type: scopeLabel, source_id: selected, state: 'waiting', assignee_user_id: ids.user, created_at: '2026-07-23T08:00:00Z', lock_version: 1, allowed_actions: ['approve'] }], next_cursor: null }) })
-  })
-  for (const path of ['tasks?limit=100', 'workflow/instances?limit=100', 'dashboards?limit=50', 'work-records?limit=20', 'notifications?limit=**']) await page.route(`**/api/v1/${path}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [], next_cursor: null }) }))
+  for (const path of ['tasks?limit=100', 'dashboards?limit=50', 'notifications?limit=**']) await page.route(`**/api/v1/${path}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [], next_cursor: null }) }))
   // Governance workspace feeds for the platform persona: roles list and the
   // capability catalog behind the Roles tab.
   await page.route('**/api/v1/authorization/roles**', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { items: [], next_cursor: null } }) }))

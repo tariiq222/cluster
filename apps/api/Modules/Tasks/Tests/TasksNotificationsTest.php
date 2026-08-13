@@ -25,7 +25,7 @@ final class TasksNotificationsTest extends TestCase
 
     private const USER_B = '018f6f7d-0c00-7000-8000-000000000022';
 
-    private const PARTICIPANT = '018f6f7d-0c00-7000-8000-000000000041';
+    private const PARTICIPANT = '018f6f7d-0c00-7000-8000-000000000023';
 
     private const MENTION_AUTHORIZED = '018f6f7d-0c00-7000-8000-000000000091';
 
@@ -158,7 +158,7 @@ final class TasksNotificationsTest extends TestCase
         $stale->assertStatus(412);
 
         $this->assertSame(0, DB::table('notifications')->count());
-        $this->assertSame(0, DB::table('outbox_events')->where('event_type', 'task.start.v1')->count());
+        $this->assertSame(0, DB::table('outbox_events')->where('event_type', 'com.cluster.tasks.started.v1')->count());
     }
 
     public function test_add_participant_emits_task_participant_added_notification(): void

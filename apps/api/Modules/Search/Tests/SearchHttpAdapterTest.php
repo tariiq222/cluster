@@ -29,13 +29,13 @@ final class SearchHttpAdapterTest extends TestCase
         }
     }
 
-    public function test_get_search_returns_handler_shape_and_correlation_id(): void
+    public function test_post_search_returns_handler_shape_without_putting_query_in_the_url(): void
     {
         (new IndexSourceEventHandler)->handle([
-            'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-1', 'source_version' => 'v1',
+            'source_module' => 'Documents', 'source_type' => 'document', 'source_id' => 'document-1', 'source_version' => 'v1',
             'scope_id' => 'scope-a', 'indexable' => ['title' => 'Visible request', 'text' => 'Visible request'],
         ]);
-        $request = Request::create('/api/v1/search', 'GET', ['q' => 'Visible']);
+        $request = Request::create('/api/v1/search', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['q' => 'Visible'], JSON_THROW_ON_ERROR));
         $request->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
         $response = (new SearchController(new SearchPrincipalResolver, new SearchAccessibleRecordsHandler(new SearchAllowingDecider)))->__invoke($request);
 
@@ -45,16 +45,16 @@ final class SearchHttpAdapterTest extends TestCase
         $this->assertSame('0197f0e0-0000-7000-8000-000000000001', $response->headers->get('X-Correlation-ID'));
     }
 
-    public function test_get_search_advertises_a_real_next_cursor_and_link_header(): void
+    public function test_post_search_returns_a_real_next_cursor_without_a_query_link_header(): void
     {
         $indexer = new IndexSourceEventHandler;
         foreach (['record-1', 'record-2', 'record-3'] as $index => $recordId) {
             $indexer->handle([
-                'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => $recordId, 'source_version' => 'v1',
+                'source_module' => 'Tasks', 'source_type' => 'task', 'source_id' => $recordId, 'source_version' => 'v1',
                 'scope_id' => 'scope-a', 'indexable' => ['title' => 'Visible request '.$index, 'text' => 'Visible request '.$index],
             ]);
         }
-        $request = Request::create('/api/v1/search', 'GET', ['q' => 'Visible', 'limit' => '1']);
+        $request = Request::create('/api/v1/search', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['q' => 'Visible', 'limit' => 1], JSON_THROW_ON_ERROR));
         $request->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
         $response = (new SearchController(new SearchPrincipalResolver, new SearchAccessibleRecordsHandler(new SearchAllowingDecider)))->__invoke($request);
 
@@ -62,17 +62,16 @@ final class SearchHttpAdapterTest extends TestCase
         $this->assertCount(1, $response->getData(true)['items']);
         $cursor = $response->getData(true)['next_cursor'];
         $this->assertIsString($cursor);
-        $this->assertStringContainsString('rel="next"', (string) $response->headers->get('Link'));
-        $this->assertStringContainsString('cursor=', (string) $response->headers->get('Link'));
+        $this->assertFalse($response->headers->has('Link'));
     }
 
-    public function test_get_search_rejects_a_malformed_cursor(): void
+    public function test_post_search_rejects_a_malformed_cursor(): void
     {
         (new IndexSourceEventHandler)->handle([
-            'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-1', 'source_version' => 'v1',
+            'source_module' => 'Tasks', 'source_type' => 'task', 'source_id' => 'record-1', 'source_version' => 'v1',
             'scope_id' => 'scope-a', 'indexable' => ['title' => 'Visible request', 'text' => 'Visible request'],
         ]);
-        $request = Request::create('/api/v1/search', 'GET', ['q' => 'Visible', 'cursor' => 'not-a-ciphertext']);
+        $request = Request::create('/api/v1/search', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['q' => 'Visible', 'cursor' => 'not-a-ciphertext'], JSON_THROW_ON_ERROR));
         $request->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
         $response = (new SearchController(new SearchPrincipalResolver, new SearchAccessibleRecordsHandler(new SearchAllowingDecider)))->__invoke($request);
 
@@ -80,14 +79,14 @@ final class SearchHttpAdapterTest extends TestCase
         $this->assertSame('https://cluster.example/problems/invalid-search-query', $response->getData(true)['type']);
     }
 
-    public function test_get_search_filters_by_type_and_status(): void
+    public function test_post_search_filters_by_type_and_status(): void
     {
         (new IndexSourceEventHandler)->handle([
-            'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-1', 'source_version' => 'v1',
+            'source_module' => 'Documents', 'source_type' => 'document', 'source_id' => 'document-1', 'source_version' => 'v1',
             'status' => 'submitted', 'scope_id' => 'scope-a', 'indexable' => ['title' => 'Draft request', 'text' => 'Draft request'],
         ]);
         (new IndexSourceEventHandler)->handle([
-            'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-2', 'source_version' => 'v1',
+            'source_module' => 'Documents', 'source_type' => 'document', 'source_id' => 'document-2', 'source_version' => 'v1',
             'status' => 'draft', 'scope_id' => 'scope-a', 'indexable' => ['title' => 'Draft request', 'text' => 'Draft request'],
         ]);
         (new IndexSourceEventHandler)->handle([
@@ -97,19 +96,19 @@ final class SearchHttpAdapterTest extends TestCase
 
         $controller = new SearchController(new SearchPrincipalResolver, new SearchAccessibleRecordsHandler(new SearchAllowingDecider));
 
-        $byType = Request::create('/api/v1/search', 'GET', ['q' => 'Draft', 'type' => 'work_record']);
+        $byType = Request::create('/api/v1/search', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['q' => 'Draft', 'type' => 'document'], JSON_THROW_ON_ERROR));
         $byType->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
         $typeResponse = $controller->__invoke($byType);
         $this->assertSame(200, $typeResponse->getStatusCode());
         $this->assertCount(2, $typeResponse->getData(true)['items']);
 
-        $byStatus = Request::create('/api/v1/search', 'GET', ['q' => 'Draft', 'type' => 'work_record', 'status' => 'draft']);
+        $byStatus = Request::create('/api/v1/search', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['q' => 'Draft', 'type' => 'document', 'status' => 'draft'], JSON_THROW_ON_ERROR));
         $byStatus->headers->set('X-Correlation-ID', '0197f0e0-0000-7000-8000-000000000001');
         $statusResponse = $controller->__invoke($byStatus);
         $this->assertSame(200, $statusResponse->getStatusCode());
         $items = $statusResponse->getData(true)['items'];
         $this->assertCount(1, $items);
-        $this->assertSame('record-2', $items[0]['source_id']);
+        $this->assertSame('document-2', $items[0]['source_id']);
     }
 }
 
@@ -138,6 +137,6 @@ final class SearchAllowingDecider implements DecideAccess
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
-        return new AccessDecision('allow', $capability, $facts === null ? 'work_record' : $facts->resourceType, [], 'test', 'test', $facts === null ? 'internal' : $facts->classification);
+        return new AccessDecision('allow', $capability, $facts === null ? 'task' : $facts->resourceType, [], 'test', 'test', $facts === null ? 'internal' : $facts->classification);
     }
 }

@@ -10,6 +10,7 @@ use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Reporting\Features\Dashboards\Http\GetDashboardController;
 use Modules\Reporting\Features\DownloadExportArtifact\Handler\DownloadExportArtifactHandler;
 use Modules\Reporting\Features\ExportAuthorizedReport\Handler\ExportAuthorizedReportHandler;
@@ -41,7 +42,7 @@ final class ReportingHttpAdapterTest extends TestCase
             $this->artisan('migrate', ['--path' => 'Modules/Reporting/Infrastructure/Persistence/Migrations/ZAddReportRunIdempotency.php', '--force' => true]);
         }
         DB::table('dashboard_definitions')->insert(['id' => self::DASHBOARD, 'code' => 'main', 'title' => 'Main', 'report_id' => self::REPORT, 'status' => 'published', 'created_at' => now(), 'updated_at' => now()]);
-        (new RefreshReportingProjectionHandler)->handle(['report_id' => self::REPORT, 'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-1', 'source_version' => 'v1', 'scope_id' => 'scope-a', 'title' => 'Visible', 'safe_data' => ['status' => 'open']]);
+        (new RefreshReportingProjectionHandler)->handle(['report_id' => self::REPORT, 'source_module' => 'Tasks', 'source_type' => 'task', 'source_id' => 'record-1', 'source_version' => 'v1', 'scope_id' => 'scope-a', 'title' => 'Visible', 'safe_data' => ['status' => 'open']]);
     }
 
     public function test_get_report_post_export_get_download_and_get_dashboard_adapters(): void
@@ -55,11 +56,11 @@ final class ReportingHttpAdapterTest extends TestCase
         $post = Request::create('/reports/'.self::REPORT.'/exports', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['format' => 'csv'], JSON_THROW_ON_ERROR));
         $post->headers->set('X-Correlation-ID', self::CORRELATION);
         $post->headers->set('Idempotency-Key', 'report-export-adapter');
-        $export = (new CreateReportExportController($resolver, new ExportAuthorizedReportHandler($decider)))->__invoke($post, self::REPORT);
+        $export = (new CreateReportExportController($resolver, new ExportAuthorizedReportHandler($decider, new ReportingHttpScopeAncestry)))->__invoke($post, self::REPORT);
         $this->assertSame(202, $export->getStatusCode());
         $exportId = $export->getData(true)['id'];
 
-        $download = (new DownloadExportController($resolver, new DownloadExportArtifactHandler($decider)))->__invoke($get('/exports/'.$exportId), $exportId);
+        $download = (new DownloadExportController($resolver, new DownloadExportArtifactHandler($decider, new ReportingHttpScopeAncestry)))->__invoke($get('/exports/'.$exportId), $exportId);
         $this->assertSame(200, $download->getStatusCode());
         $dashboard = (new GetDashboardController($resolver, new GetAuthorizedDashboardHandler($decider)))->__invoke($get('/dashboards/'.self::DASHBOARD), self::DASHBOARD);
         $this->assertSame(200, $dashboard->getStatusCode());
@@ -80,7 +81,7 @@ final class ReportingHttpAdapterTest extends TestCase
         $request->headers->set('X-Correlation-ID', self::CORRELATION);
         $response = (new CreateReportExportController(
             new ReportingPrincipalResolver,
-            new ExportAuthorizedReportHandler(new ReportingDenyingDecider),
+            new ExportAuthorizedReportHandler(new ReportingDenyingDecider, new ReportingHttpScopeAncestry),
         ))->__invoke($request, 'nonexistent');
 
         $this->assertSame(403, $response->getStatusCode());
@@ -92,7 +93,7 @@ final class ReportingHttpAdapterTest extends TestCase
     {
         $controller = new CreateReportExportController(
             new ReportingPrincipalResolver,
-            new ExportAuthorizedReportHandler(new ReportingAllowingDecider),
+            new ExportAuthorizedReportHandler(new ReportingAllowingDecider, new ReportingHttpScopeAncestry),
         );
         $request = fn (array $body, ?string $key): Request => tap(
             Request::create(
@@ -154,7 +155,7 @@ final class ReportingAllowingDecider implements DecideAccess
 
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
-        return new AccessDecision('allow', $capability, $facts === null ? 'work_record' : $facts->resourceType, [], 'test', 'test', $facts === null ? 'internal' : $facts->classification);
+        return new AccessDecision('allow', $capability, $facts === null ? 'task' : $facts->resourceType, [], 'test', 'test', $facts === null ? 'internal' : $facts->classification);
     }
 }
 
@@ -179,5 +180,18 @@ final class ReportingDenyingDecider implements DecideAccess
             'test',
             $facts === null ? 'internal' : $facts->classification,
         );
+    }
+}
+
+final class ReportingHttpScopeAncestry implements ResolveOrganizationScopeAncestry
+{
+    public function ancestry(string $scopeType, string $scopeId): ?array
+    {
+        return $scopeType === 'facility' ? ['cluster_id' => 'cluster-1', 'facility_id' => $scopeId, 'unit_id' => null] : null;
+    }
+
+    public function facilityClusterIds(array $facilityIds): array
+    {
+        return array_fill_keys($facilityIds, 'cluster-1');
     }
 }

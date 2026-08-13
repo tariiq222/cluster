@@ -3,11 +3,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { DirectionProvider } from '@radix-ui/react-direction'
 import { toast } from 'sonner'
 import {
-  clearStoredSession,
   identityLogout,
   login,
   restoreSession,
-  storedSession,
   type Session,
 } from '../api/session'
 import { registerSessionExpiredHandler } from '../api/http'
@@ -38,7 +36,7 @@ export function App() {
       }),
   )
   const [locale, setLocaleState] = useState<Locale>(initialLocale)
-  const [session, setSession] = useState<Session | null>(storedSession)
+  const [session, setSession] = useState<Session | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
 
   const isolateIdentity = useCallback(async () => {
@@ -50,7 +48,6 @@ export function App() {
     void (async () => {
       const hadSession = session !== null
       await isolateIdentity()
-      clearStoredSession()
       setSession(null)
       // A fresh browser's session-restore probe 401s too; only a real session
       // expiry deserves the toast (PAGES.md: الدخول والجلسة).
@@ -73,16 +70,12 @@ export function App() {
         if (cancelled) return
         if (restored) setSession(restored)
       } catch {
-        // network failure: fall back to stored session if any
+        // Keep the login surface available when authoritative restore fails.
       } finally {
         if (!cancelled) setAuthChecked(true)
       }
     }
-    if (!storedSession()) {
-      void restore()
-    } else {
-      setAuthChecked(true)
-    }
+    void restore()
     return () => {
       cancelled = true
     }
@@ -109,12 +102,11 @@ export function App() {
   )
 
   const handleLogout = useCallback(async () => {
-    const current = storedSession()
+    const current = session
     if (current) await identityLogout(current.csrfToken)
     await isolateIdentity()
-    clearStoredSession()
     setSession(null)
-  }, [isolateIdentity])
+  }, [isolateIdentity, session])
 
   if (!authChecked) {
     // Session restore in flight: an accessible skeleton shaped like the login

@@ -105,10 +105,9 @@ final class DocumentMutationHandler
             if ($locked === null || (int) $locked->lock_version !== $expectedVersion) {
                 throw new DomainException('precondition_failed');
             }
-            $sourceModule = $source['source_module'] === 'work_records' ? 'work-records' : $source['source_module'];
             $linkId = $this->links->link(
                 (string) $document->public_id,
-                new DocumentSourceReference($sourceModule, $source['record_type'], $source['record_id']),
+                new DocumentSourceReference($source['source_module'], $source['record_type'], $source['record_id']),
                 $relationType,
                 $principal['user_id'],
                 $principal['facility_id'],

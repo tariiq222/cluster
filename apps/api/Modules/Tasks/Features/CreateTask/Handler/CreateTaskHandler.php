@@ -7,10 +7,12 @@ namespace Modules\Tasks\Features\CreateTask\Handler;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Tasks\Application\TaskAccessPolicy;
 use Modules\Tasks\Contracts\RecordTaskNotifications;
 use Modules\Tasks\Infrastructure\Persistence\TaskCommandIdempotency;
 use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
 use Shared\Contracts\TransactionalOutbox;
+use Shared\Infrastructure\Outbox\OutboxEventType;
 use stdClass;
 
 /**
@@ -29,6 +31,7 @@ final readonly class CreateTaskHandler
         private TransactionalOutbox $outbox,
         private TaskCommandIdempotency $idempotency,
         private RecordTaskNotifications $notifications,
+        private TaskAccessPolicy $policy,
     ) {}
 
     /**
@@ -79,9 +82,6 @@ final readonly class CreateTaskHandler
                 'priority' => $input['priority'] ?? 'normal',
                 'classification' => $input['classification'] ?? 'internal',
                 'completion_policy' => 'direct',
-                'source_module' => isset($input['source']) && is_array($input['source']) ? ($input['source']['source_module'] ?? null) : null,
-                'source_type' => isset($input['source']) && is_array($input['source']) ? ($input['source']['record_type'] ?? null) : null,
-                'source_id' => isset($input['source']) && is_array($input['source']) ? ($input['source']['record_id'] ?? null) : null,
             ]);
 
             if (! $isSelfTask) {
@@ -104,14 +104,14 @@ final readonly class CreateTaskHandler
             $this->outbox->append(
                 Str::uuid7()->toString(),
                 $taskId,
-                'task.created.v1',
+                OutboxEventType::TaskCreated->value,
                 $payload,
             );
             if (! $isSelfTask) {
                 $this->outbox->append(
                     Str::uuid7()->toString(),
                     $taskId,
-                    'task.assigned.v1',
+                    OutboxEventType::TaskAssigned->value,
                     $payload + ['previous_assignee_user_id' => null],
                 );
             }
@@ -126,6 +126,7 @@ final readonly class CreateTaskHandler
                     $recipients,
                     $isSelfTask ? 'task.created' : 'task.assigned',
                     $payload,
+                    $this->policy->factsFor($task, $this->store->participantIds($taskId)),
                 );
             }
 
@@ -157,7 +158,6 @@ final readonly class CreateTaskHandler
             'due_at' => $input['due_at'] ?? null,
             'classification' => $input['classification'] ?? null,
             'participant_user_ids' => $input['participant_user_ids'] ?? null,
-            'source' => $input['source'] ?? null,
         ], JSON_THROW_ON_ERROR));
     }
 
@@ -215,10 +215,6 @@ final readonly class CreateTaskHandler
             'creator_user_id' => (string) $task->created_by_user_id,
             'participant_user_ids' => [],
             'due_at' => $task->due_at,
-            'source_module' => $task->source_module,
-            'source_type' => $task->source_type,
-            'source_id' => $task->source_id,
-            'workflow_step_id' => $task->workflow_step_id,
             'allowed_actions' => [],
             'attachments' => [],
             'comments_summary' => ['count' => 0, 'latest_at' => null],

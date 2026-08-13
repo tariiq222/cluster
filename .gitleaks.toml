@@ -48,3 +48,12 @@ paths = [
 ]
 regexTarget = "match"
 regexes = ['''^Valkey, .+''']
+
+[[allowlists]]
+description = "Deleted transient local runtime state from historical WIP commits"
+targetRules = ["generic-api-key"]
+condition = "OR"
+paths = [
+  '''^artifacts/local-live/sessions/[^/]+$''',
+  '''^\.superpowers/brainstorm/[0-9]+-[0-9]+/state/server-info$''',
+]

@@ -5,19 +5,17 @@ const FACILITY = '01980f50-5f0d-7000-8000-000000000002'
 const UNIT = '01980f50-5f0d-7000-8000-000000000003'
 const CLUSTER = '01980f50-5f0d-7000-8000-000000000004'
 const capabilities = [
-  'workflow.read',
-  'workflow.list',
-  'workflow.decide',
   'tasks.read',
   'tasks.list',
-  'work_definition.read',
   'documents.read',
 ]
 
 async function openShell(page: Page) {
   let authenticated = false
-  await page.route('**/api/v1/identity/login', (route) =>
-    route.fulfill({
+  await page.route('**/api/v1/identity/login', (route) => {
+    authenticated = true
+
+    return route.fulfill({
       status: 200,
       contentType: 'application/json',
       headers: {
@@ -28,13 +26,13 @@ async function openShell(page: Page) {
       body: JSON.stringify({
         data: {
           user_id: USER,
-          expires_at: '2026-07-23T09:00:00Z',
+          expires_at: '2099-07-23T09:00:00Z',
           restricted: false,
           csrf_token: 'shell-csrf',
         },
       }),
-    }),
-  )
+    })
+  })
   // The rebuilt PrincipalProvider reads the principal snapshot (capabilities
   // + features) from /api/v1/identity/me; the same route answers the
   // session-restore probe before login.
@@ -49,7 +47,7 @@ async function openShell(page: Page) {
                 user_id: USER,
                 csrf_token: 'shell-csrf',
                 capabilities,
-                features: { work_management: true, tasks: true },
+                features: { tasks: true },
               },
             }),
           }
@@ -105,35 +103,21 @@ async function openShell(page: Page) {
         clearance: 'internal',
         break_glass: false,
         correlation_id: '01980f50-5f0d-7000-8000-000000000005',
-        features: { work_management: true, tasks: true },
+        features: { tasks: true },
       }),
     }),
   )
-  await page.route('**/api/v1/workflow/steps?**', (route) =>
+  await page.route('**/api/v1/tasks?limit=100&view=mine', (route) =>
     route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
-    }),
-  )
-  await page.route('**/api/v1/tasks?limit=100', (route) =>
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
-    }),
-  )
-  await page.route('**/api/v1/workflow/instances?limit=100', (route) =>
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
+      body: JSON.stringify({
+        items: [],
+        next_cursor: null,
+        available_scopes: [],
+      }),
     }),
   )
   await page.route('**/api/v1/dashboards?limit=50', (route) =>
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
-    }),
-  )
-  await page.route('**/api/v1/work-records?limit=**', (route) =>
     route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({ items: [], next_cursor: null }),
@@ -187,7 +171,7 @@ test('authenticated shell renders the current dashboard in RTL desktop', async (
   expect(activeBackground).not.toBe(inactiveBackground)
   const kpis = page.getByTestId('dashboard-kpis')
   await expect(kpis).toHaveAttribute('role', 'group')
-  await expect(kpis.locator(':scope > div')).toHaveCount(3)
+  await expect(kpis.locator(':scope > div')).toHaveCount(2)
 
   await expect(page.getByLabel('شريط الأدوات').locator('kbd')).toBeVisible()
   await expectNoHorizontalOverflow(page)

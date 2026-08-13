@@ -131,7 +131,7 @@ final class SupervisoryRelationshipTest extends TestCase
         $capability = RelationshipCapability::create(
             self::CAPABILITY_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view_details',
         );
 
@@ -155,7 +155,7 @@ final class SupervisoryRelationshipTest extends TestCase
         self::assertSame('2026-07-19T10:00:00.000Z', $fact['valid_until']);
         self::assertSame([[
             'relationship_capability_id' => self::CAPABILITY_ID,
-            'module_code' => 'work-records',
+            'module_code' => 'tasks',
             'capability_code' => 'view_details',
         ]], $fact['relationship_capabilities']);
     }
@@ -339,7 +339,7 @@ final class SupervisoryRelationshipTest extends TestCase
         $capability = RelationshipCapability::create(
             self::CAPABILITY_ID,
             '018f6f7d-0c00-7000-8000-000000000099',
-            'work-records',
+            'tasks',
             'view_details',
         );
 

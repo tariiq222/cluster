@@ -2,6 +2,8 @@
 
 namespace Modules\Tasks\Contracts;
 
+use Modules\Authorization\Contracts\RecordFacts;
+
 /**
  * Tasks-owned mirror of the Notifications recording capability. Tasks is a
  * lower-ranked module and must not import Modules\Notifications directly;
@@ -18,5 +20,5 @@ interface RecordTaskNotifications
      * @param  list<string>  $recipientUserIds
      * @param  array<string, mixed>  $payload  safe task metadata only (task_id, title, actor_user_id, action)
      */
-    public function record(array $recipientUserIds, string $type, array $payload): void;
+    public function record(array $recipientUserIds, string $type, array $payload, ?RecordFacts $sourceFacts = null): void;
 }

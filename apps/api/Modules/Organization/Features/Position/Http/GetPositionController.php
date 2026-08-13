@@ -5,8 +5,8 @@ namespace Modules\Organization\Features\Position\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\Position\Handler\PositionHandler;
 use Modules\Organization\Http\OrganizationApi;
 
@@ -15,6 +15,7 @@ final class GetPositionController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly PositionHandler $handler,
     ) {}
 
@@ -31,14 +32,10 @@ final class GetPositionController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.position.read', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_position',
-            classification: 'internal',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
+        $facts = $this->resourceFacts->factsForPosition($positionId);
+        if ($facts === null || ! $this->access->decide($principal, 'organization.position.read', $facts)->isAllowed()) {
+            return OrganizationApi::problem(404, 'position-not-found', 'Not Found', 'The position is not available.', $correlationId);
         }
-
         $position = $this->handler->find($positionId);
         if ($position === null) {
             return OrganizationApi::problem(404, 'position-not-found', 'Not Found', 'The position is not available.', $correlationId);

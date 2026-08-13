@@ -221,15 +221,11 @@ export const CAPABILITY_ACTION_LABELS: Record<string, { ar: string; en: string }
 /*
  * Bilingual module label map for the capability catalog. The wire's
  * `module_code` is the first dotted segment of a capability code
- * (e.g. `work_record`, `identity`); the table renders the localized
+ * (e.g. `tasks`, `identity`); the table renders the localized
  * area name in the primary line and the raw module_code as a
  * technical secondary line so the canonical identifier stays visible.
  */
 export const CAPABILITY_MODULE_LABELS: Record<string, { ar: string; en: string }> = {
-  work_record: { ar: 'سجلات العمل', en: 'Work records' },
-  work_definition: { ar: 'نماذج العمل', en: 'Work definitions' },
-  workflow: { ar: 'مسارات العمل', en: 'Workflows' },
-  work_management: { ar: 'إدارة العمل', en: 'Work management' },
   tasks: { ar: 'المهام', en: 'Tasks' },
   documents: { ar: 'المستندات', en: 'Documents' },
   search: { ar: 'البحث', en: 'Search' },
@@ -257,31 +253,6 @@ export const CAPABILITY_MODULE_LABELS: Record<string, { ar: string; en: string }
  * ever hidden from the operator.
  */
 export const CAPABILITY_LABELS: Record<string, { ar: string; en: string }> = {
-  'work_record.create': { ar: 'إنشاء سجل عمل', en: 'Create work record' },
-  'work_record.read': { ar: 'قراءة سجل عمل', en: 'Read work record' },
-  'work_record.list': { ar: 'إدراج سجلات العمل', en: 'List work records' },
-  'work_record.update': { ar: 'تعديل سجل عمل', en: 'Update work record' },
-  'work_record.submit': { ar: 'تقديم سجل عمل', en: 'Submit work record' },
-  'work_record.return': { ar: 'إرجاع سجل عمل', en: 'Return work record' },
-  'work_record.complete': { ar: 'إكمال سجل عمل', en: 'Complete work record' },
-  'work_record.cancel': { ar: 'إلغاء سجل عمل', en: 'Cancel work record' },
-  'work_record.archive': { ar: 'أرشفة سجل عمل', en: 'Archive work record' },
-  'work_definition.create': { ar: 'إنشاء نموذج عمل', en: 'Create work definition' },
-  'work_definition.read': { ar: 'قراءة نموذج عمل', en: 'Read work definition' },
-  'work_definition.list': { ar: 'إدراج نماذج العمل', en: 'List work definitions' },
-  'work_definition.update': { ar: 'تعديل نموذج عمل', en: 'Update work definition' },
-  'work_definition.publish': { ar: 'نشر نموذج عمل', en: 'Publish work definition' },
-  'work_definition.retire': { ar: 'سحب نموذج عمل', en: 'Retire work definition' },
-  'workflow.read': { ar: 'قراءة مسارات العمل', en: 'Read workflows' },
-  'workflow.list': { ar: 'إدراج مسارات العمل', en: 'List workflows' },
-  'workflow.manage': { ar: 'إدارة مسارات العمل', en: 'Manage workflows' },
-  'workflow.author': { ar: 'تأليف مسارات العمل', en: 'Author workflows' },
-  'workflow.approve': { ar: 'اعتماد مسارات العمل', en: 'Approve workflows' },
-  'workflow.decide': { ar: 'اتخاذ قرار في سير العمل', en: 'Decide on workflow steps' },
-  'workflow.reassign': { ar: 'إعادة تعيين خطوات سير العمل', en: 'Reassign workflow steps' },
-  'workflow.escalate': { ar: 'تصعيد خطوات سير العمل', en: 'Escalate workflow steps' },
-  'workflow.cancel': { ar: 'إلغاء حالات سير العمل', en: 'Cancel workflow instances' },
-  'work_management.history.read': { ar: 'قراءة سجل تغييرات إدارة العمل', en: 'Read work management history' },
   'tasks.create': { ar: 'إنشاء مهمة', en: 'Create task' },
   'tasks.read': { ar: 'قراءة مهمة', en: 'Read task' },
   'tasks.list': { ar: 'إدراج المهام', en: 'List tasks' },

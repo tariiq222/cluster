@@ -41,7 +41,7 @@ final class RealisticClusterFacilitiesSeeder
 
     /** Capability modules the demo login roles receive. */
     private const MODULES = [
-        'work_record', 'work_definition', 'workflow', 'tasks', 'documents',
+        'tasks', 'documents',
         'search', 'reporting', 'notifications', 'organization',
     ];
 

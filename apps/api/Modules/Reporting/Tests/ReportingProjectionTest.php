@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\Authorization\Contracts\AccessDecision;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
 use Modules\Reporting\Features\DownloadExportArtifact\Handler\DownloadExportArtifactHandler;
 use Modules\Reporting\Features\ExportAuthorizedReport\Handler\ExportAuthorizedReportHandler;
 use Modules\Reporting\Features\GetAuthorizedDashboard\Handler\GetAuthorizedDashboardHandler;
@@ -45,10 +46,10 @@ final class ReportingProjectionTest extends TestCase
         $decider = new ReportingScopeDecider;
 
         $run = (new RunAuthorizedReportHandler($decider))->handle($reportId, $actor);
-        $export = (new ExportAuthorizedReportHandler($decider))->handle($reportId, $actor);
+        $export = (new ExportAuthorizedReportHandler($decider, new ReportingProjectionScopeAncestry))->handle($reportId, $actor);
         $request = Request::create('/exports/'.$export['id'], 'GET');
         $request->headers->set('Accept', '*/*');
-        $download = (new DownloadExportArtifactHandler($decider))->handle($request, $export['id'], $actor, null);
+        $download = (new DownloadExportArtifactHandler($decider, new ReportingProjectionScopeAncestry))->handle($request, $export['id'], $actor, null);
         $dashboard = (new GetAuthorizedDashboardHandler($decider))->handle($dashboardId, $actor);
 
         $this->assertSame(1, $run['total']);
@@ -74,7 +75,20 @@ final class ReportingProjectionTest extends TestCase
     /** @return array<string, mixed> */
     private function event(string $reportId, string $scope): array
     {
-        return ['report_id' => $reportId, 'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-'.$scope, 'source_version' => 'v1', 'scope_id' => $scope, 'title' => 'Visible', 'safe_data' => ['status' => 'open', 'secret' => 'omit']];
+        return ['report_id' => $reportId, 'source_module' => 'Tasks', 'source_type' => 'task', 'source_id' => 'record-'.$scope, 'source_version' => 'v1', 'scope_id' => $scope, 'title' => 'Visible', 'safe_data' => ['status' => 'open', 'secret' => 'omit']];
+    }
+}
+
+final class ReportingProjectionScopeAncestry implements ResolveOrganizationScopeAncestry
+{
+    public function ancestry(string $scopeType, string $scopeId): ?array
+    {
+        return $scopeType === 'facility' ? ['cluster_id' => 'cluster-1', 'facility_id' => $scopeId, 'unit_id' => null] : null;
+    }
+
+    public function facilityClusterIds(array $facilityIds): array
+    {
+        return array_fill_keys($facilityIds, 'cluster-1');
     }
 }
 
@@ -99,7 +113,7 @@ final class ReportingScopeDecider implements DecideAccess
         return new AccessDecision(
             decision: $allowed ? 'allow' : 'deny',
             action: $capability,
-            resourceType: $facts === null ? 'work_record' : $facts->resourceType,
+            resourceType: $facts === null ? 'task' : $facts->resourceType,
             reasonCodes: [],
             policyVersion: 'test',
             factsVersion: 'test',

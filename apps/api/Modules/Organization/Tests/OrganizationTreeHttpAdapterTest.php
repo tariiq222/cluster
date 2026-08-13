@@ -341,7 +341,7 @@ class OrganizationTreeHttpAdapterTest extends TestCase
             'organization_unit_id' => '018f6f7d-0c00-7000-8000-000000000499',
             'code' => 'INVALID',
             'title' => 'منصب غير صالح',
-        ], $this->writeHeaders('invalid-position'))->assertBadRequest();
+        ], $this->writeHeaders('invalid-position'))->assertNotFound();
         $this->assertDatabaseCount('positions', 3);
     }
 
@@ -466,29 +466,29 @@ class OrganizationTreeHttpAdapterTest extends TestCase
             'type_code' => 'sector',
             'code' => 'DENIED',
             'name' => 'مرفوض',
-        ], $this->writeHeaders('denied-unit'))->assertForbidden();
+        ], $this->writeHeaders('denied-unit'))->assertNotFound();
         $this->withToken($admin)->postJson('/api/v1/organization/units', [
             'cluster_id' => $clusterId,
             'parent_id' => '018f6f7d-0c00-7000-8000-000000000498',
             'type_code' => 'sector',
             'code' => 'INVALID',
             'name' => 'والد غير صالح',
-        ], $this->writeHeaders('invalid-unit-parent'))->assertBadRequest();
+        ], $this->writeHeaders('invalid-unit-parent'))->assertNotFound();
 
         $unitId = $this->createUnit($admin, $clusterId, null, 'sector', 'ROLLBACK', 'قبل اللف');
         $positionId = $this->createPosition($admin, $unitId, 'ROLLBACK', 'قبل اللف', null);
         $this->withToken($other)
             ->getJson("/api/v1/organization/units/{$unitId}", $this->headers())
-            ->assertForbidden();
+            ->assertNotFound();
         $this->withToken($other)
             ->patchJson("/api/v1/organization/units/{$unitId}", ['name' => 'مرفوض'], $this->patchHeaders('"1"'))
-            ->assertForbidden();
+            ->assertNotFound();
         $this->withToken($other)
             ->getJson("/api/v1/organization/positions/{$positionId}", $this->headers())
-            ->assertForbidden();
+            ->assertNotFound();
         $this->withToken($other)
             ->patchJson("/api/v1/organization/positions/{$positionId}", ['title' => 'مرفوض'], $this->patchHeaders('"1"'))
-            ->assertForbidden();
+            ->assertNotFound();
         $eventId = (string) DB::table('outbox_events')->value('event_id');
 
         try {

@@ -57,13 +57,10 @@ class ModuleBoundariesTest extends TestCase
         'Identity' => 1,
         'Authorization' => 2,
         'Audit' => 3,
-        'Workflow' => 4,
         'RecordsGovernance' => 4,
-        'WorkDefinitions' => 5,
         'Documents' => 5,
         'Collaboration' => 6,
         'Tasks' => 7,
-        'WorkRecords' => 8,
         'Strategy' => 8,
         'PortfolioProjects' => 9,
         'Risk' => 10,
@@ -91,17 +88,7 @@ class ModuleBoundariesTest extends TestCase
         'Risk',
     ];
 
-    /**
-     * W15 combined unrelated workflow review/runtime changes and was replaced
-     * before registration by the narrower W16 decision-ledger migration plus
-     * W17 approval columns. It remains as migration-history evidence only.
-     *
-     * @var list<string>
-     */
-    private const SUPERSEDED_MIGRATIONS = [
-        'Modules/Workflow/Infrastructure/Persistence/Migrations/W15CreateWorkflowDecisionsTable.php',
-    ];
-
+    /** @var list<string> */
     /** @var list<string> */
     private const LEGACY_MODULE_OUTBOX_TABLES = [
         'document_outbox_events',
@@ -177,18 +164,6 @@ class ModuleBoundariesTest extends TestCase
         'audit_integrity_checkpoints' => 'Audit',
         'audit_idempotency_keys' => 'Audit',
         'sensitive_access_events' => 'Authorization',
-        // Workflow (rank 4)
-        'workflow_definitions' => 'Workflow',
-        'workflow_versions' => 'Workflow',
-        'workflow_instances' => 'Workflow',
-        'workflow_step_instances' => 'Workflow',
-        'workflow_decisions' => 'Workflow',
-        'workflow_idempotency_keys' => 'Workflow',
-        // WorkDefinitions (rank 5)
-        'work_definitions' => 'WorkDefinitions',
-        'work_definition_versions' => 'WorkDefinitions',
-        'work_definition_idempotency_keys' => 'WorkDefinitions',
-        'work_definition_development_work_type_versions' => 'WorkDefinitions',
         // Documents (rank 5)
         'documents' => 'Documents',
         'document_versions' => 'Documents',
@@ -204,19 +179,9 @@ class ModuleBoundariesTest extends TestCase
         'task_idempotency_keys' => 'Tasks',
         'task_participants' => 'Tasks',
         'task_comments' => 'Tasks',
-        // WorkRecords (rank 8)
-        'work_records' => 'WorkRecords',
-        'work_record_idempotency_keys' => 'WorkRecords',
         // Cross-cutting infrastructure: this is the only table whose
         // migration may live under apps/api/Shared.
         'outbox_events' => 'Shared',
-        // NOTE: `project_work_record_read_models` was an extra TABLE_OWNERS
-        // key with no Schema::create migration. The architecture test now
-        // asserts TABLE_OWNERS equals the set of migrated tables exactly;
-        // virtual read models must not pollute TABLE_OWNERS. If a future
-        // virtual resource requires inventory (e.g. an in-memory projection
-        // surfaced by a module handler), register it in VIRTUAL_RESOURCES
-        // rather than TABLE_OWNERS.
         'notifications' => 'Notifications',
         'notification_inbox' => 'Notifications',
         'notification_recipients' => 'Notifications',
@@ -276,9 +241,9 @@ class ModuleBoundariesTest extends TestCase
     public function test_detects_a_cross_module_domain_import(): void
     {
         $root = $this->fixtureRoot();
-        $this->writeFixture($root, 'Modules/WorkRecords/Features/Submit/Handler.php', <<<'PHP'
+        $this->writeFixture($root, 'Modules/Tasks/Features/Create/Handler.php', <<<'PHP'
 <?php
-namespace Modules\WorkRecords\Features\Submit;
+namespace Modules\Tasks\Features\Create;
 use Modules\Identity\Domain\User;
 PHP);
 
@@ -290,10 +255,10 @@ PHP);
                     $violations,
                     static fn (string $violation): bool => str_contains(
                         $violation,
-                        'WorkRecords may import Identity only through Contracts or Events.',
+                        'Tasks may import Identity only through Contracts or Events.',
                     ),
                 ),
-                'Expected the WorkRecords->Identity surface violation in '.implode(' | ', $violations),
+                'Expected the Tasks->Identity surface violation in '.implode(' | ', $violations),
             );
         } finally {
             $this->removeDirectory($root);
@@ -303,10 +268,10 @@ PHP);
     public function test_detects_cross_owner_join_and_foreign_key_in_a_module_migration(): void
     {
         $root = $this->fixtureRoot();
-        $this->writeFixture($root, 'Modules/WorkRecords/Infrastructure/Persistence/Migrations/2026_create_work_records.php', <<<'PHP'
+        $this->writeFixture($root, 'Modules/Tasks/Infrastructure/Persistence/Migrations/2026_create_tasks.php', <<<'PHP'
 <?php
-DB::statement('select * from work_records join users on users.id = work_records.user_id');
-Schema::table('work_records', function ($table) {
+DB::statement('select * from tasks join users on users.id = tasks.user_id');
+Schema::table('tasks', function ($table) {
     $table->foreignUuid('user_id')->constrained('users');
 });
 PHP);
@@ -314,8 +279,8 @@ PHP);
         try {
             $violations = $this->violationsIn($root);
 
-            $this->assertContains('WorkRecords SQL references Identity-owned table users.', $violations);
-            $this->assertContains('WorkRecords migration references Identity-owned table users.', $violations);
+            $this->assertContains('Tasks SQL references Identity-owned table users.', $violations);
+            $this->assertContains('Tasks migration references Identity-owned table users.', $violations);
         } finally {
             $this->removeDirectory($root);
         }
@@ -456,9 +421,9 @@ PHP);
     public function test_rejects_raw_outbox_access_outside_the_shared_adapter(): void
     {
         $root = $this->fixtureRoot();
-        $this->writeFixture($root, 'Modules/WorkRecords/Features/Submit/Handler.php', <<<'PHP'
+        $this->writeFixture($root, 'Modules/Tasks/Features/Create/Handler.php', <<<'PHP'
 <?php
-namespace Modules\WorkRecords\Features\Submit;
+namespace Modules\Tasks\Features\Create;
 use Illuminate\Support\Facades\DB;
 final class Handler
 {
@@ -471,7 +436,7 @@ PHP);
 
         try {
             $this->assertContains(
-                'WorkRecords must access Shared-owned outbox_events only through Shared\Contracts.',
+                'Tasks must access Shared-owned outbox_events only through Shared\Contracts.',
                 $this->violationsIn($root),
             );
         } finally {
@@ -513,16 +478,16 @@ PHP);
     public function test_rejects_cross_owner_infrastructure_import_from_a_producer(): void
     {
         $root = $this->fixtureRoot();
-        $this->writeFixture($root, 'Modules/WorkRecords/Features/Submit/Handler.php', <<<'PHP'
+        $this->writeFixture($root, 'Modules/Tasks/Features/Create/Handler.php', <<<'PHP'
 <?php
-namespace Modules\WorkRecords\Features\Submit;
+namespace Modules\Tasks\Features\Create;
 use Modules\Identity\Infrastructure\Persistence\IdentityStore;
 final class Handler {}
 PHP);
 
         try {
             $this->assertContains(
-                'WorkRecords must not import Identity Infrastructure.',
+                'Tasks must not import Identity Infrastructure.',
                 $this->violationsIn($root),
             );
         } finally {
@@ -533,16 +498,16 @@ PHP);
     public function test_rejects_shared_infrastructure_import_from_a_producer(): void
     {
         $root = $this->fixtureRoot();
-        $this->writeFixture($root, 'Modules/WorkRecords/Features/Submit/Handler.php', <<<'PHP'
+        $this->writeFixture($root, 'Modules/Tasks/Features/Create/Handler.php', <<<'PHP'
 <?php
-namespace Modules\WorkRecords\Features\Submit;
+namespace Modules\Tasks\Features\Create;
 use Shared\Infrastructure\Outbox\DatabaseTransactionalOutbox;
 final class Handler {}
 PHP);
 
         try {
             $this->assertContains(
-                'WorkRecords must not import Shared Infrastructure; depend on Shared\Contracts.',
+                'Tasks must not import Shared Infrastructure; depend on Shared\Contracts.',
                 $this->violationsIn($root),
             );
         } finally {
@@ -1167,30 +1132,18 @@ PHP);
         $duplicates = array_keys(array_filter($counts, static fn (int $count): bool => $count !== 1));
         $this->assertSame([], $duplicates, 'Migration manifest paths must be registered exactly once.');
 
-        $superseded = array_map(
-            static fn (string $path): string => base_path($path),
-            self::SUPERSEDED_MIGRATIONS,
-        );
-        foreach ($superseded as $path) {
-            $this->assertFileExists($path, sprintf('Classified superseded migration does not exist: %s', $path));
-        }
-        $this->assertSame(
-            [],
-            array_values(array_intersect($registered, $superseded)),
-            'Superseded migrations must not be registered alongside their replacements.',
-        );
-
         $discovered = [];
         foreach ([
             base_path('Modules/*/Infrastructure/Persistence/Migrations/*.php'),
             base_path('Modules/*/Infrastructure/Outbox/Migrations/*.php'),
+            base_path('Shared/Infrastructure/Migrations/*.php'),
             base_path('Shared/Infrastructure/Outbox/Migrations/*.php'),
         ] as $pattern) {
             foreach (glob($pattern) ?: [] as $path) {
                 $discovered[] = $path;
             }
         }
-        $live = array_values(array_diff(array_unique($discovered), $superseded));
+        $live = array_values(array_unique($discovered));
         sort($live);
         sort($registered);
 
@@ -1402,11 +1355,11 @@ PHP);
 
     public function test_ownership_shape_rejects_extra_owner_with_distinct_message(): void
     {
-        $tables = ['work_records' => 1];
-        $moduleMap = ['work_records' => 'WorkRecords'];
+        $tables = ['tasks' => 1];
+        $moduleMap = ['tasks' => 'Tasks'];
         $owners = [
-            'work_records' => 'WorkRecords',
-            'project_work_record_read_models' => 'WorkRecords',
+            'tasks' => 'Tasks',
+            'legacy_task_projection' => 'Tasks',
         ];
 
         $messages = self::ownershipShapeMessages($tables, $moduleMap, $owners);
@@ -1417,14 +1370,14 @@ PHP);
             $messages[0],
             'extra-owner rejection must use the `extra-owner:` discriminator so it is distinguishable from missing-owner or owner-mismatch.',
         );
-        $this->assertStringContainsString('project_work_record_read_models', $messages[0]);
+        $this->assertStringContainsString('legacy_task_projection', $messages[0]);
     }
 
     public function test_ownership_shape_rejects_missing_owner_with_distinct_message(): void
     {
-        $tables = ['work_records' => 1, 'unowned_projection' => 1];
-        $moduleMap = ['work_records' => 'WorkRecords', 'unowned_projection' => 'WorkRecords'];
-        $owners = ['work_records' => 'WorkRecords'];
+        $tables = ['tasks' => 1, 'unowned_projection' => 1];
+        $moduleMap = ['tasks' => 'Tasks', 'unowned_projection' => 'Tasks'];
+        $owners = ['tasks' => 'Tasks'];
 
         $messages = self::ownershipShapeMessages($tables, $moduleMap, $owners);
 
@@ -1439,9 +1392,9 @@ PHP);
 
     public function test_ownership_shape_rejects_owner_mismatch_with_distinct_message(): void
     {
-        $tables = ['work_records' => 1];
-        $moduleMap = ['work_records' => 'WorkRecords'];
-        $owners = ['work_records' => 'Tasks'];
+        $tables = ['tasks' => 1];
+        $moduleMap = ['tasks' => 'Tasks'];
+        $owners = ['tasks' => 'Documents'];
 
         $messages = self::ownershipShapeMessages($tables, $moduleMap, $owners);
 

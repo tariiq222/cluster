@@ -226,7 +226,7 @@ export function DataTable<T>({
           </div>
         </ResourceBoundary>
       </div>
-      {state === 'ready' ? (
+      {state === 'ready' || (state === 'empty' && nextCursor) ? (
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onPrev} disabled={!canPrev}>
             <ChevronRight aria-hidden="true" className="ltr:rotate-180" />

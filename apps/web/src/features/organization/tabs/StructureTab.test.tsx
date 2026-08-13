@@ -68,7 +68,7 @@ function mount(capabilities: string[]) {
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <SessionProvider session={session} locale="ar" setLocale={() => {}}>
-          <PrincipalContextTestProvider capabilities={capabilities} features={{ work_management: false, tasks: true }}>
+          <PrincipalContextTestProvider capabilities={capabilities} features={{ tasks: true }}>
             <StructureTab />
           </PrincipalContextTestProvider>
         </SessionProvider>
@@ -89,7 +89,7 @@ const clusterShape = {
 const unitShape = {
   id: '01900000-0000-7000-8000-000000000002',
   cluster_id: '01900000-0000-7000-8000-000000000001',
-  parent_id: null,
+  parent_id: '01900000-0000-7000-8000-000000000001',
   parent_type: 'cluster',
   type_code: 'department',
   code: 'HR',
@@ -99,6 +99,26 @@ const unitShape = {
   path_cache: '01900000-0000-7000-8000-000000000002',
   depth: 1,
   lock_version: 1,
+}
+
+const facilityShape = {
+  id: '01900000-0000-7000-8000-000000000010',
+  cluster_id: clusterShape.id,
+  code: 'FAC-1',
+  name_ar: 'منشأة إرادة',
+  name_en: 'Eradah Facility',
+  status: 'active',
+  lock_version: 1,
+}
+
+const facilityUnitShape = {
+  ...unitShape,
+  id: '01900000-0000-7000-8000-000000000011',
+  parent_id: facilityShape.id,
+  parent_type: 'facility',
+  code: 'PMO',
+  name_ar: 'إدارة المشاريع',
+  path_cache: '01900000-0000-7000-8000-000000000011',
 }
 
 describe('structure tab', () => {
@@ -144,5 +164,16 @@ describe('structure tab', () => {
     expect(screen.getByText('الموارد البشرية')).toBeInTheDocument()
     expect(screen.getByText('HR')).toBeInTheDocument()
     expect(screen.getByText('نشط')).toBeInTheDocument()
+  })
+
+  it('places a facility-owned unit under its facility using the API parent contract', () => {
+    mock.state.facilities = [facilityShape]
+    mock.state.units = [facilityUnitShape]
+
+    mount(['organization.unit.read'])
+
+    expect(screen.queryByTestId('empty-state')).toBeNull()
+    expect(screen.getByText('منشأة إرادة')).toBeInTheDocument()
+    expect(screen.getByText('إدارة المشاريع')).toBeInTheDocument()
   })
 })

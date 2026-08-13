@@ -31,7 +31,7 @@ final class AuthorizationBootstrapStage00CTest extends TestCase
     {
         $gate = $this->gate();
 
-        $decision = $gate->decide(['user_id' => Str::uuid7()->toString()], 'work_record.read', $this->facts());
+        $decision = $gate->decide(['user_id' => Str::uuid7()->toString()], 'tasks.read', $this->facts());
 
         $this->assertSame('deny', $decision->decision);
         $this->assertSame(['authorization_bootstrap_pending'], $decision->reasonCodes);
@@ -52,7 +52,7 @@ final class AuthorizationBootstrapStage00CTest extends TestCase
         $ownerId = Str::uuid7()->toString();
         $this->app->make(BootstrapOperationsOffice::class)->bootstrap($ownerId, Str::uuid7()->toString());
 
-        $decision = $this->gate()->decide(['user_id' => $ownerId], 'work_record.read', $this->facts());
+        $decision = $this->gate()->decide(['user_id' => $ownerId], 'tasks.read', $this->facts());
 
         $this->assertTrue($decision->isAllowed());
         $this->assertContains('platform_owner_super_admin_override', $decision->reasonCodes);
@@ -250,7 +250,7 @@ final class AuthorizationBootstrapStage00CTest extends TestCase
     {
         return new RecordFacts(
             ownerFacilityId: Str::uuid7()->toString(),
-            resourceType: 'work_record',
+            resourceType: 'task',
             classification: 'internal',
             recordId: Str::uuid7()->toString(),
         );

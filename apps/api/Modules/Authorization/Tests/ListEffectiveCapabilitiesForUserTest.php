@@ -71,7 +71,7 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
 
     public function test_denied_capabilities_are_not_reported_as_held(): void
     {
-        $this->seedCapability('cap-read', 'work_record.read');
+        $this->seedCapability('cap-read', 'tasks.read');
         $this->seedRole(self::ROLE_ID, 'nav_denier');
         $this->seedRoleCapability(self::ROLE_ID, 'cap-read', 'deny');
         $this->seedAssignment('assign-1', self::USER_ID, self::ROLE_ID);
@@ -81,8 +81,8 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
 
     public function test_expired_and_future_assignments_are_excluded(): void
     {
-        $this->seedCapability('cap-read', 'work_record.read');
-        $this->seedCapability('cap-write', 'work_record.update');
+        $this->seedCapability('cap-read', 'tasks.read');
+        $this->seedCapability('cap-write', 'tasks.update');
         $this->seedRole(self::ROLE_ID, 'nav_reader');
         $this->seedRoleCapability(self::ROLE_ID, 'cap-read', 'allow');
         $this->seedRoleCapability(self::ROLE_ID, 'cap-write', 'allow');
@@ -94,8 +94,8 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
 
     public function test_inactive_role_and_retired_capability_are_excluded(): void
     {
-        $this->seedCapability('cap-read', 'work_record.read');
-        $this->seedCapability('cap-retired', 'work_record.update', status: 'inactive');
+        $this->seedCapability('cap-read', 'tasks.read');
+        $this->seedCapability('cap-retired', 'tasks.update', status: 'inactive');
         $this->seedRole(self::INACTIVE_ROLE_ID, 'nav_inactive', status: 'inactive');
         $this->seedRoleCapability(self::INACTIVE_ROLE_ID, 'cap-read', 'allow');
         $this->seedAssignment('assign-inactive-role', self::USER_ID, self::INACTIVE_ROLE_ID);
@@ -109,7 +109,7 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
 
     public function test_active_delegation_grants_capabilities_to_the_delegate_only(): void
     {
-        $this->seedCapability('cap-decide', 'workflow.decide');
+        $this->seedCapability('cap-decide', 'tasks.complete');
         DB::table('delegations')->insert([
             'id' => self::DELEGATION_ID,
             'delegator_user_id' => self::OTHER_USER_ID,
@@ -125,10 +125,10 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
         ]);
         DB::table('delegation_capabilities')->insert([
             'delegation_id' => self::DELEGATION_ID,
-            'capability_code' => 'workflow.decide',
+            'capability_code' => 'tasks.complete',
         ]);
 
-        $this->assertSame(['workflow.decide'], $this->capabilities()->forUser(self::USER_ID));
+        $this->assertSame(['tasks.complete'], $this->capabilities()->forUser(self::USER_ID));
         $this->assertSame([], $this->capabilities()->forUser(self::OTHER_USER_ID));
     }
 
@@ -144,7 +144,7 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
 
     public function test_active_user_targeted_explicit_deny_subtracts_capability(): void
     {
-        $this->seedCapability('cap-read', 'work_record.read');
+        $this->seedCapability('cap-read', 'tasks.read');
         $this->seedRole(self::ROLE_ID, 'nav_reader');
         $this->seedRoleCapability(self::ROLE_ID, 'cap-read', 'allow');
         $this->seedAssignment('assign-1', self::USER_ID, self::ROLE_ID);
@@ -152,7 +152,7 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
         DB::table('explicit_denies')->insert([
             'id' => '018f6f7d-0c00-7000-8000-000000000b01',
             'user_id' => self::USER_ID,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
             'classification' => null,
             'organization_unit_id' => null,
             'resource_pattern' => null,
@@ -225,7 +225,7 @@ class ListEffectiveCapabilitiesForUserTest extends TestCase
     private function seedRoleCapability(string $roleId, string $capabilityCodeOrId, string $effect): void
     {
         // Accept either a capability id (e.g. 'cap-read') or a capability
-        // code (e.g. 'work_record.read'). The OperationsOfficeRoleCatalog
+        // code (e.g. 'tasks.read'). The OperationsOfficeRoleCatalog
         // sync pre-seeds rows with arbitrary uuids; resolve the id by code
         // so the role_capabilities FK can be satisfied.
         $capabilityId = DB::table('capabilities')

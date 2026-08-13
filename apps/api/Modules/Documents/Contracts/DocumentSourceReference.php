@@ -6,7 +6,7 @@ use InvalidArgumentException;
 
 /**
  * Lightweight value object that identifies the producer-side source a
- * document is being linked to (for example a work record id). Lives in
+ * document is being linked to (for example a task id). Lives in
  * Contracts so producer modules can construct references without
  * reaching into Documents' Application namespace.
  */

@@ -22,7 +22,7 @@ import { useLocale, useSessionToken } from './session-context'
 export interface PrincipalSnapshot {
   state: 'loading' | 'ready' | 'stale' | 'denied' | 'error'
   capabilities: string[] | null
-  features: { work_management: boolean; tasks: boolean } | null
+  features: { tasks: boolean } | null
   effectiveScope: { scopeType: string; scopeId: string; label: string } | null
   availableScopes: Array<{ scopeType: string; scopeId: string; label: string }>
   revision: number
@@ -124,9 +124,7 @@ export function PrincipalProvider({ children }: { children: ReactNode }) {
       scopeVersionRef.current = scopesResponse.etag
 
       setCapabilities(principal.capabilities ?? [])
-      setFeatures(
-        principal.features ?? { work_management: false, tasks: false },
-      )
+      setFeatures(principal.features ?? { tasks: false })
       setAvailableScopes(
         (scopes.available_scopes ?? []).map((s) => ({
           scopeType: s.scope_type,
@@ -150,7 +148,7 @@ export function PrincipalProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
         setCapabilities([])
-        setFeatures({ work_management: false, tasks: false })
+        setFeatures({ tasks: false })
         setErrorCorrelationId(null)
         setState('denied')
       } else {

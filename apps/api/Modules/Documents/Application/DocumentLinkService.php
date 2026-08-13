@@ -120,6 +120,6 @@ final class DocumentLinkService implements LinkDocument
 
     private function resourceCapability(DocumentSourceReference $reference): string
     {
-        return $reference->sourceType === 'work_record' ? 'work_record.read' : 'documents.link';
+        return $reference->sourceType === 'task' ? 'tasks.read' : 'documents.link';
     }
 }

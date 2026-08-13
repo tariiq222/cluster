@@ -19,6 +19,22 @@ final class BackupOperationsHandlerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_unconfigured_backup_runtime_rejects_requests_without_queueing_them(): void
+    {
+        $gateway = new FakeBackupOperationsGateway;
+        $gateway->available = false;
+        $handler = $this->handler($gateway);
+
+        try {
+            $handler->requestBackup('0197f0e0-0000-7000-8000-000000000001', 'unavailable-runtime');
+            $this->fail('Expected the unavailable backup runtime to reject the request.');
+        } catch (\DomainException $exception) {
+            $this->assertSame('platform_operations_unavailable', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('platform_operation_requests', 0);
+    }
+
     public function test_replaying_an_idempotency_key_returns_the_same_operation_without_starting_a_second_backup(): void
     {
         $gateway = new FakeBackupOperationsGateway;
@@ -322,12 +338,14 @@ final class FakeBackupOperationsGateway implements BackupOperationsGateway
 
     public bool $failNextBackup = false;
 
+    public bool $available = true;
+
     /** @var list<array{string, string}> */
     public array $restoreValidationRequests = [];
 
     public function status(): BackupStatus
     {
-        return new BackupStatus('unknown', null, null, null);
+        return new BackupStatus($this->available ? 'available' : 'unconfigured', null, null, null);
     }
 
     public function requestBackup(string $operationId): void

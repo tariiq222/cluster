@@ -30,8 +30,8 @@ final class ReportingRunStateTest extends TestCase
         }
         (new RefreshReportingProjectionHandler)->handle([
             'report_id' => self::REPORT,
-            'source_module' => 'WorkRecords',
-            'source_type' => 'work_record',
+            'source_module' => 'Tasks',
+            'source_type' => 'task',
             'source_id' => 'record-1',
             'source_version' => 'v1',
             'scope_id' => 'scope-a',

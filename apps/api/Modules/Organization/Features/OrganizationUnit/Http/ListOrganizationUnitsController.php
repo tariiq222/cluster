@@ -7,8 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\OrganizationUnit\Handler\OrganizationUnitHandler;
 use Modules\Organization\Http\OrganizationApi;
 
@@ -17,6 +17,7 @@ final class ListOrganizationUnitsController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly OrganizationUnitHandler $handler,
     ) {}
 
@@ -30,15 +31,6 @@ final class ListOrganizationUnitsController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.unit.read', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_unit',
-            classification: 'internal',
-            clusterId: OrganizationApi::clusterId(),
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
-        }
-
         $query = $request->query();
         $validator = Validator::make($query, [
             'cursor' => ['sometimes', 'string', 'min:1', 'max:2048'],
@@ -51,7 +43,18 @@ final class ListOrganizationUnitsController
         $validated = $validator->validated();
         $limit = (int) ($validated['limit'] ?? 25);
         try {
-            $page = $this->handler->list($principal, $validated['cursor'] ?? null, $limit, $validated['parent_id'] ?? null);
+            $page = $this->handler->list(
+                $principal,
+                $validated['cursor'] ?? null,
+                $limit,
+                $validated['parent_id'] ?? null,
+                function (string $unitId) use ($principal): bool {
+                    $facts = $this->resourceFacts->factsForUnit($unitId);
+
+                    return $facts !== null
+                        && $this->access->decide($principal, 'organization.unit.read', $facts)->isAllowed();
+                },
+            );
         } catch (InvalidArgumentException) {
             return OrganizationApi::problem(400, 'invalid-pagination', 'Bad Request', 'The collection parameters are invalid.', $correlationId);
         }

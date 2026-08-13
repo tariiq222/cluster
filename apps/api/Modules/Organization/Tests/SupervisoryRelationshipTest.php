@@ -60,7 +60,7 @@ class SupervisoryRelationshipTest extends TestCase
         $capability = RelationshipCapability::create(
             self::CAPABILITY_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view_details',
         );
         $relationship = SupervisoryRelationship::create(
@@ -82,7 +82,7 @@ class SupervisoryRelationshipTest extends TestCase
         $this->assertSame([
             [
                 'relationship_capability_id' => self::CAPABILITY_ID,
-                'module_code' => 'work-records',
+                'module_code' => 'tasks',
                 'capability_code' => 'view_details',
             ],
         ], $relationship->toFact()['relationship_capabilities']);
@@ -119,7 +119,7 @@ class SupervisoryRelationshipTest extends TestCase
             'relationship_capability_identifiers_invalid' => fn (): RelationshipCapability => RelationshipCapability::create(
                 self::CAPABILITY_ID,
                 '018F6F7D-0C00-7000-8000-000000000805',
-                'work-records',
+                'tasks',
                 'view_details',
             ),
             'relationship_capability_code_invalid' => fn (): RelationshipCapability => RelationshipCapability::create(
@@ -166,7 +166,7 @@ class SupervisoryRelationshipTest extends TestCase
         $capability = RelationshipCapability::create(
             self::CAPABILITY_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view_details',
         );
         DB::table('relationship_capabilities')->insert($capability->toPersistence());
@@ -177,7 +177,7 @@ class SupervisoryRelationshipTest extends TestCase
         ]);
         $this->assertDatabaseHas('relationship_capabilities', [
             'id' => self::CAPABILITY_ID,
-            'module_code' => 'work-records',
+            'module_code' => 'tasks',
             'capability_code' => 'view_details',
         ]);
         $this->assertQueryRejected(fn (): mixed => DB::table('supervisory_relationships')->insert([
@@ -197,7 +197,7 @@ class SupervisoryRelationshipTest extends TestCase
         $this->assertQueryRejected(fn (): mixed => DB::table('relationship_capabilities')->insert([
             'id' => '018f6f7d-0c00-7000-8000-000000000809',
             'supervisory_relationship_id' => self::RELATIONSHIP_ID,
-            'module_code' => 'work-records',
+            'module_code' => 'tasks',
             'capability_code' => 'view_details',
         ]));
     }

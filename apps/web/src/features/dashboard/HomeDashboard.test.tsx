@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { HomeDashboard } from './HomeDashboard'
@@ -7,6 +7,11 @@ import { SessionProvider } from '../../app/session-context'
 import { PrincipalContextTestProvider } from '../../app/principal-context'
 
 const session = { csrfToken: 'x', userId: 'u', expiresAt: '2026-12-31T00:00:00Z', restricted: false }
+
+const dashboardTasks = vi.hoisted(() => ({
+  mode: 'error' as 'error' | 'success',
+  items: [] as object[],
+}))
 
 vi.mock('../../api/query', () => ({
   useScopeEpoch: () => 0,
@@ -25,6 +30,23 @@ vi.mock('../../api/query', () => ({
 }))
 
 vi.mock('../../api/hooks', () => ({
+  useTasksList: () => dashboardTasks.mode === 'error'
+    ? {
+        data: undefined,
+        isPending: false,
+        isLoading: false,
+        isError: true,
+        error: new Error('tasks exploded'),
+        refetch: vi.fn(),
+      }
+    : {
+        data: { items: dashboardTasks.items, next_cursor: null, available_scopes: [] },
+        isPending: false,
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      },
   useNotificationsList: () => ({
     data: {
       items: [
@@ -43,7 +65,7 @@ function mount() {
   return render(
     <MemoryRouter>
       <SessionProvider session={session} locale="ar" setLocale={() => {}}>
-        <PrincipalContextTestProvider capabilities={['tasks.list']} features={{ work_management: false, tasks: true }}>
+        <PrincipalContextTestProvider capabilities={['tasks.list']} features={{ tasks: true }}>
           <HomeDashboard />
         </PrincipalContextTestProvider>
       </SessionProvider>
@@ -52,6 +74,11 @@ function mount() {
 }
 
 describe('home dashboard', () => {
+  beforeEach(() => {
+    dashboardTasks.mode = 'error'
+    dashboardTasks.items = []
+  })
+
   it('renders the remaining cards when one query fails', () => {
     mount()
     expect(screen.getByText('إشعار مهم')).toBeInTheDocument()
@@ -88,5 +115,28 @@ describe('home dashboard', () => {
   it('renders the effective-scope card with the scope label', () => {
     mount()
     expect(screen.getByText('نطاق عملك الحالي')).toBeInTheDocument()
+  })
+
+  it('renders the task title from the canonical task collection instead of its UUID', () => {
+    dashboardTasks.mode = 'success'
+    dashboardTasks.items = [{
+      id: '01980f50-5f0d-7000-8000-000000000011',
+      title: 'مراجعة خطة المنشأة',
+      description: null,
+      state: 'open',
+      classification: 'internal',
+      priority: 'normal',
+      due_at: null,
+      allowed_actions: [],
+      attachments: [],
+      lock_version: 1,
+      created_at: '2026-08-13T08:00:00Z',
+      updated_at: '2026-08-13T08:00:00Z',
+    }]
+
+    mount()
+
+    expect(screen.getByText('مراجعة خطة المنشأة')).toBeInTheDocument()
+    expect(screen.queryByText('01980f50-5f0d-7000-8000-000000000011')).not.toBeInTheDocument()
   })
 })

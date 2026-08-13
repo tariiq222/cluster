@@ -154,8 +154,15 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
+      - uses: shivammathur/setup-php@a42e73e16d831796463b22b8d70a3efcad74e074
+        with:
+          php-version: "8.4"
+          coverage: none
+          tools: composer:v2
+      - run: composer --working-dir=apps/api install --no-interaction --no-progress --prefer-dist
       - run: npm --prefix apps/web ci
       - run: make npm-audit
+      - run: composer --working-dir=apps/api audit
 
   architecture-closure:
     needs: [api-unit, web-unit, mysql-integration]

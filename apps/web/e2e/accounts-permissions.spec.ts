@@ -44,13 +44,13 @@ const fullCapabilities = [
 const systemRole = {
   id: ids.systemRole, code: 'finance.system', name_en: 'Finance reviewer', name_ar: 'مراجع مالي',
   is_system_role: true, role_type: 'system' as const, status: 'active' as const,
-  lock_version: 1, capability_codes: ['work_record.read'], allowed_actions: ['clone'],
+  lock_version: 1, capability_codes: ['tasks.read'], allowed_actions: ['clone'],
 }
 
 const customRole = {
   id: ids.customRole, code: 'finance.custom', name_en: 'Finance reviewer (custom)', name_ar: 'مراجع مالي مخصص',
   is_system_role: false, role_type: 'custom' as const, status: 'active' as const,
-  lock_version: 2, capability_codes: ['work_record.read'], allowed_actions: ['edit', 'archive'],
+  lock_version: 2, capability_codes: ['tasks.read'], allowed_actions: ['edit', 'archive'],
 }
 
 const customRoleAfterEdit = {
@@ -98,10 +98,13 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
     }
     return json(route, {
       data: {
-        user_id: ids.admin,
-        csrf_token: 'accounts-csrf',
-        capabilities: [...capabilities],
-        features: { work_management: false, tasks: false },
+        principal: { user_id: ids.admin },
+        account: {
+          id: ids.admin,
+          username: 'authorization-admin',
+          status: 'active',
+        },
+        session: { restricted: false },
       },
     })
   })
@@ -121,15 +124,14 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
     capabilities: [...capabilities],
     clearance: 'internal',
     break_glass: false,
-    features: { work_management: false, tasks: false },
+    features: { tasks: false },
     correlation_id: ids.admin,
   }))
   await page.route('**/api/v1/me/scopes', (route) => json(route, { available_scopes: [{ scope_type: 'facility', scope_id: ids.facility, label: 'North facility' }, { scope_type: 'unit', scope_id: ids.unit, label: 'North unit' }], effective_scope: { scope_type: 'facility', scope_id: ids.facility, label: 'North facility' } }, 200, { ETag: '"1"' }))
   await page.route('**/api/v1/notifications?limit=**', (route) => json(route, { items: [], next_cursor: null }))
-  await page.route('**/api/v1/work-records?limit=**', (route) => json(route, { items: [], next_cursor: null }))
   await page.route('**/api/v1/identity/accounts?**', (route) => json(route, { items: [{ id: ids.account, username: 'finance', display_name_en: 'Finance officer', display_name_ar: 'مسؤول المالية', status: 'active', must_change_password: false }], next_cursor: null }))
   await page.route('**/api/v1/organization/people?**', (route) => json(route, { items: [], next_cursor: null }))
-  await page.route('**/api/v1/authorization/capabilities?**', (route) => json(route, { data: { items: [{ id: '01980f50-5f0d-7000-8000-000000000810', code: 'work_record.read', capability_code: 'work_record.read', module_code: 'work_record', action: 'read', sensitivity: 'normal', group_label: 'work_record', name_en: 'Read work records' }], next_cursor: null } }))
+  await page.route('**/api/v1/authorization/capabilities?**', (route) => json(route, { data: { items: [{ id: '01980f50-5f0d-7000-8000-000000000810', code: 'tasks.read', capability_code: 'tasks.read', module_code: 'tasks', action: 'read', sensitivity: 'normal', group_label: 'tasks', name_en: 'Read tasks' }], next_cursor: null } }))
 
   await page.route('**/api/v1/authorization/roles?**', (route) => {
     const items = seenRoles()
@@ -140,13 +142,13 @@ async function mockWorkspace(page: Page, options: WorkspaceOptions = {}): Promis
   // each role page. The live projection serializes `id` as
   // `role_id:capability_id` plus the capability code and effect; only
   // `allow` rows contribute to a role's capability_codes. The two fixture
-  // roles both carry `work_record.read`, so two allow rows keep the
+  // roles both carry `tasks.read`, so two allow rows keep the
   // enriched shape consistent with the role fixtures.
   await page.route('**/api/v1/authorization/role-capabilities?**', (route) => json(route, {
     data: {
       items: [
-        { id: `${ids.systemRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.systemRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'work_record.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
-        { id: `${ids.customRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.customRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'work_record.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
+        { id: `${ids.systemRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.systemRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'tasks.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
+        { id: `${ids.customRole}:01980f50-5f0d-7000-8000-000000000810`, role_id: ids.customRole, capability_id: '01980f50-5f0d-7000-8000-000000000810', capability_code: 'tasks.read', effect: 'allow', resource_type: 'role_capability', lock_version: 1 },
       ],
       next_cursor: null,
     },
@@ -219,12 +221,12 @@ async function signIn(page: Page): Promise<void> {
   await page.getByLabel('اسم المستخدم').fill('authorization-admin')
   await page.getByLabel('كلمة المرور', { exact: true }).fill('authorization-admin-password')
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click()
-  await expect(page.getByRole('heading', { name: 'الرئيسية' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'الرئيسية', exact: true })).toBeVisible()
 }
 
 async function openWorkspace(page: Page): Promise<void> {
   await page.goto('/access')
-  await expect(page.getByRole('heading', { name: 'الحسابات والصلاحيات' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'الحسابات والصلاحيات', exact: true })).toBeVisible()
 }
 
 async function openTab(page: Page, name: string): Promise<void> {
@@ -234,7 +236,7 @@ async function openTab(page: Page, name: string): Promise<void> {
 async function openRolesTab(page: Page): Promise<void> {
   await openWorkspace(page)
   await openTab(page, 'الأدوار')
-  await expect(page.getByRole('heading', { name: 'الأدوار والصلاحيات' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'الأدوار والصلاحيات', exact: true })).toBeVisible()
 }
 
 test('four governance tabs keep their order, RTL flow, and never leak fixture UUIDs', async ({ page }) => {
@@ -435,7 +437,7 @@ test('creates a role through the full-page role editor with grouped capability s
     expect(body.resource_type).toBe('role')
     expect(body.code).toBe('ops.reviewer')
     expect(body.name).toBe('مراجع عمليات')
-    expect(body.capability_codes).toEqual(['work_record.read'])
+    expect(body.capability_codes).toEqual(['tasks.read'])
     await json(route, { data: { ...customRole, id: ids.customRole }, lock_version: 1 }, 201, { ETag: '"1"' })
   })
 
@@ -443,17 +445,17 @@ test('creates a role through the full-page role editor with grouped capability s
   await expect(page).toHaveURL(/\/access\/roles\/new$/)
 
   // The catalog renders grouped by module with localized group headings.
-  await expect(page.getByText('سجلات العمل')).toBeVisible()
+  await expect(page.getByText('المهام', { exact: true })).toBeVisible()
 
-  // Select the work_record.read capability by its Arabic label, then create the role.
-  await page.getByRole('checkbox', { name: 'قراءة سجل عمل' }).check()
+  // Select the tasks.read capability by its Arabic label, then create the role.
+  await page.getByRole('checkbox', { name: 'قراءة مهمة' }).check()
   await page.getByLabel('رمز الدور').fill('ops.reviewer')
   await page.getByLabel('اسم الدور').fill('مراجع عمليات')
   await page.getByRole('button', { name: 'أنشئ الدور' }).click()
 
   // Success returns to the roles resource.
-  await expect(page).toHaveURL(/\/access$/)
-  await expect(page.getByRole('heading', { name: 'الأدوار والصلاحيات' })).toBeVisible()
+  await expect(page).toHaveURL(/\/access\?tab=roles$/)
+  await expect(page.getByRole('heading', { name: 'الأدوار والصلاحيات', exact: true })).toBeVisible()
 })
 
 type CapturedRequest = { method: string; url: string; headers: Record<string, string> }

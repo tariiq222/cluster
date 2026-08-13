@@ -45,7 +45,7 @@ function unresolvedRouter(
 
 function mountAt(path: string, additionalRoutes?: Parameters<typeof createTestRouter>[0]['additionalRoutes']) {
   const router = createTestRouter({
-    features: { work_management: false, tasks: false },
+    features: { tasks: false },
     onLogout: () => {},
     initialEntries: [path],
     additionalRoutes,
@@ -55,7 +55,7 @@ function mountAt(path: string, additionalRoutes?: Parameters<typeof createTestRo
       <SessionProvider session={session} locale="ar" setLocale={() => {}}>
         <PrincipalContextTestProvider
           capabilities={[]}
-          features={{ work_management: false, tasks: false }}
+          features={{ tasks: false }}
           state="ready"
         >
           <RouterProvider router={router} />

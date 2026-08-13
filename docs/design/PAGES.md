@@ -9,9 +9,8 @@
 | الطبقة | العدد | المعنى |
 |---|---|---|
 | ✅ مفعّل | **126** | يعمل اليوم بلا شروط |
-| 🚩 خلف علم | **24** | مسجّل في `web.php` خلف `EnforceWorkManagementFeature`؛ `work_management` يساوي `false` افتراضياً في `apps/api/config/features.php` |
-| 📋 مخطط | **55** | في `openapi.yaml` فقط — بلا مسار ولا وحدة تحكم |
-| **الإجمالي** | **205** | كل عملية مُسندة لصفحة واحدة بالضبط، أو لـ«خارج نطاق الواجهة» |
+| 📋 مخطط | **41** | في `openapi.yaml` فقط — بلا مسار ولا وحدة تحكم |
+| **الإجمالي** | **167** | كل عملية مُسندة لصفحة واحدة بالضبط، أو لـ«خارج نطاق الواجهة» |
 
 **قاعدة الاكتمال:** لا يجوز أن توجد عملية في `endpoints-table.md` بلا إسناد هنا. `scripts/verify-page-coverage.py` يفرض ذلك.
 
@@ -169,68 +168,6 @@ _لا توجد عمليات مباشرة._
 | Method | Endpoint | Hook | الطبقة |
 |---|---|---|---|
 | `GET` | `search` | `search` | ✅ مفعّل |
-
-</details>
-
-## سجلات العمل
-
-| | |
-|---|---|
-| **المسار** | `/work-records · /work-records/:recordId` |
-| **النمط** | قائمة ← تفصيل |
-| **من يراها** | `work_management.*` + **علم `work_management`** |
-| **الطبقات** | 🚩 خلف علم `work_management` × 5 · 📋 مخطط — API غير منفَّذ × 1 |
-
-**الغرض** — يقدّم المستخدم سجل عمل مُهيكلاً ويتابع دورته.
-
-**المخرج**
-
-**غائبة تماماً عند إطفاء العلم** (القاعدة 4.2) — لا رابط ولا رسالة؛ المسار يردّ 404.
-**القائمة**: `DataTable` بأعمدة رقم السجل، النوع، الحالة، التصنيف، المالك.
-**التفصيل**: صفحة كاملة. الحمولة (`payload`) تُرسم **ديناميكياً من مخطّط نموذج العمل** لا بحقول مثبّتة — هذا جوهر الوحدة. `field_access` في الاستجابة يحدّد ما يُقرأ وما يُحرَّر لكل حقل، ويجب احترامه حرفياً.
-
-**الإجراءات** — إنشاء (`Idempotency-Key`) · تحديث *(مخطط)* · انتقال (`If-Match`) · ربط مستند
-
-<details><summary>الـEndpoints</summary>
-
-| Method | Endpoint | Hook | الطبقة |
-|---|---|---|---|
-| `GET` | `work-records` | `listWorkRecords` | 🚩 خلف علم `work_management` |
-| `POST` | `work-records` | `createWorkRecord` | 🚩 خلف علم `work_management` |
-| `GET` | `work-records/{recordId}` | `getWorkRecord` | 🚩 خلف علم `work_management` |
-| `PATCH` | `work-records/{recordId}` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `work-records/{recordId}/documents` | `linkWorkRecordDocument` | 🚩 خلف علم `work_management` |
-| `POST` | `work-records/{recordId}/{recordAction}` | `جلسة + CSRF` | 🚩 خلف علم `work_management` |
-
-</details>
-
-## صندوق الموافقات
-
-| | |
-|---|---|
-| **المسار** | `/inbox` |
-| **النمط** | قائمة ← تفصيل |
-| **من يراها** | `workflow.step.*` + **علم `work_management`** |
-| **الطبقات** | 🚩 خلف علم `work_management` × 4 |
-
-**الغرض** — يرى المُعتمِد ما ينتظر قراره في مكان واحد، ويقرّر منه مباشرة.
-
-**المخرج**
-
-**غائبة تماماً عند إطفاء العلم.**
-قائمة الخطوات المسندة للمستخدم — `DataTable` بأعمدة السجل، نوع الخطوة، تاريخ الإسناد، الحالة. فلتر `assignee` (لي / لفريقي) وفلتر `state`.
-القرار يُتّخذ من **صفحة كاملة** `/inbox/{stepId}` لا من لوحة جانبية: صفحة القرار تعرض ملخّص السجل وحقل السبب وأزرار القرار من `allowed_actions`، والعودة تعيد المُعتمِد إلى نفس الموضع في القائمة. الواجهة حاليّاً مخطط لها مع الـAPI.
-
-**الإجراءات** — قرار (`Idempotency-Key`) · إجراء على خطوة (`If-Match`)
-
-<details><summary>الـEndpoints</summary>
-
-| Method | Endpoint | Hook | الطبقة |
-|---|---|---|---|
-| `GET` | `workflow/steps` | `listWorkflowStepsInbox` | 🚩 خلف علم `work_management` |
-| `GET` | `workflow/steps/{stepId}` | `getWorkflowStep` | 🚩 خلف علم `work_management` |
-| `POST` | `workflow/steps/{stepId}/decisions` | `recordWorkflowDecision` | 🚩 خلف علم `work_management` |
-| `POST` | `workflow/steps/{stepId}/{stepAction}` | `actOnWorkflowStep` | 🚩 خلف علم `work_management` |
 
 </details>
 
@@ -519,116 +456,6 @@ _لا توجد عمليات مباشرة._
 | `GET` | `organization/import-jobs/{jobId}` | `getOrganizationImport` | ✅ مفعّل |
 | `GET` | `organization/import-jobs/{jobId}/rows` | `listOrganizationImportRows` | ✅ مفعّل |
 | `POST` | `organization/import-jobs/{jobId}/{jobAction}` | `transitionOrganizationImport` | ✅ مفعّل |
-
-</details>
-
-# ج. سير العمل ونماذج العمل
-
-**المساحة كاملة خلف علم `work_management` المُطفأ افتراضياً، أو مخطّطة.** لا يراها أحد اليوم. مُوثّقة لأن الـAPI موجود ومُختبَر، فتصبح جاهزة لحظة تشغيل العلم.
-
-## سير العمل
-
-| | |
-|---|---|
-| **المسار** | `/workflow` |
-| **النمط** | مساحة بتبويبات |
-| **من يراها** | `workflow.*` + **علم `work_management`** |
-| **الطبقات** | 🚩 خلف علم `work_management` × 9 · 📋 مخطط — API غير منفَّذ × 2 |
-
-**الغرض** — يصمّم مسؤول العمليات مسارات الموافقة ويتابع الحالات الجارية.
-
-**المخرج**
-
-ثلاثة تبويبات:
-**التعريفات** — `DataTable`: الاسم، الرمز، عدد الإصدارات، الحالة.
-**الإصدارات** — قائمة إصدارات التعريف المحدّد مع `Badge` لدورة الحياة (مسودة/قيد المراجعة/منشور). المخطّط (`nodes`/`transitions`) يُعرض كقائمة عقد منظّمة لا كرسم بياني تفاعلي — الرسم البياني مشروع مستقل، والقائمة تكفي للقراءة والتحقّق.
-**الحالات الجارية** — `DataTable`: السجل، الإصدار، الخطوة الحالية، البدء. فلتر `state`. الإلغاء بتأكيد وسبب.
-
-**الإجراءات** — إنشاء تعريف · إنشاء إصدار · بدء حالة · إلغاء · انتقال إصدار (`If-Match`) · تحديث مسودة *(مخطط)*
-
-<details><summary>الـEndpoints</summary>
-
-| Method | Endpoint | Hook | الطبقة |
-|---|---|---|---|
-| `GET` | `workflow/definitions` | `listWorkflowDefinitions` | 🚩 خلف علم `work_management` |
-| `POST` | `workflow/definitions` | `createWorkflowDefinition` | 🚩 خلف علم `work_management` |
-| `GET` | `workflow/definitions/{definitionId}/versions` | `listWorkflowVersions` | 🚩 خلف علم `work_management` |
-| `POST` | `workflow/definitions/{definitionId}/versions` | `createWorkflowVersion` | 🚩 خلف علم `work_management` |
-| `GET` | `workflow/instances` | `listWorkflowInstances` | 🚩 خلف علم `work_management` |
-| `POST` | `workflow/instances` | `startWorkflow` | 🚩 خلف علم `work_management` |
-| `GET` | `workflow/instances/{instanceId}` | `getWorkflowInstance` | 🚩 خلف علم `work_management` |
-| `POST` | `workflow/instances/{instanceId}/cancel` | `cancelWorkflow` | 🚩 خلف علم `work_management` |
-| `GET` | `workflow/versions/{versionId}` | — | 📋 مخطط — API غير منفَّذ |
-| `PATCH` | `workflow/versions/{versionId}` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `workflow/versions/{versionId}/{workflowLifecycleAction}` | `transitionWorkflowVersion` | 🚩 خلف علم `work_management` |
-
-</details>
-
-## نماذج العمل
-
-| | |
-|---|---|
-| **المسار** | `/work-definitions` |
-| **النمط** | مساحة بتبويبات |
-| **من يراها** | `work_management.definition.*` + **علم `work_management`** |
-| **الطبقات** | 🚩 خلف علم `work_management` × 6 · 📋 مخطط — API غير منفَّذ × 6 |
-
-**الغرض** — يعرّف مسؤول العمليات مخطّط سجل العمل وحقوله وسياسات حقوله.
-
-**المخرج**
-
-تبويبان:
-**النماذج** — `DataTable`: الاسم، الرمز، التصنيف الافتراضي، الإصدار المنشور.
-**الإصدارات** — دورة حياة طويلة (مسودة ← اختبار ← موافقة ← توقيع ← نشر)، تُعرض كـ**`Stepper` أفقي** يبيّن الموضع الحالي والخطوة التالية المتاحة، لا كأزرار متناثرة. مخطّط الحقول (`schema_document`) يُعرض كجدول حقول للقراءة؛ محرّر المخطّط خارج النطاق.
-**التوقيع** يتطلّب `schema_hash` و`signature` و`key_id` — يُعرض كـ`Dialog` مخصّص مع تحذير صريح أنه غير قابل للتراجع.
-
-**الإجراءات** — إنشاء · إنشاء إصدار · تحديث مسودة *(مخطط)* · اختبار *(مخطط)* · موافقة *(مخطط)* · توقيع *(مخطط)* · نشر *(مخطط)*
-
-<details><summary>الـEndpoints</summary>
-
-| Method | Endpoint | Hook | الطبقة |
-|---|---|---|---|
-| `GET` | `work-definition-versions/{versionId}` | `getWorkDefinitionVersion` | 🚩 خلف علم `work_management` |
-| `PATCH` | `work-definition-versions/{versionId}` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `work-definition-versions/{versionId}/approve` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `work-definition-versions/{versionId}/publish` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `work-definition-versions/{versionId}/sign` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `work-definition-versions/{versionId}/test` | — | 📋 مخطط — API غير منفَّذ |
-| `GET` | `work-definitions` | `listWorkDefinitions` | 🚩 خلف علم `work_management` |
-| `POST` | `work-definitions` | `createWorkDefinition` | 🚩 خلف علم `work_management` |
-| `GET` | `work-definitions/{definitionId}` | `getWorkDefinition` | 🚩 خلف علم `work_management` |
-| `PATCH` | `work-definitions/{definitionId}` | — | 📋 مخطط — API غير منفَّذ |
-| `GET` | `work-definitions/{definitionId}/versions` | `listWorkDefinitionVersions` | 🚩 خلف علم `work_management` |
-| `POST` | `work-definitions/{definitionId}/versions` | `createWorkDefinitionVersion` | 🚩 خلف علم `work_management` |
-
-</details>
-
-## مكتب العمليات
-
-| | |
-|---|---|
-| **المسار** | `/workflow/operations-office` |
-| **النمط** | قائمة ← تفصيل |
-| **من يراها** | `workflow.operations_office.*` — **مخطط بالكامل** |
-| **الطبقات** | 📋 مخطط — API غير منفَّذ × 5 |
-
-**الغرض** — يراجع مكتب العمليات إصدارات سير العمل قبل نشرها على مستوى المجمّع.
-
-**المخرج**
-
-صندوق مراجعة على نمط `/inbox`: قائمة الإصدارات المُرسَلة + **صفحة قرار كاملة** `/workflow/operations-office/versions/{versionId}`. سجل التدقيق للإصدار يُعرض كخط زمني في الصفحة. **لا يُبنى قبل تنفيذ الـAPI.**
-
-**الإجراءات** — إرسال · إرجاع · موافقة · نشر · سجل تدقيق — كلها *(مخطط)*
-
-<details><summary>الـEndpoints</summary>
-
-| Method | Endpoint | Hook | الطبقة |
-|---|---|---|---|
-| `POST` | `workflow/operations-office/versions/{versionId}/approve` | — | 📋 مخطط — API غير منفَّذ |
-| `GET` | `workflow/operations-office/versions/{versionId}/audit` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `workflow/operations-office/versions/{versionId}/publish` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `workflow/operations-office/versions/{versionId}/return` | — | 📋 مخطط — API غير منفَّذ |
-| `POST` | `workflow/operations-office/versions/{versionId}/submit` | — | 📋 مخطط — API غير منفَّذ |
 
 </details>
 

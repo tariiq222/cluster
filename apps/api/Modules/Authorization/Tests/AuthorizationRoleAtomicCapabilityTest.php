@@ -39,7 +39,7 @@ final class AuthorizationRoleAtomicCapabilityTest extends TestCase
             'updated_at' => now(),
             'lock_version' => 1,
         ]);
-        $this->seedRoleCapability('work_record.read');
+        $this->seedRoleCapability('tasks.read');
         DB::table('clusters')->insert([
             'id' => self::CLUSTER_ID,
             'singleton_key' => 1,
@@ -73,7 +73,7 @@ final class AuthorizationRoleAtomicCapabilityTest extends TestCase
 
         DB::transaction(function () use ($gateway): void {
             $gateway->update('roles', self::ROLE_ID, [
-                'capability_codes' => ['work_record.submit', 'identity.account.read'],
+                'capability_codes' => ['tasks.create', 'identity.account.read'],
             ], 1, self::PRINCIPAL_ID);
         });
 
@@ -84,11 +84,11 @@ final class AuthorizationRoleAtomicCapabilityTest extends TestCase
             ->orderBy('capabilities.capability_code')
             ->pluck('capabilities.capability_code')
             ->all();
-        $expected = ['identity.account.read', 'work_record.submit'];
+        $expected = ['identity.account.read', 'tasks.create'];
         $this->assertSame($expected, $actual);
         $this->assertDatabaseMissing('role_capabilities', [
             'role_id' => self::ROLE_ID,
-            'capability_id' => DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id'),
+            'capability_id' => DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id'),
         ]);
         $this->assertSame(2, (int) DB::table('roles')->where('id', self::ROLE_ID)->value('lock_version'));
     }
@@ -98,11 +98,11 @@ final class AuthorizationRoleAtomicCapabilityTest extends TestCase
         DB::table('role_capabilities')->where('role_id', self::ROLE_ID)->update(['effect' => 'deny']);
         $gateway = $this->app->make(AuthorizationHttpGateway::class);
 
-        $gateway->update('roles', self::ROLE_ID, ['capability_codes' => ['work_record.read']], 1, self::PRINCIPAL_ID);
+        $gateway->update('roles', self::ROLE_ID, ['capability_codes' => ['tasks.read']], 1, self::PRINCIPAL_ID);
 
         $this->assertDatabaseHas('role_capabilities', [
             'role_id' => self::ROLE_ID,
-            'capability_id' => DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id'),
+            'capability_id' => DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id'),
             'effect' => 'allow',
         ]);
     }
@@ -114,7 +114,7 @@ final class AuthorizationRoleAtomicCapabilityTest extends TestCase
 
         try {
             $gateway->update('roles', self::ROLE_ID, [
-                'capability_codes' => ['work_record.read', 'not.in.catalog'],
+                'capability_codes' => ['tasks.read', 'not.in.catalog'],
             ], 1, self::PRINCIPAL_ID);
             $this->fail('Expected invalid capability code to be rejected.');
         } catch (InvalidArgumentException $exception) {
@@ -161,7 +161,7 @@ final class AuthorizationRoleAtomicCapabilityTest extends TestCase
         $beforeCapabilities = DB::table('role_capabilities')->where('role_id', self::ROLE_ID)->get()->toArray();
 
         try {
-            $gateway->update('roles', self::ROLE_ID, ['capability_codes' => ['work_record.read']], 99, self::PRINCIPAL_ID);
+            $gateway->update('roles', self::ROLE_ID, ['capability_codes' => ['tasks.read']], 99, self::PRINCIPAL_ID);
             $this->fail('Expected stale capability replacement to be rejected.');
         } catch (InvalidArgumentException $exception) {
             $this->assertSame('authorization_precondition_failed', $exception->getMessage());
@@ -182,7 +182,7 @@ final class AuthorizationRoleAtomicCapabilityTest extends TestCase
         });
 
         DB::transaction(function () use ($gateway): void {
-            $gateway->update('roles', self::ROLE_ID, ['capability_codes' => ['work_record.read']], 1, self::PRINCIPAL_ID);
+            $gateway->update('roles', self::ROLE_ID, ['capability_codes' => ['tasks.read']], 1, self::PRINCIPAL_ID);
         });
 
         $this->assertSame([], $savepoints);
@@ -202,7 +202,7 @@ final class AuthorizationRoleAtomicCapabilityTest extends TestCase
             'updated_at' => now(),
             'lock_version' => 1,
         ]);
-        foreach (['work_record.read', 'work_record.submit', 'identity.account.read'] as $code) {
+        foreach (['tasks.read', 'tasks.create', 'identity.account.read'] as $code) {
             DB::table('role_capabilities')->insert([
                 'role_id' => self::AUTHORITY_ROLE_ID,
                 'capability_id' => DB::table('capabilities')->where('capability_code', $code)->value('id'),

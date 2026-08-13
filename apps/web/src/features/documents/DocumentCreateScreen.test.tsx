@@ -56,7 +56,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 interface PrincipalMock {
   state: 'ready' | 'loading' | 'denied' | 'stale' | 'error'
   capabilities: string[]
-  features: { work_management: boolean; tasks: boolean } | null
+  features: { tasks: boolean } | null
   effectiveScope: { scopeType: string; scopeId: string; label: string } | null
   availableScopes: Array<{ scopeType: string; scopeId: string; label: string }>
   revision: number
@@ -70,7 +70,7 @@ interface PrincipalMock {
 let currentPrincipal: PrincipalMock = {
   state: 'ready',
   capabilities: ['documents.manage'],
-  features: { work_management: false, tasks: false },
+  features: { tasks: false },
   effectiveScope: null,
   availableScopes: [],
   revision: 0,
@@ -120,7 +120,7 @@ function buildFacilityPrincipal(overrides: Partial<PrincipalMock> = {}): Princip
   const principal: PrincipalMock = {
     state: 'ready',
     capabilities: ['documents.manage'],
-    features: { work_management: false, tasks: false },
+    features: { tasks: false },
     effectiveScope: {
       scopeType: 'facility',
       scopeId: FACILITY_A_ID,
@@ -145,7 +145,7 @@ function buildNoFacilityPrincipal(): PrincipalMock {
   return {
     state: 'ready',
     capabilities: ['documents.manage'],
-    features: { work_management: false, tasks: false },
+    features: { tasks: false },
     effectiveScope: null,
     availableScopes: [],
     revision: 1,
@@ -164,7 +164,7 @@ function buildEffectiveOnlyPrincipal(): PrincipalMock {
   return {
     state: 'ready',
     capabilities: ['documents.manage'],
-    features: { work_management: false, tasks: false },
+    features: { tasks: false },
     effectiveScope: {
       scopeType: 'facility',
       scopeId: FACILITY_A_ID,

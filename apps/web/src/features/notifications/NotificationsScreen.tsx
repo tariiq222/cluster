@@ -21,8 +21,6 @@ function notificationPath(notification: generated.Notification): string | null {
       return `/tasks/${recordId}`
     case 'document':
       return `/documents/${recordId}`
-    case 'work_record':
-      return `/work-records/${recordId}`
     default:
       return null
   }

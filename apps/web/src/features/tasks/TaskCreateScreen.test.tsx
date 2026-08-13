@@ -77,7 +77,7 @@ function mountPage() {
       <SessionProvider session={session} locale="ar" setLocale={() => {}}>
         <PrincipalContextTestProvider
           capabilities={['tasks.create']}
-          features={{ work_management: false, tasks: true }}
+          features={{ tasks: true }}
         >
           <QueryClientProvider client={client}>
             <TaskCreateScreen />

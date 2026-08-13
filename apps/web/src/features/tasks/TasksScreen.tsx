@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import * as generated from '../../api/generated/cluster'
 import { useTasksList } from '../../api/hooks'
 import { ApiError, requestInit, stateFromError, unwrap } from '../../api/http'
 import { useNavigate } from '../../app/navigation-context'
+import { usePrincipal } from '../../app/principal-context'
 import { useLocale } from '../../app/session-context'
 import { formatDate, statusLabel } from '../../i18n'
 import { PageHeader, PageLayout } from '@/components/page-layout'
@@ -16,24 +17,27 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-interface TaskSummary {
-  id: string
-  title: string
-  description?: string
-  state: string
-  priority: string
-  assignee_user_id?: string
-  due_at?: string
-}
+type TaskSummary = generated.Task
 
 type RelationshipFilter = 'all' | generated.ListTasksRelationship
 type StateFilter = 'all' | generated.ListTasksState
+type TasksView = generated.ListTasksView
+
+interface TaskScopeOption {
+  scopeType: generated.ListTasksScopeType
+  scopeId: string
+  label: string
+}
 
 const copy = {
   ar: {
     pageTitle: 'المهام',
     pageDescription: 'المهام المسندة والمنشأة والمشترك فيها ضمن التجمع الصحي',
     createTask: 'أنشئ مهمة',
+    viewLabel: 'عرض المهام',
+    myTasks: 'مهامي',
+    scopeTasks: 'مهام نطاقي',
+    scopeLabel: 'نطاق المهام',
     relationshipLabel: 'علاقة المهمة',
     relationshipAll: 'الكل',
     relationshipAssigned: 'مسندة إليّ',
@@ -47,6 +51,9 @@ const copy = {
     priorityAll: 'كل الأولويات',
     emptyTitle: 'لا توجد مهام',
     emptyBody: 'ابدأ بإنشاء مهمة جديدة أو غيّر عوامل التصفية.',
+    emptyReadOnlyBody: 'لا توجد مهام متاحة وفق عوامل التصفية الحالية.',
+    emptyTitleWithNext: 'لا توجد مهام ظاهرة في هذه الصفحة',
+    emptyBodyWithNext: 'انتقل إلى الصفحة التالية للبحث عن مهام متاحة، أو غيّر عوامل التصفية.',
     loading: 'جارٍ تحميل المهام…',
     error: 'تعذر تحميل المهام. يرجى إعادة المحاولة.',
     retry: 'إعادة المحاولة',
@@ -56,12 +63,18 @@ const copy = {
     priorityHigh: 'عالية',
     priorityUrgent: 'عاجلة',
     assignee: 'المسند إليه',
+    creator: 'المنشئ',
+    ownerScope: 'النطاق المالك',
     dueAt: 'الاستحقاق',
   },
   en: {
     pageTitle: 'Tasks',
     pageDescription: 'Tasks assigned to, created by, or involving you within the health cluster',
     createTask: 'Create task',
+    viewLabel: 'Task view',
+    myTasks: 'My tasks',
+    scopeTasks: 'Scope tasks',
+    scopeLabel: 'Task scope',
     relationshipLabel: 'Task relationship',
     relationshipAll: 'All',
     relationshipAssigned: 'Assigned to me',
@@ -75,6 +88,9 @@ const copy = {
     priorityAll: 'All priorities',
     emptyTitle: 'No tasks',
     emptyBody: 'Create a new task or adjust the filters.',
+    emptyReadOnlyBody: 'No tasks are available for the current filters.',
+    emptyTitleWithNext: 'No tasks are visible on this page',
+    emptyBodyWithNext: 'Continue to the next page to look for accessible tasks, or adjust the filters.',
     loading: 'Loading tasks…',
     error: 'Could not load tasks. Please try again.',
     retry: 'Retry',
@@ -84,43 +100,93 @@ const copy = {
     priorityHigh: 'High',
     priorityUrgent: 'Urgent',
     assignee: 'Assignee',
+    creator: 'Creator',
+    ownerScope: 'Owner scope',
     dueAt: 'Due at',
   },
 } as const
 
 interface PageState {
-  items: TaskSummary[]
-  nextCursor: string | null
+  items: generated.Task[]
+  nextCursor: generated.UUIDv7 | null
 }
 
 export function TasksScreen() {
   const locale = useLocale()
   const navigate = useNavigate()
+  const principal = usePrincipal()
   const t = copy[locale]
+  const canCreate = principal.capabilities?.includes('tasks.create') === true
 
+  const [view, setView] = useState<TasksView>('mine')
+  const [availableScopes, setAvailableScopes] = useState<TaskScopeOption[]>([])
+  const [selectedScopeKey, setSelectedScopeKey] = useState<string | null>(null)
   const [relationship, setRelationship] = useState<RelationshipFilter>('all')
   const [state, setState] = useState<StateFilter>('all')
   const [priority, setPriority] = useState<'all' | string>('all')
   const [search, setSearch] = useState('')
   const [pages, setPages] = useState<PageState[]>([])
+  const clearPages = useCallback(() => setPages([]), [])
+
+  const effectiveScopeKey = principal.effectiveScope && isNamedTaskScope(principal.effectiveScope)
+    ? taskScopeKey(principal.effectiveScope)
+    : null
+  const selectedScope = useMemo(
+    () =>
+      availableScopes.find((scope) => taskScopeKey(scope) === selectedScopeKey) ??
+      availableScopes.find((scope) => taskScopeKey(scope) === effectiveScopeKey) ??
+      availableScopes[0],
+    [availableScopes, effectiveScopeKey, selectedScopeKey],
+  )
+  const scopeView = view === 'scope' && selectedScope !== undefined
+
+  useEffect(() => {
+    if (view === 'scope' && !selectedScope) setView('mine')
+  }, [selectedScope, view])
 
   const filters = useMemo<generated.ListTasksParams>(() => {
-    const params: generated.ListTasksParams = { limit: 50 }
-    if (relationship !== 'all') params.relationship = relationship
+    const params: generated.ListTasksParams = { limit: 50, view: scopeView ? 'scope' : 'mine' }
+    if (scopeView && selectedScope) {
+      params.scope_type = selectedScope.scopeType
+      params.scope_id = selectedScope.scopeId
+    }
+    if (!scopeView && relationship !== 'all') params.relationship = relationship
     if (state !== 'all') params.state = state
     return params
-  }, [relationship, state])
+  }, [relationship, scopeView, selectedScope, state])
+  const filtersKey = useMemo(() => taskFiltersKey(filters), [filters])
+  const filtersKeyRef = useRef(filtersKey)
+  filtersKeyRef.current = filtersKey
+
+  const changeView = useCallback((nextView: TasksView) => {
+    clearPages()
+    setView(nextView)
+  }, [clearPages])
+
+  const changeScope = useCallback((nextScopeKey: string) => {
+    clearPages()
+    setSelectedScopeKey(nextScopeKey)
+  }, [clearPages])
 
   const query = useTasksList(filters)
-  const collection = query.data as generated.EntityCollection | undefined
+  const collection = query.data
   const forbidden = query.isError && query.error instanceof ApiError && query.error.status === 403
 
   useEffect(() => {
-    setPages([])
-  }, [filters])
+    if (!collection?.available_scopes) return
+    setAvailableScopes(collection.available_scopes.map((scope) => ({
+      scopeType: scope.scope_type,
+      scopeId: scope.scope_id,
+      label: scope.label,
+    })))
+  }, [collection?.available_scopes])
+
+  useEffect(() => {
+    clearPages()
+  }, [clearPages, filters])
 
   const loaded = useMemo<TaskSummary[]>(() => {
-    const base = (collection?.items as unknown as TaskSummary[]) ?? []
+    const base = collection?.items ?? []
     return [...base, ...pages.flatMap((page) => page.items)]
   }, [collection, pages])
 
@@ -128,14 +194,13 @@ export function TasksScreen() {
 
   const loadNext = useCallback(async () => {
     if (!nextCursor) return
-    const params: generated.ListTasksParams = { limit: 50, cursor: nextCursor }
-    if (relationship !== 'all') params.relationship = relationship
-    if (state !== 'all') params.state = state
-    const collection = unwrap<generated.EntityCollection>(
-      await generated.listTasks(params, requestInit(null)),
+    const requestFiltersKey = filtersKey
+    const collection = unwrap<generated.TaskCollection>(
+      await generated.listTasks({ ...filters, cursor: nextCursor }, requestInit(null)),
     )
-    setPages((current) => [...current, { items: collection.items as unknown as TaskSummary[], nextCursor: collection.next_cursor }])
-  }, [nextCursor, relationship, state])
+    if (filtersKeyRef.current !== requestFiltersKey) return
+    setPages((current) => [...current, { items: collection.items, nextCursor: collection.next_cursor }])
+  }, [filters, filtersKey, nextCursor])
 
   const items = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -171,9 +236,19 @@ export function TasksScreen() {
         cell: ({ row }) => priorityLabel(row.original.priority, t),
       },
       {
-        accessorKey: 'assignee_user_id',
+        accessorKey: 'assignee',
         header: t.assignee,
-        cell: ({ row }) => row.original.assignee_user_id ?? '—',
+        cell: ({ row }) => taskAssigneeLabel(row.original),
+      },
+      {
+        accessorKey: 'creator',
+        header: t.creator,
+        cell: ({ row }) => taskCreatorLabel(row.original),
+      },
+      {
+        accessorKey: 'owner_scope',
+        header: t.ownerScope,
+        cell: ({ row }) => row.original.owner_scope?.label ?? '—',
       },
       {
         accessorKey: 'due_at',
@@ -189,12 +264,12 @@ export function TasksScreen() {
       <PageHeader
         title={t.pageTitle}
         description={t.pageDescription}
-        actions={
+        actions={canCreate ? (
           <Button onClick={() => navigate('/tasks/new')}>
             <Plus aria-hidden="true" />
             {t.createTask}
           </Button>
-        }
+        ) : undefined}
       />
 
       <DataTable
@@ -210,17 +285,64 @@ export function TasksScreen() {
         empty={
           <EmptyState
             icon={<Search aria-hidden="true" />}
-            title={t.emptyTitle}
-            body={t.emptyBody}
-            action={
+            title={nextCursor ? t.emptyTitleWithNext : t.emptyTitle}
+            body={nextCursor ? t.emptyBodyWithNext : canCreate ? t.emptyBody : t.emptyReadOnlyBody}
+            action={canCreate ? (
               <Button variant="outline" onClick={() => navigate('/tasks/new')}>
                 {t.createTask}
               </Button>
-            }
+            ) : undefined}
           />
         }
         toolbar={
           <div className="flex flex-wrap items-end gap-2 pb-2">
+            {availableScopes.length > 0 && (
+              <>
+                <div className="grid gap-1">
+                  <Label>{t.viewLabel}</Label>
+                  <div className="flex rounded-lg border p-1" role="group" aria-label={t.viewLabel}>
+                    <Button
+                      type="button"
+                      variant={view === 'mine' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      aria-pressed={view === 'mine'}
+                      onClick={() => changeView('mine')}
+                    >
+                      {t.myTasks}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={scopeView ? 'secondary' : 'ghost'}
+                      size="sm"
+                      aria-pressed={scopeView}
+                      onClick={() => changeView('scope')}
+                    >
+                      {t.scopeTasks}
+                    </Button>
+                  </div>
+                </div>
+                {scopeView && selectedScope && (
+                  <div className="grid gap-1">
+                    <Label htmlFor="tasks-scope-filter">{t.scopeLabel}</Label>
+                    <Select
+                      value={taskScopeKey(selectedScope)}
+                      onValueChange={changeScope}
+                    >
+                      <SelectTrigger id="tasks-scope-filter" className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableScopes.map((scope) => (
+                          <SelectItem key={taskScopeKey(scope)} value={taskScopeKey(scope)}>
+                            {scope.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
             <div className="grid gap-1">
               <Label htmlFor="tasks-search">{t.searchLabel}</Label>
               <Input
@@ -262,25 +384,43 @@ export function TasksScreen() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-1">
-              <Label htmlFor="tasks-relationship-filter">{t.relationshipLabel}</Label>
-              <Select value={relationship} onValueChange={(value) => setRelationship(value as RelationshipFilter)}>
-                <SelectTrigger id="tasks-relationship-filter" className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t.relationshipAll}</SelectItem>
-                  <SelectItem value="assigned">{t.relationshipAssigned}</SelectItem>
-                  <SelectItem value="created">{t.relationshipCreated}</SelectItem>
-                  <SelectItem value="participating">{t.relationshipParticipating}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {!scopeView && (
+              <div className="grid gap-1">
+                <Label htmlFor="tasks-relationship-filter">{t.relationshipLabel}</Label>
+                <Select value={relationship} onValueChange={(value) => setRelationship(value as RelationshipFilter)}>
+                  <SelectTrigger id="tasks-relationship-filter" className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.relationshipAll}</SelectItem>
+                    <SelectItem value="assigned">{t.relationshipAssigned}</SelectItem>
+                    <SelectItem value="created">{t.relationshipCreated}</SelectItem>
+                    <SelectItem value="participating">{t.relationshipParticipating}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         }
       />
     </PageLayout>
   )
+}
+
+function isNamedTaskScope(scope: { scopeType: string; scopeId: string; label: string }): scope is TaskScopeOption {
+  return (
+    (scope.scopeType === 'cluster' || scope.scopeType === 'facility' || scope.scopeType === 'unit') &&
+    scope.label.trim().length > 0 &&
+    scope.label !== scope.scopeId
+  )
+}
+
+function taskScopeKey(scope: Pick<TaskScopeOption, 'scopeType' | 'scopeId'>): string {
+  return `${scope.scopeType}:${scope.scopeId}`
+}
+
+function taskFiltersKey(filters: generated.ListTasksParams): string {
+  return JSON.stringify(Object.entries(filters).sort(([left], [right]) => left.localeCompare(right)))
 }
 
 function priorityLabel(priority: string, t: (typeof copy)[keyof typeof copy]): string {
@@ -294,4 +434,12 @@ function priorityLabel(priority: string, t: (typeof copy)[keyof typeof copy]): s
     default:
       return t.priorityNormal
   }
+}
+
+function taskAssigneeLabel(task: TaskSummary): string {
+  return task.assignee?.display_name ?? task.assignee_user_id ?? '—'
+}
+
+function taskCreatorLabel(task: TaskSummary): string {
+  return task.creator?.display_name ?? task.creator_user_id ?? '—'
 }

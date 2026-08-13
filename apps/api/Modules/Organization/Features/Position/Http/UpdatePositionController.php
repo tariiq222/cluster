@@ -9,8 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\Position\Handler\PositionHandler;
 use Modules\Organization\Http\OrganizationApi;
 
@@ -19,6 +19,7 @@ final class UpdatePositionController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly PositionHandler $handler,
     ) {}
 
@@ -45,12 +46,9 @@ final class UpdatePositionController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.position.manage', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_position',
-            classification: 'internal',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
+        $facts = $this->resourceFacts->factsForPosition($positionId);
+        if ($facts === null || ! $this->access->decide($principal, 'organization.position.manage', $facts)->isAllowed()) {
+            return OrganizationApi::problem(404, 'position-not-found', 'Not Found', 'The position is not available.', $correlationId);
         }
 
         $input = $request->json()->all();
@@ -67,6 +65,18 @@ final class UpdatePositionController
         $changes = $validator->validated();
         if (array_key_exists('manager_position_id', $input) && $input['manager_position_id'] === null) {
             $changes['manager_position_id'] = null;
+        }
+        if (isset($changes['organization_unit_id'])) {
+            $unitFacts = $this->resourceFacts->factsForUnit($changes['organization_unit_id']);
+            if ($unitFacts === null || ! $this->access->decide($principal, 'organization.position.manage', $unitFacts)->isAllowed()) {
+                return OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit is not available.', $correlationId);
+            }
+        }
+        if (isset($changes['manager_position_id'])) {
+            $managerFacts = $this->resourceFacts->factsForPosition($changes['manager_position_id']);
+            if ($managerFacts === null || ! $this->access->decide($principal, 'organization.position.manage', $managerFacts)->isAllowed()) {
+                return OrganizationApi::problem(404, 'position-not-found', 'Not Found', 'The manager position is not available.', $correlationId);
+            }
         }
 
         try {

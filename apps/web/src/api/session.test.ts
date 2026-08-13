@@ -89,7 +89,7 @@ describe('identity session boundaries', () => {
     await expect(restoreSession()).rejects.toMatchObject({ status: 502 })
   })
 
-  it('accepts and persists the login session response', async () => {
+  it('accepts login without persisting CSRF or user identity in browser storage', async () => {
     customFetchMock.mockResolvedValueOnce(
       response({
         data: {
@@ -106,9 +106,7 @@ describe('identity session boundaries', () => {
       csrfToken: 'login-csrf',
       restricted: false,
     })
-    expect(sessionStorage.getItem('cluster.identity-session')).toContain(
-      USER_ID,
-    )
+    expect(sessionStorage.length).toBe(0)
   })
 
   it('does not convert unrelated restore failures into an unauthenticated session', async () => {

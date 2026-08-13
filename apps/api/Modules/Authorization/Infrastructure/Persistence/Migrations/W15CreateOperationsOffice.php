@@ -14,10 +14,7 @@ return new class extends Migration
     public function down(): void
     {
         $roleIds = DB::table('roles')
-            ->whereIn('code', [
-                OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE,
-                OperationsOfficeRoleCatalog::OFFICE_MEMBER_ROLE,
-            ])
+            ->where('code', OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE)
             ->pluck('id');
 
         if ($roleIds->isEmpty()) {

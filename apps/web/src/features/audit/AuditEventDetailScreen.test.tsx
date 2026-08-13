@@ -30,7 +30,7 @@ vi.mock('../../app/principal-context', () => ({
   usePrincipal: () => ({
     state: 'ready',
     capabilities: principalState.capabilities,
-    features: { work_management: false, tasks: true },
+    features: { tasks: true },
     effectiveScope: null,
     availableScopes: [],
     revision: 0,

@@ -23,7 +23,7 @@ const session = {
 
 function shell(
   capabilities: string[],
-  features: { work_management: boolean; tasks: boolean },
+  features: { tasks: boolean },
   initialEntries: string[] = ['/'],
   effectiveScope: {
     scopeType: string
@@ -49,10 +49,10 @@ function shell(
 }
 
 describe('app shell navigation', () => {
-  it('omits work-management destinations entirely when the flag is off', () => {
+  it('never exposes retired work-management destinations', () => {
     const { container } = shell(
       ['work_record.list', 'workflow.read'],
-      { work_management: false, tasks: true },
+      { tasks: true },
     )
     // Absent, not disabled, and with no explanatory text — the API answers 404
     // without disclosing existence, and the UI must not undo that.
@@ -62,39 +62,32 @@ describe('app shell navigation', () => {
     expect(container.querySelector('[aria-disabled="true"]')).toBeNull()
   })
 
-  it('shows work-management destinations when the flag is on and capability is held', () => {
-    const { container } = shell(
-      ['work_record.list', 'workflow.read'],
-      { work_management: true, tasks: true },
-    )
-    expect(container.textContent).toContain('سجلات العمل')
-    expect(container.textContent).toContain('صندوق الموافقات')
+  it('shows the organization entry to a unit-only administrator', () => {
+    shell(['organization.unit.read'], { tasks: false })
+
+    expect(
+      screen.getByRole('link', { name: 'المنظمة', exact: true }),
+    ).toHaveAttribute('href', '/organization')
   })
 
-  it('omits the inbox destination when workflow.read is missing even with the flag on', () => {
-    const { container } = shell(
-      ['work_record.list'],
-      { work_management: true, tasks: true },
-    )
-    expect(container.textContent).toContain('سجلات العمل')
-    expect(container.textContent).not.toContain('صندوق الموافقات')
-  })
+  it('hides the organization entry from an unrelated principal', () => {
+    shell(['tasks.list'], { tasks: true })
 
-  it('omits a destination when the capability is missing even with the flag on', () => {
-    const { container } = shell([], { work_management: true, tasks: true })
-    expect(container.textContent).not.toContain('سجلات العمل')
+    expect(
+      screen.queryByRole('link', { name: 'المنظمة', exact: true }),
+    ).toBeNull()
   })
 })
 
 describe('app shell brand lockup', () => {
   it('renders the brand title and the bilingual operations-workspace subtitle', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     expect(screen.getByText('منصة التجمع الصحي')).toBeTruthy()
     expect(screen.getByText('مساحة العمليات')).toBeTruthy()
   })
 
   it('keeps the home link as the brand destination', () => {
-    const { container } = shell([], { work_management: false, tasks: false })
+    const { container } = shell([], { tasks: false })
     const brand = container.querySelector('a[href="/"]')
     expect(brand).not.toBeNull()
     expect(brand?.textContent).toContain('منصة التجمع الصحي')
@@ -103,14 +96,14 @@ describe('app shell brand lockup', () => {
 
 describe('app shell header', () => {
   it('labels the header as a control bar', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     expect(screen.getByLabelText('شريط الأدوات')).toBeTruthy()
   })
 
   it('derives the current destination from the nav parent on nested routes', () => {
     shell(
       ['organization.cluster.read'],
-      { work_management: false, tasks: false },
+      { tasks: false },
       ['/organization/import'],
     )
     const header = screen.getByLabelText('شريط الأدوات')
@@ -121,7 +114,7 @@ describe('app shell header', () => {
   it('keeps the current destination and effective scope in the responsive header', () => {
     shell(
       ['organization.cluster.read'],
-      { work_management: false, tasks: false },
+      { tasks: false },
       ['/organization'],
       {
         scopeType: 'facility',
@@ -138,28 +131,28 @@ describe('app shell header', () => {
   })
 
   it('uses the localized account label for the /me destination outside the nav', () => {
-    shell([], { work_management: false, tasks: false }, ['/me'])
+    shell([], { tasks: false }, ['/me'])
     expect(
       within(screen.getByLabelText('شريط الأدوات')).getByText('حسابي'),
     ).toBeTruthy()
   })
 
   it('uses the localized notifications label for the /notifications destination outside the nav', () => {
-    shell([], { work_management: false, tasks: false }, ['/notifications'])
+    shell([], { tasks: false }, ['/notifications'])
     expect(
       within(screen.getByLabelText('شريط الأدوات')).getByText('الإشعارات'),
     ).toBeTruthy()
   })
 
   it('uses the localized search label for the /search destination outside the nav', () => {
-    shell([], { work_management: false, tasks: false }, ['/search'])
+    shell([], { tasks: false }, ['/search'])
     expect(
       within(screen.getByLabelText('شريط الأدوات')).getAllByText('بحث').length,
     ).toBe(2)
   })
 
   it('links directly to notifications from the header', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     const links = screen.getAllByRole('link', { name: 'الإشعارات' })
     expect(links.length).toBeGreaterThanOrEqual(1)
     for (const link of links)
@@ -167,7 +160,7 @@ describe('app shell header', () => {
   })
 
   it('localizes the trigger and rail accessible names and titles', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     // The rail carries the same accessible name; the header trigger is the
     // one with the data-sidebar="trigger" attribute.
     const controls = screen.getAllByRole('button', {
@@ -192,7 +185,7 @@ describe('app shell header', () => {
   })
 
   it('offers the command search affordance in both the desktop and icon-only forms', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     // Desktop: outline button labelled with the localized search word; mobile:
     // icon-only button carrying the same accessible label.
     expect(
@@ -201,7 +194,7 @@ describe('app shell header', () => {
   })
 
   it('uses the capability-filtered sidebar destinations in command search', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     fireEvent.keyDown(document, { key: 'k', metaKey: true })
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('الرئيسية')).toBeTruthy()
@@ -211,7 +204,7 @@ describe('app shell header', () => {
   })
 
   it('hides the search shortcut from the accessible name', () => {
-    const { container } = shell([], { work_management: false, tasks: false })
+    const { container } = shell([], { tasks: false })
     const kbd = container.querySelector('kbd')
     expect(kbd).not.toBeNull()
     expect(kbd).toHaveAttribute('aria-hidden', 'true')
@@ -234,7 +227,7 @@ describe('app shell header', () => {
    * light and dark mode. The regression test pins the class swap.
    */
   it('uses the foreground token for the kbd shortcut so contrast clears 4.5:1', () => {
-    const { container } = shell([], { work_management: false, tasks: false })
+    const { container } = shell([], { tasks: false })
     const kbd = container.querySelector('kbd')
     expect(kbd).not.toBeNull()
     expect(kbd!.className).toMatch(/\btext-foreground\b/)
@@ -243,14 +236,14 @@ describe('app shell header', () => {
   })
 
   it('keeps the desktop language control on the documented text scale', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     expect(screen.getByRole('button', { name: 'English' })).toHaveClass(
       'text-sm',
     )
   })
 
   it('keeps every interactive account-menu row at least 44px tall', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     fireEvent.pointerDown(screen.getByRole('button', { name: 'الحساب' }), {
       button: 0,
       ctrlKey: false,
@@ -267,7 +260,7 @@ describe('app shell header', () => {
   it('opens route-specific help with the effective scope', () => {
     shell(
       ['tasks.list'],
-      { work_management: false, tasks: true },
+      { tasks: true },
       ['/tasks/task-1'],
       {
         scopeType: 'facility',
@@ -290,7 +283,7 @@ describe('app shell header', () => {
       value: 390,
     })
 
-    const view = shell([], { work_management: false, tasks: false })
+    const view = shell([], { tasks: false })
 
     try {
       const sidebarTrigger = await screen.findByRole('button', {
@@ -317,7 +310,7 @@ describe('app shell header', () => {
   it('uses notification-specific help on the notifications route', () => {
     shell(
       [],
-      { work_management: false, tasks: false },
+      { tasks: false },
       ['/notifications'],
     )
     fireEvent.click(screen.getByRole('button', { name: 'المساعدة' }))
@@ -328,17 +321,14 @@ describe('app shell header', () => {
   })
 
   it('marks the header notifications link as current only on the notifications route', () => {
-    const { container } = shell([], { work_management: false, tasks: false }, [
+    const { container } = shell([], { tasks: false }, [
       '/notifications',
     ])
     expect(container.querySelector('a[href="/notifications"]')).toHaveAttribute(
       'aria-current',
       'page',
     )
-    const { container: other } = shell([], {
-      work_management: false,
-      tasks: false,
-    })
+    const { container: other } = shell([], { tasks: false })
     expect(other.querySelector('a[href="/notifications"]')).not.toHaveAttribute(
       'aria-current',
     )
@@ -355,7 +345,7 @@ describe('app shell header height parity', () => {
    * stays centered with 4px top/bottom padding (px-2 + py-1). The generated
    * sidebar primitive stays untouched. */
   it('locks the main control bar and the sidebar brand header to h-14 + shrink-0 and centers the brand control', () => {
-    const { container } = shell([], { work_management: false, tasks: false })
+    const { container } = shell([], { tasks: false })
     const controlBar = screen.getByLabelText('شريط الأدوات')
     expect(controlBar.className).toContain('h-14')
     expect(controlBar.className).toContain('shrink-0')
@@ -378,7 +368,7 @@ describe('app shell sidebar navigation', () => {
   it('marks the active navigation link with data-active and aria-current only', () => {
     const { container } = shell(
       ['documents.list'],
-      { work_management: false, tasks: false },
+      { tasks: false },
       ['/documents'],
     )
     const activeLink = container.querySelector(
@@ -397,7 +387,7 @@ describe('app shell sidebar navigation', () => {
   it('omits data-active from every inactive sidebar link', () => {
     const { container } = shell(
       ['documents.list'],
-      { work_management: false, tasks: false },
+      { tasks: false },
       ['/documents'],
     )
     const sidebarLinks = container.querySelectorAll(
@@ -414,7 +404,7 @@ describe('app shell sidebar navigation', () => {
   })
 
   it('omits data-active from the help trigger as a non-route action', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     const helpButton = screen.getByRole('button', { name: 'المساعدة' })
     // The generated SidebarMenuButton styles match `data-active` on presence,
     // so the help action must omit the attribute entirely — never
@@ -424,7 +414,7 @@ describe('app shell sidebar navigation', () => {
   })
 
   it('never marks the brand link as active on any route', () => {
-    const { container } = shell([], { work_management: false, tasks: false }, [
+    const { container } = shell([], { tasks: false }, [
       '/',
     ])
     const brandLink = container.querySelector('a[href="/"][data-size="lg"]')
@@ -434,14 +424,14 @@ describe('app shell sidebar navigation', () => {
   })
 
   it('exposes navigation groups as headings', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     expect(
       screen.getByRole('heading', { level: 2, name: 'نظرة عامة' }),
     ).toBeTruthy()
   })
 
   it('marks the footer account destination as current on the account route', () => {
-    const { container } = shell([], { work_management: false, tasks: false }, [
+    const { container } = shell([], { tasks: false }, [
       '/me',
     ])
     const footerLink = container.querySelector(
@@ -452,7 +442,7 @@ describe('app shell sidebar navigation', () => {
   })
 
   it('leaves the footer account destination unmarked outside the account route', () => {
-    const { container } = shell([], { work_management: false, tasks: false })
+    const { container } = shell([], { tasks: false })
     const footerLink = container.querySelector(
       'a[href="/me"][data-sidebar="menu-button"]',
     )
@@ -461,7 +451,7 @@ describe('app shell sidebar navigation', () => {
   })
 
   it('renders a mobile-only close control labelled with the localized copy', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     const close = screen.getByRole('button', { name: 'إغلاق القائمة' })
     expect(close).toBeTruthy()
     // 44x44 target below md, hidden on desktop and icon-collapse modes.
@@ -475,7 +465,7 @@ describe('app shell sidebar navigation', () => {
   })
 
   it('exposes the navigation landmark with a stable id the trigger controls', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     const nav = document.getElementById('app-sidebar-navigation')
     expect(nav).not.toBeNull()
     expect(nav).toHaveAttribute('role', 'navigation')
@@ -487,7 +477,7 @@ describe('app shell sidebar navigation', () => {
   })
 
   it('shows the account label first in the footer when no scope is supplied', () => {
-    const { container } = shell([], { work_management: false, tasks: false })
+    const { container } = shell([], { tasks: false })
     const footerLinks = container.querySelectorAll('a[href="/me"]')
     expect(footerLinks.length).toBeGreaterThanOrEqual(1)
     // The test principal carries no effective scope: the footer falls back to
@@ -498,7 +488,7 @@ describe('app shell sidebar navigation', () => {
 
 describe('app shell skip link', () => {
   it('targets the main content and keeps its focus ring behavior', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     const skip = screen.getByRole('link', { name: 'تخطَّ إلى المحتوى' })
     expect(skip).toHaveAttribute('href', '#main-content')
     expect(skip).toHaveClass('focus:not-sr-only')
@@ -506,7 +496,7 @@ describe('app shell skip link', () => {
   })
 
   it('uses the high-contrast foreground token for its focus ring', () => {
-    shell([], { work_management: false, tasks: false })
+    shell([], { tasks: false })
     const skip = screen.getByRole('link', { name: 'تخطَّ إلى المحتوى' })
     expect(skip).toHaveClass('focus:ring-foreground!')
     expect(skip.className).not.toContain('ring-ring')

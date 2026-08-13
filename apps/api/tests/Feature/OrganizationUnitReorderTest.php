@@ -33,9 +33,9 @@ final class OrganizationUnitReorderTest extends TestCase
 
     private string $clusterId = '';
 
-    private string $adminCookie;
+    private string $globalAdminCookie;
 
-    private string $adminCsrf;
+    private string $globalAdminCsrf;
 
     private string $userBCookie;
 
@@ -59,13 +59,13 @@ final class OrganizationUnitReorderTest extends TestCase
             'updated_at' => now(),
         ]);
         $this->seedOrganizationTree();
-        [$this->adminCookie, $this->adminCsrf] = $this->loginSession(
-            DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_USERNAME,
-            DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_PASSWORD,
-        );
         [$this->userBCookie, $this->userBCsrf] = $this->loginSession(
             DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_USERNAME,
             DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_PASSWORD,
+        );
+        [$this->globalAdminCookie, $this->globalAdminCsrf] = $this->loginSession(
+            DevelopmentJourneyAuthorizationSeeder::PLATFORM_ADMIN_USERNAME,
+            DevelopmentJourneyAuthorizationSeeder::PLATFORM_ADMIN_PASSWORD,
         );
     }
 
@@ -125,7 +125,7 @@ final class OrganizationUnitReorderTest extends TestCase
             $this->assertSame($sortedPriorities, $priorities, 'siblings are not ordered by type priority');
             for ($index = 1; $index < count($siblings); $index++) {
                 if ($siblings[$index]['type_code'] === $siblings[$index - 1]['type_code']) {
-                    $this->assertLessThanOrEqual(
+                    $this->assertGreaterThanOrEqual(
                         0,
                         strcmp($siblings[$index]['code'], $siblings[$index - 1]['code']),
                         'siblings of the same type must be sorted by code',
@@ -157,14 +157,14 @@ final class OrganizationUnitReorderTest extends TestCase
     {
         $headers = [
             'X-Correlation-ID' => self::CORRELATION_ID,
-            'X-CSRF-Token' => $this->adminCsrf,
+            'X-CSRF-Token' => $this->globalAdminCsrf,
         ];
-        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
             ->withCredentials()
             ->postJson('/api/v1/organization/units/reorder', [], $headers + ['If-Match' => '"1"'])
             ->assertBadRequest()
             ->assertJsonPath('type', 'https://cluster.example/problems/invalid-idempotency-key');
-        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
             ->withCredentials()
             ->postJson('/api/v1/organization/units/reorder', [], $headers + ['Idempotency-Key' => 'missing-if-match'])
             ->assertStatus(412)
@@ -250,23 +250,23 @@ final class OrganizationUnitReorderTest extends TestCase
 
     private function listAllUnits(): array
     {
-        $response = $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+        $response = $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
             ->withCredentials()
             ->getJson('/api/v1/organization/units?limit=100', ['X-Correlation-ID' => self::CORRELATION_ID]);
         $response->assertOk();
 
-        return $response->json('data.items') ?? [];
+        return $response->json('items') ?? [];
     }
 
     private function postAsAdmin(string $uri, array $payload, ?string $idempotencyKey = null, ?int $ifMatch = null): TestResponse
     {
         $version = $ifMatch ?? (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
 
-        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
             ->withCredentials()
             ->postJson($uri, $payload, [
                 'X-Correlation-ID' => self::CORRELATION_ID,
-                'X-CSRF-Token' => $this->adminCsrf,
+                'X-CSRF-Token' => $this->globalAdminCsrf,
                 'Idempotency-Key' => $idempotencyKey ?? $this->nextKey(),
                 'If-Match' => '"'.$version.'"',
             ]);
@@ -274,11 +274,11 @@ final class OrganizationUnitReorderTest extends TestCase
 
     private function patchAsAdmin(string $uri, array $payload, string $etag): TestResponse
     {
-        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
             ->withCredentials()
             ->patchJson($uri, $payload, [
                 'X-Correlation-ID' => self::CORRELATION_ID,
-                'X-CSRF-Token' => $this->adminCsrf,
+                'X-CSRF-Token' => $this->globalAdminCsrf,
                 'If-Match' => $etag,
                 'Content-Type' => 'application/merge-patch+json',
             ]);

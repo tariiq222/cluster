@@ -10,31 +10,6 @@ class CapabilityCatalogTest extends TestCase
     public function test_all_returns_complete_fixture_capability_set(): void
     {
         $expected = [
-            'work_record.create',
-            'work_record.read',
-            'work_record.list',
-            'work_record.update',
-            'work_record.submit',
-            'work_record.return',
-            'work_record.complete',
-            'work_record.cancel',
-            'work_record.archive',
-            'work_definition.create',
-            'work_definition.read',
-            'work_definition.list',
-            'work_definition.update',
-            'work_definition.publish',
-            'work_definition.retire',
-            'workflow.read',
-            'workflow.list',
-            'workflow.manage',
-            'workflow.author',
-            'workflow.approve',
-            'workflow.decide',
-            'workflow.reassign',
-            'workflow.escalate',
-            'workflow.cancel',
-            'work_management.history.read',
             'tasks.create',
             'tasks.read',
             'tasks.list',
@@ -159,16 +134,16 @@ class CapabilityCatalogTest extends TestCase
 
     public function test_supports_returns_false_for_unknown_capability(): void
     {
-        $this->assertFalse(CapabilityCatalog::supports('work_record.delete'));
+        $this->assertFalse(CapabilityCatalog::supports('tasks.delete'));
         $this->assertFalse(CapabilityCatalog::supports('unknown.capability'));
         $this->assertFalse(CapabilityCatalog::supports(''));
     }
 
     public function test_supports_is_strict_and_case_sensitive(): void
     {
-        $this->assertFalse(CapabilityCatalog::supports('WORK_RECORD.SUBMIT'));
-        $this->assertFalse(CapabilityCatalog::supports('work_record.Submit'));
-        $this->assertFalse(CapabilityCatalog::supports('work_record.submit '));
+        $this->assertFalse(CapabilityCatalog::supports('TASKS.CREATE'));
+        $this->assertFalse(CapabilityCatalog::supports('tasks.Create'));
+        $this->assertFalse(CapabilityCatalog::supports('tasks.create '));
     }
 
     public function test_sensitivity_uses_catalogued_rules_for_known_and_unknown_codes(): void
@@ -176,8 +151,8 @@ class CapabilityCatalogTest extends TestCase
         $this->assertSame('critical', CapabilityCatalog::sensitivity('audit.integrity.verify'));
         $this->assertSame('sensitive', CapabilityCatalog::sensitivity('audit.event.export'));
         $this->assertSame('sensitive', CapabilityCatalog::sensitivity('identity.account.read'));
-        $this->assertSame('sensitive', CapabilityCatalog::sensitivity('work_record.manage'));
-        $this->assertSame('normal', CapabilityCatalog::sensitivity('work_record.read'));
+        $this->assertSame('sensitive', CapabilityCatalog::sensitivity('tasks.manage'));
+        $this->assertSame('normal', CapabilityCatalog::sensitivity('tasks.read'));
     }
 
     public function test_admin_resources_have_deny_by_default_capability_mappings(): void

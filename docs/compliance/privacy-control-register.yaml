@@ -160,14 +160,6 @@ controls:
     evidence: SearchController.php uses GET with q parameter
     exit_criterion: P04 Phase B POST cutover; tests assert no q in URL or referer
 
-  - id: PC-019
-    title: search projection copies WorkRecord title/description
-    threat: secondary PHI store beyond the source record
-    owner: Search
-    status: open
-    evidence: ProjectWorkRecordReadModels.php
-    exit_criterion: P04 Phase B clarifies retention/classification of the projection; tests assert reauthorization at read time
-
   - id: PC-020
     title: browser sessionStorage holds CSRF token and user id
     threat: client-side persistence of credentials/PII

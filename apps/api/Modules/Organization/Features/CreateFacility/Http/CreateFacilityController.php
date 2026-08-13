@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Organization\Domain\Facility;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\CreateFacility\Handler\CreateFacilityHandler;
 use Modules\Organization\Http\OrganizationApi;
 use UnexpectedValueException;
@@ -24,6 +24,7 @@ final class CreateFacilityController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly CreateFacilityHandler $handler,
     ) {}
 
@@ -41,14 +42,6 @@ final class CreateFacilityController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.facility.manage', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_facility',
-            classification: 'internal',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
-        }
-
         $input = $request->json()->all();
         $validator = Validator::make($input, [
             'cluster_id' => ['required', 'string'],
@@ -61,6 +54,10 @@ final class CreateFacilityController
             return OrganizationApi::problem(400, 'invalid-facility', 'Bad Request', 'The facility payload is invalid.', $correlationId);
         }
         $validated = $validator->validated();
+        $facts = $this->resourceFacts->factsForCluster($validated['cluster_id']);
+        if ($facts === null || ! $this->access->decide($principal, 'organization.facility.manage', $facts)->isAllowed()) {
+            return OrganizationApi::problem(404, 'cluster-not-found', 'Not Found', 'The cluster is not available.', $correlationId);
+        }
         $semantics = [
             'cluster_id' => $validated['cluster_id'],
             'type_code' => $validated['type_code'],

@@ -80,8 +80,8 @@ flows:
         output: GET URL with arbitrary query text
         issue: search text in URL violates the no-PHI-in-URL rule
       - stage: search projection read
-        location: apps/api/app/Http/Middleware/ProjectWorkRecordReadModels.php
-        output: WorkRecord title/description copied to projection
+        location: apps/api/Modules/Search/Features/SearchAccessibleRecords/Handler/SearchAccessibleRecordsHandler.php
+        output: retained-resource title/excerpt copied to a classified projection
       - stage: per-row reauthorization
         location: apps/api/Modules/Search/Features/SearchAccessibleRecords/Handler/SearchAccessibleRecordsHandler.php
         output: filtered list; cursor placeholder

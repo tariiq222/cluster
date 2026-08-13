@@ -120,7 +120,7 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
         try {
             $gateway->update('roles', self::SYSTEM_ROLE_ID, [
                 'name_ar' => 'New',
-                'capability_codes' => ['work_record.read'],
+                'capability_codes' => ['tasks.read'],
             ], 1, self::PRINCIPAL_ID);
             $this->fail('Expected system-role capability patch to be rejected.');
         } catch (InvalidArgumentException $exception) {
@@ -134,7 +134,7 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
     {
         $this->seedSystemRole();
         $this->seedSystemRoleAssignment(self::PRINCIPAL_ID);
-        $capabilityId = (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id');
+        $capabilityId = (string) DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id');
         $this->seedRoleCapability(self::SYSTEM_ROLE_ID, $capabilityId);
         $gateway = $this->gateway();
 
@@ -170,9 +170,9 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
 
     public function test_system_role_capability_revoke_is_rejected_without_changing_source(): void
     {
-        $this->seedSystemRole(['work_record.read']);
+        $this->seedSystemRole(['tasks.read']);
         $this->seedSystemRoleAssignment(self::PRINCIPAL_ID);
-        $capabilityId = (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id');
+        $capabilityId = (string) DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id');
         $this->seedRoleCapability(self::SYSTEM_ROLE_ID, $capabilityId);
         $gateway = $this->gateway();
 
@@ -193,7 +193,7 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
 
     public function test_clone_copies_allow_capabilities_into_fresh_custom_active_role_without_touching_source(): void
     {
-        $sourceCapabilities = ['work_record.read', 'identity.account.read'];
+        $sourceCapabilities = ['tasks.read', 'identity.account.read'];
         $this->seedSystemRole($sourceCapabilities);
         $sourceBefore = DB::table('roles')->where('id', self::SYSTEM_ROLE_ID)->first();
         $this->seedSystemRoleAssignment(self::PRINCIPAL_ID);
@@ -261,7 +261,7 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
     {
         $this->seedSystemRole();
         $this->seedSystemRoleAssignment(self::PRINCIPAL_ID);
-        $this->seedRoleCapability(self::SYSTEM_ROLE_ID, (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id'));
+        $this->seedRoleCapability(self::SYSTEM_ROLE_ID, (string) DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id'));
 
         $cloned = $this->gateway()->transition('roles', self::SYSTEM_ROLE_ID, 'clone', 1, self::PRINCIPAL_ID, [
             'code' => 'custom-clone-override',
@@ -269,7 +269,7 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
             'name_en' => 'Custom clone',
             'description_ar' => 'وصف النسخة',
             'description_en' => 'Clone description',
-            'capability_codes' => ['work_record.read'],
+            'capability_codes' => ['tasks.read'],
         ]);
 
         $this->assertIsArray($cloned);
@@ -369,7 +369,7 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
 
     public function test_clone_inserts_a_custom_role_within_the_actor_scope(): void
     {
-        $this->seedSystemRole(['work_record.read']);
+        $this->seedSystemRole(['tasks.read']);
         $this->seedScopedActor(self::SCOPED_USER_ID, self::SYSTEM_ROLE_ID);
         $gateway = $this->gateway();
 
@@ -419,7 +419,7 @@ final class AuthorizationRoleSystemImmutabilityTest extends TestCase
     }
 
     /** @param list<string> $capabilityCodes */
-    private function seedSystemRole(array $capabilityCodes = ['work_record.read']): void
+    private function seedSystemRole(array $capabilityCodes = ['tasks.read']): void
     {
         if (DB::table('roles')->where('id', self::SYSTEM_ROLE_ID)->exists()) {
             return;

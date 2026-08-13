@@ -44,7 +44,7 @@ final class TaskCommandCoreTest extends TestCase
 
         $this->assertSame($first, $replay);
         $this->assertSame(1, DB::table('tasks')->where('title', 'Atomic create')->count());
-        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'task.created.v1')->count());
+        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'com.cluster.tasks.created.v1')->count());
         $this->assertSame(1, DB::table('task_idempotency_keys')->where('operation', 'createTask')->count());
 
         try {
@@ -102,7 +102,7 @@ final class TaskCommandCoreTest extends TestCase
         $this->assertSame($first, $replay);
         $this->assertSame('in_progress', DB::table('tasks')->where('id', $taskId)->value('status'));
         $this->assertSame(2, (int) DB::table('tasks')->where('id', $taskId)->value('lock_version'));
-        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'task.start.v1')->count());
+        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'com.cluster.tasks.started.v1')->count());
         $this->assertSame(1, DB::table('task_idempotency_keys')->where('operation', 'transitionTask')->count());
 
         try {

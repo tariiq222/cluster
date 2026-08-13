@@ -258,7 +258,7 @@ class OrganizationScopeFactsTest extends TestCase
                 ],
                 [
                     'relationship_capability_id' => self::CAP_TWO_ID,
-                    'module_code' => 'work-records',
+                    'module_code' => 'tasks',
                     'capability_code' => 'view_details',
                 ],
             ],
@@ -445,7 +445,7 @@ class OrganizationScopeFactsTest extends TestCase
         }
         foreach ([
             [self::CAP_ONE_ID, self::REL_ACTIVE_ID, 'authorization', 'grant'],
-            [self::CAP_TWO_ID, self::REL_ACTIVE_ID, 'work-records', 'view_details'],
+            [self::CAP_TWO_ID, self::REL_ACTIVE_ID, 'tasks', 'view_details'],
             [self::CAP_THREE_ID, self::REL_STARTING_NOW_ID, 'identity', 'accounts.read'],
         ] as [$id, $relationshipId, $moduleCode, $capabilityCode]) {
             DB::table('relationship_capabilities')->insert([

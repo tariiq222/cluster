@@ -38,261 +38,6 @@ final class MigrationReversibilityTest extends TestCase
         Schema::enableForeignKeyConstraints();
     }
 
-    public function test_workflow_w16_up_creates_one_decision_slot_per_workflow_step(): void
-    {
-        $this->dropTables(['workflow_decisions']);
-        $migration = self::loadMigration(
-            'Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php',
-        );
-        $migration->up();
-        $this->assertTrue(Schema::hasTable('workflow_decisions'));
-        $this->assertTrue(Schema::hasColumns('workflow_decisions', [
-            'id', 'workflow_step_id', 'workflow_instance_id', 'decision', 'reason',
-            'actor_user_id', 'correlation_id', 'decided_at',
-        ]));
-        $this->assertTrue(
-            Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'),
-            'The registered workflow decision ledger must permit one decision row per workflow step.',
-        );
-    }
-
-    public function test_workflow_w16_down_drops_the_registered_decision_ledger(): void
-    {
-        $this->dropTables(['workflow_decisions']);
-        $migration = self::loadMigration(
-            'Modules/Workflow/Infrastructure/Persistence/Migrations/W16CreateWorkflowDecisionsTable.php',
-        );
-        $migration->up();
-        $migration->down();
-        $this->assertFalse(Schema::hasTable('workflow_decisions'));
-    }
-
-    public function test_workflow_w22_adds_and_reverses_the_unique_step_constraint_for_deployed_w16_schema(): void
-    {
-        $this->dropTables(['workflow_decisions']);
-        Schema::create('workflow_decisions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->uuid('workflow_step_id');
-            $table->index('workflow_step_id', 'workflow_decisions_step_index');
-        });
-        $migration = self::loadMigration(
-            'Modules/Workflow/Infrastructure/Persistence/Migrations/W22AddWorkflowDecisionStepUnique.php',
-        );
-
-        $migration->up();
-        $this->assertTrue(Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'));
-
-        $migration->down();
-        $this->assertFalse(Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'));
-        $this->assertTrue(Schema::hasIndex('workflow_decisions', ['workflow_step_id']));
-    }
-
-    public function test_workflow_w22_refuses_to_hide_preexisting_duplicate_decisions(): void
-    {
-        $this->dropTables(['workflow_decisions']);
-        Schema::create('workflow_decisions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->uuid('workflow_step_id');
-            $table->index('workflow_step_id', 'workflow_decisions_step_index');
-        });
-        $stepId = '018f6f7d-0c00-7000-8000-000000000999';
-        DB::table('workflow_decisions')->insert([
-            ['id' => '018f6f7d-0c00-7000-8000-000000000997', 'workflow_step_id' => $stepId],
-            ['id' => '018f6f7d-0c00-7000-8000-000000000998', 'workflow_step_id' => $stepId],
-        ]);
-        $migration = self::loadMigration(
-            'Modules/Workflow/Infrastructure/Persistence/Migrations/W22AddWorkflowDecisionStepUnique.php',
-        );
-
-        try {
-            $migration->up();
-            $this->fail('Expected W22 to require explicit duplicate remediation.');
-        } catch (\LogicException $exception) {
-            $this->assertSame('workflow_decisions_step_unique_requires_duplicate_remediation', $exception->getMessage());
-        }
-
-        $this->assertFalse(Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'));
-        $this->assertSame(2, DB::table('workflow_decisions')->count());
-    }
-
-    public function test_superseded_workflow_w15_up_remains_reversible_for_existing_migration_history(): void
-    {
-        $this->dropTables(['workflow_decisions', 'workflow_step_instances', 'workflow_instances', 'workflow_versions', 'workflow_definitions']);
-        Schema::create('workflow_definitions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->string('code', 64);
-            $table->string('title');
-            $table->timestamps();
-        });
-        Schema::create('workflow_versions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->uuid('workflow_definition_id');
-            $table->unsignedInteger('version_number');
-            $table->string('definition_state', 16);
-            $table->json('graph');
-            $table->timestamps();
-        });
-        Schema::create('workflow_instances', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->uuid('workflow_version_id');
-            $table->string('subject_type', 64);
-            $table->uuid('subject_id');
-            $table->string('status', 16);
-            $table->timestamps();
-        });
-        Schema::create('workflow_step_instances', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->uuid('workflow_instance_id');
-            $table->string('step_key', 64);
-            $table->string('status', 16);
-            $table->unsignedInteger('lock_version')->default(1);
-            $table->timestamps();
-        });
-
-        $migration = self::loadMigration(
-            'Modules/Workflow/Infrastructure/Persistence/Migrations/W15CreateWorkflowDecisionsTable.php',
-        );
-        $migration->up();
-
-        $this->assertTrue(Schema::hasTable('workflow_decisions'));
-        $this->assertTrue(Schema::hasColumns('workflow_decisions', [
-            'id', 'workflow_step_id', 'workflow_instance_id', 'workflow_version_id',
-            'decision', 'reason', 'actor_user_id', 'correlation_id', 'graph_hash',
-            'single_member_bootstrap_approval', 'decided_at',
-        ]));
-        $this->assertTrue(Schema::hasColumns('workflow_versions', [
-            'is_system', 'review_state', 'submitted_by_user_id', 'submitted_at',
-            'approved_by_user_id', 'approved_at', 'returned_by_user_id',
-            'return_reason', 'single_member_bootstrap_approval',
-        ]));
-        $this->assertTrue(Schema::hasColumns('workflow_step_instances', ['assignment_rule', 'resolution_attempted_at']));
-        $this->assertTrue(Schema::hasColumns('workflow_instances', ['returned_at', 'return_reason']));
-        $this->assertTrue(
-            Schema::hasIndex('workflow_decisions', ['workflow_step_id'], 'unique'),
-            'workflow_decisions.workflow_step_id must remain uniquely indexed.',
-        );
-    }
-
-    public function test_superseded_workflow_w15_down_remains_reversible_for_existing_migration_history(): void
-    {
-        $this->dropTables(['workflow_decisions', 'workflow_step_instances', 'workflow_instances', 'workflow_versions', 'workflow_definitions']);
-        Schema::create('workflow_definitions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->boolean('is_system')->default(false);
-            $table->timestamps();
-        });
-        Schema::create('workflow_versions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->unsignedInteger('version_number');
-            $table->string('definition_state', 16);
-            $table->boolean('is_system')->default(false);
-            $table->string('review_state', 24)->default('draft');
-            $table->uuid('submitted_by_user_id')->nullable();
-            $table->timestamp('submitted_at')->nullable();
-            $table->uuid('approved_by_user_id')->nullable();
-            $table->timestamp('approved_at')->nullable();
-            $table->uuid('returned_by_user_id')->nullable();
-            $table->text('return_reason')->nullable();
-            $table->boolean('single_member_bootstrap_approval')->default(false);
-            $table->timestamps();
-        });
-        Schema::create('workflow_instances', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->text('return_reason')->nullable();
-            $table->timestamp('returned_at')->nullable();
-            $table->timestamps();
-        });
-        Schema::create('workflow_step_instances', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->json('assignment_rule')->nullable();
-            $table->timestamp('resolution_attempted_at')->nullable();
-            $table->timestamps();
-        });
-        Schema::create('workflow_decisions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->uuid('workflow_step_id')->nullable();
-            $table->uuid('workflow_instance_id')->nullable();
-            $table->uuid('workflow_version_id')->nullable();
-            $table->string('decision', 24);
-            $table->uuid('actor_user_id');
-            $table->char('graph_hash', 64)->nullable();
-            $table->boolean('single_member_bootstrap_approval')->default(false);
-            $table->timestamp('decided_at');
-            $table->timestamps();
-        });
-
-        $migration = self::loadMigration(
-            'Modules/Workflow/Infrastructure/Persistence/Migrations/W15CreateWorkflowDecisionsTable.php',
-        );
-        $migration->down();
-
-        $this->assertFalse(Schema::hasTable('workflow_decisions'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'is_system'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'review_state'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'submitted_by_user_id'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'approved_by_user_id'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'returned_by_user_id'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'single_member_bootstrap_approval'));
-        $this->assertFalse(Schema::hasColumn('workflow_instances', 'returned_at'));
-        $this->assertFalse(Schema::hasColumn('workflow_step_instances', 'resolution_attempted_at'));
-        $this->assertFalse(Schema::hasColumn('workflow_definitions', 'is_system'));
-    }
-
-    public function test_workflow_w17_up_adds_approval_status_alongside_other_review_columns(): void
-    {
-        $this->dropTables(['workflow_versions']);
-        Schema::create('workflow_versions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->unsignedInteger('version_number');
-            $table->string('definition_state', 16);
-            $table->timestamps();
-        });
-
-        $migration = self::loadMigration(
-            'Modules/Workflow/Infrastructure/Persistence/Migrations/W17AddApprovalColumnsToWorkflowVersions.php',
-        );
-        $migration->up();
-
-        $this->assertTrue(Schema::hasColumns('workflow_versions', [
-            'submitted_by_user_id', 'submitted_at', 'approved_by_user_id',
-            'approved_at', 'rejection_reason', 'approval_status', 'review_state',
-            'usage_description', 'scope', 'single_member_bootstrap_approval',
-        ]));
-    }
-
-    public function test_workflow_w17_down_drops_approval_status_along_with_other_review_columns(): void
-    {
-        $this->dropTables(['workflow_versions']);
-        Schema::create('workflow_versions', function ($table): void {
-            $table->uuid('id')->primary();
-            $table->unsignedInteger('version_number');
-            $table->string('definition_state', 16);
-            $table->uuid('submitted_by_user_id')->nullable();
-            $table->timestamp('submitted_at')->nullable();
-            $table->uuid('approved_by_user_id')->nullable();
-            $table->timestamp('approved_at')->nullable();
-            $table->text('rejection_reason')->nullable();
-            $table->string('approval_status', 16)->default('draft');
-            $table->string('review_state', 16)->default('draft');
-            $table->text('usage_description')->nullable();
-            $table->json('scope')->nullable();
-            $table->boolean('single_member_bootstrap_approval')->default(false);
-            $table->timestamps();
-        });
-
-        $migration = self::loadMigration(
-            'Modules/Workflow/Infrastructure/Persistence/Migrations/W17AddApprovalColumnsToWorkflowVersions.php',
-        );
-        $migration->down();
-
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'approval_status'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'submitted_by_user_id'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'approved_by_user_id'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'rejection_reason'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'review_state'));
-        $this->assertFalse(Schema::hasColumn('workflow_versions', 'single_member_bootstrap_approval'));
-    }
-
     public function test_identity_credentials_down_restores_the_pre_credential_schema_when_empty(): void
     {
         $this->dropTables([
@@ -764,7 +509,7 @@ final class MigrationReversibilityTest extends TestCase
         $this->assertTrue(Schema::hasIndex('notification_inbox', ['consumer', 'processed_at']));
     }
 
-    public function test_authorization_w15_up_inserts_the_two_office_roles(): void
+    public function test_authorization_w15_up_inserts_the_platform_owner_role(): void
     {
         $this->dropTables(['role_assignments', 'role_capabilities', 'roles', 'capabilities']);
         Schema::create('roles', function ($table): void {
@@ -808,7 +553,6 @@ final class MigrationReversibilityTest extends TestCase
 
         $codes = DB::table('roles')->pluck('code')->all();
         $this->assertContains(OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE, $codes);
-        $this->assertContains(OperationsOfficeRoleCatalog::OFFICE_MEMBER_ROLE, $codes);
     }
 
     public function test_authorization_w15_down_removes_only_office_owned_rows(): void
@@ -869,7 +613,6 @@ final class MigrationReversibilityTest extends TestCase
 
         $remainingCodes = DB::table('roles')->pluck('code')->all();
         $this->assertNotContains(OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE, $remainingCodes);
-        $this->assertNotContains(OperationsOfficeRoleCatalog::OFFICE_MEMBER_ROLE, $remainingCodes);
         $this->assertContains('unrelated-role', $remainingCodes, 'Down must only remove office-owned roles.');
     }
 

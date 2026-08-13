@@ -24,7 +24,6 @@ final class BootstrapOperationsOffice
         DB::transaction(function () use ($ownerUserId, $clusterId): void {
             $this->catalog->sync();
             $this->assign($ownerUserId, OperationsOfficeRoleCatalog::PLATFORM_OWNER_ROLE, $clusterId, $ownerUserId);
-            $this->assign($ownerUserId, OperationsOfficeRoleCatalog::OFFICE_MEMBER_ROLE, $clusterId, $ownerUserId);
         });
     }
 

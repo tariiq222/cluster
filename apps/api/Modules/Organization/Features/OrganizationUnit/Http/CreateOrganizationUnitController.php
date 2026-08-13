@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\OrganizationUnit\Handler\OrganizationUnitHandler;
 use Modules\Organization\Http\OrganizationApi;
 use UnexpectedValueException;
@@ -23,6 +23,7 @@ final class CreateOrganizationUnitController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly OrganizationUnitHandler $handler,
     ) {}
 
@@ -40,14 +41,6 @@ final class CreateOrganizationUnitController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.unit.manage', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_unit',
-            classification: 'internal',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
-        }
-
         $input = $request->json()->all();
         $validator = Validator::make($input, [
             'cluster_id' => ['required', 'string', 'regex:/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/'],
@@ -62,6 +55,13 @@ final class CreateOrganizationUnitController
         }
         $semantics = $validator->validated();
         $semantics['name_en'] = $semantics['name_en'] ?? null;
+        $parentFacts = $this->resourceFacts->factsForUnitParent(
+            $semantics['cluster_id'],
+            $semantics['parent_id'] ?? null,
+        );
+        if ($parentFacts === null || ! $this->access->decide($principal, 'organization.unit.manage', $parentFacts)->isAllowed()) {
+            return OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit parent is not available.', $correlationId);
+        }
         $idempotency = [
             'principal_id' => $principal['user_id'],
             'operation' => self::OPERATION,

@@ -11,9 +11,9 @@ class InMemoryRedisStreamTransportTest extends TestCase
 {
     use BindsInMemoryRedisStreamTransport;
 
-    private const STREAM = 'platform.work-record.submitted.v1';
+    private const STREAM = 'platform.task.events.v1';
 
-    private const GROUP = 'notifications.work-record-submitted.v1';
+    private const GROUP = 'notifications.task-events.v1';
 
     public function test_test_helper_explicitly_replaces_the_normal_container_binding(): void
     {

@@ -49,7 +49,7 @@ function mount(
   return render(
     <MemoryRouter initialEntries={['/tasks/t1']}>
       <SessionProvider session={session} locale="ar" setLocale={() => {}}>
-        <PrincipalContextTestProvider capabilities={['tasks.read']} features={{ work_management: false, tasks: true }}>
+        <PrincipalContextTestProvider capabilities={['tasks.read']} features={{ tasks: true }}>
           <ScreenHelpProvider onChange={onHelpChange}>
             <TaskDetailScreen taskId="t1" />
           </ScreenHelpProvider>

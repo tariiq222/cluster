@@ -48,9 +48,7 @@ final class OrganizationDecideAccessAdapter implements OrganizationDecideAccess
             sharedUserIds: $facts->sharedUserIds,
             participantIds: $facts->participantIds,
             lifecycleState: $facts->lifecycleState,
-            workflowState: $facts->workflowState,
             fieldPolicyKey: $facts->fieldPolicyKey,
-            workTypeVersionId: $facts->workTypeVersionId,
             legalHold: $facts->legalHold,
             lockVersion: $facts->lockVersion,
         );

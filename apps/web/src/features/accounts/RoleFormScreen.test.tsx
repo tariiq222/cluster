@@ -34,22 +34,22 @@ import {
 const capabilityRows = [
   {
     id: '01980f50-5f0d-7000-8000-000000000c01',
-    code: 'work_record.read',
-    capability_code: 'work_record.read',
-    module_code: 'work_record',
+    code: 'tasks.read',
+    capability_code: 'tasks.read',
+    module_code: 'tasks',
     action: 'read',
     sensitivity: 'normal',
-    group_label: 'work_record',
+    group_label: 'tasks',
     lock_version: 1,
   },
   {
     id: '01980f50-5f0d-7000-8000-000000000c02',
-    code: 'work_record.create',
-    capability_code: 'work_record.create',
-    module_code: 'work_record',
+    code: 'tasks.create',
+    capability_code: 'tasks.create',
+    module_code: 'tasks',
     action: 'create',
     sensitivity: 'normal',
-    group_label: 'work_record',
+    group_label: 'tasks',
     lock_version: 1,
   },
   {
@@ -80,7 +80,7 @@ vi.mock('../../app/principal-context', () => ({
   usePrincipal: () => ({
     state: 'ready',
     capabilities: principalState.capabilities,
-    features: { work_management: false, tasks: true },
+    features: { tasks: true },
     effectiveScope: null,
     availableScopes: [],
     revision: 0,
@@ -156,18 +156,18 @@ describe('role form page — create', () => {
     await waitFor(() => expect(listAllCapabilities).toHaveBeenCalledTimes(1))
 
     // Both localized group headings render with their item counts.
-    expect(await screen.findByText('سجلات العمل')).toBeInTheDocument()
+    expect(await screen.findByText('المهام')).toBeInTheDocument()
     expect(screen.getByText('الهوية والحسابات')).toBeInTheDocument()
 
     // Capabilities render their Arabic human labels, never raw codes.
-    expect(screen.getByText('قراءة سجل عمل')).toBeInTheDocument()
-    expect(screen.getByText('إنشاء سجل عمل')).toBeInTheDocument()
+    expect(screen.getByText('قراءة مهمة')).toBeInTheDocument()
+    expect(screen.getByText('إنشاء مهمة')).toBeInTheDocument()
     expect(screen.getByText('منح وصول لمستند')).toBeInTheDocument()
     expect(screen.getByText('قراءة حسابات الدخول')).toBeInTheDocument()
-    expect(screen.queryByText('work_record.read')).not.toBeInTheDocument()
+    expect(screen.queryByText('tasks.read')).not.toBeInTheDocument()
     expect(screen.queryByText('documents.grant')).not.toBeInTheDocument()
     expect(screen.queryByText('identity.account.read')).not.toBeInTheDocument()
-    expect(screen.queryByText('work_record')).not.toBeInTheDocument()
+    expect(screen.queryByText('tasks')).not.toBeInTheDocument()
 
     // Sensitive capabilities carry the ShieldAlert marker.
     expect(document.querySelector('[data-testid="role-form-screen"] svg.lucide-shield-alert')).not.toBeNull()
@@ -186,7 +186,7 @@ describe('role form page — create', () => {
       target: { value: 'identity' },
     })
     expect(screen.getByText('قراءة حسابات الدخول')).toBeInTheDocument()
-    expect(screen.queryByText('قراءة سجل عمل')).not.toBeInTheDocument()
+    expect(screen.queryByText('قراءة مهمة')).not.toBeInTheDocument()
     fireEvent.change(screen.getByRole('searchbox', { name: 'بحث الصلاحيات' }), {
       target: { value: '' },
     })
@@ -217,15 +217,15 @@ describe('role form page — create', () => {
     principalState.capabilities = [...manageCapabilities]
     mount(<RoleFormScreen />)
 
-    await screen.findByText('سجلات العمل')
-    fireEvent.click(groupCheckboxOf('سجلات العمل'))
-    expect(screen.getByRole('checkbox', { name: 'قراءة سجل عمل' })).toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'إنشاء سجل عمل' })).toBeChecked()
+    await screen.findByText('المهام')
+    fireEvent.click(groupCheckboxOf('المهام'))
+    expect(screen.getByRole('checkbox', { name: 'قراءة مهمة' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'إنشاء مهمة' })).toBeChecked()
 
     // The group checkbox now reads as «إلغاء تحديد المجموعة» and clears.
-    fireEvent.click(groupCheckboxOf('سجلات العمل'))
-    expect(screen.getByRole('checkbox', { name: 'قراءة سجل عمل' })).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'إنشاء سجل عمل' })).not.toBeChecked()
+    fireEvent.click(groupCheckboxOf('المهام'))
+    expect(screen.getByRole('checkbox', { name: 'قراءة مهمة' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'إنشاء مهمة' })).not.toBeChecked()
   })
 
   it('keeps the canonical codes visible as secondary technical lines in English', async () => {
@@ -233,16 +233,16 @@ describe('role form page — create', () => {
     mount(<RoleFormScreen />, 'en')
 
     // Human labels are the primary lines…
-    expect(await screen.findByText('Read work record')).toBeInTheDocument()
+    expect(await screen.findByText('Read task')).toBeInTheDocument()
     expect(screen.getByText('Read sign-in accounts')).toBeInTheDocument()
 
     // …and the canonical codes stay visible as mono secondary lines,
     // including the module code in the group header.
-    const codeText = screen.getByText('work_record.read')
+    const codeText = screen.getByText('tasks.read')
     expect(codeText.tagName).toBe('SPAN')
     expect(codeText.className).toMatch(/\bfont-mono\b/)
     expect(codeText).toHaveAttribute('dir', 'ltr')
-    expect(screen.getByText('work_record')).toBeInTheDocument()
+    expect(screen.getByText('tasks')).toBeInTheDocument()
   })
 })
 
@@ -256,7 +256,7 @@ describe('role form page — edit', () => {
       name_en: 'Custom finance reviewer',
       lock_version: 2,
     })
-    vi.mocked(listRoleCapabilityCodes).mockResolvedValue(['work_record.read'])
+    vi.mocked(listRoleCapabilityCodes).mockResolvedValue(['tasks.read'])
 
     mount(<RoleFormScreen roleId="01980f50-5f0d-7000-8000-000000000r01" />)
 
@@ -265,7 +265,7 @@ describe('role form page — edit', () => {
     expect(codeInput).toHaveValue('finance.custom')
     expect(codeInput).toHaveAttribute('readonly')
     expect(screen.getByLabelText('اسم الدور')).toHaveValue('مراجع مالي مخصص')
-    expect(await screen.findByRole('checkbox', { name: 'قراءة سجل عمل' })).toBeChecked()
+    expect(await screen.findByRole('checkbox', { name: 'قراءة مهمة' })).toBeChecked()
 
     // Add another capability and save.
     fireEvent.click(screen.getByRole('checkbox', { name: 'قراءة حسابات الدخول' }))
@@ -276,7 +276,7 @@ describe('role form page — edit', () => {
       expect(updateAdminResource).toHaveBeenCalledWith(
         'roles',
         '01980f50-5f0d-7000-8000-000000000r01',
-        { name: 'مراجع مالي معدل', capability_codes: ['work_record.read', 'identity.account.read'] },
+        { name: 'مراجع مالي معدل', capability_codes: ['tasks.read', 'identity.account.read'] },
         2,
         'x',
       )
@@ -304,7 +304,7 @@ describe('role form page — edit', () => {
     mount(<RoleFormScreen roleId="01980f50-5f0d-7000-8000-000000000r01" />)
     await screen.findByLabelText('رمز الدور')
     // Wait for the catalog and the seeded selection so the save action is enabled.
-    await screen.findByText('سجلات العمل')
+    await screen.findByText('المهام')
     const save = screen.getByRole('button', { name: 'حفظ التغييرات' })
     await waitFor(() => expect(save).toBeEnabled())
     fireEvent.click(save)
@@ -329,14 +329,6 @@ describe('role form page — edit', () => {
  */
 describe('capability label catalog', () => {
   const catalogCodes = [
-    'work_record.create', 'work_record.read', 'work_record.list', 'work_record.update',
-    'work_record.submit', 'work_record.return', 'work_record.complete', 'work_record.cancel',
-    'work_record.archive',
-    'work_definition.create', 'work_definition.read', 'work_definition.list',
-    'work_definition.update', 'work_definition.publish', 'work_definition.retire',
-    'workflow.read', 'workflow.list', 'workflow.manage', 'workflow.author', 'workflow.approve',
-    'workflow.decide', 'workflow.reassign', 'workflow.escalate', 'workflow.cancel',
-    'work_management.history.read',
     'tasks.create', 'tasks.read', 'tasks.list', 'tasks.update', 'tasks.assign', 'tasks.start',
     'tasks.complete', 'tasks.cancel', 'tasks.comment', 'tasks.participant-manage',
     'documents.create', 'documents.update', 'documents.read', 'documents.list',

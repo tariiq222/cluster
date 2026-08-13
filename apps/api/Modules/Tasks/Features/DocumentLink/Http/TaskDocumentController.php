@@ -132,6 +132,7 @@ final class TaskDocumentController
                 'document_id' => $documentId,
                 'link_id' => $response['data']['id'],
             ],
+            $this->policy->factsFor($task, $this->store->participantIds($taskId)),
         );
 
         return response()->json($response, 201)->header('X-Correlation-ID', $correlation);

@@ -5,8 +5,8 @@ namespace Modules\Organization\Features\OrganizationUnit\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\OrganizationUnit\Handler\OrganizationUnitHandler;
 use Modules\Organization\Http\OrganizationApi;
 
@@ -15,6 +15,7 @@ final class GetOrganizationUnitController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly OrganizationUnitHandler $handler,
     ) {}
 
@@ -31,14 +32,10 @@ final class GetOrganizationUnitController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.unit.read', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_unit',
-            classification: 'internal',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
+        $facts = $this->resourceFacts->factsForUnit($unitId);
+        if ($facts === null || ! $this->access->decide($principal, 'organization.unit.read', $facts)->isAllowed()) {
+            return OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit is not available.', $correlationId);
         }
-
         $unit = $this->handler->find($unitId);
         if ($unit === null) {
             return OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit is not available.', $correlationId);

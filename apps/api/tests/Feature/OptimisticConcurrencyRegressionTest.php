@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Database\Seeders\DevelopmentJourneyAuthorizationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -48,8 +49,8 @@ use Tests\TestCase;
  *
  * Sequential HTTP calls are explicitly labelled as propagation / regression
  * tests, not concurrent-writer tests. True concurrent-writer coverage lives
- * in the module MySQL integration tests for Business Calendar, Workflow,
- * WorkDefinitions, and Organization temporary assignments.
+ * in the module MySQL integration tests for retained concurrency-sensitive
+ * modules such as PlatformSettings and Organization.
  */
 final class OptimisticConcurrencyRegressionTest extends TestCase
 {
@@ -80,6 +81,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->seed(DevelopmentJourneyAuthorizationSeeder::class);
 
         $this->token = (string) $this->postJson('/api/v1/auth/login', [
             'username' => 'fixture-account-a',
@@ -127,7 +129,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
 
         $this->assertSame('in_progress', DB::table('tasks')->where('id', $taskId)->value('status'));
         $this->assertSame(2, (int) DB::table('tasks')->where('id', $taskId)->value('lock_version'));
-        $this->assertSame(0, DB::table('outbox_events')->where('event_type', 'task.complete.v1')->count());
+        $this->assertSame(0, DB::table('outbox_events')->where('event_type', 'com.cluster.tasks.completed.v1')->count());
     }
 
     public function test_complete_task_endpoint_completes_when_if_match_matches_lock_version(): void
@@ -146,7 +148,7 @@ final class OptimisticConcurrencyRegressionTest extends TestCase
 
         $this->assertSame('completed', DB::table('tasks')->where('id', $taskId)->value('status'));
         $this->assertSame(2, (int) DB::table('tasks')->where('id', $taskId)->value('lock_version'));
-        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'task.complete.v1')->count());
+        $this->assertSame(1, DB::table('outbox_events')->where('event_type', 'com.cluster.tasks.completed.v1')->count());
     }
 
     public function test_complete_document_upload_endpoint_propagates_a_stale_if_match_to_412_through_the_real_handler(): void

@@ -22,10 +22,10 @@ class ExplicitDenyDomainTest extends TestCase
         $deny = ExplicitDeny::create(
             self::DENY_ID,
             self::USER_ID,
-            'work_record.read',
+            'tasks.read',
             ClassificationLevel::CONFIDENTIAL,
             self::ORGANIZATION_UNIT_ID,
-            'work_*',
+            'task*',
             'Restricted investigation access.',
             self::ISSUER_ID,
             '2026-07-19T12:00:00.000Z',
@@ -36,23 +36,23 @@ class ExplicitDenyDomainTest extends TestCase
         $this->assertSame([
             'id' => self::DENY_ID,
             'user_id' => self::USER_ID,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
             'classification' => 'confidential',
             'organization_unit_id' => self::ORGANIZATION_UNIT_ID,
-            'resource_pattern' => 'work_*',
+            'resource_pattern' => 'task*',
             'reason' => 'Restricted investigation access.',
             'issued_by_user_id' => self::ISSUER_ID,
             'issued_at' => '2026-07-19T12:00:00.000Z',
             'expires_at' => '2026-07-20T12:00:00.000Z',
             'revocable' => true,
         ], $deny->toArray());
-        $this->assertTrue(ExplicitDeny::matchesResourceType('work_*', 'work_record'));
-        $this->assertFalse(ExplicitDeny::matchesResourceType('work_*', 'document'));
+        $this->assertTrue(ExplicitDeny::matchesResourceType('task*', 'task'));
+        $this->assertFalse(ExplicitDeny::matchesResourceType('task*', 'document'));
 
         $this->assertInvalid(fn (): ExplicitDeny => ExplicitDeny::create(
             self::DENY_ID,
             null,
-            'work_record.read',
+            'tasks.read',
             null,
             null,
             null,
@@ -65,7 +65,7 @@ class ExplicitDenyDomainTest extends TestCase
         $this->assertInvalid(fn (): ExplicitDeny => ExplicitDeny::create(
             self::DENY_ID,
             self::USER_ID,
-            'work_record.read',
+            'tasks.read',
             null,
             null,
             null,

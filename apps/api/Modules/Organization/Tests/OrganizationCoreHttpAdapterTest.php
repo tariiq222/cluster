@@ -304,8 +304,8 @@ class OrganizationCoreHttpAdapterTest extends TestCase
             'type_code' => 'hospital',
             'code' => 'INVALID-PARENT',
             'name' => 'منشأة بلا تجمع',
-        ], $this->writeHeaders('invalid-parent'))->assertBadRequest()
-            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-facility');
+        ], $this->writeHeaders('invalid-parent'))->assertNotFound()
+            ->assertJsonPath('type', 'https://cluster.example/problems/cluster-not-found');
 
         $this->assertDatabaseCount('facilities', 0);
         $this->assertDatabaseCount('outbox_events', 1);
@@ -431,10 +431,11 @@ class OrganizationCoreHttpAdapterTest extends TestCase
         ], $this->writeHeaders('denied-bootstrap'))->assertForbidden();
         $this->withToken($otherFacilityUser)
             ->getJson('/api/v1/organization/facilities', $this->headers())
-            ->assertForbidden();
+            ->assertOk()
+            ->assertJsonCount(0, 'items');
         $this->withToken($otherFacilityUser)
             ->getJson('/api/v1/organization/facilities/018f6f7d-0c00-7000-8000-000000000399', $this->headers())
-            ->assertForbidden();
+            ->assertNotFound();
         $this->withToken($otherFacilityUser)
             ->patchJson('/api/v1/organization/cluster', ['name' => 'تعديل مرفوض'], $this->patchHeaders('"1"'))
             ->assertForbidden();

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useLocale, useSessionToken } from '../../app/session-context'
 import { useNavigate } from '../../app/navigation-context'
@@ -23,15 +23,15 @@ import { useCapabilities } from './organization-utils'
  * Full-page replacement for the former PersonSheet
  * (routes `/organization/people/new` and `/organization/people/:id/edit`).
  *
- * The edit path fetches the person fresh to seed the form and re-fetches
- * again at save time so `person_version` is always the latest observed
- * value; the employee number is read-only. A stale 412 keeps the inputs
- * visible and offers a reload.
+ * The edit path saves against the person version used to seed the form. A
+ * submit-time re-fetch would defeat optimistic concurrency. The employee
+ * number is read-only; a stale 412 keeps the inputs visible and offers reload.
  */
 export function PersonFormScreen({ personId }: { personId?: string }) {
   const locale = useLocale()
   const token = useSessionToken()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const text = organizationCopy[locale]
   const capabilities = useCapabilities()
   const editing = personId !== undefined
@@ -71,12 +71,12 @@ export function PersonFormScreen({ personId }: { personId?: string }) {
   const mutation = useMutation({
     mutationFn: async ({ nextEmployeeNumber, nextNameAr, nextNameEn }: { nextEmployeeNumber: string; nextNameAr: string; nextNameEn: string }) => {
       if (editing && personId) {
-        const fresh = unwrap<generated.Person>(await generated.getPerson(personId, requestInit(token)))
+        if (!seed) throw new Error('person_edit_seed_missing')
         return unwrap<generated.Person>(
           await generated.updatePerson(
             personId,
             { display_name_ar: nextNameAr, ...(nextNameEn ? { display_name_en: nextNameEn } : {}) },
-            requestInit(token, { command: true, idempotency: 'person-update', lockVersion: fresh.person_version }),
+            requestInit(token, { command: true, idempotency: 'person-update', lockVersion: seed.person_version }),
           ),
         )
       }
@@ -92,7 +92,8 @@ export function PersonFormScreen({ personId }: { personId?: string }) {
         ),
       )
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['people'], refetchType: 'all' })
       navigate('/organization?tab=people')
     },
     onError: (caught) => {

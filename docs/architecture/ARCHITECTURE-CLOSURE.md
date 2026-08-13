@@ -152,8 +152,9 @@ here as additional evidence that the closure claim still holds at the new HEAD.
   comparison / `env()` callsites. Fix: `AuditExportReadStore` now keys the cursor cursors on
   `isset($lastRecordedAt, $lastId)`; `AuditIntegrityRepository` ditto for both `$firstMismatchSequence` and
   `$firstMismatchStreamSequence` (with a path-scoped `ignoreErrors` for the resulting `isset.variable`
-  noise); the migration uses `config('audit.enforce_revoke')` after the matching key was added to
-  `config/audit.php` with a proper `filter_var(env('AUDIT_ENFORCE_REVOKE', false), FILTER_VALIDATE_BOOL)` entry.
+  noise). The former `AUDIT_ENFORCE_REVOKE` migration option was later retired: revoking DELETE from the
+  application principal conflicts with the controlled retention-purge path. Current immutability relies on
+  database triggers plus the verified hash chain, while retention deletion remains audited and bounded.
 - `apps/api/Modules/Audit/Infrastructure/Persistence/AuditExportRepository.php`: pint auto-format re-aligned
   unary operator spacing, brace position, and not-operator successor spacing.
 - `apps/api/Modules/Audit/Tests/{AuditExportTest,AuditIntegrityTest,AuditMigrationTest,AuditRedactionTest}.php`:
@@ -280,4 +281,3 @@ audit record and no historical evidence commit gets quietly moved.
   snapshot was captured. The present working tree at `9c3821d` is
   documented in this dossier's Section 1 "Working-tree HEAD at close"
   and Section 8.2's re-verification evidence table.
-

@@ -17,6 +17,8 @@ final class PositionHandler
 {
     private const MAX_MANAGER_HOPS = 32;
 
+    private const MAX_RAW_ROWS_PER_REQUEST = 100;
+
     public function __construct(
         private readonly OrganizationOutbox $outbox,
         private readonly OrganizationIdempotencyStore $idempotency,
@@ -96,26 +98,43 @@ final class PositionHandler
      * @param  array{user_id: string, facility_id: string}  $principal
      * @return array{items: list<array<string, mixed>>, next_cursor: string|null}
      */
-    public function list(array $principal, ?string $cursor, int $limit, ?string $unitId): array
+    public function list(array $principal, ?string $cursor, int $limit, ?string $unitId, Closure $canRead): array
     {
         $afterId = $cursor === null ? null : $this->decodeCursor($cursor, $principal, $limit, $unitId);
-        $query = DB::table('positions')->orderBy('id');
+        $query = DB::table('positions')->orderBy('id')->limit(self::MAX_RAW_ROWS_PER_REQUEST + 1);
         if ($unitId !== null) {
             $query->where('organization_unit_id', $unitId);
         }
         if ($afterId !== null) {
             $query->where('id', '>', $afterId);
         }
-        $items = $query->limit($limit + 1)->get()->map(fn (stdClass $row): array => $this->serialize($row))->all();
-        $hasNextPage = count($items) > $limit;
-        if ($hasNextPage) {
+        $rawRows = $query->get();
+        $hasMoreRawRows = $rawRows->count() > self::MAX_RAW_ROWS_PER_REQUEST;
+        $rows = $hasMoreRawRows ? $rawRows->take(self::MAX_RAW_ROWS_PER_REQUEST) : $rawRows;
+        $items = [];
+        $lastScannedId = $afterId;
+        foreach ($rows as $row) {
+            $lastScannedId = (string) $row->id;
+            if (! $canRead($lastScannedId)) {
+                continue;
+            }
+            $items[] = $this->serialize($row);
+            if (count($items) > $limit) {
+                break;
+            }
+        }
+        $hasMoreVisibleRows = count($items) > $limit;
+        if ($hasMoreVisibleRows) {
             array_pop($items);
         }
+        $nextAfterId = $hasMoreVisibleRows
+            ? $items[array_key_last($items)]['id']
+            : ($hasMoreRawRows ? $lastScannedId : null);
 
         return [
             'items' => $items,
-            'next_cursor' => $hasNextPage
-                ? $this->encodeCursor($items[array_key_last($items)]['id'], $principal, $limit, $unitId)
+            'next_cursor' => $nextAfterId !== null
+                ? $this->encodeCursor($nextAfterId, $principal, $limit, $unitId)
                 : null,
         ];
     }

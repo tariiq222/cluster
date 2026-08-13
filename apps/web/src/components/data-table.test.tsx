@@ -39,6 +39,44 @@ describe('data table', () => {
     expect(onNext).toHaveBeenCalledOnce()
   })
 
+  it('keeps pagination available when an empty page supplies a next cursor', () => {
+    const onNext = vi.fn()
+    render(
+      <DataTable
+        columns={columns}
+        data={[]}
+        state="empty"
+        nextCursor="abc"
+        onNext={onNext}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+      />,
+    )
+
+    const next = screen.getByRole('button', { name: 'التالي' })
+    expect(next).toBeEnabled()
+    fireEvent.click(next)
+    expect(onNext).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the true-empty state free of pagination controls', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={[]}
+        state="empty"
+        nextCursor={null}
+        onNext={() => {}}
+        onPrev={() => {}}
+        canPrev={false}
+        locale="ar"
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'التالي' })).toBeNull()
+  })
+
   it('delegates non-ready states to the boundary and hides the table', () => {
     const { container } = render(
       <DataTable columns={columns} data={[]} state="forbidden"

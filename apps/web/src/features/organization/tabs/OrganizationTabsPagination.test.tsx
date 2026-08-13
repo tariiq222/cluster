@@ -60,7 +60,7 @@ vi.mock('../../../app/principal-context', () => ({
   usePrincipal: () => ({
     state: 'ready',
     capabilities: principal.capabilities,
-    features: { work_management: false, tasks: true },
+    features: { tasks: true },
     effectiveScope: null,
     availableScopes: [],
     revision: 0,
@@ -488,6 +488,15 @@ describe('TemporaryAssignmentsTab pagination', () => {
 describe('SupervisoryTab pagination', () => {
   beforeEach(() => {
     principal.capabilities = ['organization.unit.read']
+  })
+
+  it('allows a unit-only principal to read the tab contents', () => {
+    setPage('supervisoryRelationships', [{ id: 's1', title: 'علاقة 1', description: 'direct', status: 'active' }], null)
+    mountTab(<SupervisoryTab />)
+
+    const table = captured[captured.length - 1]
+    expect(table.state).toBe('ready')
+    expect(table.data).toHaveLength(1)
   })
 
   it('forwards the cursor to the hook on each navigation', async () => {

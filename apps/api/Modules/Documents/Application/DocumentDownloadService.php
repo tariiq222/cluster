@@ -132,6 +132,6 @@ final class DocumentDownloadService
 
     private function resourceCapability(string $sourceType): string
     {
-        return $sourceType === 'work_record' ? 'work_record.read' : 'documents.download';
+        return $sourceType === 'task' ? 'tasks.read' : 'documents.download';
     }
 }

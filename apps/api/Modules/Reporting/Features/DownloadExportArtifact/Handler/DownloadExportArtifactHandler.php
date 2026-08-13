@@ -8,13 +8,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\Reporting\Application\ReportingAuthorizationFacts;
 use Modules\Reporting\Http\ReportingApi;
+use Modules\Reporting\Infrastructure\Export\CsvExportEncoder;
 use Symfony\Component\HttpFoundation\Response;
 
 final class DownloadExportArtifactHandler
 {
-    public function __construct(private readonly DecideAccess $access) {}
+    public function __construct(
+        private readonly DecideAccess $access,
+        private readonly ResolveOrganizationScopeAncestry $scopeAncestry,
+    ) {}
 
     /**
      * Content-negotiated artifact download.
@@ -37,22 +42,40 @@ final class DownloadExportArtifactHandler
         if ($run === null || $run->status !== 'completed') {
             return null;
         }
+        $actorUserId = $actor['user_id'] ?? null;
+        if (! is_string($actorUserId) || $actorUserId === '' || ! is_string($run->actor_id) || ! hash_equals($run->actor_id, $actorUserId)) {
+            return null;
+        }
 
         $accept = strtolower((string) $request->header('Accept', '*/*'));
         if (str_contains($accept, 'text/csv')) {
             if ($artifact->format !== 'csv') {
                 return ReportingApi::problem(406, 'not-acceptable', 'Not Acceptable', 'This export is not available as CSV.', $correlationId);
             }
+            $scopeId = is_string($run->scope_id) ? $run->scope_id : null;
+            $clusterId = null;
+            if ($scopeId !== null) {
+                $ancestry = $this->scopeAncestry->ancestry('facility', $scopeId);
+                if ($ancestry === null || ! is_string($ancestry['facility_id']) || ! hash_equals($scopeId, $ancestry['facility_id'])) {
+                    return null;
+                }
+                $clusterId = $ancestry['cluster_id'];
+            }
             $decision = $this->access->decide(
                 $actor,
                 'reporting.download',
-                new RecordFacts($run->scope_id, 'report_definition', 'internal'),
+                ReportingAuthorizationFacts::forRequestedReport((string) $run->report_id, $scopeId, $clusterId),
             );
             if (! $decision->isAllowed()) {
                 return null;
             }
 
-            return response((string) $artifact->safe_result, 200, [
+            $items = $this->authorizedItems($run, $actor);
+            if ($items === null) {
+                return null;
+            }
+
+            return response(CsvExportEncoder::encode($items), 200, [
                 'Content-Type' => 'text/csv; charset=utf-8',
                 'Content-Disposition' => 'attachment; filename="export-'.$artifactId.'.csv"',
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
@@ -97,11 +120,7 @@ final class DownloadExportArtifactHandler
             $decision = $this->access->decide(
                 $actor,
                 'reporting.download',
-                new RecordFacts(
-                    is_string($item['scope_id'] ?? null) ? $item['scope_id'] : null,
-                    $item['source_type'],
-                    is_string($item['classification'] ?? null) ? $item['classification'] : 'internal',
-                ),
+                ReportingAuthorizationFacts::forExportItem($item),
             );
             if (! $decision->isAllowed()) {
                 continue;

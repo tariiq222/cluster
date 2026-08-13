@@ -39,7 +39,6 @@ function entityTitle(entity: Entity): string {
     const title = entity.title ?? entity.name ?? entity.code
     if (title) return String(title)
   }
-  if ('record_number' in entity) return entity.record_number
   return entity.id
 }
 

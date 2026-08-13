@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\Position\Handler\PositionHandler;
 use Modules\Organization\Http\OrganizationApi;
 use UnexpectedValueException;
@@ -23,6 +23,7 @@ final class CreatePositionController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly PositionHandler $handler,
     ) {}
 
@@ -40,14 +41,6 @@ final class CreatePositionController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.position.manage', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_position',
-            classification: 'internal',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
-        }
-
         $input = $request->json()->all();
         $validator = Validator::make($input, [
             'organization_unit_id' => ['required', 'string', 'regex:/\A[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/'],
@@ -64,6 +57,16 @@ final class CreatePositionController
         $semantics['job_title_id'] = $semantics['job_title_id'] ?? null;
         if (! isset($semantics['job_title_id']) && ! isset($semantics['title'])) {
             return OrganizationApi::problem(400, 'invalid-position', 'Bad Request', 'Either job_title_id or title is required.', $correlationId);
+        }
+        $unitFacts = $this->resourceFacts->factsForUnit($semantics['organization_unit_id']);
+        if ($unitFacts === null || ! $this->access->decide($principal, 'organization.position.manage', $unitFacts)->isAllowed()) {
+            return OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit is not available.', $correlationId);
+        }
+        if ($semantics['manager_position_id'] !== null) {
+            $managerFacts = $this->resourceFacts->factsForPosition($semantics['manager_position_id']);
+            if ($managerFacts === null || ! $this->access->decide($principal, 'organization.position.manage', $managerFacts)->isAllowed()) {
+                return OrganizationApi::problem(404, 'position-not-found', 'Not Found', 'The manager position is not available.', $correlationId);
+            }
         }
         $idempotency = [
             'principal_id' => $principal['user_id'],

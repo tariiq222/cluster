@@ -23,10 +23,9 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'testing'
 }
 $documentsProductionRuntime = $_ENV['DOCUMENTS_PRODUCTION_RUNTIME_ENABLED']
     ?? $_SERVER['DOCUMENTS_PRODUCTION_RUNTIME_ENABLED']
-    ?? getenv('DOCUMENTS_PRODUCTION_RUNTIME_ENABLED')
-    ?? ($documentsTesting ? 'false' : 'true');
-if ($documentsProductionRuntime === false) {
-    $documentsProductionRuntime = 'false';
+    ?? getenv('DOCUMENTS_PRODUCTION_RUNTIME_ENABLED');
+if ($documentsProductionRuntime === false || $documentsProductionRuntime === null) {
+    $documentsProductionRuntime = $documentsTesting ? 'false' : 'true';
 }
 $documentsProductionRuntime = is_string($documentsProductionRuntime)
     ? strtolower(trim($documentsProductionRuntime))

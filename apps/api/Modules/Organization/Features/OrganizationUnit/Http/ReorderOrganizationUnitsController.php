@@ -5,8 +5,8 @@ namespace Modules\Organization\Features\OrganizationUnit\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\OrganizationUnit\Handler\OrganizationUnitHandler;
 use Modules\Organization\Http\OrganizationApi;
 
@@ -15,6 +15,7 @@ final class ReorderOrganizationUnitsController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly OrganizationUnitHandler $handler,
     ) {}
 
@@ -30,11 +31,9 @@ final class ReorderOrganizationUnitsController
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
 
-        if (! $this->access->decide($principal, 'organization.unit.manage', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_unit',
-            classification: 'internal',
-        ))->isAllowed()) {
+        $clusterId = $this->handler->reorderClusterId();
+        $facts = $clusterId === null ? null : $this->resourceFacts->factsForCluster($clusterId);
+        if ($facts === null || ! $this->access->decide($principal, 'organization.unit.manage', $facts)->isAllowed()) {
             return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }
         $key = $request->header('Idempotency-Key');
@@ -66,7 +65,7 @@ final class ReorderOrganizationUnitsController
                     'com.cluster.organization.organizationunitsreordered.v1',
                     '/organization/units',
                     $correlationId,
-                    $principal['facility_id'],
+                    $clusterId,
                     'organization_unit_collection',
                     $payload,
                     $principal,

@@ -97,7 +97,7 @@ function mount(capabilities: string[], node?: ReactNode) {
   return render(
     <QueryClientProvider client={client}>
       <SessionProvider session={SESSION} locale="ar" setLocale={() => {}}>
-        <PrincipalContextTestProvider capabilities={capabilities} features={{ work_management: false, tasks: true }}>
+        <PrincipalContextTestProvider capabilities={capabilities} features={{ tasks: true }}>
           <MemoryRouter>{node ?? <AuditScreen />}</MemoryRouter>
         </PrincipalContextTestProvider>
       </SessionProvider>

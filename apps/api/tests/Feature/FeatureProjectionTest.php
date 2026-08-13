@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Modules\Authorization\Contracts\CapabilityCatalog;
 use Modules\Identity\Contracts\AuthorizeIdentityManagement;
 use Modules\Identity\Contracts\PrincipalContext;
 use Modules\Identity\Contracts\ResolvePrincipalContext;
@@ -111,9 +110,8 @@ final class FeatureProjectionTest extends TestCase
         ], ['X-Correlation-ID' => self::CORRELATION_ID])->assertOk()->json('data.access_token');
     }
 
-    public function test_get_me_projects_features_block_with_work_management_disabled_and_tasks_enabled_by_default(): void
+    public function test_get_me_projects_only_the_tasks_feature_flag(): void
     {
-        config()->set('features.work_management', false);
         config()->set('features.tasks', true);
 
         $token = $this->bearerToken();
@@ -121,25 +119,7 @@ final class FeatureProjectionTest extends TestCase
             ->getJson('/api/v1/me', ['X-Correlation-ID' => self::CORRELATION_ID]);
 
         $response->assertOk();
-        $this->assertFalse($response->json('features.work_management'));
+        $this->assertSame(['tasks' => true], $response->json('features'));
         $this->assertTrue($response->json('features.tasks'));
-    }
-
-    public function test_get_me_projects_work_management_true_when_config_flag_is_enabled(): void
-    {
-        config()->set('features.work_management', true);
-
-        $token = $this->bearerToken();
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/me', ['X-Correlation-ID' => self::CORRELATION_ID]);
-
-        $response->assertOk();
-        $this->assertTrue($response->json('features.work_management'));
-    }
-
-    public function test_capability_catalog_supports_work_management_history_read(): void
-    {
-        $this->assertTrue(CapabilityCatalog::supports('work_management.history.read'));
-        $this->assertSame('normal', CapabilityCatalog::sensitivity('work_management.history.read'));
     }
 }

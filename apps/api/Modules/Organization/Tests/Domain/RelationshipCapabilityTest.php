@@ -19,13 +19,13 @@ final class RelationshipCapabilityTest extends TestCase
         $cap = RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view_details',
         );
 
         self::assertSame(self::VALID_ID, $cap->id);
         self::assertSame(self::RELATIONSHIP_ID, $cap->supervisoryRelationshipId);
-        self::assertSame('work-records', $cap->moduleCode);
+        self::assertSame('tasks', $cap->moduleCode);
         self::assertSame('view_details', $cap->capabilityCode);
     }
 
@@ -34,13 +34,13 @@ final class RelationshipCapabilityTest extends TestCase
         $cap = RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view_details',
         );
 
         self::assertSame([
             'relationship_capability_id' => self::VALID_ID,
-            'module_code' => 'work-records',
+            'module_code' => 'tasks',
             'capability_code' => 'view_details',
         ], $cap->toFact());
     }
@@ -50,14 +50,14 @@ final class RelationshipCapabilityTest extends TestCase
         $cap = RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view_details',
         );
 
         self::assertSame([
             'id' => self::VALID_ID,
             'supervisory_relationship_id' => self::RELATIONSHIP_ID,
-            'module_code' => 'work-records',
+            'module_code' => 'tasks',
             'capability_code' => 'view_details',
         ], $cap->toPersistence());
     }
@@ -67,7 +67,7 @@ final class RelationshipCapabilityTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('relationship_capability_identifiers_invalid');
 
-        RelationshipCapability::create('not-a-uuid', self::RELATIONSHIP_ID, 'work-records', 'view_details');
+        RelationshipCapability::create('not-a-uuid', self::RELATIONSHIP_ID, 'tasks', 'view_details');
     }
 
     public function test_rejects_supervisory_relationship_id_that_is_not_a_lowercase_uuidv7(): void
@@ -75,7 +75,7 @@ final class RelationshipCapabilityTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('relationship_capability_identifiers_invalid');
 
-        RelationshipCapability::create(self::VALID_ID, 'not-a-uuid', 'work-records', 'view_details');
+        RelationshipCapability::create(self::VALID_ID, 'not-a-uuid', 'tasks', 'view_details');
     }
 
     public function test_rejects_id_with_uppercase_letters(): void
@@ -86,7 +86,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             '018F6F7D-0C00-7000-8000-000000000070',
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view_details',
         );
     }
@@ -99,7 +99,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'Work-records',
+            'Tasks',
             'view_details',
         );
     }
@@ -151,7 +151,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'View_details',
         );
     }
@@ -164,7 +164,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view details',
         );
     }
@@ -177,7 +177,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view*',
         );
     }
@@ -190,7 +190,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             '*',
         );
     }
@@ -203,7 +203,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'view?details',
         );
     }
@@ -216,7 +216,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             '1view',
         );
     }
@@ -226,7 +226,7 @@ final class RelationshipCapabilityTest extends TestCase
         $cap = RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'module.action',
         );
 
@@ -238,7 +238,7 @@ final class RelationshipCapabilityTest extends TestCase
         $cap = RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'v',
         );
 
@@ -252,7 +252,7 @@ final class RelationshipCapabilityTest extends TestCase
         $cap = RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             $code,
         );
 
@@ -267,7 +267,7 @@ final class RelationshipCapabilityTest extends TestCase
         RelationshipCapability::create(
             self::VALID_ID,
             self::RELATIONSHIP_ID,
-            'work-records',
+            'tasks',
             'a'.str_repeat('b', 64),
         );
     }

@@ -38,20 +38,6 @@ readonly MYSQL_ROOT_PASSWORD="${W1_1_MYSQL_ROOT_PASSWORD:-local-dev-root}"
 readonly LOG_FILE="${TMPDIR:-/tmp}/cluster-w1-1-e2e-$$.log"
 readonly COMPOSE=(docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" --file "$COMPOSE_FILE")
 readonly PLAYWRIGHT_GREP="${W1_1_PLAYWRIGHT_GREP:-}"
-# With work_management disabled (the default), no work-record submissions
-# flow, so the outbox relay/notification coordinator has nothing to drain;
-# skip it. When the feature is re-enabled the coordinator drains 2 batches
-# again unless explicitly overridden.
-if [[ "${CLUSTER_WORK_MANAGEMENT_ENABLED:-false}" == "true" ]]; then
-  readonly COORDINATOR_BATCHES="${W1_1_COORDINATOR_BATCHES:-2}"
-else
-  readonly COORDINATOR_BATCHES="${W1_1_COORDINATOR_BATCHES:-0}"
-fi
-readonly COORDINATOR_TARGET="${W1_1_COORDINATOR_TARGET:-$((COORDINATOR_BATCHES * 2))}"
-if ! [[ "$COORDINATOR_BATCHES" =~ ^[0-9]+$ ]]; then
-  printf 'ERROR: W1_1_COORDINATOR_BATCHES must be a non-negative integer.\n' >&2
-  exit 2
-fi
 PLAYWRIGHT_ARGS=(
   e2e/walking-skeleton.spec.ts
   e2e/login.spec.ts
@@ -69,7 +55,6 @@ if [[ -n "${W1_1_E2E_JSON_REPORT:-}" ]]; then
 fi
 API_PID=""
 VITE_PID=""
-COORDINATOR_PID=""
 export W1_1_COMPOSE_PROJECT="$PROJECT" W1_1_MYSQL_PORT="$MYSQL_PORT" W1_1_REDIS_PORT="$REDIS_PORT" W1_1_MYSQL_DATABASE="$MYSQL_DATABASE" W1_1_MYSQL_USER="$MYSQL_USER" W1_1_MYSQL_PASSWORD="$MYSQL_PASSWORD" W1_1_MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
 # The shared compose file also declares the W1.2 MinIO/ClamAV services, so
 # docker compose interpolates their env even when this runner never starts
@@ -79,7 +64,7 @@ export W1_2_MINIO_ROOT_USER="${W1_2_MINIO_ROOT_USER:-w1-1-e2e-minio}" W1_2_MINIO
 cleanup() {
   local status=$?
   trap - EXIT
-  for pid in "$COORDINATOR_PID" "$VITE_PID" "$API_PID"; do
+  for pid in "$VITE_PID" "$API_PID"; do
     if [[ -n "$pid" ]]; then
       kill_tree "$pid"
       wait "$pid" >/dev/null 2>&1 || true
@@ -181,21 +166,6 @@ readonly API_ENV=(
   OUTBOX_RELAY_BATCH_SIZE=2
 )
 
-db_count() {
-  local table="$1"
-  (
-    cd "$API_DIR"
-    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('${table}')->count();" 2>/dev/null | tail -n 1
-  )
-}
-
-pending_outbox_count() {
-  (
-    cd "$API_DIR"
-    env "${API_ENV[@]}" php artisan tinker --execute="echo DB::table('outbox_events')->whereNull('published_at')->where('event_type', 'com.cluster.workrecord.submitted.v1')->count();" 2>/dev/null | tail -n 1
-  )
-}
-
 printf 'Starting full local MySQL/Redis/API/Vite/browser lifecycle.\n'
 assert_port_free "$MYSQL_PORT"
 assert_port_free "$REDIS_PORT"
@@ -215,50 +185,6 @@ wait_healthy redis
 ) >>"$LOG_FILE" 2>&1 &
 API_PID=$!
 wait_tcp 127.0.0.1 "$API_PORT"
-
-
-(
-  target=$COORDINATOR_TARGET
-  deadline=$((SECONDS + HEALTH_TIMEOUT * 2 * COORDINATOR_BATCHES))
-  while (( SECONDS < deadline )); do
-    pending="$(pending_outbox_count || true)"
-    notifications="$(db_count notifications || true)"
-
-    if [[ "$notifications" =~ ^[0-9]+$ ]] && (( notifications >= target )) \
-      && [[ "$pending" =~ ^[0-9]+$ ]] && (( pending == 0 )); then
-
-      exit 0
-    fi
-    if [[ "$pending" =~ ^[0-9]+$ ]] && (( pending >= 2 )); then
-
-      (
-        cd "$API_DIR"
-        env "${API_ENV[@]}" php artisan work-records:relay-pending --once
-        env "${API_ENV[@]}" php artisan notifications:consume-work-record-submitted --once --consumer=e2e-coordinator
-      ) >/dev/null 2>&1 || { echo "[coordinator] relay/consumer FAILED" >&2; exit 1; }
-      effect_deadline=$((SECONDS + HEALTH_TIMEOUT))
-      while (( SECONDS < effect_deadline )); do
-        pending="$(pending_outbox_count || true)"
-        notifications="$(db_count notifications || true)"
-        if [[ "$notifications" =~ ^[0-9]+$ ]] && (( notifications >= target )) \
-          && [[ "$pending" =~ ^[0-9]+$ ]] && (( pending == 0 )); then
-          exit 0
-        fi
-        sleep 1
-      done
-    fi
-    sleep 1
-  done
-  pending_final="$(pending_outbox_count || true)"
-  notifications_final="$(db_count notifications || true)"
-  if [[ "$pending_final" =~ ^[0-9]+$ ]] && (( pending_final == 0 )) \
-    && [[ "$notifications_final" =~ ^[0-9]+$ ]] && (( notifications_final >= target )); then
-    exit 0
-  fi
-  printf 'ERROR: coordinator timed out before all batches (pending=%s, notifications=%s, expected>=%s).\n' "$pending_final" "$notifications_final" "$target" >&2
-  exit 1
-) >>"$LOG_FILE" 2>&1 &
-COORDINATOR_PID=$!
 
 if ! (
   cd "$WEB_DIR"
@@ -285,9 +211,4 @@ if ! (
   exit 1
 fi
 
-if ! wait "$COORDINATOR_PID"; then
-  printf 'ERROR: coordinator failed after browser execution.\n' >&2
-  exit 1
-fi
-COORDINATOR_PID=""
-printf 'PASS: Arabic RTL and English LTR browser journeys completed through MySQL, Outbox, Redis, Inbox, and notifications.\n'
+printf 'PASS: Arabic RTL and English LTR browser journeys completed through MySQL, API, and web.\n'

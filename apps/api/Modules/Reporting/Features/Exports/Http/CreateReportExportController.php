@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Reporting\Features\ExportAuthorizedReport\Handler\ExportAuthorizationDenied;
 use Modules\Reporting\Features\ExportAuthorizedReport\Handler\ExportAuthorizedReportHandler;
 use Modules\Reporting\Features\ExportAuthorizedReport\Handler\ExportIdempotencyConflict;
 use Modules\Reporting\Features\ExportAuthorizedReport\Handler\UnsupportedExportFormatException;
@@ -28,14 +29,15 @@ final class CreateReportExportController
         if ($principal instanceof JsonResponse) {
             return $principal;
         }
-        if (! $this->exports->authorize($principal, $reportId)) {
+        $input = $request->json()->all();
+        $requestedScopeId = is_string($input['scope_id'] ?? null) ? $input['scope_id'] : null;
+        if (! $this->exports->authorize($principal, $reportId, $requestedScopeId)) {
             return ReportingApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         }
         $key = $request->header('Idempotency-Key');
         if (! is_string($key) || preg_match('/\A[\x21-\x7E]{1,255}\z/', $key) !== 1) {
             return ReportingApi::problem(400, 'invalid-idempotency-key', 'Bad Request', 'Idempotency-Key is required.', $correlationId);
         }
-        $input = $request->json()->all();
         ksort($input);
         $requestHash = hash('sha256', json_encode([
             'report_id' => $reportId,
@@ -69,6 +71,8 @@ final class CreateReportExportController
             );
         } catch (ExportIdempotencyConflict) {
             return ReportingApi::problem(409, 'idempotency-conflict', 'Conflict', 'Idempotency-Key was already used for a different request.', $correlationId);
+        } catch (ExportAuthorizationDenied) {
+            return ReportingApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
         } catch (UnsupportedExportFormatException) {
             return ReportingApi::problem(422, 'unsupported-export-format', 'Unprocessable Entity', 'Only csv and json exports are supported.', $correlationId);
         }

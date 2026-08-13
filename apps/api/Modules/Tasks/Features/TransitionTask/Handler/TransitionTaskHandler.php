@@ -7,11 +7,13 @@ namespace Modules\Tasks\Features\TransitionTask\Handler;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Modules\Tasks\Application\TaskAccessPolicy;
 use Modules\Tasks\Contracts\RecordTaskNotifications;
 use Modules\Tasks\Features\TransitionTask\Exception\TaskTransitionConflict;
 use Modules\Tasks\Infrastructure\Persistence\TaskCommandIdempotency;
 use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
 use Shared\Contracts\TransactionalOutbox;
+use Shared\Infrastructure\Outbox\OutboxEventType;
 use stdClass;
 
 /**
@@ -44,6 +46,14 @@ final readonly class TransitionTaskHandler
         'cancel' => 'cancelled',
     ];
 
+    private const OUTBOX_TYPES = [
+        'start' => OutboxEventType::TaskStarted,
+        'block' => OutboxEventType::TaskBlocked,
+        'unblock' => OutboxEventType::TaskUnblocked,
+        'complete' => OutboxEventType::TaskCompleted,
+        'cancel' => OutboxEventType::TaskCancelled,
+    ];
+
     /** @var array<string, array{from: list<string>, to: string, requires_reason: bool, requires_note: bool}> */
     private const TRANSITIONS = [
         'start' => ['from' => ['open'], 'to' => 'in_progress', 'requires_reason' => false, 'requires_note' => false],
@@ -58,6 +68,7 @@ final readonly class TransitionTaskHandler
         private TransactionalOutbox $outbox,
         private TaskCommandIdempotency $idempotency,
         private RecordTaskNotifications $notifications,
+        private TaskAccessPolicy $policy,
     ) {}
 
     /**
@@ -159,7 +170,7 @@ final readonly class TransitionTaskHandler
             $this->outbox->append(
                 Str::uuid7()->toString(),
                 $taskId,
-                'task.'.$action.'.v1',
+                self::OUTBOX_TYPES[$action]->value,
                 [
                     'task_id' => $taskId,
                     'actor_user_id' => $actorUserId,
@@ -178,6 +189,7 @@ final readonly class TransitionTaskHandler
                     'actor_user_id' => $actorUserId,
                     'action' => $action,
                 ],
+                $this->policy->factsFor($updated, $this->store->participantIds($taskId)),
             );
 
             $response = [

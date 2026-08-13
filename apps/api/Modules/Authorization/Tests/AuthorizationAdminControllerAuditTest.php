@@ -217,7 +217,7 @@ final class AuthorizationAdminControllerAuditTest extends TestCase
     public function test_clone_role_returns_400_when_if_match_is_missing(): void
     {
         $this->seedSystemRole();
-        $this->seedRoleCapability(self::ROLE_ID, 'work_record.read');
+        $this->seedRoleCapability(self::ROLE_ID, 'tasks.read');
         [$cookie, $csrf] = $this->loginAdminSession();
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles/'.self::ROLE_ID.'/clone', [], [
@@ -242,7 +242,7 @@ final class AuthorizationAdminControllerAuditTest extends TestCase
     public function test_clone_role_with_if_match_records_one_audit_event_and_attaches_allowed_actions(): void
     {
         $this->seedSystemRole();
-        $this->seedRoleCapability(self::ROLE_ID, 'work_record.read');
+        $this->seedRoleCapability(self::ROLE_ID, 'tasks.read');
         [$cookie, $csrf] = $this->loginAdminSession();
 
         $response = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/roles/'.self::ROLE_ID.'/clone', [], [
@@ -354,7 +354,7 @@ final class AuthorizationAdminControllerAuditTest extends TestCase
     public function test_post_role_assignment_create_records_one_audit_event_and_attaches_allowed_actions(): void
     {
         $this->seedCustomRole();
-        $this->seedRoleCapability(self::ROLE_ID, 'work_record.read');
+        $this->seedRoleCapability(self::ROLE_ID, 'tasks.read');
         $this->seedUser(self::SUBJECT_USER_ID);
         [$cookie, $csrf] = $this->loginAdminSession();
 
@@ -420,8 +420,8 @@ final class AuthorizationAdminControllerAuditTest extends TestCase
     public function test_post_role_capability_revoke_records_one_audit_event(): void
     {
         $this->seedCustomRole();
-        $this->seedRoleCapability(self::ROLE_ID, 'work_record.read');
-        $capabilityId = (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id');
+        $this->seedRoleCapability(self::ROLE_ID, 'tasks.read');
+        $capabilityId = (string) DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id');
         [$cookie, $csrf] = $this->loginAdminSession();
 
         $response = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-capabilities/'.self::ROLE_ID.':'.$capabilityId.'/revoke', [], [
@@ -589,7 +589,7 @@ final class AuthorizationAdminControllerAuditTest extends TestCase
     private function seedAssignment(): void
     {
         $this->seedCustomRole();
-        $this->seedRoleCapability(self::ROLE_ID, 'work_record.read');
+        $this->seedRoleCapability(self::ROLE_ID, 'tasks.read');
         $this->seedUser(self::SUBJECT_USER_ID);
         if (DB::table('role_assignments')->where('id', self::ASSIGNMENT_ID)->exists()) {
             return;

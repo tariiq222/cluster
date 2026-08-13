@@ -374,49 +374,6 @@ function RouteBoundary({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteFallback />}>{children}</Suspense>
 }
 
-function WorkspacePlaceholder({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <p className="text-foreground font-medium">{title}</p>
-      <p className="text-muted-foreground text-sm">
-        قيد التطوير · Under construction
-      </p>
-    </div>
-  )
-}
-
-/*
- * Feature-gated paths are registered ONLY when the flag is on. With the flag
- * off the API answers a non-disclosing 404, so the route must not exist at
- * all — an unregistered route cannot leak a loading skeleton.
- */
-function workManagementRoutes() {
-  return [
-    {
-      path: '/work-records',
-      element: <WorkspacePlaceholder title="سجلات العمل · Work Records" />,
-    },
-    {
-      path: '/work-records/:recordId',
-      element: <WorkspacePlaceholder title="سجل العمل · Work Record" />,
-    },
-    {
-      path: '/inbox',
-      element: (
-        <WorkspacePlaceholder title="صندوق الموافقات · Approvals Inbox" />
-      ),
-    },
-    {
-      path: '/workflow',
-      element: <WorkspacePlaceholder title="سير العمل · Workflow" />,
-    },
-    {
-      path: '/work-definitions',
-      element: <WorkspacePlaceholder title="نماذج العمل · Work Definitions" />,
-    },
-  ]
-}
-
 const ROUTES = [
   {
     path: '/',
@@ -790,7 +747,7 @@ export function routePaths(): string[] {
 }
 
 interface RouterConfig {
-  features: { work_management: boolean; tasks: boolean }
+  features: { tasks: boolean }
   onLogout: () => void
 }
 
@@ -807,11 +764,10 @@ interface BuildRoutesConfig {
   additionalRoutes?: RouteObject[]
 }
 
-function buildRouteConfigs({ features, additionalRoutes = [] }: BuildRoutesConfig): RouteObject[] {
+function buildRouteConfigs({ additionalRoutes = [] }: BuildRoutesConfig): RouteObject[] {
   return [
     ...(ROUTES as RouteObject[]),
     ...(REDIRECTS as RouteObject[]),
-    ...(features.work_management ? (workManagementRoutes() as RouteObject[]) : []),
     ...additionalRoutes,
     { path: '*', element: <NotFoundScreen /> },
   ]

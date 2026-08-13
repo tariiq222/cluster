@@ -8,11 +8,6 @@ info:
   description: Authenticated, authorization-filtered API. IDs are lowercase RFC 9562 UUIDv7 values and timestamps are RFC 3339 UTC values ending in Z.
 servers:
 - url: https://api.cluster.example/api/v1
-x-feature-gates:
-  work-management:
-    description: 'Work Definitions, Work Records, request journeys, approvals, and Workflow execution. Operations tagged x-feature-gate: work-management return 409
-      feature-disabled on mutation and non-disclosing 404 on read while disabled; reads remain available to principals holding work_management.history.read.'
-    default: false
 security:
 - bearerAuth: []
 paths:
@@ -307,387 +302,6 @@ paths:
         '412':
           $ref: '#/components/responses/PreconditionFailed'
       x-implementation-status: implemented
-  /work-definitions:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: List work definitions
-      operationId: listWorkDefinitions
-      parameters:
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          $ref: '#/components/responses/Collection'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-      x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Create a work definition
-      operationId: createWorkDefinition
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkDefinitionCreate'
-      responses:
-        '201':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-      x-implementation-status: implemented
-  /work-definitions/{definitionId}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: Get a work definition
-      operationId: getWorkDefinition
-      parameters:
-      - $ref: '#/components/parameters/DefinitionId'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-implementation-status: implemented
-    patch:
-      x-feature-gate: work-management
-      x-implementation-status: planned
-      summary: Update a work definition
-      operationId: updateWorkDefinition
-      parameters:
-      - $ref: '#/components/parameters/DefinitionId'
-      - $ref: '#/components/parameters/IfMatch'
-      requestBody:
-        required: true
-        content:
-          application/merge-patch+json:
-            schema:
-              $ref: '#/components/schemas/WorkDefinitionPatch'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /work-definitions/{definitionId}/versions:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: List immutable work definition versions
-      operationId: listWorkDefinitionVersions
-      parameters:
-      - $ref: '#/components/parameters/DefinitionId'
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          $ref: '#/components/responses/Collection'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Create a Draft work definition version
-      operationId: createWorkDefinitionVersion
-      parameters:
-      - $ref: '#/components/parameters/DefinitionId'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkDefinitionVersionCreate'
-      responses:
-        '201':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-      x-implementation-status: implemented
-  /work-definition-versions/{versionId}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: Get a work definition version
-      operationId: getWorkDefinitionVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-implementation-status: implemented
-    patch:
-      x-feature-gate: work-management
-      x-implementation-status: planned
-      summary: Update a Draft work definition version; Signed and Published versions are immutable
-      operationId: updateWorkDefinitionVersionDraft
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      requestBody:
-        required: true
-        content:
-          application/merge-patch+json:
-            schema:
-              $ref: '#/components/schemas/WorkDefinitionVersionPatch'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /work-definition-versions/{versionId}/test:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Test a Draft version and transition it to Tested
-      operationId: testWorkDefinitionVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /work-definition-versions/{versionId}/approve:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Approve a Tested version
-      operationId: approveWorkDefinitionVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /work-definition-versions/{versionId}/sign:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Sign an Approved version whose schema hash matches
-      operationId: signWorkDefinitionVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SignatureRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /work-definition-versions/{versionId}/publish:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Publish a Signed version as immutable
-      operationId: publishWorkDefinitionVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /work-records:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: List authorized work records using opaque cursor pagination
-      operationId: listWorkRecords
-      parameters:
-      - $ref: '#/components/parameters/WorkRecordCursor'
-      - $ref: '#/components/parameters/Limit'
-      - $ref: '#/components/parameters/Classification'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecordCollection'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-      x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Create a work record
-      operationId: createWorkRecord
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkRecordCreate'
-      responses:
-        '201':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-      x-implementation-status: implemented
   /notifications:
     parameters:
     - $ref: '#/components/parameters/CorrelationId'
@@ -705,826 +319,6 @@ paths:
         '401':
           $ref: '#/components/responses/NotificationUnauthorized'
       x-implementation-status: implemented
-  /work-records/{recordId}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: Get a work record
-      operationId: getWorkRecord
-      parameters:
-      - $ref: '#/components/parameters/RecordId'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-implementation-status: implemented
-    patch:
-      x-feature-gate: work-management
-      x-implementation-status: planned
-      summary: Update a work record
-      operationId: updateWorkRecord
-      parameters:
-      - $ref: '#/components/parameters/RecordId'
-      - $ref: '#/components/parameters/IfMatch'
-      requestBody:
-        required: true
-        content:
-          application/merge-patch+json:
-            schema:
-              type: object
-              properties:
-                payload:
-                  type: object
-                responsible_user_id:
-                  type: string
-                  format: uuid
-                classification:
-                  $ref: '#/components/schemas/Classification'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /workflow/definitions:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: List workflow definitions
-      operationId: listWorkflowDefinitions
-      parameters:
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          $ref: '#/components/responses/Collection'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-      x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Create a workflow definition and its first Draft version
-      operationId: createWorkflowDefinition
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkflowDefinitionCreate'
-      responses:
-        '201':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-      x-implementation-status: implemented
-  /workflow/definitions/{definitionId}/versions:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: List workflow versions
-      operationId: listWorkflowVersions
-      parameters:
-      - $ref: '#/components/parameters/DefinitionId'
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          $ref: '#/components/responses/Collection'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Create a Draft workflow version
-      operationId: createWorkflowVersion
-      parameters:
-      - $ref: '#/components/parameters/DefinitionId'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkflowVersionCreate'
-      responses:
-        '201':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-      x-implementation-status: implemented
-  /workflow/versions/{versionId}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
-    get:
-      x-feature-gate: work-management
-      summary: Get a workflow version graph
-      operationId: getWorkflowVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    patch:
-      x-feature-gate: work-management
-      summary: Update a Draft workflow graph
-      operationId: updateWorkflowVersionDraft
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      requestBody:
-        required: true
-        content:
-          application/merge-patch+json:
-            schema:
-              $ref: '#/components/schemas/WorkflowVersionPatch'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-  /workflow/versions/{versionId}/{workflowLifecycleAction}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      summary: Test, approve, sign, or publish a workflow version in lifecycle order
-      operationId: transitionWorkflowVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - name: workflowLifecycleAction
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - test
-          - approve
-          - sign
-          - publish
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LifecycleAction'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /workflow/instances:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      summary: List authorized workflow instances
-      operationId: listWorkflowInstances
-      parameters:
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
-      - name: state
-        in: query
-        schema:
-          type: string
-          enum:
-          - running
-          - completed
-          - cancelled
-      responses:
-        '200':
-          $ref: '#/components/responses/Collection'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-      x-implementation-status: implemented
-    post:
-      x-feature-gate: work-management
-      summary: Start a workflow using a Published version
-      operationId: startWorkflow
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkflowStart'
-      responses:
-        '201':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-      x-implementation-status: implemented
-  /workflow/instances/{instanceId}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      tags:
-      - Requests
-      - Workflow
-      summary: Get workflow instance state, current owner, age, and step history for request tracking,
-      operationId: getWorkflowInstance,
-      parameters:
-      - name: instanceId
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/UUIDv7'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkflowInstanceTrackingResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-implementation-status: implemented
-  /workflow/instances/{instanceId}/cancel:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      summary: Cancel an active workflow
-      operationId: cancelWorkflow
-      parameters:
-      - name: instanceId
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/UUIDv7'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReasonAction'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /workflow/steps/{stepId}/decisions:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      summary: Record a workflow decision
-      operationId: recordWorkflowDecision
-      parameters:
-      - $ref: '#/components/parameters/StepId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Decision'
-      responses:
-        '201':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /workflow/steps/{stepId}/{stepAction}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      summary: Reassign or escalate an active workflow step
-      operationId: actOnWorkflowStep
-      parameters:
-      - $ref: '#/components/parameters/StepId'
-      - name: stepAction
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - reassign
-          - escalate
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkflowStepAction'
-      responses:
-        '200':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /workflow/operations-office/versions/{versionId}/submit:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
-    post:
-      x-feature-gate: work-management
-      tags:
-      - Operations Office
-      - Workflow
-      summary: Submit a Draft workflow version for office review (draft -> pending_review)
-      operationId: submitWorkflowVersionForReview
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OperationsOfficeSubmission'
-      responses:
-        '200':
-          $ref: '#/components/responses/OperationsOfficeVersionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Operations-office authorization denied
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:forbidden
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operations-office lifecycle conflict
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:lifecycle-conflict
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-        '422':
-          description: Invalid operations-office payload
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:operations-office:invalid-payload
-      x-implementation-status: planned
-  /workflow/operations-office/versions/{versionId}/return:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
-    post:
-      x-feature-gate: work-management
-      tags:
-      - Operations Office
-      - Workflow
-      summary: Return a pending_review version to the author with a reason (pending_review -> draft)
-      operationId: returnWorkflowVersionForRevision
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OperationsOfficeReturn'
-      responses:
-        '200':
-          $ref: '#/components/responses/OperationsOfficeVersionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Operations-office authorization denied
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:forbidden
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operations-office lifecycle conflict
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:lifecycle-conflict
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: planned
-  /workflow/operations-office/versions/{versionId}/approve:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
-    post:
-      x-feature-gate: work-management
-      tags:
-      - Operations Office
-      - Workflow
-      summary: Approve a pending_review workflow version (pending_review -> approved, ready to publish)
-      operationId: approveWorkflowVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OperationsOfficeApproval'
-      responses:
-        '200':
-          $ref: '#/components/responses/OperationsOfficeVersionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Operations-office authorization denied
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:forbidden
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operations-office lifecycle conflict
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:lifecycle-conflict
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-        '422':
-          description: Invalid operations-office payload
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:operations-office:invalid-payload
-      x-implementation-status: planned
-  /workflow/operations-office/versions/{versionId}/publish:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
-    post:
-      x-feature-gate: work-management
-      tags:
-      - Operations Office
-      - Workflow
-      summary: Publish an approved workflow version with audience scope; atomic with its work-definition version
-      operationId: publishWorkflowVersion
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OperationsOfficePublication'
-      responses:
-        '200':
-          $ref: '#/components/responses/OperationsOfficePublicationResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Operations-office authorization denied
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:forbidden
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operations-office lifecycle conflict
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:lifecycle-conflict
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
-        '422':
-          description: Invalid operations-office payload
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:operations-office:invalid-payload
-      x-implementation-status: planned
-  /workflow/operations-office/versions/{versionId}/audit:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    x-implementation-status: planned
-    get:
-      x-feature-gate: work-management
-      tags:
-      - Operations Office
-      - Workflow
-      summary: Read the operations-office audit trail for a workflow version
-      operationId: getWorkflowVersionOfficeAudit
-      parameters:
-      - $ref: '#/components/parameters/VersionId'
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          $ref: '#/components/responses/OperationsOfficeAuditCollection'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Operations-office authorization denied
-          content:
-            application/problem+json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/problem-details.schema'
-                - type: object
-                  required:
-                  - type
-                  properties:
-                    type:
-                      const: urn:cluster:problem:operations-office:forbidden
-        '404':
-          $ref: '#/components/responses/NotFound'
-      x-implementation-status: planned
-  /workflow/steps:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      tags:
-      - Approval Inbox
-      - Workflow
-      summary: List approval inbox steps assigned to the current principal
-      operationId: listWorkflowStepsInbox
-      parameters:
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
-      - name: state
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - waiting
-          - active
-          - completed
-          - rejected
-          - returned
-          - cancelled
-          - all
-      - name: assignee
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - me
-        description: When `me`, server filters to the current principal; principal leakage of steps owned by others is forbidden.
-      - name: assignee_user_id
-        in: query
-        required: false
-        schema:
-          $ref: '#/components/schemas/UUIDv7'
-        description: Explicit assignee filter; ignored unless caller holds operations-office review authority.
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkflowStepCollection'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-      x-implementation-status: implemented
   /tasks:
     parameters:
     - $ref: '#/components/parameters/CorrelationId'
@@ -1534,6 +328,21 @@ paths:
       parameters:
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
+      - name: view
+        in: query
+        schema:
+          type: string
+          enum: [mine, scope]
+          default: mine
+      - name: scope_type
+        in: query
+        schema:
+          type: string
+          enum: [cluster, facility, unit]
+      - name: scope_id
+        in: query
+        schema:
+          $ref: '#/components/schemas/UUIDv7'
       - name: state
         in: query
         schema:
@@ -1555,14 +364,16 @@ paths:
           - participating
       responses:
         '200':
-          $ref: '#/components/responses/Collection'
+          $ref: '#/components/responses/TaskListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
       x-implementation-status: implemented
     post:
-      summary: Create a standalone or source-linked task
+      summary: Create a standalone task
       operationId: createTask
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
@@ -1631,26 +442,6 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
-      x-implementation-status: implemented
-  /workflow/steps/{stepId}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    get:
-      x-feature-gate: work-management
-      tags:
-      - Approval Inbox
-      - Workflow
-      summary: Get an authorized workflow approval step
-      operationId: getWorkflowStep
-      parameters:
-      - $ref: '#/components/parameters/StepId'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkflowStepDetailResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
       x-implementation-status: implemented
   /tasks/{taskId}/participants:
     parameters:
@@ -2300,33 +1091,42 @@ paths:
   /search:
     parameters:
     - $ref: '#/components/parameters/CorrelationId'
-    get:
+    post:
       summary: Search authorized content
       operationId: search
-      parameters:
-      - name: q
-        in: query
+      requestBody:
         required: true
-        schema:
-          type: string
-          minLength: 1
-          maxLength: 256
-      - name: type
-        in: query
-        required: false
-        schema:
-          type: string
-          minLength: 1
-          maxLength: 64
-      - name: status
-        in: query
-        required: false
-        schema:
-          type: string
-          minLength: 1
-          maxLength: 64
-      - $ref: '#/components/parameters/Cursor'
-      - $ref: '#/components/parameters/Limit'
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - q
+              properties:
+                q:
+                  type: string
+                  minLength: 1
+                  maxLength: 256
+                scope_id:
+                  type: string
+                  maxLength: 128
+                type:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                status:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                cursor:
+                  type: string
+                  minLength: 1
+                  maxLength: 2048
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
       responses:
         '200':
           $ref: '#/components/responses/Collection'
@@ -4091,6 +2891,7 @@ paths:
           - delegations
           - classification-policies
           - field-access-templates
+          - explicit-denies
       - $ref: '#/components/parameters/Cursor'
       - $ref: '#/components/parameters/Limit'
       responses:
@@ -4120,6 +2921,7 @@ paths:
           - delegations
           - classification-policies
           - field-access-templates
+          - explicit-denies
       - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -4175,6 +2977,7 @@ paths:
           - delegations
           - classification-policies
           - field-access-templates
+          - explicit-denies
       - name: resourceId
         in: path
         required: true
@@ -4209,6 +3012,7 @@ paths:
           - delegations
           - classification-policies
           - field-access-templates
+          - explicit-denies
       - name: resourceId
         in: path
         required: true
@@ -4309,6 +3113,7 @@ paths:
           - delegations
           - classification-policies
           - field-access-templates
+          - explicit-denies
       - name: resourceId
         in: path
         required: true
@@ -6223,53 +5028,6 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
       x-implementation-status: implemented
-  /work-records/{recordId}/documents:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      operationId: linkWorkRecordDocument
-      summary: Link an available document to a work record
-      parameters:
-      - $ref: '#/components/parameters/RecordId'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required:
-              - document_id
-              - relation_type
-              properties:
-                document_id:
-                  $ref: '#/components/schemas/UUIDv7'
-                relation_type:
-                  type: string
-                  enum:
-                  - attachment
-                  - evidence
-                  - supporting
-      responses:
-        '201':
-          $ref: '#/components/responses/Entity'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-      x-implementation-status: implemented
   /up:
     parameters:
     - $ref: '#/components/parameters/CorrelationId'
@@ -6598,68 +5356,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/InternalServerError'
-  /work-records/{recordId}/{recordAction}:
-    parameters:
-    - $ref: '#/components/parameters/CorrelationId'
-    post:
-      x-feature-gate: work-management
-      x-implementation-status: implemented
-      operationId: transitionWorkRecord
-      summary: Apply an allowed work-record lifecycle action
-      parameters:
-      - $ref: '#/components/parameters/RecordId'
-      - name: recordAction
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - submit
-          - return
-          - complete
-          - complete-submission
-          - cancel
-          - archive
-      - $ref: '#/components/parameters/IfMatch'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              oneOf:
-              - type: object
-                additionalProperties: false
-                properties:
-                  comment:
-                    type: string
-                    maxLength: 1000
-              - type: object
-                additionalProperties: false
-                properties:
-                  reason:
-                    type: string
-                    maxLength: 1024
-              - $ref: '#/components/schemas/ReasonAction'
-      responses:
-        '200':
-          $ref: '#/components/responses/WorkRecord'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Operation rejected because the requested feature is disabled.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemFeatureDisabled'
-        '412':
-          $ref: '#/components/responses/PreconditionFailed'
 components:
   securitySchemes:
     bearerAuth:
@@ -6719,15 +5415,6 @@ components:
       schema:
         type: string
         minLength: 1
-    WorkRecordCursor:
-      name: cursor
-      in: query
-      description: Opaque continuation token bound to the originating limit and classification query plus the effective principal and facility scope; malformed or
-        mismatched reuse receives the same metadata-safe 400 response.
-      schema:
-        type: string
-        minLength: 1
-        maxLength: 2048
     Limit:
       name: limit
       in: query
@@ -6792,26 +5479,8 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/UUIDv7'
-    DefinitionId:
-      name: definitionId
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/UUIDv7'
     VersionId:
       name: versionId
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/UUIDv7'
-    RecordId:
-      name: recordId
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/UUIDv7'
-    StepId:
-      name: stepId
       in: path
       required: true
       schema:
@@ -7264,29 +5933,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Entity'
-    WorkRecord:
-      description: Authorized work record envelope
-      headers:
-        ETag:
-          $ref: '#/components/headers/ETag'
-        X-Correlation-ID:
-          $ref: '#/components/headers/Correlation'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/WorkRecordResponse'
-    WorkRecordCollection:
-      description: Cursor-paginated authorized work records
-      headers:
-        Link:
-          schema:
-            type: string
-        X-Correlation-ID:
-          $ref: '#/components/headers/Correlation'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/WorkRecordCollection'
     Collection:
       description: Cursor-paginated authorized collection
       headers:
@@ -7299,6 +5945,18 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/EntityCollection'
+    TaskListResponse:
+      description: Cursor-paginated task list with collection-only display labels
+      headers:
+        Link:
+          schema:
+            type: string
+        X-Correlation-ID:
+          $ref: '#/components/headers/Correlation'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TaskCollection'
     Notifications:
       description: Cursor-paginated notifications for the authenticated principal
       headers:
@@ -7317,15 +5975,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/principal-context.schema'
-    ProblemFeatureDisabled:
-      description: Operation rejected because the requested feature is disabled.
-      headers:
-        X-Correlation-ID:
-          $ref: '#/components/headers/Correlation'
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemFeatureDisabled'
     Problem:
       description: RFC 7807 problem details
       headers:
@@ -7425,69 +6074,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/access-decision.schema'
-    WorkflowInstanceTrackingResponse:
-      description: Workflow instance tracking projection with state, current owner, age, and step history
-      headers:
-        ETag:
-          $ref: '#/components/headers/ETag'
-        X-Correlation-ID:
-          $ref: '#/components/headers/Correlation'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/WorkflowInstanceTracking'
-    WorkflowStepCollection:
-      description: Cursor-paginated workflow step instances assigned to the current principal
-      headers:
-        Link:
-          schema:
-            type: string
-        X-Correlation-ID:
-          $ref: '#/components/headers/Correlation'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/WorkflowStepCollection'
-    WorkflowStepDetailResponse:
-      description: Authorized workflow approval-step projection.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/WorkflowStepDetail'
-    OperationsOfficeVersionResponse:
-      description: Operations-office workflow version projection after lifecycle transition
-      headers:
-        ETag:
-          $ref: '#/components/headers/ETag'
-        X-Correlation-ID:
-          $ref: '#/components/headers/Correlation'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/OperationsOfficeVersion'
-    OperationsOfficePublicationResponse:
-      description: Operations-office publication result, including self-approval override and notification outcome
-      headers:
-        ETag:
-          $ref: '#/components/headers/ETag'
-        X-Correlation-ID:
-          $ref: '#/components/headers/Correlation'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/OperationsOfficePublicationResult'
-    OperationsOfficeAuditCollection:
-      description: Cursor-paginated operations-office audit entries for a workflow version
-      headers:
-        Link:
-          schema:
-            type: string
-        X-Correlation-ID:
-          $ref: '#/components/headers/Correlation'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/OperationsOfficeAuditCollection'
     AuditEventEntity:
       description: Single authorized, redacted audit event projection
       headers:
@@ -7629,278 +6215,6 @@ components:
                 detail:
                   const: Audit integrity verification is temporarily unavailable.
   schemas:
-    OperationsOfficeSubmission:
-      type: object
-      additionalProperties: false
-      required:
-      - workflow_version_id
-      properties:
-        workflow_version_id:
-          $ref: '#/components/schemas/UUIDv7'
-        idempotency_key:
-          type: string
-          minLength: 1
-          maxLength: 255
-    OperationsOfficeReturn:
-      type: object
-      additionalProperties: false
-      required:
-      - reason
-      properties:
-        reason:
-          type: string
-          maxLength: 2000
-        idempotency_key:
-          type: string
-          minLength: 1
-          maxLength: 255
-    OperationsOfficeApproval:
-      type: object
-      additionalProperties: false
-      properties:
-        graph_hash_observed:
-          type: string
-          minLength: 32
-          maxLength: 128
-        idempotency_key:
-          type: string
-          minLength: 1
-          maxLength: 255
-    OperationsOfficePublication:
-      type: object
-      additionalProperties: false
-      required:
-      - scope
-      - usage_description
-      properties:
-        scope:
-          $ref: '#/components/schemas/AudienceScope'
-        usage_description:
-          type: string
-          maxLength: 1000
-        idempotency_key:
-          type: string
-          minLength: 1
-          maxLength: 255
-    OperationsOfficePublicationResult:
-      type: object
-      additionalProperties: false
-      required:
-      - version
-      - self_approval_override
-      - audience_summary
-      properties:
-        version:
-          $ref: '#/components/schemas/OperationsOfficeVersion'
-        self_approval_override:
-          type: boolean
-        audience_summary:
-          type: object
-          additionalProperties: false
-          required:
-          - matched_users
-          - audience_keys
-          properties:
-            matched_users:
-              type: integer
-            audience_keys:
-              type: array
-              items:
-                type: string
-    OperationsOfficeVersion:
-      allOf:
-      - $ref: '#/components/schemas/DomainResource'
-      - type: object
-        required:
-        - workflow_definition_id
-        - version_number
-        - lifecycle_state
-        - author_user_id
-        - current_owner_user_id
-        - single_member_bootstrap_approval
-        - last_transition_at
-        - published_at
-        properties:
-          workflow_definition_id:
-            $ref: '#/components/schemas/UUIDv7'
-          version_number:
-            type: integer
-          lifecycle_state:
-            type: string
-            enum:
-            - draft
-            - pending_review
-            - published
-            - returned
-          author_user_id:
-            oneOf:
-            - $ref: '#/components/schemas/UUIDv7'
-            - type: 'null'
-          current_owner_user_id:
-            oneOf:
-            - $ref: '#/components/schemas/UUIDv7'
-            - type: 'null'
-          single_member_bootstrap_approval:
-            type: boolean
-          last_transition_at:
-            oneOf:
-            - $ref: '#/components/schemas/UtcDateTime'
-            - type: 'null'
-          published_at:
-            oneOf:
-            - $ref: '#/components/schemas/UtcDateTime'
-            - type: 'null'
-    WorkflowInstanceTracking:
-      allOf:
-      - $ref: '#/components/schemas/DomainResource'
-      - type: object
-        required:
-        - workflow_version_id
-        - source_module
-        - source_type
-        - source_id
-        - state
-        - current_owner_user_id
-        - age_seconds
-        - step_history
-        properties:
-          workflow_version_id:
-            $ref: '#/components/schemas/UUIDv7'
-          source_module:
-            type: string
-          source_type:
-            type: string
-          source_id:
-            type: string
-          state:
-            type: string
-          current_owner_user_id:
-            oneOf:
-            - $ref: '#/components/schemas/UUIDv7'
-            - type: 'null'
-          age_seconds:
-            type: integer
-          step_history:
-            type: array
-            items:
-              $ref: '#/components/schemas/WorkflowStepHistoryEntry'
-    WorkflowStepHistoryEntry:
-      type: object
-      additionalProperties: false
-      required:
-      - step_id
-      - node_key
-      - node_type
-      - state
-      - assignee_user_id
-      - activated_at
-      - completed_at
-      - actor_user_id
-      - decision
-      - reason
-      properties:
-        step_id:
-          $ref: '#/components/schemas/UUIDv7'
-        workflow_instance_id:
-          $ref: '#/components/schemas/UUIDv7'
-        lock_version:
-          type: integer
-          minimum: 1
-        node_key:
-          type: string
-        node_type:
-          type: string
-        state:
-          type: string
-        assignee_user_id:
-          oneOf:
-          - $ref: '#/components/schemas/UUIDv7'
-          - type: 'null'
-        activated_at:
-          oneOf:
-          - $ref: '#/components/schemas/UtcDateTime'
-          - type: 'null'
-        completed_at:
-          oneOf:
-          - $ref: '#/components/schemas/UtcDateTime'
-          - type: 'null'
-        actor_user_id:
-          oneOf:
-          - $ref: '#/components/schemas/UUIDv7'
-          - type: 'null'
-        decision:
-          type:
-          - string
-          - 'null'
-        reason:
-          type:
-          - string
-          - 'null'
-    AudienceScope:
-      type: object
-      additionalProperties: false
-      required:
-      - audience_type
-      - audience_reference
-      properties:
-        audience_type:
-          type: string
-          enum:
-          - all
-          - facility
-          - roles
-        audience_reference:
-          type: array
-          items:
-            $ref: '#/components/schemas/UUIDv7'
-    OperationsOfficeAuditEntry:
-      type: object
-      additionalProperties: false
-      required:
-      - id
-      - version_id
-      - actor_user_id
-      - decision
-      - reason
-      - correlation_id
-      - recorded_at
-      - single_member_bootstrap_approval
-      properties:
-        id:
-          $ref: '#/components/schemas/UUIDv7'
-        version_id:
-          $ref: '#/components/schemas/UUIDv7'
-        actor_user_id:
-          $ref: '#/components/schemas/UUIDv7'
-        decision:
-          type: string
-        reason:
-          type:
-          - string
-          - 'null'
-        correlation_id:
-          oneOf:
-          - $ref: '#/components/schemas/UUIDv7'
-          - type: 'null'
-        recorded_at:
-          $ref: '#/components/schemas/UtcDateTime'
-        single_member_bootstrap_approval:
-          type: boolean
-    OperationsOfficeAuditCollection:
-      type: object
-      additionalProperties: false
-      required:
-      - items
-      - next_cursor
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/OperationsOfficeAuditEntry'
-        next_cursor:
-          type:
-          - string
-          - 'null'
     AuditActorType:
       type: string
       enum:
@@ -8041,8 +6355,8 @@ components:
       type: object
       additionalProperties: false
       required:
-      - items
-      - next_cursor
+        - items
+        - next_cursor
       properties:
         items:
           type: array
@@ -8213,135 +6527,6 @@ components:
           $ref: '#/components/schemas/AuditIntegrityStatus'
         checkpoint_id:
           $ref: '#/components/schemas/UUIDv7'
-    WorkflowStepCollection:
-      type: object
-      additionalProperties: false
-      required:
-      - items
-      - next_cursor
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/WorkflowStepInboxItem'
-        next_cursor:
-          type:
-          - string
-          - 'null'
-    WorkflowStepInboxItem:
-      type: object
-      additionalProperties: false
-      required:
-      - step_id
-      - workflow_instance_id
-      - source_type
-      - source_id
-      - state
-      - assignee_user_id
-      - created_at
-      - lock_version
-      - allowed_actions
-      properties:
-        step_id:
-          $ref: '#/components/schemas/UUIDv7'
-        workflow_instance_id:
-          $ref: '#/components/schemas/UUIDv7'
-        source_type:
-          type: string
-        source_id:
-          type: string
-        state:
-          type: string
-          enum:
-          - waiting
-          - active
-          - completed
-          - rejected
-          - returned
-          - cancelled
-        assignee_user_id:
-          $ref: '#/components/schemas/UUIDv7'
-        created_at:
-          $ref: '#/components/schemas/UtcDateTime'
-        lock_version:
-          type: integer
-          minimum: 1
-        allowed_actions:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            enum:
-            - approve
-            - reject
-            - return
-            - reassign
-            - escalate
-    WorkflowStepDetail:
-      type: object
-      additionalProperties: false
-      required:
-      - step_id
-      - workflow_instance_id
-      - source_type
-      - source_id
-      - state
-      - assignee_user_id
-      - created_at
-      - lock_version
-      - allowed_actions
-      - workflow_instance
-      properties:
-        step_id:
-          $ref: '#/components/schemas/UUIDv7'
-        workflow_instance_id:
-          $ref: '#/components/schemas/UUIDv7'
-        source_type:
-          type: string
-        source_id:
-          type: string
-        state:
-          type: string
-        assignee_user_id:
-          oneOf:
-          - $ref: '#/components/schemas/UUIDv7'
-          - type: 'null'
-        created_at:
-          $ref: '#/components/schemas/UtcDateTime'
-        lock_version:
-          type: integer
-          minimum: 1
-        allowed_actions:
-          type: array
-          items:
-            type: string
-        workflow_instance:
-          type: object
-          additionalProperties: false
-          required:
-          - id
-          - workflow_version_id
-          - source_module
-          - source_type
-          - source_id
-          - state
-          - lock_version
-          properties:
-            id:
-              $ref: '#/components/schemas/UUIDv7'
-            workflow_version_id:
-              $ref: '#/components/schemas/UUIDv7'
-            source_module:
-              type: string
-            source_type:
-              type: string
-            source_id:
-              type: string
-            state:
-              type: string
-            lock_version:
-              type: integer
-              minimum: 1
     AccessProjection:
       type: object
       description: Server-owned authorization metadata composed with an authorized resource projection.
@@ -9324,153 +7509,6 @@ components:
           $ref: '#/components/schemas/UUIDv7'
         facility_id:
           $ref: '#/components/schemas/UUIDv7'
-    WorkDefinitionCreate:
-      type: object
-      additionalProperties: false
-      required:
-      - code
-      - name
-      - default_classification
-      properties:
-        code:
-          type: string
-          pattern: ^[a-z][a-z0-9-]{1,95}$
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        default_classification:
-          $ref: '#/components/schemas/Classification'
-        description:
-          type: string
-          maxLength: 2000
-    WorkDefinitionPatch:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        description:
-          type: string
-          maxLength: 2000
-        default_classification:
-          $ref: '#/components/schemas/Classification'
-    WorkDefinitionVersionCreate:
-      type: object
-      additionalProperties: false
-      required:
-      - schema_document
-      - field_policy_key
-      properties:
-        schema_document:
-          type: object
-          minProperties: 1
-        field_policy_key:
-          type: string
-          minLength: 1
-          maxLength: 128
-        change_summary:
-          type: string
-          maxLength: 2000
-    WorkDefinitionVersionPatch:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      properties:
-        schema_document:
-          type: object
-          minProperties: 1
-        field_policy_key:
-          type: string
-          minLength: 1
-          maxLength: 128
-        change_summary:
-          type: string
-          maxLength: 2000
-    SignatureRequest:
-      type: object
-      additionalProperties: false
-      required:
-      - schema_hash
-      - signature
-      - key_id
-      properties:
-        schema_hash:
-          type: string
-          pattern: ^[a-f0-9]{64}$
-        signature:
-          type: string
-          minLength: 32
-        key_id:
-          type: string
-          minLength: 1
-          maxLength: 128
-    WorkRecordCreate:
-      type: object
-      additionalProperties: false
-      required:
-      - work_definition_code
-      - title
-      - description
-      properties:
-        work_definition_code:
-          type: string
-          const: request
-        title:
-          type: string
-          minLength: 1
-          maxLength: 255
-        description:
-          type: string
-          minLength: 1
-          maxLength: 4000
-    WorkRecordResponse:
-      type: object
-      additionalProperties: false
-      required:
-      - data
-      properties:
-        data:
-          $ref: '#/components/schemas/work-record.schema'
-    WorkRecordCollection:
-      type: object
-      additionalProperties: false
-      required:
-      - items
-      - next_cursor
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/work-record.schema'
-        next_cursor:
-          type:
-          - string
-          - 'null'
-    Decision:
-      type: object
-      additionalProperties: false
-      required:
-      - decision
-      properties:
-        decision:
-          type: string
-          enum:
-          - approve
-          - reject
-          - return
-          - accept
-          - decline
-        reason:
-          type: string
-          maxLength: 2000
-        graph_hash_observed:
-          type: string
-          minLength: 32
-          maxLength: 128
     ReasonAction:
       type: object
       additionalProperties: false
@@ -9515,137 +7553,6 @@ components:
           type: integer
           minimum: 1
           maximum: 1073741824
-    WorkflowDefinitionCreate:
-      type: object
-      additionalProperties: false
-      required:
-      - code
-      - name
-      - source_record_type
-      properties:
-        code:
-          type: string
-          pattern: ^[a-z][a-z0-9_]{1,95}$
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        source_record_type:
-          type: string
-          minLength: 1
-          maxLength: 128
-    WorkflowVersionCreate:
-      type: object
-      additionalProperties: false
-      required:
-      - nodes
-      - transitions
-      - decision_policy
-      properties:
-        nodes:
-          type: array
-          minItems: 2
-          items:
-            $ref: '#/components/schemas/WorkflowNode'
-        transitions:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/WorkflowTransition'
-        decision_policy:
-          type: object
-          minProperties: 1
-    WorkflowVersionPatch:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      properties:
-        nodes:
-          type: array
-          minItems: 2
-          items:
-            $ref: '#/components/schemas/WorkflowNode'
-        transitions:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/WorkflowTransition'
-        decision_policy:
-          type: object
-          minProperties: 1
-        tests:
-          type: array
-          items:
-            type: object
-    WorkflowNode:
-      type: object
-      additionalProperties: false
-      required:
-      - key
-      - type
-      properties:
-        key:
-          type: string
-          pattern: ^[a-z][a-z0-9_]{1,95}$
-        type:
-          type: string
-          enum:
-          - start
-          - approval
-          - decision
-          - work_item
-          - end
-        assignment_rule:
-          type: object
-        configuration:
-          type: object
-    WorkflowTransition:
-      type: object
-      additionalProperties: false
-      required:
-      - from
-      - to
-      properties:
-        from:
-          type: string
-        to:
-          type: string
-        guard:
-          type: object
-        outcome:
-          type: string
-    WorkflowStart:
-      type: object
-      additionalProperties: false
-      required:
-      - workflow_version_id
-      - source_module
-      - record_type
-      - record_id
-      properties:
-        workflow_version_id:
-          $ref: '#/components/schemas/UUIDv7'
-        source_module:
-          type: string
-          pattern: ^[a-z][a-z0-9_]{1,63}$
-        record_type:
-          type: string
-          minLength: 1
-          maxLength: 128
-        record_id:
-          $ref: '#/components/schemas/UUIDv7'
-    WorkflowStepAction:
-      type: object
-      additionalProperties: false
-      required:
-      - reason
-      properties:
-        target_user_id:
-          $ref: '#/components/schemas/UUIDv7'
-        reason:
-          type: string
-          minLength: 1
-          maxLength: 2000
     TaskCreate:
       type: object
       additionalProperties: false
@@ -9662,6 +7569,8 @@ components:
         assignee_user_id:
           $ref: '#/components/schemas/UUIDv7'
           description: Defaults to the calling principal when omitted.
+        owner_organization_unit_id:
+          $ref: '#/components/schemas/UUIDv7'
         priority:
           type: string
           enum:
@@ -9680,8 +7589,6 @@ components:
           uniqueItems: true
           items:
             $ref: '#/components/schemas/UUIDv7'
-        source:
-          $ref: '#/components/schemas/SourceReference'
     TaskPatch:
       type: object
       additionalProperties: false
@@ -9702,7 +7609,7 @@ components:
           - low
           - normal
           - high
-          - critical
+          - urgent
         due_at:
           $ref: '#/components/schemas/UtcDateTime'
     TaskTransitionRequest:
@@ -9729,7 +7636,6 @@ components:
       - lock_version
       - created_at
       - updated_at
-      - allowed_actions
       properties:
         id:
           $ref: '#/components/schemas/UUIDv7'
@@ -9738,8 +7644,10 @@ components:
           minLength: 1
           maxLength: 255
         description:
-          type: string
-          maxLength: 4000
+          anyOf:
+          - type: string
+            maxLength: 4000
+          - type: 'null'
         state:
           type: string
           enum:
@@ -9759,25 +7667,23 @@ components:
           - urgent
         assignee_user_id:
           $ref: '#/components/schemas/UUIDv7'
+        assignee:
+          $ref: '#/components/schemas/TaskUserDisplayLabel'
         creator_user_id:
           $ref: '#/components/schemas/UUIDv7'
+        creator:
+          $ref: '#/components/schemas/TaskUserDisplayLabel'
+        owner_scope:
+          $ref: '#/components/schemas/TaskOwnerScope'
         participant_user_ids:
           type: array
           uniqueItems: true
           items:
             $ref: '#/components/schemas/UUIDv7'
         due_at:
-          $ref: '#/components/schemas/UtcDateTime'
-        source_module:
-          type: string
-          maxLength: 64
-        source_type:
-          type: string
-          maxLength: 64
-        source_id:
-          $ref: '#/components/schemas/UUIDv7'
-        workflow_step_id:
-          $ref: '#/components/schemas/UUIDv7'
+          anyOf:
+          - $ref: '#/components/schemas/UtcDateTime'
+          - type: 'null'
         allowed_actions:
           type: array
           items:
@@ -9805,6 +7711,64 @@ components:
           $ref: '#/components/schemas/UtcDateTime'
         updated_at:
           $ref: '#/components/schemas/UtcDateTime'
+    TaskCollection:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - next_cursor
+        - available_scopes
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        next_cursor:
+          oneOf:
+          - $ref: '#/components/schemas/UUIDv7'
+          - type: 'null'
+        available_scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopeOption'
+          uniqueItems: true
+    TaskUserDisplayLabel:
+      type: object
+      additionalProperties: false
+      required:
+      - user_id
+      - display_name
+      properties:
+        user_id:
+          $ref: '#/components/schemas/UUIDv7'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+    TaskOwnerScope:
+      type: object
+      additionalProperties: false
+      required:
+      - scope_type
+      - scope_id
+      - label
+      properties:
+        scope_type:
+          type: string
+          enum:
+          - cluster
+          - facility
+          - unit
+        scope_id:
+          $ref: '#/components/schemas/UUIDv7'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 255
+        code:
+          type: string
+          minLength: 1
+          maxLength: 128
     TaskAttachment:
       type: object
       additionalProperties: false
@@ -11730,9 +9694,7 @@ components:
           type: string
           maxLength: 2000
     Entity:
-      oneOf:
-      - $ref: '#/components/schemas/work-record.schema'
-      - $ref: '#/components/schemas/DomainResource'
+      $ref: '#/components/schemas/DomainResource'
     EntityCollection:
       type: object
       additionalProperties: false
@@ -11765,13 +9727,6 @@ components:
         resource_type:
           type: string
           enum:
-          - work_definition
-          - work_definition_version
-          - workflow_definition
-          - workflow_version
-          - workflow_instance
-          - workflow_step
-          - workflow_decision
           - task
           - task_comment
           - task_participant
@@ -11916,26 +9871,6 @@ components:
       format: uuid
       pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
       description: Lowercase RFC 9562 UUID version 7
-    ProblemFeatureDisabled:
-      type: object
-      required:
-      - type
-      - title
-      - status
-      - detail
-      properties:
-        type:
-          type: string
-          const: urn:cluster:problem:feature-disabled
-        title:
-          type: string
-        status:
-          type: integer
-          const: 409
-        detail:
-          type: string
-        correlation_id:
-          type: string
     problem-details.schema:
       $schema: https://json-schema.org/draft/2020-12/schema
       $id: https://contracts.cluster.example/schemas/problem-details.schema.json
@@ -12036,12 +9971,8 @@ components:
           type: object
           additionalProperties: false
           required:
-          - work_management
           - tasks
           properties:
-            work_management:
-              type: boolean
-              description: Whether the work-management feature is enabled for the principal's tenant.
             tasks:
               type: boolean
               description: Whether the tasks feature is enabled for the principal's tenant.
@@ -12053,127 +9984,10 @@ components:
           format: uuid
           pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
           description: Lowercase RFC 9562 UUID version 7
-    owner:
-      type: object
-      additionalProperties: false
-      required:
-      - facility_id
-      - user_id
-      properties:
-        facility_id:
-          $ref: '#/components/schemas/uuidv7'
-        user_id:
-          $ref: '#/components/schemas/uuidv7'
     utcDateTime:
       type: string
       format: date-time
       pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$
-    work-record.schema:
-      $schema: https://json-schema.org/draft/2020-12/schema
-      $id: https://contracts.cluster.example/schemas/work-record.schema.json
-      title: Work Record
-      type: object
-      unevaluatedProperties: false
-      required:
-      - id
-      - record_number
-      - work_type_version_id
-      - owner
-      - status
-      - classification
-      - payload
-      - lock_version
-      - allowed_actions
-      - field_access
-      - decision_id
-      - created_at
-      - updated_at
-      properties:
-        id:
-          $ref: '#/components/schemas/uuidv7'
-        record_number:
-          type: string
-          minLength: 1
-          maxLength: 64
-        work_type_id:
-          $ref: '#/components/schemas/uuidv7'
-        work_type_version_id:
-          $ref: '#/components/schemas/uuidv7'
-        owner:
-          $ref: '#/components/schemas/owner'
-        responsible_user_id:
-          $ref: '#/components/schemas/uuidv7'
-        status:
-          type: string
-          enum:
-          - draft
-          - submitted
-          - in_review
-          - returned
-          - approved
-          - rejected
-          - completed
-          - cancelled
-          - archived
-        classification:
-          type: string
-          enum:
-          - public
-          - internal
-          - confidential
-          - top_secret
-        payload:
-          type: object
-        lock_version:
-          type: integer
-          minimum: 1
-        allowed_actions:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            minLength: 1
-            maxLength: 128
-        field_access:
-          type: object
-          additionalProperties:
-            type: string
-            enum:
-            - hidden
-            - masked
-            - readonly
-            - editable
-        decision_id:
-          anyOf:
-          - $ref: '#/components/schemas/uuidv7'
-          - type: 'null'
-        submitted_at:
-          $ref: '#/components/schemas/utcDateTime'
-        created_at:
-          $ref: '#/components/schemas/utcDateTime'
-        updated_at:
-          $ref: '#/components/schemas/utcDateTime'
-      $defs:
-        uuidv7:
-          type: string
-          format: uuid
-          pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
-          description: Lowercase RFC 9562 UUID version 7
-        utcDateTime:
-          type: string
-          format: date-time
-          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$
-        owner:
-          type: object
-          additionalProperties: false
-          required:
-          - facility_id
-          - user_id
-          properties:
-            facility_id:
-              $ref: '#/components/schemas/uuidv7'
-            user_id:
-              $ref: '#/components/schemas/uuidv7'
     access-context.schema:
       $schema: https://json-schema.org/draft/2020-12/schema
       $id: https://contracts.cluster.example/schemas/access-context.schema.json
@@ -12229,7 +10043,7 @@ components:
     record-facts.schema:
       $schema: https://json-schema.org/draft/2020-12/schema
       $id: https://contracts.cluster.example/schemas/record-facts.schema.json
-      title: Work Record Authorization Facts
+      title: Authorization Resource Facts
       type: object
       additionalProperties: false
       required:
@@ -12307,17 +10121,10 @@ components:
           type: string
           minLength: 1
           maxLength: 64
-        workflow_state:
-          type: string
-          maxLength: 64
         field_policy_key:
           type: string
           minLength: 1
           maxLength: 128
-        work_type_version_id:
-          oneOf:
-          - $ref: '#/components/schemas/uuidv7'
-          - type: 'null'
         legal_hold:
           type: boolean
           default: false

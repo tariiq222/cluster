@@ -58,7 +58,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
         }
     }
 
-    public function test_clean_available_document_can_link_to_work_record_and_download(): void
+    public function test_clean_available_document_can_link_to_task_and_download(): void
     {
         [$started, $storage, $handler] = $this->availableDocument('internal', 'clean-available');
         $access = new AcceptanceDecideAccess;
@@ -67,11 +67,11 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
 
         $linkId = $link->link(
             $started->documentId,
-            new DocumentSourceReference('work_records', 'work_record', self::RECORD_ID),
+            new DocumentSourceReference('tasks', 'task', self::RECORD_ID),
             'attachment',
             self::CREATOR_ID,
             self::OWNER_ID,
-            'work_record_constraint_v1',
+            'task_constraint_v1',
         );
         $grant = $this->downloadService($access, $facts)->download(
             $started->documentId,
@@ -80,7 +80,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
         );
 
         $this->assertSame($linkId, DB::table('document_links')->value('id'));
-        $this->assertSame('work_record_constraint_v1', DB::table('document_links')->value('constraint_policy_key'));
+        $this->assertSame('task_constraint_v1', DB::table('document_links')->value('constraint_policy_key'));
         $this->assertSame($started->documentId, $grant->documentId);
         $this->assertSame('available', DB::table('document_versions')->where('public_id', $started->versionId)->value('availability_status'));
         $this->assertSame(1, $storage->promotionCalls);
@@ -92,7 +92,7 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
     {
         [$started] = $this->availableDocument('internal', 'duplicate-link');
         $service = new DocumentLinkService(new AcceptanceDecideAccess, new AcceptanceLinkedFacts, $this->app->make(\Modules\Documents\Application\DocumentAuthorizationRecordFactsBuilder::class));
-        $reference = new DocumentSourceReference('work_records', 'work_record', self::RECORD_ID);
+        $reference = new DocumentSourceReference('tasks', 'task', self::RECORD_ID);
 
         $first = $service->link($started->documentId, $reference, 'attachment', self::CREATOR_ID, self::OWNER_ID, 'policy-a');
         $second = $service->link($started->documentId, $reference, 'attachment', self::CREATOR_ID, self::OWNER_ID, 'policy-a');
@@ -153,16 +153,16 @@ final class DocumentGovernanceAcceptanceTest extends TestCase
         }
     }
 
-    public function test_denied_linked_work_record_blocks_download_even_when_document_allows(): void
+    public function test_denied_linked_task_blocks_download_even_when_document_allows(): void
     {
         [$started] = $this->availableDocument('internal', 'linked-deny');
-        $access = new AcceptanceDecideAccess(['work_record.read']);
+        $access = new AcceptanceDecideAccess(['tasks.read']);
         $facts = new AcceptanceLinkedFacts;
         DB::table('document_links')->insert([
             'id' => '018f6f7d-0c00-7000-0000-000000000921',
             'document_id' => DB::table('documents')->where('public_id', $started->documentId)->value('id'),
-            'source_module' => 'work_records',
-            'source_type' => 'work_record',
+            'source_module' => 'tasks',
+            'source_type' => 'task',
             'source_id' => self::RECORD_ID,
             'relation_type' => 'attachment',
             'link_classification' => 'confidential',

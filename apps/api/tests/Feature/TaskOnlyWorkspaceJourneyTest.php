@@ -58,6 +58,42 @@ final class TaskOnlyWorkspaceJourneyTest extends TestCase
         $complete->assertOk()->assertJsonPath('data.state', 'completed');
     }
 
+    public function test_direct_task_creation_rejects_a_generic_source_reference(): void
+    {
+        $token = $this->login('fixture-account-a');
+
+        $this->withToken($token)->postJson('/api/v1/tasks', [
+            'title' => 'Task must stand alone',
+            'priority' => 'normal',
+            'classification' => 'internal',
+            'source' => [
+                'source_module' => 'tasks',
+                'record_type' => 'task',
+                'record_id' => '018f6f7d-0c00-7000-8000-000000000799',
+            ],
+        ], $this->headers('source-rejected'))
+            ->assertStatus(422)
+            ->assertJsonPath('type', 'https://cluster.example/problems/invalid-task');
+    }
+
+    public function test_direct_task_response_has_no_work_management_link_fields(): void
+    {
+        $token = $this->login('fixture-account-a');
+
+        $data = $this->withToken($token)->postJson('/api/v1/tasks', [
+            'title' => 'Independent task',
+            'priority' => 'normal',
+            'classification' => 'internal',
+        ], $this->headers('no-legacy-fields'))
+            ->assertCreated()
+            ->json('data');
+
+        $this->assertIsArray($data);
+        foreach (['workflow_step_id', 'source_module', 'source_type', 'source_id'] as $field) {
+            $this->assertArrayNotHasKey($field, $data);
+        }
+    }
+
     public function test_manager_assignment_is_422_out_of_team(): void
     {
         $manager = $this->login('fixture-account-a');
@@ -102,18 +138,15 @@ final class TaskOnlyWorkspaceJourneyTest extends TestCase
         $complete->assertOk()->assertJsonPath('data.state', 'completed');
     }
 
-    public function test_work_management_routes_fail_closed(): void
+    public function test_retired_work_management_routes_are_not_available(): void
     {
-        // Parent TestCase::setUp defaults the feature on for legacy workflow
-        // tests; override here to exercise the gate (off in production).
-        config()->set('features.work_management', false);
         $token = $this->login('fixture-account-a');
 
         $mutation = $this->withToken($token)->postJson('/api/v1/workflow/instances', [], $this->headers('gated-mutation'));
-        $mutation->assertStatus(409)->assertJsonPath('type', 'urn:cluster:problem:feature-disabled');
+        $mutation->assertNotFound();
 
         $read = $this->withToken($token)->getJson('/api/v1/workflow/steps', $this->headers('gated-read'));
-        $read->assertStatus(404)->assertJsonPath('type', 'https://cluster.example/problems/resource-unavailable');
+        $read->assertNotFound();
     }
 
     private function login(string $username, string $password = 'fixture-password-a'): string

@@ -48,7 +48,7 @@ function mount(capabilities: string[]) {
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <SessionProvider session={session} locale="ar" setLocale={() => {}}>
-          <PrincipalContextTestProvider capabilities={capabilities} features={{ work_management: false, tasks: true }}>
+          <PrincipalContextTestProvider capabilities={capabilities} features={{ tasks: true }}>
             <OrganizationScreen />
           </PrincipalContextTestProvider>
         </SessionProvider>
@@ -69,15 +69,27 @@ describe('organization workspace', () => {
     expect(screen.queryByRole('tab', { name: 'إعداد المجمّع' })).toBeNull()
   })
 
-  it('shows job-title, temporary, and supervisory tabs under their real catalog capabilities', () => {
-    mount([
-      'organization.position.read',
-      'organization.temporary-assignment.read',
-      'organization.unit.read',
-    ])
+  it('shows positions and job titles to a position-only administrator', () => {
+    mount(['organization.position.read'])
+
+    expect(screen.getByRole('tab', { name: 'الوظائف' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'المسميات الوظيفية' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'التكليفات المؤقتة' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
+  })
+
+  it('shows structure and supervisory tabs to a unit-only administrator', () => {
+    mount(['organization.unit.read'])
+
     expect(screen.getByRole('tab', { name: 'العلاقات الإشرافية' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'الهيكل التنظيمي' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
+  })
+
+  it('shows no organization tab to an unrelated principal', () => {
+    mount(['tasks.list'])
+
+    expect(screen.queryByRole('tablist', { name: 'أقسام المنظمة' })).toBeNull()
+    expect(screen.queryByRole('tab')).toBeNull()
   })
 
   it('labels the tab list accessibly', () => {

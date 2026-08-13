@@ -60,7 +60,7 @@ final class SearchProjectionTest extends TestCase
     private function event(string $scope): array
     {
         return [
-            'source_module' => 'WorkRecords', 'source_type' => 'work_record', 'source_id' => 'record-'.$scope, 'source_version' => 'v1',
+            'source_module' => 'Tasks', 'source_type' => 'task', 'source_id' => 'record-'.$scope, 'source_version' => 'v1',
             'scope_id' => $scope, 'classification' => 'internal', 'indexable' => ['title' => 'Public request', 'excerpt' => 'Safe excerpt', 'text' => 'Public request Safe excerpt'],
             'payload' => ['secret' => 'SECRET'],
         ];
@@ -81,6 +81,6 @@ final class ScopeDecider implements DecideAccess
     {
         $allowed = $facts !== null && ($actor['facility_id'] ?? null) === $facts->ownerFacilityId;
 
-        return new AccessDecision($allowed ? 'allow' : 'deny', $capability, $facts === null ? 'work_record' : $facts->resourceType, [], 'test', 'test', $facts === null ? 'internal' : $facts->classification);
+        return new AccessDecision($allowed ? 'allow' : 'deny', $capability, $facts === null ? 'task' : $facts->resourceType, [], 'test', 'test', $facts === null ? 'internal' : $facts->classification);
     }
 }

@@ -28,7 +28,7 @@ final class SearchController
             return $principal;
         }
 
-        $input = $request->query();
+        $input = $request->json()->all();
         $validator = Validator::make($input, [
             'q' => ['required', 'string', 'min:1', 'max:256'],
             'scope_id' => ['sometimes', 'string', 'max:128'],
@@ -56,17 +56,6 @@ final class SearchController
             return SearchApi::problem(400, 'invalid-search-query', 'Bad Request', 'The search query is invalid.', $correlationId);
         }
 
-        $response = SearchApi::response($result, 200, $correlationId);
-        if ($result['next_cursor'] !== null) {
-            $nextQuery = ['cursor' => $result['next_cursor'], 'limit' => $limit, 'q' => $validated['q']];
-            foreach (['scope_id', 'type', 'status'] as $optional) {
-                if (isset($validated[$optional])) {
-                    $nextQuery[$optional] = $validated[$optional];
-                }
-            }
-            $response->header('Link', '</api/v1/search?'.http_build_query($nextQuery, '', '&', PHP_QUERY_RFC3986).'>; rel="next"');
-        }
-
-        return $response;
+        return SearchApi::response($result, 200, $correlationId);
     }
 }

@@ -27,7 +27,7 @@ final class FixtureFacilityDecision implements DecideAccess
     public function decide(array $actor, string $capability, ?RecordFacts $facts): AccessDecision
     {
         if ($facts === null) {
-            return $this->deny($capability, 'work_record', 'internal', 'unavailable', 'record_facts_unavailable');
+            return $this->deny($capability, 'resource', 'internal', 'unavailable', 'record_facts_unavailable');
         }
 
         if (! CapabilityCatalog::supports($capability)) {

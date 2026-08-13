@@ -3,11 +3,11 @@
 > ملف مولّد آلياً من عقد `docs/contracts/api/openapi.yaml` وملف `docs/api/endpoints.md` وهوكات Orval في `apps/web/src/api/generated/cluster.ts`. لا تُعدَّل يدوياً.
 > لإعادة التوليد: `python3 scripts/generate-endpoint-table.py`
 
-- العمليات الحيّة (مسجّلة في `web.php`): **150**
-- العمليات المخططة (موثّقة في العقد فقط): **55**
-- الوحدات الحيّة: **15**
-- الصفحات/الشاشات المربوطة: **47**
-- هوكات Orval موجودة: **150**
+- العمليات الحيّة (مسجّلة في `web.php`): **126**
+- العمليات المخططة (موثّقة في العقد فقط): **41**
+- الوحدات الحيّة: **12**
+- الصفحات/الشاشات المربوطة: **43**
+- هوكات Orval موجودة: **126**
 
 أعمدة `الـ Request` و`الـ Response` بتنسيق مختصر: `Schema{الحقل*, الحقل?}` حيث `*` إلزامي و`?` اختياري؛ `enum{a,b}` قيم ثابتة؛ `X[]` مصفوفة؛ `?a, b` باراميترات استعلام.
 
@@ -46,7 +46,7 @@
 |---|--------|--------|-------------|-------------|-------------|--------------|------|------------|-------------|
 | 1 | لوحات المعلومات | `GET` | `/api/v1/dashboards` | `?cursor, limit` | `200: Collection` | 200, 401, 403 | جلسة | `Modules\Reporting\Features\ListDashboards\Http\ListDashboardsController` | `listDashboards` |
 | 2 | لوحات المعلومات | `GET` | `/api/v1/dashboards/{dashboardId}` | `?scope_id` | `200: Entity` | 200, 401, 403, 404 | جلسة | `Modules\Reporting\Features\Dashboards\Http\GetDashboardController` | `getDashboard` |
-| 3 | تنزيل التصديرات | `GET` | `/api/v1/exports/{exportId}` | `—` | `200: (Work Record{id*, record_number*, work_type_id?, work_type_version_id*, owner*, responsible_user_id?, status*, classification*, payload*, lock_version*, allowed_actions*, field_access*, decision_id*, submitted_at?, created_at*, updated_at*} \| {id*, resource_type*, code?, name?, title?, description?, status*, lifecycle_state?, classification*, version_number?, parent_id?, owner_organization_unit_id?, owner_user_id?, assignee_user_id?, source?, relation_type?, constraint_policy_key?, restriction_policy_key?, retention_policy_key?, retention_until?, due_at?, effective_from?, effective_to?, policy_version?, facts_version?, values?, lock_version*, created_at*, updated_at*, allowed_actions?})` | 200, 404, 406 | جلسة | `Modules\Reporting\Features\Exports\Http\DownloadExportController` | `getExport` |
+| 3 | تنزيل التصديرات | `GET` | `/api/v1/exports/{exportId}` | `—` | `200: {id*, resource_type*, code?, name?, title?, description?, status*, lifecycle_state?, classification*, version_number?, parent_id?, owner_organization_unit_id?, owner_user_id?, assignee_user_id?, source?, relation_type?, constraint_policy_key?, restriction_policy_key?, retention_policy_key?, retention_until?, due_at?, effective_from?, effective_to?, policy_version?, facts_version?, values?, lock_version*, created_at*, updated_at*, allowed_actions?}` | 200, 404, 406 | جلسة | `Modules\Reporting\Features\Exports\Http\DownloadExportController` | `getExport` |
 | 4 | التقارير والمراقبة | `GET` | `/api/v1/reports` | `?cursor, limit` | `200: Collection` | 200, 401, 403 | جلسة | `Modules\Reporting\Features\ListReports\Http\ListReportsController` | `listReports` |
 | 5 | التقارير والمراقبة | `GET` | `/api/v1/reports/{reportId}` | `?scope_id` | `200: Entity` | 200, 401, 403, 404 | جلسة | `Modules\Reporting\Features\Reports\Http\GetReportController` | `getReport` |
 | 6 | التقارير والمراقبة | `POST` | `/api/v1/reports/{reportId}/exports` | `{format*, scope_id?} *` | `202: Entity` | 202, 400, 401, 403, 404, 409, 422 | جلسة + CSRF | `Modules\Reporting\Features\Exports\Http\CreateReportExportController` | `createReportExport` |
@@ -132,7 +132,7 @@
 | # | الصفحة | Method | الـ Endpoint | الـ Request | الـ Response | Status Codes | Auth | Controller | Orval Hook |
 |---|--------|--------|-------------|-------------|-------------|--------------|------|------------|-------------|
 | 1 | المهام | `GET` | `/api/v1/tasks` | `?cursor, limit, state, relationship` | `200: Collection` | 200, 401, 403 | جلسة | `Modules\Tasks\Features\Http\TaskController::index` | `listTasks` |
-| 2 | المهام | `POST` | `/api/v1/tasks` | `{title*, description?, assignee_user_id?, priority?, due_at?, classification?, participant_user_ids?, source?} *` | `201: Entity` | 201, 400, 401, 403, 404, 409 | جلسة + CSRF | `Modules\Tasks\Features\Http\TaskController::store` | `createTask` |
+| 2 | المهام | `POST` | `/api/v1/tasks` | `{title*, description?, assignee_user_id?, priority?, due_at?, classification?, participant_user_ids?} *` | `201: Entity` | 201, 400, 401, 403, 404, 409 | جلسة + CSRF | `Modules\Tasks\Features\Http\TaskController::store` | `createTask` |
 | 3 | المهام | `GET` | `/api/v1/tasks/{taskId}` | `—` | `200: Entity` | 200, 401, 403, 404 | جلسة | `Modules\Tasks\Features\Http\TaskController::show` | `getTask` |
 | 4 | المهام | `PATCH` | `/api/v1/tasks/{taskId}` | `{title?, description?, assignee_user_id?, priority?, due_at?} *` | `200: Entity` | 200, 400, 401, 403, 404, 409, 412 | جلسة + CSRF | `Modules\Tasks\Features\Http\TaskController::update` | `updateTask` |
 | 5 | المهام | `GET` | `/api/v1/tasks/{taskId}/comments` | `?cursor, limit` | `200: Collection` | 200, 401, 403, 404 | جلسة | `Modules\Tasks\Features\Http\TaskEngagementController::listComments` | `listTaskComments` |
@@ -161,17 +161,6 @@
 | 14 | اختيار نطاق الصلاحية | `PUT` | `/api/v1/me/scope` | `{scope_type*, scope_id*} *` | `200: {available_scopes*, effective_scope*}` | 200, 400, 401, 403, 409, 412 | جلسة + CSRF | `Modules\Identity\Features\Sessions\Http\SelectMyScopeController` | `selectMyScope` |
 | 15 | تبديل نطاق الصلاحية | `GET` | `/api/v1/me/scopes` | `—` | `200: {available_scopes*, effective_scope*}` | 200, 401, 403 | جلسة | `Modules\Identity\Features\Sessions\Http\ListMyScopesController` | `listMyScopes` |
 
-## تعريفات العمل
-
-| # | الصفحة | Method | الـ Endpoint | الـ Request | الـ Response | Status Codes | Auth | Controller | Orval Hook |
-|---|--------|--------|-------------|-------------|-------------|--------------|------|------------|-------------|
-| 1 | إصدارات تعريف العمل | `GET` | `/api/v1/work-definition-versions/{versionId}` | `—` | `200: Entity` | 200, 401, 403, 404 | جلسة | `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::showVersionRoute` | `getWorkDefinitionVersion` |
-| 2 | تعريفات العمل | `GET` | `/api/v1/work-definitions` | `?cursor, limit` | `200: Collection` | 200, 401, 403 | جلسة | `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::index` | `listWorkDefinitions` |
-| 3 | تعريفات العمل | `POST` | `/api/v1/work-definitions` | `{code*, name*, default_classification*, description?} *` | `201: Entity` | 201, 400, 401, 403, 409 | جلسة + CSRF | `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::store` | `createWorkDefinition` |
-| 4 | تعريفات العمل | `GET` | `/api/v1/work-definitions/{definitionId}` | `—` | `200: Entity` | 200, 401, 403, 404 | جلسة | `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::show` | `getWorkDefinition` |
-| 5 | تعريفات العمل | `GET` | `/api/v1/work-definitions/{definitionId}/versions` | `?cursor, limit` | `200: Collection` | 200, 401, 403, 404 | جلسة | `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::versions` | `listWorkDefinitionVersions` |
-| 6 | تعريفات العمل | `POST` | `/api/v1/work-definitions/{definitionId}/versions` | `{schema_document*, field_policy_key*, change_summary?} *` | `201: Entity` | 201, 400, 401, 403, 404, 409 | جلسة + CSRF | `Modules\WorkDefinitions\Features\Definition\Http\WorkDefinitionController::versions` | `createWorkDefinitionVersion` |
-
 ## داخلي (المستندات)
 
 | # | الصفحة | Method | الـ Endpoint | الـ Request | الـ Response | Status Codes | Auth | Controller | Orval Hook |
@@ -189,34 +178,6 @@
 | 4 | سجل التدقيق | `GET` | `/api/v1/audit/exports/{exportId}` | `—` | `200: {id*, principal_id*, facility_id*, query*, format*, snapshot_recorded_at*, status*, event_count*, expires_at*, created_at*}` | 200, 404, 500 | جلسة | `Modules\Audit\Features\GetAuditExport\Http\GetAuditExportController` | `getAuditExport` |
 | 5 | سجل التدقيق | `GET` | `/api/v1/audit/exports/{exportId}/download` | `—` | `200: text/csv; charset=utf-8` | 200, 400, 401, 404, 410, 500 | جلسة | `Modules\Audit\Features\DownloadAuditExport\Http\DownloadAuditExportController` | `downloadAuditExport` |
 | 6 | سجل التدقيق | `POST` | `/api/v1/audit/integrity-verifications` | `{stream_key*, first_sequence?, last_sequence?} *` | `201: {stream_key*, first_sequence*, last_sequence*, verified_event_count*, integrity_status*, checkpoint_id*}` | 201, 400, 401, 403, 409, 503, 500 | جلسة + CSRF | `Modules\Audit\Features\VerifyAuditIntegrity\Http\VerifyAuditIntegrityController` | `verifyAuditIntegrity` |
-
-## سجلات العمل
-
-| # | الصفحة | Method | الـ Endpoint | الـ Request | الـ Response | Status Codes | Auth | Controller | Orval Hook |
-|---|--------|--------|-------------|-------------|-------------|--------------|------|------------|-------------|
-| 1 | سجلات العمل | `GET` | `/api/v1/work-records` | `?cursor, limit, classification` | `200: WorkRecordCollection` | 200, 400, 401 | جلسة | `Modules\WorkRecords\Features\ListAuthorizedWorkRecords\Http\ListAuthorizedWorkRecordsController` | `listWorkRecords` |
-| 2 | سجلات العمل | `POST` | `/api/v1/work-records` | `{work_definition_code*, title*, description*} *` | `201: WorkRecord` | 201, 400, 401, 403, 404, 409, 422, 500 | جلسة + CSRF | `Modules\WorkRecords\Features\SubmitWorkRecord\Http\SubmitWorkRecordController` | `createWorkRecord` |
-| 3 | سجلات العمل | `GET` | `/api/v1/work-records/{recordId}` | `—` | `200: WorkRecord` | 200, 400, 401, 404 | جلسة | `Modules\WorkRecords\Features\GetAuthorizedWorkRecord\Http\GetAuthorizedWorkRecordController` | `getWorkRecord` |
-| 4 | سجلات العمل | `POST` | `/api/v1/work-records/{recordId}/documents` | `{document_id*, relation_type*} *` | `201: Entity` | 201, 400, 401, 403, 404, 409 | جلسة + CSRF | `Modules\WorkRecords\Features\DocumentLink\Http\WorkRecordDocumentLinkController` | `linkWorkRecordDocument` |
-| 5 | سجلات العمل | `POST` | `/api/v1/work-records/{recordId}/{recordAction}` | `({comment?} \| {reason?} \| {reason*}) ` | `200: WorkRecord` | 200, 400, 401, 403, 404, 409, 412 | جلسة + CSRF | `Modules\WorkRecords\Features\Lifecycle\Http\WorkRecordLifecycleController::transition` | `transitionWorkRecord` |
-
-## سير العمل
-
-| # | الصفحة | Method | الـ Endpoint | الـ Request | الـ Response | Status Codes | Auth | Controller | Orval Hook |
-|---|--------|--------|-------------|-------------|-------------|--------------|------|------------|-------------|
-| 1 | سير العمل | `GET` | `/api/v1/workflow/definitions` | `?cursor, limit` | `200: Collection` | 200, 401, 403 | جلسة | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::definitions` | `listWorkflowDefinitions` |
-| 2 | سير العمل | `POST` | `/api/v1/workflow/definitions` | `{code*, name*, source_record_type*} *` | `201: Entity` | 201, 400, 401, 403, 409 | جلسة + CSRF | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::definitions` | `createWorkflowDefinition` |
-| 3 | سير العمل | `GET` | `/api/v1/workflow/definitions/{definitionId}/versions` | `?cursor, limit` | `200: Collection` | 200, 401, 403, 404 | جلسة | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::versions` | `listWorkflowVersions` |
-| 4 | سير العمل | `POST` | `/api/v1/workflow/definitions/{definitionId}/versions` | `{nodes*, transitions*, decision_policy*} *` | `201: Entity` | 201, 400, 401, 403, 404, 409 | جلسة + CSRF | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::versions` | `createWorkflowVersion` |
-| 5 | سير العمل | `GET` | `/api/v1/workflow/instances` | `?cursor, limit, state` | `200: Collection` | 200, 401, 403 | جلسة | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::instances` | `listWorkflowInstances` |
-| 6 | سير العمل | `POST` | `/api/v1/workflow/instances` | `{workflow_version_id*, source_module*, record_type*, record_id*} *` | `201: Entity` | 201, 400, 401, 403, 404, 409 | جلسة + CSRF | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::instances` | `startWorkflow` |
-| 7 | سير العمل | `GET` | `/api/v1/workflow/instances/{instanceId}` | `—` | `200: WorkflowInstanceTrackingResponse` | 200, 401, 403, 404 | جلسة | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::showInstance` | `getWorkflowInstance` |
-| 8 | سير العمل | `POST` | `/api/v1/workflow/instances/{instanceId}/cancel` | `{reason*} *` | `200: Entity` | 200, 400, 401, 403, 404, 409, 412 | جلسة + CSRF | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::cancelInstance` | `cancelWorkflow` |
-| 9 | سير العمل | `GET` | `/api/v1/workflow/steps` | `?cursor, limit, state, assignee, assignee_user_id` | `200: WorkflowStepCollection` | 200, 401, 403 | جلسة | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::listInbox` | `listWorkflowStepsInbox` |
-| 10 | سير العمل | `GET` | `/api/v1/workflow/steps/{stepId}` | `—` | `200: WorkflowStepDetailResponse` | 200, 401, 404 | جلسة | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::showStep` | `getWorkflowStep` |
-| 11 | سير العمل | `POST` | `/api/v1/workflow/steps/{stepId}/decisions` | `{decision*, reason?, graph_hash_observed?} *` | `201: Entity` | 201, 400, 401, 403, 404, 409, 412 | جلسة + CSRF | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::decideStep` | `recordWorkflowDecision` |
-| 12 | سير العمل | `POST` | `/api/v1/workflow/steps/{stepId}/{stepAction}` | `{target_user_id?, reason*} *` | `200: Entity` | 200, 400, 401, 403, 404, 409, 412 | جلسة + CSRF | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::actOnStep` | `actOnWorkflowStep` |
-| 13 | سير العمل | `POST` | `/api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}` | `{reason?, signature?, decision_id?} ` | `200: Entity` | 200, 400, 401, 403, 404, 409, 412 | جلسة + CSRF | `Modules\Workflow\Features\WorkflowLifecycle\Http\WorkflowController::publish` | `transitionWorkflowVersion` |
 
 ## عمليات المنصة
 
@@ -242,20 +203,6 @@
 
 | Method | الـ Endpoint | الـ Request | Status Codes |
 |--------|-------------|-------------|--------------|
-| `PATCH` | `/api/v1/work-definitions/{definitionId}` | `{name?, description?, default_classification?} *` | 200, 400, 401, 403, 404, 409, 412 |
-| `PATCH` | `/api/v1/work-definition-versions/{versionId}` | `{schema_document?, field_policy_key?, change_summary?} *` | 200, 400, 401, 403, 404, 409, 412 |
-| `POST` | `/api/v1/work-definition-versions/{versionId}/test` | `—` | 200, 400, 401, 403, 404, 409, 412 |
-| `POST` | `/api/v1/work-definition-versions/{versionId}/approve` | `—` | 200, 401, 403, 404, 409, 412 |
-| `POST` | `/api/v1/work-definition-versions/{versionId}/sign` | `{schema_hash*, signature*, key_id*} *` | 200, 400, 401, 403, 404, 409, 412 |
-| `POST` | `/api/v1/work-definition-versions/{versionId}/publish` | `—` | 200, 401, 403, 404, 409, 412 |
-| `PATCH` | `/api/v1/work-records/{recordId}` | `{payload?, responsible_user_id?, classification?} *` | 200, 400, 401, 403, 404, 409, 412 |
-| `GET` | `/api/v1/workflow/versions/{versionId}` | `—` | 200, 401, 403, 404 |
-| `PATCH` | `/api/v1/workflow/versions/{versionId}` | `{nodes?, transitions?, decision_policy?, tests?} *` | 200, 400, 401, 403, 404, 409, 412 |
-| `POST` | `/api/v1/workflow/operations-office/versions/{versionId}/submit` | `{workflow_version_id*, idempotency_key?} ` | 200, 400, 401, 403, 404, 409, 412, 422 |
-| `POST` | `/api/v1/workflow/operations-office/versions/{versionId}/return` | `{reason*, idempotency_key?} *` | 200, 400, 401, 403, 404, 409, 412 |
-| `POST` | `/api/v1/workflow/operations-office/versions/{versionId}/approve` | `{graph_hash_observed?, idempotency_key?} *` | 200, 400, 401, 403, 404, 409, 412, 422 |
-| `POST` | `/api/v1/workflow/operations-office/versions/{versionId}/publish` | `{scope*, usage_description*, idempotency_key?} *` | 200, 400, 401, 403, 404, 409, 412, 422 |
-| `GET` | `/api/v1/workflow/operations-office/versions/{versionId}/audit` | `?cursor, limit` | 200, 401, 403, 404 |
 | `GET` | `/api/v1/workspace` | `—` | 200, 401 |
 | `POST` | `/api/v1/authorization/bootstrap` | `{reason*} *` | 200, 400, 401, 403, 409, 412 |
 | `GET` | `/api/v1/strategy/{strategyResource}` | `?cursor, limit` | 200, 401, 403 |

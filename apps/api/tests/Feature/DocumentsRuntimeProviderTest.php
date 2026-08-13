@@ -54,6 +54,28 @@ final class DocumentsRuntimeProviderTest extends TestCase
         $this->assertInstanceOf(UnavailableMalwareScanner::class, $this->app->make(MalwareScanner::class));
     }
 
+    public function test_production_runtime_defaults_to_enabled_when_flag_is_absent(): void
+    {
+        $this->unsetEnvironmentVariable('DOCUMENTS_PRODUCTION_RUNTIME_ENABLED');
+        $this->setEnvironmentVariable('APP_ENV', 'production');
+
+        /** @var array{runtime: array{production_enabled: bool}} $configuration */
+        $configuration = require base_path('config/documents.php');
+
+        $this->assertTrue($configuration['runtime']['production_enabled']);
+    }
+
+    public function test_explicitly_disabled_production_runtime_binds_unavailable_adapters(): void
+    {
+        $this->setEnvironmentVariable('APP_ENV', 'production');
+        $this->setEnvironmentVariable('DOCUMENTS_PRODUCTION_RUNTIME_ENABLED', 'false');
+        $this->refreshApplication();
+
+        $this->assertFalse(config('documents.runtime.production_enabled'));
+        $this->assertInstanceOf(UnavailablePrivateObjectStorage::class, $this->app->make(PrivateObjectStorage::class));
+        $this->assertInstanceOf(UnavailableMalwareScanner::class, $this->app->make(MalwareScanner::class));
+    }
+
     protected function tearDown(): void
     {
         foreach ($this->originalEnvironment as $name => $value) {
@@ -102,5 +124,15 @@ final class DocumentsRuntimeProviderTest extends TestCase
         $_ENV[$name] = $value;
         $_SERVER[$name] = $value;
         putenv("{$name}={$value}");
+    }
+
+    private function unsetEnvironmentVariable(string $name): void
+    {
+        if (! array_key_exists($name, $this->originalEnvironment)) {
+            $this->originalEnvironment[$name] = getenv($name);
+        }
+
+        unset($_ENV[$name], $_SERVER[$name]);
+        putenv($name);
     }
 }

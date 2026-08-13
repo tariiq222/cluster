@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 // The W1.3 journey seeder provisions these real accounts on facilities A
 // and B; the UI and session APIs only accept server-issued identities.
@@ -7,14 +7,7 @@ const walkingSkeletonFixtures = {
   accountA: {
     username: 'w13-e2e-account-a',
     password: 'North!River7Quartz2026',
-    title: 'طلب حساب أ',
-    description: 'وصف لا يراه إلا حساب المنشأة أ.',
   },
-  accountB: {
-    username: 'w13-e2e-account-b',
-    password: 'Cedar!Orbit8Harbor2026',
-  },
-  unavailableRecordId: '018f6f7d-0c00-7000-8000-000000000010',
 } as const
 
 const walkingSkeletonLocales = {
@@ -28,7 +21,6 @@ const PLATFORM_ADMIN = {
   username: 'platform-admin',
   password: 'Admin!Cluster9Owner2026',
 } as const
-const SESSION_METADATA_KEY = 'cluster.identity-session'
 // Production-bundle runs pass the external HTTPS origin; the W1.1 dev lane
 // only provides a port.
 const WEB_ORIGIN = process.env.W1_1_WEB_ORIGIN ?? `http://127.0.0.1:${process.env.W1_1_WEB_PORT ?? '4173'}`
@@ -69,17 +61,6 @@ function correlationId(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-async function apiSession(request: APIRequestContext, username: string, password: string): Promise<string> {
-  const response = await request.post('/api/v1/identity/login', {
-    headers: { 'X-Correlation-ID': correlationId() },
-    data: { username, password },
-  })
-  expect(response.status()).toBe(200)
-  const body = await response.json() as { data?: { csrf_token?: unknown } }
-  return typeof body.data?.csrf_token === 'string' ? body.data.csrf_token : ''
-}
-
-
 async function signIn(page: Page, locale: Locale, username: string, password: string): Promise<void> {
   const labels = copy[locale]
   await page.goto(WEB_ORIGIN)
@@ -109,66 +90,35 @@ async function signInPlatformAdmin(page: Page): Promise<void> {
 }
 
 async function currentCsrfToken(page: Page): Promise<string> {
-  const token = await page.evaluate((storageKey) => {
-    const stored = window.sessionStorage.getItem(storageKey)
-    if (stored === null) return ''
-    const parsed = JSON.parse(stored) as { csrf_token?: unknown }
-    return typeof parsed.csrf_token === 'string' ? parsed.csrf_token : ''
-  }, SESSION_METADATA_KEY)
+  const response = await page.request.post('/api/v1/identity/csrf', {
+    headers: { 'X-Correlation-ID': correlationId() },
+  })
+  expect(response.status()).toBe(200)
+  const body = await response.json() as { data?: { csrf_token?: unknown } }
+  const token = typeof body.data?.csrf_token === 'string' ? body.data.csrf_token : ''
   expect(token).toMatch(/^[a-f0-9]{64}$/)
   return token
 }
 
 async function openOrganizationOverview(page: Page): Promise<void> {
   await page.goto(`${WEB_ORIGIN}/organization`)
-  await expect(page.getByRole('heading', { name: 'المنظمة' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'المنظمة', exact: true })).toBeVisible()
 }
 
 
-test('disabled work-management mutations fail closed with 409 feature-disabled', async ({ request }) => {
-  // The legacy facility A/B work-record journeys are retired: with
-  // work_management disabled, every mutation is rejected before any handler
-  // runs, for every principal (spec §4/§12).
-  const csrf = await apiSession(request, walkingSkeletonFixtures.accountA.username, walkingSkeletonFixtures.accountA.password)
-  const headers = { 'X-Correlation-ID': correlationId(), 'Idempotency-Key': `closure-gate-${correlationId()}`, 'X-CSRF-Token': csrf }
-  for (const [method, url] of [
-    ['post', '/api/v1/work-records'],
-    ['post', '/api/v1/workflow/instances'],
-    ['post', '/api/v1/work-definitions'],
-  ] as const) {
-    const response = await request[method](url, { headers, data: {} })
-    expect(response.status()).toBe(409)
-    expect(await response.json()).toMatchObject({ type: 'urn:cluster:problem:feature-disabled', status: 409 })
-  }
-})
-
-test('disabled work-management reads return one non-disclosing 404 for both facilities', async ({ request }) => {
-  await apiSession(request, walkingSkeletonFixtures.accountA.username, walkingSkeletonFixtures.accountA.password)
-  const aRead = await request.get(`/api/v1/work-records/${correlationId()}`, { headers: { 'X-Correlation-ID': correlationId() } })
-  await apiSession(request, walkingSkeletonFixtures.accountB.username, walkingSkeletonFixtures.accountB.password)
-  const bRead = await request.get(`/api/v1/work-records/${correlationId()}`, { headers: { 'X-Correlation-ID': correlationId() } })
-  expect(aRead.status()).toBe(404)
-  expect(aRead.status()).toBe(bRead.status())
-  const aBody = await aRead.text()
-  expect(aBody).toBe(await bRead.text())
-  for (const forbidden of ['facility', 'owner', 'trace', 'authorization']) {
-    expect(aBody).not.toContain(forbidden)
-  }
-})
-
-test('cookie session restores after storage loss and a later 401 expires the whole shell', async ({ page }) => {
+test('cookie session restores without web storage and a revoked session returns to login', async ({ page }) => {
   await signIn(
     page,
     'ar',
     walkingSkeletonFixtures.accountA.username,
     walkingSkeletonFixtures.accountA.password,
   )
-  const csrfToken = await currentCsrfToken(page)
-
+  await expect(page.evaluate(() => window.sessionStorage.length)).resolves.toBe(0)
   await page.evaluate(() => window.sessionStorage.clear())
   await page.goto(`${WEB_ORIGIN}/tasks`)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'المهام' }).first()).toBeVisible()
+  const csrfToken = await currentCsrfToken(page)
 
   const logout = await page.request.post('/api/v1/identity/logout', {
     headers: {
@@ -180,10 +130,8 @@ test('cookie session restores after storage loss and a later 401 expires the who
   expect(logout.status()).toBe(204)
 
   // Deterministic expiry: a session cookie with no backing session row is a
-  // 401 boundary (fixture resolution only injects a principal when NO token
-  // is sent). Corrupt both the cookie and the stored metadata so every
-  // restore path fails closed, regardless of how the logout response manages
-  // the client cookie.
+  // 401 boundary. Session metadata is deliberately never persisted in web
+  // storage; the HttpOnly cookie is the only browser-held session credential.
   const origin = new URL(WEB_ORIGIN)
   await page.context().addCookies([{
     name: 'cluster_identity_session',
@@ -191,16 +139,9 @@ test('cookie session restores after storage loss and a later 401 expires the who
     domain: origin.hostname,
     path: '/',
   }])
-  await page.evaluate((storageKey) => {
-    const stored = window.sessionStorage.getItem(storageKey)
-    if (stored !== null) {
-      const parsed = JSON.parse(stored) as Record<string, unknown>
-      parsed.access_token = '018f6f7d-0c00-7000-8000-00000000dead'
-      window.sessionStorage.setItem(storageKey, JSON.stringify(parsed))
-    }
-  }, SESSION_METADATA_KEY)
   await page.reload()
-  await expect(page.getByRole('alert')).toContainText(copy.ar.expired)
+  await expect(page.getByRole('form', { name: 'تسجيل الدخول' })).toBeVisible()
+  await expect(page.evaluate(() => window.sessionStorage.length)).resolves.toBe(0)
 })
 
 test('cookie mutation rejects a missing CSRF proof and admits the matching proof', async ({ page }) => {
@@ -247,7 +188,7 @@ test('server capabilities gate both the platform-management route and its create
     walkingSkeletonFixtures.accountA.password,
   )
   await page.goto(`${WEB_ORIGIN}/platform-management`)
-  await expect(page.getByText('لا تملك صلاحية الوصول إلى هذا القسم.')).toBeVisible()
+  await expect(page.getByText('لا يمكن الوصول إلى هذا المحتوى.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'إنشاء تقويم' })).toHaveCount(0)
 
   const ownerPage = await browser.newPage()
@@ -255,7 +196,7 @@ test('server capabilities gate both the platform-management route and its create
     await signInPlatformAdmin(ownerPage)
     await ownerPage.goto(`${WEB_ORIGIN}/platform-management`)
     await expect(ownerPage.getByRole('heading', { name: 'إدارة المنصة' })).toBeVisible()
-    await ownerPage.getByRole('button', { name: 'التقويمات' }).click()
+    await ownerPage.getByRole('tab', { name: 'إعدادات المنصة', exact: true }).click()
     await expect(ownerPage.getByRole('button', { name: 'إنشاء تقويم' })).toBeVisible()
   } finally {
     await ownerPage.close()
@@ -272,15 +213,17 @@ test('Organization surfaces a save error to the 409 loser when two owners create
     await signInPlatformAdmin(pageB)
     await openOrganizationOverview(pageA)
     await openOrganizationOverview(pageB)
+    await pageA.getByRole('tab', { name: 'المنشآت', exact: true }).click()
+    await pageB.getByRole('tab', { name: 'المنشآت', exact: true }).click()
 
     await pageA.getByRole('button', { name: 'إضافة منشأة' }).click()
     await pageB.getByRole('button', { name: 'إضافة منشأة' }).click()
     await expect(pageA).toHaveURL(/\/organization\/facilities\/new$/)
     await expect(pageB).toHaveURL(/\/organization\/facilities\/new$/)
     await pageA.getByLabel('الرقم التعريفي').fill(code)
-    await pageA.getByLabel('اسم المنشأة بالعربية').fill('منشأة الفائز')
+    await pageA.getByLabel('الاسم بالعربية', { exact: true }).fill('منشأة الفائز')
     await pageB.getByLabel('الرقم التعريفي').fill(code)
-    await pageB.getByLabel('اسم المنشأة بالعربية').fill('منشأة الخاسر')
+    await pageB.getByLabel('الاسم بالعربية', { exact: true }).fill('منشأة الخاسر')
 
     await pageA.getByRole('button', { name: 'حفظ' }).click()
     await expect(pageA.getByText('منشأة الفائز')).toBeVisible()
@@ -339,6 +282,8 @@ test('Organization stale-write loser sees 412 feedback and refreshes to the winn
     await signInPlatformAdmin(pageB)
     await openOrganizationOverview(pageA)
     await openOrganizationOverview(pageB)
+    await pageA.getByRole('tab', { name: 'إعداد المجمّع', exact: true }).click()
+    await pageB.getByRole('tab', { name: 'إعداد المجمّع', exact: true }).click()
 
     await pageA.getByRole('button', { name: 'تعديل بيانات التجمع' }).click()
     await pageB.getByRole('button', { name: 'تعديل بيانات التجمع' }).click()
@@ -365,10 +310,9 @@ test('Organization stale-write loser sees 412 feedback and refreshes to the winn
     expect((await loserResponse).status()).toBe(412)
     await expect(pageB.getByRole('alert')).toContainText('تغيّرت البيانات في مكان آخر. حدّث الصفحة ثم أعد المحاولة.')
 
-    await pageB.reload()
-    await expect(pageB.getByRole('heading', { name: 'المنظمة' })).toBeVisible()
-    await expect(pageB.getByText(winnerName, { exact: true })).toBeVisible()
-    await expect(pageB.getByText(loserName, { exact: true })).toHaveCount(0)
+    await pageB.getByRole('button', { name: 'إعادة المحاولة' }).click()
+    await expect(pageB.getByLabel('الاسم بالعربية')).toHaveValue(winnerName)
+    await expect(pageB.getByLabel('الاسم بالعربية')).not.toHaveValue(loserName)
   } finally {
     await pageA.close()
     await pageB.close()

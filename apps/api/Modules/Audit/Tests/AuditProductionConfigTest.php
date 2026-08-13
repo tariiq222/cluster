@@ -50,6 +50,19 @@ final class AuditProductionConfigTest extends TestCase
         require dirname(__DIR__, 3).'/config/audit.php';
     }
 
+    public function test_legacy_revoke_mode_is_rejected_because_retention_requires_controlled_deletes(): void
+    {
+        $this->setEnvironmentVariable('APP_ENV', 'production');
+        $this->setEnvironmentVariable('AUDIT_INTEGRITY_KEYS', 'v1:'.str_repeat('a', 32));
+        $this->setEnvironmentVariable('AUDIT_INTEGRITY_KEY_VERSION', 'v1');
+        $this->setEnvironmentVariable('AUDIT_ENFORCE_REVOKE', 'true');
+
+        $this->expectException(UnexpectedValueException::class);
+        $this->expectExceptionMessage('audit_revoke_mode_incompatible_with_retention');
+
+        require dirname(__DIR__, 3).'/config/audit.php';
+    }
+
     protected function tearDown(): void
     {
         foreach ($this->originalEnvironment as $name => $value) {

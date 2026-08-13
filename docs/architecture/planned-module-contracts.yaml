@@ -16,8 +16,8 @@
 #
 # The seven planned-module entries are exactly M01-M07. Existing implemented
 # modules (Shared, PlatformSettings, Organization, Identity, Authorization,
-# Workflow, WorkDefinitions, Documents, Tasks, WorkRecords, Notifications,
-# Search, Reporting) appear only as prerequisite facts, not as module entries.
+# Documents, Tasks, Notifications, Search, Reporting) appear only as
+# prerequisite facts, not as module entries.
 #
 # Module ranks are mirrored from MODULE_RANKS in
 # apps/api/tests/Architecture/ModuleBoundariesTest.php. A planned module's

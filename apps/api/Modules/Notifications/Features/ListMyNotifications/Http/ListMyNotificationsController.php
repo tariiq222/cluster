@@ -97,31 +97,39 @@ final class ListMyNotificationsController
     private function serialize(stdClass $row, array $principal): array
     {
         $masked = false;
+        $isTask = str_starts_with((string) ($row->type ?? ''), 'task.');
         $sourceFacilityId = $row->source_owner_facility_id ?? null;
-        if (is_string($sourceFacilityId) && $sourceFacilityId !== '') {
-            $decision = $this->access->decide(
-                [
-                    'user_id' => $principal['user_id'],
-                    'facility_id' => $principal['facility_id'],
-                    'organization_unit_ids' => array_filter([$principal['facility_id']]),
-                ],
-                'work_record.read',
-                new RecordFacts(
-                    ownerFacilityId: $sourceFacilityId,
-                    resourceType: 'work_record',
-                    classification: is_string($row->source_classification ?? null) ? $row->source_classification : 'internal',
-                    recordId: (string) $row->source_record_id,
-                ),
-            );
-            $masked = ! $decision->isAllowed();
+        $sourceClassification = $row->source_classification ?? null;
+        if ($isTask) {
+            $masked = ! is_string($sourceFacilityId)
+                || $sourceFacilityId === ''
+                || ! is_string($sourceClassification)
+                || ! in_array($sourceClassification, ['public', 'internal', 'confidential', 'top_secret'], true);
+            if (! $masked) {
+                $decision = $this->access->decide(
+                    [
+                        'user_id' => $principal['user_id'],
+                        'facility_id' => $principal['facility_id'],
+                        'organization_unit_ids' => array_filter([$principal['facility_id']]),
+                    ],
+                    'tasks.read',
+                    new RecordFacts(
+                        ownerFacilityId: $sourceFacilityId,
+                        resourceType: 'task',
+                        classification: $sourceClassification,
+                        recordId: (string) $row->source_record_id,
+                    ),
+                );
+                $masked = ! $decision->isAllowed();
+            }
         }
 
         return [
             'id' => (string) $row->id,
             'title' => $masked ? 'إشعار غير متاح حالياً' : (string) $row->title,
             'source' => [
-                'source_module' => 'work_records',
-                'record_type' => 'work_record',
+                'source_module' => $isTask ? 'tasks' : 'platform_settings',
+                'record_type' => $isTask ? 'task' : 'technical_alert',
                 'record_id' => $masked ? '' : (string) $row->source_record_id,
             ],
             'is_read' => (bool) $row->is_read,

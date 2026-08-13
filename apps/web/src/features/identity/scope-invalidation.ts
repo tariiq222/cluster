@@ -10,7 +10,6 @@ import type { QueryClient } from '@tanstack/react-query'
 const SCOPE_BOUND_PREFIXES = [
   'tasks',
   'documents',
-  'work-records',
   'audit-events',
   'search',
   'temporary-assignments',

@@ -42,6 +42,13 @@ if ($integrityBatchSize < 1) {
     throw new InvalidArgumentException('audit_integrity_batch_size_invalid');
 }
 
+// Revoking DELETE from the application principal makes the audited
+// retention-purge path impossible. Immutability is enforced by database
+// triggers and hash-chain verification; retention is the only delete path.
+if (filter_var(env('AUDIT_ENFORCE_REVOKE', false), FILTER_VALIDATE_BOOL)) {
+    throw new UnexpectedValueException('audit_revoke_mode_incompatible_with_retention');
+}
+
 return [
     'streams' => [
         'audit_events_recorded' => 'audit.events.recorded',
@@ -64,7 +71,6 @@ return [
         ],
     ],
 
-    'enforce_revoke' => filter_var(env('AUDIT_ENFORCE_REVOKE', false), FILTER_VALIDATE_BOOL),
     'export' => [
         'max_window_days' => (int) env('AUDIT_EXPORT_MAX_WINDOW_DAYS', 90),
         'expires_after_days' => (int) env('AUDIT_EXPORT_EXPIRES_DAYS', 7),

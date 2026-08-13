@@ -207,7 +207,7 @@ final class AuthorizationAdminServiceAuditTest extends TestCase
     public function test_clone_role_writes_one_audit_event_and_rolls_back_when_audit_throws(): void
     {
         $this->seedSystemRole(self::SYSTEM_ROLE_ID);
-        $this->seedRoleCapability(self::SYSTEM_ROLE_ID, 'work_record.read');
+        $this->seedRoleCapability(self::SYSTEM_ROLE_ID, 'tasks.read');
 
         $result = $this->service()->cloneRole(self::SYSTEM_ROLE_ID, 1, [], self::PRINCIPAL_ID, self::CORRELATION_ID);
 
@@ -220,7 +220,7 @@ final class AuthorizationAdminServiceAuditTest extends TestCase
         $this->assertNull($event['context']['before']);
         $this->assertSame(self::SYSTEM_ROLE_ID, $event['context']['source']['role_id']);
         $this->assertSame($result['entity']['id'], $event['context']['after']['id']);
-        $this->assertSame([(string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id')], $event['context']['after']['capability_ids']);
+        $this->assertSame([(string) DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id')], $event['context']['after']['capability_ids']);
         $this->assertSame(1, $this->countRows('roles', ['id' => $result['entity']['id']]));
 
         $secondCloneSourceId = '018f6f7d-0c00-7000-8000-000000000bb2';
@@ -237,7 +237,7 @@ final class AuthorizationAdminServiceAuditTest extends TestCase
             'updated_at' => now(),
             'lock_version' => 1,
         ]);
-        $workRecordReadId = (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id');
+        $workRecordReadId = (string) DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id');
         DB::table('role_capabilities')->insert([
             'role_id' => $secondCloneSourceId,
             'capability_id' => $workRecordReadId,
@@ -268,7 +268,7 @@ final class AuthorizationAdminServiceAuditTest extends TestCase
     public function test_create_assignment_writes_one_audit_event_and_rolls_back_when_audit_throws(): void
     {
         $this->seedCustomRole(self::ASSIGN_ROLE_ID, 'audit-create-assignment', 1);
-        $this->seedRoleCapability(self::ASSIGN_ROLE_ID, 'work_record.read');
+        $this->seedRoleCapability(self::ASSIGN_ROLE_ID, 'tasks.read');
 
         $input = [
             'resource_type' => 'role_assignment',
@@ -408,8 +408,8 @@ final class AuthorizationAdminServiceAuditTest extends TestCase
     public function test_revoke_role_capability_writes_one_audit_event_and_rolls_back_when_audit_throws(): void
     {
         $this->seedCustomRole(self::CUSTOM_ROLE_REVOKE_ID, 'audit-revoke-capability', 1);
-        $this->seedRoleCapability(self::CUSTOM_ROLE_REVOKE_ID, 'work_record.read');
-        $capabilityId = (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id');
+        $this->seedRoleCapability(self::CUSTOM_ROLE_REVOKE_ID, 'tasks.read');
+        $capabilityId = (string) DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id');
 
         $result = $this->service()->revokeRoleCapability(self::CUSTOM_ROLE_REVOKE_ID.':'.$capabilityId, 1, self::PRINCIPAL_ID, self::CORRELATION_ID);
 
@@ -427,7 +427,7 @@ final class AuthorizationAdminServiceAuditTest extends TestCase
             'capability_id' => $capabilityId,
         ]));
 
-        $this->seedRoleCapability(self::CUSTOM_ROLE_REVOKE_ID, 'work_record.read');
+        $this->seedRoleCapability(self::CUSTOM_ROLE_REVOKE_ID, 'tasks.read');
         $rowsBefore = $this->countRows('role_capabilities', [
             'role_id' => self::CUSTOM_ROLE_REVOKE_ID,
             'capability_id' => $capabilityId,
@@ -563,7 +563,7 @@ final class AuthorizationAdminServiceAuditTest extends TestCase
         ]);
         $capabilityCodes = [
             'authorization.assignment.manage',
-            'work_record.read',
+            'tasks.read',
         ];
         foreach ($capabilityCodes as $code) {
             $capabilityId = (string) DB::table('capabilities')->where('capability_code', $code)->value('id');

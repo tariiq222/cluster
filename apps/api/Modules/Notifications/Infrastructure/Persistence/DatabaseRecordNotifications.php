@@ -7,6 +7,7 @@ namespace Modules\Notifications\Infrastructure\Persistence;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
+use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Tasks\Contracts\RecordTaskNotifications;
 
 /**
@@ -19,8 +20,16 @@ final class DatabaseRecordNotifications implements RecordTaskNotifications
 {
     public function __construct(private readonly ConnectionInterface $database) {}
 
-    public function record(array $recipientUserIds, string $type, array $payload): void
+    public function record(array $recipientUserIds, string $type, array $payload, ?RecordFacts $sourceFacts = null): void
     {
+        $isTask = str_starts_with($type, 'task.');
+        if ($isTask && (! $sourceFacts instanceof RecordFacts
+            || $sourceFacts->resourceType !== 'task'
+            || ! is_string($sourceFacts->ownerFacilityId)
+            || $sourceFacts->ownerFacilityId === ''
+            || ! in_array($sourceFacts->classification, ['public', 'internal', 'confidential', 'top_secret'], true))) {
+            return;
+        }
         $recipients = array_values(array_unique(array_filter(
             $recipientUserIds,
             static fn (string $userId): bool => $userId !== '',
@@ -37,7 +46,18 @@ final class DatabaseRecordNotifications implements RecordTaskNotifications
         $groupKey = $this->resolveGroupKey($type, $payload);
 
         foreach ($recipients as $recipient) {
-            $this->insertOrAggregate($recipient, $type, $title, $sourceRecordId, $groupKey, $eventId, $payloadJson, $now);
+            $this->insertOrAggregate(
+                $recipient,
+                $type,
+                $title,
+                $sourceRecordId,
+                $groupKey,
+                $eventId,
+                $payloadJson,
+                $sourceFacts?->ownerFacilityId,
+                $sourceFacts?->classification,
+                $now,
+            );
         }
     }
 
@@ -55,6 +75,8 @@ final class DatabaseRecordNotifications implements RecordTaskNotifications
         ?string $groupKey,
         string $eventId,
         string $payloadJson,
+        ?string $sourceOwnerFacilityId,
+        ?string $sourceClassification,
         \Illuminate\Support\Carbon $now,
     ): void {
         if ($groupKey !== null) {
@@ -68,6 +90,8 @@ final class DatabaseRecordNotifications implements RecordTaskNotifications
                     'last_event_id' => $eventId,
                     'is_read' => false,
                     'status' => 'unread',
+                    'source_owner_facility_id' => $sourceOwnerFacilityId,
+                    'source_classification' => $sourceClassification,
                     'updated_at' => $now,
                 ]);
 
@@ -83,6 +107,8 @@ final class DatabaseRecordNotifications implements RecordTaskNotifications
                 'type' => $type,
                 'title' => $title,
                 'source_record_id' => $sourceRecordId,
+                'source_owner_facility_id' => $sourceOwnerFacilityId,
+                'source_classification' => $sourceClassification,
                 'notification_group_key' => $groupKey,
                 'aggregation_count' => 1,
                 'last_event_id' => $eventId,
@@ -109,6 +135,8 @@ final class DatabaseRecordNotifications implements RecordTaskNotifications
                 'last_event_id' => $eventId,
                 'is_read' => false,
                 'status' => 'unread',
+                'source_owner_facility_id' => $sourceOwnerFacilityId,
+                'source_classification' => $sourceClassification,
                 'updated_at' => $now,
             ]);
         }

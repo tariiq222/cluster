@@ -4,19 +4,19 @@ namespace Modules\Authorization\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Modules\Authorization\Adapter\AuthorizeIdentityManagementAdapter;
-use Modules\Authorization\Contracts\CountOperationsOfficeMembers;
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\PersistAccessDecision;
 use Modules\Authorization\Contracts\RecordSensitiveAccessEvent;
+use Modules\Authorization\Contracts\ResolveActiveCapabilityScopesForUser;
 use Modules\Authorization\Contracts\ResolveActiveFacilityScopesForUser;
 use Modules\Authorization\Contracts\ResolveActiveUsersByCapability;
 use Modules\Authorization\Contracts\ResolveAuthorizationSimulationFacts;
 use Modules\Authorization\Infrastructure\BootstrapGatedDecideAccess;
 use Modules\Authorization\Infrastructure\OrganizationDecideAccessAdapter;
-use Modules\Authorization\Infrastructure\Persistence\CountOperationsOfficeMembers as DatabaseCountOperationsOfficeMembers;
 use Modules\Authorization\Infrastructure\Persistence\DatabaseAuthorizationIdempotencyKeyLookup;
 use Modules\Authorization\Infrastructure\Persistence\DatabasePersistAccessDecision;
 use Modules\Authorization\Infrastructure\Persistence\DatabaseRecordSensitiveAccessEvent;
+use Modules\Authorization\Infrastructure\Persistence\DatabaseResolveActiveCapabilityScopesForUser;
 use Modules\Authorization\Infrastructure\Persistence\DatabaseResolveActiveFacilityScopesForUser;
 use Modules\Authorization\Infrastructure\Persistence\DatabaseResolveActiveUsersByCapability;
 use Modules\Authorization\Infrastructure\RbacAbacDecideAccess;
@@ -31,7 +31,6 @@ final class AuthorizationServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PersistAccessDecision::class, DatabasePersistAccessDecision::class);
-        $this->app->bind(CountOperationsOfficeMembers::class, DatabaseCountOperationsOfficeMembers::class);
         $this->app->bind(RbacAbacDecideAccess::class, fn ($app): RbacAbacDecideAccess => new RbacAbacDecideAccess(
             $app->make(GetActiveSupervisoryRelationships::class),
             $app->bound(PersistAccessDecision::class)
@@ -46,6 +45,7 @@ final class AuthorizationServiceProvider extends ServiceProvider
         $this->app->bind(OrganizationDecideAccess::class, OrganizationDecideAccessAdapter::class);
         $this->app->bind(AuthorizationIdempotencyKeyLookup::class, DatabaseAuthorizationIdempotencyKeyLookup::class);
         $this->app->bind(ResolveActiveFacilityScopesForUser::class, DatabaseResolveActiveFacilityScopesForUser::class);
+        $this->app->bind(ResolveActiveCapabilityScopesForUser::class, DatabaseResolveActiveCapabilityScopesForUser::class);
         $this->app->bind(ResolveActiveUsersByCapability::class, DatabaseResolveActiveUsersByCapability::class);
         $this->app->bind(RecordSensitiveAccessEvent::class, DatabaseRecordSensitiveAccessEvent::class);
         $this->app->bind(

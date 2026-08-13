@@ -45,7 +45,7 @@ final class RunAuthorizedReportHandler
     }
 
     /** @return list<array<string, mixed>> */
-    public function authorizedRows(string $reportId, array $actor, ?string $scopeId, string $capability = 'work_record.read'): array
+    public function authorizedRows(string $reportId, array $actor, ?string $scopeId, string $capability = 'tasks.read'): array
     {
         $query = DB::table('report_read_models')->where('report_id', $reportId)->orderBy('id');
         if ($scopeId !== null) {

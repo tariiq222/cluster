@@ -20,10 +20,6 @@ return new class extends Migration
             $table->string('priority', 16)->default('normal');
             $table->string('classification', 24)->default('internal');
             $table->string('completion_policy', 32)->default('direct');
-            $table->string('source_module', 64)->nullable();
-            $table->string('source_type', 128)->nullable();
-            $table->string('source_id', 128)->nullable();
-            $table->uuid('workflow_step_id')->nullable()->unique();
             $table->unsignedInteger('lock_version')->default(1);
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();

@@ -32,8 +32,8 @@ npm --prefix apps/web run api:check      # lint + check-generated-api (drift gua
 npm --prefix apps/web run api:docs       # build the browsable Redoc reference
 ```
 
-Run `make docs-validate` to execute the focused Notifications, Authentication,
-and WorkRecords validators plus YAML/JSON and Markdown-link checks. The
+Run `make docs-validate` to execute the focused Notifications and Authentication
+validators plus YAML/JSON and Markdown-link checks. The
 repository intentionally uses a lean documentation tree; the removed
 catalog/MkDocs registry is not a prerequisite.
 

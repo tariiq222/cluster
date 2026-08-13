@@ -37,6 +37,10 @@ final class OrganizationUnitReorderHttpAdapterTest extends TestCase
 
     private string $adminCsrf;
 
+    private string $globalAdminCookie;
+
+    private string $globalAdminCsrf;
+
     private string $userBCookie;
 
     private string $userBCsrf;
@@ -66,6 +70,10 @@ final class OrganizationUnitReorderHttpAdapterTest extends TestCase
         [$this->userBCookie, $this->userBCsrf] = $this->loginSession(
             DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_USERNAME,
             DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_PASSWORD,
+        );
+        [$this->globalAdminCookie, $this->globalAdminCsrf] = $this->loginSession(
+            DevelopmentJourneyAuthorizationSeeder::PLATFORM_ADMIN_USERNAME,
+            DevelopmentJourneyAuthorizationSeeder::PLATFORM_ADMIN_PASSWORD,
         );
     }
 
@@ -125,7 +133,7 @@ final class OrganizationUnitReorderHttpAdapterTest extends TestCase
             $this->assertSame($sortedPriorities, $priorities, 'siblings are not ordered by type priority');
             for ($index = 1; $index < count($siblings); $index++) {
                 if ($siblings[$index]['type_code'] === $siblings[$index - 1]['type_code']) {
-                    $this->assertLessThanOrEqual(
+                    $this->assertGreaterThanOrEqual(
                         0,
                         strcmp($siblings[$index]['code'], $siblings[$index - 1]['code']),
                         'siblings of the same type must be sorted by code',
@@ -159,14 +167,22 @@ final class OrganizationUnitReorderHttpAdapterTest extends TestCase
             'X-Correlation-ID' => self::CORRELATION_ID,
             'X-CSRF-Token' => $this->adminCsrf,
         ];
-        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
             ->withCredentials()
-            ->postJson('/api/v1/organization/units/reorder', [], $headers + ['If-Match' => '"1"'])
+            ->postJson('/api/v1/organization/units/reorder', [], [
+                ...$headers,
+                'X-CSRF-Token' => $this->globalAdminCsrf,
+                'If-Match' => '"1"',
+            ])
             ->assertBadRequest()
             ->assertJsonPath('type', 'https://cluster.example/problems/invalid-idempotency-key');
-        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+        $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
             ->withCredentials()
-            ->postJson('/api/v1/organization/units/reorder', [], $headers + ['Idempotency-Key' => 'missing-if-match'])
+            ->postJson('/api/v1/organization/units/reorder', [], [
+                ...$headers,
+                'X-CSRF-Token' => $this->globalAdminCsrf,
+                'Idempotency-Key' => 'missing-if-match',
+            ])
             ->assertStatus(412)
             ->assertJsonPath('type', 'https://cluster.example/problems/precondition-required');
     }
@@ -207,27 +223,200 @@ final class OrganizationUnitReorderHttpAdapterTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_facility_scoped_actor_cannot_read_or_update_facility_b_resources(): void
+    {
+        $facilityBId = DevelopmentJourneyAuthorizationSeeder::FACILITY_B_ID;
+        $unitBId = '018f6f7d-0c00-7000-8000-000000000042';
+        $positionBId = '018f6f7d-0c00-7000-8000-000000000052';
+
+        $this->getAsFacilityA("/api/v1/organization/units/{$unitBId}")
+            ->assertNotFound();
+        $this->getAsFacilityA("/api/v1/organization/positions/{$positionBId}")
+            ->assertNotFound();
+        $this->getAsFacilityA("/api/v1/organization/facilities/{$facilityBId}")
+            ->assertNotFound();
+
+        $this->patchAsFacilityA("/api/v1/organization/facilities/{$facilityBId}", ['name' => 'منشأة ب معدلة'])
+            ->assertNotFound();
+        $this->patchAsFacilityA("/api/v1/organization/units/{$unitBId}", ['name' => 'وحدة ب معدلة'])
+            ->assertNotFound();
+        $this->patchAsFacilityA("/api/v1/organization/positions/{$positionBId}", ['title' => 'منصب ب معدل'])
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('facilities', ['id' => $facilityBId, 'name_ar' => 'منشأة اختبار W1.3 ب', 'lock_version' => 1]);
+        $this->assertDatabaseHas('organization_units', ['id' => $unitBId, 'name_ar' => 'وحدة اختبار W1.3', 'lock_version' => 1]);
+        $this->assertDatabaseHas('positions', ['id' => $positionBId, 'title_ar' => 'منصب اختبار W1.3', 'lock_version' => 1]);
+    }
+
+    public function test_facility_scoped_collections_exclude_facility_b_and_cluster_root_rows(): void
+    {
+        $facilities = $this->getAsFacilityA('/api/v1/organization/facilities?limit=100')
+            ->assertOk()
+            ->json('items');
+        $this->assertIsArray($facilities);
+        $this->assertSame(
+            [DevelopmentJourneyAuthorizationSeeder::FACILITY_A_ID],
+            array_column($facilities, 'id'),
+        );
+
+        $units = $this->getAsFacilityA('/api/v1/organization/units?limit=100')
+            ->assertOk()
+            ->json('items');
+        $this->assertIsArray($units);
+        $unitIds = array_column($units, 'id');
+        sort($unitIds);
+        $expectedUnitIds = [
+            '018f6f7d-0c00-7000-8000-000000000041',
+            DevelopmentJourneyAuthorizationSeeder::PLATFORM_ADMIN_UNIT_ID,
+        ];
+        sort($expectedUnitIds);
+        $this->assertSame($expectedUnitIds, $unitIds);
+
+        $positions = $this->getAsFacilityA('/api/v1/organization/positions?limit=100')
+            ->assertOk()
+            ->json('items');
+        $this->assertIsArray($positions);
+        $positionIds = array_column($positions, 'id');
+        sort($positionIds);
+        $expectedPositionIds = [
+            '018f6f7d-0c00-7000-8000-000000000051',
+            DevelopmentJourneyAuthorizationSeeder::PLATFORM_ADMIN_POSITION_ID,
+        ];
+        sort($expectedPositionIds);
+        $this->assertSame($expectedPositionIds, $positionIds);
+    }
+
+    public function test_facility_scoped_actor_cannot_run_global_reorder_across_other_roots(): void
+    {
+        $before = DB::table('organization_units')->orderBy('id')->pluck('sort_order', 'id')->all();
+
+        $this->postReorderAsFacilityA('facility-a-global-reorder')
+            ->assertForbidden();
+
+        $this->assertSame(
+            $before,
+            DB::table('organization_units')->orderBy('id')->pluck('sort_order', 'id')->all(),
+        );
+        $this->assertDatabaseMissing('organization_idempotency_keys', [
+            'principal_id' => DevelopmentJourneyAuthorizationSeeder::ACCOUNT_A_ID,
+            'operation' => 'organization.units.reorder',
+            'idempotency_key_hash' => hash('sha256', 'facility-a-global-reorder'),
+        ]);
+    }
+
+    public function test_facility_scoped_actor_cannot_create_units_or_positions_in_facility_b(): void
+    {
+        $unitBId = '018f6f7d-0c00-7000-8000-000000000042';
+
+        $this->postAsFacilityA('/api/v1/organization/units', [
+            'cluster_id' => $this->clusterId,
+            'parent_id' => DevelopmentJourneyAuthorizationSeeder::FACILITY_B_ID,
+            'type_code' => 'department',
+            'code' => 'FACILITY-B-DENIED',
+            'name' => 'وحدة مرفوضة في منشأة ب',
+        ], 'facility-b-unit-create')->assertNotFound();
+        $this->assertDatabaseMissing('organization_units', ['code' => 'FACILITY-B-DENIED']);
+
+        $this->postAsFacilityA('/api/v1/organization/positions', [
+            'organization_unit_id' => $unitBId,
+            'code' => 'FACILITY-B-DENIED',
+            'title' => 'منصب مرفوض في منشأة ب',
+        ], 'facility-b-position-create')->assertNotFound();
+        $this->assertDatabaseMissing('positions', ['code' => 'FACILITY-B-DENIED']);
+    }
+
+    public function test_facility_scoped_actor_cannot_move_owned_resources_into_facility_b(): void
+    {
+        $unitAId = '018f6f7d-0c00-7000-8000-000000000041';
+        $unitBId = '018f6f7d-0c00-7000-8000-000000000042';
+        $positionAId = '018f6f7d-0c00-7000-8000-000000000051';
+
+        $this->patchAsFacilityA("/api/v1/organization/units/{$unitAId}", [
+            'parent_id' => $unitBId,
+        ])->assertNotFound();
+        $this->patchAsFacilityA("/api/v1/organization/positions/{$positionAId}", [
+            'organization_unit_id' => $unitBId,
+        ])->assertNotFound();
+
+        $this->assertDatabaseHas('organization_units', [
+            'id' => $unitAId,
+            'parent_id' => DevelopmentJourneyAuthorizationSeeder::FACILITY_A_ID,
+            'lock_version' => 1,
+        ]);
+        $this->assertDatabaseHas('positions', [
+            'id' => $positionAId,
+            'organization_unit_id' => $unitAId,
+            'lock_version' => 1,
+        ]);
+    }
+
     private function listAllUnits(): array
     {
-        $response = $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+        $response = $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
             ->withCredentials()
             ->getJson('/api/v1/organization/units?limit=100', ['X-Correlation-ID' => self::CORRELATION_ID]);
         $response->assertOk();
 
-        return $response->json('data.items') ?? [];
+        return $response->json('items') ?? [];
     }
 
     private function postAsAdmin(string $uri, array $payload, ?string $idempotencyKey = null, ?int $ifMatch = null): TestResponse
     {
         $version = $ifMatch ?? (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
 
+        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->globalAdminCookie)
+            ->withCredentials()
+            ->postJson($uri, $payload, [
+                'X-Correlation-ID' => self::CORRELATION_ID,
+                'X-CSRF-Token' => $this->globalAdminCsrf,
+                'Idempotency-Key' => $idempotencyKey ?? $this->nextKey(),
+                'If-Match' => '"'.$version.'"',
+            ]);
+    }
+
+    private function postReorderAsFacilityA(string $idempotencyKey): TestResponse
+    {
+        $version = (int) DB::table('clusters')->where('id', $this->clusterId)->value('lock_version');
+
+        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+            ->withCredentials()
+            ->postJson('/api/v1/organization/units/reorder', [], [
+                'X-Correlation-ID' => self::CORRELATION_ID,
+                'X-CSRF-Token' => $this->adminCsrf,
+                'Idempotency-Key' => $idempotencyKey,
+                'If-Match' => '"'.$version.'"',
+            ]);
+    }
+
+    private function getAsFacilityA(string $uri): TestResponse
+    {
+        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+            ->withCredentials()
+            ->getJson($uri, ['X-Correlation-ID' => self::CORRELATION_ID]);
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function patchAsFacilityA(string $uri, array $payload): TestResponse
+    {
+        return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
+            ->withCredentials()
+            ->patchJson($uri, $payload, [
+                'X-Correlation-ID' => self::CORRELATION_ID,
+                'X-CSRF-Token' => $this->adminCsrf,
+                'If-Match' => '"1"',
+                'Content-Type' => 'application/merge-patch+json',
+            ]);
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function postAsFacilityA(string $uri, array $payload, string $idempotencyKey): TestResponse
+    {
         return $this->withUnencryptedCookie(self::SESSION_COOKIE, $this->adminCookie)
             ->withCredentials()
             ->postJson($uri, $payload, [
                 'X-Correlation-ID' => self::CORRELATION_ID,
                 'X-CSRF-Token' => $this->adminCsrf,
-                'Idempotency-Key' => $idempotencyKey ?? $this->nextKey(),
-                'If-Match' => '"'.$version.'"',
+                'Idempotency-Key' => $idempotencyKey,
             ]);
     }
 

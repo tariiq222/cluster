@@ -3,7 +3,7 @@
 namespace Modules\Documents\Contracts;
 
 /**
- * Owner of a source record (for example a work record) calls this
+ * Owner of a source resource (for example a task) calls this
  * contract to attach a document to itself. The Documents module is the
  * authoritative side of the link — it owns storage, classification and
  * quarantine — so the contract lives in Documents and any consumer

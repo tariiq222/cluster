@@ -192,9 +192,9 @@ final class SearchAccessibleRecordsHandlerBoundTest extends TestCase
     {
         $now = now();
         DB::table('search_index_entries')->insert([
-            'id' => $this->deterministicUuid('work_record|'.$sourceId.'|'.IndexSourceEventHandler::PROJECTION_VERSION),
-            'source_module' => 'work-records',
-            'source_type' => 'work_record',
+            'id' => $this->deterministicUuid('task|'.$sourceId.'|'.IndexSourceEventHandler::PROJECTION_VERSION),
+            'source_module' => 'tasks',
+            'source_type' => 'task',
             'source_id' => $sourceId,
             'source_version' => 'v1',
             'projection_version' => IndexSourceEventHandler::PROJECTION_VERSION,
@@ -220,9 +220,9 @@ final class SearchAccessibleRecordsHandlerBoundTest extends TestCase
             for ($i = $offset; $i < $end; $i++) {
                 $sourceId = $scope.'-record-'.$i;
                 $rows[] = [
-                    'id' => $this->deterministicUuid('work_record|'.$sourceId.'|'.$projectionVersion),
-                    'source_module' => 'WorkRecords',
-                    'source_type' => 'work_record',
+                    'id' => $this->deterministicUuid('task|'.$sourceId.'|'.$projectionVersion),
+                    'source_module' => 'Tasks',
+                    'source_type' => 'task',
                     'source_id' => $sourceId,
                     'source_version' => 'v1',
                     'projection_version' => $projectionVersion,
@@ -262,7 +262,7 @@ final class SearchBoundAllowDecider implements DecideAccess
         return new AccessDecision(
             'allow',
             $capability,
-            $facts === null ? 'work_record' : $facts->resourceType,
+            $facts === null ? 'task' : $facts->resourceType,
             [],
             'test',
             'test',
@@ -286,7 +286,7 @@ final class SearchBoundScopeDecider implements DecideAccess
         return new AccessDecision(
             $allowed ? 'allow' : 'deny',
             $capability,
-            $facts === null ? 'work_record' : $facts->resourceType,
+            $facts === null ? 'task' : $facts->resourceType,
             [],
             'test',
             'test',

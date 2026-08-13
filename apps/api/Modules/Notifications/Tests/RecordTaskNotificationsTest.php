@@ -7,6 +7,7 @@ namespace Modules\Notifications\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Authorization\Contracts\RecordFacts;
 use Modules\Tasks\Contracts\RecordTaskNotifications;
 use Tests\TestCase;
 
@@ -30,6 +31,7 @@ final class RecordTaskNotificationsTest extends TestCase
                 ['u1', 'u2', 'u1'],
                 'task.created',
                 $payload,
+                $this->taskFacts($payload['task_id']),
             );
 
             return DB::table('notifications')->count();
@@ -44,6 +46,8 @@ final class RecordTaskNotificationsTest extends TestCase
             self::assertSame(false, (bool) $row->is_read);
             self::assertSame('task.created', (string) $row->type);
             self::assertSame($payload, json_decode((string) $row->payload, true));
+            self::assertSame('facility-a', (string) $row->source_owner_facility_id);
+            self::assertSame('confidential', (string) $row->source_classification);
         }
     }
 
@@ -60,7 +64,7 @@ final class RecordTaskNotificationsTest extends TestCase
 
         try {
             DB::transaction(function () use ($service, $payload): void {
-                $service->record(['u1', 'u2'], 'task.created', $payload);
+                $service->record(['u1', 'u2'], 'task.created', $payload, $this->taskFacts($payload['task_id']));
 
                 throw new \RuntimeException('abort outer transaction');
             });
@@ -82,7 +86,7 @@ final class RecordTaskNotificationsTest extends TestCase
             'action' => 'updated',
         ];
 
-        $service->record(['u1'], 'task.updated', $payload);
+        $service->record(['u1'], 'task.updated', $payload, $this->taskFacts($taskId));
         $notificationId = (string) DB::table('notifications')->value('id');
         $firstEventId = (string) DB::table('notifications')->value('event_id');
         DB::table('notifications')->where('id', $notificationId)->update([
@@ -90,7 +94,7 @@ final class RecordTaskNotificationsTest extends TestCase
             'status' => 'read',
         ]);
 
-        $service->record(['u1'], 'task.updated', $payload);
+        $service->record(['u1'], 'task.updated', $payload, $this->taskFacts($taskId));
 
         $row = DB::table('notifications')->where('id', $notificationId)->first();
         self::assertNotNull($row);
@@ -99,5 +103,30 @@ final class RecordTaskNotificationsTest extends TestCase
         self::assertSame('unread', (string) $row->status);
         self::assertSame(2, (int) $row->aggregation_count);
         self::assertNotSame($firstEventId, (string) $row->last_event_id);
+    }
+
+    public function test_task_notification_fails_closed_when_authoritative_source_facts_are_absent(): void
+    {
+        $this->app->make(RecordTaskNotifications::class)->record(
+            ['u1'],
+            'task.created',
+            [
+                'task_id' => (string) Str::uuid7(),
+                'title' => 'Must not leak',
+                'actor_user_id' => (string) Str::uuid7(),
+            ],
+        );
+
+        self::assertSame(0, DB::table('notifications')->count());
+    }
+
+    private function taskFacts(string $taskId): RecordFacts
+    {
+        return new RecordFacts(
+            ownerFacilityId: 'facility-a',
+            resourceType: 'task',
+            classification: 'confidential',
+            recordId: $taskId,
+        );
     }
 }

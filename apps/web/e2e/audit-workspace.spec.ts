@@ -103,7 +103,7 @@ async function mockShell(
               user_id: SUBJECT_ID,
               csrf_token: 'audit-workspace-csrf',
               capabilities: [...capabilities],
-              features: { work_management: false, tasks: false },
+              features: { tasks: false },
             },
           }
         : {
@@ -132,7 +132,7 @@ async function mockShell(
         clearance: 'internal',
         break_glass: false,
         correlation_id: CORRELATION_ID,
-        features: { work_management: false, tasks: false },
+        features: { tasks: false },
       },
       200,
     ),

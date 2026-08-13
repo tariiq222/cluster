@@ -238,7 +238,7 @@ vi.mock('../../app/principal-context', async (importOriginal) => {
     usePrincipal: () => ({
       state: 'ready',
       capabilities: principalState.capabilities,
-      features: { work_management: false, tasks: true },
+      features: { tasks: true },
       effectiveScope: principalState.effectiveScope,
       availableScopes: [],
       revision: 0,
@@ -947,12 +947,12 @@ describe('hardened allowed_actions are server-authoritative', () => {
 describe('UI-CAP-01 capability catalog column layout', () => {
   const normalCapability = {
     id: '01980f50-5f0d-7000-8000-00000000c001',
-    code: 'work_record.create',
-    capability_code: 'work_record.create',
-    module_code: 'work_record',
+    code: 'tasks.create',
+    capability_code: 'tasks.create',
+    module_code: 'tasks',
     action: 'create',
     sensitivity: 'normal',
-    group_label: 'work_record',
+    group_label: 'tasks',
     lock_version: 1,
   } as const
 
@@ -987,12 +987,12 @@ describe('UI-CAP-01 capability catalog column layout', () => {
    */
   const distinctGroupCapability = {
     id: '01980f50-5f0d-7000-8000-00000000c004',
-    code: 'work_record.read',
-    capability_code: 'work_record.read',
-    module_code: 'work_record',
+    code: 'tasks.read',
+    capability_code: 'tasks.read',
+    module_code: 'tasks',
     action: 'read',
     sensitivity: 'normal',
-    group_label: 'Work Records — Custom Group',
+    group_label: 'Tasks — Custom Group',
     lock_version: 1,
   } as const
 
@@ -1030,12 +1030,12 @@ describe('UI-CAP-01 capability catalog column layout', () => {
     // Locate each row by its unique capability code so the per-row
     // assertions stay deterministic when multiple capabilities share
     // a module_code or a sensitivity bucket.
-    await screen.findByText('work_record.create')
+    await screen.findByText('tasks.create')
 
-    const createRow = screen.getByText('work_record.create').closest('tr')
+    const createRow = screen.getByText('tasks.create').closest('tr')
     const manageRow = screen.getByText('identity.account.manage').closest('tr')
     const verifyRow = screen.getByText('audit.integrity.verify').closest('tr')
-    const readRow = screen.getByText('work_record.read').closest('tr')
+    const readRow = screen.getByText('tasks.read').closest('tr')
 
     // Translated action verb — present and visible in the primary line.
     expect(within(createRow!).getByText('إنشاء')).toBeInTheDocument()
@@ -1044,7 +1044,7 @@ describe('UI-CAP-01 capability catalog column layout', () => {
     expect(within(readRow!).getByText('قراءة')).toBeInTheDocument()
 
     // Canonical capability code is still rendered as a secondary line.
-    const codeText = within(createRow!).getByText('work_record.create')
+    const codeText = within(createRow!).getByText('tasks.create')
     expect(codeText.tagName).toBe('SPAN')
     expect(codeText.className).toMatch(/\bfont-mono\b/)
     expect(codeText).toHaveAttribute('dir', 'ltr')
@@ -1056,19 +1056,19 @@ describe('UI-CAP-01 capability catalog column layout', () => {
     mount(<RolesTab />)
     fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
 
-    await screen.findByText('work_record.create')
+    await screen.findByText('tasks.create')
 
-    const createRow = screen.getByText('work_record.create').closest('tr')
+    const createRow = screen.getByText('tasks.create').closest('tr')
     const manageRow = screen.getByText('identity.account.manage').closest('tr')
     const verifyRow = screen.getByText('audit.integrity.verify').closest('tr')
 
     // Translated module name — primary line of the area column.
-    expect(within(createRow!).getByText('سجلات العمل')).toBeInTheDocument()
+    expect(within(createRow!).getByText('المهام')).toBeInTheDocument()
     expect(within(manageRow!).getByText('الهوية والحسابات')).toBeInTheDocument()
     expect(within(verifyRow!).getByText('التدقيق')).toBeInTheDocument()
 
     // The canonical module_code renders as a secondary mono LTR line.
-    const moduleText = within(createRow!).getByText('work_record')
+    const moduleText = within(createRow!).getByText('tasks')
     expect(moduleText.tagName).toBe('SPAN')
     expect(moduleText.className).toMatch(/\bfont-mono\b/)
     expect(moduleText).toHaveAttribute('dir', 'ltr')
@@ -1082,8 +1082,8 @@ describe('UI-CAP-01 capability catalog column layout', () => {
 
     // The distinct group_label survives the table collapse: it is shown
     // as a muted tertiary line, not as a fifth column and not lost.
-    const readRow = await screen.findByText('work_record.read').then((el) => el.closest('tr'))
-    expect(within(readRow!).getByText('Work Records — Custom Group')).toBeInTheDocument()
+    const readRow = await screen.findByText('tasks.read').then((el) => el.closest('tr'))
+    expect(within(readRow!).getByText('Tasks — Custom Group')).toBeInTheDocument()
   })
 
   it('renders the sensitivity as an outline badge with the localized label for every sensitivity bucket', async () => {
@@ -1092,11 +1092,11 @@ describe('UI-CAP-01 capability catalog column layout', () => {
     mount(<RolesTab />)
     fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
 
-    await screen.findByText('work_record.create')
+    await screen.findByText('tasks.create')
 
     // Per-row assertions: the localized sensitivity label is in the
     // third cell of the row that owns the matching capability code.
-    const createRow = screen.getByText('work_record.create').closest('tr')
+    const createRow = screen.getByText('tasks.create').closest('tr')
     const manageRow = screen.getByText('identity.account.manage').closest('tr')
     const verifyRow = screen.getByText('audit.integrity.verify').closest('tr')
 
@@ -1118,9 +1118,9 @@ describe('UI-CAP-01 capability catalog column layout', () => {
     const { container } = mount(<RolesTab />)
     fireEvent.click(await screen.findByRole('button', { name: 'القدرات' }))
 
-    await screen.findByText('work_record.create')
+    await screen.findByText('tasks.create')
 
-    const createRow = screen.getByText('work_record.create').closest('tr')
+    const createRow = screen.getByText('tasks.create').closest('tr')
     const manageRow = screen.getByText('identity.account.manage').closest('tr')
     const verifyRow = screen.getByText('audit.integrity.verify').closest('tr')
 
@@ -1151,10 +1151,10 @@ describe('UI-CAP-01 capability catalog column layout', () => {
     const headers = await screen.findAllByRole('columnheader')
     expect(headers).toHaveLength(3)
 
-    await screen.findByText('work_record.create')
+    await screen.findByText('tasks.create')
 
     /*
-     * The redundant `work_record` group_label on the normal row must
+     * The redundant `tasks` group_label on the normal row must
      * NOT appear as a free tertiary line. The canonical module_code
      * still renders as a mono line, but a second muted-text-muted-
      * foreground line carrying the same string is a leak. The matcher
@@ -1163,7 +1163,7 @@ describe('UI-CAP-01 capability catalog column layout', () => {
     const redundantGroupLine = screen.queryByText((_content, element) => {
       if (!element) return false
       return element.tagName === 'SPAN'
-        && element.textContent === 'work_record'
+        && element.textContent === 'tasks'
         && element.className.includes('text-muted-foreground')
         && element.className.includes('text-xs')
         && !element.className.includes('font-mono')

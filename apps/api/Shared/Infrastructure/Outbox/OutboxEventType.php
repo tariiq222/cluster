@@ -77,10 +77,6 @@ enum OutboxEventType: string
     case IdentityTotpEnrollmentStarted = 'com.cluster.identity.totp_enrollment_started.v1';
     case IdentityTotpEnabled = 'com.cluster.identity.totp_enabled.v1';
 
-    // ── WorkRecords ───────────────────────────────────────────────────────
-    case WorkRecordSubmitted = 'com.cluster.workrecord.submitted.v1';
-    case WorkRecordInvalid = 'com.cluster.workrecord.invalid.v1';
-
     // ── Documents ─────────────────────────────────────────────────────────
     case DocumentCreated = 'com.cluster.documents.created.v1';
     case DocumentUploadInitiated = 'com.cluster.documents.uploadinitiated.v1';
@@ -93,6 +89,15 @@ enum OutboxEventType: string
     case DocumentLinked = 'com.cluster.documents.linked.v1';
     case DocumentLifecycleTransitioned = 'com.cluster.documents.lifecycletransitioned.v1';
     case DocumentGrantIssued = 'com.cluster.documents.grantissued.v1';
+
+    // ── Tasks ─────────────────────────────────────────────────────────────
+    case TaskCreated = 'com.cluster.tasks.created.v1';
+    case TaskAssigned = 'com.cluster.tasks.assigned.v1';
+    case TaskStarted = 'com.cluster.tasks.started.v1';
+    case TaskBlocked = 'com.cluster.tasks.blocked.v1';
+    case TaskUnblocked = 'com.cluster.tasks.unblocked.v1';
+    case TaskCompleted = 'com.cluster.tasks.completed.v1';
+    case TaskCancelled = 'com.cluster.tasks.cancelled.v1';
 
     // ── PlatformSettings ──────────────────────────────────────────────────
     case PlatformSettingVersionPublished = 'com.cluster.platform-settings.version-published.v1';

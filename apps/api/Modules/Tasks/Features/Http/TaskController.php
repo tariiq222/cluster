@@ -8,17 +8,19 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Modules\Authorization\Contracts\DecideAccess;
+use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Authorization\Contracts\ResolveActiveCapabilityScopesForUser;
+use Modules\Identity\Contracts\ListUserDisplayLabels;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
-use Modules\Identity\Contracts\ResolvePersonForUser;
-use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
+use Modules\Organization\Contracts\ListOrganizationScopeTargets;
 use Modules\Organization\Contracts\ResolveScopeDescendants;
 use Modules\Tasks\Application\TaskAccessPolicy;
-use Modules\Tasks\Contracts\RecordTaskNotifications;
 use Modules\Tasks\Domain\TaskIdempotencyConflict;
 use Modules\Tasks\Features\CreateTask\Handler\CreateTaskHandler;
 use Modules\Tasks\Features\TransitionTask\Exception\TaskTransitionConflict;
 use Modules\Tasks\Features\TransitionTask\Handler\StaleTaskVersion;
 use Modules\Tasks\Features\TransitionTask\Handler\TransitionTaskHandler;
+use Modules\Tasks\Features\UpdateTask\Handler\UpdateTaskHandler;
 use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
 use stdClass;
 
@@ -36,11 +38,12 @@ final class TaskController
         private readonly TaskHttpStore $store,
         private readonly CreateTaskHandler $creator,
         private readonly TransitionTaskHandler $transitioner,
-        private readonly RecordTaskNotifications $notifications,
+        private readonly UpdateTaskHandler $updater,
         private readonly TaskAccessPolicy $policy,
         private readonly ResolveScopeDescendants $scopeDescendants,
-        private readonly ResolvePersonOrganizationScope $personScope,
-        private readonly ResolvePersonForUser $personForUser,
+        private readonly ListUserDisplayLabels $displayLabels,
+        private readonly ListOrganizationScopeTargets $scopeTargets,
+        private readonly ResolveActiveCapabilityScopesForUser $capabilityScopes,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -58,6 +61,19 @@ final class TaskController
         $relationship = $request->query('relationship');
         $cursor = $request->query('cursor');
 
+        $view = $request->query('view', 'mine');
+        $hasScopeType = $request->query->has('scope_type');
+        $hasScopeId = $request->query->has('scope_id');
+        if (! is_string($view) || ! in_array($view, ['mine', 'scope'], true)) {
+            return $this->problem(400, 'invalid-task-view', 'The collection parameters are invalid.', $c);
+        }
+        if ($view === 'mine' && ($hasScopeType || $hasScopeId)) {
+            return $this->problem(400, 'invalid-task-view', 'The collection parameters are invalid.', $c);
+        }
+        if ($view === 'scope' && ($hasScopeType !== true || $hasScopeId !== true || $request->query->has('relationship'))) {
+            return $this->problem(400, 'invalid-task-view', 'The collection parameters are invalid.', $c);
+        }
+
         $stateFilter = is_string($state) && $state !== '' ? $state : null;
         $relationshipFilter = is_string($relationship) && $relationship !== '' ? $relationship : null;
         $cursorFilter = is_string($cursor) && $cursor !== '' ? $cursor : null;
@@ -67,15 +83,50 @@ final class TaskController
             return $this->problem(400, 'invalid-pagination', 'The collection parameters are invalid.', $c);
         }
 
-        $rows = $this->store->listVisibleFor($p['user_id'], $stateFilter, $relationshipFilter, $cursorFilter, $limit);
-        $hasNextPage = count($rows) > $limit;
-        if ($hasNextPage) {
-            array_pop($rows);
+        $ownerScopeIds = null;
+        if ($view === 'scope') {
+            $scopeType = $request->query('scope_type');
+            $scopeId = $request->query('scope_id');
+            if (! is_string($scopeType) || ! in_array($scopeType, ['cluster', 'facility', 'unit'], true)
+                || ! is_string($scopeId) || ! $this->isUuidV7($scopeId)) {
+                return $this->problem(400, 'invalid-task-view', 'The collection parameters are invalid.', $c);
+            }
+
+            $scopeFacts = $this->policy->factsForRequestedScope($scopeType, $scopeId);
+            $actor = [
+                'user_id' => $p['user_id'],
+                'facility_id' => $p['facility_id'] ?? null,
+                'organization_unit_ids' => array_filter([$p['facility_id'] ?? null]),
+                'correlation_id' => $c,
+            ];
+            if ($scopeFacts === null || ! $this->access->decide($actor, 'tasks.read', $scopeFacts)->isAllowed()) {
+                return $this->problem(403, 'access-denied', 'Access denied.', $c);
+            }
+
+            $ownerScopeIds = $this->ownerScopeIds($scopeType, $scopeId);
         }
 
+        [$rows, $hasNextPage, $nextCursor] = $this->authorizedPage(
+            $p,
+            $c,
+            $stateFilter,
+            $relationshipFilter,
+            $cursorFilter,
+            $limit,
+            $ownerScopeIds,
+        );
+
+        $projection = $this->serializeCollection(
+            $rows,
+            $p,
+            $c,
+            $this->availableTaskScopes($p, $c),
+        );
+
         return response()->json([
-            'items' => array_map(fn (stdClass $row): array => $this->serializeRow($row, $p, $c), $rows),
-            'next_cursor' => $hasNextPage && $rows !== [] ? (string) end($rows)->id : null,
+            'items' => $projection['items'],
+            'next_cursor' => $hasNextPage ? $nextCursor : null,
+            'available_scopes' => $projection['available_scopes'],
         ])->header('X-Correlation-ID', $c);
     }
 
@@ -96,6 +147,9 @@ final class TaskController
         }
 
         $payload = $request->json()->all();
+        if (array_key_exists('source', $payload)) {
+            return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
+        }
         $title = $payload['title'] ?? null;
         if (! is_string($title) || trim($title) === '' || mb_strlen($title) > 255) {
             return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
@@ -116,7 +170,7 @@ final class TaskController
         if ($dueAt !== null && ! $this->isUtcDateTime($dueAt)) {
             return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
         }
-        $ownerUnitId = $payload['owner_organization_unit_id'] ?? null;
+        $ownerUnitId = $payload['owner_organization_unit_id'] ?? ($p['facility_id'] ?? null);
         if ($ownerUnitId !== null && ! $this->isUuidV7($ownerUnitId)) {
             return $this->problem(422, 'invalid-task', 'The request body is invalid.', $c);
         }
@@ -139,13 +193,18 @@ final class TaskController
                 return $this->problem(403, 'access-denied', 'Access denied.', $c);
             }
         } else {
-            // Assigning another user requires tasks.assign AND the target must
-            // belong to a facility/unit inside the actor's manageable scope.
             if (! $this->access->decide($actor, 'tasks.assign', $this->policy->factsFor($placeholder, []))->isAllowed()) {
                 return $this->problem(403, 'access-denied', 'Access denied.', $c);
             }
-            if (! $this->isTargetWithinActorScope($p, $assigneeUserId)) {
-                return $this->problem(422, 'invalid-task', "The assignee is outside the actor's manageable scope.", $c);
+        }
+
+        if (! $this->policy->participantIsWithinOwnerFacility($placeholder, $assigneeUserId)) {
+            return $this->problem(422, 'invalid-task', "The assignee is outside the task's facility scope.", $c);
+        }
+
+        foreach (array_values(array_unique($participants)) as $participantUserId) {
+            if (! $this->policy->participantIsWithinOwnerFacility($placeholder, $participantUserId)) {
+                return $this->problem(422, 'invalid-task', "A participant is outside the task's facility scope.", $c);
             }
         }
 
@@ -159,7 +218,6 @@ final class TaskController
                 'due_at' => $dueAt,
                 'classification' => $classification,
                 'participant_user_ids' => $participants,
-                'source' => $payload['source'] ?? null,
             ], $p, $key);
         } catch (TaskIdempotencyConflict $e) {
             return $this->problem(409, 'idempotency-conflict', $e->getMessage(), $c);
@@ -228,12 +286,15 @@ final class TaskController
             if ($probe === null) {
                 return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
             }
-            if (! $this->access->decide([
+            $probeActor = [
                 'user_id' => $p['user_id'],
                 'facility_id' => $p['facility_id'] ?? null,
                 'organization_unit_ids' => array_filter([$p['facility_id'] ?? null]),
                 'correlation_id' => $c,
-            ], 'tasks.assign', $this->policy->factsFor($probe, $this->store->participantIds($taskId)))->isAllowed()) {
+            ];
+            $probeFacts = $this->policy->factsFor($probe, $this->store->participantIds($taskId));
+            if (! $this->access->decide($probeActor, 'tasks.update', $probeFacts)->isAllowed()
+                && ! $this->access->decide($probeActor, 'tasks.assign', $probeFacts)->isAllowed()) {
                 return $this->problem(404, 'resource-not-found', 'The task is not available.', $c);
             }
             $task = $probe;
@@ -310,61 +371,34 @@ final class TaskController
         ];
         $participants = $this->store->participantIds($taskId);
 
-        // Field edits: creator OR authorized manager (tasks.assign path).
-        $canEdit = $p['user_id'] === (string) $task->created_by_user_id
-            || $this->access->decide($actor, 'tasks.assign', $this->policy->factsFor($task, $participants))->isAllowed();
-        if (! $canEdit) {
+        $facts = $this->policy->factsFor($task, $participants);
+        $hasFieldUpdates = array_diff(array_keys($updates), ['assignee_user_id']) !== [];
+        if ($hasFieldUpdates && ! $this->access->decide($actor, 'tasks.update', $facts)->isAllowed()) {
             return $this->problem(403, 'access-denied', 'Access denied.', $c);
         }
 
-        if ($isReassignment) {
-            if (! $this->access->decide($actor, 'tasks.assign', $this->policy->factsFor($task, $participants))->isAllowed()) {
+        if (array_key_exists('assignee_user_id', $updates)) {
+            if (! $this->access->decide($actor, 'tasks.assign', $facts)->isAllowed()) {
                 return $this->problem(403, 'access-denied', 'Access denied.', $c);
             }
-            $newAssignee = (string) $payload['assignee_user_id'];
-            if (! $this->isTargetWithinActorScope($p, $newAssignee)) {
-                return $this->problem(422, 'invalid-task', "The assignee is outside the actor's manageable scope.", $c);
-            }
-        }
-
-        try {
-            $updated = $this->store->update($taskId, $expected, $updates);
-        } catch (InvalidArgumentException) {
-            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
-        }
-        if ($updated === null) {
-            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
-        }
-
-        if ($notifyOnTitle || $notifyOnPriority || $notifyOnDueAt) {
-            $this->notifications->record(
-                $this->recipientsExcludingActor($updated, $p['user_id']),
-                'task.updated',
-                [
-                    'task_id' => $taskId,
-                    'title' => (string) $updated->title,
-                    'actor_user_id' => $p['user_id'],
-                    'changed' => array_values(array_filter([
-                        $notifyOnTitle ? 'title' : null,
-                        $notifyOnPriority ? 'priority' : null,
-                        $notifyOnDueAt ? 'due_at' : null,
-                    ])),
-                ],
-            );
         }
 
         if ($isReassignment) {
-            $this->notifications->record(
-                array_values(array_unique(array_filter([$previousAssignee, (string) $updated->assignee_user_id]))),
-                'task.reassigned',
-                [
-                    'task_id' => $taskId,
-                    'title' => (string) $updated->title,
-                    'actor_user_id' => $p['user_id'],
-                    'previous_assignee_user_id' => $previousAssignee,
-                    'new_assignee_user_id' => (string) $updated->assignee_user_id,
-                ],
-            );
+            $newAssignee = (string) $payload['assignee_user_id'];
+            if (! $this->policy->participantIsWithinOwnerFacility($task, $newAssignee)) {
+                return $this->problem(422, 'invalid-task', "The assignee is outside the task's facility scope.", $c);
+            }
+        }
+
+        $changedNotificationFields = array_values(array_filter([
+            $notifyOnTitle ? 'title' : null,
+            $notifyOnPriority ? 'priority' : null,
+            $notifyOnDueAt ? 'due_at' : null,
+        ]));
+        try {
+            $updated = $this->updater->handle($taskId, $expected, $updates, $p['user_id'], $changedNotificationFields);
+        } catch (InvalidArgumentException) {
+            return $this->problem(412, 'precondition-failed', 'If-Match does not match the current version.', $c);
         }
 
         $serialized = $this->serializeRow($updated, $p, $c, true);
@@ -406,21 +440,26 @@ final class TaskController
         $reason = $body['reason'] ?? null;
         $note = $body['note'] ?? null;
 
-        // Cancel additionally allows an authorized manager (tasks.assign at a
-        // covering scope); the handler receives the result as a flag.
-        $isManager = false;
-        if ($action === 'cancel' && $p['user_id'] !== (string) $task->created_by_user_id) {
-            $isManager = $this->access->decide(
-                [
-                    'user_id' => $p['user_id'],
-                    'facility_id' => $p['facility_id'] ?? null,
-                    'organization_unit_ids' => array_filter([$p['facility_id'] ?? null]),
-                    'correlation_id' => $c,
-                ],
-                'tasks.assign',
-                $this->policy->factsFor($task, $this->store->participantIds($taskId)),
-            )->isAllowed();
+        $capability = match ($action) {
+            'start' => 'tasks.start',
+            'block', 'unblock' => 'tasks.update',
+            'complete' => 'tasks.complete',
+            'cancel' => 'tasks.cancel',
+            default => null,
+        };
+        if ($capability === null) {
+            return $this->problem(404, 'resource-not-found', 'The task action is not supported.', $c);
         }
+        $transitionAllowed = $this->access->decide([
+            'user_id' => $p['user_id'],
+            'facility_id' => $p['facility_id'] ?? null,
+            'organization_unit_ids' => array_filter([$p['facility_id'] ?? null]),
+            'correlation_id' => $c,
+        ], $capability, $this->policy->factsFor($task, $this->store->participantIds($taskId)))->isAllowed();
+        if (! $transitionAllowed) {
+            return $this->problem(403, 'access-denied', 'Access denied.', $c);
+        }
+        $isManager = $action === 'cancel' && $p['user_id'] !== (string) $task->created_by_user_id;
 
         try {
             $result = $this->transitioner->handle(
@@ -471,10 +510,6 @@ final class TaskController
         $details = [
             'description' => $task->description,
             'due_at' => $task->due_at,
-            'source_module' => $task->source_module,
-            'source_type' => $task->source_type,
-            'source_id' => $task->source_id,
-            'workflow_step_id' => $task->workflow_step_id,
         ];
 
         if ($withDetails) {
@@ -511,6 +546,275 @@ final class TaskController
     }
 
     /**
+     * Keeps collection-only presentation enrichment batched. Detail and
+     * mutation responses intentionally retain their existing row serializer,
+     * so this does not add repeated cross-module reads to those paths.
+     *
+     * @param  list<array{task: stdClass, facts: RecordFacts}>  $records
+     * @param  array{user_id: string, facility_id?: ?string}  $principal
+     * @param  list<array{scope_type: 'cluster'|'facility'|'unit', scope_id: string}>  $availableScopes
+     * @return array{items: list<array<string, mixed>>, available_scopes: list<array{scope_type: 'cluster'|'facility'|'unit', scope_id: string, label: string}>}
+     */
+    private function serializeCollection(array $records, array $principal, string $correlation, array $availableScopes): array
+    {
+        $userIds = [];
+        $scopeCandidates = ['cluster' => [], 'facility' => [], 'unit' => []];
+        $candidateByTaskId = [];
+
+        foreach ($availableScopes as $scope) {
+            $scopeCandidates[$scope['scope_type']][$scope['scope_id']] = $scope;
+        }
+
+        foreach ($records as $record) {
+            $task = $record['task'];
+            $userIds[] = (string) $task->assignee_user_id;
+            $userIds[] = (string) $task->created_by_user_id;
+            $candidate = $this->ownerScopeCandidate($task, $record['facts']);
+            if ($candidate !== null) {
+                $scopeCandidates[$candidate['scope_type']][$candidate['scope_id']] = $candidate;
+                $candidateByTaskId[(string) $task->id] = $candidate;
+            }
+        }
+
+        $labels = $this->displayLabels->labelsFor(array_values(array_unique($userIds)));
+        $scopeLabels = $this->scopeLabels($scopeCandidates);
+        $items = [];
+
+        foreach ($records as $record) {
+            $task = $record['task'];
+            $assigneeUserId = (string) $task->assignee_user_id;
+            $creatorUserId = (string) $task->created_by_user_id;
+            $item = $this->serializeRow($task, $principal, $correlation);
+            $item['assignee'] = [
+                'user_id' => $assigneeUserId,
+                'display_name' => $this->displayName($labels, $assigneeUserId),
+            ];
+            $item['creator'] = [
+                'user_id' => $creatorUserId,
+                'display_name' => $this->displayName($labels, $creatorUserId),
+            ];
+
+            $candidate = $candidateByTaskId[(string) $task->id] ?? null;
+            if ($candidate !== null) {
+                $key = $candidate['scope_type'].'|'.$candidate['scope_id'];
+                $resolved = $scopeLabels[$key] ?? null;
+                $code = is_array($resolved) ? $resolved['code'] : null;
+                $item['owner_scope'] = [
+                    'scope_type' => $candidate['scope_type'],
+                    'scope_id' => $candidate['scope_id'],
+                    'label' => $resolved['label'] ?? $candidate['scope_id'],
+                    ...($code !== null ? ['code' => $code] : []),
+                ];
+            }
+
+            $items[] = $item;
+        }
+
+        $scopeOptions = [];
+        foreach ($availableScopes as $scope) {
+            $key = $scope['scope_type'].'|'.$scope['scope_id'];
+            $scopeOptions[] = [
+                ...$scope,
+                'label' => $scopeLabels[$key]['label'] ?? $scope['scope_id'],
+            ];
+        }
+
+        return ['items' => $items, 'available_scopes' => $scopeOptions];
+    }
+
+    /**
+     * @param  array{user_id: string, facility_id?: ?string}  $principal
+     * @return list<array{scope_type: 'cluster'|'facility'|'unit', scope_id: string}>
+     */
+    private function availableTaskScopes(array $principal, string $correlation): array
+    {
+        $actor = [
+            'user_id' => $principal['user_id'],
+            'facility_id' => $principal['facility_id'] ?? null,
+            'organization_unit_ids' => array_filter([$principal['facility_id'] ?? null]),
+            'correlation_id' => $correlation,
+        ];
+
+        $available = [];
+        foreach ($this->capabilityScopes->roots($principal['user_id'], 'tasks.read') as $scope) {
+            $facts = $this->policy->factsForRequestedScope($scope['scope_type'], $scope['scope_id']);
+            if ($facts !== null && $this->access->decide($actor, 'tasks.read', $facts)->isAllowed()) {
+                $available[] = $scope;
+            }
+        }
+
+        return $available;
+    }
+
+    /**
+     * The access policy facts were already computed for the authorization
+     * decision. Their exact owner field identifies the stored owner type, so
+     * the projection does not infer it by probing Organization tables.
+     *
+     * @return array{scope_type: 'cluster'|'facility'|'unit', scope_id: string}|null
+     */
+    private function ownerScopeCandidate(stdClass $task, RecordFacts $facts): ?array
+    {
+        $ownerId = $task->owner_organization_unit_id;
+        if (! is_string($ownerId) || $ownerId === '') {
+            return null;
+        }
+
+        if ($facts->organizationUnitId !== null && hash_equals($ownerId, $facts->organizationUnitId)) {
+            return ['scope_type' => 'unit', 'scope_id' => $ownerId];
+        }
+        if ($facts->ownerFacilityId !== null && hash_equals($ownerId, $facts->ownerFacilityId)) {
+            return ['scope_type' => 'facility', 'scope_id' => $ownerId];
+        }
+        if ($facts->clusterId !== null && hash_equals($ownerId, $facts->clusterId)) {
+            return ['scope_type' => 'cluster', 'scope_id' => $ownerId];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{'cluster': array<string, array{scope_type: 'cluster'|'facility'|'unit', scope_id: string}>, 'facility': array<string, array{scope_type: 'cluster'|'facility'|'unit', scope_id: string}>, 'unit': array<string, array{scope_type: 'cluster'|'facility'|'unit', scope_id: string}>}  $candidatesByType
+     * @return array<string, array{label: string, code: ?string}>
+     */
+    private function scopeLabels(array $candidatesByType): array
+    {
+        $labels = [];
+        foreach ($candidatesByType as $scopeType => $candidates) {
+            if ($candidates === []) {
+                continue;
+            }
+
+            foreach ($this->scopeTargets->labelCandidates($scopeType, array_values($candidates), null) as $resolved) {
+                $label = trim($resolved['label_ar']);
+                if ($label === '') {
+                    continue;
+                }
+                $code = trim((string) ($resolved['code'] ?? ''));
+                $labels[$resolved['scope_type'].'|'.$resolved['scope_id']] = [
+                    'label' => $label,
+                    'code' => $code === '' ? null : $code,
+                ];
+            }
+        }
+
+        return $labels;
+    }
+
+    /**
+     * @param  array<string, string>  $labels
+     */
+    private function displayName(array $labels, string $userId): string
+    {
+        $label = $labels[$userId] ?? null;
+
+        return is_string($label) && trim($label) !== '' ? trim($label) : $userId;
+    }
+
+    /**
+     * @param  array{user_id: string, facility_id?: ?string}  $principal
+     * @param  list<string>|null  $ownerScopeIds
+     * @return array{0: list<array{task: stdClass, facts: RecordFacts}>, 1: bool, 2: ?string}
+     */
+    private function authorizedPage(
+        array $principal,
+        string $correlation,
+        ?string $state,
+        ?string $relationship,
+        ?string $cursor,
+        int $limit,
+        ?array $ownerScopeIds = null,
+    ): array {
+        $actor = [
+            'user_id' => $principal['user_id'],
+            'facility_id' => $principal['facility_id'] ?? null,
+            'organization_unit_ids' => array_filter([$principal['facility_id'] ?? null]),
+            'correlation_id' => $correlation,
+        ];
+        $authorized = [];
+        $scanCursor = $cursor;
+        $remainingCandidates = min(500, max(100, ($limit + 1) * 5));
+        $hasMoreCandidates = false;
+
+        do {
+            $batchLimit = min(100, $remainingCandidates);
+            $candidates = $ownerScopeIds === null
+                ? $this->store->listVisibleFor(
+                    $principal['user_id'],
+                    $state,
+                    $relationship,
+                    $scanCursor,
+                    $batchLimit,
+                )
+                : $this->store->listForOwnerScopeIds(
+                    $ownerScopeIds,
+                    $state,
+                    $scanCursor,
+                    $batchLimit,
+                );
+            $hasMoreCandidates = count($candidates) > $batchLimit;
+            if ($hasMoreCandidates) {
+                array_pop($candidates);
+            }
+            $remainingCandidates -= count($candidates);
+
+            foreach ($candidates as $candidate) {
+                $scanCursor = (string) $candidate->id;
+                $facts = $this->policy->factsFor($candidate, $this->store->participantIds($scanCursor));
+                if ($this->access->decide($actor, 'tasks.read', $facts)->isAllowed()) {
+                    $authorized[] = ['task' => $candidate, 'facts' => $facts];
+                }
+            }
+        } while (count($authorized) <= $limit && $hasMoreCandidates && $remainingCandidates > 0);
+
+        $hasNextPage = count($authorized) > $limit || ($hasMoreCandidates && $remainingCandidates <= 0);
+        if (count($authorized) > $limit) {
+            $authorized = array_slice($authorized, 0, $limit);
+        }
+        $nextCursor = $hasNextPage
+            ? ($authorized !== [] ? (string) end($authorized)['task']->id : $scanCursor)
+            : null;
+
+        return [$authorized, $hasNextPage, $nextCursor];
+    }
+
+    /** @return list<string> */
+    private function ownerScopeIds(string $scopeType, string $scopeId): array
+    {
+        $ownerScopeIds = match ($scopeType) {
+            'unit' => [$scopeId],
+            'facility' => array_merge(
+                [$scopeId],
+                $this->descendantScopeIds('facility', $scopeId, ['unit']),
+            ),
+            'cluster' => array_merge(
+                [$scopeId],
+                $this->descendantScopeIds('cluster', $scopeId, ['facility', 'unit']),
+            ),
+            default => [],
+        };
+
+        return array_values(array_unique(array_filter(
+            $ownerScopeIds,
+            static fn (string $scopeId): bool => $scopeId !== '',
+        )));
+    }
+
+    /**
+     * @param  list<'facility'|'unit'>  $allowedScopeTypes
+     * @return list<string>
+     */
+    private function descendantScopeIds(string $scopeType, string $scopeId, array $allowedScopeTypes): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (array $scope): ?string => in_array($scope['scope_type'], $allowedScopeTypes, true)
+                ? $scope['scope_id']
+                : null,
+            $this->scopeDescendants->descendants($scopeType, $scopeId),
+        ), static fn (?string $scopeId): bool => $scopeId !== null && $scopeId !== ''));
+    }
+
+    /**
      * @param  array{user_id: string, facility_id?: ?string}  $principal
      */
     private function placeholderTask(?string $ownerUnitId, array $principal, string $assigneeUserId, string $classification): stdClass
@@ -530,53 +834,6 @@ final class TaskController
         $row->updated_at = null;
 
         return $row;
-    }
-
-    /**
-     * True when the target user sits inside the actor's manageable scope:
-     * the actor's facility or any of its descendant scopes. Resolved through
-     * the Organization contracts (users → person → person scope) — never raw
-     * cross-module SQL.
-     *
-     * @param  array{user_id: string, facility_id?: ?string}  $principal
-     */
-    private function isTargetWithinActorScope(array $principal, string $targetUserId): bool
-    {
-        $facilityId = $principal['facility_id'] ?? null;
-        if (! is_string($facilityId) || $facilityId === '') {
-            return false;
-        }
-
-        $allowed = [$facilityId];
-        foreach ($this->scopeDescendants->descendants('facility', $facilityId) as $scope) {
-            $allowed[] = $scope['scope_id'];
-        }
-        $allowed = array_values(array_unique($allowed));
-
-        $personId = $this->personForUser->forUser($targetUserId);
-        if ($personId === null) {
-            return false;
-        }
-
-        $target = $this->personScope->forPerson($personId);
-
-        return array_intersect($allowed, [...$target['facility_ids'], ...$target['organization_unit_ids']]) !== [];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function recipientsExcludingActor(stdClass $task, string $actorUserId): array
-    {
-        $recipients = [(string) $task->created_by_user_id, (string) $task->assignee_user_id];
-        foreach ($this->store->participantIds((string) $task->id) as $userId) {
-            $recipients[] = $userId;
-        }
-
-        return array_values(array_unique(array_filter(
-            $recipients,
-            static fn (string $userId): bool => $userId !== '' && $userId !== $actorUserId,
-        )));
     }
 
     private function principal(Request $request): ?array

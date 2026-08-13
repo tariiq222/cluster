@@ -4,71 +4,22 @@ use App\Support\OrganizationHierarchyDemoSeeder;
 use App\Support\W12E2EFixtureSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 use Modules\Documents\Features\Retention\ExpireExpiredDocuments;
 use Modules\Documents\Infrastructure\Outbox\Relay\DocumentsOutboxRelay;
 use Modules\Identity\Features\ConsumeOrganizationPersonEvents\Worker\IdentityPersonStreamWorker;
 use Modules\Notifications\Features\ConsumeTechnicalAlert\Worker\NotificationsTechnicalAlertWorker;
-use Modules\Notifications\Features\ConsumeWorkRecordSubmitted\Worker\NotificationsStreamWorker;
 use Modules\Notifications\Features\ReplayDeadLetters\Handler\ReplayDeadLettersHandler;
 use Modules\Organization\Infrastructure\Outbox\Relay\OrganizationPersonOutboxRelay;
 use Modules\PlatformSettings\Infrastructure\Outbox\PlatformSettingsOutboxRelay;
 use Modules\PlatformSettings\Infrastructure\Outbox\TechnicalAlertOutboxRelay;
 use Modules\Reporting\Features\PurgeExpiredReporting\Handler\PurgeExpiredReportingHandler;
-use Modules\Search\Features\BackfillSearchProjection\Handler\BackfillSearchProjectionHandler;
-use Shared\Infrastructure\Outbox\Relay\RedisOutboxRelay;
+use Modules\Tasks\Infrastructure\Outbox\Relay\TasksOutboxRelay;
 use Symfony\Component\Console\Command\Command;
-
-Artisan::command('db:audit-enforce-append-only', function (): int {
-    if (! app()->environment('production')) {
-        $this->error('Audit append-only enforcement is available only in production.');
-
-        return Command::FAILURE;
-    }
-
-    try {
-        if (DB::connection()->getDriverName() !== 'mysql') {
-            $this->error('Audit append-only enforcement requires MySQL.');
-
-            return Command::FAILURE;
-        }
-
-        DB::statement('REVOKE UPDATE, DELETE ON audit_events FROM PUBLIC');
-        $this->info('Audit append-only privileges enforced.');
-
-        return Command::SUCCESS;
-    } catch (Throwable $exception) {
-        $this->error('Audit append-only enforcement failed: '.$exception->getMessage());
-
-        return Command::FAILURE;
-    }
-})->purpose('Revoke UPDATE and DELETE on audit_events from PUBLIC');
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
-
-Artisan::command('work-records:relay-pending {--once}', function (): int {
-    if (! $this->option('once')) {
-        $this->error('The bounded --once mode is required.');
-
-        return Command::FAILURE;
-    }
-
-    $limit = max(1, min((int) env('OUTBOX_RELAY_BATCH_SIZE', 100), 100));
-
-    try {
-        $relay = app(RedisOutboxRelay::class);
-        $published = $relay->relayPending($limit);
-        $this->info("Relayed events: {$published}");
-
-        return Command::SUCCESS;
-    } catch (Throwable) {
-        $this->error('The bounded relay cycle failed.');
-
-        return Command::FAILURE;
-    }
-})->purpose('Relay one bounded batch of committed WorkRecord events');
 
 Artisan::command('documents:relay-events {--once} {--limit=100}', function (): int {
     if (! $this->option('once')) {
@@ -89,6 +40,27 @@ Artisan::command('documents:relay-events {--once} {--limit=100}', function (): i
         return Command::FAILURE;
     }
 })->purpose('Relay one bounded batch of committed Documents events');
+
+Artisan::command('tasks:relay-events {--once} {--limit=100}', function (): int {
+    if (! $this->option('once')) {
+        $this->error('The bounded --once mode is required.');
+
+        return Command::FAILURE;
+    }
+
+    $limit = max(1, min((int) $this->option('limit'), 100));
+
+    try {
+        $published = app(TasksOutboxRelay::class)->relayPending($limit);
+        $this->info("Relayed task events: {$published}");
+
+        return Command::SUCCESS;
+    } catch (Throwable) {
+        $this->error('The bounded Tasks relay cycle failed.');
+
+        return Command::FAILURE;
+    }
+})->purpose('Relay one bounded batch of committed Task events');
 
 Artisan::command('documents:expire-retention {--once} {--limit=100}', function (): int {
     if (! $this->option('once')) {
@@ -156,33 +128,6 @@ Artisan::command('platform-settings:relay-events {--once} {--limit=100}', functi
 })->purpose('Relay one bounded batch of committed PlatformSettings events');
 
 Artisan::command(
-    'notifications:consume-work-record-submitted {--once} {--consumer=}',
-    function (): int {
-        $consumer = $this->option('consumer');
-        if (! $this->option('once')
-            || ! is_string($consumer)
-            || preg_match('/\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z/', $consumer) !== 1) {
-            $this->error('The bounded --once mode and a valid --consumer name are required.');
-
-            return Command::FAILURE;
-        }
-
-        $limit = max(1, min((int) env('NOTIFICATIONS_STREAM_BATCH_SIZE', 10), 100));
-
-        try {
-            $worker = app(NotificationsStreamWorker::class);
-            $processed = $worker->consumeOnce($consumer, $limit);
-            $this->info("Processed messages: {$processed}");
-
-            return Command::SUCCESS;
-        } catch (Throwable) {
-            $this->error('The bounded notification consumer cycle failed.');
-
-            return Command::FAILURE;
-        }
-    },
-)->purpose('Consume one bounded WorkRecord submission cycle');
-Artisan::command(
     'notifications:consume-technical-alert {--once} {--consumer=} {--limit=100}',
     function (): int {
         $consumer = $this->option('consumer');
@@ -230,34 +175,6 @@ Artisan::command('notifications:replay-dlq {--once} {--limit=100}', function ():
         return Command::FAILURE;
     }
 })->purpose('Replay one bounded batch of notification dead letters');
-
-Artisan::command('search:backfill {--once} {--limit=25}', function (): int {
-    $limit = $this->option('limit');
-    if (! $this->option('once')
-        || ! is_string($limit)
-        || preg_match('/\A[1-9][0-9]{0,2}\z/', $limit) !== 1
-        || (int) $limit > 100) {
-        $this->error('The bounded --once mode and a --limit between 1 and 100 are required.');
-
-        return Command::FAILURE;
-    }
-
-    try {
-        $result = app(BackfillSearchProjectionHandler::class)->handle((int) $limit);
-        $this->info(sprintf(
-            'Indexed %d work record(s) into the search projection; batch complete: %s (projection %s).',
-            $result['indexed'],
-            $result['complete'] ? 'yes' : 'no',
-            $result['projection_version'],
-        ));
-
-        return Command::SUCCESS;
-    } catch (Throwable) {
-        $this->error('The bounded search backfill cycle failed.');
-
-        return Command::FAILURE;
-    }
-})->purpose('Backfill one bounded batch of work records into the search index projection');
 
 Artisan::command('reporting:purge-expired {--once} {--limit=100}', function (): int {
     if (! $this->option('once')) {
@@ -380,3 +297,18 @@ Artisan::command('organization:demo-seed {--force : Re-run even if the demo hier
         return Command::FAILURE;
     }
 })->purpose('Seed the four-layer healthcare cluster hierarchy into the local database');
+
+Schedule::command('platform-operations:dispatch --once --limit=10')
+    ->everyMinute()->withoutOverlapping()->onOneServer();
+Schedule::command('platform-settings:relay-technical-alerts --once --limit=100')
+    ->everyMinute()->withoutOverlapping()->onOneServer();
+Schedule::command('platform-settings:relay-events --once --limit=100')
+    ->everyMinute()->withoutOverlapping()->onOneServer();
+Schedule::command('notifications:consume-technical-alert --once --consumer=production-scheduler --limit=100')
+    ->everyMinute()->withoutOverlapping()->onOneServer();
+Schedule::command('notifications:replay-dlq --once --limit=100')
+    ->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+Schedule::command('reporting:purge-expired --once --limit=100')
+    ->hourly()->withoutOverlapping()->onOneServer();
+Schedule::command('documents:expire-retention --once --limit=100')
+    ->dailyAt('02:15')->withoutOverlapping()->onOneServer();

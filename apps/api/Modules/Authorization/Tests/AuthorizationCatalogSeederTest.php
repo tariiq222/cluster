@@ -28,8 +28,8 @@ class AuthorizationCatalogSeederTest extends TestCase
 
         $this->assertDatabaseCount('capabilities', count(CapabilityCatalog::all()));
         $this->assertDatabaseHas('capabilities', [
-            'module_code' => 'work_record',
-            'capability_code' => 'work_record.read',
+            'module_code' => 'tasks',
+            'capability_code' => 'tasks.read',
             'action' => 'read',
             'sensitivity' => 'normal',
             'status' => 'active',

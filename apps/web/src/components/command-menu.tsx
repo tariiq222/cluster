@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/command'
 
 const SEARCH_DEBOUNCE_MS = 250
-type SearchResultType = 'task' | 'document' | 'work_record'
+type SearchResultType = 'task' | 'document'
 
 interface SearchHit {
   id: string
@@ -50,11 +50,8 @@ function searchHit(item: unknown): SearchHit | null {
       ? value.source_type
       : typeof value.resource_type === 'string'
         ? value.resource_type
-        : 'record_number' in value
-          ? 'work_record'
-          : null
-  if (rawType !== 'task' && rawType !== 'document' && rawType !== 'work_record')
-    return null
+        : null
+  if (rawType !== 'task' && rawType !== 'document') return null
 
   const id =
     typeof value.source_id === 'string'
@@ -68,7 +65,6 @@ function searchHit(item: unknown): SearchHit | null {
     value.title,
     value.name,
     value.code,
-    value.record_number,
   ]
   const title = titleCandidates.find(
     (candidate): candidate is string =>
@@ -81,7 +77,7 @@ function resultTypeLabel(type: SearchResultType, locale: Locale): string {
   const copy = searchCopy[locale]
   if (type === 'task') return copy.task
   if (type === 'document') return copy.document
-  return copy.workRecord
+  return copy.document
 }
 
 function CommandResults({
@@ -218,8 +214,6 @@ export function CommandMenu({
     for (const entry of navigationEntries) {
       if (entry.path === '/tasks') routes.set('task', entry.path)
       if (entry.path === '/documents') routes.set('document', entry.path)
-      if (entry.path === '/work-records')
-        routes.set('work_record', entry.path)
     }
     return routes
   }, [navigationEntries])

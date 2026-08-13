@@ -41,27 +41,34 @@ function buildUnitForest(
   byFacility: Map<string, UnitNode[]>
   unitById: Map<string, generated.OrganizationUnit>
 } {
-  const byParent = new Map<string, generated.OrganizationUnit[]>()
+  const clusterRoots: generated.OrganizationUnit[] = []
+  const byFacilityParent = new Map<string, generated.OrganizationUnit[]>()
+  const byUnitParent = new Map<string, generated.OrganizationUnit[]>()
   const unitById = new Map<string, generated.OrganizationUnit>()
   for (const unit of units) {
     unitById.set(unit.id, unit)
-    const key = unit.parent_id ?? ''
-    const siblings = byParent.get(key) ?? []
+    if (unit.parent_type === 'cluster') {
+      clusterRoots.push(unit)
+      continue
+    }
+
+    const parentMap = unit.parent_type === 'facility' ? byFacilityParent : byUnitParent
+    const siblings = parentMap.get(unit.parent_id) ?? []
     siblings.push(unit)
-    byParent.set(key, siblings)
+    parentMap.set(unit.parent_id, siblings)
   }
   const attach = (parentId: string): UnitNode[] =>
-    (byParent.get(parentId) ?? [])
+    (byUnitParent.get(parentId) ?? [])
       .slice()
       .sort((a, b) => a.name_ar.localeCompare(b.name_ar, 'ar'))
       .map((unit) => ({ unit, children: attach(unit.id) }))
-  const topLevel = (byParent.get('') ?? [])
+  const topLevel = clusterRoots
     .slice()
     .sort((a, b) => a.name_ar.localeCompare(b.name_ar, 'ar'))
     .map((unit) => ({ unit, children: attach(unit.id) }))
   const byFacility = new Map<string, UnitNode[]>()
   for (const facility of facilities) {
-    const children = (byParent.get(`facility:${facility.id}`) ?? [])
+    const children = (byFacilityParent.get(facility.id) ?? [])
       .slice()
       .sort((a, b) => a.name_ar.localeCompare(b.name_ar, 'ar'))
       .map((unit) => ({ unit, children: attach(unit.id) }))

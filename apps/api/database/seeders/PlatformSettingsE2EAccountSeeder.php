@@ -125,7 +125,7 @@ final class PlatformSettingsE2EAccountSeeder extends Seeder
         $now = now();
         $existing = DB::table('platform_alert_policies')->where('id', self::ALERT_POLICY_ID)->first();
         if ($existing !== null) {
-            // Reset to a known lock_version so the workflow tests can
+            // Reset to a known lock_version so the lifecycle tests can
             // drive a fresh optimistic-concurrency race without
             // inheriting state from a previous Playwright run.
             DB::table('platform_alert_policies')->where('id', self::ALERT_POLICY_ID)->update([

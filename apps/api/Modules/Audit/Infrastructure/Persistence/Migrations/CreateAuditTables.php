@@ -155,7 +155,6 @@ return new class extends Migration
 
             $this->addSupportedDatabaseChecks();
             $this->addImmutableGuards();
-            $this->enforceAppendOnlyPrivileges();
         } catch (Throwable $exception) {
             try {
                 $this->down();
@@ -297,19 +296,6 @@ return new class extends Migration
                 SELECT RAISE(ABORT, 'audit_integrity_checkpoints_check');
             END
             SQL);
-    }
-
-    private function enforceAppendOnlyPrivileges(): void
-    {
-        if (! config('audit.enforce_revoke')) {
-            return;
-        }
-
-        if (DB::connection()->getDriverName() !== 'mysql') {
-            return;
-        }
-
-        DB::statement('REVOKE UPDATE, DELETE ON audit_events FROM PUBLIC');
     }
 
     private function addImmutableGuards(): void

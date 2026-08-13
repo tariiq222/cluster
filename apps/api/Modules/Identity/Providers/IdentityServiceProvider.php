@@ -4,6 +4,7 @@ namespace Modules\Identity\Providers;
 
 use App\Http\Authentication\SessionPrincipalResolver;
 use Illuminate\Support\ServiceProvider;
+use Modules\Identity\Contracts\ListUserDisplayLabels;
 use Modules\Identity\Contracts\ResolveAccountEntitlement;
 use Modules\Identity\Contracts\ResolveDevelopmentFixturePrincipal;
 use Modules\Identity\Contracts\ResolvePersonForUser;
@@ -22,6 +23,7 @@ use Modules\Identity\Features\ResolveDevelopmentFixturePrincipal\Http\Developmen
 use Modules\Identity\Features\Sessions\Contracts\ResolveSession;
 use Modules\Identity\Features\Sessions\Handler\SessionHandler;
 use Modules\Identity\Infrastructure\DatabaseResolveAccountEntitlement;
+use Modules\Identity\Infrastructure\Persistence\DatabaseListUserDisplayLabels;
 use Modules\Identity\Infrastructure\Persistence\DatabaseResolvePersonForUser;
 use Modules\Identity\Infrastructure\Persistence\ResolveUserForPerson as DatabaseResolveUserForPerson;
 use Modules\Identity\Infrastructure\Security\LocalUsernameDenylist;
@@ -39,6 +41,7 @@ final class IdentityServiceProvider extends ServiceProvider
         });
         $this->app->bind(ResolvePrincipalContext::class, SessionPrincipalContextResolver::class);
         $this->app->bind(ResolveAccountEntitlement::class, DatabaseResolveAccountEntitlement::class);
+        $this->app->bind(ListUserDisplayLabels::class, DatabaseListUserDisplayLabels::class);
         $this->app->bind(ResolveUserForPerson::class, DatabaseResolveUserForPerson::class);
         $this->app->bind(ResolvePersonForUser::class, DatabaseResolvePersonForUser::class);
         $this->app->bind(AuthenticateUser::class, AuthenticationHandler::class);

@@ -17,7 +17,7 @@ vi.mock('../../app/principal-context', () => ({
   usePrincipal: () => ({
     state: 'ready',
     capabilities: principalState.capabilities,
-    features: { work_management: false, tasks: true },
+    features: { tasks: true },
     effectiveScope: null,
     availableScopes: [],
     revision: 0,
@@ -162,6 +162,7 @@ describe('facility form page — edit', () => {
         }),
       )
     })
+    expect(getFacilityMock).toHaveBeenCalledTimes(1)
     // The stale alert keeps the edited inputs on screen and offers a reload.
     await waitFor(() => {
       expect(screen.getByText('تغيّرت البيانات في مكان آخر. حدّث الصفحة ثم أعد المحاولة.')).toBeInTheDocument()

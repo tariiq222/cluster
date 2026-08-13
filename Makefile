@@ -1,4 +1,4 @@
-.PHONY: verify-intake python-bin api\:inventory api\:check test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets npm-audit audit-dependencies test-e2e test-e2e-w1-1 test-e2e-w1-1-strict test-w1-1-api-worker-smoke verify-boundaries verify-mysql-integration verify-mysql-integration-strict preflight-mysql-integration-strict preflight-e2e-w1-1-strict preflight-architecture-closure verify-architecture-closure verify-core verify-release docs-validate docs-validate-fast help verify-w1-1 verify-w1-2 verify-w1-3 verify-web verify-screens validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
+.PHONY: verify-intake python-bin api\:inventory api\:check test-api-smoke test-web-smoke test-api test-web test-web-unit coverage-web lint-api analyse-api scan-secrets npm-audit audit-dependencies test-e2e test-e2e-w1-1 test-e2e-w1-1-strict verify-boundaries verify-mysql-integration verify-mysql-integration-strict preflight-mysql-integration-strict preflight-e2e-w1-1-strict preflight-architecture-closure verify-architecture-closure verify-core verify-release docs-validate docs-validate-fast help verify-w1-1 verify-w1-2 verify-web verify-screens validate-production-bundle build-production-images verify-production-images verify-w1-1-local deploy-vps
 
 verify-intake:
 	test -f apps/api/composer.lock
@@ -68,9 +68,6 @@ audit-dependencies: npm-audit
 	composer --working-dir=apps/api audit --locked
 
 test-e2e: test-e2e-w1-1
-
-test-w1-1-api-worker-smoke:
-	./infra/dev/run-w1-1-api-worker-smoke.sh
 
 test-e2e-w1-1:
 	./infra/dev/run-w1-1-e2e.sh
@@ -264,23 +261,13 @@ help:
 		'  verify-release             Alias for the full deterministic architecture closure gate.' \
 		'  verify-architecture-closure Run the strict deterministic architecture closure gate.'
 # البوابة المحلية الكاملة: عقود، جودة، اختبارات، حدود، ورحلة E2E.
-verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies docs-validate test-api test-web verify-boundaries test-w1-1-api-worker-smoke test-e2e-w1-1
+verify-w1-1: verify-intake lint-api analyse-api scan-secrets audit-dependencies docs-validate test-api test-web verify-boundaries test-e2e-w1-1
 
 # بوابة W1.2: عقود الجاهزية ثم حدود الموديولات واختبارات التطبيق المتأثرة.
 verify-w1-2:
 	$(MAKE) verify-boundaries
 	$(MAKE) test-api
 	$(MAKE) test-web
-
-# بوابة W1.3: قرار Authorization والعزل والحدود وواجهة الإدارة ورحلة المتصفح الحقيقية.
-verify-w1-3:
-	cd apps/api && php artisan test Modules/Authorization/Tests Modules/Organization/Tests/SupervisoryRelationshipTest.php Modules/Identity/Tests/ScopeSelectionHttpAdapterTest.php
-	cd apps/api && php artisan test tests/Feature/SecurityJourneyW13Test.php tests/Feature/ProductionAuthorizationBindingTest.php
-	$(MAKE) verify-boundaries
-	npm --prefix apps/web run test:unit -- src/shell/routes.test.ts src/api/w1-3/authorization.test.ts src/api.test.ts src/w1-2-api.test.ts
-	npm --prefix apps/web run lint
-	npm --prefix apps/web run build
-	./infra/dev/run-w1-3-e2e.sh
 
 # بوابة الويب: فحص شامل للفرونت المعاد بناؤه (وحدة + بناء + رحلات المتصفح الحية).
 verify-web:

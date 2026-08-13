@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Authorization\Contracts\AccessProjection;
 use Modules\Authorization\Contracts\DecideAccess;
-use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\Reporting\Application\ReportingAuthorizationFacts;
 use Modules\Reporting\Infrastructure\Export\CsvExportEncoder;
 use UnexpectedValueException;
 
@@ -15,7 +16,10 @@ final class ExportAuthorizedReportHandler
     /** @var list<string> */
     private const SUPPORTED_FORMATS = ['csv', 'json'];
 
-    public function __construct(private readonly DecideAccess $access) {}
+    public function __construct(
+        private readonly DecideAccess $access,
+        private readonly ResolveOrganizationScopeAncestry $scopeAncestry,
+    ) {}
 
     /**
      * @param  array{user_id?: string}  $actor
@@ -37,12 +41,22 @@ final class ExportAuthorizedReportHandler
         return $this->replay($existing);
     }
 
-    public function authorize(array $actor, string $reportId): bool
+    public function authorize(array $actor, string $reportId, ?string $scopeId = null): bool
     {
+        $scopeId ??= is_string($actor['facility_id'] ?? null) ? $actor['facility_id'] : null;
+        $clusterId = null;
+        if ($scopeId !== null) {
+            $ancestry = $this->scopeAncestry->ancestry('facility', $scopeId);
+            if ($ancestry === null || ! is_string($ancestry['facility_id']) || ! hash_equals($scopeId, $ancestry['facility_id'])) {
+                return false;
+            }
+            $clusterId = $ancestry['cluster_id'];
+        }
+
         return $this->access->decide(
             $actor,
             'reporting.export',
-            new RecordFacts(null, 'report_definition', 'internal'),
+            ReportingAuthorizationFacts::forRequestedReport($reportId, $scopeId, $clusterId),
         )->isAllowed();
     }
 
@@ -68,6 +82,9 @@ final class ExportAuthorizedReportHandler
             throw new UnsupportedExportFormatException($format);
         }
         $scopeId ??= $actor['facility_id'] ?? null;
+        if (! $this->authorize($actor, $reportId, $scopeId)) {
+            throw new ExportAuthorizationDenied;
+        }
 
         return DB::transaction(function () use ($reportId, $actor, $format, $scopeId, $idempotencyKey, $requestHash): array {
             $runId = (string) Str::uuid();
@@ -109,7 +126,7 @@ final class ExportAuthorizedReportHandler
                 $decision = $this->access->decide(
                     $actor,
                     'reporting.export',
-                    new RecordFacts($row->scope_id, $row->source_type, $row->classification),
+                    ReportingAuthorizationFacts::forProjectionRow($row),
                 );
                 if (! $decision->isAllowed()) {
                     continue;

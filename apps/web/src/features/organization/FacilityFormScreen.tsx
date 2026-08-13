@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Building2 } from 'lucide-react'
 import { useLocale, useSessionToken } from '../../app/session-context'
 import { useNavigate } from '../../app/navigation-context'
@@ -34,6 +34,7 @@ export function FacilityFormScreen({ facilityId }: { facilityId?: string }) {
   const locale = useLocale()
   const token = useSessionToken()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const text = organizationCopy[locale]
   const capabilities = useCapabilities()
   const editing = facilityId !== undefined
@@ -78,12 +79,12 @@ export function FacilityFormScreen({ facilityId }: { facilityId?: string }) {
   const mutation = useMutation({
     mutationFn: async ({ nextTypeCode, nextCode, nextName, nextNameEn }: { nextTypeCode: string; nextCode: string; nextName: string; nextNameEn: string }) => {
       if (editing && facilityId) {
-        const fresh = unwrap<generated.Facility>(await generated.getFacility(facilityId, requestInit(token)))
+        if (!seed) throw new Error('facility_edit_seed_missing')
         return unwrap<generated.Facility>(
           await generated.updateFacility(
             facilityId,
             { name: nextName },
-            requestInit(token, { command: true, idempotency: 'facility-update', lockVersion: fresh.lock_version }),
+            requestInit(token, { command: true, idempotency: 'facility-update', lockVersion: seed.lock_version }),
           ),
         )
       }
@@ -94,7 +95,8 @@ export function FacilityFormScreen({ facilityId }: { facilityId?: string }) {
         ),
       )
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['facilities'], refetchType: 'all' })
       navigate('/organization?tab=facilities')
     },
     onError: (caught) => {

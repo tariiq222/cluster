@@ -103,7 +103,7 @@ final class ProblemMatrixTest extends TestCase
         // and emits the canonical problem envelope via IdentityApi::problem,
         // which delegates to ProblemEnvelope::make and forwards the request
         // correlation id into both the body field and the response header.
-        $response = $this->getJson('/api/v1/search?q=anything', [
+        $response = $this->postJson('/api/v1/search', ['q' => 'anything'], [
             'X-Correlation-ID' => self::CORRELATION,
         ]);
 

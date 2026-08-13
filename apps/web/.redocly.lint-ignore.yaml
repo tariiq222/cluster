@@ -6,17 +6,17 @@
 # Globally disabling a rule (e.g. via `no-unused-components: off` in redocly.yaml) would silence every
 # future finding forever and is therefore intentionally avoided here.
 #
-# 26 entries grouped by rule:
+# 22 entries grouped by rule:
 #   - no-ambiguous-paths (4): false positives — Redocly's matcher ignores UUIDv7 vs literal segment
 #     distinction and enum-constrained path segments; `{documentId}` is constrained to UUIDv7 while
 #     `/documents/uploads/...` is reserved by the literal `uploads` segment, so routing is unambiguous
 #     at runtime even though Redocly cannot prove it.
 #   - operation-4xx-response (1): GET /up is a public health probe whose truthful responses are only
 #     200 (healthy) and 503 (unhealthy); fabricating a 4xx would misrepresent the operational contract.
-#   - no-unused-components (21): bundled JSON-schema `$defs` (uuidv7, utcDateTime, owner,
+#   - no-unused-components (17): bundled JSON-schema `$defs` (uuidv7, utcDateTime,
 #     classification) plus standalone component models (AccessProjection, UploadRequest, Task,
 #     AuthorizationCapability, AuthorizationRole, AuthorizationRoleAssignment,
-#     BusinessCalendarResource, ProblemFeatureDisabled, AuditExportEntity) that are intentionally
+#     BusinessCalendarResource, AuditExportEntity) that are intentionally
 #     consumed by the generated TypeScript catalog and/or manual frontend type imports, but are not
 #     referenced through Redocly-visible $ref chains because generic response envelopes hide the
 #     pointer paths from the unused-components graph walk.
@@ -31,9 +31,6 @@
   no-unused-components:
     - '#/components/schemas/problem-details.schema/$defs/uuidv7'
     - '#/components/schemas/principal-context.schema/$defs/uuidv7'
-    - '#/components/schemas/work-record.schema/$defs/uuidv7'
-    - '#/components/schemas/work-record.schema/$defs/utcDateTime'
-    - '#/components/schemas/work-record.schema/$defs/owner'
     - '#/components/schemas/access-context.schema/$defs/uuidv7'
     - '#/components/schemas/record-facts.schema/$defs/classification'
     - '#/components/schemas/record-facts.schema/$defs/uuidv7'
@@ -48,5 +45,4 @@
     - '#/components/schemas/AuthorizationRole'
     - '#/components/schemas/AuthorizationRoleAssignment'
     - '#/components/schemas/BusinessCalendarResource'
-    - '#/components/responses/ProblemFeatureDisabled'
     - '#/components/responses/AuditExportEntity'

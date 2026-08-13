@@ -9,8 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\OrganizationUnit\Handler\OrganizationUnitHandler;
 use Modules\Organization\Http\OrganizationApi;
 use UnexpectedValueException;
@@ -20,6 +20,7 @@ final class UpdateOrganizationUnitController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly OrganizationUnitHandler $handler,
     ) {}
 
@@ -43,12 +44,9 @@ final class UpdateOrganizationUnitController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.unit.manage', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_unit',
-            classification: 'internal',
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
+        $facts = $this->resourceFacts->factsForUnit($unitId);
+        if ($facts === null || ! $this->access->decide($principal, 'organization.unit.manage', $facts)->isAllowed()) {
+            return OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit is not available.', $correlationId);
         }
 
         $input = $request->json()->all();
@@ -64,6 +62,12 @@ final class UpdateOrganizationUnitController
         }
         $validated = $validator->validated();
         $changes = array_intersect_key($validated, array_flip(['parent_id', 'name', 'status']));
+        if (isset($changes['parent_id'])) {
+            $parentFacts = $this->resourceFacts->factsForUnitParent((string) $facts->clusterId, $changes['parent_id']);
+            if ($parentFacts === null || ! $this->access->decide($principal, 'organization.unit.manage', $parentFacts)->isAllowed()) {
+                return OrganizationApi::problem(404, 'organization-unit-not-found', 'Not Found', 'The organization unit parent is not available.', $correlationId);
+            }
+        }
 
         try {
             $unit = $this->handler->update(

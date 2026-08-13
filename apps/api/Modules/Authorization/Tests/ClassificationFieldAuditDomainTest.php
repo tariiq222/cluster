@@ -34,7 +34,7 @@ class ClassificationFieldAuditDomainTest extends TestCase
     {
         $policy = new ClassificationPolicy(
             classification: ClassificationLevel::CONFIDENTIAL,
-            minimumCapability: 'work_record.read.confidential',
+            minimumCapability: 'tasks.read.confidential',
             exportPolicy: 'restricted',
             downloadPolicy: 'restricted',
             policyVersion: 'v1',
@@ -48,8 +48,8 @@ class ClassificationFieldAuditDomainTest extends TestCase
     public function test_field_access_template_validates_field_paths_and_hides_unspecified_fields(): void
     {
         $template = new FieldAccessTemplate(
-            fieldPolicyKey: 'work_record.default',
-            moduleCode: 'work_records',
+            fieldPolicyKey: 'tasks.default',
+            moduleCode: 'tasks',
             fieldDecisions: [
                 'payload.public_summary' => FieldDecision::READ,
                 'payload.budget_amount' => FieldDecision::HIDE,
@@ -63,8 +63,8 @@ class ClassificationFieldAuditDomainTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         new FieldAccessTemplate(
-            fieldPolicyKey: 'work_record.invalid',
-            moduleCode: 'work_records',
+            fieldPolicyKey: 'tasks.invalid',
+            moduleCode: 'tasks',
             fieldDecisions: ['' => FieldDecision::HIDE],
             policyVersion: 'v1',
         );
@@ -73,8 +73,8 @@ class ClassificationFieldAuditDomainTest extends TestCase
     public function test_field_access_template_normalizes_unqualified_paths_to_payload_paths(): void
     {
         $template = new FieldAccessTemplate(
-            fieldPolicyKey: 'work_record.normalized',
-            moduleCode: 'work_records',
+            fieldPolicyKey: 'tasks.normalized',
+            moduleCode: 'tasks',
             fieldDecisions: [
                 'summary' => FieldDecision::READ,
                 'payload.status' => FieldDecision::EDIT,
@@ -140,7 +140,7 @@ class ClassificationFieldAuditDomainTest extends TestCase
             accessDecisionId: '0197f0e0-0000-7000-8000-000000000402',
             actorUserId: '0197f0e0-0000-7000-8000-000000000403',
             originalActorUserId: '0197f0e0-0000-7000-8000-000000000404',
-            resourceType: 'work_record',
+            resourceType: 'task',
             resourceId: '0197f0e0-0000-7000-8000-000000000405',
             action: 'read',
             classification: ClassificationLevel::CONFIDENTIAL,
@@ -163,7 +163,7 @@ class ClassificationFieldAuditDomainTest extends TestCase
             accessDecisionId: '0197f0e0-0000-7000-8000-000000000402',
             actorUserId: '0197f0e0-0000-7000-8000-000000000403',
             originalActorUserId: '0197f0e0-0000-7000-8000-000000000404',
-            resourceType: 'work_record',
+            resourceType: 'task',
             resourceId: '0197f0e0-0000-7000-8000-000000000405',
             action: 'read',
             classification: ClassificationLevel::INTERNAL,

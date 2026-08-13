@@ -167,7 +167,7 @@ final class DocumentAuthorizationScopeTest extends TestCase
 
         $service->link(
             self::DOCUMENT_PUBLIC_ID,
-            new DocumentSourceReference('work-records', 'work_record', self::TASK_ID),
+            new DocumentSourceReference('tasks', 'task', self::TASK_ID),
             'attachment',
             self::USER_ID,
             self::FACILITY_A1,
@@ -219,7 +219,7 @@ final class DocumentAuthorizationScopeTest extends TestCase
 
         $service->link(
             self::UNKNOWN_DOCUMENT_PUBLIC_ID,
-            new DocumentSourceReference('work-records', 'work_record', self::TASK_ID),
+            new DocumentSourceReference('tasks', 'task', self::TASK_ID),
             'attachment',
             self::USER_ID,
             self::FACILITY_A1,

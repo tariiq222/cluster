@@ -25,46 +25,21 @@ references:
 
 ## Capability catalog reconciliation
 
-- **Actual runtime catalog count:** `132`
+- **Actual runtime catalog count:** `107`
 - **Historical F067 expectation:** `110` — **mismatch; the runtime catalog is authoritative.**
-- **Classifications:** `89` used, `43` intentional UI-only, `0` deprecated.
+- **Classifications:** `69` used, `38` intentional UI-only, `0` deprecated.
 - Generation fails if any catalog entry is duplicated or left unclassified.
 
 | Capability | Classification | Evidence |
 | --- | --- | --- |
-| `work_record.create` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
-| `work_record.read` | `used` | `apps/api/Modules/Documents/Application/DocumentDownloadService.php`<br>`apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Notifications/Features/ListMyNotifications/Http/ListMyNotificationsController.php`<br>`apps/api/Modules/Reporting/Features/RunAuthorizedReport/Handler/RunAuthorizedReportHandler.php`<br>`apps/api/Modules/WorkRecords/Features/DocumentLink/Http/WorkRecordDocumentLinkController.php`<br>`apps/api/Modules/WorkRecords/Features/GetAuthorizedWorkRecord/Handler/GetAuthorizedWorkRecordHandler.php`<br>`apps/api/Modules/WorkRecords/Features/SubmitWorkRecord/Http/SubmitWorkRecordController.php` |
-| `work_record.list` | `used` | `apps/api/Modules/WorkRecords/Features/ListAuthorizedWorkRecords/Handler/ListAuthorizedWorkRecordsHandler.php` |
-| `work_record.update` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
-| `work_record.submit` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php`<br>`apps/api/Modules/WorkRecords/Features/SubmitWorkRecord/Http/SubmitWorkRecordController.php` |
-| `work_record.return` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php` |
-| `work_record.complete` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php` |
-| `work_record.cancel` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php` |
-| `work_record.archive` | `used` | `apps/api/Modules/WorkRecords/Features/Lifecycle/Handler/WorkRecordLifecycleMutator.php` |
-| `work_definition.create` | `used` | `apps/api/Modules/WorkDefinitions/Features/Definition/Handler/WorkDefinitionMutator.php`<br>`apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php` |
-| `work_definition.read` | `used` | `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php` |
-| `work_definition.list` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
-| `work_definition.update` | `used` | `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php` |
-| `work_definition.publish` | `used` | `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php` |
-| `work_definition.retire` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
-| `workflow.read` | `used` | `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
-| `workflow.list` | `intentional-ui-only` | `apps/web/src/features/accounts/accounts-copy.ts` |
-| `workflow.manage` | `used` | `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
-| `workflow.author` | `used` | `apps/api/Modules/Authorization/Features/OperationsOffice/OperationsOfficeRoleCatalog.php` |
-| `workflow.approve` | `used` | `apps/api/Modules/Authorization/Contracts/CountOperationsOfficeMembers.php`<br>`apps/api/Modules/Authorization/Features/OperationsOffice/OperationsOfficeRoleCatalog.php`<br>`apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
-| `workflow.decide` | `used` | `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
-| `workflow.reassign` | `used` | `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
-| `workflow.escalate` | `used` | `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
-| `workflow.cancel` | `used` | `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php` |
-| `work_management.history.read` | `used` | `apps/api/app/Http/Middleware/EnforceWorkManagementFeature.php` |
 | `tasks.create` | `used` | `apps/api/Modules/Tasks/Features/CreateTask/Handler/CreateTaskHandler.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php` |
-| `tasks.read` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php` |
+| `tasks.read` | `used` | `apps/api/Modules/Documents/Application/DocumentDownloadService.php`<br>`apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Notifications/Features/ListMyNotifications/Http/ListMyNotificationsController.php`<br>`apps/api/Modules/Reporting/Features/RunAuthorizedReport/Handler/RunAuthorizedReportHandler.php`<br>`apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php` |
 | `tasks.list` | `intentional-ui-only` | `apps/web/src/app/AppShell.tsx`<br>`apps/web/src/features/accounts/accounts-copy.ts` |
-| `tasks.update` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/DocumentLink/Http/TaskDocumentController.php` |
-| `tasks.assign` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/CreateTask/Handler/CreateTaskHandler.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php`<br>`apps/api/Modules/Workflow/Infrastructure/Persistence/Migrations/W14AddWorkflowStepAssignee.php` |
-| `tasks.start` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php` |
-| `tasks.complete` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php` |
-| `tasks.cancel` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php` |
+| `tasks.update` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/DocumentLink/Http/TaskDocumentController.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php` |
+| `tasks.assign` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/CreateTask/Handler/CreateTaskHandler.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php` |
+| `tasks.start` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php` |
+| `tasks.complete` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php` |
+| `tasks.cancel` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskController.php` |
 | `tasks.comment` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php` |
 | `tasks.participant-manage` | `used` | `apps/api/Modules/Tasks/Application/TaskAccessPolicy.php`<br>`apps/api/Modules/Tasks/Features/Http/TaskEngagementController.php` |
 | `documents.create` | `used` | `apps/api/Modules/Documents/Application/DocumentMutationHandler.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/CreateDocumentController.php`<br>`apps/api/Modules/Documents/Features/Spreadsheet/CleanSpreadsheetReferenceService.php` |
@@ -76,7 +51,7 @@ references:
 | `documents.get-upload-status` | `used` | `apps/api/Modules/Documents/Contracts/DocumentUploadStatusReader.php` |
 | `documents.scan-version` | `used` | `apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php` |
 | `documents.reconcile-promotion` | `used` | `apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php` |
-| `documents.link` | `used` | `apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Documents/Application/DocumentMutationHandler.php`<br>`apps/api/Modules/Documents/Application/RegisteredLinkedResourceAuthorizationFacts.php`<br>`apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLink/Http/LinkDocumentController.php`<br>`apps/api/Modules/Documents/Providers/DocumentsServiceProvider.php`<br>`apps/api/Modules/Tasks/Providers/TasksServiceProvider.php`<br>`apps/api/Modules/WorkRecords/Providers/WorkRecordsServiceProvider.php` |
+| `documents.link` | `used` | `apps/api/Modules/Documents/Application/DocumentLinkService.php`<br>`apps/api/Modules/Documents/Application/DocumentMutationHandler.php`<br>`apps/api/Modules/Documents/Application/RegisteredLinkedResourceAuthorizationFacts.php`<br>`apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLink/Http/LinkDocumentController.php`<br>`apps/api/Modules/Documents/Providers/DocumentsServiceProvider.php`<br>`apps/api/Modules/Tasks/Providers/TasksServiceProvider.php` |
 | `documents.download` | `used` | `apps/api/Modules/Documents/Application/DocumentDownloadService.php`<br>`apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentGrant/Http/CreateDocumentGrantController.php` |
 | `documents.archive` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/TransitionDocumentController.php` |
 | `documents.hold` | `used` | `apps/api/Modules/Documents/Features/DocumentAccess/Http/DocumentAccessSupport.php`<br>`apps/api/Modules/Documents/Features/DocumentLifecycle/Http/TransitionDocumentController.php` |
@@ -182,7 +157,6 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - `DownloadExportController`
 - `GetAuditEventController`
 - `GetAuthorizationBootstrapController`
-- `GetAuthorizedWorkRecordController`
 - `GetCurrentIdentityController`
 - `GetDashboardController`
 - `GetDocumentUploadStatusController`
@@ -193,7 +167,6 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - `InitiateDocumentUploadController`
 - `IssueActivationController`
 - `ListAuditEventsController`
-- `ListAuthorizedWorkRecordsController`
 - `ListDocumentsController`
 - `ListMyScopesController`
 - `ListPeopleController`
@@ -205,11 +178,10 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - `SearchController`
 - `SelectMyScopeController`
 - `TransitionUserAccountController`
-- `WorkRecordLifecycleController`
 
 ## Route matrix
 
-### row-124
+### row-114
 
 - **Method:** `POST`
 - **Path:** `/api/v1/auth/login`
@@ -224,7 +196,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-127
+### row-117
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/login`
@@ -239,7 +211,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-128
+### row-118
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/activation`
@@ -254,7 +226,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `6,1`
 
-### row-129
+### row-119
 
 - **Method:** `GET`
 - **Path:** `/api/v1/identity/me`
@@ -269,7 +241,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-130
+### row-120
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/csrf`
@@ -284,7 +256,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-131
+### row-121
 
 - **Method:** `GET`
 - **Path:** `/api/v1/me`
@@ -299,7 +271,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-132
+### row-122
 
 - **Method:** `GET`
 - **Path:** `/api/v1/me/scopes`
@@ -314,7 +286,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-133
+### row-123
 
 - **Method:** `PUT`
 - **Path:** `/api/v1/me/scope`
@@ -329,7 +301,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-139
+### row-129
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/logout`
@@ -344,7 +316,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-140
+### row-130
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/password`
@@ -359,7 +331,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-141
+### row-131
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/accounts/{accountId}/activation`
@@ -374,7 +346,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-144
+### row-134
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/uploads/{uploadId}`
@@ -389,7 +361,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-145
+### row-135
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}/download`
@@ -404,7 +376,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-146
+### row-136
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/temporary-assignments`
@@ -419,7 +391,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-147
+### row-137
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/temporary-assignments/{temporaryAssignmentId}`
@@ -434,7 +406,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-154
+### row-144
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/uploads`
@@ -449,7 +421,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-155
+### row-145
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/uploads/{uploadId}/complete`
@@ -464,7 +436,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-156
+### row-146
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/temporary-assignments`
@@ -479,7 +451,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-157
+### row-147
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/temporary-assignments/{temporaryAssignmentId}/revoke`
@@ -494,7 +466,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-159
+### row-149
 
 - **Method:** `POST`
 - **Path:** `/api/v1/internal/documents/versions/{versionId}/scan`
@@ -509,7 +481,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `60,1`
 
-### row-160
+### row-150
 
 - **Method:** `POST`
 - **Path:** `/api/v1/internal/documents/versions/{versionId}/reconcile-promotion`
@@ -524,14 +496,14 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `60,1`
 
-### row-162
+### row-152
 
 - **Method:** `GET`
 - **Path:** `/api/v1/notifications`
 - **Endpoint tag:** `api-v1-notifications:get:listmynotificationscontroller`
 - **Controller:** `ListMyNotificationsController`
 - **Controller source:** `apps/api/Modules/Notifications/Features/ListMyNotifications/Http/ListMyNotificationsController.php`
-- **Capability:** `work_record.read`
+- **Capability:** `tasks.read`
 - **Capability check:** `controller-local`
 - **Middleware:** `identity_session → require_identity_session_principal`
 - **Session:** `yes`
@@ -539,7 +511,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-163
+### row-153
 
 - **Method:** `POST`
 - **Path:** `/api/v1/notifications/{notificationId}/read`
@@ -554,11 +526,11 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-164
+### row-154
 
-- **Method:** `GET`
+- **Method:** `POST`
 - **Path:** `/api/v1/search`
-- **Endpoint tag:** `api-v1-search:get:searchcontroller`
+- **Endpoint tag:** `api-v1-search:post:searchcontroller`
 - **Controller:** `SearchController`
 - **Controller source:** `apps/api/Modules/Search/Features/Search/Http/SearchController.php`
 - **Capability:** `UNVERIFIED — no controller-local capability check`
@@ -569,7 +541,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-167
+### row-157
 
 - **Method:** `GET`
 - **Path:** `/api/v1/reports/{reportId}`
@@ -584,7 +556,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-168
+### row-158
 
 - **Method:** `GET`
 - **Path:** `/api/v1/exports/{exportId}`
@@ -599,7 +571,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-169
+### row-159
 
 - **Method:** `GET`
 - **Path:** `/api/v1/dashboards/{dashboardId}`
@@ -614,7 +586,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-176
+### row-166
 
 - **Method:** `POST`
 - **Path:** `/api/v1/reports/{reportId}/exports`
@@ -629,7 +601,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-179
+### row-169
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/cluster`
@@ -644,7 +616,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-180
+### row-170
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/cluster`
@@ -659,7 +631,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-181
+### row-171
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/cluster`
@@ -674,7 +646,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-182
+### row-172
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/facilities`
@@ -689,7 +661,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-183
+### row-173
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/facilities`
@@ -704,7 +676,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-184
+### row-174
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/facilities/{facilityId}`
@@ -719,7 +691,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-185
+### row-175
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/facilities/{facilityId}`
@@ -734,7 +706,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-186
+### row-176
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/units`
@@ -749,7 +721,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-187
+### row-177
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/units`
@@ -764,7 +736,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-188
+### row-178
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/units/reorder`
@@ -779,7 +751,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-189
+### row-179
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/units/{unitId}`
@@ -794,7 +766,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-190
+### row-180
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/units/{unitId}`
@@ -809,7 +781,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-191
+### row-181
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/job-titles`
@@ -824,7 +796,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-192
+### row-182
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/job-titles`
@@ -839,7 +811,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-193
+### row-183
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/positions`
@@ -854,7 +826,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-194
+### row-184
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/positions`
@@ -869,7 +841,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-195
+### row-185
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/positions/{positionId}`
@@ -884,7 +856,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-196
+### row-186
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/positions/{positionId}`
@@ -899,7 +871,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-197
+### row-187
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/people`
@@ -914,7 +886,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-198
+### row-188
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/people`
@@ -929,7 +901,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-199
+### row-189
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/people/{personId}/reference`
@@ -944,7 +916,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-200
+### row-190
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/people/{personId}`
@@ -959,7 +931,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-201
+### row-191
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/organization/people/{personId}`
@@ -974,7 +946,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-202
+### row-192
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/assignments`
@@ -989,7 +961,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-203
+### row-193
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/assignments`
@@ -1004,7 +976,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-204
+### row-194
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/assignments/{assignmentId}/end`
@@ -1019,7 +991,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-205
+### row-195
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/supervisory-relationships`
@@ -1034,7 +1006,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-206
+### row-196
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/supervisory-relationships`
@@ -1049,7 +1021,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-207
+### row-197
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/import-files`
@@ -1064,7 +1036,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-208
+### row-198
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/import-jobs`
@@ -1079,7 +1051,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-209
+### row-199
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/import-jobs/{jobId}`
@@ -1094,7 +1066,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-210
+### row-200
 
 - **Method:** `GET`
 - **Path:** `/api/v1/organization/import-jobs/{jobId}/rows`
@@ -1109,7 +1081,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-211
+### row-201
 
 - **Method:** `POST`
 - **Path:** `/api/v1/organization/import-jobs/{jobId}/{jobAction}`
@@ -1124,7 +1096,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-212
+### row-202
 
 - **Method:** `GET`
 - **Path:** `/api/v1/identity/accounts`
@@ -1139,7 +1111,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-213
+### row-203
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/accounts`
@@ -1154,7 +1126,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-214
+### row-204
 
 - **Method:** `GET`
 - **Path:** `/api/v1/identity/accounts/{accountId}`
@@ -1169,7 +1141,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-215
+### row-205
 
 - **Method:** `POST`
 - **Path:** `/api/v1/identity/accounts/{accountId}/{accountAction}`
@@ -1184,7 +1156,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-218
+### row-208
 
 - **Method:** `GET`
 - **Path:** `/api/v1/audit/events`
@@ -1199,7 +1171,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-219
+### row-209
 
 - **Method:** `GET`
 - **Path:** `/api/v1/audit/events/{eventId}`
@@ -1214,7 +1186,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-220
+### row-210
 
 - **Method:** `GET`
 - **Path:** `/api/v1/audit/exports/{exportId}`
@@ -1229,7 +1201,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-221
+### row-211
 
 - **Method:** `GET`
 - **Path:** `/api/v1/audit/exports/{exportId}/download`
@@ -1244,7 +1216,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-222
+### row-212
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-settings/current`
@@ -1259,7 +1231,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-223
+### row-213
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/maintenance-windows`
@@ -1274,7 +1246,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-224
+### row-214
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/alert-policies`
@@ -1289,7 +1261,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-225
+### row-215
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/technical-logs`
@@ -1304,7 +1276,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-226
+### row-216
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-settings/versions`
@@ -1319,7 +1291,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-227
+### row-217
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-settings/calendars`
@@ -1334,7 +1306,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-228
+### row-218
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/overview`
@@ -1349,7 +1321,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-229
+### row-219
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/health`
@@ -1364,7 +1336,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-230
+### row-220
 
 - **Method:** `GET`
 - **Path:** `/api/v1/platform-operations/backups`
@@ -1379,37 +1351,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-231
-
-- **Method:** `GET`
-- **Path:** `/api/v1/work-records`
-- **Endpoint tag:** `api-v1-work-records:get:listauthorizedworkrecordscontroller`
-- **Controller:** `ListAuthorizedWorkRecordsController`
-- **Controller source:** `apps/api/Modules/WorkRecords/Features/ListAuthorizedWorkRecords/Http/ListAuthorizedWorkRecordsController.php`
-- **Capability:** `UNVERIFIED — no controller-local capability check`
-- **Capability check:** `missing-controller-local-check`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-232
-
-- **Method:** `GET`
-- **Path:** `/api/v1/work-records/{recordId}`
-- **Endpoint tag:** `api-v1-work-records-recordId:get:getauthorizedworkrecordcontroller`
-- **Controller:** `GetAuthorizedWorkRecordController`
-- **Controller source:** `apps/api/Modules/WorkRecords/Features/GetAuthorizedWorkRecord/Http/GetAuthorizedWorkRecordController.php`
-- **Capability:** `UNVERIFIED — no controller-local capability check`
-- **Capability check:** `missing-controller-local-check`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-233
+### row-221
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/access-decisions/{decisionId}/explanation`
@@ -1424,7 +1366,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-234
+### row-222
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/bootstrap`
@@ -1439,7 +1381,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-235
+### row-223
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/assignment-scope-targets`
@@ -1454,7 +1396,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-236
+### row-224
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/{adminResource}`
@@ -1469,7 +1411,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-237
+### row-225
 
 - **Method:** `GET`
 - **Path:** `/api/v1/authorization/{adminResource}/{resourceId}`
@@ -1484,7 +1426,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-244
+### row-232
 
 - **Method:** `POST`
 - **Path:** `/api/v1/audit/exports`
@@ -1499,7 +1441,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-245
+### row-233
 
 - **Method:** `POST`
 - **Path:** `/api/v1/audit/integrity-verifications`
@@ -1514,7 +1456,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-246
+### row-234
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/versions`
@@ -1529,7 +1471,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-247
+### row-235
 
 - **Method:** `PUT`
 - **Path:** `/api/v1/platform-settings/versions/{versionId}/settings/{settingKey}`
@@ -1544,7 +1486,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-248
+### row-236
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/versions/{versionId}/validate`
@@ -1559,7 +1501,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-249
+### row-237
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/versions/{versionId}/publish`
@@ -1574,7 +1516,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-250
+### row-238
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/calendars`
@@ -1589,7 +1531,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-251
+### row-239
 
 - **Method:** `PUT`
 - **Path:** `/api/v1/platform-settings/calendars/{calendarId}/weekdays/{weekday}`
@@ -1604,7 +1546,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-252
+### row-240
 
 - **Method:** `PUT`
 - **Path:** `/api/v1/platform-settings/calendars/{calendarId}/exceptions/{date}`
@@ -1619,7 +1561,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-253
+### row-241
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-settings/calendars/{calendarId}/publish`
@@ -1634,7 +1576,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-254
+### row-242
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/backups`
@@ -1649,7 +1591,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-255
+### row-243
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/restore-requests`
@@ -1664,7 +1606,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-256
+### row-244
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/restore-requests/{requestId}/confirm`
@@ -1679,7 +1621,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-257
+### row-245
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/maintenance-windows`
@@ -1694,7 +1636,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-258
+### row-246
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/maintenance-windows/{windowId}/cancel`
@@ -1709,7 +1651,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-259
+### row-247
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/platform-operations/alert-policies/{policyId}`
@@ -1724,7 +1666,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-260
+### row-248
 
 - **Method:** `POST`
 - **Path:** `/api/v1/platform-operations/technical-logs/restore`
@@ -1739,52 +1681,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-261
-
-- **Method:** `POST`
-- **Path:** `/api/v1/work-records`
-- **Endpoint tag:** `api-v1-work-records:post:submitworkrecordcontroller`
-- **Controller:** `SubmitWorkRecordController`
-- **Controller source:** `apps/api/Modules/WorkRecords/Features/SubmitWorkRecord/Http/SubmitWorkRecordController.php`
-- **Capability:** `work_record.read, work_record.submit`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-266
-
-- **Method:** `POST`
-- **Path:** `/api/v1/work-records/{recordId}/{recordAction}`
-- **Endpoint tag:** `api-v1-work-records-recordId-recordAction-transition:post:workrecordlifecyclecontroller::transition`
-- **Controller:** `WorkRecordLifecycleController`
-- **Controller source:** `apps/api/Modules/WorkRecords/Features/Lifecycle/Http/WorkRecordLifecycleController.php`
-- **Capability:** `UNVERIFIED — no controller-local capability check`
-- **Capability check:** `missing-controller-local-check`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature → project_work_record_read_models`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-269
-
-- **Method:** `POST`
-- **Path:** `/api/v1/work-records/{recordId}/documents`
-- **Endpoint tag:** `api-v1-work-records-recordId-documents:post:workrecorddocumentlinkcontroller`
-- **Controller:** `WorkRecordDocumentLinkController`
-- **Controller source:** `apps/api/Modules/WorkRecords/Features/DocumentLink/Http/WorkRecordDocumentLinkController.php`
-- **Capability:** `work_record.read`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-270
+### row-249
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/access-decisions`
@@ -1799,7 +1696,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-271
+### row-250
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/bootstrap/complete`
@@ -1814,7 +1711,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-272
+### row-251
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/{adminResource}`
@@ -1829,7 +1726,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-273
+### row-252
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/authorization/{adminResource}/{resourceId}`
@@ -1844,7 +1741,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-274
+### row-253
 
 - **Method:** `POST`
 - **Path:** `/api/v1/authorization/{adminResource}/{resourceId}/{authorizationAction}`
@@ -1859,164 +1756,14 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-277
-
-- **Method:** `GET`
-- **Path:** `/api/v1/work-definitions`
-- **Endpoint tag:** `api-v1-work-definitions-index:get:workdefinitioncontroller::index`
-- **Controller:** `WorkDefinitionController`
-- **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php`
-- **Capability:** `work_definition.create, work_definition.publish, work_definition.read, work_definition.update`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-278
-
-- **Method:** `GET`
-- **Path:** `/api/v1/work-definitions/{definitionId}`
-- **Endpoint tag:** `api-v1-work-definitions-definitionId-show:get:workdefinitioncontroller::show`
-- **Controller:** `WorkDefinitionController`
-- **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php`
-- **Capability:** `work_definition.create, work_definition.publish, work_definition.read, work_definition.update`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-279
-
-- **Method:** `GET`
-- **Path:** `/api/v1/work-definitions/{definitionId}/versions`
-- **Endpoint tag:** `api-v1-work-definitions-definitionId-versions-versions:get:workdefinitioncontroller::versions`
-- **Controller:** `WorkDefinitionController`
-- **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php`
-- **Capability:** `work_definition.create, work_definition.publish, work_definition.read, work_definition.update`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-280
-
-- **Method:** `GET`
-- **Path:** `/api/v1/work-definition-versions/{versionId}`
-- **Endpoint tag:** `api-v1-work-definition-versions-versionId-showversionroute:get:workdefinitioncontroller::showversionroute`
-- **Controller:** `WorkDefinitionController`
-- **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php`
-- **Capability:** `work_definition.create, work_definition.publish, work_definition.read, work_definition.update`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-281
-
-- **Method:** `GET`
-- **Path:** `/api/v1/workflow/definitions`
-- **Endpoint tag:** `api-v1-workflow-definitions-definitions:get:workflowcontroller::definitions`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-282
-
-- **Method:** `GET`
-- **Path:** `/api/v1/workflow/definitions/{definitionId}/versions`
-- **Endpoint tag:** `api-v1-workflow-definitions-definitionId-versions-versions:get:workflowcontroller::versions`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-283
-
-- **Method:** `GET`
-- **Path:** `/api/v1/workflow/instances`
-- **Endpoint tag:** `api-v1-workflow-instances-instances:get:workflowcontroller::instances`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-284
-
-- **Method:** `GET`
-- **Path:** `/api/v1/workflow/instances/{instanceId}`
-- **Endpoint tag:** `api-v1-workflow-instances-instanceId-showinstance:get:workflowcontroller::showinstance`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-285
-
-- **Method:** `GET`
-- **Path:** `/api/v1/workflow/steps`
-- **Endpoint tag:** `api-v1-workflow-steps-listinbox:get:workflowcontroller::listinbox`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-286
-
-- **Method:** `GET`
-- **Path:** `/api/v1/workflow/steps/{stepId}`
-- **Endpoint tag:** `api-v1-workflow-steps-stepId-showstep:get:workflowcontroller::showstep`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `no`
-- **Throttle:** `none`
-
-### row-287
+### row-256
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks`
 - **Endpoint tag:** `api-v1-tasks-index:get:taskcontroller::index`
 - **Controller:** `TaskController`
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php`
-- **Capability:** `tasks.assign, tasks.create, tasks.read`
+- **Capability:** `tasks.assign, tasks.cancel, tasks.complete, tasks.create, tasks.read, tasks.start, tasks.update`
 - **Capability check:** `controller-local`
 - **Middleware:** `identity_session → require_identity_session_principal`
 - **Session:** `yes`
@@ -2024,7 +1771,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-288
+### row-257
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks/{taskId}/comments`
@@ -2039,14 +1786,14 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-289
+### row-258
 
 - **Method:** `GET`
 - **Path:** `/api/v1/tasks/{taskId}`
 - **Endpoint tag:** `api-v1-tasks-taskId-show:get:taskcontroller::show`
 - **Controller:** `TaskController`
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php`
-- **Capability:** `tasks.assign, tasks.create, tasks.read`
+- **Capability:** `tasks.assign, tasks.cancel, tasks.complete, tasks.create, tasks.read, tasks.start, tasks.update`
 - **Capability check:** `controller-local`
 - **Middleware:** `identity_session → require_identity_session_principal`
 - **Session:** `yes`
@@ -2054,7 +1801,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-290
+### row-259
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents`
@@ -2069,7 +1816,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-291
+### row-260
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}`
@@ -2084,7 +1831,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-292
+### row-261
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}/versions`
@@ -2099,7 +1846,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-293
+### row-262
 
 - **Method:** `GET`
 - **Path:** `/api/v1/documents/{documentId}/links`
@@ -2114,7 +1861,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-294
+### row-263
 
 - **Method:** `GET`
 - **Path:** `/api/v1/reports`
@@ -2129,7 +1876,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-295
+### row-264
 
 - **Method:** `GET`
 - **Path:** `/api/v1/dashboards`
@@ -2144,119 +1891,14 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `no`
 - **Throttle:** `none`
 
-### row-302
-
-- **Method:** `POST`
-- **Path:** `/api/v1/work-definitions`
-- **Endpoint tag:** `api-v1-work-definitions-store:post:workdefinitioncontroller::store`
-- **Controller:** `WorkDefinitionController`
-- **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php`
-- **Capability:** `work_definition.create, work_definition.publish, work_definition.read, work_definition.update`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-303
-
-- **Method:** `POST`
-- **Path:** `/api/v1/work-definitions/{definitionId}/versions`
-- **Endpoint tag:** `api-v1-work-definitions-definitionId-versions-versions:post:workdefinitioncontroller::versions`
-- **Controller:** `WorkDefinitionController`
-- **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php`
-- **Capability:** `work_definition.create, work_definition.publish, work_definition.read, work_definition.update`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-304
-
-- **Method:** `POST`
-- **Path:** `/api/v1/work-definition-versions/{versionId}/{versionAction}`
-- **Endpoint tag:** `api-v1-work-definition-versions-versionId-versionAction-transition:post:workdefinitioncontroller::transition`
-- **Controller:** `WorkDefinitionController`
-- **Controller source:** `apps/api/Modules/WorkDefinitions/Features/Definition/Http/WorkDefinitionController.php`
-- **Capability:** `work_definition.create, work_definition.publish, work_definition.read, work_definition.update`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-305
-
-- **Method:** `POST`
-- **Path:** `/api/v1/workflow/definitions`
-- **Endpoint tag:** `api-v1-workflow-definitions-definitions:post:workflowcontroller::definitions`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-306
-
-- **Method:** `POST`
-- **Path:** `/api/v1/workflow/definitions/{definitionId}/versions`
-- **Endpoint tag:** `api-v1-workflow-definitions-definitionId-versions-versions:post:workflowcontroller::versions`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-307
-
-- **Method:** `POST`
-- **Path:** `/api/v1/workflow/versions/{versionId}/{workflowLifecycleAction}`
-- **Endpoint tag:** `api-v1-workflow-versions-versionId-workflowLifecycleAction-publish:post:workflowcontroller::publish`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-308
-
-- **Method:** `POST`
-- **Path:** `/api/v1/workflow/instances`
-- **Endpoint tag:** `api-v1-workflow-instances-instances:post:workflowcontroller::instances`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-309
+### row-271
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks`
 - **Endpoint tag:** `api-v1-tasks-store:post:taskcontroller::store`
 - **Controller:** `TaskController`
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php`
-- **Capability:** `tasks.assign, tasks.create, tasks.read`
+- **Capability:** `tasks.assign, tasks.cancel, tasks.complete, tasks.create, tasks.read, tasks.start, tasks.update`
 - **Capability check:** `controller-local`
 - **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
 - **Session:** `yes`
@@ -2264,14 +1906,14 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-310
+### row-272
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/tasks/{taskId}`
 - **Endpoint tag:** `api-v1-tasks-taskId-update:patch:taskcontroller::update`
 - **Controller:** `TaskController`
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php`
-- **Capability:** `tasks.assign, tasks.create, tasks.read`
+- **Capability:** `tasks.assign, tasks.cancel, tasks.complete, tasks.create, tasks.read, tasks.start, tasks.update`
 - **Capability check:** `controller-local`
 - **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
 - **Session:** `yes`
@@ -2279,7 +1921,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-312
+### row-273
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/participants`
@@ -2294,7 +1936,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-313
+### row-274
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/comments`
@@ -2309,7 +1951,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-314
+### row-275
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/documents`
@@ -2324,14 +1966,14 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-315
+### row-276
 
 - **Method:** `POST`
 - **Path:** `/api/v1/tasks/{taskId}/{taskAction}`
 - **Endpoint tag:** `api-v1-tasks-taskId-taskAction-transition:post:taskcontroller::transition`
 - **Controller:** `TaskController`
 - **Controller source:** `apps/api/Modules/Tasks/Features/Http/TaskController.php`
-- **Capability:** `tasks.assign, tasks.create, tasks.read`
+- **Capability:** `tasks.assign, tasks.cancel, tasks.complete, tasks.create, tasks.read, tasks.start, tasks.update`
 - **Capability check:** `controller-local`
 - **Middleware:** `identity_session → require_identity_session_principal → identity_csrf`
 - **Session:** `yes`
@@ -2339,52 +1981,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-316
-
-- **Method:** `POST`
-- **Path:** `/api/v1/workflow/steps/{stepId}/decisions`
-- **Endpoint tag:** `api-v1-workflow-steps-stepId-decisions-decidestep:post:workflowcontroller::decidestep`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-317
-
-- **Method:** `POST`
-- **Path:** `/api/v1/workflow/steps/{stepId}/{stepAction}`
-- **Endpoint tag:** `api-v1-workflow-steps-stepId-stepAction-actonstep:post:workflowcontroller::actonstep`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-318
-
-- **Method:** `POST`
-- **Path:** `/api/v1/workflow/instances/{instanceId}/cancel`
-- **Endpoint tag:** `api-v1-workflow-instances-instanceId-cancel-cancelinstance:post:workflowcontroller::cancelinstance`
-- **Controller:** `WorkflowController`
-- **Controller source:** `apps/api/Modules/Workflow/Features/WorkflowLifecycle/Http/WorkflowController.php`
-- **Capability:** `workflow.approve, workflow.cancel, workflow.decide, workflow.escalate, workflow.manage, workflow.read, workflow.reassign`
-- **Capability check:** `controller-local`
-- **Middleware:** `identity_session → require_identity_session_principal → identity_csrf → enforce_work_management_feature`
-- **Session:** `yes`
-- **Principal:** `yes`
-- **CSRF:** `yes`
-- **Throttle:** `none`
-
-### row-319
+### row-277
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents`
@@ -2399,7 +1996,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-320
+### row-278
 
 - **Method:** `PATCH`
 - **Path:** `/api/v1/documents/{documentId}`
@@ -2414,7 +2011,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-321
+### row-279
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/versions`
@@ -2429,7 +2026,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-322
+### row-280
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/links`
@@ -2444,7 +2041,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-323
+### row-281
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/{documentAction}`
@@ -2459,7 +2056,7 @@ These controllers are flagged rather than assigned a fabricated capability. Some
 - **CSRF:** `yes`
 - **Throttle:** `none`
 
-### row-324
+### row-282
 
 - **Method:** `POST`
 - **Path:** `/api/v1/documents/{documentId}/{documentGrantType}-grant`

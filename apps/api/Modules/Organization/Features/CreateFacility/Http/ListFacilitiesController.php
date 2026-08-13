@@ -7,8 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Modules\Organization\Contracts\DecideAccess;
-use Modules\Organization\Contracts\RecordFacts;
 use Modules\Organization\Contracts\ResolveDevelopmentFixturePrincipal;
+use Modules\Organization\Features\Authorization\OrganizationResourceFacts;
 use Modules\Organization\Features\CreateFacility\Handler\CreateFacilityHandler;
 use Modules\Organization\Http\OrganizationApi;
 
@@ -17,6 +17,7 @@ final class ListFacilitiesController
     public function __construct(
         private readonly ResolveDevelopmentFixturePrincipal $principalResolver,
         private readonly DecideAccess $access,
+        private readonly OrganizationResourceFacts $resourceFacts,
         private readonly CreateFacilityHandler $handler,
     ) {}
 
@@ -30,15 +31,6 @@ final class ListFacilitiesController
         if ($principal === null) {
             return OrganizationApi::problem(401, 'authentication-required', 'Unauthorized', 'Authentication is required.', $correlationId);
         }
-        if (! $this->access->decide($principal, 'organization.facility.read', new RecordFacts(
-            ownerFacilityId: $principal['facility_id'],
-            resourceType: 'organization_facility',
-            classification: 'internal',
-            clusterId: OrganizationApi::clusterId(),
-        ))->isAllowed()) {
-            return OrganizationApi::problem(403, 'access-denied', 'Forbidden', 'Access denied.', $correlationId);
-        }
-
         $query = $request->query();
         $validator = Validator::make($query, [
             'cursor' => ['sometimes', 'string', 'min:1', 'max:2048'],
@@ -50,7 +42,17 @@ final class ListFacilitiesController
         $validated = $validator->validated();
         $limit = (int) ($validated['limit'] ?? 25);
         try {
-            $page = $this->handler->list($principal, $validated['cursor'] ?? null, $limit);
+            $page = $this->handler->list(
+                $principal,
+                $validated['cursor'] ?? null,
+                $limit,
+                function (string $facilityId) use ($principal): bool {
+                    $facts = $this->resourceFacts->factsForFacility($facilityId);
+
+                    return $facts !== null
+                        && $this->access->decide($principal, 'organization.facility.read', $facts)->isAllowed();
+                },
+            );
         } catch (InvalidArgumentException) {
             return OrganizationApi::problem(400, 'invalid-pagination', 'Bad Request', 'The collection parameters are invalid.', $correlationId);
         }

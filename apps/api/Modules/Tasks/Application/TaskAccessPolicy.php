@@ -6,7 +6,9 @@ namespace Modules\Tasks\Application;
 
 use Modules\Authorization\Contracts\DecideAccess;
 use Modules\Authorization\Contracts\RecordFacts;
+use Modules\Identity\Contracts\ResolvePersonForUser;
 use Modules\Organization\Contracts\ResolveOrganizationScopeAncestry;
+use Modules\Organization\Contracts\ResolvePersonOrganizationScope;
 use Modules\Tasks\Infrastructure\Persistence\TaskHttpStore;
 use stdClass;
 
@@ -28,6 +30,8 @@ final class TaskAccessPolicy
         private readonly DecideAccess $access,
         private readonly TaskHttpStore $store,
         private readonly ResolveOrganizationScopeAncestry $ancestry,
+        private readonly ResolvePersonForUser $personForUser,
+        private readonly ResolvePersonOrganizationScope $personScope,
     ) {}
 
     /**
@@ -86,6 +90,51 @@ final class TaskAccessPolicy
         );
     }
 
+    public function factsForRequestedScope(string $scopeType, string $scopeId): ?RecordFacts
+    {
+        $ancestry = $this->ancestry->ancestry($scopeType, $scopeId);
+        if ($ancestry === null) {
+            return null;
+        }
+
+        $resolvedScopeId = match ($scopeType) {
+            'cluster' => $ancestry['cluster_id'],
+            'facility' => $ancestry['facility_id'],
+            'unit' => $ancestry['unit_id'],
+            default => null,
+        };
+        if (! is_string($resolvedScopeId) || ! hash_equals($scopeId, $resolvedScopeId)) {
+            return null;
+        }
+
+        return new RecordFacts(
+            ownerFacilityId: $ancestry['facility_id'],
+            resourceType: 'task',
+            classification: 'internal',
+            organizationUnitId: $ancestry['unit_id'],
+            recordId: $scopeId,
+            clusterId: $ancestry['cluster_id'],
+        );
+    }
+
+    public function participantIsWithinOwnerFacility(stdClass $task, string $userId): bool
+    {
+        $owner = $this->resolveOwnerAncestry($task);
+        $ownerFacilityId = $owner['facility_id'] ?? null;
+        if (! is_string($ownerFacilityId) || $ownerFacilityId === '') {
+            return false;
+        }
+
+        $personId = $this->personForUser->forUser($userId);
+        if ($personId === null) {
+            return false;
+        }
+
+        $scope = $this->personScope->forPerson($personId);
+
+        return in_array($ownerFacilityId, $scope['facility_ids'], true);
+    }
+
     /** @return array{cluster_id: ?string, facility_id: ?string, unit_id: ?string}|null */
     private function resolveOwnerAncestry(stdClass $task): ?array
     {
@@ -96,7 +145,8 @@ final class TaskAccessPolicy
         $ownerId = (string) $task->owner_organization_unit_id;
 
         return $this->ancestry->ancestry('unit', $ownerId)
-            ?? $this->ancestry->ancestry('facility', $ownerId);
+            ?? $this->ancestry->ancestry('facility', $ownerId)
+            ?? $this->ancestry->ancestry('cluster', $ownerId);
     }
 
     private function supportsAction(string $state, string $action, bool $isCreator, bool $isAssignee, bool $isParticipant): bool

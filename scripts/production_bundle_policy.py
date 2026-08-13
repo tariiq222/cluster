@@ -51,6 +51,38 @@ EXPECTED_NETWORKS = {
   "worker": {"app"},
   "migrate": {"app"},
 }
+REQUIRED_DOCUMENTS_ENV = {
+  "DOCUMENTS_PRODUCTION_RUNTIME_ENABLED",
+  "DOCUMENTS_UPLOAD_ENDPOINT_ALLOWLIST",
+  "DOCUMENTS_WORKER_TOKEN",
+  "DOCUMENTS_WORKER_USER_ID",
+  "DOCUMENTS_WORKER_ORGANIZATION_UNIT_ID",
+  "DOCUMENTS_S3_REGION",
+  "DOCUMENTS_S3_QUARANTINE_BUCKET",
+  "DOCUMENTS_S3_AVAILABLE_BUCKET",
+  "DOCUMENTS_S3_ACCESS_KEY_ID",
+  "DOCUMENTS_S3_SECRET_ACCESS_KEY",
+  "DOCUMENTS_UPLOAD_INTENT_TTL_SECONDS",
+  "DOCUMENTS_CLAMAV_TRANSPORT",
+  "DOCUMENTS_CLAMAV_HOST",
+  "DOCUMENTS_CLAMAV_PORT",
+  "DOCUMENTS_CLAMAV_ENGINE_NAME",
+  "DOCUMENTS_CLAMAV_SIGNATURE_VERSION",
+  "DOCUMENTS_QUARANTINE_AWS_ACCESS_KEY_ID",
+  "DOCUMENTS_QUARANTINE_AWS_SECRET_ACCESS_KEY",
+  "DOCUMENTS_QUARANTINE_AWS_DEFAULT_REGION",
+  "DOCUMENTS_QUARANTINE_AWS_BUCKET",
+  "DOCUMENTS_QUARANTINE_KMS_KEY_ID",
+  "DOCUMENTS_AVAILABLE_AWS_ACCESS_KEY_ID",
+  "DOCUMENTS_AVAILABLE_AWS_SECRET_ACCESS_KEY",
+  "DOCUMENTS_AVAILABLE_AWS_DEFAULT_REGION",
+  "DOCUMENTS_AVAILABLE_AWS_BUCKET",
+  "DOCUMENTS_AVAILABLE_KMS_KEY_ID",
+}
+REQUIRED_DESTRUCTIVE_MIGRATION_EVIDENCE_ENV = {
+  "DESTRUCTIVE_MIGRATION_BACKUP_ID",
+  "DESTRUCTIVE_MIGRATION_RESTORE_VALIDATION_ID",
+}
 
 
 @dataclass(frozen=True)
@@ -215,6 +247,31 @@ def validate_compose(document: Any) -> list[Failure]:
   extra_hosts = {str(item) for item in _sequence(api.get("extra_hosts"))}
   if "host.docker.internal:host-gateway" not in extra_hosts:
     _failure(failures, "missing_host_gateway", "services.api.extra_hosts", "containers need the Linux host-gateway alias for VPS services")
+  for variable in sorted(REQUIRED_DOCUMENTS_ENV):
+    value = api_environment.get(variable)
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+      _failure(
+        failures,
+        "missing_documents_configuration",
+        f"services.api.environment.{variable}",
+        "production Documents configuration must be explicit and fail closed",
+      )
+  if api_environment.get("DOCUMENTS_PRODUCTION_RUNTIME_ENABLED") != "true":
+    _failure(
+      failures,
+      "documents_runtime_disabled",
+      "services.api.environment.DOCUMENTS_PRODUCTION_RUNTIME_ENABLED",
+      "production Documents runtime must be enabled explicitly",
+    )
+  for variable in sorted(REQUIRED_DESTRUCTIVE_MIGRATION_EVIDENCE_ENV):
+    value = api_environment.get(variable)
+    if not isinstance(value, str) or not value.startswith(f"${{{variable}:?"):
+      _failure(
+        failures,
+        "missing_destructive_migration_evidence",
+        f"services.api.environment.{variable}",
+        "destructive retirement requires backup and restore-validation evidence",
+      )
   return failures
 
 

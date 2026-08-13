@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useLocale, useSessionToken } from '../../app/session-context'
 import { useNavigate } from '../../app/navigation-context'
@@ -23,14 +23,15 @@ import { CODE_PATTERN, useCapabilities } from './organization-utils'
  * Full-page replacement for the former ClusterSheet
  * (routes `/organization/cluster/new` and `/organization/cluster/edit`).
  *
- * The edit path fetches the cluster fresh to seed the form and re-fetches
- * again at save time so `lock_version` is always the latest observed
- * value; a 412 surfaces a stale alert whose retry reloads the seed.
+ * The edit path saves against the version used to seed the form. Fetching a
+ * newer version at submit time would silently defeat optimistic concurrency;
+ * a real conflict instead surfaces a 412 whose retry reloads the seed.
  */
 export function ClusterFormScreen({ mode = 'create' }: { mode?: 'create' | 'edit' }) {
   const locale = useLocale()
   const token = useSessionToken()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const text = organizationCopy[locale]
   const capabilities = useCapabilities()
   const editing = mode === 'edit'
@@ -68,11 +69,11 @@ export function ClusterFormScreen({ mode = 'create' }: { mode?: 'create' | 'edit
   const mutation = useMutation({
     mutationFn: async ({ nextCode, nextName, nextNameEn }: { nextCode: string; nextName: string; nextNameEn: string }) => {
       if (editing) {
-        const fresh = unwrap<generated.Cluster>(await generated.getCluster(requestInit(token)))
+        if (!seed) throw new Error('cluster_edit_seed_missing')
         return unwrap<generated.Cluster>(
           await generated.updateCluster(
             { name: nextName },
-            requestInit(token, { command: true, idempotency: 'cluster-update', lockVersion: fresh.lock_version }),
+            requestInit(token, { command: true, idempotency: 'cluster-update', lockVersion: seed.lock_version }),
           ),
         )
       }
@@ -83,7 +84,8 @@ export function ClusterFormScreen({ mode = 'create' }: { mode?: 'create' | 'edit
         ),
       )
     },
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['cluster'], updated)
       navigate('/organization?tab=cluster')
     },
     onError: (caught) => {

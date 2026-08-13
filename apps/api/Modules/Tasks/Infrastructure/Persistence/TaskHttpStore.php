@@ -33,7 +33,6 @@ final class TaskHttpStore
                     ->orWhere('t.assignee_user_id', $userId)
                     ->orWhereNotNull('p.id');
             })
-            ->orderBy('t.created_at')
             ->orderBy('t.id')
             ->select('t.*');
 
@@ -50,6 +49,31 @@ final class TaskHttpStore
                     $builder->whereNotNull('p.id');
                 }
             });
+        }
+        if ($cursor !== null && $cursor !== '') {
+            $query->where('t.id', '>', $cursor);
+        }
+
+        return $query->limit($limit + 1)->get()->all();
+    }
+
+    /**
+     * @param  list<string>  $ownerScopeIds
+     * @return list<stdClass>
+     */
+    public function listForOwnerScopeIds(array $ownerScopeIds, ?string $state, ?string $cursor, int $limit = 50): array
+    {
+        if ($ownerScopeIds === []) {
+            return [];
+        }
+
+        $query = DB::table('tasks as t')
+            ->whereIn('t.owner_organization_unit_id', $ownerScopeIds)
+            ->orderBy('t.id')
+            ->select('t.*');
+
+        if ($state !== null && $state !== '' && in_array($state, self::STATES, true)) {
+            $query->where('t.status', $state);
         }
         if ($cursor !== null && $cursor !== '') {
             $query->where('t.id', '>', $cursor);
@@ -126,10 +150,6 @@ final class TaskHttpStore
             'priority' => $fields['priority'] ?? 'normal',
             'classification' => $fields['classification'] ?? 'internal',
             'completion_policy' => $fields['completion_policy'] ?? 'direct',
-            'source_module' => $fields['source_module'] ?? null,
-            'source_type' => $fields['source_type'] ?? null,
-            'source_id' => $fields['source_id'] ?? null,
-            'workflow_step_id' => $fields['workflow_step_id'] ?? null,
             'lock_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,

@@ -15,6 +15,8 @@ use UnexpectedValueException;
 
 final class OrganizationUnitHandler
 {
+    private const MAX_RAW_ROWS_PER_REQUEST = 100;
+
     public function __construct(
         private readonly OrganizationOutbox $outbox,
         private readonly OrganizationIdempotencyStore $idempotency,
@@ -108,7 +110,7 @@ final class OrganizationUnitHandler
      * @param  array{user_id: string, facility_id: string}  $principal
      * @return array{items: list<array<string, mixed>>, next_cursor: string|null}
      */
-    public function list(array $principal, ?string $cursor, int $limit, ?string $parentId): array
+    public function list(array $principal, ?string $cursor, int $limit, ?string $parentId, Closure $canRead): array
     {
         $after = $cursor === null ? null : $this->decodeCursor($cursor, $principal, $limit, $parentId);
         $query = $this->unitQuery()
@@ -116,7 +118,8 @@ final class OrganizationUnitHandler
             ->orderBy('organization_units.parent_id')
             ->orderBy('organization_units.sort_order')
             ->orderBy('organization_units.code')
-            ->orderBy('organization_units.id');
+            ->orderBy('organization_units.id')
+            ->limit(self::MAX_RAW_ROWS_PER_REQUEST + 1);
         if ($parentId !== null) {
             $query->where('organization_units.parent_id', $parentId);
         }
@@ -132,22 +135,32 @@ final class OrganizationUnitHandler
                 ],
             );
         }
-        $items = $query->limit($limit + 1)->get()->map(fn (stdClass $row): array => $this->serialize($row))->all();
-        $hasNextPage = count($items) > $limit;
-        if ($hasNextPage) {
+        $rawRows = $query->get();
+        $hasMoreRawRows = $rawRows->count() > self::MAX_RAW_ROWS_PER_REQUEST;
+        $rows = $hasMoreRawRows ? $rawRows->take(self::MAX_RAW_ROWS_PER_REQUEST) : $rawRows;
+        $items = [];
+        $lastScanned = $after;
+        foreach ($rows as $row) {
+            $lastScanned = $this->cursorTuple($row);
+            if (! $canRead((string) $row->id)) {
+                continue;
+            }
+            $items[] = $this->serialize($row);
+            if (count($items) > $limit) {
+                break;
+            }
+        }
+        $hasMoreVisibleRows = count($items) > $limit;
+        if ($hasMoreVisibleRows) {
             array_pop($items);
         }
 
         $nextCursor = null;
-        if ($hasNextPage) {
-            $last = $items[array_key_last($items)];
-            $nextCursor = $this->encodeCursor([
-                'after_parent_type' => (string) $last['parent_type'],
-                'after_parent_id' => (string) $last['parent_id'],
-                'after_sort_order' => (int) $last['sort_order'],
-                'after_code' => (string) $last['code'],
-                'after_id' => (string) $last['id'],
-            ], $principal, $limit, $parentId);
+        $nextAfter = $hasMoreVisibleRows
+            ? $this->cursorTupleFromSerialized($items[array_key_last($items)])
+            : ($hasMoreRawRows ? $lastScanned : null);
+        if ($nextAfter !== null) {
+            $nextCursor = $this->encodeCursor($nextAfter, $principal, $limit, $parentId);
         }
 
         return ['items' => $items, 'next_cursor' => $nextCursor];
@@ -396,6 +409,15 @@ final class OrganizationUnitHandler
         });
     }
 
+    public function reorderClusterId(): ?string
+    {
+        $clusterIds = DB::table('clusters')->orderBy('id')->pluck('id');
+
+        return $clusterIds->count() === 1 && is_string($clusterIds->first())
+            ? $clusterIds->first()
+            : null;
+    }
+
     /** @return array<string, mixed>|null */
     public function findReorderReplay(string $principalId, string $idempotencyKey, string $requestHash): ?array
     {
@@ -541,6 +563,30 @@ final class OrganizationUnitHandler
             'path_cache' => $row->path_cache,
             'depth' => (int) $row->depth,
             'lock_version' => (int) $row->lock_version,
+        ];
+    }
+
+    /** @return array{after_parent_type: string, after_parent_id: string, after_sort_order: int, after_code: string, after_id: string} */
+    private function cursorTuple(stdClass $row): array
+    {
+        return [
+            'after_parent_type' => (string) $row->parent_type,
+            'after_parent_id' => (string) $row->parent_id,
+            'after_sort_order' => (int) $row->sort_order,
+            'after_code' => (string) $row->code,
+            'after_id' => (string) $row->id,
+        ];
+    }
+
+    /** @param array<string, mixed> $row @return array{after_parent_type: string, after_parent_id: string, after_sort_order: int, after_code: string, after_id: string} */
+    private function cursorTupleFromSerialized(array $row): array
+    {
+        return [
+            'after_parent_type' => (string) $row['parent_type'],
+            'after_parent_id' => (string) $row['parent_id'],
+            'after_sort_order' => (int) $row['sort_order'],
+            'after_code' => (string) $row['code'],
+            'after_id' => (string) $row['id'],
         ];
     }
 

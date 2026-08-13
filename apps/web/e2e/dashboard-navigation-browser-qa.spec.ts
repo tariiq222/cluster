@@ -20,8 +20,8 @@ async function mockDashboard(page: Page) {
           data: {
             user_id: USER,
             csrf_token: 'visual-qa-csrf',
-            capabilities: ['workflow.read', 'workflow.list', 'workflow.decide', 'tasks.read', 'tasks.list', 'reporting.dashboard'],
-            features: { work_management: false, tasks: true },
+            capabilities: ['tasks.read', 'tasks.list', 'reporting.dashboard'],
+            features: { tasks: true },
           },
         }),
       }
@@ -63,18 +63,18 @@ async function mockDashboard(page: Page) {
       tenant_id: CLUSTER,
       organization_unit_ids: [UNIT],
       roles: ['manager'],
-      capabilities: ['workflow.read', 'workflow.list', 'workflow.decide', 'tasks.read', 'tasks.list', 'reporting.dashboard'],
+      capabilities: ['tasks.read', 'tasks.list', 'reporting.dashboard'],
       clearance: 'internal',
       break_glass: false,
       correlation_id: USER,
-      features: { work_management: false, tasks: true },
+      features: { tasks: true },
     }),
   }))
   await page.route('**/api/v1/tasks?limit=100', route => route.fulfill({
     contentType: 'application/json',
     body: JSON.stringify({ items: [{ id: UNIT, title: 'مراجعة جاهزية العيادة', status: 'open', priority: 'high', due_at: '2026-07-23T12:00:00Z' }], next_cursor: null }),
   }))
-  for (const endpoint of ['dashboards?limit=50', 'work-records?limit=**', 'notifications?limit=**', 'workflow/instances?limit=100']) {
+  for (const endpoint of ['dashboards?limit=50', 'notifications?limit=**']) {
     await page.route(`**/api/v1/${endpoint}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [], next_cursor: null }) }))
   }
 }

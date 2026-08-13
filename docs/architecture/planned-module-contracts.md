@@ -90,8 +90,8 @@ completion claim without resolvable evidence is not a handoff.
 
 The seven planned-module entries are M01–M07 and **only** M01–M07.
 Existing implemented modules (Shared, PlatformSettings, Organization,
-Identity, Authorization, Workflow, WorkDefinitions, Documents, Tasks,
-WorkRecords, Notifications, Search, Reporting) appear only as
+Identity, Authorization, Documents, Tasks, Notifications, Search, Reporting)
+appear only as
 prerequisite facts, not as module entries.
 
 ### 3.1 · M01 Audit (rank 3)

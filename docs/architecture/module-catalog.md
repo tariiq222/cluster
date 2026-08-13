@@ -4,9 +4,9 @@
 > `apps/api/tests/Architecture/ModuleBoundariesTest.php` must agree with this
 > catalog at all times. If you change one, change the other in the same PR.
 
-Cluster is a **Laravel 13.8 Modular Monolith** organised as 13 implemented
+Cluster is a **Laravel 13.8 Modular Monolith** organised as 10 implemented
 business modules plus 6 planned modules.
-its HTTP surface, its domain rules, and its infrastructure adapters; it
+Each module owns its HTTP surface, domain rules, and infrastructure adapters; it
 publishes only `Contracts/` (interfaces) and `Events/` (typed outbox payloads)
 to the rest of the system.
 
@@ -23,11 +23,11 @@ order is enforced by `test_detects_a_cross_module_domain_import` in
 | 1 | `Identity` | — | Authenticated principal. May read from rank 0 through Contracts. |
 | 2 | `Authorization` | — | RBAC + ABAC engine. Consumes `Identity` and `Organization` Contracts. |
 | 3 | `Audit` | — | Audit ledger. Records access decisions and audit-relevant activity after `Authorization`. |
-| 4 | `Workflow` | `RecordsGovernance` | Cross-cutting business processes. |
-| 5 | `WorkDefinitions`, `Documents` | — | Authoring of work artefacts and documents. |
+| 4 | — | `RecordsGovernance` | Planned records-governance boundary. |
+| 5 | `Documents` | — | Document lifecycle and governance. |
 | 6 | — | `Collaboration` | Shared collaborative surfaces (planned). |
 | 7 | `Tasks` | — | Task lifecycle and engagement. |
-| 8 | `WorkRecords` | `Strategy` | Realisations of work and strategic plans. |
+| 8 | — | `Strategy` | Strategic plans (planned). |
 | 9 | — | `PortfolioProjects` | Portfolio aggregates (planned). |
 | 10 | — | `Risk` | Risk register (planned). |
 | 11 | `Notifications`, `Search`, `Reporting` | `Workspace` | Side-channel read models and notifications. |
@@ -141,24 +141,6 @@ lists the canonical tables, contracts, and HTTP routes.
   `GET audit/exports/{exportId}/download` (download signed export),
   `POST audit/integrity-verifications` (verify checkpoint chain).
 
-### `Workflow` (rank 4)
-
-- **Purpose.** Workflow definitions, versions, instances, step instances,
-  step decisions, assignment rules, advance engine.
-- **Tables.** `workflow_definitions`, `workflow_versions`,
-  `workflow_instances`, `workflow_step_instances`, `workflow_decisions`,
-  `workflow_idempotency_keys`.
-- **Contracts.** `AdvanceWorkflowStep`, `ResolveStepAssignee`,
-  `ResolveWorkflowSourceAuthorizationFacts`, `WorkflowStepExists`.
-
-### `WorkDefinitions` (rank 5)
-
-- **Purpose.** Authoring of work definitions (request fixtures) and
-  work-definition development fixtures for local exploration.
-- **Tables.** `work_definitions`, `work_definition_versions`,
-  `work_definition_idempotency_keys`,
-  `work_definition_development_work_type_versions`.
-
 ### `Documents` (rank 5)
 
 - **Purpose.** Document lifecycle: create, version, link, quarantine,
@@ -177,21 +159,9 @@ lists the canonical tables, contracts, and HTTP routes.
 ### `Tasks` (rank 7)
 
 - **Purpose.** Task lifecycle and engagement (participants, comments),
-  creation from workflow step, transitions, idempotency.
+  assignment, transitions, idempotency.
 - **Tables.** `tasks`, `task_idempotency_keys`, `task_participants`,
   `task_comments`.
-
-### `WorkRecords` (rank 8)
-
-- **Purpose.** Realisations of work: submit, list authorised records, get
-  authorised record, lifecycle transitions (submit / return / complete /
-  cancel / archive), idempotency.
-- **Tables.** `work_records`, `work_record_idempotency_keys`, `outbox_events`.
-  As of the Task 4 inventory refresh (2026-07-26), the previous
-  `project_work_record_read_models` extra `TABLE_OWNERS` key has been
-  removed because no `Schema::create` migration declares it; if the
-  projection becomes a real table it must be added back via a migration,
-  not as an inventory string.
 
 ### `Notifications` (rank 11)
 
@@ -496,10 +466,10 @@ authorization decisions (Stage 3)
 - **What.** The migration expanded from the initial 14-controller slice to the
   full legacy application-controller tree. The only remaining file under
   `apps/api/app/Http/Controllers/` is Laravel's base `Controller.php`.
-  Organization now owns 35 controllers under
+  Organization now owns its controllers under
   `Modules/Organization/Features/*/Http/`; Identity, Authorization, Documents,
-  Workflow, WorkDefinitions, WorkRecords, Tasks, Notifications, Platform
-  Settings, Reporting, and Search routes now bind module-owned controllers.
+  Tasks, Notifications, Platform Settings, Reporting, and Search routes now
+  bind module-owned controllers.
 - **Residual debt.** None remains: the module-level `Http/` controller debt is
   cleared. `Modules/*/Http/` hosts only support APIs (e.g. `ReportingApi`,
   `SearchApi`); every business controller lives under
@@ -511,7 +481,7 @@ authorization decisions (Stage 3)
 
 ### 6.9 Composition root split into module providers
 
-- **What.** `AppServiceProvider` now registers 13 module service providers and
+- **What.** `AppServiceProvider` registers the retained module service providers and
   retains only shared bindings, migration loading, commands, and production
   safety checks. It is 113 lines; module-specific bindings live in
   `Modules/<Name>/Providers/<Name>ServiceProvider.php`.

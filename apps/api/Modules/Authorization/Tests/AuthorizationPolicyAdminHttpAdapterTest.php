@@ -103,7 +103,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $created = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-capabilities', [
             'resource_type' => 'role_capability',
             'role_id' => $roleId,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
             'effect' => 'allow',
         ], $this->writeHeaders('rc-attach', $csrf))->assertCreated()->assertJsonPath('data.resource_type', 'role_capability');
         $composite = (string) $created->json('data.id');
@@ -112,7 +112,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $replay = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-capabilities', [
             'resource_type' => 'role_capability',
             'role_id' => $roleId,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
             'effect' => 'allow',
         ], $this->writeHeaders('rc-attach', $csrf))->assertCreated()->assertJsonPath('data.id', $composite);
 
@@ -157,7 +157,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'updated_at' => now(),
         ]);
         $this->assignRole(DevelopmentJourneyAuthorizationSeeder::ACCOUNT_B_ID, $foreignRole, 'facility', DevelopmentJourneyAuthorizationSeeder::FACILITY_B_ID, null);
-        $foreignCapability = (string) DB::table('capabilities')->where('capability_code', 'work_record.read')->value('id');
+        $foreignCapability = (string) DB::table('capabilities')->where('capability_code', 'tasks.read')->value('id');
         DB::table('role_capabilities')->updateOrInsert([
             'role_id' => $foreignRole,
             'capability_id' => $foreignCapability,
@@ -193,12 +193,12 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-capabilities', [
             'resource_type' => 'role_capability',
             'role_id' => $roleId,
-            'capability_code' => 'work_record.destroy',
+            'capability_code' => 'tasks.destroy',
         ], $this->writeHeaders('rc-bad-code', $csrf))->assertUnprocessable();
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/capabilities', [
             'resource_type' => 'capability',
-            'capability_code' => 'work_record.destroy',
+            'capability_code' => 'tasks.destroy',
         ], $this->writeHeaders('cap-bad-code', $csrf))->assertUnprocessable();
     }
 
@@ -208,8 +208,8 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $created = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies', [
             'resource_type' => 'explicit_deny',
             'user_id' => self::ADMIN_ID,
-            'capability_code' => 'work_record.read',
-            'resource_pattern' => 'work_record',
+            'capability_code' => 'tasks.read',
+            'resource_pattern' => 'task',
             'reason' => 'تعليق وصول مؤقت للمراجعة',
         ], $this->writeHeaders('deny-create', $csrf))->assertCreated()->assertJsonPath('data.resource_type', 'explicit_deny');
         $id = (string) $created->json('data.id');
@@ -217,8 +217,8 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $replay = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies', [
             'resource_type' => 'explicit_deny',
             'user_id' => self::ADMIN_ID,
-            'capability_code' => 'work_record.read',
-            'resource_pattern' => 'work_record',
+            'capability_code' => 'tasks.read',
+            'resource_pattern' => 'task',
             'reason' => 'تعليق وصول مؤقت للمراجعة',
         ], $this->writeHeaders('deny-create', $csrf))->assertCreated()->assertJsonPath('data.id', $id);
 
@@ -251,14 +251,14 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         [$cookie, $csrf] = $this->loginAdminSession();
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies', [
             'resource_type' => 'explicit_deny',
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
             'reason' => 'بدون موضوع',
         ], $this->writeHeaders('deny-no-subject', $csrf))->assertUnprocessable();
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies', [
             'resource_type' => 'explicit_deny',
             'user_id' => self::ADMIN_ID,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
             'classification' => 'mega_secret',
             'reason' => 'تصنيف غير صالح',
         ], $this->writeHeaders('deny-bad-classification', $csrf))->assertUnprocessable();
@@ -287,7 +287,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $created = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies', [
             'resource_type' => 'explicit_deny',
             'user_id' => self::ADMIN_ID,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
             'reason' => 'منع غير قابل للإلغاء',
             'revocable' => false,
         ], $this->writeHeaders('deny-locked', $csrf))->assertCreated();
@@ -310,7 +310,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $revocable = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/explicit-denies', [
             'resource_type' => 'explicit_deny',
             'user_id' => self::ADMIN_ID,
-            'capability_code' => 'work_record.list',
+            'capability_code' => 'tasks.list',
             'reason' => 'منع قابل للإلغاء',
         ], $this->writeHeaders('deny-revocable', $csrf))->assertCreated();
         $revocableId = (string) $revocable->json('data.id');
@@ -330,7 +330,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/classification-policies', [
             'resource_type' => 'classification_policy',
             'classification_code' => 'confidential',
-            'minimum_capability' => 'work_record.read',
+            'minimum_capability' => 'tasks.read',
             'export_policy' => 'auditx',
             'download_policy' => 'deny',
         ], $this->writeHeaders('policy-bad-export', $csrf))->assertUnprocessable();
@@ -338,7 +338,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/classification-policies', [
             'resource_type' => 'classification_policy',
             'classification_code' => 'confidential',
-            'minimum_capability' => 'work_record.destroy',
+            'minimum_capability' => 'tasks.destroy',
             'export_policy' => 'audit',
             'download_policy' => 'deny',
         ], $this->writeHeaders('policy-bad-capability', $csrf))->assertUnprocessable();
@@ -346,7 +346,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/classification-policies', [
             'resource_type' => 'classification_policy',
             'classification_code' => 'mega_secret',
-            'minimum_capability' => 'work_record.read',
+            'minimum_capability' => 'tasks.read',
             'export_policy' => 'audit',
             'download_policy' => 'deny',
         ], $this->writeHeaders('policy-bad-classification', $csrf))->assertUnprocessable();
@@ -354,7 +354,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/classification-policies', [
             'resource_type' => 'classification_policy',
             'classification_code' => 'confidential',
-            'minimum_capability' => 'work_record.read',
+            'minimum_capability' => 'tasks.read',
             'export_policy' => 'audit',
             'download_policy' => 'deny',
         ], $this->writeHeaders('policy-valid', $csrf))->assertCreated();
@@ -367,21 +367,21 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/field-access-templates', [
             'resource_type' => 'field_access_template',
             'field_policy_key' => '',
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'policy_document' => ['fields' => ['national_id' => 'mask']],
         ], $this->writeHeaders('template-empty-key', $csrf))->assertUnprocessable();
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/field-access-templates', [
             'resource_type' => 'field_access_template',
             'field_policy_key' => 'wr_confidential_v1',
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'policy_document' => ['fields' => ['national_id' => 'bogus']],
         ], $this->writeHeaders('template-bad-rule', $csrf))->assertUnprocessable();
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/field-access-templates', [
             'resource_type' => 'field_access_template',
             'field_policy_key' => 'wr_confidential_v1',
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'policy_document' => ['fields' => ['national_id' => 'mask']],
         ], $this->writeHeaders('template-valid', $csrf))->assertCreated();
     }
@@ -414,7 +414,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ], $this->writeHeaders('assignment-missing-role', $csrf))->assertUnprocessable();
 
         $archivedRoleId = $this->createRole($cookie, $csrf, 'archived_role');
-        $this->attach($cookie, $csrf, $archivedRoleId, 'work_record.read');
+        $this->attach($cookie, $csrf, $archivedRoleId, 'tasks.read');
         DB::table('roles')->where('id', $archivedRoleId)->update(['status' => 'archived', 'updated_at' => now()]);
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
             'resource_type' => 'role_assignment',
@@ -452,7 +452,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
     {
         [$cookie, $csrf] = $this->loginAdminSession();
         $roleId = $this->createRole($cookie, $csrf, 'scoped_reader');
-        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
+        $this->attach($cookie, $csrf, $roleId, 'tasks.read');
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
             'resource_type' => 'role_assignment',
@@ -489,14 +489,14 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $delegate = '018f6f7d-0c00-7000-8000-00000000dd02';
         $roleId = $this->createRole($cookie, $csrf, 'facility_delegator', assignVisible: false);
         $this->assignRole($delegator, $roleId, 'facility', self::FACILITY, null);
-        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
+        $this->attach($cookie, $csrf, $roleId, 'tasks.read');
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations', [
             'resource_type' => 'delegation',
             'delegator_user_id' => '018f6f7d-0c00-7000-8000-00000000dd01',
             'delegate_user_id' => $delegate,
-            'module_code' => 'work_record',
-            'capability_codes' => ['work_record.read'],
+            'module_code' => 'tasks',
+            'capability_codes' => ['tasks.read'],
             'scope_type' => 'facility',
             'scope_id' => self::FACILITY,
             'start_at' => '2026-07-01T00:00:00.000Z',
@@ -507,7 +507,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'resource_type' => 'delegation',
             'delegator_user_id' => $delegator,
             'delegate_user_id' => $delegate,
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'capability_codes' => ['strategy.plan.read'],
             'scope_type' => 'facility',
             'scope_id' => self::FACILITY,
@@ -519,8 +519,8 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'resource_type' => 'delegation',
             'delegator_user_id' => $delegator,
             'delegate_user_id' => $delegate,
-            'module_code' => 'work_record',
-            'capability_codes' => ['work_record.read'],
+            'module_code' => 'tasks',
+            'capability_codes' => ['tasks.read'],
             'scope_type' => 'unit',
             'scope_id' => self::UNIT_A,
             'start_at' => '2026-07-01T00:00:00.000Z',
@@ -531,8 +531,8 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'resource_type' => 'delegation',
             'delegator_user_id' => $delegator,
             'delegate_user_id' => $delegate,
-            'module_code' => 'work_record',
-            'capability_codes' => ['work_record.read'],
+            'module_code' => 'tasks',
+            'capability_codes' => ['tasks.read'],
             'scope_type' => 'cluster',
             'scope_id' => self::CLUSTER,
             'start_at' => '2026-07-01T00:00:00.000Z',
@@ -548,7 +548,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'resource_type' => 'delegation',
             'delegator_user_id' => $delegator,
             'delegate_user_id' => $delegate,
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'capability_codes' => ['strategy.plan.read'],
             'scope_type' => 'unit',
             'scope_id' => self::UNIT_B,
@@ -564,15 +564,15 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         $delegate = '018f6f7d-0c00-7000-8000-00000000dd03';
         $expiredDelegate = '018f6f7d-0c00-7000-8000-00000000dd04';
         $roleId = $this->createRole($cookie, $csrf, 'lifecycle_delegator');
-        $this->attach($cookie, $csrf, $roleId, 'work_record.read');
+        $this->attach($cookie, $csrf, $roleId, 'tasks.read');
         $this->assignRole(self::ADMIN_ID, $roleId, 'facility', self::FACILITY, null);
 
         $created = $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/delegations', [
             'resource_type' => 'delegation',
             'delegator_user_id' => self::ADMIN_ID,
             'delegate_user_id' => $delegate,
-            'module_code' => 'work_record',
-            'capability_codes' => ['work_record.read'],
+            'module_code' => 'tasks',
+            'capability_codes' => ['tasks.read'],
             'scope_type' => 'unit',
             'scope_id' => self::UNIT_A,
             'start_at' => now()->subMinute()->utc()->format('Y-m-d\TH:i:s.v\Z'),
@@ -591,7 +591,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'X-CSRF-Token' => $csrf,
         ])->assertOk()->assertJsonPath('data.status', 'active');
         $this->assertDatabaseHas('delegations', ['id' => $id, 'status' => 'active', 'lock_version' => 2]);
-        $this->assertSame(['work_record.read'], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($delegate));
+        $this->assertSame(['tasks.read'], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($delegate));
 
         $revokeHeaders = [
             'X-Correlation-ID' => self::CORRELATION_ID,
@@ -621,7 +621,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
             'id' => $expiredId,
             'delegator_user_id' => self::ADMIN_ID,
             'delegate_user_id' => $expiredDelegate,
-            'module_code' => 'work_record',
+            'module_code' => 'tasks',
             'scope_type' => 'unit',
             'scope_id' => self::UNIT_B,
             'start_at' => now()->subMinute(),
@@ -633,9 +633,9 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         ]);
         DB::table('delegation_capabilities')->insert([
             'delegation_id' => $expiredId,
-            'capability_code' => 'work_record.read',
+            'capability_code' => 'tasks.read',
         ]);
-        $this->assertSame(['work_record.read'], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($expiredDelegate));
+        $this->assertSame(['tasks.read'], $this->app->make(\Modules\Authorization\Infrastructure\Persistence\ListEffectiveCapabilitiesForUser::class)->forUser($expiredDelegate));
 
         $this->withIdentitySession($cookie)->patchJson('/api/v1/authorization/delegations/'.$expiredId, ['end_at' => now()->subSeconds(2)->utc()->format('Y-m-d\TH:i:s.v\Z')], [
             'X-Correlation-ID' => self::CORRELATION_ID,
@@ -694,7 +694,7 @@ final class AuthorizationPolicyAdminHttpAdapterTest extends TestCase
         [$cookie, $csrf] = $this->loginFacilityAdminSession();
         $this->seedOrgTree();
         $roleId = $this->createRole($adminCookie, $adminCsrf, 'contained_assignment');
-        $this->attach($adminCookie, $adminCsrf, $roleId, 'work_record.read');
+        $this->attach($adminCookie, $adminCsrf, $roleId, 'tasks.read');
 
         $this->withIdentitySession($cookie)->postJson('/api/v1/authorization/role-assignments', [
             'resource_type' => 'role_assignment',

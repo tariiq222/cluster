@@ -6,10 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * `search_inbox` was created with the projection tables but no production
- * code ever wrote to or read from it; the search index is fed synchronously
- * by the POST work-record middleware and the checkpointed backfill command,
- * so the event inbox is vestigial. The down() path restores the original
- * schema for rollback.
+ * code ever wrote to or read from it, so the event inbox is vestigial. The
+ * down() path restores the original schema for rollback.
  */
 return new class extends Migration
 {

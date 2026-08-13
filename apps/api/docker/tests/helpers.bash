@@ -89,12 +89,10 @@ case "\$*" in
     if [ "\${CLUSTER_LOOP_FAIL_ORGANIZATION:-0}" = "1" ]; then exit 1; fi ;;
   *identity:consume-person-events*)
     if [ "\${CLUSTER_LOOP_FAIL_IDENTITY:-0}" = "1" ]; then exit 1; fi ;;
-  *work-records:relay-pending*)
-    if [ "\${CLUSTER_LOOP_FAIL_WORK_RECORDS:-0}" = "1" ]; then exit 1; fi ;;
   *documents:relay-events*)
     if [ "\${CLUSTER_LOOP_FAIL_DOCUMENTS:-0}" = "1" ]; then exit 1; fi ;;
-  *notifications:consume-work-record-submitted*)
-    if [ "\${CLUSTER_LOOP_FAIL_NOTIFICATIONS:-0}" = "1" ]; then exit 1; fi ;;
+  *tasks:relay-events*)
+    if [ "\${CLUSTER_LOOP_FAIL_TASKS:-0}" = "1" ]; then exit 1; fi ;;
   *schedule:run*)
     if [ "\${CLUSTER_LOOP_FAIL_SCHEDULE:-0}" = "1" ]; then exit 1; fi ;;
 esac
@@ -110,9 +108,8 @@ reset_loop_state() {
     rm -f "$SCHEDULER_READINESS_MARKER" "$SCHEDULER_READINESS_MARKER".tmp.* 2>/dev/null || true
     unset CLUSTER_LOOP_FAIL_ORGANIZATION \
           CLUSTER_LOOP_FAIL_IDENTITY \
-          CLUSTER_LOOP_FAIL_WORK_RECORDS \
           CLUSTER_LOOP_FAIL_DOCUMENTS \
-          CLUSTER_LOOP_FAIL_NOTIFICATIONS \
+          CLUSTER_LOOP_FAIL_TASKS \
           CLUSTER_LOOP_FAIL_SCHEDULE
 }
 

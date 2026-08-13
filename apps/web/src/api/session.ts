@@ -7,15 +7,6 @@ export interface Session {
   restricted: boolean
 }
 
-const SESSION_METADATA_KEY = 'cluster.identity-session'
-
-interface StoredSession {
-  csrf_token: string
-  user_id: string
-  expires_at: string
-  restricted: boolean
-}
-
 interface IdentitySessionPayload {
   csrf_token: string
   user_id: string
@@ -51,15 +42,7 @@ export async function login(
     body: JSON.stringify({ username, password }),
   })
   const result = unwrap<IdentitySessionPayload>(response)
-  const session = normalizeLogin(result)
-  const stored: StoredSession = {
-    csrf_token: session.csrfToken,
-    user_id: session.userId,
-    expires_at: session.expiresAt,
-    restricted: session.restricted,
-  }
-  sessionStorage.setItem(SESSION_METADATA_KEY, JSON.stringify(stored))
-  return session
+  return normalizeLogin(result)
 }
 
 function normalizeLogin(result: IdentitySessionPayload): Session {
@@ -138,29 +121,7 @@ export async function identityLogout(csrfToken: string): Promise<void> {
     })
   } catch {
     // best-effort logout
-  } finally {
-    sessionStorage.removeItem(SESSION_METADATA_KEY)
   }
-}
-
-export function storedSession(): Session | null {
-  const raw = sessionStorage.getItem(SESSION_METADATA_KEY)
-  if (!raw) return null
-  try {
-    const stored = JSON.parse(raw) as StoredSession
-    return {
-      csrfToken: stored.csrf_token,
-      userId: stored.user_id,
-      expiresAt: stored.expires_at,
-      restricted: Boolean(stored.restricted),
-    }
-  } catch {
-    return null
-  }
-}
-
-export function clearStoredSession(): void {
-  sessionStorage.removeItem(SESSION_METADATA_KEY)
 }
 
 function invalidRestoreResponse(): ApiError {
