@@ -10,11 +10,11 @@ web
 
 ## Users
 
-Cluster primarily serves health-cluster operations administrators working within role- and scope-constrained contexts to manage organization structures, workflows, documents, reporting, and platform operations. All authenticated cluster employees are a secondary audience, using the same workspace for personal tasks, notifications, documents, requests, and scope-aware work. On a typical screen, the user must be able to review the current state, identify the permitted next action, and complete it confidently.
+Cluster primarily serves health-cluster operations administrators working within role- and scope-constrained contexts to manage organization structures, scoped tasks, documents, reporting, and platform operations. All authenticated cluster employees are a secondary audience, using the same workspace for personal tasks, notifications, documents, and scope-aware work. On a typical screen, the user must be able to review the current state, identify the permitted next action, and complete it confidently.
 
 ## Product Purpose
 
-Cluster unifies fragmented health-cluster administrative work in one permission-aware workspace. It brings daily coordination, organizational administration, governed records, reporting, and platform operations into coherent workflows. Success means users can complete high-stakes administrative work correctly, without ambiguity about state, scope, ownership, or the next action.
+Cluster unifies fragmented health-cluster administrative work in one permission-aware workspace. It brings daily coordination, organizational administration, independent tasks, governed documents, reporting, and platform operations into coherent journeys. Success means users can complete high-stakes administrative work correctly, without ambiguity about state, scope, ownership, or the next action. WorkRecords, WorkDefinitions, and Workflow are retired and are not part of the product.
 
 ## Positioning
 

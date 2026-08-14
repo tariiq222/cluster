@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Cluster is a healthcare-cluster administrative platform implemented as a Laravel modular monolith with a React/Vite web client. It provides identity/session management, RBAC+ABAC authorization, organization and work-record workflows, tasks, documents, notifications, search, reporting, and platform settings. The API and web client share versioned OpenAPI contracts.
+Cluster is a healthcare-cluster administrative platform implemented as a Laravel modular monolith with a React/Vite web client. It provides identity/session management, RBAC+ABAC authorization, organization structure, independent organization-scoped tasks, documents, notifications, search, reporting, and platform settings. WorkRecords, WorkDefinitions, and Workflow are retired. The API and web client share versioned OpenAPI contracts.
 
 ## Architecture & Data Flow
 
@@ -10,7 +10,7 @@ Cluster is a healthcare-cluster administrative platform implemented as a Laravel
 - **Request boundary**: correlation IDs, cookie sessions, and local/testing fixture bearer auth are handled by `IdentitySessionMiddleware`; mutations additionally pass `IdentityCsrfMiddleware` with `X-CSRF-Token`.
 - **Module flow**: module-owned controller → validation/capability check → feature handler/application service → module-owned persistence adapter. Keep business controllers, SQL/table access, transactions, and outbox ownership inside the owning module.
 - **API semantics**: mutations commonly require `Idempotency-Key` and `If-Match`; responses use JSON envelopes, `application/problem+json`, correlation IDs, ETags, and lock versions.
-- **Dependency injection**: `apps/api/app/Providers/AppServiceProvider.php` is the composition root for authorization, persistence, workflow, outbox/Redis streams, storage, malware scanning, and integration adapters.
+- **Dependency injection**: `apps/api/app/Providers/AppServiceProvider.php` is the composition root for authorization, persistence, outbox/Redis streams, storage, malware scanning, and integration adapters.
 - **Web flow**: `apps/web/src/main.tsx` creates the React root; `App.tsx` restores the cookie-backed session and handles global 401 expiry. `apps/web/src/router.tsx` declares the React Router route tree; `AppShell` renders the capability-filtered sidebar and the `Outlet`.
 - **Web API access**: screens use domain wrappers under `apps/web/src/api/`; generated Orval clients route through `apps/web/src/api/fetcher.ts` and the shared transport in `apps/web/src/api/http.ts`. Do not build raw request headers in screens.
 - **Module boundaries**: `apps/api/tests/Architecture/ModuleBoundariesTest.php` enforces module ranks, import direction, table ownership, controller placement, and transaction/outbox rules.

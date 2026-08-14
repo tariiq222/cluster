@@ -1,6 +1,7 @@
 # Remove Work Management Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status:** BINDING / IMPLEMENTED on `main` @ `c3b17a7` (2026-08-13).
+> Do not re-execute. Residual operator gate: production W27 requires real backup and isolated restore evidence.
 
 **Goal:** Reduce Cluster to the approved organization-scoped task core by removing WorkRecords, WorkDefinitions, Workflow, and every product/runtime contract that exposes them.
 
@@ -31,7 +32,7 @@
 - Consumes: current Laravel route collection, `CapabilityCatalog`, `config('module_migrations')`, and filesystem module locations.
 - Produces: guards that fail while any retired module/provider/route/capability/schema coupling remains.
 
-- [ ] **Step 1: Write failing architecture tests**
+- [x] **Step 1: Write failing architecture tests**
 
 ```php
 public function test_retired_work_management_modules_and_runtime_surface_are_absent(): void
@@ -50,11 +51,11 @@ public function test_task_schema_has_no_generic_source_or_workflow_columns(): vo
 }
 ```
 
-- [ ] **Step 2: Assert retired route and capability prefixes are absent**
+- [x] **Step 2: Assert retired route and capability prefixes are absent**
 
 Build route URI and capability-code lists from real runtime objects and assert no value starts with `work-records`, `work-definitions`, `workflow`, `work_record.`, `work_definition.`, `workflow.`, or equals `work_management.history.read`.
 
-- [ ] **Step 3: Run RED tests**
+- [x] **Step 3: Run RED tests**
 
 Run: `cd apps/api && php artisan test tests/Architecture/TaskCoreScopeTest.php tests/Feature/TaskOnlyWorkspaceJourneyTest.php`
 
@@ -75,21 +76,21 @@ Expected: FAIL because the modules, routes, feature flag, capabilities, and task
 - Consumes: direct task request fields and organization-scoped authorization facts.
 - Produces: task DTOs without `source_*` or `workflow_step_id`; additive retirement migration drops legacy columns only when present.
 
-- [ ] **Step 1: Extend task contract tests to reject legacy source fields**
+- [x] **Step 1: Extend task contract tests to reject legacy source fields**
 
 Assert direct task creation ignores/rejects `source` input and responses contain none of `source_module`, `source_type`, `source_id`, or `workflow_step_id`.
 
-- [ ] **Step 2: Run RED task tests**
+- [x] **Step 2: Run RED task tests**
 
 Run: `cd apps/api && php artisan test Modules/Tasks tests/Feature/TaskOnlyWorkspaceJourneyTest.php`
 
 Expected: FAIL because task serialization and schema still expose legacy links.
 
-- [ ] **Step 3: Remove legacy task fields and add retirement migration**
+- [x] **Step 3: Remove legacy task fields and add retirement migration**
 
 Remove the four fields from new schema, store input, request hashing, serialization, and OpenAPI task schemas. In `RetireTaskWorkManagementLinks`, use `Schema::hasColumn` guards and drop `workflow_step_id` before the three source fields.
 
-- [ ] **Step 4: Run GREEN task tests**
+- [x] **Step 4: Run GREEN task tests**
 
 Run: `cd apps/api && php artisan test Modules/Tasks tests/Feature/TaskOnlyWorkspaceJourneyTest.php`
 
@@ -115,19 +116,19 @@ Expected: PASS with task create/assign/lifecycle/engagement/document behavior in
 - Consumes: Task 2 source-independent task contract.
 - Produces: Laravel application that boots without retired providers/contracts and a migration that drops only retired tables.
 
-- [ ] **Step 1: Implement guarded retirement migration**
+- [x] **Step 1: Implement guarded retirement migration**
 
 Drop child tables before parents: workflow decisions/steps/instances/versions/definitions, work-record idempotency/records, and work-definition fixtures/idempotency/versions/definitions. Never drop shared `outbox_events`.
 
-- [ ] **Step 2: Remove registrations, routes, providers, workers, and module trees**
+- [x] **Step 2: Remove registrations, routes, providers, workers, and module trees**
 
 Remove the retired migration paths from `module_migrations.php`, append the retirement migration and task-link migration, and remove all retired imports from the composition root and routes.
 
-- [ ] **Step 3: Remove retained-module special cases**
+- [x] **Step 3: Remove retained-module special cases**
 
 Remove WorkRecords search backfill, reporting default capability, notifications authorization/linking, document source normalization, capability catalog entries, fixtures, and seed data while retaining generic `RecordFacts.workflowState` only if another retained resource uses it; otherwise remove it consistently.
 
-- [ ] **Step 4: Run architecture RED-to-GREEN gate**
+- [x] **Step 4: Run architecture RED-to-GREEN gate**
 
 Run: `cd apps/api && php artisan test tests/Architecture/TaskCoreScopeTest.php tests/Architecture/ModuleBoundariesTest.php`
 
@@ -152,21 +153,21 @@ Expected: PASS; no retired module directory, route, provider, migration registra
 - Consumes: authoritative retained Laravel route surface and task-only feature projection.
 - Produces: generated client and React route tree with no retired operations, types, navigation, or links.
 
-- [ ] **Step 1: Add/adjust failing web expectations**
+- [x] **Step 1: Add/adjust failing web expectations**
 
 Assert the principal feature shape is `{ tasks: boolean }`, route configuration never contains work-record/workflow paths, and search/notification routing handles only retained resource types.
 
-- [ ] **Step 2: Run RED web tests**
+- [x] **Step 2: Run RED web tests**
 
 Run: `npm --prefix apps/web run test:unit -- src/app/AppShell.test.tsx src/router.test.tsx src/app/principal-context.test.tsx`
 
 Expected: FAIL while `work_management` remains in types and routes.
 
-- [ ] **Step 3: Remove OpenAPI paths/components and regenerate**
+- [x] **Step 3: Remove OpenAPI paths/components and regenerate**
 
 Delete all feature-gated work-management paths, component schemas/responses/parameters, feature descriptor, and task source/workflow fields. Run `npm --prefix apps/web run api:generate` and `npm --prefix apps/web run api:format`.
 
-- [ ] **Step 4: Remove React surface and run GREEN tests**
+- [x] **Step 4: Remove React surface and run GREEN tests**
 
 Remove feature branches, placeholder routes, hooks, copy, and resource links. Run `npm --prefix apps/web run test:unit` and `npm --prefix apps/web run api:check`.
 
@@ -188,19 +189,19 @@ Expected: PASS with Tasks still navigable and buildable.
 - Consumes: final task-core module and route inventory.
 - Produces: user-facing and engineering documentation that describes the same product.
 
-- [ ] **Step 1: Rewrite the standalone HTML around scoped tasks**
+- [x] **Step 1: Rewrite the standalone HTML around scoped tasks**
 
 Replace record/approval examples with task creation, assignment, comments, attachments, lifecycle, notification, and audit examples. Keep the three role/scope simulator and explain that role answers “what” while scope answers “where.”
 
-- [ ] **Step 2: Reconcile architecture and API inventories**
+- [x] **Step 2: Reconcile architecture and API inventories**
 
 Run the repository route/doc generation scripts, then update the module catalog counts/ranks and product documents so retired modules are absent rather than marked disabled.
 
-- [ ] **Step 3: Run focused product smoke**
+- [x] **Step 3: Run focused product smoke**
 
 Serve `docs/product/system-user-experience.html` locally and use Chrome to verify all three role switches, task examples, journey controls, RTL, mobile viewport, no horizontal overflow, and no console errors.
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 

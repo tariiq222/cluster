@@ -1,6 +1,6 @@
 # تحليل مشروع Cluster (R3)
 
-> **آخر تحديث:** 2026-08-13
+> **آخر تحديث:** 2026-08-14
 > **النطاق:** `apps/api` + `apps/web` + عقود API + CI/tooling
 > **الحالة:** خط الأساس الحالي موثّق في [`SUMMARY.md`](SUMMARY.md)، والمخاطر الحالية في [`17-cross-cutting-risks.md`](17-cross-cutting-risks.md).
 

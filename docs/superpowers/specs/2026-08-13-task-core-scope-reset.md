@@ -1,6 +1,6 @@
 # Task Core Scope Reset
 
-**Status:** Approved in conversation on 2026-08-13
+**Status:** BINDING / IMPLEMENTED on `main` @ `c3b17a7` (2026-08-13). Approved in conversation on 2026-08-13.
 
 ## Product boundary
 

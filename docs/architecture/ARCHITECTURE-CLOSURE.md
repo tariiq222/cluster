@@ -1,8 +1,13 @@
 # Cluster Architecture Closure Dossier
 
-> **Date:** 2026-07-27  
-> **Source plan:** `2026-07-26-cluster-complete-architecture-closure.md` (removed 2026-08-01; see git history)  
-> **Closure-decision status:** `CLOSED`  
+> **Binding status:** HISTORICAL. This dossier closed the 2026-07-27 architecture-findings cycle. It is not a description of the running product.
+> **Superseded on:** 2026-08-13 by `c3b17a7` (`feat: retire work management and harden task administration`).
+> **Current architecture:** [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`module-catalog.md`](module-catalog.md).
+> **Retired after this dossier:** `WorkRecords`, `WorkDefinitions`, and `Workflow` no longer exist. Paths below that name those modules are historical evidence only.
+>
+> **Original date:** 2026-07-27
+> **Source plan:** `2026-07-26-cluster-complete-architecture-closure.md` (removed 2026-08-01; see git history)
+> **Closure-decision status:** `CLOSED` for the July findings cycle only
 > **Verification command:** `make verify-architecture-closure`
 
 ## 1. Scope and source commit
@@ -93,21 +98,21 @@ The mutation script references the following `closed_by` commits and tests, each
 
 - `apps/api/Modules/Tasks/Features/CompleteTask/Handler/CompleteTaskHandler.php` — handler-owned DB::transaction wrapping state commit + outbox append.
 - `apps/api/Modules/Documents/Features/Upload/DocumentUploadHandler.php` — same pattern for document complete.
-- `apps/api/Modules/Workflow/Infrastructure/Persistence/WorkflowStepAdvancer.php` — same pattern for workflow step advance.
+- `apps/api/Modules/Workflow/Infrastructure/Persistence/WorkflowStepAdvancer.php` — historical; module retired in `c3b17a7`.
 - `apps/api/Modules/Authorization/Infrastructure/Persistence/AuthorizationBootstrapState.php` — idempotency keys plus access_decisions row per role-grant assignment.
 - `apps/api/Modules/Organization/Features/OrganizationUnit/Handler/OrganizationUnitHandler.php` — module-owned transactions for org unit operations.
-- `apps/api/Modules/WorkDefinitions/Features/Definition/Handler/WorkDefinitionMutator.php` — work-definition version create in parent-row-locked transaction.
+- `apps/api/Modules/WorkDefinitions/Features/Definition/Handler/WorkDefinitionMutator.php` — historical; module retired in `c3b17a7`.
 
 ### Concurrency tests (already present and green on the working tree)
 
 - `apps/api/tests/Feature/OptimisticConcurrencyRegressionTest.php` — 8 tests covering tasks CAS, documents CAS, lock-then-idempotency, no-outbox-on-stale.
 - `apps/api/tests/Feature/MigrationReversibilityTest.php` — migration reversibility proof.
-- `apps/api/Modules/WorkDefinitions/Tests/WorkDefinitionMySqlConcurrencyTest.php` — two-connection MySQL test for version allocation.
-- `apps/api/Modules/Workflow/Tests/WorkflowVersionMySqlConcurrencyTest.php` — two-connection MySQL test for workflow version.
+- `apps/api/Modules/WorkDefinitions/Tests/WorkDefinitionMySqlConcurrencyTest.php` — historical; removed with the module in `c3b17a7`.
+- `apps/api/Modules/Workflow/Tests/WorkflowVersionMySqlConcurrencyTest.php` — historical; removed with the module in `c3b17a7`.
 - `apps/api/Modules/Organization/Tests/TemporaryAssignmentMySqlConcurrencyTest.php` — two-connection MySQL test for temp assignment.
 - `apps/api/tests/Feature/BusinessCalendarMySqlConcurrencyTest.php` — two-connection MySQL test for calendar weekday.
 - `apps/api/Modules/Documents/Tests/DocumentMutationAtomicityTest.php` — atomicity proof for documents.
-- `apps/api/Modules/Workflow/Tests/WorkflowAtomicityTest.php` — atomicity proof for workflow.
+- `apps/api/Modules/Workflow/Tests/WorkflowAtomicityTest.php` — historical; removed with the module in `c3b17a7`.
 
 ### Route / contract evidence (T12 / Task 9–12 closure)
 
@@ -279,5 +284,18 @@ audit record and no historical evidence commit gets quietly moved.
   evidence for the Audit activation and the M01 migration set — so the
   historical `source_commit: df2588c` continues to describe when the
   snapshot was captured. The present working tree at `9c3821d` is
-  documented in this dossier's Section 1 "Working-tree HEAD at close"
-  and Section 8.2's re-verification evidence table.
+   documented in this dossier's Section 1 "Working-tree HEAD at close"
+   and Section 8.2's re-verification evidence table.
+
+## 10. Product-scope supersession (2026-08-13)
+
+This dossier remains the decision record for the July architecture-findings cycle. It does not describe the running product after `c3b17a7`.
+
+| Field | Value |
+|---|---|
+| Binding commit | `c3b17a7 feat: retire work management and harden task administration` |
+| Retired modules | `WorkRecords`, `WorkDefinitions`, `Workflow` |
+| Current sources | `docs/architecture/ARCHITECTURE.md`, `docs/architecture/module-catalog.md`, `docs/analysis/SUMMARY.md` |
+| Binding plans | `docs/superpowers/plans/2026-08-13-*.md` marked IMPLEMENTED |
+
+Do not restore the retired modules from evidence paths recorded in sections 4–8. Those paths are historical.

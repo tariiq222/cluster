@@ -1,6 +1,7 @@
 # Authorization Integrity Hardening Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status:** SUPERSEDED / PARTIAL. Organization and Authorization hardening landed on `main` through `5148631` and `c3b17a7`.
+> WorkRecords tasks in this plan are void: the module was retired. Do not recreate WorkRecords to finish this plan. Use `2026-08-13-backend-database-remediation.md` as the binding successor.
 
 **Goal:** Enforce organization-tree ownership and make cluster, facility, and unit authorization decisions consume correct, module-owned resource ancestry facts.
 
